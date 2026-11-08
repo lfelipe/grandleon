@@ -34,7 +34,7 @@
       }
     ]
   },
-  "name": "Grandleon Pyrite Steel Cedar",
+  "name": "Grandleon Pyrite Game",
   "pathEmu": "ares",
   "pathN64Inst": "",
   "romHeader": {
@@ -50,7 +50,7 @@
     "rtc": false,
     "saveType": 3
   },
-  "romName": "grandleon_pyrite_steel_cedar",
+  "romName": "grandleon_pyrite_game",
   "sceneIdLastOpened": 1,
   "sceneIdOnBoot": 1,
   "sceneIdOnReset": 1,

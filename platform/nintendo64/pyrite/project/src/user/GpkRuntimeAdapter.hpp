@@ -32,6 +32,7 @@ public:
         std::uint64_t encounter_id,
         std::uint8_t local_players
     ) noexcept;
+    [[nodiscard]] bool load_package(const char* rom_asset) noexcept;
     void unload() noexcept;
 
     [[nodiscard]] Error error() const noexcept { return error_; }

@@ -39,7 +39,7 @@ $(BUILD_DIR)/grandleon-libs-ready: $(GRANDLEON_LIBS)
 $(BUILD_DIR)/$(ROM_NAME).elf: $(BUILD_DIR)/grandleon-libs-ready
 LDFLAGS += --start-group $(GRANDLEON_LIBS) --end-group
 
-filesystem/steel-and-cedar.gpk: assets/steel-and-cedar.gpk
+filesystem/game.gpk: assets/game.gpk
 	@mkdir -p $(dir $@)
 	$(N64_BINDIR)/mkasset -c 1 -w 256 -o $(dir $@) "$<"
 
@@ -62,48 +62,13 @@ filesystem/%_cue.wav64: assets/%_cue.wav
 	$(N64_AUDIOCONV) --wav-mono --wav-resample 22050 --wav-compress 1 \
 		--wav-loop false -o $(dir $@) "$<"
 
-filesystem/rowan.sprite: assets/rowan.png
-	@mkdir -p $(dir $@)
-	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
-filesystem/tomas.sprite: assets/tomas.png
-	@mkdir -p $(dir $@)
-	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
-filesystem/march_sword.sprite: assets/march_sword.png
-	@mkdir -p $(dir $@)
-	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
-filesystem/retainer.sprite: assets/retainer.png
-	@mkdir -p $(dir $@)
-	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
-filesystem/archer.sprite: assets/archer.png
-	@mkdir -p $(dir $@)
-	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
-filesystem/rowan_move.sprite: assets/rowan_move.png
-	@mkdir -p $(dir $@)
-	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
-filesystem/tomas_move.sprite: assets/tomas_move.png
-	@mkdir -p $(dir $@)
-	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
-filesystem/march_sword_move.sprite: assets/march_sword_move.png
-	@mkdir -p $(dir $@)
-	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
-filesystem/retainer_move.sprite: assets/retainer_move.png
-	@mkdir -p $(dir $@)
-	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
-filesystem/archer_move.sprite: assets/archer_move.png
-	@mkdir -p $(dir $@)
-	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
-filesystem/%_close_idle.sprite: assets/%_close_idle.png
-	@mkdir -p $(dir $@)
-	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
-filesystem/%_close_attack.sprite: assets/%_close_attack.png
-	@mkdir -p $(dir $@)
-	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
-filesystem/%_close_hurt.sprite: assets/%_close_hurt.png
+include generated/ProjectAssets.mk
+filesystem/unit_%.sprite: assets/unit_%.png
 	@mkdir -p $(dir $@)
 	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
 
 GRANDLEON_DFS_INPUTS := \
-	filesystem/steel-and-cedar.gpk \
+	filesystem/game.gpk \
 	filesystem/material_atlas.sprite \
 	filesystem/soft_shadow.sprite \
 	filesystem/combat_backdrop.sprite \
@@ -111,34 +76,7 @@ GRANDLEON_DFS_INPUTS := \
 	filesystem/ui_cue.wav64 \
 	filesystem/impact_cue.wav64 \
 	filesystem/victory_cue.wav64 \
-	filesystem/rowan.sprite \
-	filesystem/tomas.sprite \
-	filesystem/march_sword.sprite \
-	filesystem/retainer.sprite \
-	filesystem/archer.sprite \
-	filesystem/rowan_move.sprite \
-	filesystem/tomas_move.sprite \
-	filesystem/march_sword_move.sprite \
-	filesystem/retainer_move.sprite \
-	filesystem/archer_move.sprite
-
-GRANDLEON_CLOSE_SPRITES := \
-	filesystem/rowan_close_idle.sprite \
-	filesystem/rowan_close_attack.sprite \
-	filesystem/rowan_close_hurt.sprite \
-	filesystem/tomas_close_idle.sprite \
-	filesystem/tomas_close_attack.sprite \
-	filesystem/tomas_close_hurt.sprite \
-	filesystem/march_sword_close_idle.sprite \
-	filesystem/march_sword_close_attack.sprite \
-	filesystem/march_sword_close_hurt.sprite \
-	filesystem/retainer_close_idle.sprite \
-	filesystem/retainer_close_attack.sprite \
-	filesystem/retainer_close_hurt.sprite \
-	filesystem/archer_close_idle.sprite \
-	filesystem/archer_close_attack.sprite \
-	filesystem/archer_close_hurt.sprite
-GRANDLEON_DFS_INPUTS += $(GRANDLEON_CLOSE_SPRITES)
+	$(GRANDLEON_PROJECT_SPRITES)
 # Pyrite's editor-side asset pass can leave same-named compressed placeholders
 # in `filesystem/` before GNU make evaluates these cartridge-specific rules.
 # They are not libdragon sprites (and can be as small as nine bytes), so always

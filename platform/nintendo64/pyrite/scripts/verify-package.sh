@@ -10,13 +10,7 @@ package_root=$1
 for file in \
     README.md PARITY.md THIRD_PARTY.md VALIDATION.md versions.env \
     project/project.p64proj project/Makefile.custom \
-    project/asset-config/material_atlas.png.conf \
     project/asset-config/soft_shadow.png.conf \
-    project/asset-config/rowan_move.png.conf \
-    project/asset-config/tomas_move.png.conf \
-    project/asset-config/march_sword_move.png.conf \
-    project/asset-config/retainer_move.png.conf \
-    project/asset-config/archer_move.png.conf \
     project/src/user/BoardShadows.hpp \
     project/src/user/BoardShadows.cpp \
     project/src/user/BoardShadows.cpp.conf \
@@ -28,12 +22,12 @@ for file in \
     project/src/user/GameplaySlice.cpp.conf \
     project/src/user/GpkRuntimeAdapter.hpp \
     project/src/user/GpkRuntimeAdapter.cpp \
-    project/src/user/SteelCedarBoard.cpp \
+    project/src/user/ProjectBoard.cpp \
     tests/board_camera_test.cpp tests/gameplay_slice_test.cpp \
+    tests/project_prepare_test.py \
     scripts/build.sh scripts/stage-inputs.sh scripts/fetch-pyrite.sh \
     scripts/generate-soft-shadow.py \
-    scripts/generate-audio.py \
-    scripts/write-asset-config.py \
+    scripts/generate-audio.py scripts/prepare-project.py \
     scripts/export-toolchain.sh scripts/check-pins.sh \
     toolchain/Containerfile
 do
@@ -55,7 +49,9 @@ python3 -c 'compile(open(__import__("sys").argv[1], encoding="utf-8").read(), __
 python3 -c 'compile(open(__import__("sys").argv[1], encoding="utf-8").read(), __import__("sys").argv[1], "exec")' \
     "$package_root/scripts/generate-audio.py"
 python3 -c 'compile(open(__import__("sys").argv[1], encoding="utf-8").read(), __import__("sys").argv[1], "exec")' \
-    "$package_root/scripts/write-asset-config.py"
+    "$package_root/scripts/prepare-project.py"
+python3 -c 'compile(open(__import__("sys").argv[1], encoding="utf-8").read(), __import__("sys").argv[1], "exec")' \
+    "$package_root/tests/project_prepare_test.py"
 grep -q 'eb8545428f1059841c844169b7b307535e0bfeb2' \
     "$package_root/versions.env"
 grep -q 'Copyright (c) 2025-2026 Max Bebök' \

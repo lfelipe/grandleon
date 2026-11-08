@@ -18,8 +18,22 @@ bool GpkRuntimeAdapter::load(
     std::uint64_t encounter_id,
     std::uint8_t local_players
 ) noexcept {
-    unload();
+    if (!load_package(rom_asset)) return false;
 
+    encounter_ = package_runtime::load_encounter(
+        package_.package,
+        encounter_id,
+        {local_players}
+    );
+    if (!encounter_) {
+        error_ = Error::encounter_invalid;
+        return false;
+    }
+    return true;
+}
+
+bool GpkRuntimeAdapter::load_package(const char* rom_asset) noexcept {
+    unload();
     int byte_count = 0;
     package_bytes_ = asset_load(rom_asset, &byte_count);
     if (package_bytes_ == nullptr || byte_count <= 0) {
@@ -43,16 +57,6 @@ bool GpkRuntimeAdapter::load(
     );
     if (!package_) {
         error_ = Error::package_invalid;
-        return false;
-    }
-
-    encounter_ = package_runtime::load_encounter(
-        package_.package,
-        encounter_id,
-        {local_players}
-    );
-    if (!encounter_) {
-        error_ = Error::encounter_invalid;
         return false;
     }
     return true;

@@ -1,12 +1,11 @@
-# Nintendo 64 Pyrite target (campaign-parity work)
+# Nintendo 64 Pyrite target
 
 This directory is Grandleon's self-contained candidate Nintendo 64 renderer.
-It builds one Steel and Cedar ROM through Pyrite while continuing to use
-Grandleon's simulation, compiled campaign package, saves and authoring
-pipeline. The ROM starts at a small title screen, follows the campaign's own
-one/two-player launch policy, offers New Game or Continue from cartridge SRAM,
-and follows the complete five-battle Steel and Cedar route—from Bell Orchard
-through Twin Gate Keep and the ending—through the real campaign graph and
+It builds an authored Grandleon source project through Pyrite while continuing
+to use the same simulation, compiled campaign package, saves and authoring
+pipeline as the other players. The ROM starts at a small title screen, follows
+the selected campaign's one/two-player launch policy, offers New Game or
+Continue from cartridge SRAM, and advances through the real campaign graph and
 battle commits.
 
 **Migration status:** this is the intended replacement renderer, but it remains
@@ -19,16 +18,16 @@ improvement on real-style hardware, it should replace that renderer rather
 than become a second selectable option.
 
 The target deliberately contains no ROM, compiled GPK, generated cutout, or
-vendored Pyrite source. `scripts/build.sh` derives all game inputs from the
-repository:
+vendored Pyrite source. `scripts/build.sh` derives the game inputs from the
+selected source project:
 
-- `games/steel_and_cedar/source/project.json` is compiled to a temporary GPK;
+- the selected `project.json` is compiled to a temporary GPK;
 - the normal console-art generator creates temporary character cutouts from
   the authoritative Godot sheets and masks;
-- the checked-in Nintendo 64 material atlas is staged into the temporary
-  Pyrite project;
-- the checked-in medieval forest/grass/paved combat plate is converted to a
-  streamed CI8 sprite in the temporary project;
+- a deterministic CI4 terrain atlas and terrain-derived CI8 combat plate are
+  generated from the selected campaign's own terrain vocabulary;
+- a generated header binds the selected campaign, encounter order, save
+  identity, terrain slots and every staged character drawing;
 - Grandleon's portable runtime libraries are cross-compiled independently of
   the current production Nintendo 64 executable.
 
@@ -40,13 +39,27 @@ From a Grandleon checkout:
 platform/nintendo64/pyrite/scripts/build.sh "$PWD" /tmp/grandleon-pyrite-build
 ```
 
+That command builds Steel and Cedar for developer convenience. Pass a source
+project as the third argument to build something else:
+
+```sh
+platform/nintendo64/pyrite/scripts/build.sh \
+  "$PWD" /tmp/grandleon-pyrite-demo \
+  "$PWD/games/demo/source/project.json"
+```
+
+An unsupported project is refused with a human diagnostic; the exporter never
+substitutes Steel content. The current base-memory contract accepts one
+unambiguous campaign victory route, up to 16 distinct character drawings and
+up to nine recognized terrain families.
+
 The wrapper requires Docker or Podman, CMake, Python 3, curl, unzip, and the
 AppImage runtime's normal host libraries. It creates a pinned toolchain image,
 exports that toolchain into the build cache, verifies Pyrite and toolchain
 pins, and leaves the ROM at:
 
 ```text
-/tmp/grandleon-pyrite-build/project/grandleon_pyrite_steel_cedar.z64
+/tmp/grandleon-pyrite-build/project/grandleon_pyrite_game.z64
 ```
 
 Set `GRANDLEON_PYRITE_N64_INST` to a previously exported toolchain directory to
@@ -56,9 +69,9 @@ marker files match `versions.env`.
 ## Boundary
 
 `GpkRuntimeAdapter` owns the ROM-loaded package bytes and performs target-budget
-validation. `CampaignSession` reads the packaged Steel and Cedar graph,
-prepares each encounter with the campaign roster, commits all five completed
-battles and saves each result through a bounded 32 KiB SRAM adapter.
+validation. `CampaignSession` reads the packaged campaign graph, prepares
+each encounter with its roster, commits completed battles and saves each
+result through a bounded 32 KiB SRAM adapter.
 `GameplaySlice` owns the resulting real `simulation::Encounter` and routes
 cursor selection, movement and wait commands through its authoritative
 `apply` boundary. The deterministic review sequence and a physical controller
@@ -99,9 +112,9 @@ fast-forward is 3x and skip restores immediately.
 The tactical board has filtered CI4 terrain materials, elevation sidewalls,
 deterministic tree clusters, generated directional walk poses and I8 falloff
 contact shadows. Campaign launch, player-count selection, authored story
-dialogue, interactive attacks and abilities, all five Steel and Cedar battles,
-aftermath/objective results, the ending and cartridge saving now run in this
-ROM, but this is still not full player-facing parity. A packaged deployment
+dialogue, interactive attacks and abilities, packaged battles,
+aftermath/objective results, terminal progression and cartridge saving run in
+the generated ROM. A packaged deployment
 screen is entered only when the encounter authors a deployment rule; Steel and
 Cedar's current fixed formations correctly skip it. Objective results,
 fallen/recruited counts and the campaign outcome are shown after every
@@ -113,9 +126,9 @@ unit, terrain and landmark remain.
 The bounded review driver uses the real tactics policy for both sides to finish
 each battle and presents one complete optional close handoff per encounter; it
 is test scaffolding, not a second simulation. Physical player attacks continue
-to use the close setting for every command. The close backdrop pack currently
-covers only this medieval forest/grass/paved proof; the remaining terrain/style
-stages still need production coverage.
+to use the close setting for every command. The generated close plate
+represents the campaign's dominant terrain family; authored multi-layer close
+backdrops and project-specific landmarks remain a production-quality gap.
 
 The authored tactical rectangle remains finite. The renderer consumes the
 portable packaged `surroundings` contract directly: automatic mode extends

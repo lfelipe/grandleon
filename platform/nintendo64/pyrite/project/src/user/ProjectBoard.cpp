@@ -1,10 +1,11 @@
+// SPDX-License-Identifier: MIT
 #include "script/globalScript.h"
 
-#include <grandleon/core/content_identity.hpp>
 #include <grandleon/client/campaign_session.hpp>
 #include <grandleon/client/session.hpp>
 #include <grandleon/package_runtime/dialogue.hpp>
 #include <grandleon/package_runtime/names.hpp>
+#include <grandleon/package_runtime/presentation.hpp>
 #include <grandleon/storage/byte_window_storage.hpp>
 #include <libdragon.h>
 #include <t3d/t3d.h>
@@ -14,6 +15,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <optional>
 #include <string_view>
 #include <vector>
@@ -25,6 +27,7 @@
 #include "BoardSurroundings.hpp"
 #include "CartridgeStorage.hpp"
 #include "GameplaySlice.hpp"
+#include "GeneratedProject.hpp"
 #include "GpkRuntimeAdapter.hpp"
 #include "scene/camera.h"
 #include "scene/scene.h"
@@ -32,7 +35,6 @@
 #include "vi/swapChain.h"
 #include <grandleon/view/motion.hpp>
 
-namespace core = grandleon::core;
 namespace campaign = grandleon::campaign;
 namespace client = grandleon::client;
 namespace package_format = grandleon::package_format;
@@ -56,41 +58,10 @@ constexpr std::size_t kMaxApronCells = 800U;
 constexpr std::size_t kTreeVertexCount = 12U;
 constexpr std::size_t kMaxTrees = 128U;
 constexpr std::size_t kUnitVertexCount = 4U;
-constexpr std::size_t kMaxUnits = 32U;
+constexpr std::size_t kMaxUnits = 48U;
 constexpr std::size_t kCursorVerticesPerPlayer = 16U;
 constexpr std::size_t kCursorVertexCount = kCursorVerticesPerPlayer * 2U;
 constexpr std::size_t kMaxLandmarkVertices = 40U;
-
-constexpr auto kSteelAndCedar =
-    core::stable_content_id_v1("steel_and_cedar");
-constexpr auto kBellOrchard =
-    core::stable_content_id_v1("steel_and_cedar/bell_orchard");
-constexpr auto kBellOrchardMap = core::stable_content_id_v1("bell_orchard");
-constexpr auto kCedarDeepwoodMap = core::stable_content_id_v1("cedar_deepwood");
-constexpr auto kCedarWatchMap = core::stable_content_id_v1("cedar_watch");
-constexpr auto kGateVillageMap = core::stable_content_id_v1("gate_village");
-constexpr auto kTwinGateMap = core::stable_content_id_v1("twin_gate");
-constexpr auto kRoad = core::stable_content_id_v1("road");
-constexpr auto kFarmland = core::stable_content_id_v1("farmland_orchard_tree");
-constexpr auto kForest = core::stable_content_id_v1("forest_orchard_tree");
-constexpr auto kPaved = core::stable_content_id_v1("paved");
-constexpr auto kBell = core::stable_content_id_v1("paved_orchard_bell");
-constexpr auto kHills = core::stable_content_id_v1("hills");
-
-constexpr auto kRowanMember = core::stable_content_id_v1("rowan");
-constexpr auto kRowanType = core::stable_content_id_v1("rowan_vale");
-constexpr auto kTomasType = core::stable_content_id_v1("tomas_reed");
-constexpr auto kMarchSwordType = core::stable_content_id_v1("march_sword");
-constexpr auto kRetainerType = core::stable_content_id_v1("red_retainer");
-constexpr auto kArcherType = core::stable_content_id_v1("cedar_archer");
-
-constexpr std::array<std::uint64_t, 5> kCampaignMaps{
-    kBellOrchardMap,
-    kCedarDeepwoodMap,
-    kCedarWatchMap,
-    kGateVillageMap,
-    kTwinGateMap,
-};
 
 enum class VisualPose : std::uint8_t {
     idle,
@@ -113,6 +84,7 @@ struct BoardResources final {
     const pr::EncounterLoadResult* content{};
     gp::GameplaySlice game{};
     gp::BoardShadows shadows{};
+    pr::Presentation presentation{};
     pr::EncounterLoadResult campaign_content{};
     std::optional<gp::CartridgeStorage> cartridge;
     std::optional<storage::ByteWindowSlotStorage> saves;
@@ -130,11 +102,7 @@ struct BoardResources final {
     sprite_t* terrain{};
     sprite_t* combat_backdrop{};
     sprite_t* combat_shadow{};
-    UnitArt rowan{};
-    UnitArt tomas{};
-    UnitArt march_sword{};
-    UnitArt retainer{};
-    UnitArt archer{};
+    std::array<UnitArt, grandleon_project_drawings.size()> art{};
     wav64_t ambience{};
     wav64_t ui_cue{};
     wav64_t impact_cue{};
@@ -214,22 +182,20 @@ struct ShellState final {
     bool save_present{};
     bool resumed{};
     bool user_took_over{};
-    bool cedar_loaded{};
     std::size_t stage_index{};
     std::size_t completed_battles{};
     std::size_t total_commands{};
     std::size_t total_enemy_commands{};
     std::size_t total_combats{};
-    bool bell_committed{};
+    bool first_battle_committed{};
     bool campaign_advanced_checkpoint{};
     bool allow_one{true};
     bool allow_two{};
     bool second_connected{};
     bool deployment_approved{};
     std::size_t deployment_row{};
-    std::size_t bell_commands{};
-    std::size_t bell_enemy_commands{};
-    std::size_t bell_combats{};
+    std::size_t first_battle_commands{};
+    std::size_t first_battle_enemy_commands{};
     std::vector<std::uint64_t> story_ids;
     std::size_t story_id_index{};
     std::size_t story_line_index{};
@@ -379,7 +345,8 @@ constexpr std::string_view kSettingsSlot = "pyrite_settings";
 constexpr std::array<std::uint8_t, 4> kSettingsMagic{'P', 'Y', 'S', 1U};
 
 const char* campaign_slot() {
-    return shell.local_players == 2U ? "steel_cedar_2p" : "steel_cedar_1p";
+    return shell.local_players == 2U
+        ? grandleon_project_save_2p : grandleon_project_save_1p;
 }
 
 void save_user_settings() {
@@ -572,10 +539,22 @@ void update_tactical_camera() {
     }
 }
 
+std::uint8_t terrain_kind(std::uint64_t id) {
+    const std::uint8_t kind = board.presentation.kind_of_terrain(id);
+    assertf(
+        kind < grandleon_project_terrain_slots.size() &&
+            grandleon_project_terrain_slots[kind] != 255U,
+        "Project terrain %llu has no generated Pyrite material",
+        id
+    );
+    return kind;
+}
+
 std::int16_t terrain_lift(std::uint64_t id) {
-    if (id == kHills) return 13;
-    if (id == kPaved || id == kBell) return 4;
-    if (id == kRoad) return 2;
+    const std::uint8_t kind = terrain_kind(id);
+    if (kind == 3U || kind == 7U) return 13;
+    if (kind == 1U || kind == 8U || kind == 12U) return 4;
+    if (kind == 10U) return 2;
     return 0;
 }
 
@@ -587,13 +566,12 @@ void terrain_uv(
     std::int16_t& s1,
     std::int16_t& t1
 ) {
-    int base_s = 0;
-    int base_t = 0;
-    if (id == kPaved || id == kBell || id == kHills) {
-        base_s = 32;
-    } else if (id == kRoad || id == kFarmland) {
-        base_t = 32;
-    }
+    const std::uint8_t kind = terrain_kind(id);
+    const int slot = grandleon_project_terrain_slots[kind];
+    const int base_s = (slot % grandleon_project_atlas_columns) *
+        grandleon_project_atlas_cell;
+    const int base_t = (slot / grandleon_project_atlas_columns) *
+        grandleon_project_atlas_cell;
     constexpr int offsets[4][2] = {{1, 1}, {3, 1}, {1, 3}, {3, 3}};
     const int variation = static_cast<int>((index * 5U + index / 8U) & 3U);
     const int offset_s = offsets[variation][0];
@@ -606,21 +584,19 @@ void terrain_uv(
 
 std::uint32_t terrain_tint(std::uint64_t id, std::size_t index) {
     const std::uint8_t variation = static_cast<std::uint8_t>((index * 19U) & 0x0FU);
-    if (id == kRoad) return pack_rgba(
-        static_cast<std::uint8_t>(222U - variation),
-        static_cast<std::uint8_t>(194U - variation), 135U);
-    if (id == kFarmland) return pack_rgba(
-        194U, static_cast<std::uint8_t>(172U - variation / 2U), 105U);
-    if (id == kForest) return pack_rgba(
-        121U, static_cast<std::uint8_t>(157U - variation), 96U);
-    if (id == kPaved || id == kBell) return pack_rgba(
-        static_cast<std::uint8_t>(202U - variation),
-        static_cast<std::uint8_t>(202U - variation), 187U);
-    if (id == kHills) return pack_rgba(
-        static_cast<std::uint8_t>(174U - variation),
-        static_cast<std::uint8_t>(183U - variation / 2U), 135U);
+    constexpr std::uint8_t colours[13][3] = {
+        {104, 166, 196}, {207, 178, 122}, {111, 164, 91},
+        {169, 172, 158}, {224, 194, 126}, {225, 238, 239},
+        {118, 132, 83}, {170, 181, 116}, {176, 162, 145},
+        {147, 190, 105}, {199, 175, 98}, {115, 170, 85},
+        {194, 197, 184},
+    };
+    const std::uint8_t kind = terrain_kind(id);
     return pack_rgba(
-        150U, static_cast<std::uint8_t>(184U - variation / 2U), 112U);
+        static_cast<std::uint8_t>(colours[kind][0] - variation / 2U),
+        static_cast<std::uint8_t>(colours[kind][1] - variation / 2U),
+        static_cast<std::uint8_t>(colours[kind][2] - variation / 3U)
+    );
 }
 
 void build_cell_vertices() {
@@ -669,17 +645,13 @@ std::uint32_t environment_colour(
     int red = 55;
     int green = 83;
     int blue = 43;
-    if (edge_terrain == kForest) {
-        red = 39; green = 75; blue = 38;
-    } else if (edge_terrain == kFarmland) {
-        red = 82; green = 101; blue = 48;
-    } else if (edge_terrain == kPaved) {
-        red = 74; green = 78; blue = 65;
-    } else if (edge_terrain == kRoad) {
-        red = 83; green = 77; blue = 49;
-    } else if (edge_terrain == kHills) {
-        red = 61; green = 72; blue = 44;
-    }
+    const std::uint8_t kind = terrain_kind(edge_terrain);
+    if (kind == 0U) { red = 35; green = 67; blue = 85; }
+    else if (kind == 1U) { red = 83; green = 77; blue = 49; }
+    else if (kind == 2U || kind == 11U) { red = 39; green = 75; blue = 38; }
+    else if (kind == 3U || kind == 7U) { red = 61; green = 72; blue = 44; }
+    else if (kind == 10U) { red = 82; green = 101; blue = 48; }
+    else if (kind == 8U || kind == 12U) { red = 74; green = 78; blue = 65; }
     constexpr int spread = 5;
     const int variation = static_cast<int>(environment_hash(x, z) % spread) -
         spread / 2;
@@ -893,12 +865,12 @@ void build_landmark_vertices() {
     const auto width = board.content->definition.width;
     const auto height = board.content->definition.height;
     for (std::size_t index = 0; index < board.content->terrain.size(); ++index) {
-        if (board.content->terrain[index] != kBell) continue;
+        if (terrain_kind(board.content->terrain[index]) != 8U) continue;
         const auto x = static_cast<std::int16_t>(index % width);
         const auto y = static_cast<std::int16_t>(index / width);
         const std::int16_t cx = world_x(x, width);
         const std::int16_t cz = world_z(y, height);
-        const std::int16_t floor = terrain_lift(kBell);
+        const std::int16_t floor = terrain_lift(board.content->terrain[index]);
         append_box(cx, floor, cz, 22, 10, 18, pack_rgba(145U, 157U, 161U));
         append_box(cx - 16, floor + 10, cz, 5, 58, 5, pack_rgba(132U, 143U, 148U));
         append_box(cx + 16, floor + 10, cz, 5, 58, 5, pack_rgba(132U, 143U, 148U));
@@ -967,7 +939,8 @@ void build_tree_vertices() {
     board.tree_count = 0U;
     for (std::size_t index = 0; index < board.content->terrain.size(); ++index) {
         const auto id = board.content->terrain[index];
-        if (id != kForest && id != kFarmland) continue;
+        const std::uint8_t kind = terrain_kind(id);
+        if (kind != 2U && kind != 10U && kind != 11U) continue;
         const auto x = static_cast<std::int16_t>(index % width);
         const auto z = static_cast<std::int16_t>(index / width);
         append_tree(
@@ -975,9 +948,10 @@ void build_tree_vertices() {
             terrain_lift(id),
             world_z(z, height) + static_cast<std::int16_t>((index & 2U) == 0U ? -3 : 4),
             index,
-            id == kForest ? 108 + static_cast<int>((index % 3U) * 8U) : 82
+            (kind == 2U || kind == 11U)
+                ? 108 + static_cast<int>((index % 3U) * 8U) : 82
         );
-        if (id == kForest && index % 3U == 0U) {
+        if ((kind == 2U || kind == 11U) && index % 3U == 0U) {
             append_tree(
                 world_x(x, width) + 15,
                 terrain_lift(id),
@@ -998,8 +972,9 @@ void build_tree_vertices() {
                 static_cast<std::int16_t>(x), static_cast<std::int16_t>(z)
             );
             const std::uint64_t edge_terrain = surrounding_terrain_at(x, z);
+            const std::uint8_t kind = terrain_kind(edge_terrain);
             const std::uint32_t divisor =
-                (edge_terrain == kForest || edge_terrain == kFarmland) ? 3U : 7U;
+                (kind == 2U || kind == 10U || kind == 11U) ? 3U : 7U;
             if (hash % divisor != 0U || board.tree_count >= kMaxTrees) continue;
             append_tree(
                 world_x(static_cast<std::int16_t>(x), width) +
@@ -1014,21 +989,48 @@ void build_tree_vertices() {
     }
 }
 
-UnitArt* art_for_type(std::uint64_t unit_type) {
-    if (unit_type == kRowanType) return &board.rowan;
-    if (unit_type == kTomasType) return &board.tomas;
-    if (unit_type == kMarchSwordType) return &board.march_sword;
-    if (unit_type == kRetainerType) return &board.retainer;
-    if (unit_type == kArcherType) return &board.archer;
-    // The gameplay slice stages five curated identities. A package may expose
-    // additional Steel and Cedar types before the full streaming art bank is
-    // connected; keep those real units visible with the opposing sword
-    // silhouette rather than silently omitting them from the board.
-    return &board.march_sword;
+UnitArt* art_for_unit(const sim::UnitSnapshot& unit) {
+    std::uint8_t style = board.presentation.character_style_of_unit_type(
+        unit.unit_type_id
+    );
+    std::uint8_t figure = board.presentation.character_figure_of_unit_type(
+        unit.unit_type_id
+    );
+    const std::uint8_t archetype =
+        board.presentation.archetype_of_unit_type(unit.unit_type_id);
+    std::uint8_t colour =
+        board.presentation.colour_of_unit_type(unit.unit_type_id);
+    if (style == pr::character_style_unresolved) {
+        style = grandleon_project_default_style;
+    }
+    if (figure == pr::character_figure_unresolved) {
+        figure = grandleon_project_default_figure;
+    }
+    if (colour == pr::colour_unresolved) {
+        colour = unit.side == sim::Side::first ? 0U : 1U;
+    }
+    for (std::size_t index = 0; index < grandleon_project_drawings.size(); ++index) {
+        const auto& drawing = grandleon_project_drawings[index];
+        if (drawing.style == style && drawing.figure == figure &&
+            drawing.archetype == archetype && drawing.colour == colour) {
+            return &board.art[index];
+        }
+    }
+    assertf(
+        false,
+        "No generated Pyrite art for unit type %llu (%u/%u/%u/%u)",
+        unit.unit_type_id, static_cast<unsigned>(style),
+        static_cast<unsigned>(figure), static_cast<unsigned>(archetype),
+        static_cast<unsigned>(colour)
+    );
+    return nullptr;
 }
 
-sprite_t* sprite_for_type(std::uint64_t unit_type, VisualPose pose = VisualPose::idle) {
-    UnitArt* art = art_for_type(unit_type);
+sprite_t* sprite_for_unit(
+    const sim::UnitSnapshot& unit,
+    VisualPose pose = VisualPose::idle
+) {
+    UnitArt* art = art_for_unit(unit);
     if (art == nullptr) return nullptr;
     switch (pose) {
         case VisualPose::idle: return art->idle;
@@ -1121,7 +1123,7 @@ void build_unit_vertices() {
     board.rowan_health = 0;
     for (const sim::UnitSnapshot& unit : board.game.snapshot().units) {
         if (!sim::on_board(unit) || board.unit_count >= kMaxUnits) continue;
-        if (sprite_for_type(unit.unit_type_id) == nullptr) continue;
+        if (sprite_for_unit(unit) == nullptr) continue;
         const std::size_t terrain_index = static_cast<std::size_t>(unit.position.y) * width +
             static_cast<std::size_t>(unit.position.x);
         std::int16_t lift = terrain_index < board.content->terrain.size()
@@ -1248,61 +1250,17 @@ void build_cursor_vertices() {
 }
 
 void load_runtime_board() {
-    const bool loaded = board.runtime.load(
-        "rom:/steel-and-cedar.gpk",
-        kBellOrchard,
-        1
-    );
+    const bool loaded = board.runtime.load_package("rom:/game.gpk");
     assertf(
         loaded,
-        "Steel and Cedar runtime load failed: %u",
+        "Authored project runtime load failed: %u",
         static_cast<unsigned>(board.runtime.error())
     );
-    board.content = &board.runtime.encounter();
-    assertf(board.content->definition.width == 8 && board.content->definition.height == 6,
-        "Unexpected Bell Orchard dimensions");
-    assertf(
-        board.content->surroundings.mode == pr::MapSurroundingMode::automatic &&
-            board.content->surroundings.depth == 5U &&
-            board.content->surroundings.terrain.empty(),
-        "Bell Orchard packaged surroundings were not preserved"
+    const pr::PresentationLoadResult presentation = pr::load_presentation(
+        board.runtime.package()
     );
-    for (std::size_t index = 0; index < board.content->placements.size(); ++index) {
-        const auto source = board.content->placements[index].source_key_id;
-        const auto unit = board.content->placements[index].unit_id;
-        if (source == kRowanMember) board.rowan_id = unit;
-        if (index < board.content->definition.units.size() &&
-            board.content->definition.units[index].unit_type_id == kTomasType) {
-            board.tomas_id = unit;
-        }
-    }
-    assert(board.rowan_id != 0 && board.tomas_id != 0);
-    assertf(
-        board.game.open(board.content->definition, board.rowan_id),
-        "Steel and Cedar simulation could not be created"
-    );
-    const sim::UnitSnapshot& rowan = *std::find_if(
-        board.game.snapshot().units.begin(), board.game.snapshot().units.end(),
-        [](const sim::UnitSnapshot& unit) { return unit.id == board.rowan_id; }
-    );
-    replay.rowan_start = rowan.position;
-    replay.rowan_destination = rowan.position;
-    int best_score = -1;
-    for (const sim::Position candidate :
-         sim::reachable_tiles(board.game.snapshot(), board.rowan_id)) {
-        if (candidate == rowan.position) continue;
-        const int dx = std::abs(candidate.x - rowan.position.x);
-        const int dy = std::abs(candidate.y - rowan.position.y);
-        const int score = (dx > 0 && dy > 0 ? 100 : 0) + dx + dy;
-        if (score > best_score) {
-            best_score = score;
-            replay.rowan_destination = candidate;
-        }
-    }
-    assertf(
-        replay.rowan_destination != rowan.position,
-        "Bell Orchard must give Rowan a legal movement destination"
-    );
+    assertf(static_cast<bool>(presentation), "Project presentation is malformed");
+    board.presentation = presentation.presentation;
     board.cells = static_cast<T3DVertPacked*>(malloc_uncached(
         sizeof(T3DVertPacked) * (kMaxCells * kCellVertexCount / 2U)));
     board.ground = static_cast<T3DVertPacked*>(malloc_uncached(
@@ -1324,41 +1282,20 @@ void load_runtime_board() {
     board.terrain = sprite_load("rom:/material_atlas.sprite");
     board.combat_backdrop = sprite_load("rom:/combat_backdrop.sprite");
     board.combat_shadow = sprite_load("rom:/soft_shadow.sprite");
-    board.rowan = {
-        sprite_load("rom:/rowan.sprite"),
-        sprite_load("rom:/rowan_move.sprite"),
-        sprite_load("rom:/rowan_close_idle.sprite"),
-        sprite_load("rom:/rowan_close_attack.sprite"),
-        sprite_load("rom:/rowan_close_hurt.sprite"),
-    };
-    board.tomas = {
-        sprite_load("rom:/tomas.sprite"),
-        sprite_load("rom:/tomas_move.sprite"),
-        sprite_load("rom:/tomas_close_idle.sprite"),
-        sprite_load("rom:/tomas_close_attack.sprite"),
-        sprite_load("rom:/tomas_close_hurt.sprite"),
-    };
-    board.march_sword = {
-        sprite_load("rom:/march_sword.sprite"),
-        sprite_load("rom:/march_sword_move.sprite"),
-        sprite_load("rom:/march_sword_close_idle.sprite"),
-        sprite_load("rom:/march_sword_close_attack.sprite"),
-        sprite_load("rom:/march_sword_close_hurt.sprite"),
-    };
-    board.retainer = {
-        sprite_load("rom:/retainer.sprite"),
-        sprite_load("rom:/retainer_move.sprite"),
-        sprite_load("rom:/retainer_close_idle.sprite"),
-        sprite_load("rom:/retainer_close_attack.sprite"),
-        sprite_load("rom:/retainer_close_hurt.sprite"),
-    };
-    board.archer = {
-        sprite_load("rom:/archer.sprite"),
-        sprite_load("rom:/archer_move.sprite"),
-        sprite_load("rom:/archer_close_idle.sprite"),
-        sprite_load("rom:/archer_close_attack.sprite"),
-        sprite_load("rom:/archer_close_hurt.sprite"),
-    };
+    char path[64]{};
+    for (std::size_t index = 0; index < board.art.size(); ++index) {
+        const auto load = [index, &path](const char* suffix) {
+            std::snprintf(
+                path, sizeof path, "rom:/unit_%02lu_%s.sprite",
+                static_cast<unsigned long>(index), suffix
+            );
+            return sprite_load(path);
+        };
+        board.art[index] = {
+            load("board_idle"), load("board_move"), load("close_idle"),
+            load("close_attack"), load("close_hurt"),
+        };
+    }
     wav64_open(&board.ambience, "rom:/ambience.wav64");
     wav64_open(&board.ui_cue, "rom:/ui_cue.wav64");
     wav64_open(&board.impact_cue, "rom:/impact_cue.wav64");
@@ -1366,40 +1303,20 @@ void load_runtime_board() {
     const auto complete_art = [](const UnitArt& art) {
         return art.idle && art.moving && art.close_idle && art.attack && art.hurt;
     };
-    assert(board.terrain && board.combat_backdrop && board.combat_shadow &&
-        complete_art(board.rowan) && complete_art(board.tomas) &&
-        complete_art(board.march_sword) && complete_art(board.retainer) &&
-        complete_art(board.archer));
+    assert(board.terrain && board.combat_backdrop && board.combat_shadow);
+    for (const UnitArt& art : board.art) assert(complete_art(art));
     assertf(board.shadows.open("rom:/soft_shadow.sprite"), "Soft shadow asset failed");
-    build_environment_vertices();
-    build_cell_vertices();
-    build_elevation_vertices();
-    build_tree_vertices();
-    build_landmark_vertices();
-    build_unit_vertices();
-    build_cursor_vertices();
     board.loaded = true;
     debugf(
         "GRANDLEON_RENDERER identity=pyrite-tiny3d fallback=none "
         "surroundings=package hud_default=off\n"
     );
     debugf(
-        "GRANDLEON_PYRITE_RUNTIME package=%lu map=%llu size=%ux%u terrain=%lu "
-        "units=%lu rowan=%d,%d hp=%d apron=%lu trees=%lu elevation=%lu "
-        "landmark=%lu surroundings_mode=%u surroundings_depth=%u "
-        "surroundings_cells=%lu renderer=pyrite-tiny3d\n",
-        static_cast<unsigned long>(board.runtime.package_size()), board.content->map_id,
-        board.content->definition.width, board.content->definition.height,
-        static_cast<unsigned long>(board.content->terrain.size()),
-        static_cast<unsigned long>(board.content->definition.units.size()),
-        board.rowan_x, board.rowan_y, board.rowan_health,
-        static_cast<unsigned long>(board.apron_cell_count),
-        static_cast<unsigned long>(board.tree_count),
-        static_cast<unsigned long>(board.elevation_vertex_count),
-        static_cast<unsigned long>(board.landmark_vertex_count),
-        static_cast<unsigned>(board.content->surroundings.mode),
-        static_cast<unsigned>(board.content->surroundings.depth),
-        static_cast<unsigned long>(board.content->surroundings.terrain.size())
+        "GRANDLEON_PYRITE_RUNTIME game=%s campaign=%s package=%lu "
+        "drawings=%lu renderer=pyrite-tiny3d\n",
+        grandleon_project_game_id, grandleon_project_campaign_source,
+        static_cast<unsigned long>(board.runtime.package_size()),
+        static_cast<unsigned long>(board.art.size())
     );
 }
 
@@ -1491,16 +1408,22 @@ void configure_campaign_board(const pr::EncounterLoadResult& content) {
     board.content = &content;
     board.rowan_id = 0U;
     board.tomas_id = 0U;
+    assertf(
+        content.terrain.size() <= kMaxCells &&
+            content.definition.units.size() <= kMaxUnits,
+        "Authored battle exceeds Pyrite base-memory board limits"
+    );
     for (std::size_t index = 0; index < content.placements.size(); ++index) {
-        const auto source = content.placements[index].source_key_id;
-        const auto unit = content.placements[index].unit_id;
-        if (source == kRowanMember) board.rowan_id = unit;
-        if (index < content.definition.units.size() &&
-            content.definition.units[index].unit_type_id == kTomasType) {
-            board.tomas_id = unit;
+        if (index >= content.definition.units.size()) break;
+        const sim::UnitDefinition& unit = content.definition.units[index];
+        if (unit.side != sim::Side::first) continue;
+        if (board.rowan_id == 0U) board.rowan_id = unit.id;
+        if (board.tomas_id == 0U && !unit.ability_ids.empty()) {
+            board.tomas_id = unit.id;
         }
     }
-    assert(board.rowan_id != 0U && board.tomas_id != 0U);
+    assertf(board.rowan_id != 0U, "Authored battle has no player unit");
+    if (board.tomas_id == board.rowan_id) board.tomas_id = 0U;
     board.game = {};
     assertf(
         board.game.open(
@@ -1528,17 +1451,23 @@ void configure_campaign_board(const pr::EncounterLoadResult& content) {
             replay.rowan_destination = candidate;
         }
     }
-    assert(replay.rowan_destination != rowan->position);
+    const std::uint64_t encounter_id = board.campaign->standing().encounter_id;
     const auto stage = std::find(
-        kCampaignMaps.begin(), kCampaignMaps.end(), content.map_id
+        grandleon_project_encounter_ids.begin(),
+        grandleon_project_encounter_ids.end(), encounter_id
     );
-    assertf(stage != kCampaignMaps.end(), "Unknown Steel and Cedar map");
-    shell.stage_index = static_cast<std::size_t>(stage - kCampaignMaps.begin());
+    assertf(
+        stage != grandleon_project_encounter_ids.end(),
+        "Campaign reached an encounter outside the generated export manifest"
+    );
+    shell.stage_index = static_cast<std::size_t>(
+        stage - grandleon_project_encounter_ids.begin()
+    );
     if (shell.resumed && shell.completed_battles < shell.stage_index) {
         shell.completed_battles = shell.stage_index;
     }
-    shell.cedar_loaded = shell.stage_index >= 1U;
-    replay.phase = shell.stage_index == 0U
+    replay.phase = shell.stage_index == 0U &&
+        replay.rowan_destination != rowan->position
         ? ReplayPhase::select_rowan : ReplayPhase::explore_northwest;
     replay.next_frame = frame_count + 30U;
     motion = {};
@@ -1574,7 +1503,7 @@ void configure_campaign_board(const pr::EncounterLoadResult& content) {
         "CHECKPOINT PYRITE_CAMPAIGN_STAGE index=%lu map=%llu\n",
         static_cast<unsigned long>(shell.stage_index + 1U), content.map_id
     );
-    if (shell.stage_index == 0U) debugf("CHECKPOINT PYRITE_CAMPAIGN_BELL\n");
+    if (shell.stage_index == 0U) debugf("CHECKPOINT PYRITE_CAMPAIGN_FIRST\n");
 }
 
 bool load_story_dialogue() {
@@ -1664,8 +1593,8 @@ bool stand_on_campaign_encounter() {
         }
         if (standing.kind == pr::CampaignNodeKind::terminal) {
             if (shell.resumed) {
-                shell.completed_battles = kCampaignMaps.size();
-                shell.stage_index = kCampaignMaps.size() - 1U;
+                shell.completed_battles = grandleon_project_encounter_count;
+                shell.stage_index = grandleon_project_encounter_count - 1U;
             }
             shell.phase = ShellPhase::complete;
             shell.campaign_advanced_checkpoint = true;
@@ -1707,13 +1636,13 @@ bool advance_story_beat() {
     shell.story_ids.clear();
     shell.story = {};
     if (!stand_on_campaign_encounter()) return false;
-    if (shell.phase == ShellPhase::battle && shell.bell_committed &&
+    if (shell.phase == ShellPhase::battle && shell.first_battle_committed &&
         shell.stage_index == 1U) {
         debugf(
-            "CHECKPOINT PYRITE_CAMPAIGN_CEDAR bell_commands=%lu enemy=%lu "
+            "CHECKPOINT PYRITE_CAMPAIGN_ADVANCE first_commands=%lu enemy=%lu "
             "slot_bytes=%lu\n",
-            static_cast<unsigned long>(shell.bell_commands),
-            static_cast<unsigned long>(shell.bell_enemy_commands),
+            static_cast<unsigned long>(shell.first_battle_commands),
+            static_cast<unsigned long>(shell.first_battle_enemy_commands),
             static_cast<unsigned long>(storage::used_bytes(*board.saves))
         );
     }
@@ -1739,7 +1668,7 @@ bool begin_campaign(bool resume) {
     options.local_players = shell.local_players;
     options.stage_picker = false;
     board.campaign.emplace(
-        board.runtime.package(), kSteelAndCedar,
+        board.runtime.package(), grandleon_project_campaign_id,
         *board.campaign_boards, *board.saves, options
     );
     client::SlotFailure failure;
@@ -1833,7 +1762,7 @@ bool confirm_shell_choice() {
         case ShellPhase::save: {
             const bool resume = shell.save_choice == 1U && shell.save_present;
             const bool opened = begin_campaign(resume);
-            assertf(opened, "Steel and Cedar campaign could not begin");
+            assertf(opened, "Authored campaign could not begin");
             debugf(
                 "CHECKPOINT PYRITE_SAVE mode=%s\n",
                 resume ? "continue" : "new"
@@ -2026,15 +1955,15 @@ void draw_landmark() {
     draw_box(8U);
     draw_box(16U);
     draw_box(24U);
-    constexpr std::uint8_t bell = 32U;
-    t3d_tri_draw(bell + 0U, bell + 1U, bell + 2U);
-    t3d_tri_draw(bell + 0U, bell + 2U, bell + 3U);
-    t3d_tri_draw(bell + 0U, bell + 3U, bell + 4U);
-    t3d_tri_draw(bell + 0U, bell + 4U, bell + 1U);
-    t3d_tri_draw(bell + 5U, bell + 2U, bell + 1U);
-    t3d_tri_draw(bell + 5U, bell + 3U, bell + 2U);
-    t3d_tri_draw(bell + 5U, bell + 4U, bell + 3U);
-    t3d_tri_draw(bell + 5U, bell + 1U, bell + 4U);
+    constexpr std::uint8_t cap = 32U;
+    t3d_tri_draw(cap + 0U, cap + 1U, cap + 2U);
+    t3d_tri_draw(cap + 0U, cap + 2U, cap + 3U);
+    t3d_tri_draw(cap + 0U, cap + 3U, cap + 4U);
+    t3d_tri_draw(cap + 0U, cap + 4U, cap + 1U);
+    t3d_tri_draw(cap + 5U, cap + 2U, cap + 1U);
+    t3d_tri_draw(cap + 5U, cap + 3U, cap + 2U);
+    t3d_tri_draw(cap + 5U, cap + 4U, cap + 3U);
+    t3d_tri_draw(cap + 5U, cap + 1U, cap + 4U);
     t3d_tri_sync();
 }
 
@@ -2077,7 +2006,7 @@ void draw_units() {
         // the eight-frame stage crossfade.
         const VisualPose board_pose = close_combat_phase()
             ? VisualPose::idle : pose_for_unit(unit);
-        sprite_t* sprite = sprite_for_type(unit.unit_type_id, board_pose);
+        sprite_t* sprite = sprite_for_unit(unit, board_pose);
         if (sprite == nullptr || visual_index >= board.unit_count) continue;
         // Keep the live 3D terrain/camera, but composite the 84px
         // Godot-derived close actors in screen space. A raw 84x84 CI4 upload
@@ -2926,7 +2855,7 @@ bool advance_ai() {
         ++replay.opponent_commands;
         if (!friendly) {
             ++shell.total_enemy_commands;
-            if (shell.stage_index == 0U) ++shell.bell_enemy_commands;
+            if (shell.stage_index == 0U) ++shell.first_battle_enemy_commands;
         }
         if (!replay.enemy_checkpoint) {
             debugf("CHECKPOINT PYRITE_ENEMY\n");
@@ -2937,15 +2866,10 @@ bool advance_ai() {
     return false;
 }
 
-bool finish_battle_and_advance(bool require_first_side_win = true) {
+bool finish_battle_and_advance() {
     assert(board.campaign.has_value());
     const sim::EncounterSnapshot& snapshot = board.game.snapshot();
-    if (require_first_side_win) {
-        assertf(
-            snapshot.outcome == sim::Outcome::first_side_won,
-            "Steel and Cedar deterministic campaign replay did not win"
-        );
-    } else if (snapshot.outcome == sim::Outcome::ongoing) {
+    if (snapshot.outcome == sim::Outcome::ongoing) {
         return false;
     }
     client::BattleReport report;
@@ -2964,9 +2888,8 @@ bool finish_battle_and_advance(bool require_first_side_win = true) {
     shell.total_commands += board.game.accepted_commands();
     shell.total_combats += combat.exchanges;
     if (shell.stage_index == 0U) {
-        shell.bell_commands = board.game.accepted_commands();
-        shell.bell_combats = combat.exchanges;
-        shell.bell_committed = true;
+        shell.first_battle_commands = board.game.accepted_commands();
+        shell.first_battle_committed = true;
     }
     assert(board.saves->contains(campaign_slot()));
     shell.phase = ShellPhase::aftermath;
@@ -2998,7 +2921,7 @@ void update_manual_battle() {
     }
     const sim::EncounterSnapshot& snapshot = board.game.snapshot();
     if (snapshot.outcome != sim::Outcome::ongoing) {
-        (void)finish_battle_and_advance(false);
+        (void)finish_battle_and_advance();
         return;
     }
     // Local players always own the first side. Once all of their units have
@@ -3040,16 +2963,16 @@ void update_performance_sample() {
     const std::uint64_t elapsed = now - sample_start;
     assert(shell.phase == ShellPhase::complete);
     assert(shell.campaign_advanced_checkpoint);
-    assert(shell.completed_battles == kCampaignMaps.size());
-    assert(shell.stage_index + 1U == kCampaignMaps.size());
+    assert(shell.completed_battles == grandleon_project_encounter_count);
+    assert(shell.stage_index + 1U == grandleon_project_encounter_count);
     assert(board.saves->contains(campaign_slot()));
     assert(!combat.active);
     if (!shell.resumed) {
         assert(shell.total_commands > 0U && shell.total_enemy_commands > 0U);
         assert(shell.total_combats > 0U);
-        assert(replay.camera_x_checkpoint && replay.camera_y_checkpoint);
-        assert(camera_max_x - camera_min_x > 3.5F);
-        assert(camera_max_z - camera_min_z > 1.8F);
+        if (grandleon_project_requires_scroll) {
+            assert(replay.camera_x_checkpoint || replay.camera_y_checkpoint);
+        }
     }
     assertf(
         get_memory_size() <= 4 * 1024 * 1024,
@@ -3133,7 +3056,7 @@ void update_replay() {
             replay.next_frame = frame_count + 3U;
             break;
         case ReplayPhase::select_rowan:
-            assertf(issue(gp::GameplaySlice::Action::confirm), "Rowan select failed");
+            assertf(issue(gp::GameplaySlice::Action::confirm), "Primary unit select failed");
             assert(board.game.selected() == board.rowan_id);
             if (!replay.selected_checkpoint) {
                 debugf("CHECKPOINT PYRITE_SELECTED\n");
@@ -3151,7 +3074,7 @@ void update_replay() {
             replay.next_frame = frame_count + 4U;
             break;
         case ReplayPhase::move_rowan:
-            assertf(issue(gp::GameplaySlice::Action::confirm), "Rowan move failed");
+            assertf(issue(gp::GameplaySlice::Action::confirm), "Primary unit move failed");
             assert(board.game.transition().accepted);
             if (!replay.moved_checkpoint) {
                 debugf("CHECKPOINT PYRITE_MOVED\n");
@@ -3165,7 +3088,7 @@ void update_replay() {
             replay.next_frame = frame_count + 2U;
             break;
         case ReplayPhase::select_rowan_again:
-            assertf(issue(gp::GameplaySlice::Action::confirm), "Moved Rowan select failed");
+            assertf(issue(gp::GameplaySlice::Action::confirm), "Moved primary unit select failed");
             open_action_menu(board.rowan_id);
             assert(battle_ui.phase == BattleUiPhase::action);
             if (!replay.action_menu_checkpoint) {
@@ -3186,9 +3109,10 @@ void update_replay() {
                     sim::CommandType::wait, board.rowan_id, {},
                     0U, 0U, 0U, 0U,
                 }),
-                "Rowan wait failed"
+                "Primary unit wait failed"
             );
-            replay.phase = ReplayPhase::aim_tomas;
+            replay.phase = board.tomas_id != 0U
+                ? ReplayPhase::aim_tomas : ReplayPhase::opponent;
             replay.next_frame = frame_count + 6U;
             break;
         case ReplayPhase::aim_tomas: {
@@ -3203,7 +3127,7 @@ void update_replay() {
             break;
         }
         case ReplayPhase::select_tomas:
-            assertf(issue(gp::GameplaySlice::Action::confirm), "Tomas select failed");
+            assertf(issue(gp::GameplaySlice::Action::confirm), "Ability unit select failed");
             assert(board.game.selected() == board.tomas_id);
             open_action_menu(board.tomas_id);
             assert(battle_ui.phase == BattleUiPhase::action);
@@ -3228,17 +3152,15 @@ void update_replay() {
                     );
                     if (forecast) break;
                 }
-                assertf(
-                    static_cast<bool>(forecast),
-                    "No legal Field Mend preview was available"
-                );
-                debugf(
-                    "CHECKPOINT PYRITE_ABILITY_FORECAST rows=%u kind=%u "
-                    "covered=%u restored=%d\n",
-                    static_cast<unsigned>(action_rows()),
-                    static_cast<unsigned>(forecast.kind),
-                    forecast.covered ? 1U : 0U, forecast.restored
-                );
+                if (forecast) {
+                    debugf(
+                        "CHECKPOINT PYRITE_ABILITY_FORECAST rows=%u kind=%u "
+                        "covered=%u restored=%d\n",
+                        static_cast<unsigned>(action_rows()),
+                        static_cast<unsigned>(forecast.kind),
+                        forecast.covered ? 1U : 0U, forecast.restored
+                    );
+                }
                 replay.ability_forecast_checkpoint = true;
             }
             replay.phase = ReplayPhase::wait_tomas;
@@ -3250,7 +3172,7 @@ void update_replay() {
                     sim::CommandType::wait, board.tomas_id, {},
                     0U, 0U, 0U, 0U,
                 }),
-                "Tomas wait failed"
+                "Ability unit wait failed"
             );
             replay.phase = ReplayPhase::opponent;
             replay.next_frame = frame_count + 12U;
@@ -3274,7 +3196,7 @@ void update_replay() {
             if (board.game.snapshot().outcome != sim::Outcome::ongoing) {
                 assertf(
                     finish_battle_and_advance(),
-                    "Steel and Cedar battle did not advance"
+                    "Authored campaign result did not advance"
                 );
             } else {
                 assertf(advance_ai(), "No campaign autoplay command was available");
@@ -3297,8 +3219,8 @@ void draw_combat_stage_2d() {
         ? pose_for_unit(*left) : VisualPose::close_idle;
     const VisualPose right_pose = close_combat_phase()
         ? pose_for_unit(*right) : VisualPose::close_idle;
-    sprite_t* left_sprite = sprite_for_type(left->unit_type_id, left_pose);
-    sprite_t* right_sprite = sprite_for_type(right->unit_type_id, right_pose);
+    sprite_t* left_sprite = sprite_for_unit(*left, left_pose);
+    sprite_t* right_sprite = sprite_for_unit(*right, right_pose);
     assert(left_sprite && right_sprite);
 
     int left_x = 44;
@@ -3714,7 +3636,13 @@ void draw_shell() {
     rdpq_set_prim_color({184, 145, 66, 255});
     rdpq_fill_rectangle(42, 56, 278, 59);
     P64::Debug::printStart();
-    P64::Debug::printf(67, 38, "STEEL AND CEDAR");
+    P64::Debug::printf(
+        43, 38, "%.*s",
+        static_cast<int>(std::min<std::size_t>(
+            sizeof grandleon_project_title - 1U, 29U
+        )),
+        grandleon_project_title
+    );
     P64::Debug::printf(74, 66, "PYRITE / TINY3D");
     switch (shell.phase) {
         case ShellPhase::title:
@@ -3837,9 +3765,9 @@ void draw_shell() {
             break;
         }
         case ShellPhase::complete:
-            P64::Debug::printf(74, 112, "CAMPAIGN COMPLETE");
+            P64::Debug::printf(91, 112, "CAMPAIGN ENDED");
             P64::Debug::printf(
-                68, 142, "%lu BATTLES CLEARED",
+                72, 142, "%lu BATTLES PLAYED",
                 static_cast<unsigned long>(shell.completed_battles)
             );
             P64::Debug::printf(72, 178, "PROGRESS SAVED");
@@ -3864,9 +3792,9 @@ void onGameInit() {
     board.ambience_handle = P64::AudioManager::play2D(&board.ambience);
     board.ambience_handle.setVolume(0.34F);
     const pr::CampaignLoadResult campaign = pr::load_campaign(
-        board.runtime.package(), kSteelAndCedar
+        board.runtime.package(), grandleon_project_campaign_id
     );
-    assertf(static_cast<bool>(campaign), "Steel and Cedar campaign did not load");
+    assertf(static_cast<bool>(campaign), "Authored campaign did not load");
     shell.allow_one = campaign.definition.player_mode == pr::LocalPlayerMode::one ||
         campaign.definition.player_mode == pr::LocalPlayerMode::choice;
     shell.allow_two = campaign.definition.player_mode == pr::LocalPlayerMode::two ||
@@ -3879,8 +3807,9 @@ void onGameInit() {
     shell.player_choice = shell.allow_one ? 0U : 1U;
     shell.save_present = board.saves->contains(campaign_slot());
     debugf(
-        "GRANDLEON_PYRITE_LAUNCH campaign=steel_and_cedar player_mode=%s "
+        "GRANDLEON_PYRITE_LAUNCH campaign=%s player_mode=%s "
         "save=%u renderer=pyrite-tiny3d fallback=none\n",
+        grandleon_project_campaign_source,
         pr::local_player_mode_name(campaign.definition.player_mode).data(),
         shell.save_present ? 1U : 0U
     );
@@ -3980,7 +3909,8 @@ void onSceneDraw2D() {
         return;
     }
     Debug::printf(
-        6, 7, "BELL ORCHARD  R%lu  ROWAN %dHP  %dFPS",
+        6, 7, "STAGE %lu  R%lu  LEAD %dHP  %dFPS",
+        static_cast<unsigned long>(shell.stage_index + 1U),
         static_cast<unsigned long>(board.game.snapshot().round + 1U),
         board.rowan_health,
         static_cast<int>(VI::SwapChain::getFPS())
