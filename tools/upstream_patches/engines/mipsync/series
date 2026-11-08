@@ -2,3 +2,4 @@
 0001-Fix-GTE-visibility-center-alignment.patch
 0002-Make-PS1-renderer-cache-capacities-configurable.patch
 0003-Cache-static-PS1-terrain-through-flat-mesh-path.patch
+0004-Keep-runtime-enabled-PS1-entities-indexed.patch
