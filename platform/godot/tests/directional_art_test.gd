@@ -2,7 +2,7 @@
 extends SceneTree
 
 const ArtLibrary = preload("res://scripts/art_library.gd")
-const EXPECTED_COVERAGE := 63
+const EXPECTED_COVERAGE := 79
 const EXPECTED_SIZE := Vector2(1772, 886)
 
 var failures := 0
@@ -62,13 +62,19 @@ func _init() -> void:
 		_expect("%s runtime team colour" % key, north.team_colour, "red")
 		_expect("%s front/back does not mirror" % key, north.directional_flip, false)
 
-	var uncovered_key := "commander|*|scifi|first"
+	var uncovered_key := ""
+	for key: String in bindings:
+		if not bindings[key].has("directionalSheet"):
+			uncovered_key = key
+			break
+	_expect("fallback representative remains", uncovered_key.is_empty(), false)
 	var uncovered: Dictionary = bindings[uncovered_key]
+	var uncovered_fields := uncovered_key.split("|")
 	var uncovered_unit := {
-		"archetype": ArtLibrary.ARCHETYPE_NAMES.find("commander"),
+		"archetype": ArtLibrary.ARCHETYPE_NAMES.find(uncovered_fields[0]),
 		"colour": 1,
-		"style": ArtLibrary.STYLE_NAMES.find("scifi"),
-		"figure": 0,
+		"style": ArtLibrary.STYLE_NAMES.find(uncovered_fields[2]),
+		"figure": 0 if uncovered_fields[3] == "first" else 1,
 	}
 	var fallback: Dictionary = art.character_frame(
 		uncovered_unit, "move", 0.15, "north"

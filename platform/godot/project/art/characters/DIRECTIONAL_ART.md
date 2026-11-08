@@ -27,13 +27,14 @@ body types:
 - undead healer male
 - pirates rogue female
 
-Directional batches A through G add another fifty-six identities, bringing
-actual coverage to 63 of 112 curated bodies. Their exact identity keys,
+Directional batches A through I add another seventy-two identities, bringing
+actual coverage to 79 of 112 curated bodies. Their exact identity keys,
 reference files, generation anchors, and accepted follow-up edits are recorded
 in `DIRECTIONAL_ART_BATCH_A.md`, `DIRECTIONAL_ART_BATCH_B.md`,
 `DIRECTIONAL_ART_BATCH_C.md`, `DIRECTIONAL_ART_BATCH_D.md`,
-`DIRECTIONAL_ART_BATCH_E.md`, `DIRECTIONAL_ART_BATCH_F.md`, and
-`DIRECTIONAL_ART_BATCH_G.md`. The remaining 49 bodies still use the documented
+`DIRECTIONAL_ART_BATCH_E.md`, `DIRECTIONAL_ART_BATCH_F.md`,
+`DIRECTIONAL_ART_BATCH_G.md`, `DIRECTIONAL_ART_BATCH_H.md`, and
+`DIRECTIONAL_ART_BATCH_I.md`. The remaining 33 bodies still use the documented
 side-view fallback.
 
 The explicit bindings live in `content/graphics_profiles.json`. Missing
@@ -43,7 +44,7 @@ directional art falls back independently to the ordinary side walk.
 
 The first seven sheets were produced on 2026-11-07 with the OpenAI image
 generator available through Codex, using each existing `*_hd.png` combat sheet
-as the visual reference. Batches A through G used the same service and contract;
+as the visual reference. Batches A through I used the same service and contract;
 their per-identity provenance is linked above. The service response did not
 expose an immutable model version, so recording a guessed model name here would
 make later reproduction less reliable. The durable inputs are the committed
