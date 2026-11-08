@@ -32,6 +32,50 @@
 
 namespace grandleon::view {
 
+// The direction of one presentation leg on the board. This is deliberately
+// derived from two positions rather than stored in simulation state: routes
+// remain the engine's authoritative answer, while a renderer gets one shared
+// name for the way the picture is travelling.
+enum class BoardHeading : std::uint8_t {
+    north,
+    east,
+    south,
+    west,
+};
+
+// Routes are orthogonal, but the straight-line presentation fallback can be
+// diagonal when a renderer cannot reconstruct a route. In that fallback the
+// dominant axis decides, with horizontal winning a tie. A zero-length leg
+// preserves its previous heading rather than inventing a turn at rest.
+[[nodiscard]] constexpr BoardHeading board_heading_between(
+    int from_x, int from_y, int to_x, int to_y,
+    BoardHeading previous = BoardHeading::east
+) noexcept {
+    const int dx = to_x - from_x;
+    const int dy = to_y - from_y;
+    if (dx == 0 && dy == 0) return previous;
+    const int horizontal = dx < 0 ? -dx : dx;
+    const int vertical = dy < 0 ? -dy : dy;
+    if (horizontal >= vertical) {
+        return dx < 0 ? BoardHeading::west : BoardHeading::east;
+    }
+    return dy < 0 ? BoardHeading::north : BoardHeading::south;
+}
+
+// The curated board sheets currently have one native right-facing view. East
+// and west are therefore real mirrored views; north and south preserve the
+// last horizontal silhouette until authored compass views exist. Keeping the
+// compact-console fallback here makes their rule explicit and, importantly,
+// keeps a vertical leg from flipping merely because a team changes. Godot's
+// equivalent decision is camera-relative because its board has a 3D camera.
+[[nodiscard]] constexpr bool board_heading_faces_left(
+    BoardHeading heading, bool previous
+) noexcept {
+    if (heading == BoardHeading::west) return true;
+    if (heading == BoardHeading::east) return false;
+    return previous;
+}
+
 // ---------------------------------------------------------------------------
 // The frame counts
 // ---------------------------------------------------------------------------

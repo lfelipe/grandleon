@@ -65,6 +65,57 @@ int main() {
     using namespace grandleon::view;
 
     // ---------------------------------------------------------------
+    // Board direction is presentation, never route authority
+    // ---------------------------------------------------------------
+    {
+        expect(
+            board_heading_between(2, 2, 3, 2) == BoardHeading::east,
+            "an east route leg selects the native right-facing view"
+        );
+        expect(
+            board_heading_between(2, 2, 1, 2) == BoardHeading::west,
+            "a west route leg selects its mirrored view"
+        );
+        expect(
+            board_heading_between(2, 2, 2, 1) == BoardHeading::north,
+            "a north route leg remains distinct in presentation metadata"
+        );
+        expect(
+            board_heading_between(2, 2, 2, 3) == BoardHeading::south,
+            "a south route leg remains distinct in presentation metadata"
+        );
+        expect(
+            board_heading_between(2, 2, 2, 2, BoardHeading::west) ==
+                BoardHeading::west,
+            "a zero-length leg preserves the heading at rest"
+        );
+        expect(
+            board_heading_between(0, 0, 3, 2) == BoardHeading::east,
+            "a route-less diagonal fallback follows its dominant axis"
+        );
+        expect(
+            board_heading_between(0, 0, -2, 2) == BoardHeading::west,
+            "a diagonal tie resolves horizontally and deterministically"
+        );
+        expect(
+            !board_heading_faces_left(BoardHeading::east, true),
+            "east always uses the native right-facing silhouette"
+        );
+        expect(
+            board_heading_faces_left(BoardHeading::west, false),
+            "west always mirrors the native silhouette"
+        );
+        expect(
+            board_heading_faces_left(BoardHeading::north, true),
+            "north preserves a previous left-facing fallback"
+        );
+        expect(
+            !board_heading_faces_left(BoardHeading::south, false),
+            "south preserves a previous right-facing fallback"
+        );
+    }
+
+    // ---------------------------------------------------------------
     // The frame counts themselves
     // ---------------------------------------------------------------
     //

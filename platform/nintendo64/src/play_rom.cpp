@@ -5257,16 +5257,29 @@ private:
     // gesture animates through here, drawing the same shadow and billboard the
     // board draws, so a slide and a flinch cannot end up meaning something
     // other than what the board means.
-    void draw_token_at(
+    void draw_token_facing_at(
         surface_t* disp, const sim::UnitSnapshot& unit, int x, int y,
-        int cell = view::sequence_cell_stand
+        int cell, bool facing_left
     ) {
         namespace console = grandleon::nintendo64::console_renderer;
         const console::Pose pose = cell == view::sequence_cell_stand
             ? console::Pose::idle : console::Pose::move;
         console::draw_character_overlay(
             disp, console_drawing_of(unit), pose,
-            x + tile_ / 2, y + tile_, tile_, unit.side != player_side_
+            x + tile_ / 2, y + tile_, tile_, facing_left
+        );
+    }
+
+    // Non-travel gestures retain the settled board convention: opponents face
+    // left and the player's company faces right. A slide calls the explicit
+    // facing overload above because travel direction, not allegiance, owns its
+    // silhouette.
+    void draw_token_at(
+        surface_t* disp, const sim::UnitSnapshot& unit, int x, int y,
+        int cell = view::sequence_cell_stand
+    ) {
+        draw_token_facing_at(
+            disp, unit, x, y, cell, unit.side != player_side_
         );
     }
 
@@ -5283,10 +5296,15 @@ private:
         const sim::UnitSnapshot& unit,
         sim::Position from,
         sim::Position to,
+        bool& facing_left,
         int frames,
         int elapsed = 0,
         int total = 0
     ) {
+        const view::BoardHeading heading = view::board_heading_between(
+            from.x, from.y, to.x, to.y
+        );
+        facing_left = view::board_heading_faces_left(heading, facing_left);
         const int whole = total > 0 ? total : frames;
         const int from_x = px(from.x);
         const int from_y = py(from.x, from.y);
@@ -5295,11 +5313,11 @@ private:
         for (int frame = 1; frame <= frames; ++frame) {
             surface_t* disp = display_get();
             render(disp, previous_, unit.id);
-            draw_token_at(
+            draw_token_facing_at(
                 disp, unit,
                 view::slide_between(from_x, to_x, frame, frames),
                 view::slide_between(from_y, to_y, frame, frames),
-                view::walk_cell(elapsed + frame, whole)
+                view::walk_cell(elapsed + frame, whole), facing_left
             );
             grandleon::n64audio::pump();
             show(disp);
@@ -5812,6 +5830,12 @@ private:
                 view::RouteTile route_storage[route_capacity];
                 view::Route route(route_storage, route_capacity);
                 plan_move_route(*actor, event.position, route);
+                // The native sheet faces right. Begin from the settled team's
+                // convention, then let each accepted route leg choose east or
+                // west. A north/south leg preserves the preceding horizontal
+                // silhouette until the curated roster has authored compass
+                // views; it never changes the route itself.
+                bool facing_left = actor->side != player_side_;
 
                 if (route.size() == 0) {
                     const int dx = event.position.x - actor->position.x;
@@ -5820,6 +5844,7 @@ private:
                         (dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy);
                     slide_token(
                         *actor, actor->position, event.position,
+                        facing_left,
                         view::slide_frames_for(tiles > 0 ? tiles : 1)
                     );
                     return;
@@ -5830,6 +5855,7 @@ private:
                     const sim::Position to{route[leg].x, route[leg].y};
                     slide_token(
                         *actor, from, to,
+                        facing_left,
                         view::slide_frames_per_tile,
                         leg * view::slide_frames_per_tile, whole
                     );

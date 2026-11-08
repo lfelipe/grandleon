@@ -57,10 +57,16 @@ roadmap work.
 - [x] Preserve the simulation's authoritative route and destination. Smoothing
   may interpolate the picture between accepted states; it must never invent a
   position, shorten a route, delay input authority, or change a state hash.
-- [ ] Evaluate directional board poses for the curated roster, beginning with
-  distinct north/south walking silhouettes and mirrored east/west movement.
-  Keep the route authoritative, choose poses from its current direction, and
-  preserve the Nintendo 64 and PlayStation memory and frame budgets.
+- [x] Evaluate directional board poses for the curated roster and make
+  east/west travel follow the current authoritative route leg on Nintendo 64
+  and PlayStation, matching Godot's existing camera-relative mirroring. The
+  shared right-facing walk cells mirror at no texture-memory cost; compact-
+  console vertical legs retain the last horizontal view rather than changing
+  the route or inventing art.
+- [ ] Author distinct north/south walk cells and matching team masks for the
+  curated roster. The current 4×2 sheets contain animation phases, not compass
+  views, so the source audit deliberately blocks claiming this coverage until
+  those cells, profile metadata, and measured console budgets exist.
 
 ## Character art and console graphics
 

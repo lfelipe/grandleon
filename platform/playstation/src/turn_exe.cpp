@@ -1223,6 +1223,10 @@ public:
         layout(before);
 
         moving_ = unit;
+        // Begin from the settled board's team-facing convention. Each route
+        // leg below then owns the moving silhouette; a first north/south leg
+        // safely retains this view until authored compass frames exist.
+        move_facing_ = actor->side != player_side() ? -1 : 1;
         int frames = 0;
         int tiles = 0;
         if (route != nullptr && length >= 2) {
@@ -2025,10 +2029,12 @@ private:
             stream_slot = 1;
         }
         const int size = view::console_board_unit_size(drawn_tile());
+        const bool facing_left = unit.id == moving_
+            ? move_facing_ < 0 : unit.side != player_side();
         console::draw_character(
             drawing, pose, x + drawn_tile() / 2,
             y + drawn_tile() - (unit.id == moving_ ? move_bob_ : 0),
-            size, unit.side != player_side(), stream_slot
+            size, facing_left, stream_slot
         );
     }
 
@@ -2919,8 +2925,12 @@ private:
         move_py_ = end_y;
         move_world_x_ = to_x * 256 + 128;
         move_world_z_ = to_y * 256 + 128;
-        if (to_x < from_x) move_facing_ = -1;
-        else if (to_x > from_x) move_facing_ = 1;
+        const view::BoardHeading heading = view::board_heading_between(
+            from_x, from_y, to_x, to_y
+        );
+        move_facing_ = view::board_heading_faces_left(
+            heading, move_facing_ < 0
+        ) ? -1 : 1;
         for (int frame = 1; frame <= frames; ++frame) {
             move_px_ = view::slide_between(start_x, end_x, frame, frames);
             move_py_ = view::slide_between(start_y, end_y, frame, frames);
@@ -3606,6 +3616,7 @@ int main() {
     game.set_package(&loaded.package);
 
     const std::uint64_t campaign_id = core::stable_content_id_v1(campaign_path);
+    game.set_campaign_id(campaign_id);
     const std::uint32_t started = psx::clock_ticks();
 
 #ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN

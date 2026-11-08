@@ -47,6 +47,15 @@ POSES = (
     ("hurt", 7),
 )
 
+# The committed 4x2 Godot sheets are right-facing animation sheets, not
+# compass sheets. Both console renderers may mirror these frames for westward
+# travel without another texture. North/south stay an explicit unsupported
+# source view instead of silently pretending that a side silhouette is one.
+DIRECTIONAL_ART = {
+    "eastWest": "mirrored-native-right",
+    "northSouth": "source-frames-required",
+}
+
 
 @dataclass(frozen=True, order=True)
 class Drawing:
@@ -280,6 +289,7 @@ def write_n64(
         "closeSide": N64_CLOSE_SIDE,
         "defaultStyle": STYLES.index(str(project.get("characterStyleId") or "medieval")),
         "defaultFigure": FIGURES.index(str(project.get("characterFigureId") or "first")),
+        "directionalArt": DIRECTIONAL_ART,
         "poses": [name for name, _ in POSES],
         "drawings": records,
     }
@@ -293,6 +303,8 @@ def write_ps1(output: Path, project: dict[str, object], drawings: tuple[Drawing,
         "#pragma once\n#include <cstddef>\n",
         f"inline constexpr int grandleon_console_character_side = {BOARD_SIDE};\n",
         f"inline constexpr int grandleon_console_character_pose_count = {len(POSES)};\n",
+        "inline constexpr bool grandleon_console_mirrors_east_west = true;\n",
+        "inline constexpr bool grandleon_console_has_north_south = false;\n",
     ]
     rows = []
     for index, drawing in enumerate(drawings):
