@@ -115,6 +115,7 @@ struct BoardResources final {
     T3DVertPacked* units{};
     T3DVertPacked* cursor{};
     sprite_t* terrain{};
+    sprite_t* surface_detail{};
     sprite_t* combat_backdrop{};
     sprite_t* combat_shadow{};
     std::array<UnitArt, grandleon_project_drawings.size()> art{};
@@ -510,6 +511,12 @@ void set_vertex(
     auto* uv = t3d_vertbuffer_get_uv(buffer, static_cast<int>(index));
     uv[0] = u;
     uv[1] = v;
+    if (buffer == board.terrain_forms || buffer == board.trees ||
+        buffer == board.landmark || buffer == board.elevation) {
+        // World-anchored grain remains fixed when the camera scrolls.
+        uv[0] = static_cast<std::int16_t>(((x + z + 32768) / 3 % 32) * 32);
+        uv[1] = static_cast<std::int16_t>(((y + z + 32768) / 3 % 32) * 32);
+    }
     if ((index & 1U) == 0U) {
         packed->rgbaA = colour;
         packed->normA = normal;
@@ -1627,6 +1634,7 @@ void load_runtime_board() {
         board.terrain_forms && board.trees && board.landmark &&
         board.visibility && board.units && board.cursor);
     board.terrain = sprite_load("rom:/material_atlas.sprite");
+    board.surface_detail = sprite_load("rom:/surface_detail.sprite");
     board.combat_backdrop = sprite_load("rom:/combat_backdrop.sprite");
     board.combat_shadow = sprite_load("rom:/soft_shadow.sprite");
     char path[64]{};
@@ -1650,7 +1658,7 @@ void load_runtime_board() {
     const auto complete_art = [](const UnitArt& art) {
         return art.idle && art.moving && art.close_idle && art.attack && art.hurt;
     };
-    assert(board.terrain && board.combat_backdrop && board.combat_shadow);
+    assert(board.terrain && board.surface_detail && board.combat_backdrop && board.combat_shadow);
     for (const UnitArt& art : board.art) assert(complete_art(art));
     assertf(board.shadows.open("rom:/soft_shadow.sprite"), "Soft shadow asset failed");
     board.loaded = true;
@@ -1803,6 +1811,14 @@ void configure_campaign_board(const pr::EncounterLoadResult& content) {
     shell.stage_index = static_cast<std::size_t>(
         stage - grandleon_project_encounter_ids.begin()
     );
+    // A stage change replaces one resident plate; the campaign's complete
+    // backdrop bank stays in the ROM rather than accumulating in base RAM.
+    rspq_wait();
+    sprite_free(board.combat_backdrop);
+    board.combat_backdrop = sprite_load(
+        grandleon_project_backdrop_paths[shell.stage_index]
+    );
+    assert(board.combat_backdrop);
     if (shell.resumed && shell.completed_battles < shell.stage_index) {
         shell.completed_battles = shell.stage_index;
     }
@@ -2388,6 +2404,21 @@ void draw_board_cells() {
     }
 }
 
+void use_surface_detail() {
+    rdpq_mode_begin();
+        rdpq_mode_zbuf(true, true);
+        rdpq_mode_tlut(TLUT_NONE);
+        rdpq_mode_filter(FILTER_BILINEAR);
+        rdpq_mode_combiner(RDPQ_COMBINER_TEX_SHADE);
+        rdpq_mode_blender(0);
+        rdpq_mode_fog(0);
+    rdpq_mode_end();
+    rdpq_sprite_upload(TILE0, board.surface_detail, nullptr);
+    t3d_state_set_drawflags(static_cast<T3DDrawFlags>(
+        T3D_FLAG_SHADED | T3D_FLAG_TEXTURED | T3D_FLAG_DEPTH
+    ));
+}
+
 void draw_elevation() {
     if (board.elevation_vertex_count == 0U) return;
     rdpq_mode_begin();
@@ -2400,6 +2431,7 @@ void draw_elevation() {
         T3D_FLAG_SHADED | T3D_FLAG_DEPTH
     ));
     const std::size_t face_count = board.elevation_vertex_count / 4U;
+    use_surface_detail();
     for (std::size_t begin = 0; begin < face_count; begin += kBatchCells) {
         const std::size_t count = std::min(kBatchCells, face_count - begin);
         t3d_vert_load(
@@ -2439,6 +2471,7 @@ void draw_terrain_forms() {
     t3d_state_set_drawflags(static_cast<T3DDrawFlags>(
         T3D_FLAG_SHADED | T3D_FLAG_DEPTH
     ));
+    use_surface_detail();
     for (std::size_t index = 0; index < board.terrain_form_count; ++index) {
         t3d_vert_load(
             board.terrain_forms + index * (kTerrainFormVertexCount / 2U),
@@ -2474,6 +2507,7 @@ void draw_landmark() {
     ));
     constexpr std::size_t boxes_per_batch = 8U;
     const std::size_t box_count = board.landmark_vertex_count / 8U;
+    use_surface_detail();
     for (std::size_t begin = 0U; begin < box_count;
          begin += boxes_per_batch) {
         const std::size_t count = std::min(
@@ -2525,6 +2559,7 @@ void draw_trees() {
         rdpq_mode_fog(0);
     rdpq_mode_end();
     t3d_state_set_drawflags(static_cast<T3DDrawFlags>(T3D_FLAG_SHADED | T3D_FLAG_DEPTH));
+    use_surface_detail();
     for (std::size_t index = 0; index < board.tree_count; ++index) {
         t3d_vert_load(board.trees + index * (kTreeVertexCount / 2U), 0, kTreeVertexCount);
         t3d_tri_draw(0, 1, 4); t3d_tri_draw(1, 2, 4);

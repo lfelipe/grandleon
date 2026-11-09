@@ -19,6 +19,11 @@ the same real-world speed. The recovered rendering budget enables the filtered
 terrain atlas, denser scenery, and stronger silhouettes used by the production
 ROM.
 
+Raised terrain, trees, elevation faces, and castle masonry use filtered
+surface detail while retaining their authored colours. Close combat loads the
+compatible Godot panorama for each stage, keeping just one plate in memory.
+Scenes without compatible artwork retain a terrain-coloured backdrop.
+
 The target deliberately contains no ROM, compiled GPK, generated cutout, or
 vendored Pyrite source. `scripts/build.sh` derives the game inputs from the
 selected source project:

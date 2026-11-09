@@ -82,6 +82,14 @@ def main() -> None:
         assert digest(demo / "assets/combat_backdrop.png") != digest(
             steel / "assets/combat_backdrop.png"
         )
+        # Compatible stage art must actually replace the generic plate; a
+        # generated path alone can otherwise conceal a selector mismatch.
+        assert digest(steel / "assets/combat_stage_00.png") != digest(
+            steel / "assets/combat_backdrop.png"
+        )
+        assert digest(steel / "assets/combat_stage_01.png") != digest(
+            steel / "assets/combat_stage_00.png"
+        )
 
         # The same selected source and console-art manifest must reproduce the
         # exact generated contract and presentation assets.

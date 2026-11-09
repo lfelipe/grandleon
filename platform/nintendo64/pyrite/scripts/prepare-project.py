@@ -164,6 +164,9 @@ def draw_atlas(path: Path, kinds: list[int]) -> None:
     limit = ATLAS_CELL - 2
     for slot, kind in enumerate(kinds):
         _keywords, _label, dark, light = TERRAIN_KINDS[kind]
+        # Geometry supplies terrain identity. Keep the ground quiet enough
+        # that repeated ground marks do not compete with units and paths.
+        light = tuple((base * 3 + accent) // 4 for base, accent in zip(dark, light))
         x0 = (slot % ATLAS_COLUMNS) * ATLAS_CELL
         y0 = (slot // ATLAS_COLUMNS) * ATLAS_CELL
         draw.rectangle((x0, y0, x0 + ATLAS_CELL - 1, y0 + ATLAS_CELL - 1), fill=dark)
@@ -221,6 +224,23 @@ def write_asset_config(path: Path, name: str, format_index: int) -> None:
         "wavResampleRate": 0,
     }
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def draw_surface_detail(path: Path) -> None:
+    """Neutral relief grain: vertex colours still define each material.
+
+    A 32x32 RGBA16 swatch occupies 2 KiB of TMEM and can be reused for the
+    entire prop pass. Broad clusters survive the tactical camera's filtering.
+    """
+    image = Image.new("RGB", (32, 32))
+    pixels = image.load()
+    for y in range(32):
+        for x in range(32):
+            cluster = ((x // 4 * 13 + y // 4 * 7) % 11) - 5
+            grain = ((x * 17 + y * 29) % 13) - 6
+            value = max(140, min(255, 218 + cluster * 5 + grain))
+            pixels[x, y] = (value, value, value)
+    image.save(path)
 
 
 def prepare(project_path: Path, manifest_path: Path, project_root: Path) -> None:
@@ -285,6 +305,8 @@ def prepare(project_path: Path, manifest_path: Path, project_root: Path) -> None
         slot_by_kind[kind] = slot
     draw_atlas(assets / "material_atlas.png", kinds)
     write_asset_config(assets / "material_atlas.png.conf", "material_atlas", 4)
+    draw_surface_detail(assets / "surface_detail.png")
+    write_asset_config(assets / "surface_detail.png.conf", "surface_detail", 0)
     dominant = max(
         kinds,
         key=lambda kind: sum(
@@ -294,6 +316,31 @@ def prepare(project_path: Path, manifest_path: Path, project_root: Path) -> None
     )
     draw_backdrop(assets / "combat_backdrop.png", dominant)
     write_asset_config(assets / "combat_backdrop.png.conf", "combat_backdrop", 3)
+    backdrop_paths = []
+    art_root = Path(__file__).resolve().parents[3] / "godot/project"
+    backdrop_manifest = json.loads((art_root / "art/combat_backdrops/manifest.json").read_text())
+    for index, encounter in enumerate(encounters):
+        encounter_hash = f"{stable_id(str(encounter.get('mapId'))):016x}"
+        pack = next((pack for pack in backdrop_manifest["packs"]
+                     if encounter_hash in pack.get("compatibility", {}).get("stage_ids", [])), None)
+        if pack is None and int(manifest["defaultStyle"]) == 0:
+            stage_map = next(value for value in maps if value.get("id") == encounter.get("mapId"))
+            stage_kinds = [terrain_kind(str(cell)) for cell in stage_map.get("terrain", [])]
+            dominant_name = TERRAIN_KINDS[max(set(stage_kinds), key=stage_kinds.count)][1]
+            pack = next((value for value in backdrop_manifest["packs"]
+                         if not value.get("compatibility") and value.get("dominant_terrain") == dominant_name), None)
+        name = f"combat_stage_{index:02d}"
+        if pack is not None:
+            variant = stable_id(encounter_hash) % int(pack["variant_count"])
+            source = art_root / pack["root"].removeprefix("res://") / pack["filename_patterns"]["panorama"].format(variant=variant)
+            with Image.open(source) as panorama:
+                panorama.convert("RGB").resize((320, 240), Image.Resampling.LANCZOS).quantize(
+                    colors=256, method=Image.Quantize.MEDIANCUT
+                ).convert("RGBA").save(assets / f"{name}.png")
+        else:
+            shutil.copyfile(assets / "combat_backdrop.png", assets / f"{name}.png")
+        write_asset_config(assets / f"{name}.png.conf", name, 3)
+        backdrop_paths.append(f"rom:/{name}.sprite")
 
     campaign_id = str(campaign.get("id") or "")
     title = str(project.get("title") or campaign.get("name") or "Grandleon")
@@ -320,6 +367,9 @@ inline constexpr std::uint64_t grandleon_project_first_encounter_id = {stable_id
 inline constexpr std::size_t grandleon_project_encounter_count = {len(encounters)}U;
 inline constexpr std::array<std::uint64_t, {len(encounters)}> grandleon_project_encounter_ids{{{{
     {','.join(str(stable_id(campaign_id + '/' + str(value.get('id')))) + 'ULL' for value in encounters)}
+}}}};
+inline constexpr std::array<const char*, {len(encounters)}> grandleon_project_backdrop_paths{{{{
+    {','.join(cpp_string(path) for path in backdrop_paths)}
 }}}};
 inline constexpr bool grandleon_project_requires_scroll = {'true' if scroll else 'false'};
 inline constexpr int grandleon_project_atlas_columns = {ATLAS_COLUMNS};

@@ -1,5 +1,14 @@
 # Generic project export validation
 
+The latest graphics review adds filtered detail to raised terrain, trees,
+elevation faces, and castle masonry, plus compatible Godot panorama plates
+loaded one stage at a time. The full accurate-emulator campaign passed with
+base 4 MiB RAM: all five battles, 290 commands, 170 opposing commands, five
+combat presentations, and the 18-cell castle closed/revealed checkpoints.
+The final 120-frame sample measured 30.00 fps, a 33,997 microsecond maximum,
+and 1,263,256 bytes of free heap. Evidence and transition frames are under
+`/home/lstrano/.cache/grandleon-pyrite-surface-quality/ares/final*`.
+
 Validated on 2026-11-09 with the pinned Pyrite, libdragon, Tiny3D and ares
 versions recorded in this directory.
 
