@@ -21,12 +21,23 @@ starts, opposition, reinforcement timing and tuning. The campaign probe boots
 all five exact 1P definitions as well as the full 2P save-and-resume route.
 
 Board movement follows the authoritative reachable route at ten presented
-frames per tile. It uses both authored walk poses, left/right facing, compact
+frames per tile. It uses both authored walk poses, left/right facing, full-size
 north/south views, terrain height, a small footfall lift, and a dithered
 contact cue baked into the existing character texture. The action menu
 stays out of the way until the unit stops, and input waits for the presentation
 to settle. Entering an authored hidden area reveals it only when the rendered
 unit reaches the doorway rather than when the rules commit the destination.
+
+Characters use an 8-bit indexed texture bank with a shared stage palette;
+terrain materials use separate 16-colour palettes. All nine character poses
+retain 64×64 detail. The six walking poses
+share a VRAM slot and are uploaded on demand; idle, attack, and hurt images
+stay resident independently. This allows identical character types to appear
+on both sides of a fight. Native terrain forms use bark, foliage, and stone
+materials, grouped within terrain pages to limit texture changes.
+Compatible close-combat scenes use the existing Godot panorama artwork,
+split into four texture-page-safe strips with its own palette. The camera
+places the actors on the panorama's foreground rather than its horizon.
 
 When a game authors a deployment area, its tiles are marked on the live board.
 Cross selects or places a character through the shared simulation and Start

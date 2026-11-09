@@ -3,6 +3,9 @@
 
 #include "generated/grandleon_scene.h"
 #include "generated/grandleon_simulation.hpp"
+extern "C" {
+#include "runtime/textures.h"
+}
 
 #include <grandleon/campaign/graph.hpp>
 #include <grandleon/campaign/outcome.hpp>
@@ -844,14 +847,16 @@ void apply_unit_art(
     entity.texture_index = static_cast<std::int32_t>(
         g_grandleon_unit_pose_texture_indices[binding][pose]
     );
+    ps1_texture_ensure_resident(static_cast<unsigned>(entity.texture_index));
     const bool directional = pose >= unit_pose_move_north_contact &&
         pose <= unit_pose_move_south_pass;
     entity.mesh_index = static_cast<std::int32_t>(directional
         ? g_grandleon_directional_billboard_mesh_index
         : (facing_left ? g_grandleon_mirrored_billboard_mesh_index
                        : g_grandleon_board_billboard_mesh_index));
-    entity.scale[0] = close_view ? 157286 : 88474;  // 2.40 / 1.35
-    entity.scale[1] = close_view ? 222822 : 124518; // 3.40 / 1.90
+    const bool plate = close_view && g_grandleon_combat_plate_indices[0];
+    entity.scale[0] = plate ? 235930 : close_view ? 157286 : 88474;
+    entity.scale[1] = plate ? 334234 : close_view ? 222822 : 124518;
     entity.scale[2] = 65536;
 }
 
@@ -1097,7 +1102,9 @@ void tick_camera() {
                    (b.x * 2 + 1 - s_map_width)) * 65536 / 2;
         focus_z = ((s_map_height - a.y * 2 - 1) +
                    (s_map_height - b.y * 2 - 1)) * 65536 / 2;
-        desired_height = 6 * 65536;
+        // Match the authored plate's foreground baseline. The previous
+        // camera put feet near the horizon, making actors float over trees.
+        desired_height = (g_grandleon_combat_plate_indices[0] ? 11 : 6) * 65536;
         desired_trailing = 8 * 65536;
     } else {
         focus_x = clamp_camera_focus(
@@ -1155,7 +1162,7 @@ void tick_camera() {
         g_grandleon_combat_floor_entity_index
     );
     if (combat_floor) {
-        combat_floor->mesh_enabled = close_combat ? 1 : 0;
+        combat_floor->mesh_enabled = close_combat && !g_grandleon_combat_plate_indices[0] ? 1 : 0;
         combat_floor->position[0] = focus_x;
         combat_floor->position[1] = -1024;
         combat_floor->position[2] = focus_z;

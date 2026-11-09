@@ -15,7 +15,7 @@ from pathlib import Path
 import re
 import struct
 
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 
 
 TERRAIN_NAMES = (
@@ -49,18 +49,23 @@ TEXTURE_Y = 0
 TEXTURE_WIDTH = 704
 TEXTURE_HEIGHT = 512
 TEXTURE_PAGE_HEIGHT = 256
+TEXTURE_DEPTH_BITS = 8
+# One shared 256-colour stage palette keeps every texture page compatible
+# while avoiding a separate 512-byte CLUT for every pose. The final VRAM row
+# is outside all framebuffer rectangles and is reserved in TexturePacker.
+CLUT_X = 768
+CLUT_Y = 511
+CLUT_COLOURS = 256
 UNIT_POSES = (
     ("idle", 0, False, 64),
     ("move_contact", 2, False, 64),
     ("move_pass", 3, False, 64),
-    # Compass art matters most while crossing the board.  Keeping these four
-    # frames at 32x32 costs 8 KiB per unique unit instead of 32 KiB, so the
-    # largest campaign stage still fits both PS1 main RAM and VRAM while side
-    # views and close combat retain their 64x64 detail.
-    ("move_north_contact", 2, True, 32),
-    ("move_north_pass", 3, True, 32),
-    ("move_south_contact", 6, True, 32),
-    ("move_south_pass", 7, True, 32),
+    # Indexed textures recover enough resident memory for full-size compass
+    # poses. Board turns no longer drop to a visibly softer 32px cutout.
+    ("move_north_contact", 2, True, 64),
+    ("move_north_pass", 3, True, 64),
+    ("move_south_contact", 6, True, 64),
+    ("move_south_pass", 7, True, 64),
     ("attack", 5, False, 64),
     ("hurt", 7, False, 64),
 )
@@ -209,14 +214,27 @@ def apron_kind(
 
 class TexturePacker:
     def __init__(self) -> None:
-        self.columns = TEXTURE_WIDTH // 64
+        # 8-bpp stores two texels in each VRAM word. A 32-word grid permits
+        # two 64px poses in one hardware texture page while retaining a valid
+        # 0/64 UV offset for each.
+        self.column_words = 32
+        self.columns = TEXTURE_WIDTH // self.column_words
         self.rows = TEXTURE_HEIGHT // 32
         self.used = [[False] * self.columns for _ in range(self.rows)]
+        palette_left = (CLUT_X - TEXTURE_X) // self.column_words
+        palette_right = math.ceil(
+            (CLUT_X - TEXTURE_X + CLUT_COLOURS) / self.column_words
+        )
+        palette_row = (CLUT_Y - TEXTURE_Y) // 32
+        for column in range(palette_left, palette_right):
+            self.used[palette_row][column] = True
 
-    def place(self, width: int, height: int) -> tuple[int, int]:
-        if width > 256 or height > TEXTURE_PAGE_HEIGHT:
+    def place(self, width: int, height: int, depth_bits: int = 8) -> tuple[int, int]:
+        page_width = 1024 // depth_bits
+        if width > page_width or height > TEXTURE_PAGE_HEIGHT:
             raise ValueError("generated texture exceeds one PS1 texture page")
-        columns = math.ceil(width / 64)
+        width_words = math.ceil(width * depth_bits / 16)
+        columns = math.ceil(width_words / self.column_words)
         rows = math.ceil(height / 32)
         for y in range(self.rows - rows + 1):
             pixel_y = TEXTURE_Y + y * 32
@@ -230,8 +248,15 @@ class TexturePacker:
                 for yy in range(y, y + rows):
                     for xx in range(x, x + columns):
                         self.used[yy][xx] = True
-                return TEXTURE_X + x * 64, TEXTURE_Y + y * 32
-        raise ValueError("generated textures exceed the reserved 384x256 VRAM atlas")
+                pixel_x = TEXTURE_X + x * self.column_words
+                page_word_offset = pixel_x & 63
+                if page_word_offset + width_words > 64:
+                    for yy in range(y, y + rows):
+                        for xx in range(x, x + columns):
+                            self.used[yy][xx] = False
+                    continue
+                return pixel_x, TEXTURE_Y + y * 32
+        raise ValueError("generated textures exceed the framebuffer-free VRAM strip")
 
 
 def opaque_psx_pixel(red: int, green: int, blue: int) -> int:
@@ -239,16 +264,109 @@ def opaque_psx_pixel(red: int, green: int, blue: int) -> int:
     return value or 1
 
 
-def tim_words(image: Image.Image, x: int, y: int, cutout: bool) -> list[int]:
+def shared_stage_palette(
+    images: list[Image.Image],
+) -> tuple[tuple[tuple[int, int, int], ...], Image.Image]:
+    """Build one deterministic 8-bpp palette for the complete stage.
+
+    Index zero remains transparent. The remaining 255 colours are learned
+    jointly from terrain, UI, every team colour and every animation pose, so
+    page changes never need a palette upload and visual identity is retained.
+    """
+    visible: list[tuple[int, int, int]] = []
+    for image in images:
+        rgba = image.convert("RGBA")
+        flattened = getattr(rgba, "get_flattened_data", None)
+        pixels = flattened() if flattened is not None else rgba.getdata()
+        for red, green, blue, alpha in pixels:
+            if alpha >= 40:
+                visible.append((red, green, blue))
+    if not visible:
+        raise ValueError("stage texture bank has no visible pixels")
+    sample_width = 256
+    sample_height = math.ceil(len(visible) / sample_width)
+    sample = Image.new("RGB", (sample_width, sample_height), visible[-1])
+    sample.putdata(visible + [visible[-1]] * (sample_width * sample_height - len(visible)))
+    quantized = sample.quantize(
+        colors=CLUT_COLOURS - 1,
+        method=Image.Quantize.MEDIANCUT,
+        dither=Image.Dither.NONE,
+    )
+    raw = list(quantized.getpalette() or [])
+    fallback = raw[-3:] if len(raw) >= 3 else [255, 255, 255]
+    while len(raw) < (CLUT_COLOURS - 1) * 3:
+        raw.extend(fallback)
+    colours = tuple(
+        (raw[index], raw[index + 1], raw[index + 2])
+        for index in range(0, (CLUT_COLOURS - 1) * 3, 3)
+    )
+    palette_image = Image.new("P", (1, 1))
+    palette_image.putpalette(
+        [channel for colour in colours for channel in colour] + list(colours[-1])
+    )
+    return colours, palette_image
+
+
+def tim_words(
+    image: Image.Image, x: int, y: int, cutout: bool,
+    colours: tuple[tuple[int, int, int], ...], palette_image: Image.Image,
+    include_palette: bool = True,
+    depth_bits: int = 8, palette_slot: int = 0,
+    palette_row: int = CLUT_Y,
+) -> list[int]:
     rgba = image.convert("RGBA")
-    pixels: list[int] = []
-    flattened = getattr(rgba, "get_flattened_data", None)
-    source_pixels = flattened() if flattened is not None else rgba.getdata()
-    for red, green, blue, alpha in source_pixels:
-        pixels.append(0 if cutout and alpha < 40 else opaque_psx_pixel(red, green, blue))
-    data = bytearray(struct.pack("<II", 0x10, 2))
-    data.extend(struct.pack("<IHHHH", 12 + len(pixels) * 2, x, y, rgba.width, rgba.height))
-    data.extend(struct.pack(f"<{len(pixels)}H", *pixels))
+    palette_size = 256
+    palette_x, palette_y = CLUT_X, palette_row
+    if depth_bits == 4:
+        quantized = rgba.convert("RGB").quantize(colors=15, method=Image.Quantize.MEDIANCUT)
+        raw_palette = list(quantized.getpalette() or [])
+        raw_palette += [0] * max(0, 45 - len(raw_palette))
+        colours = tuple(tuple(raw_palette[i:i + 3]) for i in range(0, 45, 3))
+        palette_image = Image.new("P", (1, 1))
+        palette_image.putpalette([c for colour in colours for c in colour] + list(colours[-1]) * 241)
+        palette_size = 16
+        palette_x, palette_y = CLUT_X + palette_slot * 16, CLUT_Y - 1
+        include_palette = True
+    indexed = rgba.convert("RGB").quantize(
+        palette=palette_image, dither=Image.Dither.FLOYDSTEINBERG,
+    )
+    indexed_flattened = getattr(indexed, "get_flattened_data", None)
+    alpha = rgba.getchannel("A")
+    alpha_flattened = getattr(alpha, "get_flattened_data", None)
+    source_indices = list(
+        indexed_flattened() if indexed_flattened is not None else indexed.getdata()
+    )
+    source_alpha = list(
+        alpha_flattened() if alpha_flattened is not None else alpha.getdata()
+    )
+    pixels = bytearray()
+    for row in range(rgba.height):
+        start = row * rgba.width
+        row_indices = []
+        for column in range(rgba.width):
+            offset = start + column
+            row_indices.append(
+                0 if cutout and source_alpha[offset] < 40
+                else min(source_indices[offset], palette_size - 2) + 1
+            )
+        texels_per_word = 16 // depth_bits
+        row_indices.extend([0] * (-len(row_indices) % texels_per_word))
+        if depth_bits == 4:
+            pixels.extend(row_indices[i] | (row_indices[i + 1] << 4)
+                          for i in range(0, len(row_indices), 2))
+        else:
+            pixels.extend(row_indices)
+    palette = [0, *(opaque_psx_pixel(*colour) for colour in colours)]
+    mode = 0 if depth_bits == 4 else 1
+    data = bytearray(struct.pack("<II", 0x10, mode | (8 if include_palette else 0)))
+    if include_palette:
+        data.extend(struct.pack("<IHHHH", 12 + len(palette) * 2,
+                                palette_x, palette_y, len(palette), 1))
+        data.extend(struct.pack(f"<{len(palette)}H", *palette))
+    width_words = math.ceil(rgba.width * depth_bits / 16)
+    data.extend(struct.pack("<IHHHH", 12 + len(pixels),
+                            x, y, width_words, rgba.height))
+    data.extend(pixels)
     if len(data) % 4:
         data.extend(b"\0" * (4 - len(data) % 4))
     return list(struct.unpack(f"<{len(data) // 4}I", data))
@@ -272,6 +390,12 @@ def fitted_cutout(image: Image.Image, side: int = 64) -> Image.Image:
         (max(1, round(crop.width * scale)), max(1, round(crop.height * scale))),
         Image.Resampling.LANCZOS,
     )
+    crop_alpha = crop.getchannel("A")
+    colour = ImageEnhance.Contrast(crop.convert("RGB")).enhance(1.08)
+    colour = ImageEnhance.Color(colour).enhance(1.06)
+    colour = ImageEnhance.Sharpness(colour).enhance(1.3)
+    crop = colour.convert("RGBA")
+    crop.putalpha(crop_alpha)
     result = Image.new("RGBA", (side, side), (0, 0, 0, 0))
     # Ground the billboard without spending another entity, mesh or texture.
     # A separate ground-plane shadow made combat miss the 30 fps frame gate;
@@ -296,7 +420,13 @@ def fitted_cutout(image: Image.Image, side: int = 64) -> Image.Image:
                 or y == shadow_top or y == shadow_bottom
             ) and (x + y) % 2:
                 pixels[x, y] = (0, 0, 0, 0)
-    result.alpha_composite(crop, ((side - crop.width) // 2, side - crop.height))
+    placement = ((side - crop.width) // 2, side - crop.height)
+    # A one-pixel silhouette survives affine nearest-neighbour sampling much
+    # better than the soft alpha fringe in the high-resolution source art.
+    outline = Image.new("RGBA", crop.size, (18, 22, 29, 255))
+    outline.putalpha(crop.getchannel("A").filter(ImageFilter.MaxFilter(3)))
+    result.alpha_composite(outline, placement)
+    result.alpha_composite(crop, placement)
     result.putalpha(result.getchannel("A").point(lambda value: 255 if value >= 40 else 0))
     return result
 
@@ -436,9 +566,10 @@ def unit_image(
 
 def write_textures(
     output: Path, repo: Path, terrain_kinds: list[int], units: list[dict[str, object]],
+    map_id: str = "0",
 ) -> tuple[
     dict[int, int], dict[tuple[int, int, int, int], UnitTextureIndices],
-    int, dict[str, int],
+    int, dict[str, object],
 ]:
     profiles_path = repo / "platform/godot/project/content/graphics_profiles.json"
     profiles = json.loads(profiles_path.read_text(encoding="utf-8"))["profiles"]["voxel-sprites"]["assets"]["characterSprites"]
@@ -453,6 +584,26 @@ def write_textures(
         texture = relay_terrain_image(repo, kind)
         textures.append((f"terrain_{TERRAIN_NAMES[kind]}", texture, False, 0, 0))
         terrain_indices[kind] = len(textures)
+
+    # Small material swatches give native terrain forms surface detail at
+    # every viewing distance, without adding an entity or another polygon.
+    for material, base in ((-1, (148, 112, 75)), (-2, (102, 151, 81)),
+                           (-3, (158, 161, 151))):
+        swatch = Image.new("RGBA", (32, 32), (*base, 255))
+        pixels = swatch.load()
+        for y in range(32):
+            for x in range(32):
+                roll = hash_cell(x, y, 0x505331 + material)
+                grain = (roll % 19) - 9
+                if material == -1:
+                    grain += -24 if (x + y // 9) % 9 == 0 else 0
+                elif material == -2:
+                    grain += 15 if (x // 3 + y // 4) % 3 == 0 else -7
+                else:
+                    grain += -23 if y % 11 == 0 or (x + y // 11 * 7) % 17 == 0 else 0
+                pixels[x, y] = tuple(max(0, min(255, c + grain)) for c in base) + (255,)
+        textures.append((f"form_material_{-material}", swatch, False, 0, 0))
+        terrain_indices[material] = len(textures)
 
     for unit in units:
         key = (
@@ -476,7 +627,7 @@ def write_textures(
     # One tiny, deterministic font atlas lets the target draw live health,
     # forecasts and arbitrary ability counts without shipping Sony's debug
     # font or baking encounter-specific text into the background.
-    # Keep the atlas inside one 16-bit PS1 texture page (64 pixels wide).
+    # Keep the atlas inside one indexed PS1 texture page.
     ui = Image.new("RGBA", (64, 80), (0, 0, 0, 0))
     draw = ImageDraw.Draw(ui)
     font = ImageFont.load_default()
@@ -488,12 +639,49 @@ def write_textures(
         )
     textures.append(("compact_ui_font", ui, True, 0, 0))
     ui_index = len(textures)
+    backdrop_indices = []
+    backdrop_root = repo / "platform/godot/project"
+    backdrop_manifest = json.loads((backdrop_root / "art/combat_backdrops/manifest.json").read_text())
+    map_hash = f"{int(map_id):016x}"
+    backdrop_pack = next((pack for pack in backdrop_manifest["packs"]
+                          if map_hash in pack.get("compatibility", {}).get("map_ids", [])), None)
+    if backdrop_pack is None and units and all(int(unit["style"]) == 0 for unit in units):
+        dominant = TERRAIN_NAMES[max(set(terrain_kinds), key=terrain_kinds.count)]
+        backdrop_pack = next((pack for pack in backdrop_manifest["packs"]
+                              if not pack.get("compatibility") and pack.get("dominant_terrain") == dominant), None)
+    if backdrop_pack is not None:
+        source = backdrop_root / backdrop_pack["root"].removeprefix("res://") / backdrop_pack["filename_patterns"]["panorama"].format(variant=0)
+        with Image.open(source) as panorama:
+            plate = panorama.convert("RGBA").resize((320, 240), Image.Resampling.LANCZOS)
+        for strip in range(4):
+            textures.append((f"combat_plate_{strip}", plate.crop((strip * 80, 0, (strip + 1) * 80, 240)), False, 0, 0))
+            backdrop_indices.append(len(textures))
+    if len(textures) > 256:
+        raise ValueError("stage exceeds Mipsync's 256 texture descriptors")
 
     # Pack the tallest rectangles first. Scene order is semantic (indices are
     # embedded in meshes), but atlas placement is not; separating the two
     # avoids the narrow holes produced by first-fit terrain strips on stages
     # with a broader unit roster.
     placements: dict[int, tuple[int, int]] = {}
+    material_palettes = {
+        index: slot for slot, index in enumerate(
+            index for index, (name, *_rest) in enumerate(textures)
+            if name.startswith(("terrain_", "form_material_"))
+        )
+    }
+    if len(material_palettes) > 16:
+        raise ValueError("4-bit terrain bank exceeds reserved CLUT slots")
+    palette_owner = next(index for index in range(len(textures))
+                         if index not in material_palettes)
+    # Only one unit walks at a time. Its six compass/contact frames share a
+    # slot, while idle, attack and hurt remain independently resident so two
+    # identical archetypes can fight without overwriting each other's art.
+    residency_slots: dict[int, int] = {}
+    for poses in unit_indices.values():
+        owner = poses[1] - 1
+        for pose in poses[1:7]:
+            residency_slots[pose - 1] = owner
     for index in sorted(
         range(len(textures)),
         key=lambda item: (
@@ -502,30 +690,67 @@ def write_textures(
             item,
         ),
     ):
+        if index in residency_slots and residency_slots[index] != index:
+            continue
         image = textures[index][1]
-        placements[index] = packer.place(image.width, image.height)
+        placements[index] = packer.place(image.width, image.height,
+                                         4 if index in material_palettes else 8)
+    for index, owner in residency_slots.items():
+        placements[index] = placements[owner]
     textures = [
         (name, image, cutout, *placements[index])
         for index, (name, image, cutout, _x, _y) in enumerate(textures)
     ]
+    palette_colours, palette_image = shared_stage_palette(
+        [image for name, image, _cutout, _x, _y in textures
+         if not name.startswith("combat_plate_")]
+    )
+    backdrop_palette = shared_stage_palette(
+        [textures[index - 1][1] for index in backdrop_indices]
+    ) if backdrop_indices else None
 
     lines = ["/* Generated from a real Grandleon scene manifest. Do not edit. */", '#include "../runtime/textures.h"', ""]
-    occupied_pixels = 0
-    for name, image, cutout, x, y in textures:
-        words = tim_words(image, x, y, cutout)
+    image_vram_bytes = 0
+    embedded_texture_bytes = 0
+    for index, (name, image, cutout, x, y) in enumerate(textures):
+        is_backdrop = index + 1 in backdrop_indices
+        colours, palette = backdrop_palette if is_backdrop else (palette_colours, palette_image)
+        words = tim_words(
+            image, x, y, cutout, colours, palette,
+            include_palette=(index + 1 == backdrop_indices[0]) if is_backdrop else index == palette_owner,
+            depth_bits=4 if index in material_palettes else 8,
+            palette_slot=material_palettes.get(index, 0),
+            palette_row=CLUT_Y - 2 if is_backdrop else CLUT_Y,
+        )
         lines.extend((f"static const uint32_t k_{name}_tim[] = {{", c_words(words), "};", ""))
-        occupied_pixels += image.width * image.height
+        if residency_slots.get(index, index) == index:
+            bits = 4 if index in material_palettes else 8
+            image_vram_bytes += math.ceil(image.width * bits / 16) * image.height * 2
+        embedded_texture_bytes += len(words) * 4
     lines.append("const ps1_texture_desc g_ps1_textures[] = {")
-    for name, _image, cutout, _x, _y in textures:
+    for index, (name, _image, cutout, _x, _y) in enumerate(textures):
+        slot = residency_slots.get(index, index) + 1
+        clut_owner = backdrop_indices[0] if index + 1 in backdrop_indices else palette_owner + 1
         lines.append(
-            f"    {{ k_{name}_tim, sizeof(k_{name}_tim) / sizeof(k_{name}_tim[0]), 0, {1 if cutout else 0} }},"
+            f"    {{ k_{name}_tim, sizeof(k_{name}_tim) / sizeof(k_{name}_tim[0]), 0, {1 if cutout else 0}, {clut_owner}, {slot} }},"
         )
     lines.extend(("};", "const unsigned int g_ps1_texture_count =", "    sizeof(g_ps1_textures) / sizeof(g_ps1_textures[0]);", ""))
+    lines.append("const unsigned int g_grandleon_combat_plate_indices[4] = {" + ",".join(map(str, backdrop_indices or [0] * 4)) + "};")
     (output / "textures_data.c").write_text("\n".join(lines), encoding="utf-8")
+    occupied_vram_bytes = image_vram_bytes + CLUT_COLOURS * 2 + len(material_palettes) * 32 + (512 if backdrop_indices else 0)
     metrics = {
         "texture_count": len(textures),
-        "texture_bytes": occupied_pixels * 2,
-        "vram_reserved_bytes": TEXTURE_WIDTH * TEXTURE_HEIGHT * 2 - occupied_pixels * 2,
+        "texture_depth_bits": TEXTURE_DEPTH_BITS,
+        "material_depth_bits": 4,
+        "palette_colours": CLUT_COLOURS,
+        "palette_strategy": "shared_stage_clut",
+        "residency_strategy": "resident_idle_combat_paged_walk",
+        "combat_plate": bool(backdrop_indices),
+        "texture_bytes": occupied_vram_bytes,
+        "embedded_texture_bytes": embedded_texture_bytes,
+        "vram_reserved_bytes": (
+            TEXTURE_WIDTH * TEXTURE_HEIGHT * 2 - occupied_vram_bytes
+        ),
     }
     return terrain_indices, unit_indices, ui_index, metrics
 
@@ -669,6 +894,7 @@ def append_terrain_form(
     uvs: list[tuple[int, int]],
     triangles: list[tuple[int, int, int, int, int, int, int, int]],
     kind: int, cx: int, floor: int, cz: int, roll: int,
+    materials: dict[int, int],
 ) -> None:
     """Append one small native low-poly landmark for a terrain cell."""
     colour, scale = TERRAIN_FORM_STYLES[kind]
@@ -677,11 +903,16 @@ def append_terrain_form(
     def vertex(x: int, y: int, z: int) -> int:
         index = len(vertices)
         vertices.append((x, y, z, 0))
-        uvs.append((0, 0))
+        uvs.append((((x - cx + z - cz) // 4 + 16) % 32,
+                    ((y - floor + z - cz) // 4) % 32))
         return index
 
     def face(a: int, b: int, c: int, face_colour: tuple[int, int, int]) -> None:
-        triangles.append((a, b, c, 0, 218, *face_colour))
+        material = -2 if kind in (0, 2, 6, 10, 11) else -3
+        if face_colour == (102, 70, 42):
+            material = -1
+        # Neutral texture modulation preserves the form's authored palette.
+        triangles.append((a, b, c, materials[material], 255, *face_colour))
 
     def pyramid(
         x: int, z: int, radius_x: int, radius_z: int, height: int,
@@ -861,7 +1092,14 @@ def write_meshes(
             append_terrain_form(
                 board_vertices, board_uvs, board_triangles,
                 kind, cx, floor, cz, roll,
+                terrain_indices,
             )
+        # Keep native triangle pairs together for the cached quad fast path,
+        # and group their material descriptors to reduce texture switches.
+        batches = [board_triangles[i:i + 2]
+                   for i in range(0, len(board_triangles), 2)]
+        batches.sort(key=lambda pair: pair[0][3])
+        board_triangles = [triangle for pair in batches for triangle in pair]
         board_groups.append((
             board_vertices, board_uvs, board_triangles,
             (min_x, min_y, max_x, max_y),
@@ -973,10 +1211,10 @@ def write_meshes(
         "    { 63, 63 }, { 0, 63 }, { 0, 0 }, { 63, 0 },",
         "};", "",
         "static const ps1_uv8 k_directional_billboard_uvs[] = {",
-        "    { 0, 31 }, { 31, 31 }, { 31, 0 }, { 0, 0 },",
+        "    { 0, 63 }, { 63, 63 }, { 63, 0 }, { 0, 0 },",
         "};", "",
         "static const ps1_uv8 k_directional_billboard_mirrored_uvs[] = {",
-        "    { 31, 31 }, { 0, 31 }, { 0, 0 }, { 31, 0 },",
+        "    { 63, 63 }, { 0, 63 }, { 0, 0 }, { 63, 0 },",
         "};", "",
     ))
     chunk_descriptors: list[tuple[int, int, int, int, int, int, int]] = []
@@ -1115,12 +1353,12 @@ def select_terrain_form_cells(
     present_kinds = {cell[2] for cell in candidates}
     # A handful of props over an entire large map still reads as a flat tile
     # sheet.  The active PS1 page has ample transformed-geometry headroom, so
-    # give roughly one structural form to every four cells while keeping
+    # give roughly one structural form to every three cells while keeping
     # a firm global ceiling. This is dense enough to define regions but keeps
     # worst-case terrain-page changes inside the two-retrace 30 fps budget.
     # Open grass, road and paved cells remain uncluttered.
-    budget = max(len(present_kinds), max(1, (width * height + 3) // 4))
-    budget = min(64, budget, len(candidates))
+    budget = max(len(present_kinds), max(1, (width * height + 2) // 3))
+    budget = min(96, budget, len(candidates))
     selected: list[tuple[int, int, int]] = []
     selected_coordinates: set[tuple[int, int]] = set()
     for kind in sorted(present_kinds):
@@ -1404,6 +1642,7 @@ extern const int32_t g_grandleon_camera_trailing_distance;
 extern const unsigned int g_grandleon_camera_view_tiles_x;
 extern const unsigned int g_grandleon_camera_view_tiles_y;
 extern const unsigned int g_grandleon_ui_texture_index;
+extern const unsigned int g_grandleon_combat_plate_indices[4];
 ps1_entity* grandleon_scene_mutable_entity(unsigned int index);
 #ifdef __cplusplus
 }
@@ -1510,7 +1749,7 @@ def main() -> int:
     typed_units = [unit for unit in units if isinstance(unit, dict)]
     all_kinds = [kind for _x, _y, kind, _authored, _span_x, _span_y in cells]
     terrain_indices, unit_indices, ui_texture, texture_metrics = write_textures(
-        output, repo, all_kinds, typed_units,
+        output, repo, all_kinds, typed_units, str(document.get("map_id", "0")),
     )
     terrain_form_cells = select_terrain_form_cells(
         terrain, width, height, args.surroundings_seed,

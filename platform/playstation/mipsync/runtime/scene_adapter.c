@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 #include "runtime/scene.h"
 #include "runtime/textures.h"
+#include "runtime/render.h"
 #include "generated/grandleon_scene.h"
 #include "game_bridge.h"
 
@@ -87,7 +88,7 @@ static void draw_glyph(
     setUV0(glyph, u, v);
     setRGB0(glyph, red, green, blue);
     setShadeTex(glyph, 0);
-    setClut(glyph, 0, 0);
+    glyph->clut = ps1_texture_clut(texture);
     addPrim(ordering_table + 1, glyph);
     *next_packet = (char*)(glyph + 1);
 }
@@ -181,6 +182,28 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
     grandleon_ui_state state;
     int x;
     grandleon_game_ui_state(&state);
+
+    if (state.close_combat && g_grandleon_combat_plate_indices[0]) {
+        unsigned int strip;
+        for (strip = 0; strip < 4; ++strip) {
+            const unsigned int texture = g_grandleon_combat_plate_indices[strip];
+            POLY_FT4* plate;
+            int u = ps1_texture_u_offset(texture);
+            int v = ps1_texture_v_offset(texture);
+            if ((const char*)(*next_packet + sizeof(POLY_FT4)) > packet_end) break;
+            plate = (POLY_FT4*)*next_packet;
+            setPolyFT4(plate);
+            setXY4(plate, strip * 80, 0, (strip + 1) * 80, 0,
+                   strip * 80, 240, (strip + 1) * 80, 240);
+            setUV4(plate, u, v, u + 79, v, u, v + 239, u + 79, v + 239);
+            setRGB0(plate, 128, 128, 128);
+            setShadeTex(plate, 1);
+            plate->tpage = ps1_texture_tpage(texture);
+            plate->clut = ps1_texture_clut(texture);
+            addPrim(ordering_table + PS1_RENDER_OT_LEN - 1, plate);
+            *next_packet = (char*)(plate + 1);
+        }
+    }
 
     if (state.show_fps) {
         draw_box_depth(ordering_table, next_packet, packet_end,

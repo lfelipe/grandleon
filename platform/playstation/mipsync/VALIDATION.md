@@ -1,5 +1,41 @@
 # PlayStation renderer validation
 
+## Graphics pipeline work in progress
+
+The indexed-texture work restores all nine character poses to 64×64, shares
+one 256-colour unit palette per stage, gives terrain its own 16-colour
+palettes, and pages the six mutually exclusive walking
+frames through one VRAM slot. Idle and combat poses retain independent slots.
+Terrain forms now have bark, foliage, and stone textures and material-grouped
+triangle pairs. The full campaign/card probe passed on the indexed and paged
+build; the subsequent material pass passed the focused movement/combat probe.
+The latter performed an attack, healing, and opposing turns with zero missed
+30 fps deadlines across its 600-tick timing window. Completed frame work
+averaged 348 HBlanks and peaked at 511, leaving little worst-case headroom.
+
+The subsequent Godot-panorama close view, grounded camera, and larger actors
+also passed the focused attack/healing/opposing-turn probe. The 600-tick
+window recorded 300 renders, zero missed deadlines, and completed frame work
+averaging 316 HBlanks with a 512 maximum. Review video and stills are in the
+`final-film` and `final-combat` subdirectories of the evidence root below.
+
+The material build retains all audio, stack, and heap reserves:
+
+| Encounter | Committed RAM | Texture VRAM |
+| --- | ---: | ---: |
+| Bell Orchard | 1,718,264 / 2,097,152 | 211,744 / 720,896 |
+| Cedar Deepwood | 1,759,224 / 2,097,152 | 167,200 / 720,896 |
+| Cedar Watch | 1,923,064 / 2,097,152 | 262,976 / 720,896 |
+| Gate Village | 1,947,640 / 2,097,152 | 281,440 / 720,896 |
+| Twin Gate Keep | 1,878,008 / 2,097,152 | 242,432 / 720,896 |
+
+Evidence and experimental discs are under
+`/home/lstrano/.cache/grandleon-ps1-indexed-build.mOZON2/`.
+These are review builds; the measurements below describe the earlier release
+candidate. Compatible stages now include Godot panorama plates. Landmark
+silhouettes, additional backdrop variations, and hardware testing of pose
+transfers remain open.
+
 Validated on 2026-11-09 with the real two-player Steel and Cedar campaign.
 This is package content running through Grandleon's shared campaign and battle
 rules, not a hand-authored renderer demo.
@@ -116,7 +152,7 @@ framebuffers remain outside source control at
 `/home/lstrano/.cache/grandleon-release05-20261109/playstation/`.
 
 The executable and BIN embed `GRANDLEON_PS1_RENDERER=MIPSYNC`. Mipsync is
-pinned to `866f405a0e34b5925a8d832272fe52c657688430` and receives the five
+pinned to `866f405a0e34b5925a8d832272fe52c657688430` and receives the six
 checked-in upstream patches before each clean build.
 
 ## Remaining platform work

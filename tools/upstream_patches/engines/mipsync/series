@@ -4,3 +4,4 @@
 0003-Cache-static-PS1-terrain-through-flat-mesh-path.patch
 0004-Keep-runtime-enabled-PS1-entities-indexed.patch
 0005-Honor-per-entity-PS1-seam-fill.patch
+0006-Support-indexed-PS1-texture-palettes.patch

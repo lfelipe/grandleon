@@ -527,3 +527,16 @@ portable campaign authoring, and complete combat-outcome coverage.
   pools with combat.
   Unsupported scenes retain the existing readable wash until more art pools
   are authored.
+
+## PlayStation graphics gap
+
+- [x] Add indexed textures and a shared stage palette, restore 64×64 compass
+  poses, and page walking frames through shared VRAM slots.
+- [x] Increase native terrain density and add material textures to existing
+  forms, grouping triangle pairs by material.
+- [x] Use 4-bit palettes for terrain materials while preserving 8-bit units.
+- [x] Reuse compatible Godot panoramas for console close-combat backdrops.
+- [ ] Improve landmark silhouettes and compose more terrain-matched backdrop
+  variations; compare equivalent scenes against Nintendo 64 and Godot.
+- [ ] Validate streamed pose changes on hardware, including identical unit
+  archetypes, scrolling, and the worst-case 30 fps budget.

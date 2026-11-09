@@ -1,0 +1,549 @@
+From 475aa42f09fa044132cc6dc3883e081cb7da5a0c Mon Sep 17 00:00:00 2001
+From: Grandleon contributors <grandleon@example.invalid>
+Date: Mon, 9 Nov 2026 08:55:01 -0800
+Subject: [PATCH] Support indexed PS1 texture palettes
+
+---
+ templates/ps1/starter/runtime/render.c   | 70 +++++++++++++++++-------
+ templates/ps1/starter/runtime/textures.c | 65 +++++++++++++++++++---
+ templates/ps1/starter/runtime/textures.h |  6 ++
+ 3 files changed, 113 insertions(+), 28 deletions(-)
+
+diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c
+index cf417be..07cd0ed 100644
+--- a/templates/ps1/starter/runtime/render.c
++++ b/templates/ps1/starter/runtime/render.c
+@@ -2146,6 +2146,7 @@ typedef struct {
+     int fog_enabled;
+     int use_tex;
+     uint16_t tpage;
++    uint16_t clut;
+     int uoff;
+     int voff;
+ } ps1_cached_flat_quad_context;
+@@ -2346,7 +2347,7 @@ static int __attribute__((noinline)) draw_cached_flat_quad(
+             poly->r2 = r[2]; poly->g2 = g[2]; poly->b2 = b[2];
+             poly->r3 = r[3]; poly->g3 = g[3]; poly->b3 = b[3];
+             poly->tpage = ctx->tpage;
+-            poly->clut = 0;
++            poly->clut = ctx->clut;
+             setUV4(poly,
+                    clamp_u8(ctx->uoff + ctx->mesh->uvs[q[0]].u), clamp_u8(ctx->voff + ctx->mesh->uvs[q[0]].v),
+                    clamp_u8(ctx->uoff + ctx->mesh->uvs[q[1]].u), clamp_u8(ctx->voff + ctx->mesh->uvs[q[1]].v),
+@@ -2363,7 +2364,7 @@ static int __attribute__((noinline)) draw_cached_flat_quad(
+             setXY4(poly, x[0], y[0], x[1], y[1], x[2], y[2], x[3], y[3]);
+             setRGB0(poly, r[0], g[0], b[0]);
+             poly->tpage = ctx->tpage;
+-            poly->clut = 0;
++            poly->clut = ctx->clut;
+             setUV4(poly,
+                    clamp_u8(ctx->uoff + ctx->mesh->uvs[q[0]].u), clamp_u8(ctx->voff + ctx->mesh->uvs[q[0]].v),
+                    clamp_u8(ctx->uoff + ctx->mesh->uvs[q[1]].u), clamp_u8(ctx->voff + ctx->mesh->uvs[q[1]].v),
+@@ -2413,6 +2414,7 @@ typedef struct {
+     int otz;
+     int use_tex;
+     uint16_t tpage;
++    uint16_t clut;
+     int uoff;
+     int voff;
+ } ps1_cached_fog_triangle_context;
+@@ -2433,7 +2435,7 @@ static int __attribute__((noinline)) draw_cached_flat_fog_triangle(
+         poly->r1 = ctx->r[1]; poly->g1 = ctx->g[1]; poly->b1 = ctx->b[1];
+         poly->r2 = ctx->r[2]; poly->g2 = ctx->g[2]; poly->b2 = ctx->b[2];
+         poly->tpage = ctx->tpage;
+-        poly->clut = 0;
++        poly->clut = ctx->clut;
+         setUV3(poly,
+                clamp_u8(ctx->uoff + ctx->mesh->uvs[ctx->face->i0].u),
+                clamp_u8(ctx->voff + ctx->mesh->uvs[ctx->face->i0].v),
+@@ -2470,11 +2472,13 @@ static int draw_cached_flat_mesh(char** pri, const char* packet_end, uint32_t* o
+                                  uint16_t vertex_offset, uint16_t triangle_offset,
+                                  int32_t near_z, int shell_ot_bias,
+                                  int default_use_tex, uint16_t default_tpage,
++                                 uint16_t default_clut,
+                                  int default_uoff, int default_voff, int skip_unsafe,
+                                  const uint16_t* visible_triangles, uint16_t visible_count) {
+     unsigned int cached_texture_index = 0xffffffffu;
+     int cached_use_tex = 0;
+     uint16_t cached_tpage = 0;
++    uint16_t cached_clut = 0;
+     int cached_uoff = 0;
+     int cached_voff = 0;
+     const int fog_enabled = g_ps1_scene.fog_enabled;
+@@ -2506,6 +2510,7 @@ static int draw_cached_flat_mesh(char** pri, const char* packet_end, uint32_t* o
+         int otz;
+         int use_tex;
+         uint16_t tpage;
++        uint16_t clut;
+         int uoff, voff;
+         uint8_t r, g, b;
+         uint8_t r0, g0, b0, r1, g1, b1, r2, g2, b2;
+@@ -2527,6 +2532,7 @@ static int draw_cached_flat_mesh(char** pri, const char* packet_end, uint32_t* o
+                 if (face->texture_index == 0) {
+                     use_tex = default_use_tex;
+                     tpage = default_tpage;
++                    clut = default_clut;
+                     uoff = default_uoff;
+                     voff = default_voff;
+                 } else {
+@@ -2538,16 +2544,19 @@ static int draw_cached_flat_mesh(char** pri, const char* packet_end, uint32_t* o
+                             ps1_texture_width(texture_index) > 0 &&
+                             ps1_texture_height(texture_index) > 0;
+                         cached_tpage = cached_use_tex ? ps1_texture_tpage(texture_index) : 0;
++                        cached_clut = cached_use_tex ? ps1_texture_clut(texture_index) : 0;
+                         cached_uoff = cached_use_tex ? (int)ps1_texture_u_offset(texture_index) : 0;
+                         cached_voff = cached_use_tex ? (int)ps1_texture_v_offset(texture_index) : 0;
+                     }
+                     use_tex = cached_use_tex;
+                     tpage = cached_tpage;
++                    clut = cached_clut;
+                     uoff = cached_uoff;
+                     voff = cached_voff;
+                 }
+                 quad_ctx.use_tex = use_tex;
+                 quad_ctx.tpage = tpage;
++                quad_ctx.clut = clut;
+                 quad_ctx.uoff = uoff;
+                 quad_ctx.voff = voff;
+                 pair_result = draw_cached_flat_quad(&quad_ctx, quad, ti);
+@@ -2616,11 +2625,13 @@ static int draw_cached_flat_mesh(char** pri, const char* packet_end, uint32_t* o
+         if (opaque_fog_solid) {
+             use_tex = 0;
+             tpage = 0;
++            clut = 0;
+             uoff = 0;
+             voff = 0;
+         } else if (face->texture_index == 0) {
+             use_tex = default_use_tex;
+             tpage = default_tpage;
++            clut = default_clut;
+             uoff = default_uoff;
+             voff = default_voff;
+         } else {
+@@ -2632,11 +2643,13 @@ static int draw_cached_flat_mesh(char** pri, const char* packet_end, uint32_t* o
+                     ps1_texture_width(texture_index) > 0 &&
+                     ps1_texture_height(texture_index) > 0;
+                 cached_tpage = cached_use_tex ? ps1_texture_tpage(texture_index) : 0;
++                cached_clut = cached_use_tex ? ps1_texture_clut(texture_index) : 0;
+                 cached_uoff = cached_use_tex ? (int)ps1_texture_u_offset(texture_index) : 0;
+                 cached_voff = cached_use_tex ? (int)ps1_texture_v_offset(texture_index) : 0;
+             }
+             use_tex = cached_use_tex;
+             tpage = cached_tpage;
++            clut = cached_clut;
+             uoff = cached_uoff;
+             voff = cached_voff;
+         }
+@@ -2681,6 +2694,7 @@ static int draw_cached_flat_mesh(char** pri, const char* packet_end, uint32_t* o
+             fog_ctx.otz = otz;
+             fog_ctx.use_tex = use_tex;
+             fog_ctx.tpage = tpage;
++            fog_ctx.clut = clut;
+             fog_ctx.uoff = uoff;
+             fog_ctx.voff = voff;
+             if (!draw_cached_flat_fog_triangle(&fog_ctx))
+@@ -2694,7 +2708,7 @@ static int draw_cached_flat_mesh(char** pri, const char* packet_end, uint32_t* o
+             setXY3(poly, x0, y0, x1, y1, x2, y2);
+             setRGB0(poly, r, g, b);
+             poly->tpage = tpage;
+-            poly->clut = 0;
++            poly->clut = clut;
+             setUV3(poly,
+                    clamp_u8(uoff + mesh->uvs[face->i0].u),
+                    clamp_u8(voff + mesh->uvs[face->i0].v),
+@@ -2735,6 +2749,8 @@ static int draw_clipped_plane_triangle(char** pri, const char* packet_end, uint3
+     const uint8_t* colors[3]={ca,cb,cc};
+     const int u[3]={ua,ub,uc}, v[3]={va,vb,vc};
+     int count, i, added=0;
++    const uint16_t clut = use_texture
++        ? ps1_texture_clut((unsigned int)ent->texture_index) : 0;
+     ps1_mesh_tri floor_face={0};
+     floor_face.ny=ONE;
+     for (i=0;i<3;++i) {
+@@ -2777,7 +2793,7 @@ static int draw_clipped_plane_triangle(char** pri, const char* packet_end, uint3
+             setRGB0(tri,color[0][0],color[0][1],color[0][2]);
+             setRGB1(tri,color[1][0],color[1][1],color[1][2]);
+             setRGB2(tri,color[2][0],color[2][1],color[2][2]);
+-            tri->tpage=tpage; tri->clut=0;
++            tri->tpage=tpage; tri->clut=clut;
+             add_world_primitive(ot+bucket,tri); *pri=(char*)(tri+1);
+         } else {
+             POLY_G3* tri;
+@@ -2831,7 +2847,8 @@ static int __attribute__((noinline)) draw_unlit_viewmodel_fast(
+         char** pri, const char* packet_end, uint32_t* ot,
+         const ps1_entity* ent, const ps1_mesh* m, const MATRIX* composed,
+         int32_t entity_near_z,
+-        int use_tex, uint16_t tpage, int tex_uoff, int tex_voff) {
++        int use_tex, uint16_t tpage, uint16_t clut,
++        int tex_uoff, int tex_voff) {
+     uint16_t ti;
+     int added = 0;
+ 
+@@ -2889,7 +2906,7 @@ static int __attribute__((noinline)) draw_unlit_viewmodel_fast(
+             setXY3(tri, x0, y0, x1, y1, x2, y2);
+             setRGB0(tri, ent->color_r, ent->color_g, ent->color_b);
+             tri->tpage = tpage;
+-            tri->clut = 0;
++            tri->clut = clut;
+             setUV3(tri,
+                    clamp_u8(tex_uoff + m->uvs[t->i0].u), clamp_u8(tex_voff + m->uvs[t->i0].v),
+                    clamp_u8(tex_uoff + m->uvs[t->i1].u), clamp_u8(tex_voff + m->uvs[t->i1].v),
+@@ -3518,6 +3535,8 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p
+             int smooth_object_otz_floor = 0;
+             const uint16_t tpage =
+                 use_tex ? ps1_texture_tpage((unsigned int)ent->texture_index) : 0;
++            const uint16_t clut =
++                use_tex ? ps1_texture_clut((unsigned int)ent->texture_index) : 0;
+             const int tex_uoff =
+                 use_tex ? (int)ps1_texture_u_offset((unsigned int)ent->texture_index) : 0;
+             const int tex_voff =
+@@ -3553,7 +3572,7 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p
+             if (is_viewmodel && ent->render_unlit && viewmodel_cached) {
+                 const int fast_added = draw_unlit_viewmodel_fast(
+                     pri, packet_end, ot, ent, m, &composed, entity_near_z,
+-                    use_tex, tpage, tex_uoff, tex_voff);
++                    use_tex, tpage, clut, tex_uoff, tex_voff);
+                 if (fast_added >= 0)
+                     return fast_added;
+             }
+@@ -3961,7 +3980,7 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p
+                     pri, packet_end, ot, ent, m,
+                     static_vertex_offset, static_triangle_offset,
+                     entity_near_z, shell_ot_bias,
+-                    use_tex, tpage, tex_uoff, tex_voff,
++                    use_tex, tpage, clut, tex_uoff, tex_voff,
+                     static_cache->needs_safe_clip,
+                     static_cache->visible_list_valid ? &s_static_visible_triangles[static_triangle_offset] : 0,
+                     static_cache->visible_triangle_count);
+@@ -4040,7 +4059,7 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p
+                         setXY3(tri, x0, y0, x1, y1, x2, y2);
+                         setRGB0(tri, fog_r, fog_g, fog_b);
+                         tri->tpage = tpage;
+-                        tri->clut = 0;
++                        tri->clut = clut;
+                         setUV3(tri,
+                                clamp_u8(tex_uoff + m->uvs[t->i0].u), clamp_u8(tex_voff + m->uvs[t->i0].v),
+                                clamp_u8(tex_uoff + m->uvs[t->i1].u), clamp_u8(tex_voff + m->uvs[t->i1].v),
+@@ -4074,11 +4093,13 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p
+              * all character triangles share the same texture index. */
+             const int default_use_tex = use_tex;
+             const uint16_t default_tpage = tpage;
++            const uint16_t default_clut = clut;
+             const int default_tex_uoff = tex_uoff;
+             const int default_tex_voff = tex_voff;
+             unsigned int cached_face_texture_index = 0xffffffffu;
+             int cached_face_use_tex = 0;
+             uint16_t cached_face_tpage = 0;
++            uint16_t cached_face_clut = 0;
+             int cached_face_tex_uoff = 0;
+             int cached_face_tex_voff = 0;
+ 
+@@ -4139,6 +4160,7 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p
+                     : (unsigned int)ent->texture_index;
+                 int use_tex;
+                 uint16_t tpage;
++                uint16_t clut;
+                 int tex_uoff;
+                 int tex_voff;
+                 SVECTOR faceN;
+@@ -4149,6 +4171,7 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p
+                 if (t->texture_index == 0) {
+                     use_tex = default_use_tex;
+                     tpage = default_tpage;
++                    clut = default_clut;
+                     tex_uoff = default_tex_uoff;
+                     tex_voff = default_tex_voff;
+                 } else {
+@@ -4160,6 +4183,8 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p
+                             ps1_texture_height(texture_index) > 0;
+                         cached_face_tpage = cached_face_use_tex
+                             ? ps1_texture_tpage(texture_index) : 0;
++                        cached_face_clut = cached_face_use_tex
++                            ? ps1_texture_clut(texture_index) : 0;
+                         cached_face_tex_uoff = cached_face_use_tex
+                             ? (int)ps1_texture_u_offset(texture_index) : 0;
+                         cached_face_tex_voff = cached_face_use_tex
+@@ -4167,6 +4192,7 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p
+                     }
+                     use_tex = cached_face_use_tex;
+                     tpage = cached_face_tpage;
++                    clut = cached_face_clut;
+                     tex_uoff = cached_face_tex_uoff;
+                     tex_voff = cached_face_tex_voff;
+                 }
+@@ -4234,7 +4260,7 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p
+                                 setXY3(tri, x0, y0, x1, y1, x2, y2);
+                                 setRGB0(tri, base_r, base_g, base_b);
+                                 tri->tpage = tpage;
+-                                tri->clut = 0;
++                                tri->clut = clut;
+                                 setUV3(tri,
+                                        clamp_u8(tex_uoff + m->uvs[t->i0].u), clamp_u8(tex_voff + m->uvs[t->i0].v),
+                                        clamp_u8(tex_uoff + m->uvs[t->i1].u), clamp_u8(tex_voff + m->uvs[t->i1].v),
+@@ -4358,7 +4384,7 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p
+                                 setXY3(tri, x0, y0, x1, y1, x2, y2);
+                                 setRGB0(tri, r, g, b);
+                                 tri->tpage = tpage;
+-                                tri->clut = 0;
++                                tri->clut = clut;
+                                 setUV3(tri,
+                                        clamp_u8(tex_uoff + m->uvs[t->i0].u), clamp_u8(tex_voff + m->uvs[t->i0].v),
+                                        clamp_u8(tex_uoff + m->uvs[t->i1].u), clamp_u8(tex_voff + m->uvs[t->i1].v),
+@@ -4429,7 +4455,7 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p
+                                     setXY3(tri, x0, y0, x1, y1, x2, y2);
+                                     setRGB0(tri, r, g, b);
+                                     tri->tpage = tpage;
+-                                    tri->clut = 0;
++                                    tri->clut = clut;
+                                     setUV3(tri,
+                                            clamp_u8(tex_uoff + c0->u), clamp_u8(tex_voff + c0->v),
+                                            clamp_u8(tex_uoff + c1->u), clamp_u8(tex_voff + c1->v),
+@@ -4706,7 +4732,7 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p
+                                     tri->r1 = cr1; tri->g1 = cg1; tri->b1 = cb1;
+                                     tri->r2 = cr2; tri->g2 = cg2; tri->b2 = cb2;
+                                     tri->tpage = tpage;
+-                                    tri->clut = 0;
++                                    tri->clut = clut;
+                                     setUV3(tri,
+                                            clamp_u8(tex_uoff + c0->u), clamp_u8(tex_voff + c0->v),
+                                            clamp_u8(tex_uoff + c1->u), clamp_u8(tex_voff + c1->v),
+@@ -4746,7 +4772,7 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p
+                                     setRGB1(tri, cr1, cg1, cb1);
+                                     setRGB2(tri, cr2, cg2, cb2);
+                                     tri->tpage = tpage;
+-                                    tri->clut = 0;
++                                    tri->clut = clut;
+                                     setUV3(tri,
+                                            clamp_u8(tex_uoff + c0->u), clamp_u8(tex_voff + c0->v),
+                                            clamp_u8(tex_uoff + c1->u), clamp_u8(tex_voff + c1->v),
+@@ -4958,7 +4984,7 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p
+                                 setPolyGT3(gtri);
+                                 setXY3(gtri, tri_x0, tri_y0, tri_x1, tri_y1, tri_x2, tri_y2);
+                                 gtri->tpage = tpage;
+-                                gtri->clut = 0;
++                                gtri->clut = clut;
+                                 setUV3(gtri,
+                                     clamp_u8(tex_uoff + m->uvs[t->i0].u), clamp_u8(tex_voff + m->uvs[t->i0].v),
+                                     clamp_u8(tex_uoff + m->uvs[t->i1].u), clamp_u8(tex_voff + m->uvs[t->i1].v),
+@@ -4986,7 +5012,7 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p
+                             tri->r1 = r1; tri->g1 = g1; tri->b1 = b1;
+                             tri->r2 = r2; tri->g2 = g2; tri->b2 = b2;
+                             tri->tpage = tpage;
+-                            tri->clut = 0;
++                            tri->clut = clut;
+                             setUV3(tri,
+                                    clamp_u8(tex_uoff + m->uvs[t->i0].u), clamp_u8(tex_voff + m->uvs[t->i0].v),
+                                    clamp_u8(tex_uoff + m->uvs[t->i1].u), clamp_u8(tex_voff + m->uvs[t->i1].v),
+@@ -5044,7 +5070,7 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p
+                                 setPolyGT3(gtri);
+                                 setXY3(gtri, tri_x0, tri_y0, tri_x1, tri_y1, tri_x2, tri_y2);
+                                 gtri->tpage = tpage;
+-                                gtri->clut = 0;
++                                gtri->clut = clut;
+                                 setUV3(gtri,
+                                     clamp_u8(tex_uoff + m->uvs[t->i0].u), clamp_u8(tex_voff + m->uvs[t->i0].v),
+                                     clamp_u8(tex_uoff + m->uvs[t->i1].u), clamp_u8(tex_voff + m->uvs[t->i1].v),
+@@ -5073,7 +5099,7 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p
+                             setXY3(tri, tri_x0, tri_y0, tri_x1, tri_y1, tri_x2, tri_y2);
+                             setRGB0(tri, r, g, b);
+                             tri->tpage = tpage;
+-                            tri->clut = 0;
++                            tri->clut = clut;
+                             setUV3(tri,
+                                    clamp_u8(tex_uoff + m->uvs[t->i0].u), clamp_u8(tex_voff + m->uvs[t->i0].v),
+                                    clamp_u8(tex_uoff + m->uvs[t->i1].u), clamp_u8(tex_voff + m->uvs[t->i1].v),
+@@ -5201,6 +5227,8 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p
+             ps1_texture_height((unsigned int)ent->texture_index) > 0;
+         const uint16_t texture_tpage = use_texture
+             ? ps1_texture_tpage((unsigned int)ent->texture_index) : 0;
++        const uint16_t clut = use_texture
++            ? ps1_texture_clut((unsigned int)ent->texture_index) : 0;
+         const int texture_u0 = use_texture
+             ? (int)ps1_texture_u_offset((unsigned int)ent->texture_index) : 0;
+         const int texture_v0 = use_texture
+@@ -5318,7 +5346,7 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p
+                             apply_scene_fog(cz1, &tri->r1, &tri->g1, &tri->b1);
+                             apply_scene_fog(cz2, &tri->r2, &tri->g2, &tri->b2);
+                             tri->tpage = texture_tpage;
+-                            tri->clut = 0;
++                            tri->clut = clut;
+                             add_world_primitive(ot + otz, tri);
+                             *pri = (char*)(tri + 1);
+                         } else {
+@@ -5401,7 +5429,7 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p
+                             apply_scene_fog(cz2, &tri->r1, &tri->g1, &tri->b1);
+                             apply_scene_fog(cz3, &tri->r2, &tri->g2, &tri->b2);
+                             tri->tpage = texture_tpage;
+-                            tri->clut = 0;
++                            tri->clut = clut;
+                             add_world_primitive(ot + otz, tri);
+                             *pri = (char*)(tri + 1);
+                         } else {
+diff --git a/templates/ps1/starter/runtime/textures.c b/templates/ps1/starter/runtime/textures.c
+index 9dbaa49..3e73cba 100644
+--- a/templates/ps1/starter/runtime/textures.c
++++ b/templates/ps1/starter/runtime/textures.c
+@@ -4,10 +4,19 @@
+ #include <stdint.h>
+ 
+ static uint16_t s_tpages[256];
++static uint16_t s_cluts[256];
+ static uint16_t s_widths[256];
+ static uint16_t s_heights[256];
+ static uint16_t s_vram_x[256];
+ static uint16_t s_vram_y[256];
++static uint8_t s_modes[256];
++static uint16_t s_slot_texture[256];
++
++static uint16_t ps1_texture_pixel_width(const TIM_IMAGE* tim) {
++    const unsigned int mode = (unsigned int)(tim->mode & 3u);
++    const unsigned int pixels_per_word = mode == 0u ? 4u : (mode == 1u ? 2u : 1u);
++    return (uint16_t)((unsigned int)tim->prect->w * pixels_per_word);
++}
+ 
+ static void ps1_texture_flush_gpu_cache(void) {
+     DR_TPAGE flush;
+@@ -33,17 +42,38 @@ static int ps1_texture_get_tim(unsigned int texture_index, TIM_IMAGE* tim) {
+ 
+ void ps1_texture_load_to_vram(unsigned int texture_index) {
+     TIM_IMAGE tim;
++    const ps1_texture_desc* t;
+     if (!ps1_texture_get_tim(texture_index, &tim))
+         return;
++    t = &g_ps1_textures[texture_index - 1u];
+     if (tim.mode & 0x8)
+         ps1_gpu_load_image(tim.crect, tim.caddr);
+     ps1_gpu_load_image(tim.prect, tim.paddr);
+     DrawSync(0);
+     ps1_texture_flush_gpu_cache();
+-    s_widths[texture_index - 1u] = (uint16_t)tim.prect->w;
+     s_heights[texture_index - 1u] = (uint16_t)tim.prect->h;
+     s_vram_x[texture_index - 1u] = (uint16_t)tim.prect->x;
+     s_vram_y[texture_index - 1u] = (uint16_t)tim.prect->y;
++    s_modes[texture_index - 1u] = (uint8_t)(tim.mode & 3u);
++    s_widths[texture_index - 1u] = ps1_texture_pixel_width(&tim);
++    s_cluts[texture_index - 1u] = (tim.mode & 0x8u) && tim.crect
++        ? getClut(tim.crect->x, tim.crect->y) : 0;
++    if (!s_cluts[texture_index - 1u] && t->clut_texture_index > 0 &&
++        t->clut_texture_index <= g_ps1_texture_count)
++        s_cluts[texture_index - 1u] = s_cluts[t->clut_texture_index - 1u];
++    s_slot_texture[(t->residency_slot ? t->residency_slot : texture_index) - 1u] =
++        (uint16_t)texture_index;
++}
++
++void ps1_texture_ensure_resident(unsigned int texture_index) {
++    unsigned int slot;
++    if (!texture_index || texture_index > g_ps1_texture_count || texture_index > 256u)
++        return;
++    slot = g_ps1_textures[texture_index - 1u].residency_slot;
++    if (!slot) slot = texture_index;
++    if (slot > 256u) return;
++    if (s_slot_texture[slot - 1u] != texture_index)
++        ps1_texture_load_to_vram(texture_index);
+ }
+ 
+ void ps1_textures_init(void) {
+@@ -51,10 +81,13 @@ void ps1_textures_init(void) {
+ 
+     for (i = 0; i < (unsigned int)(sizeof(s_tpages) / sizeof(s_tpages[0])); ++i) {
+         s_tpages[i] = 0;
++        s_cluts[i] = 0;
+         s_widths[i] = 0;
+         s_heights[i] = 0;
+         s_vram_x[i] = 0;
+         s_vram_y[i] = 0;
++        s_modes[i] = 2;
++        s_slot_texture[i] = 0;
+     }
+ 
+     for (i = 0; i < g_ps1_texture_count && i < 256u; ++i) {
+@@ -64,19 +97,28 @@ void ps1_textures_init(void) {
+         if (!ps1_texture_get_tim(i + 1u, &tim))
+             continue;
+ 
+-        if (tim.mode & 0x8)
+-            ps1_gpu_load_image(tim.crect, tim.caddr);
+-        ps1_gpu_load_image(tim.prect, tim.paddr);
++        if (!t->residency_slot || t->residency_slot == i + 1u) {
++            if (tim.mode & 0x8)
++                ps1_gpu_load_image(tim.crect, tim.caddr);
++            ps1_gpu_load_image(tim.prect, tim.paddr);
++            s_slot_texture[i] = (uint16_t)(i + 1u);
++        }
+ 
+         {
+             const int tp = (int)(tim.mode & 3u);
+             s_tpages[i] = getTPage(tp, 0, tim.prect->x, tim.prect->y);
+             if (s_tpages[i] == 0)
+                 s_tpages[i] = getTPage(2, 0, tim.prect->x, tim.prect->y);
+-            s_widths[i] = (uint16_t)tim.prect->w;
++            s_widths[i] = ps1_texture_pixel_width(&tim);
+             s_heights[i] = (uint16_t)tim.prect->h;
+             s_vram_x[i] = (uint16_t)tim.prect->x;
+             s_vram_y[i] = (uint16_t)tim.prect->y;
++            s_modes[i] = (uint8_t)tp;
++            s_cluts[i] = (tim.mode & 0x8u) && tim.crect
++                ? getClut(tim.crect->x, tim.crect->y) : 0;
++            if (!s_cluts[i] && t->clut_texture_index > 0 &&
++                t->clut_texture_index <= g_ps1_texture_count)
++                s_cluts[i] = s_cluts[t->clut_texture_index - 1u];
+         }
+     }
+ 
+@@ -90,6 +132,12 @@ uint16_t ps1_texture_tpage(unsigned int texture_index) {
+     return s_tpages[texture_index - 1];
+ }
+ 
++uint16_t ps1_texture_clut(unsigned int texture_index) {
++    if (texture_index == 0 || texture_index > g_ps1_texture_count)
++        return 0;
++    return s_cluts[texture_index - 1];
++}
++
+ uint16_t ps1_texture_width(unsigned int texture_index) {
+     if (texture_index == 0 || texture_index > g_ps1_texture_count)
+         return 0;
+@@ -117,8 +165,11 @@ uint16_t ps1_texture_vram_y(unsigned int texture_index) {
+ uint8_t ps1_texture_u_offset(unsigned int texture_index) {
+     if (texture_index == 0 || texture_index > g_ps1_texture_count)
+         return 0;
+-    /* getTPage() anchors 16-bpp pages on 64-texel X boundaries. */
+-    return (uint8_t)(s_vram_x[texture_index - 1] & 63u);
++    /* VRAM X is measured in 16-bit words. One word stores four 4-bpp,
++       two 8-bpp, or one 16-bpp texel inside a 64-word texture page. */
++    return (uint8_t)((s_vram_x[texture_index - 1] & 63u) <<
++        (s_modes[texture_index - 1] == 0 ? 2 :
++         s_modes[texture_index - 1] == 1 ? 1 : 0));
+ }
+ 
+ uint8_t ps1_texture_v_offset(unsigned int texture_index) {
+diff --git a/templates/ps1/starter/runtime/textures.h b/templates/ps1/starter/runtime/textures.h
+index be8aec5..b48ef79 100644
+--- a/templates/ps1/starter/runtime/textures.h
++++ b/templates/ps1/starter/runtime/textures.h
+@@ -8,6 +8,10 @@ typedef struct {
+     unsigned int    tim_word_count;
+     uint8_t         is_background;
+     uint8_t         has_cutout;
++    /* Optional one-based descriptor whose CLUT is shared by this image. */
++    uint16_t        clut_texture_index;
++    /* One-based owner of a VRAM slot shared by mutually exclusive poses. */
++    uint16_t        residency_slot;
+ } ps1_texture_desc;
+ 
+ extern const ps1_texture_desc g_ps1_textures[];
+@@ -16,9 +20,11 @@ extern const unsigned int     g_ps1_texture_count;
+ /* Upload TIM textures to VRAM. Call once after GPU init. */
+ void ps1_textures_init(void);
+ void ps1_texture_load_to_vram(unsigned int texture_index);
++void ps1_texture_ensure_resident(unsigned int texture_index);
+ 
+ /* 0 = none; 1..g_ps1_texture_count = tpage for POLY_FT* primitives. */
+ uint16_t ps1_texture_tpage(unsigned int texture_index);
++uint16_t ps1_texture_clut(unsigned int texture_index);
+ uint16_t ps1_texture_width(unsigned int texture_index);
+ uint16_t ps1_texture_height(unsigned int texture_index);
+ uint16_t ps1_texture_vram_x(unsigned int texture_index);
+-- 
+2.53.0
+

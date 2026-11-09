@@ -87,20 +87,24 @@ else
 fi
 output=$(CDPATH= cd -- "$output" && pwd)
 
-nm=$PSN00BSDK_ROOT/bin/mipsel-none-elf-nm
-address_of() {
-    "$nm" -n "$1" | awk '$3 == "grandleon_runtime_update" {
-        print "0x" substr($1, length($1) - 7); found = 1
-    } END { if (!found) exit 1 }'
-}
-bell_update=$(address_of "$build/bell-build/grandleon_mipsync.elf")
-for stage in deep watch village gate; do
-    stage_update=$(address_of "$build/$stage-build/grandleon_mipsync.elf")
-    test "$bell_update" = "$stage_update" || {
-        echo "campaign probe update seam differs: $bell_update vs $stage_update ($stage)" >&2
-        exit 1
+if test -n "${GRANDLEON_UPDATE_ADDRESS:-}"; then
+    bell_update=$GRANDLEON_UPDATE_ADDRESS
+else
+    nm=$PSN00BSDK_ROOT/bin/mipsel-none-elf-nm
+    address_of() {
+        "$nm" -n "$1" | awk '$3 == "grandleon_runtime_update" {
+            print "0x" substr($1, length($1) - 7); found = 1
+        } END { if (!found) exit 1 }'
     }
-done
+    bell_update=$(address_of "$build/bell-build/grandleon_mipsync.elf")
+    for stage in deep watch village gate; do
+        stage_update=$(address_of "$build/$stage-build/grandleon_mipsync.elf")
+        test "$bell_update" = "$stage_update" || {
+            echo "campaign probe update seam differs: $bell_update vs $stage_update ($stage)" >&2
+            exit 1
+        }
+    done
+fi
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 docker=${GRANDLEON_DOCKER:-docker}
