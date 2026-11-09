@@ -105,6 +105,7 @@ def load_manifest(path: Path) -> dict[str, object]:
     passability = document.get("passability")
     units = document.get("units")
     surroundings = document.get("surroundings")
+    visibility = document.get("visual_visibility")
     if not isinstance(terrain, list) or len(terrain) != width * height:
         raise ValueError("terrain length does not match width times height")
     if not isinstance(passability, list) or len(passability) != width * height:
@@ -113,6 +114,18 @@ def load_manifest(path: Path) -> dict[str, object]:
         raise ValueError("units must be an array with at most 48 entries")
     if not isinstance(surroundings, dict):
         raise ValueError("surroundings must be an object")
+    if not isinstance(visibility, dict):
+        raise ValueError("visual_visibility must be an object")
+    require_int(visibility.get("reveal_radius"), "reveal radius", 0, 8)
+    hidden_cells = visibility.get("hidden_cells")
+    if not isinstance(hidden_cells, list):
+        raise ValueError("hidden_cells must be an array")
+    if len(hidden_cells) > width * height:
+        raise ValueError("hidden_cells exceeds the map")
+    if len(set(hidden_cells)) != len(hidden_cells):
+        raise ValueError("hidden_cells contains duplicates")
+    for index, cell in enumerate(hidden_cells):
+        require_int(cell, f"hidden_cells[{index}]", 0, width * height - 1)
     if not isinstance(document.get("simulation"), dict):
         raise ValueError("simulation must be an object")
     for index, kind in enumerate(terrain):
@@ -688,6 +701,7 @@ def write_meshes(
     terrain_form_cells: list[tuple[int, int, int]],
     terrain_indices: dict[int, int], seed: int,
     relief_mode: str, cell_lifts: dict[tuple[int, int], int],
+    hidden_cells: list[int],
 ) -> tuple[int, int, list[tuple[int, int, int, int, int, int, int]]]:
     board_groups: list[tuple[
         list[tuple[int, int, int, int]], list[tuple[int, int]],
@@ -793,6 +807,28 @@ def write_meshes(
         (-450, 24, -450, 0), (450, 24, -450, 0),
         (450, 24, 450, 0), (-450, 24, 450, 0),
     ]
+    visibility_vertices: list[tuple[int, int, int, int]] = []
+    visibility_uvs: list[tuple[int, int]] = []
+    visibility_triangles: list[tuple[int, int, int, int, int, int]] = []
+    for order, cell in enumerate(hidden_cells):
+        x = cell % width
+        y = cell // width
+        left = (x * 2 - width) * 64
+        right = left + 128
+        top = (height - y * 2) * 64
+        bottom = top - 128
+        roof = surface_relief(x, y, cell_lifts) + 43
+        first = len(visibility_vertices)
+        visibility_vertices.extend((
+            (left, roof, top, 0), (right, roof, top, 0),
+            (left, roof, bottom, 0), (right, roof, bottom, 0),
+        ))
+        visibility_uvs.extend(((0, 0), (0, 0), (0, 0), (0, 0)))
+        colour = (109, 59, 49) if order % 2 == 0 else (91, 48, 43)
+        visibility_triangles.extend((
+            (first, first + 2, first + 1, *colour),
+            (first + 2, first + 3, first + 1, *colour),
+        ))
     combat_floor_vertices = [
         (-192, 0, 192, 0), (192, 0, 192, 0),
         (-192, 0, -192, 0), (192, 0, -192, 0),
@@ -843,16 +879,65 @@ def write_meshes(
     lines.extend(("};", ""))
     lines += emit_vectors("k_cursor_vertices", cursor_vertices)
     lines += emit_vectors("k_cursor_normals", [(0, 4096, 0, 0)] * 4)
+    if visibility_vertices:
+        lines += emit_vectors("k_visibility_vertices", visibility_vertices)
+        lines += emit_vectors(
+            "k_visibility_normals",
+            [(0, 4096, 0, 0)] * len(visibility_vertices),
+        )
+        lines.append("static const ps1_uv8 k_visibility_uvs[] = {")
+        lines.extend(f"    {{ {u}, {v} }}," for u, v in visibility_uvs)
+        lines.extend((
+            "};", "", "static const ps1_mesh_tri k_visibility_triangles[] = {",
+        ))
+        for i0, i1, i2, red, green, blue in visibility_triangles:
+            lines.append(
+                f"    {{ .i0={i0}, .i1={i1}, .i2={i2}, .ny=4096, "
+                f".shade=255, .color_r={red}, .color_g={green}, .color_b={blue} }},"
+            )
+        lines.extend(("};", ""))
+        centre_x = (
+            min(vertex[0] for vertex in visibility_vertices)
+            + max(vertex[0] for vertex in visibility_vertices)
+        ) // 2
+        centre_y = (
+            min(vertex[1] for vertex in visibility_vertices)
+            + max(vertex[1] for vertex in visibility_vertices)
+        ) // 2
+        centre_z = (
+            min(vertex[2] for vertex in visibility_vertices)
+            + max(vertex[2] for vertex in visibility_vertices)
+        ) // 2
+        radius = math.ceil(max(
+            math.sqrt(
+                (vertex[0] - centre_x) ** 2
+                + (vertex[1] - centre_y) ** 2
+                + (vertex[2] - centre_z) ** 2
+            )
+            for vertex in visibility_vertices
+        ))
+        visibility_mesh_line = (
+            "    { .verts=k_visibility_vertices, .norms=k_visibility_normals, "
+            ".vert_count=sizeof(k_visibility_vertices)/sizeof(k_visibility_vertices[0]), "
+            ".uvs=k_visibility_uvs, .tris=k_visibility_triangles, "
+            ".tri_count=sizeof(k_visibility_triangles)/sizeof(k_visibility_triangles[0]), "
+            f".scale_q12=4096, .bounds_center_x={centre_x}, "
+            f".bounds_center_y={centre_y}, .bounds_center_z={centre_z}, "
+            f".bounds_radius={radius}, .flags=PS1_MESH_FLAG_TERRAIN }},"
+        )
+    else:
+        visibility_mesh_line = None
     lines.extend((
         "static const ps1_uv8 k_cursor_uvs[] = { {0,0}, {0,0}, {0,0}, {0,0} };",
         "static const ps1_mesh_tri k_cursor_triangles[] = {",
-        "    { .i0=0, .i1=2, .i2=1, .ny=4096, .shade=255, .color_r=255, .color_g=225, .color_b=48 },",
-        "    { .i0=0, .i1=3, .i2=2, .ny=4096, .shade=255, .color_r=255, .color_g=225, .color_b=48 },",
+        "    { .i0=0, .i1=2, .i2=1, .ny=4096, .shade=255, .color_r=255, .color_g=255, .color_b=255 },",
+        "    { .i0=0, .i1=3, .i2=2, .ny=4096, .shade=255, .color_r=255, .color_g=255, .color_b=255 },",
         "};", "", "const ps1_mesh g_ps1_meshes[] = {",
         "    { .verts=k_billboard_vertices, .norms=k_billboard_normals, .vert_count=4, .uvs=k_billboard_uvs, .tris=k_billboard_triangles, .tri_count=2, .scale_q12=256, .bounds_center_y=512, .bounds_radius=724 },",
         *chunk_mesh_lines,
         "    { .verts=k_combat_floor_vertices, .norms=k_combat_floor_normals, .vert_count=4, .uvs=k_combat_floor_uvs, .tris=k_combat_floor_triangles, .tri_count=2, .scale_q12=4096, .bounds_radius=272, .flags=PS1_MESH_FLAG_TERRAIN },",
         "    { .verts=k_cursor_vertices, .norms=k_cursor_normals, .vert_count=4, .uvs=k_cursor_uvs, .tris=k_cursor_triangles, .tri_count=2, .scale_q12=256, .bounds_radius=640, .flags=PS1_MESH_FLAG_TERRAIN },",
+        *([visibility_mesh_line] if visibility_mesh_line else []),
         "};", "const unsigned int g_ps1_mesh_count =", "    sizeof(g_ps1_meshes) / sizeof(g_ps1_meshes[0]);", ""))
     (output / "mesh_data.c").write_text("\n".join(lines), encoding="utf-8")
     return vertex_count + 8, triangle_count + 4, chunk_descriptors
@@ -999,6 +1084,18 @@ def write_scene(
         )
         next_id += 1
         entity_index += 1
+    visibility = document["visual_visibility"]
+    assert isinstance(visibility, dict)
+    hidden_cells = [int(value) for value in visibility["hidden_cells"]]
+    cursor_mesh_index = 3 + len(terrain_chunks)
+    visibility_entity_index = 0
+    if hidden_cells:
+        visibility_entity_index = entity_index
+        lines.append(
+            f"    {{ .id={next_id}u, .name=\"visual_visibility_roof\", .parent_entity_index=-1, .scale={{65536,65536,65536}}, .mesh=PS1_MESH_CUSTOM, .mesh_index={cursor_mesh_index + 1}, .mesh_size=65536, .mesh_enabled=1, .color_r=255, .color_g=255, .color_b=255, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_FLOOR, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
+        )
+        next_id += 1
+        entity_index += 1
     first_unit = next(
         (unit for unit in units if isinstance(unit, dict) and int(unit["side"]) == 0),
         units[0],
@@ -1012,7 +1109,6 @@ def write_scene(
     camera_focus_z = -camera_focus(cursor_y, height, CAMERA_VIEW_TILES_Y)
     cursor_world_y = fixed(surface_lifts[cursor_y * width + cursor_x] / 64)
     cursor_index = entity_index
-    cursor_mesh_index = 3 + len(terrain_chunks)
     lines.append(
         f"    {{ .id={next_id}u, .name=\"player_one_cursor\", .parent_entity_index=-1, .position={{{fixed(cursor_world_x)},{cursor_world_y},{fixed(cursor_world_z)}}}, .scale={{65536,65536,65536}}, .mesh=PS1_MESH_CUSTOM, .mesh_index={cursor_mesh_index}, .mesh_size=65536, .mesh_enabled=1, .color_r=255, .color_g=225, .color_b=48, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_FLOOR, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
     )
@@ -1023,10 +1119,10 @@ def write_scene(
     )
     next_id += 1
     entity_index += 1
-    camera_index = cursor_index + 2
+    camera_index = entity_index
     lines.extend((
         f"    {{ .id={next_id}u, .name=\"clamped_board_camera\", .parent_entity_index=-1, .position={{{fixed(camera_focus_x)},{fixed(CAMERA_HEIGHT)},{fixed(camera_focus_z + CAMERA_TRAILING_DISTANCE)}}}, .rotation={{{fixed(-40)},0,0}}, .scale={{65536,65536,65536}}, .rigid_root_entity_index=-1, .collider_shape=-1, .has_camera=1, .camera_primary=1, .camera_fov={fixed(45)}, .camera_near={fixed(0.2)}, .camera_far={fixed(80)}, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},",
-        "};", "", "const ps1_scene g_ps1_scene = {", "    .entities=k_ps1_entities,", "    .entity_count=sizeof(k_ps1_entities)/sizeof(k_ps1_entities[0]),", f"    .camera_entity_index={camera_index},", "    .light={ .enabled=1, .dir_x=-1024, .dir_y=3072, .dir_z=2048, .color_r=255, .color_g=244, .color_b=220, .ambient_r=96, .ambient_g=96, .ambient_b=112 },", f"    .fog_enabled=1, .fog_r={fog_colour[0]}, .fog_g={fog_colour[1]}, .fog_b={fog_colour[2]},", f"    .fog_start={fixed(18)}, .fog_end={fixed(36)},", f"    .meshes=g_ps1_meshes, .mesh_count={cursor_mesh_index},", "};", "",
+        "};", "", "const ps1_scene g_ps1_scene = {", "    .entities=k_ps1_entities,", "    .entity_count=sizeof(k_ps1_entities)/sizeof(k_ps1_entities[0]),", f"    .camera_entity_index={camera_index},", "    .light={ .enabled=1, .dir_x=-1024, .dir_y=3072, .dir_z=2048, .color_r=255, .color_g=244, .color_b=220, .ambient_r=96, .ambient_g=96, .ambient_b=112 },", f"    .fog_enabled=1, .fog_r={fog_colour[0]}, .fog_g={fog_colour[1]}, .fog_b={fog_colour[2]},", f"    .fog_start={fixed(18)}, .fog_end={fixed(36)},", f"    .meshes=g_ps1_meshes, .mesh_count={cursor_mesh_index + (1 if hidden_cells else 0)},", "};", "",
         "const uint64_t g_grandleon_unit_ids[] = {",
         *(f"    {int(unit['id'])}ULL," for unit in units if isinstance(unit, dict)),
         "};",
@@ -1034,6 +1130,13 @@ def write_scene(
         *(f"    {index}u," for index in unit_entity_indices),
         "};",
         "const unsigned int g_grandleon_unit_count = sizeof(g_grandleon_unit_ids) / sizeof(g_grandleon_unit_ids[0]);",
+        f"const unsigned int g_grandleon_visibility_entity_index = {visibility_entity_index}u;",
+        "const uint16_t g_grandleon_visibility_cell_indices[] = {",
+        *(f"    {cell}u," for cell in hidden_cells),
+        "    0u," if not hidden_cells else "",
+        "};",
+        f"const unsigned int g_grandleon_visibility_cell_count = {len(hidden_cells)}u;",
+        f"const unsigned int g_grandleon_visibility_reveal_radius = {int(visibility['reveal_radius'])}u;",
         "const int32_t g_grandleon_terrain_surface_y_q16[] = {",
         *(f"    {fixed(value / 64)}," for value in surface_lifts),
         "};",
@@ -1078,6 +1181,10 @@ extern "C" {
 extern const uint64_t g_grandleon_unit_ids[];
 extern const unsigned int g_grandleon_unit_entity_indices[];
 extern const unsigned int g_grandleon_unit_count;
+extern const unsigned int g_grandleon_visibility_entity_index;
+extern const uint16_t g_grandleon_visibility_cell_indices[];
+extern const unsigned int g_grandleon_visibility_cell_count;
+extern const unsigned int g_grandleon_visibility_reveal_radius;
 extern const int32_t g_grandleon_terrain_surface_y_q16[];
 extern const unsigned int g_grandleon_terrain_surface_count;
 extern const unsigned int g_grandleon_terrain_entity_indices[];
@@ -1102,7 +1209,7 @@ ps1_entity* grandleon_scene_mutable_entity(unsigned int index);
 #endif
 """
     (output / "grandleon_scene.h").write_text(header, encoding="utf-8")
-    return len(terrain_chunks) + len(units) + 3
+    return entity_index + 1  # plus the camera appended below the indexed entities
 
 
 def main() -> int:
@@ -1211,24 +1318,34 @@ def main() -> int:
         sorted({kind for kind in terrain if kind not in (1, 12)} or set(terrain)),
         key=terrain.count,
     )
+    visibility = document["visual_visibility"]
+    assert isinstance(visibility, dict)
+    hidden_cells = [int(value) for value in visibility["hidden_cells"]]
+    surface_lifts = (
+        [
+            surface_relief(x, y, cell_lifts)
+            for y in range(height) for x in range(width)
+        ]
+        if args.terrain_relief == "smooth" else [0] * (width * height)
+    )
     board_vertices, board_triangles, terrain_chunks = write_meshes(
         output, terrain_groups, width, height, terrain_form_cells,
         terrain_indices, args.surroundings_seed,
-        args.terrain_relief, cell_lifts,
+        args.terrain_relief, cell_lifts, hidden_cells,
     )
     entities = write_scene(
         output, document, unit_indices, terrain_chunks,
         ui_texture, ui_label_texture,
-        [surface_relief(x, y, cell_lifts) for y in range(height) for x in range(width)]
-        if args.terrain_relief == "smooth" else [0] * (width * height),
+        surface_lifts,
         shifted_colour(relay_colours(repo, distant_kind)[0], 65),
     )
     visible_units = visible_position_peak(
         [(int(unit["x"]), int(unit["y"])) for unit in typed_units],
         width, height,
     )
-    cache_vertices = board_vertices + visible_units * 4
-    cache_triangles = board_triangles + visible_units * 2
+    visible_covers = len(hidden_cells)
+    cache_vertices = board_vertices + (visible_units + visible_covers) * 4
+    cache_triangles = board_triangles + (visible_units + visible_covers) * 2
     if cache_vertices > MAX_CACHE_VERTICES or cache_triangles > MAX_CACHE_TRIANGLES:
         raise ValueError(
             f"visible scene exceeds trimmed Mipsync caches: {cache_vertices}/{MAX_CACHE_VERTICES} vertices, "
@@ -1243,7 +1360,12 @@ def main() -> int:
         "terrain_forms": len(terrain_form_cells),
         "terrain_relief": args.terrain_relief,
         "terrain_material": "relay",
-        "visible": {"units": visible_units},
+        "visibility": {
+            "cells": len(hidden_cells),
+            "entities": 1 if hidden_cells else 0,
+            "reveal": "whole_authored_region_on_entry",
+        },
+        "visible": {"units": visible_units, "covers": visible_covers},
         "cache": {"vertices": cache_vertices, "vertex_limit": MAX_CACHE_VERTICES, "triangles": cache_triangles, "triangle_limit": MAX_CACHE_TRIANGLES},
         "vram": texture_metrics,
         "camera": {

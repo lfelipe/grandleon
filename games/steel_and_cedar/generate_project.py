@@ -108,10 +108,28 @@ def map_record(key: str, name: str) -> dict:
     assert all(len(row) == width for row in rows)
     terrain = [TERRAIN_CODES[cell] for row in rows for cell in row]
     assert len(set(terrain)) >= 5
-    return {
+    result = {
         "id": key, "name": name, "width": width, "height": height,
         "terrain": terrain, "surroundings": {"mode": "automatic", "depth": 5},
     }
+    if key == "twin_gate":
+        # The room remains ordinary authoritative terrain. This record only
+        # asks every player to cover its walkable door/floor/dais cells until
+        # a friendly unit enters, then reveal nearby cells for presentation.
+        hidden = [
+            {"x": index % width, "y": index // width}
+            for index, value in enumerate(terrain)
+            if value in {
+                "paved_castle_door", "paved_castle_floor",
+                "paved_castle_dais",
+            }
+        ]
+        assert len(hidden) == 18
+        result["visualVisibility"] = {
+            "revealRadius": 8,
+            "hiddenCells": hidden,
+        }
+    return result
 
 
 def placement(key: str, unit_type: str, side: str, x: int, y: int,

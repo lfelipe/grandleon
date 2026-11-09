@@ -47,6 +47,16 @@ for filename in sys.argv[1:]:
         raise SystemExit(f"{path}: Godot-derived terrain material is not enabled")
     if scene.get("terrain_forms", 0) < 1:
         raise SystemExit(f"{path}: native terrain geometry is missing")
+    visibility = scene.get("visibility", {})
+    if path.name == "gate-build-manifest.json":
+        if visibility.get("cells") != 18 or visibility.get("entities") != 1:
+            raise SystemExit(
+                f"{path}: Twin Gate castle cover is not one batched 18-cell region"
+            )
+        if visibility.get("reveal") != "whole_authored_region_on_entry":
+            raise SystemExit(f"{path}: Twin Gate reveal policy is not recorded")
+    elif visibility.get("cells") != 0 or visibility.get("entities") != 0:
+        raise SystemExit(f"{path}: unexpected hidden-area presentation")
     if not memory.get("passes_playable_slice_budget"):
         raise SystemExit(f"{path}: playable slice exceeds main RAM")
     if memory["playable_slice_committed_bytes"] > memory["main_ram_bytes"]:

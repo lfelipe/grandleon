@@ -663,6 +663,21 @@ int main() {
             floor,
             dais,
         }};
+        expect(
+            map.visual_visibility.reveal_radius == 8U &&
+                map.visual_visibility.hidden_cells.size() == 18U,
+            "Twin Gate authors one portable eighteen-cell interior mask"
+        );
+        for (const std::uint32_t cell :
+             map.visual_visibility.hidden_cells) {
+            expect(
+                cell < map.terrain.size() &&
+                    std::find(
+                        passable.begin(), passable.end(), map.terrain[cell]
+                    ) != passable.end(),
+                "every covered Twin Gate cell is a walkable room cell"
+            );
+        }
         for (std::size_t cell = 0; cell < map.terrain.size(); ++cell) {
             if (map.terrain[cell] == wall) {
                 expect(

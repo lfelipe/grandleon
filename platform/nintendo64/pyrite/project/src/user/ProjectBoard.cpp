@@ -3,6 +3,7 @@
 
 #include <grandleon/client/campaign_session.hpp>
 #include <grandleon/client/session.hpp>
+#include <grandleon/core/content_identity.hpp>
 #include <grandleon/package_runtime/dialogue.hpp>
 #include <grandleon/package_runtime/names.hpp>
 #include <grandleon/package_runtime/presentation.hpp>
@@ -63,7 +64,7 @@ constexpr std::size_t kUnitVertexCount = 4U;
 constexpr std::size_t kMaxUnits = 48U;
 constexpr std::size_t kCursorVerticesPerPlayer = 16U;
 constexpr std::size_t kCursorVertexCount = kCursorVerticesPerPlayer * 2U;
-constexpr std::size_t kMaxLandmarkVertices = 40U;
+constexpr std::size_t kMaxLandmarkVertices = 256U;
 
 enum class VisualPose : std::uint8_t {
     idle,
@@ -100,6 +101,7 @@ struct BoardResources final {
     T3DVertPacked* terrain_forms{};
     T3DVertPacked* trees{};
     T3DVertPacked* landmark{};
+    T3DVertPacked* visibility{};
     T3DVertPacked* units{};
     T3DVertPacked* cursor{};
     sprite_t* terrain{};
@@ -117,6 +119,8 @@ struct BoardResources final {
     std::size_t apron_cell_count{};
     std::size_t tree_count{};
     std::size_t landmark_vertex_count{};
+    std::size_t visibility_vertex_count{};
+    std::array<bool, kMaxCells> visibility_revealed{};
     std::size_t unit_count{};
     std::size_t cursor_vertex_count{kCursorVerticesPerPlayer};
     sim::UnitId rowan_id{};
@@ -982,32 +986,103 @@ void build_landmark_vertices() {
     board.landmark_vertex_count = 0;
     const auto width = board.content->definition.width;
     const auto height = board.content->definition.height;
+    constexpr std::uint64_t castle_wall =
+        grandleon::core::stable_content_id_v1("mountain_castle_wall");
+    constexpr std::uint64_t castle_dais =
+        grandleon::core::stable_content_id_v1("paved_castle_dais");
+    bool built_ruin = false;
     for (std::size_t index = 0; index < board.content->terrain.size(); ++index) {
-        if (terrain_kind(board.content->terrain[index]) != 8U) continue;
+        const std::uint64_t terrain = board.content->terrain[index];
         const auto x = static_cast<std::int16_t>(index % width);
         const auto y = static_cast<std::int16_t>(index / width);
         const std::int16_t cx = world_x(x, width);
         const std::int16_t cz = world_z(y, height);
-        const std::int16_t floor = terrain_lift(board.content->terrain[index]);
-        append_box(cx, floor, cz, 22, 10, 18, pack_rgba(145U, 157U, 161U));
-        append_box(cx - 16, floor + 10, cz, 5, 58, 5, pack_rgba(132U, 143U, 148U));
-        append_box(cx + 16, floor + 10, cz, 5, 58, 5, pack_rgba(132U, 143U, 148U));
-        append_box(cx, floor + 64, cz, 23, 8, 6, pack_rgba(103U, 115U, 121U));
+        const std::int16_t floor = terrain_lift(terrain);
+        if (terrain == castle_wall) {
+            append_box(
+                cx, floor, cz, kHalfCell - 2, 42, kHalfCell - 2,
+                pack_rgba(143U, 132U, 119U)
+            );
+        } else if (terrain == castle_dais) {
+            append_box(
+                cx, floor, cz, kHalfCell - 4, 8, kHalfCell - 4,
+                pack_rgba(133U, 75U, 57U)
+            );
+        } else if (!built_ruin && terrain_kind(terrain) == 8U) {
+            append_box(cx, floor, cz, 22, 10, 18, pack_rgba(145U, 157U, 161U));
+            append_box(cx - 16, floor + 10, cz, 5, 58, 5, pack_rgba(132U, 143U, 148U));
+            append_box(cx + 16, floor + 10, cz, 5, 58, 5, pack_rgba(132U, 143U, 148U));
+            append_box(cx, floor + 64, cz, 23, 8, 6, pack_rgba(103U, 115U, 121U));
+            built_ruin = true;
+        }
+    }
+}
 
-        assert(board.landmark_vertex_count + 6U <= kMaxLandmarkVertices);
-        const fm_vec3_t up = {{0.0F, 1.0F, 0.0F}};
-        const std::uint16_t normal = t3d_vert_pack_normal(&up);
-        const std::size_t first = board.landmark_vertex_count;
-        const std::uint32_t gold = pack_rgba(224U, 171U, 55U);
-        const std::uint32_t bronze = pack_rgba(151U, 92U, 31U);
-        set_vertex(board.landmark, first + 0U, cx, floor + 62, cz, gold, 0, 0, normal);
-        set_vertex(board.landmark, first + 1U, cx - 11, floor + 48, cz, bronze, 0, 0, normal);
-        set_vertex(board.landmark, first + 2U, cx, floor + 48, cz - 11, gold, 0, 0, normal);
-        set_vertex(board.landmark, first + 3U, cx + 11, floor + 48, cz, gold, 0, 0, normal);
-        set_vertex(board.landmark, first + 4U, cx, floor + 48, cz + 11, bronze, 0, 0, normal);
-        set_vertex(board.landmark, first + 5U, cx, floor + 34, cz, bronze, 0, 0, normal);
-        board.landmark_vertex_count += 6U;
+bool visibility_hidden(std::size_t index) {
+    const auto& cells = board.content->visual_visibility.hidden_cells;
+    return std::find(cells.begin(), cells.end(), index) != cells.end();
+}
+
+void update_visual_visibility() {
+    if (board.content->visual_visibility.hidden_cells.empty() || motion.active) {
         return;
+    }
+    const std::uint32_t first_hidden =
+        board.content->visual_visibility.hidden_cells.front();
+    if (board.visibility_revealed[first_hidden]) return;
+    const int width = board.content->definition.width;
+    for (const sim::UnitSnapshot& unit : board.game.snapshot().units) {
+        if (!sim::on_board(unit) || unit.side != sim::Side::first) continue;
+        const std::size_t origin = static_cast<std::size_t>(
+            unit.position.y * width + unit.position.x
+        );
+        if (!visibility_hidden(origin)) continue;
+        for (const std::uint32_t candidate :
+             board.content->visual_visibility.hidden_cells) {
+            board.visibility_revealed[candidate] = true;
+        }
+        debugf(
+            "CHECKPOINT PYRITE_CASTLE_REVEALED cells=%lu\n",
+            static_cast<unsigned long>(
+                board.content->visual_visibility.hidden_cells.size()
+            )
+        );
+        return;
+    }
+}
+
+void build_visibility_vertices() {
+    board.visibility_vertex_count = 0U;
+    const int width = board.content->definition.width;
+    const int height = board.content->definition.height;
+    const fm_vec3_t up = {{0.0F, 1.0F, 0.0F}};
+    const std::uint16_t normal = t3d_vert_pack_normal(&up);
+    for (const std::uint32_t index :
+         board.content->visual_visibility.hidden_cells) {
+        if (index >= board.content->terrain.size() ||
+            board.visibility_revealed[index]) {
+            continue;
+        }
+        const std::int16_t x = static_cast<std::int16_t>(index % width);
+        const std::int16_t y = static_cast<std::int16_t>(index / width);
+        const std::int16_t cx = world_x(x, width);
+        const std::int16_t cz = world_z(y, height);
+        const std::int16_t roof = static_cast<std::int16_t>(
+            terrain_lift(board.content->terrain[index]) + 43
+        );
+        const std::uint32_t colour = (index & 1U)
+            ? pack_rgba(91U, 48U, 43U) : pack_rgba(109U, 59U, 49U);
+        const std::size_t first = board.visibility_vertex_count;
+        assert(first + 4U <= kMaxCells * kCellVertexCount);
+        set_vertex(board.visibility, first + 0U, cx - kHalfCell, roof,
+            cz - kHalfCell, colour, 0, 0, normal);
+        set_vertex(board.visibility, first + 1U, cx + kHalfCell, roof,
+            cz - kHalfCell, colour, 0, 0, normal);
+        set_vertex(board.visibility, first + 2U, cx + kHalfCell, roof,
+            cz + kHalfCell, colour, 0, 0, normal);
+        set_vertex(board.visibility, first + 3U, cx - kHalfCell, roof,
+            cz + kHalfCell, colour, 0, 0, normal);
+        board.visibility_vertex_count += 4U;
     }
 }
 
@@ -1244,6 +1319,14 @@ void build_unit_vertices() {
     board.rowan_health = 0;
     for (const sim::UnitSnapshot& unit : board.game.snapshot().units) {
         if (!sim::on_board(unit) || board.unit_count >= kMaxUnits) continue;
+        const std::size_t unit_cell = static_cast<std::size_t>(
+            unit.position.y * width + unit.position.x
+        );
+        if (visibility_hidden(unit_cell) &&
+            !board.visibility_revealed[unit_cell] &&
+            !(motion.active && motion.unit == unit.id)) {
+            continue;
+        }
         if (sprite_for_unit(unit) == nullptr) continue;
         const std::size_t terrain_index = static_cast<std::size_t>(unit.position.y) * width +
             static_cast<std::size_t>(unit.position.x);
@@ -1416,13 +1499,16 @@ void load_runtime_board() {
         sizeof(T3DVertPacked) * (kMaxTrees * kTreeVertexCount / 2U)));
     board.landmark = static_cast<T3DVertPacked*>(malloc_uncached(
         sizeof(T3DVertPacked) * (kMaxLandmarkVertices / 2U)));
+    board.visibility = static_cast<T3DVertPacked*>(malloc_uncached(
+        sizeof(T3DVertPacked) *
+            (kMaxCells * kCellVertexCount / 2U)));
     board.units = static_cast<T3DVertPacked*>(malloc_uncached(
         sizeof(T3DVertPacked) * (kMaxUnits * kUnitVertexCount / 2U)));
     board.cursor = static_cast<T3DVertPacked*>(malloc_uncached(
         sizeof(T3DVertPacked) * (kCursorVertexCount / 2U)));
     assert(board.cells && board.ground && board.apron && board.elevation &&
-        board.terrain_forms && board.trees && board.landmark && board.units &&
-        board.cursor);
+        board.terrain_forms && board.trees && board.landmark &&
+        board.visibility && board.units && board.cursor);
     board.terrain = sprite_load("rom:/material_atlas.sprite");
     board.combat_backdrop = sprite_load("rom:/combat_backdrop.sprite");
     board.combat_shadow = sprite_load("rom:/soft_shadow.sprite");
@@ -1616,6 +1702,7 @@ void configure_campaign_board(const pr::EncounterLoadResult& content) {
     replay.next_frame = frame_count + 30U;
     motion = {};
     planned_motion = {};
+    board.visibility_revealed.fill(false);
     const bool close_enabled = combat.enabled;
     const bool reduced_motion = combat.reduced_motion;
     combat = {};
@@ -1631,6 +1718,7 @@ void configure_campaign_board(const pr::EncounterLoadResult& content) {
     build_terrain_form_vertices();
     build_tree_vertices();
     build_landmark_vertices();
+    build_visibility_vertices();
     build_unit_vertices();
     build_cursor_vertices();
     queue_battle_moments(pr::MomentTrigger::stage_opens, 0U, true);
@@ -1648,6 +1736,14 @@ void configure_campaign_board(const pr::EncounterLoadResult& content) {
         "CHECKPOINT PYRITE_CAMPAIGN_STAGE index=%lu map=%llu\n",
         static_cast<unsigned long>(shell.stage_index + 1U), content.map_id
     );
+    if (!content.visual_visibility.hidden_cells.empty()) {
+        debugf(
+            "CHECKPOINT PYRITE_CASTLE_CLOSED cells=%lu\n",
+            static_cast<unsigned long>(
+                content.visual_visibility.hidden_cells.size()
+            )
+        );
+    }
     if (shell.stage_index == 0U) debugf("CHECKPOINT PYRITE_CAMPAIGN_FIRST\n");
 }
 
@@ -2125,24 +2221,49 @@ void draw_landmark() {
     t3d_state_set_drawflags(static_cast<T3DDrawFlags>(
         T3D_FLAG_SHADED | T3D_FLAG_DEPTH
     ));
-    t3d_vert_load(
-        board.landmark, 0,
-        static_cast<std::uint32_t>(board.landmark_vertex_count)
-    );
-    draw_box(0U);
-    draw_box(8U);
-    draw_box(16U);
-    draw_box(24U);
-    constexpr std::uint8_t cap = 32U;
-    t3d_tri_draw(cap + 0U, cap + 1U, cap + 2U);
-    t3d_tri_draw(cap + 0U, cap + 2U, cap + 3U);
-    t3d_tri_draw(cap + 0U, cap + 3U, cap + 4U);
-    t3d_tri_draw(cap + 0U, cap + 4U, cap + 1U);
-    t3d_tri_draw(cap + 5U, cap + 2U, cap + 1U);
-    t3d_tri_draw(cap + 5U, cap + 3U, cap + 2U);
-    t3d_tri_draw(cap + 5U, cap + 4U, cap + 3U);
-    t3d_tri_draw(cap + 5U, cap + 1U, cap + 4U);
-    t3d_tri_sync();
+    constexpr std::size_t boxes_per_batch = 8U;
+    const std::size_t box_count = board.landmark_vertex_count / 8U;
+    for (std::size_t begin = 0U; begin < box_count;
+         begin += boxes_per_batch) {
+        const std::size_t count = std::min(
+            boxes_per_batch, box_count - begin
+        );
+        t3d_vert_load(
+            board.landmark + begin * 4U, 0,
+            static_cast<std::uint32_t>(count * 8U)
+        );
+        for (std::size_t local = 0U; local < count; ++local) {
+            draw_box(static_cast<std::uint8_t>(local * 8U));
+        }
+        t3d_tri_sync();
+    }
+}
+
+void draw_visual_visibility() {
+    if (board.visibility_vertex_count == 0U) return;
+    rdpq_mode_begin();
+        rdpq_mode_zbuf(true, true);
+        rdpq_mode_combiner(RDPQ_COMBINER_SHADE);
+        rdpq_mode_blender(0);
+        rdpq_mode_fog(0);
+    rdpq_mode_end();
+    t3d_state_set_drawflags(static_cast<T3DDrawFlags>(
+        T3D_FLAG_SHADED | T3D_FLAG_DEPTH
+    ));
+    const std::size_t cell_count = board.visibility_vertex_count / 4U;
+    for (std::size_t begin = 0; begin < cell_count; begin += kBatchCells) {
+        const std::size_t count = std::min(kBatchCells, cell_count - begin);
+        t3d_vert_load(
+            board.visibility + begin * 2U, 0,
+            static_cast<std::uint32_t>(count * 4U)
+        );
+        for (std::size_t local = 0; local < count; ++local) {
+            const std::uint8_t first = static_cast<std::uint8_t>(local * 4U);
+            t3d_tri_draw(first + 0U, first + 1U, first + 2U);
+            t3d_tri_draw(first + 0U, first + 2U, first + 3U);
+        }
+        t3d_tri_sync();
+    }
 }
 
 void draw_trees() {
@@ -3146,6 +3267,11 @@ void update_performance_sample() {
     assert(shell.stage_index + 1U == grandleon_project_encounter_count);
     assert(board.saves->contains(campaign_slot()));
     assert(!combat.active);
+    if (!board.content->visual_visibility.hidden_cells.empty()) {
+        assert(board.visibility_revealed[
+            board.content->visual_visibility.hidden_cells.front()
+        ]);
+    }
     if (!shell.resumed) {
         assert(shell.total_commands > 0U && shell.total_enemy_commands > 0U);
         assert(shell.total_combats > 0U);
@@ -4024,12 +4150,14 @@ void onSceneUpdate() {
     if (motion.active && frame_count - motion.started >= motion.total_frames) {
         motion.active = false;
     }
+    update_visual_visibility();
     if (restore_checkpoint_delay > 0U && --restore_checkpoint_delay == 0U &&
         !combat.restore_checkpoint) {
         debugf("CHECKPOINT PYRITE_COMBAT_RESTORE\n");
         combat.restore_checkpoint = true;
     }
     build_unit_vertices();
+    build_visibility_vertices();
     build_cursor_vertices();
 
     ++frame_count;
@@ -4044,6 +4172,7 @@ void onScenePreDraw3D() {
     draw_terrain_forms();
     draw_landmark();
     draw_trees();
+    draw_visual_visibility();
     board.shadows.draw();
     draw_cursor();
     draw_units();

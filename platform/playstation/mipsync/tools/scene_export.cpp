@@ -311,6 +311,14 @@ int main(int argc, char** argv) {
             shown.presentation.kind_of_terrain(loaded.surroundings.terrain[index])
         );
     }
+    output << "]},\n  \"visual_visibility\": {\"reveal_radius\": "
+           << static_cast<unsigned>(loaded.visual_visibility.reveal_radius)
+           << ", \"hidden_cells\": [";
+    for (std::size_t index = 0;
+         index < loaded.visual_visibility.hidden_cells.size(); ++index) {
+        if (index != 0) output << ',';
+        output << loaded.visual_visibility.hidden_cells[index];
+    }
     output << "]},\n  \"campaign\": ";
     write_campaign(
         output, package.package, campaign.definition, campaign_id,

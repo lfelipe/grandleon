@@ -67,6 +67,8 @@ std::int32_t s_map_width{};
 std::int32_t s_map_height{};
 unsigned s_active_terrain_chunks{};
 bool s_unit_on_board[64]{};
+bool s_unit_visible[64]{};
+bool s_visibility_revealed[4096]{};
 unsigned s_camera_settle_frames{};
 unsigned s_active_terrain_page{0xffffffffU};
 CampaignMode s_campaign_mode{CampaignMode::battle};
@@ -242,6 +244,62 @@ const sim::UnitSnapshot* unit_at(
         if (sim::on_board(unit) && unit.position == position) return &unit;
     }
     return nullptr;
+}
+
+bool visibility_hidden(std::size_t cell, unsigned* hidden_index = nullptr) {
+    for (unsigned index = 0;
+         index < g_grandleon_visibility_cell_count; ++index) {
+        if (g_grandleon_visibility_cell_indices[index] == cell) {
+            if (hidden_index) *hidden_index = index;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool unit_visible(const sim::UnitSnapshot& unit, int width) {
+    if (!sim::on_board(unit)) return false;
+    unsigned hidden_index = 0;
+    const std::size_t cell = static_cast<std::size_t>(
+        unit.position.y * width + unit.position.x
+    );
+    return !visibility_hidden(cell, &hidden_index) ||
+        s_visibility_revealed[hidden_index];
+}
+
+bool update_visual_visibility(const sim::EncounterSnapshot& snapshot) {
+    for (const sim::UnitSnapshot& unit : snapshot.units) {
+        if (!sim::on_board(unit) || unit.side != sim::Side::first) continue;
+        const std::size_t origin = static_cast<std::size_t>(
+            unit.position.y * snapshot.width + unit.position.x
+        );
+        if (!visibility_hidden(origin)) continue;
+        bool changed = false;
+        for (unsigned index = 0;
+             index < g_grandleon_visibility_cell_count; ++index) {
+            if (!s_visibility_revealed[index]) {
+                s_visibility_revealed[index] = true;
+                changed = true;
+            }
+        }
+        if (changed) {
+            psx::Line().text("MIPSYNC_VISIBILITY_REVEAL cells=")
+                .decimal(g_grandleon_visibility_cell_count).flush();
+        }
+        return changed;
+    }
+    return false;
+}
+
+void sync_visibility_entities(bool close_combat) {
+    if (g_grandleon_visibility_cell_count == 0U) return;
+    ps1_entity* cover = grandleon_scene_mutable_entity(
+        g_grandleon_visibility_entity_index
+    );
+    if (cover) {
+        cover->mesh_enabled =
+            !close_combat && !s_visibility_revealed[0] ? 1 : 0;
+    }
 }
 
 void place_entity(
@@ -427,6 +485,7 @@ void tick_camera() {
             tree_x >= camera_x - half_x && tree_x <= camera_x + half_x &&
             tree_z >= camera_focus_z - half_z && tree_z <= camera_focus_z + half_z;
     }
+    sync_visibility_entities(close_combat);
     animate_combat_units(snapshot);
     for (unsigned index = 0; index < g_grandleon_unit_count; ++index) {
         ps1_entity* unit = grandleon_scene_mutable_entity(
@@ -440,6 +499,7 @@ void tick_camera() {
              g_grandleon_unit_ids[index] == s_combat_target);
         unit->mesh_enabled = close_combat ? combat_actor :
             (!terrain_page_changed && s_unit_on_board[index] &&
+             s_unit_visible[index] &&
              unit_x >= camera_x - half_x && unit_x <= camera_x + half_x &&
              unit_z >= camera_focus_z - half_z && unit_z <= camera_focus_z + half_z);
     }
@@ -459,7 +519,9 @@ void sync_scene(const sim::EncounterSnapshot& snapshot) {
         );
         if (!entity || !unit) continue;
         s_unit_on_board[binding] = sim::on_board(*unit);
-        entity->mesh_enabled = s_unit_on_board[binding] ? 1 : 0;
+        s_unit_visible[binding] = unit_visible(*unit, snapshot.width);
+        entity->mesh_enabled =
+            s_unit_on_board[binding] && s_unit_visible[binding] ? 1 : 0;
         place_entity(
             *entity, unit->position, snapshot.width, snapshot.height, 3072
         );
@@ -476,6 +538,7 @@ void sync_scene(const sim::EncounterSnapshot& snapshot) {
             );
         }
     }
+    sync_visibility_entities(false);
 }
 
 bool apply_command(
@@ -489,6 +552,7 @@ bool apply_command(
         return false;
     }
     s_snapshot = s_created->encounter.snapshot();
+    (void)update_visual_visibility(s_snapshot);
     sync_scene(s_snapshot);
     if (accepted) *accepted = result;
     if (after) *after = s_snapshot;
@@ -747,6 +811,10 @@ bool start_encounter() {
     }
     s_snapshot = s_created->encounter.snapshot();
     const sim::EncounterSnapshot& snapshot = s_snapshot;
+    for (unsigned index = 0; index < 4096; ++index) {
+        s_visibility_revealed[index] = false;
+    }
+    (void)update_visual_visibility(snapshot);
     s_map_width = snapshot.width;
     s_map_height = snapshot.height;
     if (s_created->encounter.canonical_hash() !=
