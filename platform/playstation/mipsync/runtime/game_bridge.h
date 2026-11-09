@@ -15,12 +15,17 @@ enum grandleon_ui_mode {
     GRANDLEON_UI_RESULT,
     GRANDLEON_UI_OPPONENT,
     GRANDLEON_UI_COMPLETE,
+    GRANDLEON_UI_PAUSE,
+    GRANDLEON_UI_BATTLE_HELP,
+    GRANDLEON_UI_BATTLE_SETTINGS,
     GRANDLEON_UI_TITLE,
     GRANDLEON_UI_PLAYERS,
     GRANDLEON_UI_STORY,
     GRANDLEON_UI_OBJECTIVE,
     GRANDLEON_UI_AFTERMATH,
-    GRANDLEON_UI_SAVE_ERROR
+    GRANDLEON_UI_SAVE_ERROR,
+    GRANDLEON_UI_TITLE_HELP,
+    GRANDLEON_UI_TITLE_SETTINGS
 };
 
 typedef struct grandleon_ui_state {
@@ -52,6 +57,11 @@ typedef struct grandleon_ui_state {
     uint8_t campaign_menu_index;
     uint8_t campaign_menu_count;
     uint8_t continue_available;
+    uint8_t pause_menu_index;
+    uint8_t settings_menu_index;
+    uint8_t reduced_motion;
+    uint8_t show_fps;
+    uint16_t measured_fps;
 } grandleon_ui_state;
 
 int grandleon_game_init(void);
@@ -60,6 +70,7 @@ int grandleon_game_update(
     uint16_t player_one_buttons, uint16_t player_two_buttons
 );
 void grandleon_game_ui_state(grandleon_ui_state* output);
+void grandleon_game_set_fps(uint16_t fps);
 void grandleon_game_log_boot(unsigned int packet_bytes);
 void grandleon_platform_card_begin(void);
 void grandleon_platform_card_end(void);

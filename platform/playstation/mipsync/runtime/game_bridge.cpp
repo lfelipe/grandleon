@@ -28,9 +28,12 @@ namespace view = grandleon::view;
 
 namespace {
 
-enum class InputMode : std::uint8_t { browse, move, action, attack, ability };
+enum class InputMode : std::uint8_t {
+    browse, move, action, attack, ability, pause, help, settings
+};
 enum class CampaignMode : std::uint8_t {
-    title, players, prologue, objective, battle, aftermath, save_error
+    title, players, prologue, objective, battle, aftermath, save_error,
+    help, settings
 };
 
 constexpr unsigned maximum_board_cells = 4096U;
@@ -53,9 +56,14 @@ sim::Position s_cursor{};
 sim::Position s_player_cursors[2]{};
 InputMode s_mode{InputMode::browse};
 unsigned s_menu_index{};
+unsigned s_pause_menu_index{};
+unsigned s_settings_menu_index{};
 unsigned s_ai_delay{};
 bool s_ai_active{};
 bool s_close_combat_enabled{true};
+bool s_reduced_motion{};
+view::ConsoleDisplayOptions s_display_options{};
+std::uint16_t s_measured_fps{60U};
 unsigned s_result_frames{};
 unsigned s_result_duration{};
 unsigned s_camera_return_frames{};
@@ -109,7 +117,9 @@ card::MemoryCardWindow* s_card{};
 storage::ByteWindowSlotStorage* s_device{};
 
 constexpr char campaign_slot[] = "steel-cedar";
+constexpr char settings_slot[] = "steel-settings";
 
+constexpr std::uint16_t pad_start = 1U << 3U;
 constexpr std::uint16_t pad_up = 1U << 4U;
 constexpr std::uint16_t pad_right = 1U << 5U;
 constexpr std::uint16_t pad_down = 1U << 6U;
@@ -168,6 +178,59 @@ camp::CampaignOutcomeBatch outcome_batch(
         ? s_created->encounter.canonical_hash() : 1U;
     provenance.sequence = s_campaign_save.state.progress.history.size() + 1U;
     return camp::make_outcome_batch(provenance, std::move(operations));
+}
+
+bool save_display_settings() {
+    if (!s_card_available || !s_device) return false;
+    const std::vector<std::uint8_t> bytes{
+        'G', 'S', 1U,
+        static_cast<std::uint8_t>(
+            (s_close_combat_enabled ? 1U : 0U) |
+            (s_reduced_motion ? 2U : 0U) |
+            (s_display_options.show_fps ? 4U : 0U)
+        ),
+    };
+    grandleon_platform_card_begin();
+    const storage::StorageError result = s_device->write(settings_slot, bytes);
+    grandleon_platform_card_end();
+    return result == storage::StorageError::none;
+}
+
+void load_display_settings() {
+    if (!s_device || !s_device->contains(settings_slot)) return;
+    const storage::StorageRead stored = s_device->read(settings_slot);
+    if (!stored || stored.bytes.size() != 4U || stored.bytes[0] != 'G' ||
+        stored.bytes[1] != 'S' || stored.bytes[2] != 1U) {
+        return;
+    }
+    s_close_combat_enabled = (stored.bytes[3] & 1U) != 0U;
+    s_reduced_motion = (stored.bytes[3] & 2U) != 0U;
+    s_display_options.show_fps = (stored.bytes[3] & 4U) != 0U;
+    psx::Line().text("MIPSYNC_SETTINGS_LOAD close=")
+        .decimal(s_close_combat_enabled ? 1U : 0U).text(" reduced=")
+        .decimal(s_reduced_motion ? 1U : 0U).text(" fps=")
+        .decimal(s_display_options.show_fps ? 1U : 0U).flush();
+}
+
+void toggle_setting(unsigned row) {
+    const char* name = "close";
+    bool value = false;
+    if (row == 0U) {
+        s_close_combat_enabled = !s_close_combat_enabled;
+        value = s_close_combat_enabled;
+    } else if (row == 1U) {
+        s_reduced_motion = !s_reduced_motion;
+        value = s_reduced_motion;
+        name = "reduced";
+    } else {
+        s_display_options.toggle_fps();
+        value = s_display_options.show_fps;
+        name = "fps";
+    }
+    const bool saved = save_display_settings();
+    psx::Line().text("MIPSYNC_SETTING name=").text(name).text(" value=")
+        .decimal(value ? 1U : 0U).text(" saved=")
+        .decimal(saved ? 1U : 0U).flush();
 }
 
 bool save_campaign() {
@@ -559,9 +622,13 @@ void tick_camera() {
     }
     const std::int32_t previous_camera_x = camera->position[0];
     const std::int32_t previous_camera_z = camera->position[2];
-    camera->position[0] = approach(camera->position[0], focus_x);
-    camera->position[1] = approach(camera->position[1], desired_height);
-    camera->position[2] = approach(camera->position[2], focus_z + desired_trailing);
+    camera->position[0] = s_reduced_motion
+        ? focus_x : approach(camera->position[0], focus_x);
+    camera->position[1] = s_reduced_motion
+        ? desired_height : approach(camera->position[1], desired_height);
+    camera->position[2] = s_reduced_motion
+        ? focus_z + desired_trailing
+        : approach(camera->position[2], focus_z + desired_trailing);
     const bool camera_moved =
         camera->position[0] != previous_camera_x ||
         camera->position[2] != previous_camera_z;
@@ -741,7 +808,7 @@ bool apply_wait(sim::UnitId id, const char* action, sim::EncounterSnapshot* afte
 }
 
 const grandleon_generated_behavior* behavior_for(sim::UnitId id) {
-    for (const auto& binding : grandleon_generated_behaviors()) {
+    for (const auto& binding : grandleon_generated_behaviors(s_local_players)) {
         if (binding.unit_id == id) return &binding;
     }
     return nullptr;
@@ -986,6 +1053,8 @@ bool start_encounter() {
     s_snapshot = s_created->encounter.snapshot();
     const sim::EncounterSnapshot& snapshot = s_snapshot;
     s_motion = {};
+    s_mode = InputMode::browse;
+    s_selected = 0;
     for (unsigned index = 0; index < maximum_board_cells; ++index) {
         s_visibility_revealed[index] = false;
     }
@@ -1049,6 +1118,7 @@ int grandleon_game_init(void) {
         s_card_available = s_device->available();
     }
     grandleon_platform_card_end();
+    load_display_settings();
     s_continue_available = s_card_available && load_saved_campaign();
     hide_board();
     if (grandleon_generated_current_node_id == grandleon_generated_boot_node_id) {
@@ -1112,6 +1182,11 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
     output->camera_settled = s_camera_settle_frames >= 8 ? 1 : 0;
     output->campaign_menu_index = static_cast<std::uint8_t>(s_campaign_menu_index);
     output->continue_available = s_continue_available ? 1 : 0;
+    output->pause_menu_index = static_cast<std::uint8_t>(s_pause_menu_index);
+    output->settings_menu_index = static_cast<std::uint8_t>(s_settings_menu_index);
+    output->reduced_motion = s_reduced_motion ? 1 : 0;
+    output->show_fps = s_display_options.show_fps ? 1 : 0;
+    output->measured_fps = s_measured_fps;
     if (s_campaign_mode != CampaignMode::battle) {
         const grandleon_generated_campaign_node* node = active_campaign_node();
         output->headline = grandleon_generated_project_title;
@@ -1119,7 +1194,7 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
             case CampaignMode::title:
                 output->mode = GRANDLEON_UI_TITLE;
                 output->body = "THE ORCHARD BELL";
-                output->campaign_menu_count = s_continue_available ? 2 : 1;
+                output->campaign_menu_count = s_continue_available ? 4 : 3;
                 break;
             case CampaignMode::players:
                 output->mode = GRANDLEON_UI_PLAYERS;
@@ -1152,17 +1227,29 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
                 output->headline = "MEMORY CARD";
                 output->body = "SAVE DATA IS NOT AVAILABLE";
                 break;
+            case CampaignMode::help:
+                output->mode = GRANDLEON_UI_TITLE_HELP;
+                output->headline = "HELP";
+                output->body = "D-PAD MOVE  CROSS CONFIRM  CIRCLE BACK  START MENU";
+                break;
+            case CampaignMode::settings:
+                output->mode = GRANDLEON_UI_TITLE_SETTINGS;
+                output->headline = "SETTINGS";
+                output->body = "PRESENTATION OPTIONS";
+                break;
             case CampaignMode::battle: break;
         }
         return;
     }
     if (!s_created || !*s_created) return;
     const sim::EncounterSnapshot& snapshot = s_snapshot;
-    if (snapshot.outcome != sim::Outcome::ongoing) {
+    if (s_mode == InputMode::pause) output->mode = GRANDLEON_UI_PAUSE;
+    else if (s_mode == InputMode::help) output->mode = GRANDLEON_UI_BATTLE_HELP;
+    else if (s_mode == InputMode::settings) {
+        output->mode = GRANDLEON_UI_BATTLE_SETTINGS;
+    } else if (snapshot.outcome != sim::Outcome::ongoing) {
         output->mode = GRANDLEON_UI_COMPLETE;
-        return;
-    }
-    if (s_result_frames || s_camera_return_frames) output->mode = GRANDLEON_UI_RESULT;
+    } else if (s_result_frames || s_camera_return_frames) output->mode = GRANDLEON_UI_RESULT;
     else if (s_ai_active) output->mode = GRANDLEON_UI_OPPONENT;
     else if (s_mode == InputMode::move) output->mode = GRANDLEON_UI_MOVE;
     else if (s_mode == InputMode::action) output->mode = GRANDLEON_UI_ACTION;
@@ -1222,12 +1309,16 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
     if (s_last_result_restored) output->restored = s_last_result_damage;
 }
 
+extern "C" void grandleon_game_set_fps(uint16_t fps) {
+    s_measured_fps = fps;
+}
+
 int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
     std::uint16_t pressed = player_one;
     if (s_campaign_mode != CampaignMode::battle) {
         if (!pressed) return 0;
         if (s_campaign_mode == CampaignMode::title) {
-            const unsigned count = s_continue_available ? 2U : 1U;
+            const unsigned count = s_continue_available ? 4U : 3U;
             if (pressed & (pad_up | pad_down)) {
                 s_campaign_menu_index = (s_campaign_menu_index + 1U) % count;
             }
@@ -1235,9 +1326,37 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
                 if (s_campaign_menu_index == 0) {
                     s_campaign_menu_index = 0;
                     s_campaign_mode = CampaignMode::players;
-                } else {
+                } else if (s_continue_available && s_campaign_menu_index == 1U) {
                     route_active_campaign_node();
+                } else if (s_campaign_menu_index ==
+                           (s_continue_available ? 2U : 1U)) {
+                    s_campaign_mode = CampaignMode::help;
+                } else {
+                    s_settings_menu_index = 0U;
+                    s_campaign_mode = CampaignMode::settings;
                 }
+            }
+            return 0;
+        }
+        if (s_campaign_mode == CampaignMode::help) {
+            if (pressed & (pad_cross | pad_circle | pad_start)) {
+                s_campaign_menu_index = 0U;
+                s_campaign_mode = CampaignMode::title;
+            }
+            return 0;
+        }
+        if (s_campaign_mode == CampaignMode::settings) {
+            if (pressed & pad_up) {
+                s_settings_menu_index = s_settings_menu_index == 0U
+                    ? 2U : s_settings_menu_index - 1U;
+            }
+            if (pressed & pad_down) {
+                s_settings_menu_index = (s_settings_menu_index + 1U) % 3U;
+            }
+            if (pressed & pad_cross) toggle_setting(s_settings_menu_index);
+            if (pressed & (pad_circle | pad_start)) {
+                s_campaign_menu_index = 0U;
+                s_campaign_mode = CampaignMode::title;
             }
             return 0;
         }
@@ -1301,6 +1420,54 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
     const bool motion_was_active = advance_board_motion();
     tick_camera();
     if (motion_was_active) return 0;
+    if (s_mode == InputMode::pause) {
+        if (player_one & pad_up) {
+            s_pause_menu_index = s_pause_menu_index == 0U
+                ? 2U : s_pause_menu_index - 1U;
+        }
+        if (player_one & pad_down) {
+            s_pause_menu_index = (s_pause_menu_index + 1U) % 3U;
+        }
+        if (player_one & (pad_circle | pad_start)) s_mode = InputMode::browse;
+        else if (player_one & pad_cross) {
+            if (s_pause_menu_index == 0U) s_mode = InputMode::browse;
+            else if (s_pause_menu_index == 1U) {
+                s_mode = InputMode::help;
+                psx::Line().text("MIPSYNC_BATTLE_MENU screen=help").flush();
+            }
+            else {
+                s_settings_menu_index = 0U;
+                s_mode = InputMode::settings;
+                psx::Line().text("MIPSYNC_BATTLE_MENU screen=settings").flush();
+            }
+        }
+        return 0;
+    }
+    if (s_mode == InputMode::help) {
+        if (player_one & (pad_cross | pad_circle | pad_start)) {
+            s_mode = InputMode::pause;
+        }
+        return 0;
+    }
+    if (s_mode == InputMode::settings) {
+        if (player_one & pad_up) {
+            s_settings_menu_index = s_settings_menu_index == 0U
+                ? 2U : s_settings_menu_index - 1U;
+        }
+        if (player_one & pad_down) {
+            s_settings_menu_index = (s_settings_menu_index + 1U) % 3U;
+        }
+        if (player_one & pad_cross) toggle_setting(s_settings_menu_index);
+        if (player_one & (pad_circle | pad_start)) s_mode = InputMode::pause;
+        return 0;
+    }
+    if ((player_one & pad_start) && s_mode == InputMode::browse &&
+        !s_result_frames && !s_camera_return_frames && !s_ai_active) {
+        s_pause_menu_index = 0U;
+        s_mode = InputMode::pause;
+        psx::Line().text("MIPSYNC_BATTLE_MENU screen=pause").flush();
+        return 0;
+    }
     if (s_snapshot.outcome != sim::Outcome::ongoing &&
         !s_campaign_completion_handled) {
         s_campaign_completion_handled = true;
@@ -1371,7 +1538,7 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
 
     if (s_mode != InputMode::action) move_cursor(pressed, snapshot);
     if ((pressed & pad_triangle) && s_mode == InputMode::browse) {
-        s_close_combat_enabled = !s_close_combat_enabled;
+        toggle_setting(0U);
     }
     if (pressed & pad_circle) {
         if (s_mode == InputMode::attack || s_mode == InputMode::ability) {

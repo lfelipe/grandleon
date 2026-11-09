@@ -108,6 +108,8 @@ int main(void) {
     uint16_t render_max = 0;
     uint16_t ready_max = 0;
     uint16_t mutation_max = 0;
+    uint32_t fps_window_start;
+    uint32_t fps_frames = 0;
     int last_vblank;
     int maximum_elapsed = 1;
 
@@ -121,6 +123,8 @@ int main(void) {
     TIMER_CTRL(1) = 0x0100;
     TIMER_VALUE(1) = 0;
     last_vblank = VSync(-1);
+    fps_window_start = (uint32_t)last_vblank;
+    grandleon_game_set_fps(60);
     if (!grandleon_game_init()) {
         grandleon_game_log_boot(0);
     }
@@ -136,6 +140,16 @@ int main(void) {
         int deferred;
         unsigned pad_index;
         last_vblank = current_vblank;
+        ++fps_frames;
+        if ((uint32_t)current_vblank - fps_window_start >= 60u) {
+            const uint32_t elapsed_vblanks =
+                (uint32_t)current_vblank - fps_window_start;
+            uint32_t measured_fps = fps_frames * 60u / elapsed_vblanks;
+            if (measured_fps > 999u) measured_fps = 999u;
+            grandleon_game_set_fps((uint16_t)measured_fps);
+            fps_frames = 0;
+            fps_window_start = (uint32_t)current_vblank;
+        }
         if (frame >= 60) {
             if (elapsed > 1) {
                 missed_vblanks += (uint32_t)(elapsed - 1);

@@ -21,7 +21,7 @@ if mode == 'new' then
   captures[20] = 'title'
   captures[180] = 'bell'
   captures[340] = 'deepwood'
-else
+elseif mode == 'continue' then
   actions[30] = 0x0040 -- Continue row
   actions[50] = 0x4000 -- LoadExec saved Deepwood stage
   actions[110] = 0x4000 -- play Deepwood
@@ -40,6 +40,31 @@ else
   captures[300] = 'watch'
   captures[450] = 'village'
   captures[650] = 'gate'
+else
+  -- A separate fresh card exercises the authored solo definitions, including
+  -- their distinct starts and enemy scaling, through all five executables.
+  actions[30] = 0x4000 -- New Game
+  actions[50] = 0x4000 -- 1 Player
+  actions[80] = 0x4000 -- prologue
+  actions[110] = 0x4000 -- Bell Orchard
+  actions[170] = 0x8000 -- complete Bell
+  actions[200] = 0x4000 -- story, Deepwood
+  actions[260] = 0x4000 -- play Deepwood
+  actions[320] = 0x8000 -- complete Deepwood
+  actions[350] = 0x4000 -- story, Cedar Watch
+  actions[410] = 0x4000 -- play Cedar Watch
+  actions[470] = 0x8000 -- complete Watch
+  actions[500] = 0x4000 -- story, Gate Village
+  actions[560] = 0x4000 -- play Village
+  actions[620] = 0x8000 -- complete Village
+  actions[650] = 0x4000 -- village story
+  actions[680] = 0x4000 -- parley, Twin Gate
+  actions[740] = 0x4000 -- play Twin Gate
+  captures[150] = 'solo-bell'
+  captures[300] = 'solo-deepwood'
+  captures[450] = 'solo-watch'
+  captures[600] = 'solo-village'
+  captures[790] = 'solo-gate'
 end
 
 local function update()
@@ -56,7 +81,9 @@ local function update()
                         frame, player_two))
   end
   if captures[frame] then pending_capture = captures[frame] end
-  if frame >= (mode == 'new' and 1000 or 1350) then PCSX.quit(0) end
+  if frame >= (mode == 'new' and 1000 or mode == 'continue' and 1350 or 900) then
+    PCSX.quit(0)
+  end
   return true
 end
 

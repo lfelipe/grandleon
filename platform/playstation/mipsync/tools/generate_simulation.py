@@ -42,49 +42,13 @@ def campaign_stage_names(campaign: dict[str, object]) -> dict[int, str]:
     }
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("manifest", type=Path)
-    parser.add_argument("output", type=Path)
-    parser.add_argument("--one-player-manifest", type=Path)
-    args = parser.parse_args()
-    document = json.loads(args.manifest.read_text(encoding="utf-8"))
-    if document.get("schema") != "grandleon.mipsync.scene.v2":
-        raise ValueError("manifest is not a Mipsync scene v2 document")
-    simulation = document.get("simulation")
-    if not isinstance(simulation, dict):
-        raise ValueError("manifest has no simulation definition")
-    one_player = None
-    one_player_ids: set[int] = set()
-    if args.one_player_manifest is not None:
-        one_player = json.loads(args.one_player_manifest.read_text(encoding="utf-8"))
-        if one_player.get("schema") != "grandleon.mipsync.scene.v2":
-            raise ValueError("one-player manifest is not a Mipsync scene v2 document")
-        one_player_ids = {
-            int(unit["id"]) for unit in one_player["simulation"]["units"]
-        }
-    campaign = document.get("campaign")
-    if not isinstance(campaign, dict) or not isinstance(campaign.get("nodes"), list):
-        raise ValueError("manifest has no package-authored campaign graph")
-    stage_names = campaign_stage_names(campaign)
-    current_node_id = int(campaign.get("current_node_id", 0))
-    if current_node_id not in stage_names:
-        raise ValueError("current encounter has no campaign node")
-    entry_node = next(
-        (node for node in campaign["nodes"]
-         if int(node["id"]) == int(campaign["entry_node_id"])),
-        None,
-    )
-    if not entry_node or not int(entry_node.get("has_fallback", 0)):
-        raise ValueError("campaign entry must lead to its first encounter")
-    boot_node_id = int(entry_node["fallback"])
-    if boot_node_id not in stage_names:
-        raise ValueError("campaign entry does not lead to an encounter")
+def emit_definition(
+    function_name: str,
+    document: dict[str, object],
+    simulation: dict[str, object],
+) -> list[str]:
     lines = [
-        "/* Generated from a real Grandleon package. Do not edit. */",
-        '#include "grandleon_simulation.hpp"', "",
-        "namespace sim = grandleon::simulation;", "",
-        "sim::EncounterDefinition grandleon_generated_definition(unsigned local_players) {",
+        f"sim::EncounterDefinition {function_name}() {{",
         "    sim::EncounterDefinition definition{};",
         f"    definition.width={int(document['width'])}; definition.height={int(document['height'])};",
         f"    definition.turn_order=static_cast<sim::TurnOrder>({int(simulation['turn_order'])});",
@@ -114,15 +78,15 @@ def main() -> int:
         ):
             lines.append(f"      value.{field}={int(source[field])};")
         for field in ("acts_after_attacking", "endures"):
-            lines.append(f"      value.{field}={'true' if int(source[field]) else 'false'};")
+            lines.append(
+                f"      value.{field}={'true' if int(source[field]) else 'false'};"
+            )
         for field in ("ability_ids", "weapon_ids", "item_ids"):
             lines.append(f"      value.{field}={ids(source[field])};")
         lines += [
             f"      value.item_counts={nums(source['item_counts'])};",
             f"      value.drop_item_id={int(source['drop_item_id'])}ULL; value.talk_record_id={int(source['talk_record_id'])}ULL;",
-            ("      if (local_players > 1 || "
-             f"{str(int(source['id']) in one_player_ids).lower()}) "
-             "definition.units.push_back(value); }"),
+            "      definition.units.push_back(value); }",
         ]
     for source in simulation["abilities"]:
         lines += [
@@ -155,8 +119,15 @@ def main() -> int:
             f"      value.id={int(source['id'])}ULL; value.kind=static_cast<sim::ItemKind>({int(source['kind'])}); value.power={int(source['power'])};",
             "      definition.items.push_back(value); }",
         ]
-    lines += ["    return definition;", "}", "",
-        "const std::vector<grandleon_generated_behavior>& grandleon_generated_behaviors() {",
+    lines += ["    return definition;", "}", ""]
+    return lines
+
+
+def emit_behavior_values(
+    function_name: str, simulation: dict[str, object]
+) -> list[str]:
+    lines = [
+        f"const std::vector<grandleon_generated_behavior>& {function_name}() {{",
         "    static const std::vector<grandleon_generated_behavior> values = {",
     ]
     for source in simulation.get("behaviors", []):
@@ -171,6 +142,86 @@ def main() -> int:
             "{" + patrol + "}},"
         )
     lines += ["    };", "    return values;", "}", ""]
+    return lines
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("manifest", type=Path)
+    parser.add_argument("output", type=Path)
+    parser.add_argument("--one-player-manifest", type=Path)
+    args = parser.parse_args()
+    document = json.loads(args.manifest.read_text(encoding="utf-8"))
+    if document.get("schema") != "grandleon.mipsync.scene.v2":
+        raise ValueError("manifest is not a Mipsync scene v2 document")
+    simulation = document.get("simulation")
+    if not isinstance(simulation, dict):
+        raise ValueError("manifest has no simulation definition")
+    one_player = None
+    if args.one_player_manifest is not None:
+        one_player = json.loads(args.one_player_manifest.read_text(encoding="utf-8"))
+        if one_player.get("schema") != "grandleon.mipsync.scene.v2":
+            raise ValueError("one-player manifest is not a Mipsync scene v2 document")
+    campaign = document.get("campaign")
+    if not isinstance(campaign, dict) or not isinstance(campaign.get("nodes"), list):
+        raise ValueError("manifest has no package-authored campaign graph")
+    stage_names = campaign_stage_names(campaign)
+    current_node_id = int(campaign.get("current_node_id", 0))
+    if current_node_id not in stage_names:
+        raise ValueError("current encounter has no campaign node")
+    entry_node = next(
+        (node for node in campaign["nodes"]
+         if int(node["id"]) == int(campaign["entry_node_id"])),
+        None,
+    )
+    if not entry_node or not int(entry_node.get("has_fallback", 0)):
+        raise ValueError("campaign entry must lead to its first encounter")
+    boot_node_id = int(entry_node["fallback"])
+    if boot_node_id not in stage_names:
+        raise ValueError("campaign entry does not lead to an encounter")
+    lines = [
+        "/* Generated from a real Grandleon package. Do not edit. */",
+        '#include "grandleon_simulation.hpp"', "",
+        "namespace sim = grandleon::simulation;", "",
+    ]
+    lines += emit_definition(
+        "grandleon_generated_two_player_definition", document, simulation
+    )
+    if one_player is not None:
+        one_player_simulation = one_player.get("simulation")
+        if not isinstance(one_player_simulation, dict):
+            raise ValueError("one-player manifest has no simulation definition")
+        lines += emit_definition(
+            "grandleon_generated_one_player_definition",
+            one_player,
+            one_player_simulation,
+        )
+    else:
+        one_player_simulation = simulation
+    lines += [
+        "sim::EncounterDefinition grandleon_generated_definition(unsigned local_players) {",
+        "    return local_players > 1",
+        "        ? grandleon_generated_two_player_definition()",
+        "        : grandleon_generated_one_player_definition();",
+        "}", "",
+    ] if one_player is not None else [
+        "sim::EncounterDefinition grandleon_generated_definition(unsigned) {",
+        "    return grandleon_generated_two_player_definition();",
+        "}", "",
+    ]
+    lines += emit_behavior_values(
+        "grandleon_generated_two_player_behaviors", simulation
+    )
+    lines += emit_behavior_values(
+        "grandleon_generated_one_player_behaviors", one_player_simulation
+    )
+    lines += [
+        "const std::vector<grandleon_generated_behavior>& grandleon_generated_behaviors(unsigned local_players) {",
+        "    return local_players > 1",
+        "        ? grandleon_generated_two_player_behaviors()",
+        "        : grandleon_generated_one_player_behaviors();",
+        "}", "",
+    ]
     lines += [
         "namespace camp = grandleon::campaign;", "",
         "namespace {",
@@ -289,7 +340,7 @@ struct grandleon_generated_campaign_node final {{
     const char* disc_path{{}};
 }};
 grandleon::simulation::EncounterDefinition grandleon_generated_definition(unsigned local_players = 2);
-const std::vector<grandleon_generated_behavior>& grandleon_generated_behaviors();
+const std::vector<grandleon_generated_behavior>& grandleon_generated_behaviors(unsigned local_players = 2);
 grandleon::campaign::CampaignGraph grandleon_generated_campaign_graph();
 const std::vector<grandleon_generated_campaign_node>& grandleon_generated_campaign_nodes();
 const grandleon_generated_campaign_node* grandleon_generated_campaign_node_for(std::uint64_t id);

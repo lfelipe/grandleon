@@ -233,6 +233,15 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
     int x;
     grandleon_game_ui_state(&state);
 
+    if (state.show_fps) {
+        draw_box_depth(ordering_table, next_packet, packet_end,
+                       267, 3, 50, 14, 10, 17, 28, 3);
+        draw_text(ordering_table, next_packet, packet_end, 271, 5,
+                  "FPS", 168, 181, 196);
+        draw_number(ordering_table, next_packet, packet_end, 295, 5,
+                    state.measured_fps, 247, 239, 209);
+    }
+
     if (state.mode >= GRANDLEON_UI_TITLE) {
         draw_box_depth(ordering_table, next_packet, packet_end,
                        0, 0, 320, 240, 7, 13, 24, 3);
@@ -246,14 +255,20 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
         }
         if (state.mode == GRANDLEON_UI_TITLE) {
             draw_box(ordering_table, next_packet, packet_end,
-                     72, 111 + state.campaign_menu_index * 25, 176, 19,
+                     72, 101 + state.campaign_menu_index * 22, 176, 18,
                      52, 63, 45);
-            draw_text(ordering_table, next_packet, packet_end, 91, 116,
+            draw_text(ordering_table, next_packet, packet_end, 91, 105,
                       "NEW GAME", 247, 239, 209);
             if (state.continue_available) {
-                draw_text(ordering_table, next_packet, packet_end, 91, 141,
+                draw_text(ordering_table, next_packet, packet_end, 91, 127,
                           "CONTINUE", 247, 239, 209);
             }
+            draw_text(ordering_table, next_packet, packet_end, 91,
+                      state.continue_available ? 149 : 127,
+                      "HELP", 247, 239, 209);
+            draw_text(ordering_table, next_packet, packet_end, 91,
+                      state.continue_available ? 171 : 149,
+                      "SETTINGS", 247, 239, 209);
         } else if (state.mode == GRANDLEON_UI_PLAYERS) {
             draw_box(ordering_table, next_packet, packet_end,
                      72, 111 + state.campaign_menu_index * 25, 176, 19,
@@ -262,6 +277,27 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
                       "1 PLAYER", 247, 239, 209);
             draw_text(ordering_table, next_packet, packet_end, 91, 141,
                       "2 PLAYERS", 247, 239, 209);
+        } else if (state.mode == GRANDLEON_UI_TITLE_SETTINGS) {
+            const char* close = state.close_combat ? "ON" : "OFF";
+            const char* reduced = state.reduced_motion ? "ON" : "OFF";
+            const char* fps = state.show_fps ? "ON" : "OFF";
+            draw_box(ordering_table, next_packet, packet_end,
+                     48, 101 + state.settings_menu_index * 22, 224, 18,
+                     52, 63, 45);
+            draw_text(ordering_table, next_packet, packet_end, 60, 105,
+                      "CLOSE VIEW", 247, 239, 209);
+            draw_text(ordering_table, next_packet, packet_end, 228, 105,
+                      close, 94, 206, 227);
+            draw_text(ordering_table, next_packet, packet_end, 60, 127,
+                      "REDUCED MOTION", 247, 239, 209);
+            draw_text(ordering_table, next_packet, packet_end, 228, 127,
+                      reduced, 94, 206, 227);
+            draw_text(ordering_table, next_packet, packet_end, 60, 149,
+                      "SHOW FPS", 247, 239, 209);
+            draw_text(ordering_table, next_packet, packet_end, 228, 149,
+                      fps, 94, 206, 227);
+            draw_text(ordering_table, next_packet, packet_end, 95, 177,
+                      "CIRCLE BACK", 168, 181, 196);
         } else {
             draw_box(ordering_table, next_packet, packet_end,
                      105, 163, 110, 18, 30, 53, 66);
@@ -269,6 +305,70 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
                       state.mode == GRANDLEON_UI_SAVE_ERROR ? "BACK" : "CONTINUE",
                       247, 239, 209);
         }
+        activate_ui_tpage(ordering_table, next_packet, packet_end);
+        return;
+    }
+
+    if (state.mode == GRANDLEON_UI_PAUSE) {
+        x = state.cursor_on_left ? 180 : 8;
+        draw_panel(ordering_table, next_packet, packet_end, x, 48, 132, 96);
+        draw_text(ordering_table, next_packet, packet_end, x + 12, 57,
+                  "MENU", 94, 206, 227);
+        draw_box(ordering_table, next_packet, packet_end,
+                 x + 8, 76 + state.pause_menu_index * 19, 116, 16,
+                 52, 63, 45);
+        draw_text(ordering_table, next_packet, packet_end, x + 17, 79,
+                  "RESUME", 247, 239, 209);
+        draw_text(ordering_table, next_packet, packet_end, x + 17, 98,
+                  "HELP", 247, 239, 209);
+        draw_text(ordering_table, next_packet, packet_end, x + 17, 117,
+                  "SETTINGS", 247, 239, 209);
+        activate_ui_tpage(ordering_table, next_packet, packet_end);
+        return;
+    }
+    if (state.mode == GRANDLEON_UI_BATTLE_HELP) {
+        x = state.cursor_on_left ? 104 : 8;
+        draw_panel(ordering_table, next_packet, packet_end, x, 42, 208, 116);
+        draw_text(ordering_table, next_packet, packet_end, x + 12, 51,
+                  "HELP", 94, 206, 227);
+        draw_text(ordering_table, next_packet, packet_end, x + 12, 72,
+                  "D-PAD  MOVE CURSOR", 247, 239, 209);
+        draw_text(ordering_table, next_packet, packet_end, x + 12, 88,
+                  "CROSS  CONFIRM", 247, 239, 209);
+        draw_text(ordering_table, next_packet, packet_end, x + 12, 104,
+                  "CIRCLE BACK", 247, 239, 209);
+        draw_text(ordering_table, next_packet, packet_end, x + 12, 120,
+                  "START  MENU", 247, 239, 209);
+        draw_text(ordering_table, next_packet, packet_end, x + 12, 139,
+                  "CROSS OR CIRCLE TO RETURN", 168, 181, 196);
+        activate_ui_tpage(ordering_table, next_packet, packet_end);
+        return;
+    }
+    if (state.mode == GRANDLEON_UI_BATTLE_SETTINGS) {
+        const char* close = state.close_combat ? "ON" : "OFF";
+        const char* reduced = state.reduced_motion ? "ON" : "OFF";
+        const char* fps = state.show_fps ? "ON" : "OFF";
+        x = state.cursor_on_left ? 104 : 8;
+        draw_panel(ordering_table, next_packet, packet_end, x, 42, 208, 116);
+        draw_text(ordering_table, next_packet, packet_end, x + 12, 51,
+                  "SETTINGS", 94, 206, 227);
+        draw_box(ordering_table, next_packet, packet_end,
+                 x + 8, 72 + state.settings_menu_index * 21, 192, 17,
+                 52, 63, 45);
+        draw_text(ordering_table, next_packet, packet_end, x + 17, 76,
+                  "CLOSE VIEW", 247, 239, 209);
+        draw_text(ordering_table, next_packet, packet_end, x + 164, 76,
+                  close, 94, 206, 227);
+        draw_text(ordering_table, next_packet, packet_end, x + 17, 97,
+                  "REDUCED MOTION", 247, 239, 209);
+        draw_text(ordering_table, next_packet, packet_end, x + 164, 97,
+                  reduced, 94, 206, 227);
+        draw_text(ordering_table, next_packet, packet_end, x + 17, 118,
+                  "SHOW FPS", 247, 239, 209);
+        draw_text(ordering_table, next_packet, packet_end, x + 164, 118,
+                  fps, 94, 206, 227);
+        draw_text(ordering_table, next_packet, packet_end, x + 17, 141,
+                  "CIRCLE BACK", 168, 181, 196);
         activate_ui_tpage(ordering_table, next_packet, packet_end);
         return;
     }
@@ -315,7 +415,12 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
         /* Let the board finish its short camera glide before adding the live
          * forecast. This keeps targeting readable instead of pinning a popup
          * over moving units, and leaves the PS1 GPU inside its frame budget. */
-        if (!state.camera_settled || !state.forecast_valid) return;
+        if (!state.camera_settled || !state.forecast_valid) {
+            if (state.show_fps) {
+                activate_ui_tpage(ordering_table, next_packet, packet_end);
+            }
+            return;
+        }
         x = state.cursor_on_left ? 174 : 6;
         draw_label(ordering_table, next_packet, packet_end, x + 6, 14,
                    UI_HIT, 168, 181, 196);
@@ -371,6 +476,9 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
      * matching the player UI, this preserves a full 60 Hz hardware frame
      * instead of spending the last scanlines on redundant persistent help. */
     if (state.mode == GRANDLEON_UI_BROWSE) {
+        if (state.show_fps) {
+            activate_ui_tpage(ordering_table, next_packet, packet_end);
+        }
         return;
     }
 
@@ -400,5 +508,6 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
         draw_label(ordering_table, next_packet, packet_end, 76, 220,
                    UI_BACK, 168, 181, 196);
     }
+    activate_ui_tpage(ordering_table, next_packet, packet_end);
 }
 

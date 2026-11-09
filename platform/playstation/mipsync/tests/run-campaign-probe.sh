@@ -114,6 +114,8 @@ image=${GRANDLEON_PLAYSTATION_EMULATOR_IMAGE:-grandleon/playstation-emulator:$re
 run_mode() {
     mode=$1
     log=$output/$mode.log
+    card=campaign.mcd
+    test "$mode" != solo || card=solo.mcd
     timeout --kill-after=10 180 \
         "$docker" run --rm --user "$(id -u):$(id -g)" \
             --env HOME=/tmp \
@@ -127,7 +129,7 @@ run_mode() {
             stdbuf -oL -eL pcsx-redux -no-ui -run -softgpu \
                 -bios /usr/local/share/pcsx-redux/openbios.bin \
                 -testmode -interpreter -debugger \
-                -memcard1 /out/campaign.mcd \
+                -memcard1 "/out/$card" \
                 -dofile /probe/campaign_probe.lua \
                 -iso /disc/grandleon-mipsync-campaign.cue >"$log" 2>&1
 }
@@ -170,5 +172,13 @@ done
 require "$output/continue.log" 'MIPSYNC_GRANDLEON_METRICS frames=600 .*missed_vblanks=0 max_elapsed_vblanks=1$' 'the Twin Gate 60 Hz result'
 require "$output/continue.log" 'MIPSYNC_MISS_RANGE first=0 last=0$' 'an empty missed-frame range'
 
+run_mode solo
+require "$output/solo.log" 'MIPSYNC_SIM_READY width=8 height=6 units=5 .* players=1 hash=d900322b622a711e' 'the authored solo Bell Orchard simulation'
+require "$output/solo.log" 'MIPSYNC_SIM_READY width=14 height=9 units=7 .* players=1 hash=c6543d2796b7fe5c' 'the authored solo Deepwood simulation'
+require "$output/solo.log" 'MIPSYNC_SIM_READY width=16 height=12 units=16 .* players=1 hash=7fcea7aa25ff75ca' 'the authored solo Cedar Watch simulation'
+require "$output/solo.log" 'MIPSYNC_SIM_READY width=18 height=12 units=8 .* players=1 hash=88a9732d74e5ee06' 'the authored solo Gate Village simulation'
+require "$output/solo.log" 'MIPSYNC_SIM_READY width=20 height=14 units=6 .* players=1 hash=8c904e6d40b072d9' 'the authored solo Twin Gate simulation'
+
 printf 'Mipsync full campaign/card passed: card_sha256=%s update=%s\n' "$after" "$bell_update"
-printf 'New log: %s\nContinue log: %s\n' "$output/new.log" "$output/continue.log"
+printf 'New log: %s\nContinue log: %s\nSolo log: %s\n' \
+    "$output/new.log" "$output/continue.log" "$output/solo.log"
