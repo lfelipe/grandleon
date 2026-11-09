@@ -1,0 +1,34 @@
+From 29a0eb8eda5b1d24c555a2b73ddf1e941ed1fbc6 Mon Sep 17 00:00:00 2001
+From: Grandleon contributors <grandleon@example.invalid>
+Date: Mon, 9 Nov 2026 10:26:55 -0800
+Subject: [PATCH] Reclaim static render caches when entities are disabled
+
+---
+ templates/ps1/starter/runtime/render.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c
+index 07cd0ed..0acf222 100644
+--- a/templates/ps1/starter/runtime/render.c
++++ b/templates/ps1/starter/runtime/render.c
+@@ -6146,6 +6146,17 @@ void ps1_render_frame(uint32_t* ot, char** nextpri, const char* packet_end) {
+     count = g_ps1_scene.entity_count;
+     if (s_indexed_entity_count != count)
+         rebuild_render_entity_lists();
++    /* Paged scenes can disable a previously cached entity without changing
++     * entity_count. Its arena reservation must not permanently displace the
++     * newly visible page. Reclaim at the frame boundary, before any draw holds
++     * pointers into the shared projection or topology arenas. */
++    for (i = 0; i < PS1_STATIC_ENTITY_CACHE_MAX; ++i) {
++        const ps1_entity* cached = s_static_entity_caches[i].entity;
++        if (cached && !cached->mesh_enabled) {
++            reset_static_entity_caches();
++            break;
++        }
++    }
+     actor_mask = build_occluder_actor_mask();
+     background_index = active_background_texture_index();
+     /* With the flat fog-color background, a polygon whose every vertex has
+-- 
+2.53.0
+
