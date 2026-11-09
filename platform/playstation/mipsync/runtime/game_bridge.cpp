@@ -48,6 +48,11 @@ enum class CampaignMode : std::uint8_t {
 };
 
 constexpr unsigned maximum_board_cells = 4096U;
+// Ten 60 Hz ticks became only five distinct pictures after the renderer moved
+// to 30 fps.  Give the PS1 ten presented frames per tile so the two authored
+// footfall poses, facing change and arc read as a walk rather than a teleport.
+constexpr unsigned board_slide_frames_per_tile =
+    static_cast<unsigned>(view::slide_frames_per_tile * 2);
 
 struct BoardMotion final {
     sim::UnitId unit{};
@@ -57,6 +62,7 @@ struct BoardMotion final {
     unsigned route_count{};
     unsigned frame{};
     unsigned total_frames{};
+    bool facing_left{};
     bool active{};
 };
 
@@ -132,6 +138,7 @@ std::int32_t s_map_height{};
 unsigned s_active_terrain_chunks{};
 bool s_unit_on_board[64]{};
 bool s_unit_visible[64]{};
+bool s_unit_facing_left[64]{};
 bool s_visibility_revealed[maximum_board_cells]{};
 std::array<std::uint8_t, maximum_board_cells> s_motion_crossable{};
 std::array<std::uint8_t, maximum_board_cells> s_motion_distance{};
@@ -801,6 +808,74 @@ std::int32_t terrain_surface(sim::Position position, int width) {
         ? g_grandleon_terrain_surface_y_q16[index] : 0;
 }
 
+enum UnitPose : unsigned {
+    unit_pose_idle = 0U,
+    unit_pose_move_contact = 1U,
+    unit_pose_move_pass = 2U,
+    unit_pose_move_north_contact = 3U,
+    unit_pose_move_north_pass = 4U,
+    unit_pose_move_south_contact = 5U,
+    unit_pose_move_south_pass = 6U,
+    unit_pose_attack = 7U,
+    unit_pose_hurt = 8U,
+};
+
+UnitPose walking_pose(view::BoardHeading heading, unsigned frame) {
+    // The source art is authored at seven frames per second.  At a 30 Hz
+    // presentation, holding each drawing for four rendered frames is the
+    // closest integer cadence. `frame` advances at 60 Hz, hence eight ticks.
+    const bool contact = ((frame / 8U) & 1U) == 0U;
+    if (heading == view::BoardHeading::north) {
+        return contact ? unit_pose_move_north_contact
+                       : unit_pose_move_north_pass;
+    }
+    if (heading == view::BoardHeading::south) {
+        return contact ? unit_pose_move_south_contact
+                       : unit_pose_move_south_pass;
+    }
+    return contact ? unit_pose_move_contact : unit_pose_move_pass;
+}
+
+void apply_unit_art(
+    unsigned binding, ps1_entity& entity, UnitPose pose,
+    bool facing_left, bool close_view = false
+) {
+    if (binding >= g_grandleon_unit_count) return;
+    entity.texture_index = static_cast<std::int32_t>(
+        g_grandleon_unit_pose_texture_indices[binding][pose]
+    );
+    const bool directional = pose >= unit_pose_move_north_contact &&
+        pose <= unit_pose_move_south_pass;
+    entity.mesh_index = static_cast<std::int32_t>(directional
+        ? g_grandleon_directional_billboard_mesh_index
+        : (facing_left ? g_grandleon_mirrored_billboard_mesh_index
+                       : g_grandleon_board_billboard_mesh_index));
+    entity.scale[0] = close_view ? 157286 : 88474;  // 2.40 / 1.35
+    entity.scale[1] = close_view ? 222822 : 124518; // 3.40 / 1.90
+    entity.scale[2] = 65536;
+}
+
+UnitPose combat_pose_for(sim::UnitId unit) {
+    if (!s_result_frames || !s_result_close_combat) return unit_pose_idle;
+    const unsigned elapsed = s_result_duration - s_result_frames;
+    if (elapsed >= 28U && elapsed < 46U && unit == s_combat_attacker) {
+        return unit_pose_attack;
+    }
+    if (!s_last_result_missed && elapsed >= 36U && elapsed < 54U &&
+        unit == s_combat_target) {
+        return unit_pose_hurt;
+    }
+    if (s_combat_counter && elapsed >= 68U && elapsed < 86U &&
+        unit == s_combat_target) {
+        return unit_pose_attack;
+    }
+    if (s_combat_counter && s_last_result_counter_damage > 0 &&
+        elapsed >= 76U && elapsed < 94U && unit == s_combat_attacker) {
+        return unit_pose_hurt;
+    }
+    return unit_pose_idle;
+}
+
 void plan_board_motion(
     const sim::EncounterSnapshot& snapshot,
     sim::UnitId unit_id,
@@ -845,6 +920,12 @@ void plan_board_motion(
     s_motion.unit = unit_id;
     s_motion.from = actor->position;
     s_motion.to = destination;
+    for (unsigned binding = 0; binding < g_grandleon_unit_count; ++binding) {
+        if (g_grandleon_unit_ids[binding] == unit_id) {
+            s_motion.facing_left = s_unit_facing_left[binding];
+            break;
+        }
+    }
     if (found) {
         s_motion.route_count = static_cast<unsigned>(route.size());
     } else {
@@ -854,9 +935,7 @@ void plan_board_motion(
             static_cast<std::int16_t>(destination.y),
         };
     }
-    s_motion.total_frames = static_cast<unsigned>(
-        view::slide_frames_for(static_cast<int>(s_motion.route_count))
-    );
+    s_motion.total_frames = s_motion.route_count * board_slide_frames_per_tile;
     s_motion.active = s_motion.total_frames != 0U;
 }
 
@@ -873,9 +952,9 @@ void pose_board_motion() {
         }
     }
     if (!entity) return;
-    const unsigned route_index = s_motion.frame / view::slide_frames_per_tile <
+    const unsigned route_index = s_motion.frame / board_slide_frames_per_tile <
         s_motion.route_count
-        ? s_motion.frame / view::slide_frames_per_tile
+        ? s_motion.frame / board_slide_frames_per_tile
         : s_motion.route_count - 1U;
     const sim::Position from = route_index == 0U
         ? s_motion.from
@@ -887,25 +966,36 @@ void pose_board_motion() {
         s_motion.route[route_index].x,
         s_motion.route[route_index].y,
     };
+    const view::BoardHeading heading = view::board_heading_between(
+        from.x, from.y, to.x, to.y
+    );
+    s_motion.facing_left = view::board_heading_faces_left(
+        heading, s_motion.facing_left
+    );
+    s_unit_facing_left[binding] = s_motion.facing_left;
     const int segment_frame = static_cast<int>(
-        s_motion.frame - route_index * view::slide_frames_per_tile
+        s_motion.frame - route_index * board_slide_frames_per_tile
     );
     const int from_x = (from.x * 2 + 1 - s_map_width) * 65536;
     const int to_x = (to.x * 2 + 1 - s_map_width) * 65536;
     const int from_z = (s_map_height - from.y * 2 - 1) * 65536;
     const int to_z = (s_map_height - to.y * 2 - 1) * 65536;
     entity->position[0] = view::slide_between(
-        from_x, to_x, segment_frame, view::slide_frames_per_tile
+        from_x, to_x, segment_frame, board_slide_frames_per_tile
     );
     entity->position[1] = 3072 + view::slide_between(
         terrain_surface(from, s_map_width), terrain_surface(to, s_map_width),
-        segment_frame, view::slide_frames_per_tile
+        segment_frame, board_slide_frames_per_tile
     );
     entity->position[1] += 4096 * 4 * segment_frame *
-        (view::slide_frames_per_tile - segment_frame) /
-        (view::slide_frames_per_tile * view::slide_frames_per_tile);
+        (board_slide_frames_per_tile - segment_frame) /
+        (board_slide_frames_per_tile * board_slide_frames_per_tile);
     entity->position[2] = view::slide_between(
-        from_z, to_z, segment_frame, view::slide_frames_per_tile
+        from_z, to_z, segment_frame, board_slide_frames_per_tile
+    );
+    apply_unit_art(
+        binding, *entity, walking_pose(heading, s_motion.frame - 1U),
+        s_motion.facing_left
     );
     entity->mesh_enabled = 1;
     s_unit_on_board[binding] = true;
@@ -957,6 +1047,18 @@ void animate_combat_units(const sim::EncounterSnapshot& snapshot) {
         *target_entity, target->position, snapshot.width, snapshot.height,
         3072, false
     );
+    // Stage the exchange like the N64 close view: both actors keep fixed
+    // screen sides for the whole attack/counter sequence.  The old path left
+    // them at tactical-cell spacing, which made the close view look like a
+    // distant board crop and could swap their apparent sides with map layout.
+    const std::int32_t centre_x =
+        (attacker_entity->position[0] + target_entity->position[0]) / 2;
+    const std::int32_t centre_z =
+        (attacker_entity->position[2] + target_entity->position[2]) / 2;
+    attacker_entity->position[0] = centre_x - 2 * 65536;
+    attacker_entity->position[2] = centre_z;
+    target_entity->position[0] = centre_x + 2 * 65536;
+    target_entity->position[2] = centre_z;
     const unsigned elapsed = s_result_duration - s_result_frames;
     unsigned phase = 0;
     bool counter = false;
@@ -972,8 +1074,6 @@ void animate_combat_units(const sim::EncounterSnapshot& snapshot) {
     const ps1_entity* destination = counter ? attacker_entity : target_entity;
     mover->position[0] +=
         (destination->position[0] - mover->position[0]) * static_cast<int>(phase) / 27;
-    mover->position[2] +=
-        (destination->position[2] - mover->position[2]) * static_cast<int>(phase) / 27;
 }
 
 void tick_camera() {
@@ -1094,6 +1194,18 @@ void tick_camera() {
         const bool combat_actor = close_combat &&
             (g_grandleon_unit_ids[index] == s_combat_attacker ||
              g_grandleon_unit_ids[index] == s_combat_target);
+        if (combat_actor) {
+            const bool defender =
+                g_grandleon_unit_ids[index] == s_combat_target;
+            apply_unit_art(
+                index, *unit, combat_pose_for(g_grandleon_unit_ids[index]),
+                defender, true
+            );
+        } else if (!s_motion.active || g_grandleon_unit_ids[index] != s_motion.unit) {
+            apply_unit_art(
+                index, *unit, unit_pose_idle, s_unit_facing_left[index]
+            );
+        }
         unit->mesh_enabled = close_combat ? combat_actor :
             (!terrain_page_changed && s_unit_on_board[index] &&
              s_unit_visible[index] &&
@@ -1149,7 +1261,7 @@ bool advance_board_motion() {
     if (!s_motion.active) return false;
     if (s_motion.frame < s_motion.total_frames) ++s_motion.frame;
     const unsigned completed_steps = s_motion.frame /
-        static_cast<unsigned>(view::slide_frames_per_tile);
+        board_slide_frames_per_tile;
     for (unsigned index = 0;
          index < completed_steps && index < s_motion.route_count; ++index) {
         const sim::Position reached{
@@ -1775,6 +1887,11 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
         output->mode = GRANDLEON_UI_COMPLETE;
     } else if (s_result_frames || s_camera_return_frames) output->mode = GRANDLEON_UI_RESULT;
     else if (s_ai_active) output->mode = GRANDLEON_UI_OPPONENT;
+    // The rules commit the destination before its presentation finishes, so
+    // `s_mode` has already advanced to the action menu while the actor is
+    // still crossing the board.  Do not cover that movement with a menu the
+    // player cannot use yet; reveal it when the last footfall settles.
+    else if (s_motion.active) output->mode = GRANDLEON_UI_BROWSE;
     else if (s_mode == InputMode::move) output->mode = GRANDLEON_UI_MOVE;
     else if (s_mode == InputMode::action) output->mode = GRANDLEON_UI_ACTION;
     else if (s_mode == InputMode::attack) output->mode = GRANDLEON_UI_ATTACK;

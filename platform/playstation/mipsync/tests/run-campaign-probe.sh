@@ -67,12 +67,12 @@ for filename in sys.argv[1:]:
         raise SystemExit(f"{path}: stack reserve is below 32 KiB")
     if memory["minimum_gameplay_heap_bytes"] < 524288:
         raise SystemExit(f"{path}: gameplay heap reserve is below 512 KiB")
-    if vram["texture_bytes"] + vram["vram_reserved_bytes"] != 384 * 256 * 2:
+    if vram["texture_bytes"] + vram["vram_reserved_bytes"] != 704 * 512 * 2:
         raise SystemExit(f"{path}: generated texture atlas escaped its VRAM budget")
     print(
         f"MIPSYNC_CAMPAIGN_BUDGET {path.name} "
         f"ram={memory['playable_slice_committed_bytes']}/{memory['main_ram_bytes']} "
-        f"vram={vram['texture_bytes']}/{384 * 256 * 2} "
+        f"vram={vram['texture_bytes']}/{704 * 512 * 2} "
         f"audio_reserve={memory['platform_audio_reserve_bytes']}"
     )
 PY

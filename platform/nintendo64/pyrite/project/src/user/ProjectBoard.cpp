@@ -1431,9 +1431,19 @@ void build_unit_vertices() {
                 segment_from.x, segment_from.y,
                 segment_to.x, segment_to.y
             );
-            motion.facing_left = view::board_heading_faces_left(
-                heading, motion.facing_left
-            );
+            // The fixed isometric camera projects north toward screen-left
+            // and south toward screen-right. Preserving the previous profile
+            // on those legs made a diagonal route visibly walk backwards even
+            // though its world-space route was correct. Until the generated
+            // compass bank is resident at runtime, choose the side silhouette
+            // from projected travel for all four headings.
+            motion.facing_left = heading == view::BoardHeading::north
+                ? true
+                : heading == view::BoardHeading::south
+                    ? false
+                    : view::board_heading_faces_left(
+                        heading, motion.facing_left
+                    );
             facing_left = motion.facing_left;
             const int segment_frame = static_cast<int>(
                 elapsed - route_index * view::slide_frames_per_tile

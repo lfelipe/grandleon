@@ -532,25 +532,28 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
     }
 
     if (state.mode == GRANDLEON_UI_RESULT) {
-        draw_panel(ordering_table, next_packet, packet_end, 70, 8, 180, 37);
+        /* Close actors now use the same large readable composition as the
+         * N64. Keep the result card below their feet instead of masking heads,
+         * weapons or attack silhouettes at the top of the frame. */
+        draw_panel(ordering_table, next_packet, packet_end, 70, 195, 180, 37);
         if (state.result_missed) {
-            draw_text(ordering_table, next_packet, packet_end, 78, 13,
+            draw_text(ordering_table, next_packet, packet_end, 78, 200,
                       grandleon_game_text(GRANDLEON_TEXT_MISS), 231, 133, 104);
         } else {
-            draw_text(ordering_table, next_packet, packet_end, 78, 13,
+            draw_text(ordering_table, next_packet, packet_end, 78, 200,
                       grandleon_game_text(
                           state.restored ? GRANDLEON_TEXT_RESTORED
                                          : GRANDLEON_TEXT_DAMAGE
                       ), 255, 205, 68);
         }
         if (!state.result_missed) {
-            draw_number(ordering_table, next_packet, packet_end, 187, 13,
+            draw_number(ordering_table, next_packet, packet_end, 187, 200,
                         state.result_damage, 247, 239, 209);
         }
         if (state.result_counter_damage) {
-            draw_text(ordering_table, next_packet, packet_end, 78, 26,
+            draw_text(ordering_table, next_packet, packet_end, 78, 213,
                       grandleon_game_text(GRANDLEON_TEXT_COUNTER), 168, 181, 196);
-            draw_number(ordering_table, next_packet, packet_end, 183, 26,
+            draw_number(ordering_table, next_packet, packet_end, 183, 213,
                         state.result_counter_damage, 247, 239, 209);
         }
     }

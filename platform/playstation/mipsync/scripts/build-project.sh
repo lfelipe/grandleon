@@ -210,12 +210,12 @@ for path in sorted(Path(sys.argv[1]).glob("*/build-manifest.json")):
         raise SystemExit(f"{path}: exceeds PlayStation main RAM")
     if memory["platform_audio_reserve_bytes"] < 65536:
         raise SystemExit(f"{path}: audio reserve is below 64 KiB")
-    if vram["texture_bytes"] + vram["vram_reserved_bytes"] != 384 * 256 * 2:
+    if vram["texture_bytes"] + vram["vram_reserved_bytes"] != 704 * 512 * 2:
         raise SystemExit(f"{path}: texture atlas exceeds PlayStation VRAM")
     print(
         f"MIPSYNC_PROJECT_BUDGET {path.parent.name} "
         f"ram={memory['playable_slice_committed_bytes']}/{memory['main_ram_bytes']} "
-        f"vram={vram['texture_bytes']}/{384 * 256 * 2}"
+        f"vram={vram['texture_bytes']}/{704 * 512 * 2}"
     )
 PY
 

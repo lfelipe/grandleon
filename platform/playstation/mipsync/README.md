@@ -20,11 +20,12 @@ not by removing Player 2 from the co-op battle. That preserves different
 starts, opposition, reinforcement timing and tuning. The campaign probe boots
 all five exact 1P definitions as well as the full 2P save-and-resume route.
 
-Board movement follows the authoritative reachable route at ten frames per
-tile, including terrain height and a small footfall lift. Input waits for that
-presentation to settle, and entering an authored hidden area reveals it only
-when the rendered unit reaches the doorway rather than when the rules commit
-the destination.
+Board movement follows the authoritative reachable route at ten presented
+frames per tile. It uses both authored walk poses, left/right facing, compact
+north/south views, terrain height, and a small footfall lift. The action menu
+stays out of the way until the unit stops, and input waits for the presentation
+to settle. Entering an authored hidden area reveals it only when the rendered
+unit reaches the doorway rather than when the rules commit the destination.
 
 When a game authors a deployment area, its tiles are marked on the live board.
 Cross selects or places a character through the shared simulation and Start

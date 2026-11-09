@@ -36,8 +36,10 @@ The separate Bell Orchard combat probe waits for routed movement to settle,
 performs a real melee attack and healing ability with Player 1, spends Player
 2's units through the second controller, and observes the authored opposing
 turn. It also recorded 300 renders and 300 scheduled holds with no missed 30
-fps deadlines. Render work averaged 246 HBlanks and peaked at 394; completed
-frames averaged 248 and peaked at 396, below the two-retrace close-view budget.
+fps deadlines. Render work averaged 306 HBlanks and peaked at 438; completed
+frames averaged 308 and peaked at 440, inside the two-retrace close-view
+budget. A separate mixed-axis capture verifies both walk poses, left/right
+facing, north/south art, and the clear board while movement is still active.
 
 Two focused action probes cover behavior that the release campaign does not
 force into its short automated route. One selects Talk through the normal menu
@@ -67,11 +69,11 @@ The build keeps the planned 64 KiB audio reserve, 32 KiB stack reserve, and
 
 | Encounter | Committed RAM | Texture VRAM | Active cache |
 | --- | ---: | ---: | ---: |
-| Bell Orchard | 1,467,064 / 2,097,152 | 116,736 / 196,608 | 289 vertices, 270 triangles |
-| Cedar Deepwood | 1,505,976 / 2,097,152 | 133,120 / 196,608 | 298 vertices, 226 triangles |
-| Cedar Watch | 1,563,320 / 2,097,152 | 149,504 / 196,608 | 269 vertices, 212 triangles |
-| Gate Village | 1,561,272 / 2,097,152 | 165,888 / 196,608 | 232 vertices, 172 triangles |
-| Twin Gate Keep | 1,526,456 / 2,097,152 | 124,928 / 196,608 | 294 vertices, 218 triangles |
+| Bell Orchard | 1,759,992 / 2,097,152 | 403,456 / 720,896 | 395 vertices, 352 triangles |
+| Cedar Deepwood | 1,893,112 / 2,097,152 | 501,760 / 720,896 | 447 vertices, 336 triangles |
+| Cedar Watch | 2,001,656 / 2,097,152 | 559,104 / 720,896 | 411 vertices, 320 triangles |
+| Gate Village | 2,036,472 / 2,097,152 | 616,448 / 720,896 | 361 vertices, 268 triangles |
+| Twin Gate Keep | 1,923,832 / 2,097,152 | 493,568 / 720,896 | 430 vertices, 324 triangles |
 
 Larger maps use overlapping 8x6 terrain pages, with only the nearest page
 active. Unit and prop culling changes presentation only; the full encounter
@@ -80,7 +82,9 @@ continues to run in the shared simulation.
 ## Visual checks
 
 Unit cutouts come from the Godot graphics profile and retain authored figure
-and team-colour differences. Terrain uses Godot-derived palettes on a
+and team-colour differences. Board movement now cycles both authored side-view
+walk poses and uses compact front/back frames when a route turns north or
+south; close combat keeps the larger 64x64 pose bank. Terrain uses Godot-derived palettes on a
 continuous low-poly surface whose shared corners keep neighbouring materials
 connected. Units and the cursor use the generated surface height. Native
 conifers, outcrops, reeds, crops, bamboo, rubble, and ice forms provide sparse
@@ -103,11 +107,11 @@ English label texture is no longer shipped.
 ## Exact artifact
 
 - CUE SHA-256: `1175e80086decd95d63c584f4375d420e64a5b609aec8876cf680bce6b912ae3`
-- BIN SHA-256: `b7063b551f92f9aa969b38a98f1170415a84b45450badf1aeb87457219dc07aa`
+- BIN SHA-256: `4dd6a2dab2f6a091eaf32b01ce0987a581ca4a8a01dd940dca0d6d5a98b3203e`
 
 The exact disc, build manifests, hashes, emulator logs, and captured
 framebuffers remain outside source control at
-`/home/lstrano/.cache/grandleon-mipsync-30fps-floor-final-GBLSsW/build/`.
+`/home/lstrano/.cache/grandleon-mipsync-release05-directional-20261108/`.
 
 The executable and BIN embed `GRANDLEON_PS1_RENDERER=MIPSYNC`. Mipsync is
 pinned to `866f405a0e34b5925a8d832272fe52c657688430` and receives the five

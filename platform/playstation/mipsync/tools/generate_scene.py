@@ -39,10 +39,32 @@ TEAM_COLOURS = (
 POLICIES = ("extend_edges", "fixed_terrain", "natural_blend")
 RELIEF_MODES = ("flat", "smooth")
 CELL_SOURCE_SIZE = 443
-TEXTURE_X = 640
+# The two 320x240 framebuffers occupy x=0..319.  The original adapter used
+# only the upper-right 384x256 corner, leaving most of the PS1's actual texture
+# space unavailable even though Mipsync already supports texture pages in both
+# 256-line bands.  Keep the whole framebuffer-free strip available to the
+# stage packer; individual textures still remain inside one 256-line page.
+TEXTURE_X = 320
 TEXTURE_Y = 0
-TEXTURE_WIDTH = 384
-TEXTURE_HEIGHT = 256
+TEXTURE_WIDTH = 704
+TEXTURE_HEIGHT = 512
+TEXTURE_PAGE_HEIGHT = 256
+UNIT_POSES = (
+    ("idle", 0, False, 64),
+    ("move_contact", 2, False, 64),
+    ("move_pass", 3, False, 64),
+    # Compass art matters most while crossing the board.  Keeping these four
+    # frames at 32x32 costs 8 KiB per unique unit instead of 32 KiB, so the
+    # largest campaign stage still fits both PS1 main RAM and VRAM while side
+    # views and close combat retain their 64x64 detail.
+    ("move_north_contact", 2, True, 32),
+    ("move_north_pass", 3, True, 32),
+    ("move_south_contact", 6, True, 32),
+    ("move_south_pass", 7, True, 32),
+    ("attack", 5, False, 64),
+    ("hurt", 7, False, 64),
+)
+UnitTextureIndices = tuple[int, int, int, int, int, int, int, int, int]
 MAX_CACHE_VERTICES = 1024
 MAX_CACHE_TRIANGLES = 1024
 
@@ -192,9 +214,16 @@ class TexturePacker:
         self.used = [[False] * self.columns for _ in range(self.rows)]
 
     def place(self, width: int, height: int) -> tuple[int, int]:
+        if width > 256 or height > TEXTURE_PAGE_HEIGHT:
+            raise ValueError("generated texture exceeds one PS1 texture page")
         columns = math.ceil(width / 64)
         rows = math.ceil(height / 32)
         for y in range(self.rows - rows + 1):
+            pixel_y = TEXTURE_Y + y * 32
+            if pixel_y // TEXTURE_PAGE_HEIGHT != (
+                pixel_y + height - 1
+            ) // TEXTURE_PAGE_HEIGHT:
+                continue
             for x in range(self.columns - columns + 1):
                 if any(self.used[yy][xx] for yy in range(y, y + rows) for xx in range(x, x + columns)):
                     continue
@@ -343,7 +372,10 @@ def relay_terrain_image(repo: Path, kind: int) -> Image.Image:
     return image.convert("RGBA")
 
 
-def unit_image(repo: Path, unit: dict[str, object], profiles: dict[str, object]) -> Image.Image:
+def unit_image(
+    repo: Path, unit: dict[str, object], profiles: dict[str, object],
+    pose: int, directional: bool = False, side: int = 64,
+) -> Image.Image:
     style_index = require_int(unit.get("style"), "unit style", 0, len(STYLE_NAMES) - 1)
     archetype_index = require_int(unit.get("archetype"), "unit archetype", 0, len(ARCHETYPE_NAMES) - 1)
     figure_index = require_int(unit.get("figure"), "unit figure", 0, len(FIGURE_NAMES) - 1)
@@ -352,6 +384,9 @@ def unit_image(repo: Path, unit: dict[str, object], profiles: dict[str, object])
     binding = profiles.get(key)
     if not isinstance(binding, dict):
         raise ValueError(f"Godot graphics profile has no character binding {key!r}")
+    sheet_binding = binding.get("directionalSheet") if directional else binding
+    if not isinstance(sheet_binding, dict):
+        raise ValueError(f"Godot graphics profile has no directional binding {key!r}")
 
     def resource(value: object) -> Path:
         text = str(value)
@@ -359,10 +394,13 @@ def unit_image(repo: Path, unit: dict[str, object], profiles: dict[str, object])
             raise ValueError(f"character resource is not project-relative: {text!r}")
         return repo / "platform/godot/project" / text.removeprefix("res://")
 
-    with Image.open(resource(binding.get("path"))) as sheet:
-        source = sheet.convert("RGBA").crop((0, 0, CELL_SOURCE_SIZE, CELL_SOURCE_SIZE))
-    with Image.open(resource(binding.get("teamMaskPath"))) as sheet:
-        mask = sheet.convert("RGBA").crop((0, 0, CELL_SOURCE_SIZE, CELL_SOURCE_SIZE)).getchannel("A")
+    left = pose % 4 * CELL_SOURCE_SIZE
+    top = pose // 4 * CELL_SOURCE_SIZE
+    bounds = (left, top, left + CELL_SOURCE_SIZE, top + CELL_SOURCE_SIZE)
+    with Image.open(resource(sheet_binding.get("path"))) as sheet:
+        source = sheet.convert("RGBA").crop(bounds)
+    with Image.open(resource(sheet_binding.get("teamMaskPath"))) as sheet:
+        mask = sheet.convert("RGBA").crop(bounds).getchannel("A")
     team = TEAM_COLOURS[colour_index]
     gray = ImageOps.grayscale(source)
     tinted = ImageOps.colorize(
@@ -370,18 +408,23 @@ def unit_image(repo: Path, unit: dict[str, object], profiles: dict[str, object])
         tuple(min(255, channel + (255 - channel) * 3 // 4) for channel in team),
     ).convert("RGBA")
     tinted.putalpha(source.getchannel("A"))
-    return fitted_cutout(Image.composite(tinted, source, mask))
+    return fitted_cutout(Image.composite(tinted, source, mask), side)
 
 
 def write_textures(
     output: Path, repo: Path, terrain_kinds: list[int], units: list[dict[str, object]],
-) -> tuple[dict[int, int], dict[tuple[int, int, int, int], int], int, dict[str, int]]:
+) -> tuple[
+    dict[int, int], dict[tuple[int, int, int, int], UnitTextureIndices],
+    int, dict[str, int],
+]:
     profiles_path = repo / "platform/godot/project/content/graphics_profiles.json"
     profiles = json.loads(profiles_path.read_text(encoding="utf-8"))["profiles"]["voxel-sprites"]["assets"]["characterSprites"]
     packer = TexturePacker()
     textures: list[tuple[str, Image.Image, bool, int, int]] = []
     terrain_indices: dict[int, int] = {}
-    unit_indices: dict[tuple[int, int, int, int], int] = {}
+    unit_indices: dict[
+        tuple[int, int, int, int], UnitTextureIndices
+    ] = {}
 
     for kind in sorted(set(terrain_kinds)):
         texture = relay_terrain_image(repo, kind)
@@ -395,9 +438,17 @@ def write_textures(
         )
         if key in unit_indices:
             continue
-        texture = unit_image(repo, unit, profiles)
-        textures.append((f"unit_{len(unit_indices)}", texture, True, 0, 0))
-        unit_indices[key] = len(textures)
+        drawing = len(unit_indices)
+        pose_indices = []
+        for pose_name, pose_index, directional, side in UNIT_POSES:
+            texture = unit_image(
+                repo, unit, profiles, pose_index, directional, side
+            )
+            textures.append((
+                f"unit_{drawing}_{pose_name}", texture, True, 0, 0,
+            ))
+            pose_indices.append(len(textures))
+        unit_indices[key] = tuple(pose_indices)  # type: ignore[assignment]
 
     # One tiny, deterministic font atlas lets the target draw live health,
     # forecasts and arbitrary ability counts without shipping Sony's debug
@@ -875,6 +926,17 @@ def write_meshes(
     lines += emit_vectors("k_billboard_vertices", billboard_vertices)
     lines += emit_vectors("k_billboard_normals", [(0, 0, 4096, 0)] * 4)
     lines.extend(("static const ps1_uv8 k_billboard_uvs[] = {", "    { 0, 63 }, { 63, 63 }, { 63, 0 }, { 0, 0 },", "};", "", "static const ps1_mesh_tri k_billboard_triangles[] = {", "    { .i0=0, .i1=1, .i2=2, .nz=4096, .shade=255, .color_r=255, .color_g=255, .color_b=255 },", "    { .i0=0, .i1=2, .i2=3, .nz=4096, .shade=255, .color_r=255, .color_g=255, .color_b=255 },", "};", ""))
+    lines.extend((
+        "static const ps1_uv8 k_billboard_mirrored_uvs[] = {",
+        "    { 63, 63 }, { 0, 63 }, { 0, 0 }, { 63, 0 },",
+        "};", "",
+        "static const ps1_uv8 k_directional_billboard_uvs[] = {",
+        "    { 0, 31 }, { 31, 31 }, { 31, 0 }, { 0, 0 },",
+        "};", "",
+        "static const ps1_uv8 k_directional_billboard_mirrored_uvs[] = {",
+        "    { 31, 31 }, { 0, 31 }, { 0, 0 }, { 31, 0 },",
+        "};", "",
+    ))
     chunk_descriptors: list[tuple[int, int, int, int, int, int, int]] = []
     chunk_mesh_lines: list[str] = []
     for chunk_index, (vertices, uvs, triangles, bounds) in enumerate(board_groups):
@@ -975,6 +1037,9 @@ def write_meshes(
         "    { .verts=k_combat_floor_vertices, .norms=k_combat_floor_normals, .vert_count=sizeof(k_combat_floor_vertices)/sizeof(k_combat_floor_vertices[0]), .uvs=k_combat_floor_uvs, .tris=k_combat_floor_triangles, .tri_count=sizeof(k_combat_floor_triangles)/sizeof(k_combat_floor_triangles[0]), .scale_q12=4096, .bounds_radius=860, .flags=PS1_MESH_FLAG_TERRAIN },",
         "    { .verts=k_cursor_vertices, .norms=k_cursor_normals, .vert_count=4, .uvs=k_cursor_uvs, .tris=k_cursor_triangles, .tri_count=2, .scale_q12=256, .bounds_radius=640, .flags=PS1_MESH_FLAG_TERRAIN },",
         *([visibility_mesh_line] if visibility_mesh_line else []),
+        "    { .verts=k_billboard_vertices, .norms=k_billboard_normals, .vert_count=4, .uvs=k_billboard_mirrored_uvs, .tris=k_billboard_triangles, .tri_count=2, .scale_q12=256, .bounds_center_y=512, .bounds_radius=724 },",
+        "    { .verts=k_billboard_vertices, .norms=k_billboard_normals, .vert_count=4, .uvs=k_directional_billboard_uvs, .tris=k_billboard_triangles, .tri_count=2, .scale_q12=256, .bounds_center_y=512, .bounds_radius=724 },",
+        "    { .verts=k_billboard_vertices, .norms=k_billboard_normals, .vert_count=4, .uvs=k_directional_billboard_mirrored_uvs, .tris=k_billboard_triangles, .tri_count=2, .scale_q12=256, .bounds_center_y=512, .bounds_radius=724 },",
         "};", "const unsigned int g_ps1_mesh_count =", "    sizeof(g_ps1_meshes) / sizeof(g_ps1_meshes[0]);", ""))
     (output / "mesh_data.c").write_text("\n".join(lines), encoding="utf-8")
     return (
@@ -1003,12 +1068,12 @@ def select_terrain_form_cells(
     present_kinds = {cell[2] for cell in candidates}
     # A handful of props over an entire large map still reads as a flat tile
     # sheet.  The active PS1 page has ample transformed-geometry headroom, so
-    # give roughly one structural form to every nine cells while keeping
+    # give roughly one structural form to every four cells while keeping
     # a firm global ceiling. This is dense enough to define regions but keeps
     # worst-case terrain-page changes inside the two-retrace 30 fps budget.
     # Open grass, road and paved cells remain uncluttered.
-    budget = max(len(present_kinds), max(1, (width * height + 8) // 9))
-    budget = min(30, budget, len(candidates))
+    budget = max(len(present_kinds), max(1, (width * height + 3) // 4))
+    budget = min(64, budget, len(candidates))
     selected: list[tuple[int, int, int]] = []
     selected_coordinates: set[tuple[int, int]] = set()
     for kind in sorted(present_kinds):
@@ -1078,7 +1143,8 @@ def visible_position_peak(
 
 
 def write_scene(
-    output: Path, document: dict[str, object], unit_indices: dict[tuple[int, int, int, int], int],
+    output: Path, document: dict[str, object],
+    unit_indices: dict[tuple[int, int, int, int], UnitTextureIndices],
     terrain_chunks: list[tuple[int, int, int, int, int, int, int]],
     ui_texture_index: int,
     surface_lifts: list[int], fog_colour: tuple[int, int, int],
@@ -1087,6 +1153,14 @@ def write_scene(
     height = int(document["height"])
     units = document["units"]
     assert isinstance(units, list)
+    visibility = document["visual_visibility"]
+    assert isinstance(visibility, dict)
+    hidden_cells = [int(value) for value in visibility["hidden_cells"]]
+    mirrored_billboard_mesh_index = (
+        len(terrain_chunks) + 4 + (1 if hidden_cells else 0)
+    )
+    directional_billboard_mesh_index = mirrored_billboard_mesh_index + 1
+    directional_mirrored_billboard_mesh_index = mirrored_billboard_mesh_index + 2
     if len(units) > 64:
         raise ValueError("Mipsync playable slice supports at most 64 units")
     lines = ["/* Generated from a real Grandleon scene manifest. Do not edit. */", '#include "grandleon_scene.h"', "", "static ps1_entity k_ps1_entities[] = {"]
@@ -1109,13 +1183,16 @@ def write_scene(
     next_id += 1
     entity_index += 1
     unit_entity_indices: list[int] = []
+    unit_pose_texture_indices: list[UnitTextureIndices] = []
     for unit in units:
         if not isinstance(unit, dict):
             raise ValueError("every unit must be an object")
         x = require_int(unit.get("x"), "unit x", 0, width - 1)
         y = require_int(unit.get("y"), "unit y", 0, height - 1)
         key = (int(unit["style"]), int(unit["archetype"]), int(unit["figure"]), int(unit["colour"]))
-        texture = unit_indices[key]
+        pose_textures = unit_indices[key]
+        texture = pose_textures[0]
+        unit_pose_texture_indices.append(pose_textures)
         unit_entity_indices.append(entity_index)
         world_x = (x + 0.5 - width / 2) * 2
         world_z = (height / 2 - y - 0.5) * 2
@@ -1125,9 +1202,6 @@ def write_scene(
         )
         next_id += 1
         entity_index += 1
-    visibility = document["visual_visibility"]
-    assert isinstance(visibility, dict)
-    hidden_cells = [int(value) for value in visibility["hidden_cells"]]
     cursor_mesh_index = 3 + len(terrain_chunks)
     visibility_entity_index = 0
     if hidden_cells:
@@ -1185,13 +1259,21 @@ def write_scene(
     camera_index = entity_index
     lines.extend((
         f"    {{ .id={next_id}u, .name=\"clamped_board_camera\", .parent_entity_index=-1, .position={{{fixed(camera_focus_x)},{fixed(CAMERA_HEIGHT)},{fixed(camera_focus_z + CAMERA_TRAILING_DISTANCE)}}}, .rotation={{{fixed(-40)},0,0}}, .scale={{65536,65536,65536}}, .rigid_root_entity_index=-1, .collider_shape=-1, .has_camera=1, .camera_primary=1, .camera_fov={fixed(45)}, .camera_near={fixed(0.2)}, .camera_far={fixed(80)}, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},",
-        "};", "", "const ps1_scene g_ps1_scene = {", "    .entities=k_ps1_entities,", "    .entity_count=sizeof(k_ps1_entities)/sizeof(k_ps1_entities[0]),", f"    .camera_entity_index={camera_index},", "    .light={ .enabled=1, .dir_x=-1024, .dir_y=3072, .dir_z=2048, .color_r=255, .color_g=244, .color_b=220, .ambient_r=96, .ambient_g=96, .ambient_b=112 },", f"    .fog_enabled=1, .fog_r={fog_colour[0]}, .fog_g={fog_colour[1]}, .fog_b={fog_colour[2]},", f"    .fog_start={fixed(18)}, .fog_end={fixed(36)},", f"    .meshes=g_ps1_meshes, .mesh_count={cursor_mesh_index + (1 if hidden_cells else 0)},", "};", "",
+        "};", "", "const ps1_scene g_ps1_scene = {", "    .entities=k_ps1_entities,", "    .entity_count=sizeof(k_ps1_entities)/sizeof(k_ps1_entities[0]),", f"    .camera_entity_index={camera_index},", "    .light={ .enabled=1, .dir_x=-1024, .dir_y=3072, .dir_z=2048, .color_r=255, .color_g=244, .color_b=220, .ambient_r=96, .ambient_g=96, .ambient_b=112 },", f"    .fog_enabled=1, .fog_r={fog_colour[0]}, .fog_g={fog_colour[1]}, .fog_b={fog_colour[2]},", f"    .fog_start={fixed(18)}, .fog_end={fixed(36)},", f"    .meshes=g_ps1_meshes, .mesh_count={cursor_mesh_index + (1 if hidden_cells else 0) + 3},", "};", "",
         "const uint64_t g_grandleon_unit_ids[] = {",
         *(f"    {int(unit['id'])}ULL," for unit in units if isinstance(unit, dict)),
         "};",
         "const unsigned int g_grandleon_unit_entity_indices[] = {",
         *(f"    {index}u," for index in unit_entity_indices),
         "};",
+        "const unsigned int g_grandleon_unit_pose_texture_indices[][9] = {",
+        *("    {" + ",".join(f"{texture}u" for texture in textures) + "},"
+          for textures in unit_pose_texture_indices),
+        "};",
+        "const unsigned int g_grandleon_board_billboard_mesh_index = 1u;",
+        f"const unsigned int g_grandleon_mirrored_billboard_mesh_index = {mirrored_billboard_mesh_index}u;",
+        f"const unsigned int g_grandleon_directional_billboard_mesh_index = {directional_billboard_mesh_index}u;",
+        f"const unsigned int g_grandleon_directional_mirrored_billboard_mesh_index = {directional_mirrored_billboard_mesh_index}u;",
         "const unsigned int g_grandleon_unit_count = sizeof(g_grandleon_unit_ids) / sizeof(g_grandleon_unit_ids[0]);",
         f"const unsigned int g_grandleon_visibility_entity_index = {visibility_entity_index}u;",
         "const uint16_t g_grandleon_visibility_cell_indices[] = {",
@@ -1247,6 +1329,11 @@ extern "C" {
 #endif
 extern const uint64_t g_grandleon_unit_ids[];
 extern const unsigned int g_grandleon_unit_entity_indices[];
+extern const unsigned int g_grandleon_unit_pose_texture_indices[][9];
+extern const unsigned int g_grandleon_board_billboard_mesh_index;
+extern const unsigned int g_grandleon_mirrored_billboard_mesh_index;
+extern const unsigned int g_grandleon_directional_billboard_mesh_index;
+extern const unsigned int g_grandleon_directional_mirrored_billboard_mesh_index;
 extern const unsigned int g_grandleon_unit_count;
 extern const unsigned int g_grandleon_visibility_entity_index;
 extern const uint16_t g_grandleon_visibility_cell_indices[];
