@@ -35,8 +35,9 @@ reduced motion and FPS display can be changed there and are kept on the memory
 card; retail play starts with FPS hidden.
 
 Mipsync is pinned to commit `866f405a0e34b5925a8d832272fe52c657688430`.
-The upstream source is not copied into Grandleon. Generic engine fixes live as
-replayable `git format-patch` files under
+The upstream source is not vendored in the Grandleon repository. Release
+packaging puts the pinned source and its licence inside the optional offline
+builder. Generic engine fixes live as replayable `git format-patch` files under
 `tools/upstream_patches/engines/mipsync`; Grandleon-specific package, simulation
 and rendering adapters stay here.
 
@@ -69,6 +70,12 @@ the PSn00bSDK renderer libraries. The wrapper normalizes PSn00bSDK's symbol
 tables for the Debian linker without changing code or data, applies the pinned
 Mipsync patches, regenerates target data, builds the exact CUE/BIN and verifies
 the embedded renderer identity and RAM budget.
+
+`scripts/build-project.sh` is the production path used by the installed
+creator. It reads the first (selected) campaign from `project.json`, builds each
+encounter as a disc stage, honors its one/two/choice player policy, and writes
+`game.bin` plus `game.cue`. `tests/run-project-launch-probe.sh` boots either the
+small direct-entry demo or Steel and Cedar from those generated files.
 
 ```sh
 PSN00BSDK_ROOT=/path/to/PSn00bSDK \

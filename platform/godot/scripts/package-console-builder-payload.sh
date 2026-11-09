@@ -75,9 +75,19 @@ else
     digest="$(pin "${repo_root}/cmake/GrandleonPlayStation.cmake" GRANDLEON_PCSX_REDUX_BUILD_DIGEST)"
     nugget="$(pin "${repo_root}/cmake/GrandleonPlayStation.cmake" GRANDLEON_NUGGET_REVISION)"
     mkpsxiso="$(pin "${repo_root}/cmake/GrandleonPlayStation.cmake" GRANDLEON_MKPSXISO_REVISION)"
+    psn00bsdk_version="$(sed -n 's/^ARG PSN00BSDK_VERSION=//p' \
+        "${repo_root}/platform/playstation/Containerfile")"
+    psn00bsdk_sha256="$(sed -n 's/^ARG PSN00BSDK_ARCHIVE_SHA256=//p' \
+        "${repo_root}/platform/playstation/Containerfile")"
+    # shellcheck disable=SC1091 # repository-owned immutable pin file
+    source "${repo_root}/tools/upstream_patches/engines/mipsync/upstream.env"
+    mipsync_revision="${UPSTREAM_REVISION}"
     [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]] \
         && [[ "${nugget}" =~ ^[0-9a-f]{40}$ ]] \
-        && [[ "${mkpsxiso}" =~ ^[0-9a-f]{40}$ ]] || {
+        && [[ "${mkpsxiso}" =~ ^[0-9a-f]{40}$ ]] \
+        && [[ "${psn00bsdk_version}" =~ ^[0-9]+\.[0-9]+$ ]] \
+        && [[ "${psn00bsdk_sha256}" =~ ^[0-9a-f]{64}$ ]] \
+        && [[ "${mipsync_revision}" =~ ^[0-9a-f]{40}$ ]] || {
         echo "could not read the pinned PlayStation toolchain revisions" >&2
         exit 65
     }
@@ -85,6 +95,21 @@ else
     toolchain_licenses=/GRANDLEON_TOOLCHAIN_LICENSES.tar.xz
     toolchain_components=/GRANDLEON_TOOLCHAIN_COMPONENTS.tsv
     executable=build-disc
+fi
+if [[ "${target}" == playstation ]] && {
+    ! docker image inspect "${image}" >/dev/null 2>&1 \
+        || ! docker run --rm "${image}" \
+            sh -c 'python3 -c "from PIL import Image" && test -s /psn/PSN00BSDK_VERSION' \
+            >/dev/null 2>&1;
+}; then
+    docker build \
+        --file "${repo_root}/platform/playstation/Containerfile" \
+        --build-arg "NUGGET_REVISION=${nugget}" \
+        --build-arg "MKPSXISO_REVISION=${mkpsxiso}" \
+        --build-arg "PSN00BSDK_VERSION=${psn00bsdk_version}" \
+        --build-arg "PSN00BSDK_ARCHIVE_SHA256=${psn00bsdk_sha256}" \
+        --tag "${image}" \
+        "${repo_root}/platform/playstation"
 fi
 if ! docker run --rm "${image}" /bin/sh -c \
     "test -s ${toolchain_licenses} && test -s ${toolchain_components}"; then
@@ -104,7 +129,9 @@ if [[ "${target}" == nintendo64 ]]; then
 else
     [[ "$(image_value /PCSX_REDUX_BUILD_DIGEST)" == "${digest}" ]] \
         && [[ "$(image_value /nugget/NUGGET_REVISION)" == "${nugget}" ]] \
-        && [[ "$(image_value /MKPSXISO_REVISION)" == "${mkpsxiso}" ]] || {
+        && [[ "$(image_value /MKPSXISO_REVISION)" == "${mkpsxiso}" ]] \
+        && [[ "$(image_value /psn/PSN00BSDK_VERSION)" == \
+            "${psn00bsdk_version}" ]] || {
         echo "the cached PlayStation image does not match its pinned revisions" >&2
         exit 65
     }
@@ -128,6 +155,11 @@ if [[ "${target}" == nintendo64 ]]; then
     )"
     pyrite_root="${pyrite_cli%/usr/bin/pyrite64}"
     [[ -x "${pyrite_root}/usr/bin/pyrite64" ]] || exit 65
+else
+    git clone --quiet --no-checkout "${UPSTREAM_URL}" "${temp}/mipsync"
+    git -C "${temp}/mipsync" checkout --quiet --detach "${mipsync_revision}"
+    [[ "$(git -C "${temp}/mipsync" rev-parse HEAD)" == \
+        "${mipsync_revision}" ]] || exit 65
 fi
 git -C "${repo_root}" archive --format=tar HEAD > "${temp}/source.tar"
 source_revision="$(git -C "${repo_root}" rev-parse HEAD)"
@@ -147,6 +179,8 @@ container="$(docker create --env "GRANDLEON_SOURCE_REVISION=${source_revision}" 
 docker cp "${temp}/source.tar" "${container}:/tmp/grandleon-source.tar"
 if [[ "${target}" == nintendo64 ]]; then
     docker cp "${pyrite_root}" "${container}:/opt/pyrite64"
+else
+    docker cp "${temp}/mipsync" "${container}:/opt/mipsync"
 fi
 docker start --attach "${container}"
 
@@ -169,6 +203,12 @@ if [[ "${target}" == nintendo64 ]]; then
     install -m 0644 "${repo_root}/platform/nintendo64/pyrite/THIRD_PARTY.md" \
         "${temp}/toolchain-licenses/pyrite64/NOTICE.md"
     printf 'Pyrite64\t%s\tMIT\n' "${pyrite_version}" \
+        >> "${temp}/toolchain-components.tsv"
+else
+    mkdir -p "${temp}/toolchain-licenses/mipsync"
+    install -m 0644 "${temp}/mipsync/LICENSE" \
+        "${temp}/toolchain-licenses/mipsync/LICENSE"
+    printf 'Mipsync\t%s\tMIT\n' "${mipsync_revision}" \
         >> "${temp}/toolchain-components.tsv"
 fi
 mkdir -p "${temp}/busybox-static"
@@ -222,6 +262,8 @@ else
     audit_components+=(
         --expected-component "Nugget=${nugget}"
         --expected-component "mkpsxiso=${mkpsxiso}"
+        --expected-component "PSn00bSDK core=${psn00bsdk_version}"
+        --expected-component "Mipsync=${mipsync_revision}"
     )
 fi
 python3 "${script_dir}/audit-console-builder-payload.py" \

@@ -581,7 +581,7 @@ void begin_new_campaign(unsigned players) {
         s_campaign_mode = CampaignMode::save_error;
         return;
     }
-    enter_after_player_names(CampaignMode::prologue);
+    route_after_player_names();
 }
 
 bool load_saved_campaign() {

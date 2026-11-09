@@ -8,7 +8,7 @@
 # That is less work than the libdragon arrangement, where the SDK is built on
 # top of the published image, and it is the fact this whole target rests on.
 #
-# Three things are added here.
+# Four things are added here.
 #
 # CMake, because the base image is built around a Makefile and has none.
 #
@@ -21,6 +21,9 @@
 #
 # mkpsxiso, pinned by commit. It turns the executable into a disc.
 #
+# A minimal, pinned PSn00bSDK core subset supplies the renderer headers and
+# target archives without adding a redundant compiler toolchain.
+#
 # Built by platform/playstation/scripts/build-playstation.sh, which verifies
 # the base image digest before the build and refuses to continue if the tag has
 # moved.
@@ -29,6 +32,9 @@ FROM ghcr.io/grumpycoders/pcsx-redux-build@sha256:e8db332e2b2d035cb0bbc5aeec2c13
 
 ARG NUGGET_REVISION=e5d63b8e5eeadaa04cc5a534c671ea5b252afc70
 ARG MKPSXISO_REVISION=54fb1644ed8741223583e2dcda358b75a205e214
+ARG PSN00BSDK_VERSION=0.24
+ARG PSN00BSDK_ARCHIVE_SHA256=5ada7c9478d795b22bde96ee23d6869290c14a740bcde3d57c01c342a26ded35
+ARG PSN00BSDK_SOURCE_REVISION=06e65bea3a778b2dae5af77a7935ae3868ddd4d3
 ARG LIBSTDCXX_TREE_SHA256=84e45369e6bf696758c719419f26ab44663790ac697f284cf93a1e3dacc42647
 ARG GCC_COPYING3_SHA256=8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903
 ARG GCC_COPYING_RUNTIME_SHA256=9d6b43ce4d8de0c878bf16b54d8e7a10d9bd42b75178153e3af6a815bdc90f74
@@ -41,6 +47,7 @@ RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
         ca-certificates \
         cmake \
+        python3-pil \
         xz-utils \
     && rm -rf /var/lib/apt/lists/* \
     && test "$(dpkg-query -W -f='${Version}' openssl)" = \
@@ -99,6 +106,42 @@ RUN set -eu \
         | sha256sum --check --strict - \
     && chmod -R a+rX /libstdcxx
 
+# Mipsync uses PSn00bSDK's public GPU/API headers and three target archives.
+# Keep only those MPL-2.0 core files rather than adding the release's second
+# GCC toolchain and host programs to the offline builder. The archive itself is
+# pinned, and SOURCE.md tells recipients exactly where the corresponding source
+# is available as required by the MPL.
+RUN set -eu \
+    && archive=/tmp/psn00bsdk.zip \
+    && extracted=/tmp/psn00bsdk \
+    && curl --fail --location --silent --show-error \
+        --output "${archive}" \
+        "https://github.com/Lameguy64/PSn00bSDK/releases/download/v${PSN00BSDK_VERSION}/PSn00bSDK-${PSN00BSDK_VERSION}-Linux.zip" \
+    && printf '%s  %s\n' "${PSN00BSDK_ARCHIVE_SHA256}" "${archive}" \
+        | sha256sum --check --strict - \
+    && python3 -m zipfile -e "${archive}" "${extracted}" \
+    && release="${extracted}/PSn00bSDK-${PSN00BSDK_VERSION}-Linux" \
+    && install -d /psn/include /psn/lib/libpsn00b/release \
+        /psn/lib/libpsn00b/cmake \
+    && cp -R "${release}/include/libpsn00b" /psn/include/ \
+    && install -m 0644 \
+        "${release}/lib/libpsn00b/release/libpsxgpu_exe_nogprel.a" \
+        "${release}/lib/libpsn00b/release/libpsxetc_exe_nogprel.a" \
+        "${release}/lib/libpsn00b/release/libpsxapi_exe_nogprel.a" \
+        /psn/lib/libpsn00b/release/ \
+    && install -m 0644 "${release}/lib/libpsn00b/cmake/sdk.cmake" \
+        /psn/lib/libpsn00b/cmake/sdk.cmake \
+    && install -m 0644 "${release}/share/psn00bsdk/doc/LICENSE.md" \
+        /psn/LICENSE.md \
+    && printf '%s\n' "${PSN00BSDK_VERSION}" > /psn/PSN00BSDK_VERSION \
+    && printf '%s\n' \
+        "Corresponding source: https://github.com/Lameguy64/PSn00bSDK/tree/${PSN00BSDK_SOURCE_REVISION}" \
+        "Release tag: v${PSN00BSDK_VERSION}" \
+        "Unmodified selected core files; archive SHA-256: ${PSN00BSDK_ARCHIVE_SHA256}" \
+        > /psn/SOURCE.md \
+    && chmod -R a+rX /psn \
+    && rm -rf "${archive}" "${extracted}"
+
 # mkpsxiso, which writes the disc.
 #
 # A PlayStation disc is not an ISO 9660 filesystem in 2048-byte sectors: it is
@@ -139,6 +182,7 @@ RUN set -eu \
     && mkdir -p \
         /tmp/grandleon-toolchain-licenses/nugget \
         /tmp/grandleon-toolchain-licenses/gcc/libstdc++ \
+        /tmp/grandleon-toolchain-licenses/psn00bsdk \
         /tmp/grandleon-toolchain-licenses/mkpsxiso/ghc \
         /tmp/grandleon-toolchain-licenses/mkpsxiso/miniaudio \
         /tmp/grandleon-toolchain-licenses/mkpsxiso/threadpool \
@@ -148,6 +192,8 @@ RUN set -eu \
     && install -m 0644 /libstdcxx/tree.cc /libstdcxx/COPYING3 \
         /libstdcxx/COPYING.RUNTIME \
         /tmp/grandleon-toolchain-licenses/gcc/libstdc++/ \
+    && install -m 0644 /psn/LICENSE.md /psn/SOURCE.md \
+        /tmp/grandleon-toolchain-licenses/psn00bsdk/ \
     && install -m 0644 /mkpsxiso/LICENSE.md \
         /tmp/grandleon-toolchain-licenses/mkpsxiso/LICENSE.md \
     && install -m 0644 /mkpsxiso/ghc/LICENSE \
@@ -167,6 +213,7 @@ RUN set -eu \
         miniaudio "$(git rev-parse HEAD:miniaudio)" 'Unlicense OR MIT-0' \
         ghc-filesystem "$(git rev-parse HEAD:ghc)" MIT \
         threadpool "$(git rev-parse HEAD:threadpool)" Zlib \
+        'PSn00bSDK core' "${PSN00BSDK_VERSION}" MPL-2.0 \
         'GCC libstdc++ tree.cc' 12.3.0 \
             'GPL-3.0-or-later WITH GCC-exception-3.1' \
         > /GRANDLEON_TOOLCHAIN_COMPONENTS.tsv \
