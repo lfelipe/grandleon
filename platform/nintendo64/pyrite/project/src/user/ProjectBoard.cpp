@@ -121,7 +121,7 @@ struct BoardResources final {
     std::array<UnitArt, grandleon_project_drawings.size()> art{};
     wav64_t ambience{};
     std::array<wav64_t, 5> music{};
-    std::array<wav64_t, 5> combat_cues{};
+    std::array<wav64_t, 6> combat_cues{};
     std::array<P64::Audio::Handle, 8> effect_handles{};
     std::size_t next_effect{};
     unsigned music_track{99U};
@@ -320,6 +320,10 @@ struct CombatPresentation final {
     bool first_missed{};
     bool counter_exists{};
     bool counter_missed{};
+    bool first_sound{};
+    bool counter_sound{};
+    unsigned first_cue{};
+    unsigned counter_cue{};
     bool close_checkpoint{};
     bool fly_checkpoint{};
     bool strike_checkpoint{};
@@ -1714,7 +1718,7 @@ void load_runtime_board() {
         std::snprintf(path, sizeof path, "rom:/music_%u.wav64", index + 1U);
         wav64_open(&board.music[index], path);
     }
-    const char* cue_names[] = {"blade", "bow", "heavy", "arcane", "healing"};
+    const char* cue_names[] = {"blade", "bow", "heavy", "arcane", "healing", "miss"};
     for (unsigned index = 0; index < board.combat_cues.size(); ++index) {
         std::snprintf(path, sizeof path, "rom:/%s_cue.wav64", cue_names[index]);
         wav64_open(&board.combat_cues[index], path);
@@ -2873,6 +2877,7 @@ void start_combat(
     combat.first_damage = 0;
     combat.counter_damage = 0;
     combat.first_missed = false;
+    combat.first_sound = combat.counter_sound = false;
     combat.counter_exists = false;
     combat.counter_missed = false;
     combat.close_checkpoint = false;
@@ -2961,12 +2966,18 @@ void update_combat() {
             break;
         case CombatPhase::first_strike:
             apply_camera(combat.close_camera);
+            if (combat.phase_ticks >= 16U && !combat.first_sound) {
+                play_effect(&board.combat_cues[combat.first_cue]);
+                combat.first_sound = true;
+            }
             if (combat.phase_ticks >= kCloseBlendFrames + 4U &&
                 !combat.close_checkpoint) {
                 debugf("CHECKPOINT PYRITE_COMBAT_CLOSE\n");
                 combat.close_checkpoint = true;
             }
             if (combat.phase_ticks >= 32U && !combat.strike_checkpoint) {
+                if (combat.first_missed) play_effect(&board.combat_cues[5]);
+                else play_impact_cue();
                 debugf("CHECKPOINT PYRITE_COMBAT_STRIKE\n");
                 combat.strike_checkpoint = true;
             }
@@ -2977,7 +2988,13 @@ void update_combat() {
             break;
         case CombatPhase::counter:
             apply_camera(combat.close_camera);
+            if (combat.phase_ticks >= 16U && !combat.counter_sound) {
+                play_effect(&board.combat_cues[combat.counter_cue]);
+                combat.counter_sound = true;
+            }
             if (combat.phase_ticks >= 32U && !combat.counter_checkpoint) {
+                if (combat.counter_missed) play_effect(&board.combat_cues[5]);
+                else play_impact_cue();
                 debugf("CHECKPOINT PYRITE_COMBAT_COUNTER\n");
                 combat.counter_checkpoint = true;
             }
@@ -3176,9 +3193,9 @@ bool apply_battle_command(
     battle_ui.result_restored = false;
     battle_ui.result_until = frame_count + 75U;
     if (!accepted) return false;
+    unsigned cue = actor_before.minimum_reach > 1U ? 1U : 0U;
     if (command.type == sim::CommandType::attack ||
         command.type == sim::CommandType::ability) {
-        unsigned cue = actor_before.minimum_reach > 1U ? 1U : 0U;
         if (command.type == sim::CommandType::ability) {
             cue = 2U;
             for (const auto& ability : board.game.encounter().abilities()) {
@@ -3188,8 +3205,6 @@ bool apply_battle_command(
                 break;
             }
         }
-        play_effect(&board.combat_cues[cue]);
-        play_impact_cue();
     }
     remember_transition_events();
     remember_motion();
@@ -3230,6 +3245,14 @@ bool apply_battle_command(
     if (close && present_close && combat.enabled && actor_before.id != 0U &&
         target_before.id != 0U) {
         start_combat(actor_before, target_before);
+        combat.first_cue = cue;
+        combat.counter_cue = target_before.minimum_reach > 1U ? 1U : 0U;
+    } else if (command.type == sim::CommandType::attack || command.type == sim::CommandType::ability) {
+        play_effect(&board.combat_cues[cue]);
+        if (!battle_ui.result_restored) {
+            if (battle_ui.result_missed) play_effect(&board.combat_cues[5]);
+            else play_impact_cue();
+        }
     }
     build_cursor_vertices();
     return true;

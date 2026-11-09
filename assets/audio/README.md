@@ -6,6 +6,11 @@ Overture` is the quieter exploration theme; `Banners Afar` is more adventurous.
 tension, `Drums at the Gate` accompanies a finale, and `First Light` offers relief.
 Music and sound effects have separate volume controls.
 
+Combat effects cover blades, bows, heavy physical strikes, magic and healing.
+The close-up presentations play launch and contact sounds with their animation
+beats, including misses and counterattacks. Assigning custom files to individual
+weapons and spells in the editor is planned for a later release.
+
 To change the compositions or instrumentation, edit
 [`render-score.py`](../../tools/audio/render-score.py), then run it with Python,
 NumPy and ffmpeg installed. It downloads a small, pinned selection of instrument

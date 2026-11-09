@@ -37,6 +37,7 @@ const DEFAULT_COPY := {
 
 signal exchange_finished
 signal queue_drained
+signal combat_sound(beat: Dictionary, action: String, content_id: int, impact: bool)
 
 var art = ArtLibrary.new()
 var backdrop_resolver = BackdropPackResolver.new()
@@ -52,6 +53,8 @@ var _terrain: Array = []
 var _theme := 0
 var _beat_index := 0
 var _elapsed := 0.0
+var _sound_launched := false
+var _sound_impacted := false
 var _fast_forward := false
 var _playback_paused := false
 var _phase := PHASE_IDLE
@@ -274,15 +277,29 @@ func _process(delta: float) -> void:
 	_elapsed += presentation_delta
 	var duration := _beat_duration()
 	while _elapsed >= duration and not _current.is_empty():
+		_emit_combat_audio(1.0)
 		_elapsed -= duration
 		_beat_index += 1
+		_sound_launched = false
+		_sound_impacted = false
 		if _beat_index >= _beats().size():
 			_begin_exit()
 			return
 		_set_stage_for_beat(_beat())
 		duration = _beat_duration()
+	_emit_combat_audio(_elapsed / duration)
 	_update_labels()
 	queue_redraw()
+
+
+func _emit_combat_audio(progress: float) -> void:
+	var plan: Dictionary = _current.get("plan", {})
+	if not _sound_launched and progress >= 0.22:
+		_sound_launched = true
+		combat_sound.emit(_beat(), String(plan.get("action", "")), int(plan.get("content_id", 0)), false)
+	if not _sound_impacted and progress >= 0.48:
+		_sound_impacted = true
+		combat_sound.emit(_beat(), String(plan.get("action", "")), int(plan.get("content_id", 0)), true)
 
 
 func _start_next() -> void:
@@ -305,6 +322,8 @@ func _start_next() -> void:
 	_begin_board_camera_focus()
 	_beat_index = 0
 	_elapsed = 0.0
+	_sound_launched = false
+	_sound_impacted = false
 	_phase = PHASE_ENTERING
 	_transition_elapsed = 0.0
 	modulate.a = 0.0

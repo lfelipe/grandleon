@@ -81,7 +81,7 @@ GRANDLEON_DFS_INPUTS := \
 	filesystem/impact_cue.wav64 \
 	filesystem/victory_cue.wav64 \
 	$(foreach n,1 2 3 4 5,filesystem/music_$(n).wav64) \
-	$(foreach cue,blade bow heavy arcane healing,filesystem/$(cue)_cue.wav64) \
+	$(foreach cue,blade bow heavy arcane healing miss,filesystem/$(cue)_cue.wav64) \
 	$(GRANDLEON_PROJECT_SPRITES)
 # Pyrite's editor-side asset pass can leave same-named compressed placeholders
 # in `filesystem/` before GNU make evaluates these cartridge-specific rules.

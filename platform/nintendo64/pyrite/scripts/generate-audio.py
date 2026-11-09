@@ -21,7 +21,7 @@ def main() -> None:
     for target, source in (("ui_cue", "confirm"), ("impact_cue", "impact"),
                            ("victory_cue", "victory")):
         shutil.copyfile(cues / f"{source}.wav", output / f"{target}.wav")
-    for name in ("blade", "bow", "heavy", "arcane", "healing"):
+    for name in ("blade", "bow", "heavy", "arcane", "healing", "miss"):
         shutil.copyfile(cues / f"{name}.wav", output / f"{name}_cue.wav")
 
 

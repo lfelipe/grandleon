@@ -72,8 +72,11 @@ func play_music(theme := "cedar_overture") -> bool:
 		return false
 	if theme == _music_theme:
 		return true
+	var stream = load("res://audio/music/%s.ogg" % theme)
+	if not stream is AudioStream:
+		return false
 	_music_theme = theme
-	_music_player.stream = load("res://audio/music/%s.ogg" % theme)
+	_music_player.stream = stream
 	_music_player.volume_db = linear_to_db(maxf(_music_level, 0.00001))
 	_music_player.play()
 	_music_player.stream_paused = is_zero_approx(_music_level)
@@ -140,6 +143,25 @@ func cues_for_events(events: Array, action: String, content_id := 0,
 		result.append(cue)
 	result.sort()
 	return result
+
+
+func present_combat_beat(beat: Dictionary, action: String, content_id: int,
+	impact: bool, definitions: Dictionary) -> void:
+	if impact:
+		play_cue("restore" if bool(beat.get("restored", false)) else
+			"impact" if bool(beat.get("landed", false)) else "miss")
+		if bool(beat.get("defeated", false)):
+			play_cue("defeat")
+		elif bool(beat.get("endured", false)):
+			play_cue("endure")
+		return
+	if bool(beat.get("restored", false)):
+		play_cue("healing")
+		return
+	var actor: Dictionary = beat.get("actor", {})
+	var counter := bool(beat.get("counter", false))
+	play_cue(_combat_cue(beat.get("event", {}), "attack" if counter else action,
+		0 if counter else content_id, definitions, {"units": [actor]}, int(actor.get("id", 0))))
 
 
 func _combat_cue(event: Dictionary, action: String, content_id: int,

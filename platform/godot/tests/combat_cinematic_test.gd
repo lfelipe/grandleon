@@ -40,6 +40,12 @@ func _init() -> void:
 
 func _run() -> void:
 	var cinematic = CombatCinematic.new()
+	var audio_beats: Array = []
+	var audio_contexts: Array = []
+	cinematic.combat_sound.connect(func(beat: Dictionary, action: String, content: int, impact: bool):
+		audio_beats.append([int(beat.get("actor_id", 0)), impact])
+		audio_contexts.append([action, content])
+	)
 	var board_camera = FakeBoardCamera.new()
 	get_root().add_child(cinematic)
 	get_root().add_child(board_camera)
@@ -89,6 +95,7 @@ func _run() -> void:
 	)
 	cinematic._process(0.18)
 	_expect("entrance reaches the close stage", cinematic.transition_phase(), "playing")
+	_expect("camera flight does not play attack sounds", audio_beats, [])
 	_expect("close stage becomes opaque", cinematic.transition_opacity(), 1.0)
 	var opening_state: Dictionary = cinematic.stage_render_state()
 	_expect("opening keeps the first actor on the left", opening_state.actor_slot, "left")
@@ -100,7 +107,15 @@ func _run() -> void:
 	cinematic.set_fast_forward(true)
 	_expect_true("fast-forward state is explicit", cinematic.is_fast_forwarding())
 	cinematic.set_fast_forward(false)
-	cinematic._process(1.36)
+	cinematic._process(0.20)
+	_expect("windup stays silent before the weapon moves", audio_beats, [])
+	cinematic._process(0.20)
+	_expect("weapon launch precedes contact", audio_beats, [[10, false]])
+	cinematic._process(0.30)
+	_expect("impact follows the launch", audio_beats, [[10, false], [10, true]])
+	_expect("sound keeps the accepted action context", audio_contexts, [["attack", 0], ["attack", 0]])
+	cinematic._process(0.66)
+	_expect("first strike has one launch and one impact", audio_beats, [[10, false], [10, true]])
 	_expect("counterattack remains in the close stage", cinematic.transition_phase(), "playing")
 	var counter_state: Dictionary = cinematic.stage_render_state()
 	_expect("counter actor attacks from the right", counter_state.actor_slot, "right")
@@ -110,6 +125,7 @@ func _run() -> void:
 	_expect("counter does not swap the right unit", counter_state.right_unit_id, 20)
 	cinematic._process(1.36)
 	_expect("final beat dissolves toward the settled board", cinematic.transition_phase(), "exiting")
+	_expect("counter plays after the first strike", audio_beats, [[10, false], [10, true], [20, false], [20, true]])
 	cinematic._process(0.15)
 	_expect_true(
 		"settled board is visible during the exit",

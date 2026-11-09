@@ -1332,6 +1332,7 @@ func _create_combat_cinematic(profile: Dictionary) -> void:
 	layer.layer = 40
 	add_child(layer)
 	combat_cinematic = CombatCinematic.new()
+	combat_cinematic.combat_sound.connect(_on_combat_sound)
 	layer.add_child(combat_cinematic)
 	combat_cinematic.set_board_camera_host(board)
 	combat_cinematic.set_playback_paused(combat_cinematic_smoke)
@@ -1342,6 +1343,10 @@ func _create_combat_cinematic(profile: Dictionary) -> void:
 			"cancel": controls.label("cancel"),
 		}
 	)
+
+
+func _on_combat_sound(beat: Dictionary, action: String, content_id: int, impact: bool) -> void:
+	PCAudio.present_combat_beat(beat, action, content_id, impact, definitions)
 
 
 func _configure_combat_cinematic() -> void:
@@ -2759,8 +2764,11 @@ func _handle_event(event: Dictionary) -> void:
 			var presentation_action := String(event.get("action", ""))
 			if coop_smoke:
 				_verify_coop_motion(presentation_events)
+			var audio_events: Array = presentation_events
+			if battle_closeups_enabled and combat_cinematic != null and not snapshot.is_empty() and CombatPresentationPlan.has_combat(presentation_events):
+				audio_events = []
 			PCAudio.present_events(
-				presentation_events, presentation_action,
+				audio_events, presentation_action,
 				int(event.get("action_content_id", 0)), definitions, snapshot
 			)
 			if board.has_method("present_events"):
@@ -2811,7 +2819,7 @@ func _handle_event(event: Dictionary) -> void:
 				else "player.result.battle_lost"
 			)
 		"campaign_ended":
-			PCAudio.play_music("first_light")
+			PCAudio.play_music("stone_and_shadow" if final_outcome == "second_side_won" else "first_light")
 			campaign_complete = true
 			_show_toast(
 				_ui("player.session.company_defeated")
@@ -2830,12 +2838,21 @@ func _handle_event(event: Dictionary) -> void:
 			_maybe_show_campaign_result()
 
 
+func _present_pending_combat_audio(pending: Dictionary) -> void:
+	PCAudio.present_events(
+		pending.get("events", []), String(pending.get("action", "")),
+		int(pending.get("content_id", 0)), definitions,
+		pending.get("before_snapshot", {})
+	)
+
+
 func _finalize_pending_combat_presentation(after_snapshot: Dictionary) -> void:
 	if pending_combat_presentation.is_empty():
 		return
 	var pending := pending_combat_presentation.duplicate(true)
 	pending_combat_presentation.clear()
 	if not battle_closeups_enabled or combat_cinematic == null:
+		_present_pending_combat_audio(pending)
 		return
 	var plan := CombatPresentationPlan.build(
 		pending.get("before_snapshot", {}), after_snapshot,
@@ -2843,11 +2860,17 @@ func _finalize_pending_combat_presentation(after_snapshot: Dictionary) -> void:
 		int(pending.get("content_id", 0))
 	)
 	if plan.is_empty():
+		_present_pending_combat_audio(pending)
 		return
 	if combat_cinematic.enqueue(
 		plan, battle_terrain, battle_theme, _combat_cinematic_focus_points(plan),
 		battle_terrain_features, battle_route_identity
 	):
+		PCAudio.present_events(
+			plan.get("passthrough_events", []), String(pending.get("action", "")),
+			int(pending.get("content_id", 0)), definitions,
+			pending.get("before_snapshot", {})
+		)
 		for seat in action_popups.size():
 			_close_action_popup(seat)
 		unit_panel.visible = false
@@ -2874,6 +2897,8 @@ func _finalize_pending_combat_presentation(after_snapshot: Dictionary) -> void:
 			combat_cinematic_smoke = false
 			print("combat cinematic native event, snapshot, fast-forward, and skip smoke passed")
 			get_tree().quit()
+	else:
+		_present_pending_combat_audio(pending)
 
 
 func _combat_cinematic_focus_points(plan: Dictionary) -> Array[Vector2]:

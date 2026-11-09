@@ -116,6 +116,10 @@ view::ConsoleDisplayOptions s_display_options{};
 std::uint16_t s_measured_fps{30U};
 unsigned s_result_frames{};
 unsigned s_result_duration{};
+unsigned s_attack_sound_cue{GRANDLEON_SOUND_BLADE};
+unsigned s_counter_sound_cue{GRANDLEON_SOUND_BLADE};
+bool s_counter_missed{};
+bool s_result_combat_audio{};
 unsigned s_camera_return_frames{};
 sim::UnitId s_combat_attacker{};
 sim::UnitId s_combat_target{};
@@ -1345,7 +1349,7 @@ bool apply_command(
                 }
             }
         }
-        grandleon_audio_cue(cue);
+        s_attack_sound_cue = cue;
     } else if (command.type == sim::CommandType::move) grandleon_audio_cue(GRANDLEON_SOUND_MOVE);
     else if (command.type == sim::CommandType::use_item) grandleon_audio_cue(GRANDLEON_SOUND_ITEM);
     else if (command.type == sim::CommandType::talk) grandleon_audio_cue(GRANDLEON_SOUND_TALK);
@@ -1381,11 +1385,19 @@ void begin_result(
     s_combat_target = command.target_id;
     s_combat_centre = centre;
     s_combat_counter = counter;
+    s_result_combat_audio = command.type == sim::CommandType::attack ||
+        command.type == sim::CommandType::ability;
+    const sim::UnitSnapshot* defender = find_unit(s_snapshot, s_combat_target);
+    s_counter_sound_cue = defender && defender->minimum_reach > 1U
+        ? GRANDLEON_SOUND_BOW : GRANDLEON_SOUND_BLADE;
+    s_counter_missed = false;
     s_last_result_missed = false;
     s_last_result_restored = false;
     s_last_result_damage = 0;
     s_last_result_counter_damage = 0;
     for (const sim::Event& event : result.events) {
+        if (event.type == sim::EventType::attack_missed &&
+            event.related_unit_id == s_combat_target) s_counter_missed = true;
         if (event.type == sim::EventType::attack_missed &&
             event.related_unit_id == command.unit_id) {
             s_last_result_missed = true;
@@ -2439,6 +2451,15 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
     }
 #endif
     if (s_result_frames) {
+        const unsigned elapsed = s_result_duration - s_result_frames;
+        const unsigned launch = s_result_close_combat ? 28U : 0U;
+        const unsigned impact = s_result_close_combat ? 37U : 8U;
+        if (s_result_combat_audio && elapsed == launch) grandleon_audio_cue(s_attack_sound_cue);
+        if ((s_result_combat_audio || s_last_result_restored) && elapsed == impact) grandleon_audio_cue(s_last_result_restored
+            ? GRANDLEON_SOUND_RESTORE : s_last_result_missed ? GRANDLEON_SOUND_MISS : GRANDLEON_SOUND_IMPACT);
+        if (s_combat_counter && elapsed == (s_result_close_combat ? 68U : 24U)) grandleon_audio_cue(s_counter_sound_cue);
+        if (s_combat_counter && elapsed == (s_result_close_combat ? 77U : 32U)) grandleon_audio_cue(s_counter_missed
+            ? GRANDLEON_SOUND_MISS : GRANDLEON_SOUND_IMPACT);
         --s_result_frames;
         if (s_result_frames == 0) {
             if (s_result_close_combat) {

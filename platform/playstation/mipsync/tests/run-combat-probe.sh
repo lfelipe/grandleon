@@ -50,6 +50,15 @@ update_address=$(
             print "0x" substr($1, length($1) - 7); found = 1
         } END { if (!found) exit 1 }'
 ) || { echo "grandleon_game_update is missing from $elf" >&2; exit 1; }
+audio_address=$(
+    "$nm" -n "$elf" | awk '$3 == "grandleon_audio_cue" {print "0x" $1; found=1} END {if (!found) exit 1}'
+)
+duration_address=$(
+    "$nm" -n "$elf" | awk '$3 ~ /s_result_durationE$/ {print "0x" $1; found=1} END {if (!found) exit 1}'
+)
+remaining_address=$(
+    "$nm" -n "$elf" | awk '$3 ~ /s_result_framesE$/ {print "0x" $1; found=1} END {if (!found) exit 1}'
+)
 
 log=$output/emulator.log
 set +e
@@ -57,6 +66,9 @@ timeout --kill-after=10 180 \
     "$docker" run --rm --user "$(id -u):$(id -g)" \
         --env HOME=/tmp \
         --env "GRANDLEON_UPDATE_ADDRESS=$update_address" \
+        --env "GRANDLEON_AUDIO_CUE_ADDRESS=$audio_address" \
+        --env "GRANDLEON_RESULT_DURATION_ADDRESS=$duration_address" \
+        --env "GRANDLEON_RESULT_FRAMES_ADDRESS=$remaining_address" \
         --volume "$build:/disc:ro" \
         --volume "$script_dir:/probe:ro" \
         --volume "$output:/out" \
@@ -65,7 +77,7 @@ timeout --kill-after=10 180 \
         stdbuf -oL -eL pcsx-redux -no-ui -run -softgpu \
             -bios /usr/local/share/pcsx-redux/openbios.bin \
             -testmode -interpreter -debugger \
-            -dofile /probe/combat_probe.lua \
+            -dofile /probe/combat_audio_probe.lua \
             -iso /disc/grandleon-mipsync.cue \
     >"$log" 2>&1
 status=$?
@@ -88,6 +100,7 @@ require 'MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=300 scheduled_fram
 require 'MIPSYNC_COMBAT_FORECAST_CAPTURE 320x240 bytes=153600' 'the live attack forecast frame'
 require 'MIPSYNC_COMBAT_CLOSE_CAPTURE 320x240 bytes=153600' 'the close-combat camera frame'
 require 'MIPSYNC_COMBAT_FINAL_CAPTURE 320x240 bytes=153600' 'the completed-turn frame'
+require 'MIPSYNC_COMBAT_AUDIO_PASS launch=28 impact=37 counter_launch=68 counter_impact=77' 'synchronized attack and counterattack sounds'
 metrics=$(grep 'MIPSYNC_GRANDLEON_METRICS frames=600 ' "$log" | tail -n 1)
 proof=$(grep 'MIPSYNC_SIM_PROOF ' "$log" | tail -n 1)
 printf 'Mipsync Bell Orchard combat passed: %s\n%s\n' "$metrics" "$proof"
