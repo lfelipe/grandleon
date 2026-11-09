@@ -1,7 +1,7 @@
 From 72b5f0f807e612c5bc727ed21483d9983da29c70 Mon Sep 17 00:00:00 2001
 From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
 Date: Mon, 9 Nov 2026 11:43:40 -0800
-Subject: [PATCH 6/9] Support indexed PS1 palettes and shared texture slots
+Subject: [PATCH 06/10] Support indexed PS1 palettes and shared texture slots
 
 
 diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c

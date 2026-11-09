@@ -1,7 +1,7 @@
 From f6b4980c1bee670f9eb4a01e443b7b39badb7866 Mon Sep 17 00:00:00 2001
 From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
 Date: Mon, 9 Nov 2026 11:44:08 -0800
-Subject: [PATCH 8/9] Use GPU clipping for safe cached PS1 polygons
+Subject: [PATCH 08/10] Use GPU clipping for safe cached PS1 polygons
 
 
 diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt

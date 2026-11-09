@@ -1,7 +1,7 @@
 From b0e3668ba96cf5985d2b0b118a705d0766e2768c Mon Sep 17 00:00:00 2001
 From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
 Date: Mon, 9 Nov 2026 11:43:40 -0800
-Subject: [PATCH 3/9] Cache static PS1 terrain in the flat mesh renderer
+Subject: [PATCH 03/10] Cache static PS1 terrain in the flat mesh renderer
 
 
 diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c

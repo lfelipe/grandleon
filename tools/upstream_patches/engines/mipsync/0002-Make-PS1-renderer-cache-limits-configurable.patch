@@ -1,7 +1,7 @@
 From 4da4d7441808046baed4f8dad3cd3a1b22aa1522 Mon Sep 17 00:00:00 2001
 From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
 Date: Mon, 9 Nov 2026 11:43:40 -0800
-Subject: [PATCH 2/9] Make PS1 renderer cache limits configurable
+Subject: [PATCH 02/10] Make PS1 renderer cache limits configurable
 
 
 diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c

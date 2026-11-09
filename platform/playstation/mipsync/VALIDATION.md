@@ -2,8 +2,8 @@
 
 Reviewed on 9 November 2026. Mipsync is the only PlayStation renderer;
 missing dependencies or unsupported exports fail rather than selecting an
-older renderer. Nine separate engine patches apply to the pinned upstream
-revision `866f405a0e34b5925a8d832272fe52c657688430`.
+older renderer. Nine runtime patches and a Windows build-helper fix apply to
+the pinned upstream revision `866f405a0e34b5925a8d832272fe52c657688430`.
 
 ## Corrected in this review
 

@@ -1,7 +1,7 @@
 From 16a924d0568944843333392f5d10077a99547893 Mon Sep 17 00:00:00 2001
 From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
 Date: Mon, 9 Nov 2026 11:43:40 -0800
-Subject: [PATCH 5/9] Honor per-entity PS1 seam filling
+Subject: [PATCH 05/10] Honor per-entity PS1 seam filling
 
 
 diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c

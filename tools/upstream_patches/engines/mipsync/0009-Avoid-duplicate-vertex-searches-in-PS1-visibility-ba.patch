@@ -1,7 +1,8 @@
 From d6420bdfcc9088543421e9fa566464552f05aa1b Mon Sep 17 00:00:00 2001
 From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
 Date: Mon, 9 Nov 2026 11:44:08 -0800
-Subject: [PATCH 9/9] Avoid duplicate vertex searches in PS1 visibility batches
+Subject: [PATCH 09/10] Avoid duplicate vertex searches in PS1 visibility
+ batches
 
 
 diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c

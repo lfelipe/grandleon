@@ -31,6 +31,7 @@ The Windows build needs to cover both playing games and creating them:
 
 - Choose and test a Windows C++ toolchain for the shared rules, content tools
   and Godot extension. Start with one supported compiler and record its version.
+  Resolve each tool to a single executable when several versions are on `PATH`.
 - Obtain the matching pinned Windows Godot runtime and export templates, with
   verified checksums. Add Windows DLL entries to the extension manifest and
   handle Windows DLL output paths in the CMake staging rules.

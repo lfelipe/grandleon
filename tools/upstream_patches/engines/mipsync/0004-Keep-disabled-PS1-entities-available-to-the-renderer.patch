@@ -1,7 +1,7 @@
 From d11cf278149eebf3ca64604bc454965fc474ff99 Mon Sep 17 00:00:00 2001
 From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
 Date: Mon, 9 Nov 2026 11:43:40 -0800
-Subject: [PATCH 4/9] Keep disabled PS1 entities available to the renderer
+Subject: [PATCH 04/10] Keep disabled PS1 entities available to the renderer
 
 
 diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c

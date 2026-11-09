@@ -1,7 +1,7 @@
 From eb8da045c0a80c36949ea18f493608b73c6095cc Mon Sep 17 00:00:00 2001
 From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
 Date: Mon, 9 Nov 2026 11:43:40 -0800
-Subject: [PATCH 1/9] Fix PS1 GTE visibility center alignment
+Subject: [PATCH 01/10] Fix PS1 GTE visibility center alignment
 
 
 diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c
