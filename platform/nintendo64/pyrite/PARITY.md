@@ -19,6 +19,9 @@ ares checkpoint.
 | Normal creator/export path | Ready | CMake, the creator payload and release builds all invoke the same generic source-to-ROM wrapper and record `fallback=none`. |
 | General project/content coverage | Ready, bounded and fail-closed | The exporter derives package, campaign, saves, terrain atlas, close plate and character bindings from the selected project. It refuses ambiguous routes, unknown terrains, more than nine terrain families or more than 16 drawings instead of substituting demo content. |
 
-The cutover is complete. The export switch and deletion of the retired source,
-art, generators and tests remain separate commits in history, and both the
-demo and Steel and Cedar pass the same exact-4-MB artifact gate.
+The old Nintendo 64 renderer has been removed and Pyrite/Tiny3D is the only
+runtime path. The broader 0.5 engine transition remains active until this
+player reaches functional parity with Godot and passes the release campaign on
+hardware. The export switch and deletion of the retired source, art,
+generators and tests remain separate commits in history; the demo and Steel
+and Cedar already pass the same exact-4-MB artifact gate.

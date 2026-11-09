@@ -1,16 +1,17 @@
 # Mipsync PlayStation renderer
 
-This directory is the in-progress replacement for Grandleon's PlayStation
-renderer. It now boots the full five-encounter Steel and Cedar campaign, saves
-and resumes on a PlayStation memory card, and supports both one- and two-player
-campaigns. Battles use the shared simulation for movement, Attack, equipped
-abilities, Wait, reinforcements, objectives, and package-authored opposing
-turns. In two-player battles each physical controller keeps its own visible
-cursor and can command only its authored units; choosing two players is not
-merely a larger roster driven by controller one. A compact forecast and result UI plus the optional close-combat camera
-use the same disc and rules. It is not the shipping path yet: audio, real
-hardware validation, and the final cutover remain. It is never used as a
-fallback.
+This directory is Grandleon's in-progress transition to Mipsync as the sole
+PlayStation renderer. It now boots the full five-encounter Steel and Cedar
+campaign, saves and resumes on a PlayStation memory card, and supports both
+one- and two-player campaigns. Battles use the shared simulation for movement,
+Attack, equipped abilities, Wait, reinforcements, objectives, and
+package-authored opposing turns. In two-player battles each physical controller
+keeps its own visible cursor and can command only its authored units; choosing
+two players is not merely a larger roster driven by controller one. A compact
+forecast and result UI plus the optional close-combat camera use the same disc
+and rules. Functional parity with Godot, audio, real hardware validation, and
+the final cutover remain. Mipsync is never used as a fallback, and the removed
+renderer will not be retained as one.
 
 Mipsync is pinned to commit `866f405a0e34b5925a8d832272fe52c657688430`.
 The upstream source is not copied into Grandleon. Generic engine fixes live as

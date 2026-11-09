@@ -5,10 +5,25 @@ and PlayStation. Console builds adapt the controls, graphics, saves, and file
 format to each machine; authors do not maintain a separate console version of
 their game.
 
-## Sevenfold Gate
+## Current 0.5 transition
 
-The 0.4 console showcase is **Sevenfold Gate**, a short campaign built to make
-the current range easy to inspect. Its seven stages include:
+The console players are in the middle of an engine transition. Nintendo 64 is
+moving to Pyrite/Tiny3D and PlayStation is moving to Mipsync. Grandleon keeps
+one path per console: these engines are not optional experiments selected at
+export time, and the removed renderers are not kept as fallbacks.
+
+The transition is complete for a feature only when the exported ROM or disc
+can perform the same player-facing behavior as Godot. For 0.5 that includes
+the full campaign flow, saves, one- and two-player ownership, tactical actions,
+objectives and reinforcements, scrolling, help and settings, authored
+deployment, close combat, localization and player names, and the castle's
+hidden-area reveal. Visual polish may differ by machine and will continue to
+improve after functional parity.
+
+## Showcase campaigns
+
+**Sevenfold Gate** is the compact 0.4 showcase built to make the art range easy
+to inspect. Its seven stages include:
 
 - all seven character themes and all eight unit roles;
 - male and female characters on both sides;
