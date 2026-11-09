@@ -1,14 +1,11 @@
-From 29a0eb8eda5b1d24c555a2b73ddf1e941ed1fbc6 Mon Sep 17 00:00:00 2001
-From: Grandleon contributors <grandleon@example.invalid>
-Date: Mon, 9 Nov 2026 10:26:55 -0800
-Subject: [PATCH] Reclaim static render caches when entities are disabled
+From 706f6294f6de0ae6cc67dd688d648585f12bb2b2 Mon Sep 17 00:00:00 2001
+From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
+Date: Mon, 9 Nov 2026 11:43:40 -0800
+Subject: [PATCH 7/9] Reclaim PS1 render caches after entities are disabled
 
----
- templates/ps1/starter/runtime/render.c | 11 +++++++++++
- 1 file changed, 11 insertions(+)
 
 diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c
-index 07cd0ed..0acf222 100644
+index 07cd0edc84867f1e09b0e2e56f4ac416ca2f457d..0acf2221ea19da8d7cddd3991373f39ab7fb3e2b 100644
 --- a/templates/ps1/starter/runtime/render.c
 +++ b/templates/ps1/starter/runtime/render.c
 @@ -6146,6 +6146,17 @@ void ps1_render_frame(uint32_t* ot, char** nextpri, const char* packet_end) {

@@ -1,14 +1,11 @@
-From 2b3284593e6f50b285ca3f3dc5825f0e8e4b4978 Mon Sep 17 00:00:00 2001
-From: Grandleon contributors <grandleon@example.invalid>
-Date: Mon, 9 Nov 2026 10:51:39 -0800
-Subject: [PATCH 9/9] Build visibility batches with bounded vertex stamps
+From d6420bdfcc9088543421e9fa566464552f05aa1b Mon Sep 17 00:00:00 2001
+From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
+Date: Mon, 9 Nov 2026 11:44:08 -0800
+Subject: [PATCH 9/9] Avoid duplicate vertex searches in PS1 visibility batches
 
----
- templates/ps1/starter/runtime/render.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
 
 diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c
-index b75e0e9..a6d5442 100644
+index b75e0e974402cea9916af828536ae0bc3e5f070b..a6d54429a41545faba52d97aac3b7bb7feb38457 100644
 --- a/templates/ps1/starter/runtime/render.c
 +++ b/templates/ps1/starter/runtime/render.c
 @@ -760,6 +760,7 @@ static uint32_t s_visibility_vertex_used;

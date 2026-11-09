@@ -1,7 +1,7 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: Grandleon contributors <grandleon@example.invalid>
-Date: Sat, 7 Nov 2026 23:31:33 -0800
-Subject: [PATCH 2/2] Make PS1 renderer cache capacities configurable
+From 4da4d7441808046baed4f8dad3cd3a1b22aa1522 Mon Sep 17 00:00:00 2001
+From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
+Date: Mon, 9 Nov 2026 11:43:40 -0800
+Subject: [PATCH 2/9] Make PS1 renderer cache limits configurable
 
 
 diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c

@@ -1,14 +1,11 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: Grandleon contributors <grandleon@example.invalid>
-Date: Sat, 7 Nov 2026 23:15:19 -0800
-Subject: [PATCH] Fix GTE visibility-center alignment
+From eb8da045c0a80c36949ea18f493608b73c6095cc Mon Sep 17 00:00:00 2001
+From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
+Date: Mon, 9 Nov 2026 11:43:40 -0800
+Subject: [PATCH 1/9] Fix PS1 GTE visibility center alignment
 
----
- templates/ps1/starter/runtime/render.c | 3 +++
- 1 file changed, 3 insertions(+)
 
 diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c
-index 47f7e22..adcdbea 100644
+index 47f7e227df2dbf4d2416691b0ed11eaffdd4623f..adcdbeaa8abcce4906f8c19a4ab0375b3b2296f9 100644
 --- a/templates/ps1/starter/runtime/render.c
 +++ b/templates/ps1/starter/runtime/render.c
 @@ -709,10 +709,13 @@ static uint8_t s_static_safe_clip_cache[PS1_STATIC_TRI_CACHE_TOTAL];
@@ -25,3 +22,6 @@ index 47f7e22..adcdbea 100644
  typedef struct {
      const ps1_mesh* mesh;
      uint16_t batch_offset, batch_count;
+-- 
+2.53.0
+

@@ -1,16 +1,11 @@
-From 475aa42f09fa044132cc6dc3883e081cb7da5a0c Mon Sep 17 00:00:00 2001
-From: Grandleon contributors <grandleon@example.invalid>
-Date: Mon, 9 Nov 2026 08:55:01 -0800
-Subject: [PATCH] Support indexed PS1 texture palettes
+From 72b5f0f807e612c5bc727ed21483d9983da29c70 Mon Sep 17 00:00:00 2001
+From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
+Date: Mon, 9 Nov 2026 11:43:40 -0800
+Subject: [PATCH 6/9] Support indexed PS1 palettes and shared texture slots
 
----
- templates/ps1/starter/runtime/render.c   | 70 +++++++++++++++++-------
- templates/ps1/starter/runtime/textures.c | 65 +++++++++++++++++++---
- templates/ps1/starter/runtime/textures.h |  6 ++
- 3 files changed, 113 insertions(+), 28 deletions(-)
 
 diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c
-index cf417be..07cd0ed 100644
+index cf417be142c3c98602eb0f8715e793be55de44c3..07cd0edc84867f1e09b0e2e56f4ac416ca2f457d 100644
 --- a/templates/ps1/starter/runtime/render.c
 +++ b/templates/ps1/starter/runtime/render.c
 @@ -2146,6 +2146,7 @@ typedef struct {
@@ -380,7 +375,7 @@ index cf417be..07cd0ed 100644
                              *pri = (char*)(tri + 1);
                          } else {
 diff --git a/templates/ps1/starter/runtime/textures.c b/templates/ps1/starter/runtime/textures.c
-index 9dbaa49..3e73cba 100644
+index 9dbaa49f4aa4655c34656cbbf0c6f15c46fdc204..3e73cba0f0704c053d2781f6744c14f6a7f4a5be 100644
 --- a/templates/ps1/starter/runtime/textures.c
 +++ b/templates/ps1/starter/runtime/textures.c
 @@ -4,10 +4,19 @@
@@ -518,7 +513,7 @@ index 9dbaa49..3e73cba 100644
  
  uint8_t ps1_texture_v_offset(unsigned int texture_index) {
 diff --git a/templates/ps1/starter/runtime/textures.h b/templates/ps1/starter/runtime/textures.h
-index be8aec5..b48ef79 100644
+index be8aec57c20f73912e9db9880b1aabd957e2753b..b48ef7976f6e509125643fd05825c2efbb57c058 100644
 --- a/templates/ps1/starter/runtime/textures.h
 +++ b/templates/ps1/starter/runtime/textures.h
 @@ -8,6 +8,10 @@ typedef struct {

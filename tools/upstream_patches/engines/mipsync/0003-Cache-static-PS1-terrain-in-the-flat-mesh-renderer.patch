@@ -1,14 +1,11 @@
-From bdf02e500379e62cc160c931bdaa198088139294 Mon Sep 17 00:00:00 2001
-From: Grandleon contributors <grandleon@example.invalid>
-Date: Sun, 8 Nov 2026 00:48:01 -0800
-Subject: [PATCH] Cache static PS1 terrain through flat-mesh path
+From b0e3668ba96cf5985d2b0b118a705d0766e2768c Mon Sep 17 00:00:00 2001
+From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
+Date: Mon, 9 Nov 2026 11:43:40 -0800
+Subject: [PATCH 3/9] Cache static PS1 terrain in the flat mesh renderer
 
----
- templates/ps1/starter/runtime/render.c | 14 +++++++++++---
- 1 file changed, 11 insertions(+), 3 deletions(-)
 
 diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c
-index 459956f..4f8e7bb 100644
+index 459956f2963bf9603335c27187a36a0807960907..4f8e7bbc26a9f1464b5bda4a01afdcaf815835e6 100644
 --- a/templates/ps1/starter/runtime/render.c
 +++ b/templates/ps1/starter/runtime/render.c
 @@ -3881,11 +3881,19 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p

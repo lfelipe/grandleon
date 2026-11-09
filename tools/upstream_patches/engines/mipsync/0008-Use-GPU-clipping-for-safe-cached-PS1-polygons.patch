@@ -1,17 +1,25 @@
-From 657029fd0a6eda04f95f9d31b7c894560ae679a1 Mon Sep 17 00:00:00 2001
-From: Grandleon contributors <grandleon@example.invalid>
-Date: Mon, 9 Nov 2026 10:49:30 -0800
-Subject: [PATCH 8/9] Use native GPU clipping for safe cached world polygons
+From f6b4980c1bee670f9eb4a01e443b7b39badb7866 Mon Sep 17 00:00:00 2001
+From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
+Date: Mon, 9 Nov 2026 11:44:08 -0800
+Subject: [PATCH 8/9] Use GPU clipping for safe cached PS1 polygons
 
----
- .../ps1/starter/runtime/projection_safety.h   | 16 ++++++++++++++
- templates/ps1/starter/runtime/render.c        |  9 ++++++--
- tests/Ps1GpuClippingTests.c                   | 21 +++++++++++++++++++
- 3 files changed, 44 insertions(+), 2 deletions(-)
- create mode 100644 tests/Ps1GpuClippingTests.c
 
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 06976172d9d95dd39ff06bc5d5e3ebd227fd59e2..ee2c4fd8a818f23ca817eda577f67c8b3506a973 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -313,6 +313,9 @@ add_test(NAME MipsyncPs1ViewmodelProjection COMMAND MipsyncPs1ViewmodelProjectio
+ add_executable(MipsyncPs1ClipMathTests
+     ${CMAKE_SOURCE_DIR}/tests/Ps1ClipMathTests.c)
+ add_test(NAME MipsyncPs1ClipMath COMMAND MipsyncPs1ClipMathTests)
++add_executable(MipsyncPs1GpuClippingTests
++    ${CMAKE_SOURCE_DIR}/tests/Ps1GpuClippingTests.c)
++add_test(NAME MipsyncPs1GpuClipping COMMAND MipsyncPs1GpuClippingTests)
+ add_executable(MipsyncPs1TextureResolutionTests
+     ${CMAKE_SOURCE_DIR}/tests/Ps1TextureResolutionTests.cpp
+     mips/PS1TextureExport.cpp assets/Material.cpp core/Log.cpp)
 diff --git a/templates/ps1/starter/runtime/projection_safety.h b/templates/ps1/starter/runtime/projection_safety.h
-index d0a0dd8..b1fd3fc 100644
+index d0a0dd86cc6924ca10ba735c0a5040b8eecbad84..b1fd3fc6a160445f85c1eda773e4e5dff067d9cf 100644
 --- a/templates/ps1/starter/runtime/projection_safety.h
 +++ b/templates/ps1/starter/runtime/projection_safety.h
 @@ -1,6 +1,22 @@
@@ -38,7 +46,7 @@ index d0a0dd8..b1fd3fc 100644
     A clamped point cannot be used for winding, visibility, or GPU packets. */
  static inline int ps1_projection_vertex_needs_clip(int32_t xy, int32_t z,
 diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c
-index 0acf222..b75e0e9 100644
+index 0acf2221ea19da8d7cddd3991373f39ab7fb3e2b..b75e0e974402cea9916af828536ae0bc3e5f070b 100644
 --- a/templates/ps1/starter/runtime/render.c
 +++ b/templates/ps1/starter/runtime/render.c
 @@ -2273,6 +2273,8 @@ static int __attribute__((noinline)) draw_cached_flat_quad(
@@ -76,29 +84,47 @@ index 0acf222..b75e0e9 100644
                                  if(x1<min_x)min_x=x1;if(x2<min_x)min_x=x2;
 diff --git a/tests/Ps1GpuClippingTests.c b/tests/Ps1GpuClippingTests.c
 new file mode 100644
-index 0000000..96cec32
+index 0000000000000000000000000000000000000000..672be3072b3b6579dd008caf3da87283d5b7a00f
 --- /dev/null
 +++ b/tests/Ps1GpuClippingTests.c
-@@ -0,0 +1,21 @@
-+#include <assert.h>
+@@ -0,0 +1,39 @@
++#include <stdio.h>
++#include <stdlib.h>
 +#include "../templates/ps1/starter/runtime/projection_safety.h"
++
++static void check(int condition, const char* message) {
++    if (!condition) {
++        fprintf(stderr, "%s\n", message);
++        exit(1);
++    }
++}
 +
 +int main(void) {
 +    const int16_t x[] = {-80, 400, -80, 400};
 +    const int16_t y[] = {-40, -40, 280, 280};
-+    assert(ps1_polygon_fits_gpu(x, y, 4)); /* GPU clips all four screen edges. */
++    check(ps1_polygon_fits_gpu(x, y, 4),
++          "Native polygons may cross all four viewport edges");
++    const int16_t boundary_x[] = {-510, 510, -510, 510};
++    const int16_t boundary_y[] = {-254, -254, 254, 254};
++    check(ps1_polygon_fits_gpu(boundary_x, boundary_y, 4),
++          "Polygons at the safe extent limit must remain eligible");
 +    const int16_t wide[] = {-510, 511, -510, 511};
 +    const int16_t tall[] = {-254, -254, 255, 255};
-+    assert(!ps1_polygon_fits_gpu(wide, y, 4));
-+    assert(!ps1_polygon_fits_gpu(x, tall, 4));
++    check(!ps1_polygon_fits_gpu(wide, y, 4), "Oversized width requires CPU clipping");
++    check(!ps1_polygon_fits_gpu(x, tall, 4), "Oversized height requires CPU clipping");
 +    const int16_t saturated[] = {-1024, 100, -1024, 100};
-+    assert(!ps1_polygon_fits_gpu(saturated, y, 4));
-+    assert(!ps1_polygon_fits_gpu(x, y, 0));
++    check(!ps1_polygon_fits_gpu(saturated, y, 4),
++          "Saturated coordinates require CPU clipping");
++    check(!ps1_polygon_fits_gpu(x, y, 0), "Empty polygons are ineligible");
 +    /* Depth/GTE saturation must retain CPU clipping independently of XY. */
-+    assert(ps1_projection_vertex_needs_clip(0, 1, 2, 5000, 160));
-+    assert(ps1_projection_vertex_needs_clip(0, 6000, 2, 5000, 160));
-+    assert(ps1_projection_vertex_needs_clip(0, 50, 2, 5000, 160));
-+    assert(!ps1_projection_vertex_needs_clip(0, 100, 2, 5000, 160));
++    check(ps1_projection_vertex_needs_clip(0, 1, 2, 5000, 160),
++          "The near plane must still clip");
++    check(ps1_projection_vertex_needs_clip(0, 6000, 2, 5000, 160),
++          "The far plane must still clip");
++    check(ps1_projection_vertex_needs_clip(0, 50, 2, 5000, 160),
++          "GTE division saturation must still clip");
++    check(!ps1_projection_vertex_needs_clip(0, 100, 2, 5000, 160),
++          "Valid depth must remain eligible");
 +    return 0;
 +}
 -- 

@@ -1,14 +1,11 @@
-From 90950b14867f3d3287c8796effebdb34c5ddcafd Mon Sep 17 00:00:00 2001
-From: Grandleon contributors <grandleon@example.invalid>
-Date: Sun, 8 Nov 2026 04:06:20 -0800
-Subject: [PATCH] Keep runtime-enabled PS1 entities indexed
+From d11cf278149eebf3ca64604bc454965fc474ff99 Mon Sep 17 00:00:00 2001
+From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
+Date: Mon, 9 Nov 2026 11:43:40 -0800
+Subject: [PATCH 4/9] Keep disabled PS1 entities available to the renderer
 
----
- templates/ps1/starter/runtime/render.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
 
 diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c
-index 4f8e7bb..1f99ad5 100644
+index 4f8e7bbc26a9f1464b5bda4a01afdcaf815835e6..1f99ad579f0d9e2e4fa57e18ab0d6b6a4f3c4128 100644
 --- a/templates/ps1/starter/runtime/render.c
 +++ b/templates/ps1/starter/runtime/render.c
 @@ -504,7 +504,10 @@ static void rebuild_render_entity_lists(void) {

@@ -1,14 +1,11 @@
-From 403f48b1daf0a4f805d1bf936adf1ec03b6ab05d Mon Sep 17 00:00:00 2001
+From 16a924d0568944843333392f5d10077a99547893 Mon Sep 17 00:00:00 2001
 From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
-Date: Sun, 8 Nov 2026 14:03:39 -0800
-Subject: [PATCH] Honor per-entity PS1 seam fill
+Date: Mon, 9 Nov 2026 11:43:40 -0800
+Subject: [PATCH 5/9] Honor per-entity PS1 seam filling
 
----
- templates/ps1/starter/runtime/render.c | 11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
 
 diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c
-index 1f99ad5..cf417be 100644
+index 1f99ad579f0d9e2e4fa57e18ab0d6b6a4f3c4128..cf417be142c3c98602eb0f8715e793be55de44c3 100644
 --- a/templates/ps1/starter/runtime/render.c
 +++ b/templates/ps1/starter/runtime/render.c
 @@ -2291,7 +2291,8 @@ static int __attribute__((noinline)) draw_cached_flat_quad(

@@ -1,10 +1,9 @@
-# Ordered git format-patch filenames, one per line.
-0001-Fix-GTE-visibility-center-alignment.patch
-0002-Make-PS1-renderer-cache-capacities-configurable.patch
-0003-Cache-static-PS1-terrain-through-flat-mesh-path.patch
-0004-Keep-runtime-enabled-PS1-entities-indexed.patch
-0005-Honor-per-entity-PS1-seam-fill.patch
-0006-Support-indexed-PS1-texture-palettes.patch
-0007-Reclaim-static-render-caches-when-entities-are-disabled.patch
-0008-Use-native-GPU-clipping-for-safe-cached-world-polygons.patch
-0009-Build-visibility-batches-with-bounded-vertex-stamps.patch
+0001-Fix-PS1-GTE-visibility-center-alignment.patch
+0002-Make-PS1-renderer-cache-limits-configurable.patch
+0003-Cache-static-PS1-terrain-in-the-flat-mesh-renderer.patch
+0004-Keep-disabled-PS1-entities-available-to-the-renderer.patch
+0005-Honor-per-entity-PS1-seam-filling.patch
+0006-Support-indexed-PS1-palettes-and-shared-texture-slot.patch
+0007-Reclaim-PS1-render-caches-after-entities-are-disable.patch
+0008-Use-GPU-clipping-for-safe-cached-PS1-polygons.patch
+0009-Avoid-duplicate-vertex-searches-in-PS1-visibility-ba.patch
