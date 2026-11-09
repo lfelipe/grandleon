@@ -49,7 +49,7 @@ SKIP_FILES = (
     "scripts/check_links.py", "third_party/",
     # These files describe paths inside pinned upstream checkouts or paths
     # whose *absence* is the cutover contract being tested.
-    "platform/nintendo64/pyrite/cutover-contract.tsv",
+    "cutover-contract.tsv",
     "platform/nintendo64/pyrite/toolchain/Containerfile",
 )
 

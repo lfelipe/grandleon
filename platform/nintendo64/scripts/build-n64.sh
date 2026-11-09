@@ -49,6 +49,9 @@ identity="$(dd if="${source_rom}" bs=1 skip=32 count=20 status=none | tr -d '\00
     echo "Nintendo 64 export refused: unexpected renderer identity: ${identity}" >&2
     exit 1
 }
+"${repository_root}/tools/upstream_patches/cutover-audit.sh" \
+    "${repository_root}/platform/nintendo64/pyrite/cutover-contract.tsv" \
+    "${repository_root}" "${source_rom}"
 
 install -m 0644 "${source_rom}" "${canonical_rom}.new"
 mv -f "${canonical_rom}.new" "${canonical_rom}"

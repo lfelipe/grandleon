@@ -219,6 +219,8 @@ for path in sorted(Path(sys.argv[1]).glob("*/build-manifest.json")):
     )
 PY
 
+"$repo_root/tools/upstream_patches/cutover-audit.sh" \
+    "$mipsync_dir/cutover-contract.tsv" "$repo_root" "$output/game.bin"
 sha256sum "$output/game.cue" "$output/game.bin" > "$output/SHA256SUMS"
 printf 'GRANDLEON_PS1_RENDERER=MIPSYNC fallback=none stages=%s mode=%s\n' \
     "$(wc -l < "$stage_files")" "$mode"
