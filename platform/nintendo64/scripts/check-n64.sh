@@ -13,7 +13,7 @@ ares="${repository_root}/platform/nintendo64/ares/run-ares.sh"
 
 check_project() {
     local name=$1 project=$2 build_dir="${root_build}/${name}"
-    GRANDLEON_N64_BUILD_DIR="${build_dir}" \
+    GRANDLEON_N64_REVIEW_DRIVER=1 GRANDLEON_N64_BUILD_DIR="${build_dir}" \
         "${repository_root}/platform/nintendo64/scripts/build-n64.sh" \
         --project "${project}"
 

@@ -1793,6 +1793,7 @@ void configure_campaign_board(const pr::EncounterLoadResult& content) {
     }
     assert(rowan != nullptr);
     replay = {};
+    replay.user_took_over = !grandleon_project_review_driver || shell.user_took_over;
     replay.rowan_start = rowan->position;
     replay.rowan_destination = rowan->position;
     int best_score = -1;
@@ -2349,7 +2350,8 @@ void update_shell_input() {
         (void)confirm_shell_choice();
         return;
     }
-    if (shell.phase != ShellPhase::complete && !shell.user_took_over &&
+    if (grandleon_project_review_driver &&
+        shell.phase != ShellPhase::complete && !shell.user_took_over &&
         frame_count >= shell.next_automatic_frame) {
         (void)confirm_shell_choice();
     }
@@ -4881,10 +4883,10 @@ void onGameInit() {
     shell.save_present = board.saves->contains(campaign_slot());
     debugf(
         "GRANDLEON_PYRITE_LAUNCH campaign=%s player_mode=%s "
-        "save=%u renderer=pyrite-tiny3d fallback=none\n",
+        "save=%u renderer=pyrite-tiny3d fallback=none review_driver=%u\n",
         grandleon_project_campaign_source,
         pr::local_player_mode_name(campaign.definition.player_mode).data(),
-        shell.save_present ? 1U : 0U
+        shell.save_present ? 1U : 0U, grandleon_project_review_driver ? 1U : 0U
     );
 }
 

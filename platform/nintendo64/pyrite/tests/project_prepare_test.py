@@ -65,6 +65,7 @@ def main() -> None:
 
         demo_header = (demo / "src/user/GeneratedProject.hpp").read_text()
         steel_header = (steel / "src/user/GeneratedProject.hpp").read_text()
+        assert 'grandleon_project_review_driver = false;' in steel_header
         assert '"The Bridge at Dawn"' in demo_header
         assert '"Steel and Cedar"' in steel_header
         assert '"grandleon.demo"' in demo_header
@@ -104,6 +105,15 @@ def main() -> None:
             "assets/unit_05_close_hurt.png",
         ):
             assert digest(demo / relative) == digest(repeat / relative), relative
+
+        subprocess.run([
+            "python3", str(PREPARE), "--project", str(demo_source),
+            "--art-manifest", str(base / "demo/console-art/manifest.json"),
+            "--project-root", str(demo), "--review-driver",
+        ], check=True, capture_output=True)
+        assert 'grandleon_project_review_driver = true;' in (
+            demo / "src/user/GeneratedProject.hpp"
+        ).read_text()
 
         # Unsupported content is diagnosed instead of silently receiving
         # Steel's terrain or art. Ten recognized kinds exceed the base-memory

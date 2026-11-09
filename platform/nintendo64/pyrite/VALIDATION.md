@@ -1,5 +1,21 @@
 # Generic project export validation
 
+## Closing review, 9 November 2026
+
+The automated campaign driver is now disabled in normal exports. A separately
+built production ROM logged `review_driver=0` and remained on its title screen
+through an 18-second no-input boot. External controller input then reached
+Bell Orchard without any automated movement. Automated campaign checks must
+build with `GRANDLEON_N64_REVIEW_DRIVER=1`; pressing a physical controller
+also retains manual control when a later encounter loads.
+
+The explicit review ROM completed five battles, 290 commands, 170 opposing
+commands, five combat presentations and the 18-cell castle reveal with 4 MiB
+RAM. Its final sample measured 30.00 fps, with 1,258,880 bytes of free heap.
+The corresponding evidence is under `ares/review05*` in the cache root below.
+These scripted routes verify mechanics and rendering; they do not establish
+campaign balance or hardware acceptance.
+
 The castle review adds battlement silhouettes and a capture-driver cursor
 move into the revealed room, followed by a camera-settling pause. The driver
 does not alter visibility: normal campaign movement must reveal the room

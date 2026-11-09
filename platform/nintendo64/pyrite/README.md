@@ -40,6 +40,13 @@ selected source project:
 
 ## Build
 
+Normal ROMs always wait for player input. For an automated emulator review,
+set `GRANDLEON_N64_REVIEW_DRIVER=1` when building. This creates a test ROM that
+plays through the campaign; do not distribute it as a playable release. The
+boot log records `review_driver=0` for a normal ROM and `1` for a review ROM.
+The export gate opts into the driver explicitly. Physical takeover also
+disables it for subsequent battles in that run.
+
 From a Grandleon checkout:
 
 ```sh

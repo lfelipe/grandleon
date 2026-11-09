@@ -42,7 +42,12 @@ python3 "$repo_root/platform/console_art/generate-character-art.py" \
     --project "$project_source" \
     --platform n64 \
     --output "$work_dir/generated-art"
-python3 "$package_root/scripts/prepare-project.py" \
+case "${GRANDLEON_N64_REVIEW_DRIVER:-0}" in
+    0) set -- ;;
+    1) set -- --review-driver ;;
+    *) echo "GRANDLEON_N64_REVIEW_DRIVER must be 0 or 1" >&2; exit 2 ;;
+esac
+python3 "$package_root/scripts/prepare-project.py" "$@" \
     --project "$project_source" \
     --art-manifest "$work_dir/generated-art/manifest.json" \
     --project-root "$work_dir/project"

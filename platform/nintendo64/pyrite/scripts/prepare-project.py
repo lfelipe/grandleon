@@ -243,7 +243,8 @@ def draw_surface_detail(path: Path) -> None:
     image.save(path)
 
 
-def prepare(project_path: Path, manifest_path: Path, project_root: Path) -> None:
+def prepare(project_path: Path, manifest_path: Path, project_root: Path,
+            review_driver: bool = False) -> None:
     project = json.loads(project_path.read_text(encoding="utf-8"))
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     campaign, encounters = linear_campaign(project)
@@ -357,6 +358,7 @@ def prepare(project_path: Path, manifest_path: Path, project_root: Path) -> None
 #include <cstdint>
 
 inline constexpr char grandleon_project_title[] = {cpp_string(title)};
+inline constexpr bool grandleon_project_review_driver = {'true' if review_driver else 'false'};
 inline constexpr char grandleon_project_game_id[] = {cpp_string(game_id)};
 inline constexpr char grandleon_project_campaign_source[] = {cpp_string(campaign_id)};
 inline constexpr char grandleon_project_save_base[] = {cpp_string(save_base)};
@@ -407,9 +409,11 @@ def main() -> int:
     parser.add_argument("--project", type=Path, required=True)
     parser.add_argument("--art-manifest", type=Path, required=True)
     parser.add_argument("--project-root", type=Path, required=True)
+    parser.add_argument("--review-driver", action="store_true",
+                        help="enable automated input for emulator review builds only")
     args = parser.parse_args()
     try:
-        prepare(args.project, args.art_manifest, args.project_root)
+        prepare(args.project, args.art_manifest, args.project_root, args.review_driver)
     except (OSError, ValueError, KeyError, TypeError, ProjectError) as error:
         print(f"Nintendo 64 Pyrite export refused: {error}", file=sys.stderr)
         return 2
