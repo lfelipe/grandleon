@@ -13,6 +13,7 @@ enum grandleon_ui_mode {
     GRANDLEON_UI_ATTACK,
     GRANDLEON_UI_ABILITY,
     GRANDLEON_UI_TALK,
+    GRANDLEON_UI_DEPLOYMENT,
     GRANDLEON_UI_RESULT,
     GRANDLEON_UI_OPPONENT,
     GRANDLEON_UI_COMPLETE,
@@ -78,7 +79,11 @@ enum grandleon_ui_text_id {
     GRANDLEON_TEXT_COMPANY_REGROUP,
     GRANDLEON_TEXT_MEMORY_CARD,
     GRANDLEON_TEXT_SAVE_UNAVAILABLE,
-    GRANDLEON_TEXT_CAMPAIGN_TAGLINE
+    GRANDLEON_TEXT_CAMPAIGN_TAGLINE,
+    GRANDLEON_TEXT_DEPLOYMENT,
+    GRANDLEON_TEXT_SELECT,
+    GRANDLEON_TEXT_DEPLOY,
+    GRANDLEON_TEXT_BEGIN
 };
 
 typedef struct grandleon_ui_state {
@@ -123,6 +128,7 @@ typedef struct grandleon_ui_state {
     uint8_t name_column;
     uint8_t name_invalid;
     uint8_t name_limit;
+    uint8_t deployment_selected;
 } grandleon_ui_state;
 
 enum grandleon_action_kind {

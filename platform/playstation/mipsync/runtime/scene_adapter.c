@@ -420,6 +420,24 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
         return;
     }
 
+    if (state.mode == GRANDLEON_UI_DEPLOYMENT) {
+        draw_panel(ordering_table, next_packet, packet_end, 64, 8, 192, 42);
+        draw_text(ordering_table, next_packet, packet_end, 76, 14,
+                  grandleon_game_text(GRANDLEON_TEXT_DEPLOYMENT), 255, 205, 68);
+        draw_text(ordering_table, next_packet, packet_end, 76, 29,
+                  "X", 94, 206, 227);
+        draw_text(ordering_table, next_packet, packet_end, 90, 29,
+                  grandleon_game_text(state.deployment_selected
+                      ? GRANDLEON_TEXT_DEPLOY : GRANDLEON_TEXT_SELECT),
+                  247, 239, 209);
+        draw_text(ordering_table, next_packet, packet_end, 154, 29,
+                  "START", 94, 206, 227);
+        draw_text(ordering_table, next_packet, packet_end, 196, 29,
+                  grandleon_game_text(GRANDLEON_TEXT_BEGIN), 247, 239, 209);
+        activate_ui_tpage(ordering_table, next_packet, packet_end);
+        return;
+    }
+
     if (state.mode == GRANDLEON_UI_OPPONENT) {
         draw_panel(ordering_table, next_packet, packet_end, 91, 8, 138, 25);
         draw_text(ordering_table, next_packet, packet_end, 108, 16,

@@ -68,7 +68,8 @@ constexpr std::size_t kMaxTerrainForms = 96U;
 constexpr std::size_t kUnitVertexCount = 4U;
 constexpr std::size_t kMaxUnits = 48U;
 constexpr std::size_t kCursorVerticesPerPlayer = 16U;
-constexpr std::size_t kCursorVertexCount = kCursorVerticesPerPlayer * 2U;
+constexpr std::size_t kCursorVertexCount =
+    kMaxCells * 4U + kCursorVerticesPerPlayer * 2U;
 constexpr std::size_t kMaxLandmarkVertices = 256U;
 
 enum class VisualPose : std::uint8_t {
@@ -1503,9 +1504,31 @@ void build_cursor_vertices() {
     const auto height = board.content->definition.height;
     constexpr std::int16_t outer = kHalfCell - 2;
     constexpr std::int16_t inner = kHalfCell - 6;
-    board.cursor_vertex_count = static_cast<std::size_t>(
-        board.game.local_players()
-    ) * kCursorVerticesPerPlayer;
+    const sim::EncounterSnapshot& snapshot = board.game.snapshot();
+    std::size_t first = 0U;
+    if (snapshot.deploying) {
+        for (const sim::Position tile : snapshot.deployment_tiles) {
+            const std::size_t terrain_index =
+                static_cast<std::size_t>(tile.y) * width +
+                static_cast<std::size_t>(tile.x);
+            const std::int16_t floor = static_cast<std::int16_t>(
+                (terrain_index < board.content->terrain.size()
+                     ? terrain_lift(board.content->terrain[terrain_index]) : 0) +
+                2
+            );
+            const std::int16_t cx = world_x(tile.x, width);
+            const std::int16_t cz = world_z(tile.y, height);
+            cursor_quad(
+                first, cx - 10, cz - 10, cx + 10, cz + 10, floor,
+                pack_rgba(62U, 184U, 171U)
+            );
+            first += 4U;
+        }
+    }
+    const std::size_t cursor_first = first;
+    board.cursor_vertex_count = cursor_first +
+        static_cast<std::size_t>(board.game.local_players()) *
+        kCursorVerticesPerPlayer;
     for (std::uint8_t player = 0U; player < board.game.local_players(); ++player) {
         const sim::Position cursor = board.game.cursor(player);
         const std::size_t terrain_index =
@@ -1518,7 +1541,7 @@ void build_cursor_vertices() {
         );
         const std::int16_t cx = world_x(cursor.x, width);
         const std::int16_t cz = world_z(cursor.y, height);
-        const std::size_t first =
+        const std::size_t player_first = cursor_first +
             static_cast<std::size_t>(player) * kCursorVerticesPerPlayer;
         const bool selected = board.game.selected(player) != 0U;
         const std::uint32_t colour = player == 0U
@@ -1526,13 +1549,13 @@ void build_cursor_vertices() {
                         : pack_rgba(246U, 190U, 58U))
             : (selected ? pack_rgba(255U, 139U, 194U)
                         : pack_rgba(190U, 116U, 255U));
-        cursor_quad(first + 0U, cx - outer, cz - outer,
+        cursor_quad(player_first + 0U, cx - outer, cz - outer,
             cx + outer, cz - inner, floor, colour);
-        cursor_quad(first + 4U, cx - outer, cz + inner,
+        cursor_quad(player_first + 4U, cx - outer, cz + inner,
             cx + outer, cz + outer, floor, colour);
-        cursor_quad(first + 8U, cx - outer, cz - inner,
+        cursor_quad(player_first + 8U, cx - outer, cz - inner,
             cx - inner, cz + inner, floor, colour);
-        cursor_quad(first + 12U, cx + inner, cz - inner,
+        cursor_quad(player_first + 12U, cx + inner, cz - inner,
             cx + outer, cz + inner, floor, colour);
     }
 }
@@ -1779,8 +1802,10 @@ void configure_campaign_board(const pr::EncounterLoadResult& content) {
     build_visibility_vertices();
     build_unit_vertices();
     build_cursor_vertices();
-    queue_battle_moments(pr::MomentTrigger::stage_opens, 0U, true);
-    (void)load_battle_moment_dialogue();
+    if (!board.game.snapshot().deploying) {
+        queue_battle_moments(pr::MomentTrigger::stage_opens, 0U, true);
+        (void)load_battle_moment_dialogue();
+    }
     debugf(
         "GRANDLEON_PYRITE_CAMPAIGN_BOARD encounter=%llu map=%llu size=%ux%u "
         "players=%u stage=%lu apron=%lu\n",
@@ -2532,15 +2557,22 @@ void draw_cursor() {
     t3d_state_set_drawflags(
         static_cast<T3DDrawFlags>(T3D_FLAG_SHADED | T3D_FLAG_DEPTH)
     );
-    t3d_vert_load(
-        board.cursor, 0, static_cast<std::uint32_t>(board.cursor_vertex_count)
-    );
-    for (std::uint8_t first = 0; first < board.cursor_vertex_count;
-         first += 4U) {
-        t3d_tri_draw(first + 0U, first + 1U, first + 2U);
-        t3d_tri_draw(first + 0U, first + 2U, first + 3U);
+    constexpr std::size_t vertices_per_batch = kBatchCells * 4U;
+    for (std::size_t begin = 0U; begin < board.cursor_vertex_count;
+         begin += vertices_per_batch) {
+        const std::size_t count = std::min(
+            vertices_per_batch, board.cursor_vertex_count - begin
+        );
+        t3d_vert_load(
+            board.cursor + begin / 2U, 0,
+            static_cast<std::uint32_t>(count)
+        );
+        for (std::uint8_t first = 0U; first < count; first += 4U) {
+            t3d_tri_draw(first + 0U, first + 1U, first + 2U);
+            t3d_tri_draw(first + 0U, first + 2U, first + 3U);
+        }
+        t3d_tri_sync();
     }
-    t3d_tri_sync();
 }
 
 const sim::UnitSnapshot* find_unit(sim::UnitId id) {
@@ -3197,6 +3229,66 @@ bool physical_input_for(
     std::uint8_t player,
     const joypad_buttons_t& pressed
 ) {
+    if (board.game.snapshot().deploying) {
+        if (player >= board.game.local_players()) return false;
+        if (!pressed.d_left && !pressed.d_right && !pressed.d_up &&
+            !pressed.d_down && !pressed.a && !pressed.b && !pressed.start) {
+            return false;
+        }
+        replay.user_took_over = true;
+        if (pressed.start) {
+            const bool begun = board.game.apply({
+                sim::CommandType::begin_battle, 0U, {}, 0U, 0U, 0U, 0U,
+            }, player);
+            if (!begun) return false;
+            remember_transition_events();
+            for (std::uint8_t seat = 0U; seat < board.game.local_players();
+                 ++seat) {
+                (void)board.game.input(gp::GameplaySlice::Action::cancel, seat);
+            }
+            build_cursor_vertices();
+            queue_battle_moments(pr::MomentTrigger::stage_opens, 0U, true);
+            (void)load_battle_moment_dialogue();
+            debugf("CHECKPOINT PYRITE_DEPLOYMENT_END\n");
+            return true;
+        }
+        if (pressed.d_left) return issue(gp::GameplaySlice::Action::left, player);
+        if (pressed.d_right) return issue(gp::GameplaySlice::Action::right, player);
+        if (pressed.d_up) return issue(gp::GameplaySlice::Action::up, player);
+        if (pressed.d_down) return issue(gp::GameplaySlice::Action::down, player);
+        if (pressed.b) return issue(gp::GameplaySlice::Action::cancel, player);
+        const sim::Position cursor = board.game.cursor(player);
+        const sim::UnitSnapshot* occupant = unit_at(cursor);
+        if (occupant != nullptr && sim::is_deployable(
+                board.game.snapshot(), *occupant
+            ) && occupant->local_player == player + 1U) {
+            if (board.game.selected(player) != 0U) {
+                (void)issue(gp::GameplaySlice::Action::cancel, player);
+            }
+            const bool selected = issue(gp::GameplaySlice::Action::confirm, player);
+            if (selected) {
+                debugf(
+                    "CHECKPOINT PYRITE_DEPLOYMENT_SELECT unit=%llu\n",
+                    occupant->id
+                );
+            }
+            return selected;
+        }
+        const sim::UnitId selected = board.game.selected(player);
+        if (selected == 0U || occupant != nullptr) return false;
+        const bool deployed = board.game.apply({
+            sim::CommandType::deploy, selected, cursor, 0U, 0U, 0U, 0U,
+        }, player);
+        if (!deployed) return false;
+        remember_transition_events();
+        build_unit_vertices();
+        build_cursor_vertices();
+        debugf(
+            "CHECKPOINT PYRITE_DEPLOYMENT_PLACE unit=%llu x=%d y=%d\n",
+            selected, cursor.x, cursor.y
+        );
+        return true;
+    }
     if (battle_moment.active) {
         if (pressed.a || pressed.start) {
             replay.user_took_over = true;
@@ -4030,6 +4122,32 @@ void draw_battle_ui() {
             while (start < dialogue_text.size() && dialogue_text[start] == ' ') ++start;
         }
         P64::Debug::printf(238, 215, "A %s", ui(console::Message::next));
+        rdpq_mode_pop();
+        return;
+    }
+    if (board.game.snapshot().deploying) {
+        rdpq_mode_push();
+        rdpq_mode_begin();
+            rdpq_mode_zbuf(false, false);
+            rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
+            rdpq_mode_blender(RDPQ_BLENDER_MULTIPLY);
+            rdpq_mode_fog(0);
+        rdpq_mode_end();
+        rdpq_set_prim_color({45, 73, 92, 245});
+        rdpq_fill_rectangle(65, 12, 255, 63);
+        rdpq_set_prim_color({12, 22, 33, 248});
+        rdpq_fill_rectangle(69, 16, 251, 59);
+        P64::Debug::printStart();
+        P64::Debug::printf(
+            80, 22, "%s", ui(console::Message::deployment)
+        );
+        P64::Debug::printf(
+            80, 42, "A %s   START %s",
+            board.game.selected(board.game.active_player()) == 0U
+                ? ui(console::Message::select)
+                : ui(console::Message::deploy),
+            ui(console::Message::begin)
+        );
         rdpq_mode_pop();
         return;
     }

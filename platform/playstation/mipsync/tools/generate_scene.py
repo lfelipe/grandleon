@@ -1083,6 +1083,28 @@ def write_scene(
         )
         next_id += 1
         entity_index += 1
+    simulation = document["simulation"]
+    assert isinstance(simulation, dict)
+    deployment_tiles = simulation.get("deployment_tiles", [])
+    if not isinstance(deployment_tiles, list):
+        raise ValueError("simulation deployment tiles are not an array")
+    deployment_entity_indices: list[int] = []
+    for tile in deployment_tiles:
+        if not isinstance(tile, list) or len(tile) != 2:
+            raise ValueError("deployment tile is not an x/y pair")
+        deploy_x = require_int(tile[0], "deployment x", 0, width - 1)
+        deploy_y = require_int(tile[1], "deployment y", 0, height - 1)
+        deploy_world_x = (deploy_x + 0.5 - width / 2) * 2
+        deploy_world_z = (height / 2 - deploy_y - 0.5) * 2
+        deploy_world_y = fixed(
+            (surface_lifts[deploy_y * width + deploy_x] + 2) / 64
+        )
+        deployment_entity_indices.append(entity_index)
+        lines.append(
+            f"    {{ .id={next_id}u, .name=\"deployment_tile\", .parent_entity_index=-1, .position={{{fixed(deploy_world_x)},{deploy_world_y},{fixed(deploy_world_z)}}}, .scale={{65536,65536,65536}}, .mesh=PS1_MESH_CUSTOM, .mesh_index={cursor_mesh_index}, .mesh_size=65536, .mesh_enabled=1, .color_r=65, .color_g=190, .color_b=175, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_FLOOR, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
+        )
+        next_id += 1
+        entity_index += 1
     first_unit = next(
         (unit for unit in units if isinstance(unit, dict) and int(unit["side"]) == 0),
         units[0],
@@ -1124,6 +1146,11 @@ def write_scene(
         "};",
         f"const unsigned int g_grandleon_visibility_cell_count = {len(hidden_cells)}u;",
         f"const unsigned int g_grandleon_visibility_reveal_radius = {int(visibility['reveal_radius'])}u;",
+        "const unsigned int g_grandleon_deployment_entity_indices[] = {",
+        *(f"    {index}u," for index in deployment_entity_indices),
+        "    0u," if not deployment_entity_indices else "",
+        "};",
+        f"const unsigned int g_grandleon_deployment_entity_count = {len(deployment_entity_indices)}u;",
         "const int32_t g_grandleon_terrain_surface_y_q16[] = {",
         *(f"    {fixed(value / 64)}," for value in surface_lifts),
         "};",
@@ -1171,6 +1198,8 @@ extern const unsigned int g_grandleon_visibility_entity_index;
 extern const uint16_t g_grandleon_visibility_cell_indices[];
 extern const unsigned int g_grandleon_visibility_cell_count;
 extern const unsigned int g_grandleon_visibility_reveal_radius;
+extern const unsigned int g_grandleon_deployment_entity_indices[];
+extern const unsigned int g_grandleon_deployment_entity_count;
 extern const int32_t g_grandleon_terrain_surface_y_q16[];
 extern const unsigned int g_grandleon_terrain_surface_count;
 extern const unsigned int g_grandleon_terrain_entity_indices[];
@@ -1329,8 +1358,18 @@ def main() -> int:
         width, height,
     )
     visible_covers = len(hidden_cells)
-    cache_vertices = board_vertices + (visible_units + visible_covers) * 4
-    cache_triangles = board_triangles + (visible_units + visible_covers) * 2
+    simulation = document["simulation"]
+    assert isinstance(simulation, dict)
+    deployment_tiles = simulation.get("deployment_tiles", [])
+    if not isinstance(deployment_tiles, list):
+        raise ValueError("simulation deployment tiles are not an array")
+    deployment_markers = len(deployment_tiles)
+    cache_vertices = board_vertices + (
+        visible_units + visible_covers + deployment_markers
+    ) * 4
+    cache_triangles = board_triangles + (
+        visible_units + visible_covers + deployment_markers
+    ) * 2
     if cache_vertices > MAX_CACHE_VERTICES or cache_triangles > MAX_CACHE_TRIANGLES:
         raise ValueError(
             f"visible scene exceeds trimmed Mipsync caches: {cache_vertices}/{MAX_CACHE_VERTICES} vertices, "
@@ -1350,6 +1389,7 @@ def main() -> int:
             "entities": 1 if hidden_cells else 0,
             "reveal": "whole_authored_region_on_entry",
         },
+        "deployment_markers": deployment_markers,
         "visible": {"units": visible_units, "covers": visible_covers},
         "cache": {"vertices": cache_vertices, "vertex_limit": MAX_CACHE_VERTICES, "triangles": cache_triangles, "triangle_limit": MAX_CACHE_TRIANGLES},
         "vram": texture_metrics,

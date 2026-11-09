@@ -9,7 +9,7 @@ ares checkpoint.
 | 1P and 2P launch | Ready | The packaged `choice` policy drives the launch screen. Each mode has its own SRAM slot, and the two controllers keep independent cursors and selection ownership. |
 | Manual board actions | Ready | Move, Attack, every equipped Ability, usable carried items, Talk, Wait and Cancel enter the authoritative `Encounter` command boundary. Physical takeover leaves the review driver and opposing turns continue through the packaged tactics policy. |
 | Story and battle moments | Ready | Campaign story nodes and packaged stage-open/fall/talk dialogue are loaded from the GPK and shown as advanceable framed dialogue. |
-| Deployment | Ready | The screen appears only when the packaged encounter authors deployment; fixed formations skip it. |
+| Deployment | Ready | Authored tiles are marked on the live board. Each controller can select and place only its own characters through the shared simulation, and **Start** begins battle. Fixed formations skip this step. A focused rules test and the production ROM cross-build cover the path. |
 | Maps, objectives and aftermath | Ready within the bounded export contract | The demo's one battle and Steel and Cedar's five battles load from their distinct packages, commit reports and reach their authored terminal nodes. |
 | Authored hidden areas | Ready | The current exact-4-MB Steel ROM records Twin Gate's 18-cell room as closed, crosses its doorway through routed movement, reveals the room, and captures both states under real-RSP ares. |
 | Save and resume | Ready | Project-derived 1P/2P slot identities keep games separate. A third settings slot preserves presentation choices. |

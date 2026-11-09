@@ -60,4 +60,24 @@ int main() {
     assert(game.input(gp::GameplaySlice::Action::left, 1U));
     assert(!game.input(gp::GameplaySlice::Action::confirm, 1U));
     assert(game.selected(1U) == 0U);
+
+    sim::EncounterDefinition arranging = definition;
+    arranging.deployment_tiles = {
+        {0, 0}, {0, 1}, {0, 2}, {1, 1}, {1, 2}, {2, 1},
+    };
+    gp::GameplaySlice deployment;
+    assert(deployment.open(arranging, 1U, 2U));
+    assert(deployment.snapshot().deploying);
+    assert(deployment.apply({
+        sim::CommandType::deploy, 1U, {0, 2}, 0U, 0U, 0U, 0U,
+    }, 0U));
+    assert(deployment.snapshot().units[0].position == sim::Position(0, 2));
+    assert(deployment.transition().command.type == sim::CommandType::deploy);
+    assert(deployment.apply({
+        sim::CommandType::begin_battle, 0U, {}, 0U, 0U, 0U, 0U,
+    }, 0U));
+    assert(!deployment.snapshot().deploying);
+    assert(deployment.transition().command.type ==
+           sim::CommandType::begin_battle);
+    assert(deployment.accepted_commands() == 2U);
 }

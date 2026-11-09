@@ -44,6 +44,13 @@ attacks with the demo's item carrier, takes counter and opposing-turn damage,
 then requires the newly usable field tonic to restore two health through the
 shared `use_item` command.
 
+A third focused probe covers authored tactical deployment. It boots the real
+Muster Road encounter, shows its six authored tiles, selects the opening Dawn
+Guard, places it on a different legal tile through the ordinary Cross-button
+path, and presses Start. The probe requires both accepted simulation changes
+and captures the live deployment board; fixed Steel and Cedar formations still
+enter battle without this screen.
+
 The focused Twin Gate probe boots the real one-player 20x14 encounter and uses
 ordinary controller input. Rowan advances to the keep, both friendly units end
 their turns, the authored opposing side takes its turn, and Rowan then crosses
@@ -59,10 +66,10 @@ The build keeps the planned 64 KiB audio reserve, 32 KiB stack reserve, and
 | Encounter | Committed RAM | Texture VRAM | Active cache |
 | --- | ---: | ---: | ---: |
 | Bell Orchard | 1,460,944 / 2,097,152 | 116,736 / 196,608 | 214 vertices, 212 triangles |
-| Cedar Deepwood | 1,491,664 / 2,097,152 | 133,120 / 196,608 | 193 vertices, 140 triangles |
-| Cedar Watch | 1,546,960 / 2,097,152 | 149,504 / 196,608 | 199 vertices, 158 triangles |
-| Gate Village | 1,546,960 / 2,097,152 | 165,888 / 196,608 | 183 vertices, 128 triangles |
-| Twin Gate Keep | 1,508,048 / 2,097,152 | 124,928 / 196,608 | 237 vertices, 182 triangles |
+| Cedar Deepwood | 1,493,712 / 2,097,152 | 133,120 / 196,608 | 193 vertices, 140 triangles |
+| Cedar Watch | 1,549,008 / 2,097,152 | 149,504 / 196,608 | 199 vertices, 158 triangles |
+| Gate Village | 1,549,008 / 2,097,152 | 165,888 / 196,608 | 183 vertices, 128 triangles |
+| Twin Gate Keep | 1,510,096 / 2,097,152 | 124,928 / 196,608 | 237 vertices, 182 triangles |
 
 Larger maps use overlapping 8x6 terrain pages, with only the nearest page
 active. Unit and prop culling changes presentation only; the full encounter
@@ -89,7 +96,7 @@ English label texture is no longer shipped.
 ## Exact artifact
 
 - CUE SHA-256: `29d16c06436b8a5210108dcf67bbbd29ef0c78753e18cceed2e506a8f9ffecff`
-- BIN SHA-256: `5df87ae78576579532002ae27ef6975137ea613421103fe1592535d47fd6410f`
+- BIN SHA-256: `9aa16c5a9f5b9732a8d666cb1782cdefc2f40aa837af85e73996c4da542d628c`
 - final memory-card SHA-256: `c0a525c5d9318ad4b88a629549168261a43be9948fb6c2902716e4656a4e1e26`
 
 The exact build manifests, emulator logs, card, and hashes remain outside

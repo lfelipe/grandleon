@@ -39,7 +39,8 @@ namespace client = grandleon::client;
 namespace {
 
 enum class InputMode : std::uint8_t {
-    browse, move, action, attack, ability, talk, pause, help, settings
+    browse, move, action, attack, ability, talk, deployment, pause, help,
+    settings
 };
 enum class CampaignMode : std::uint8_t {
     title, players, name, prologue, objective, battle, aftermath, save_error,
@@ -1134,6 +1135,13 @@ void sync_scene(const sim::EncounterSnapshot& snapshot) {
             );
         }
     }
+    for (unsigned index = 0; index < g_grandleon_deployment_entity_count;
+         ++index) {
+        ps1_entity* marker = grandleon_scene_mutable_entity(
+            g_grandleon_deployment_entity_indices[index]
+        );
+        if (marker) marker->mesh_enabled = snapshot.deploying ? 1 : 0;
+    }
     sync_visibility_entities(false);
 }
 
@@ -1486,7 +1494,7 @@ bool start_encounter() {
     s_battle_moment = {};
     s_action_content = 0U;
     s_result_close_combat = false;
-    s_mode = InputMode::browse;
+    s_mode = snapshot.deploying ? InputMode::deployment : InputMode::browse;
     s_selected = 0;
     for (unsigned index = 0; index < maximum_board_cells; ++index) {
         s_visibility_revealed[index] = false;
@@ -1524,8 +1532,10 @@ bool start_encounter() {
     tick_camera();
     s_ai_active = snapshot.active_side == sim::Side::second;
     s_campaign_mode = CampaignMode::battle;
-    queue_battle_moments(1U, 0U, true);
-    (void)activate_pending_battle_moment();
+    if (!snapshot.deploying) {
+        queue_battle_moments(1U, 0U, true);
+        (void)activate_pending_battle_moment();
+    }
     psx::Line().text("MIPSYNC_SIM_READY width=").decimal(snapshot.width)
         .text(" height=").decimal(snapshot.height).text(" units=")
         .decimal(static_cast<unsigned>(snapshot.units.size())).text(" cursor_x=")
@@ -1756,6 +1766,8 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
     else if (s_mode == InputMode::help) output->mode = GRANDLEON_UI_BATTLE_HELP;
     else if (s_mode == InputMode::settings) {
         output->mode = GRANDLEON_UI_BATTLE_SETTINGS;
+    } else if (snapshot.deploying) {
+        output->mode = GRANDLEON_UI_DEPLOYMENT;
     } else if (snapshot.outcome != sim::Outcome::ongoing) {
         output->mode = GRANDLEON_UI_COMPLETE;
     } else if (s_result_frames || s_camera_return_frames) output->mode = GRANDLEON_UI_RESULT;
@@ -1779,6 +1791,7 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
         );
     }
     output->menu_index = static_cast<std::uint8_t>(s_menu_index);
+    output->deployment_selected = s_selected != 0U ? 1U : 0U;
     output->result_missed = s_last_result_missed ? 1 : 0;
     output->result_damage = s_last_result_damage;
     output->result_counter_damage = s_last_result_counter_damage;
@@ -1938,6 +1951,14 @@ extern "C" const char* grandleon_game_text(uint8_t text_id) {
             return ui(console::Message::save_unavailable);
         case GRANDLEON_TEXT_CAMPAIGN_TAGLINE:
             return ui(console::Message::campaign_tagline);
+        case GRANDLEON_TEXT_DEPLOYMENT:
+            return ui(console::Message::deployment);
+        case GRANDLEON_TEXT_SELECT:
+            return ui(console::Message::select);
+        case GRANDLEON_TEXT_DEPLOY:
+            return ui(console::Message::deploy);
+        case GRANDLEON_TEXT_BEGIN:
+            return ui(console::Message::begin);
     }
     return "";
 }
@@ -2091,6 +2112,60 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
     if (s_battle_moment.active) {
         if (player_one & (pad_cross | pad_start)) advance_battle_moment();
         return 0;
+    }
+    if (s_snapshot.deploying) {
+        std::uint8_t input_player = 0U;
+        if (s_selected != 0U) {
+            const sim::UnitSnapshot* selected = find_unit(s_snapshot, s_selected);
+            if (selected && selected->local_player == 2U && s_local_players > 1U) {
+                input_player = 1U;
+                pressed = player_two;
+            }
+        } else if (s_local_players > 1U && player_two != 0U) {
+            input_player = 1U;
+            pressed = player_two;
+        }
+        if (pressed == 0U) return 0;
+        s_cursor = s_player_cursors[input_player];
+        move_cursor(pressed, s_snapshot);
+        bool mutated = false;
+        if (pressed & pad_circle) s_selected = 0U;
+        if (pressed & pad_start) {
+            sim::Command command{};
+            command.type = sim::CommandType::begin_battle;
+            if (apply_command(command, "begin_battle", nullptr, nullptr)) {
+                s_selected = 0U;
+                s_mode = InputMode::browse;
+                queue_battle_moments(1U, 0U, true);
+                (void)activate_pending_battle_moment();
+                psx::Line().text("MIPSYNC_DEPLOYMENT_END").flush();
+                mutated = true;
+            }
+        } else if (pressed & pad_cross) {
+            const sim::UnitSnapshot* occupant = unit_at(s_snapshot, s_cursor);
+            if (occupant && sim::is_deployable(s_snapshot, *occupant) &&
+                occupant->local_player == input_player + 1U) {
+                s_selected = occupant->id;
+                psx::Line().text("MIPSYNC_DEPLOYMENT_SELECT unit=")
+                    .hex64(occupant->id).flush();
+            } else if (s_selected != 0U && occupant == nullptr) {
+                sim::Command command{};
+                command.type = sim::CommandType::deploy;
+                command.unit_id = s_selected;
+                command.destination = s_cursor;
+                if (apply_command(command, "deploy", nullptr, nullptr)) {
+                    psx::Line().text("MIPSYNC_DEPLOYMENT_PLACE unit=")
+                        .hex64(s_selected).text(" x=")
+                        .signed_decimal(s_cursor.x).text(" y=")
+                        .signed_decimal(s_cursor.y).flush();
+                    s_selected = 0U;
+                    mutated = true;
+                }
+            }
+        }
+        s_player_cursors[input_player] = s_cursor;
+        sync_scene(s_snapshot);
+        return mutated ? 1 : 0;
     }
     if (s_mode == InputMode::pause) {
         if (player_one & pad_up) {

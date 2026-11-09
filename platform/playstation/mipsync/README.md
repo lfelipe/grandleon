@@ -26,6 +26,10 @@ presentation to settle, and entering an authored hidden area reveals it only
 when the rendered unit reaches the doorway rather than when the rules commit
 the destination.
 
+When a game authors a deployment area, its tiles are marked on the live board.
+Cross selects or places a character through the shared simulation and Start
+begins battle. A fixed ready-to-play formation skips this step completely.
+
 Help is available from the title and the in-battle Start menu. Close view,
 reduced motion and FPS display can be changed there and are kept on the memory
 card; retail play starts with FPS hidden.
@@ -88,6 +92,9 @@ platform/playstation/mipsync/tests/run-battle-moment-probe.sh \
 
 platform/playstation/mipsync/tests/run-item-probe.sh \
   /tmp/item-output /tmp/item-probe-output
+
+platform/playstation/mipsync/tests/run-deployment-probe.sh \
+  /tmp/deployment-output /tmp/deployment-probe-output
 ```
 
 To review motion rather than still frames, run
@@ -103,8 +110,9 @@ combat and completed board views. The scroll probe drives both axes on the real
 and zero missed VBlanks. The visibility probe uses ordinary controls on the
 real one-player Twin Gate encounter, captures the covered room, walks Rowan
 through the door, and requires the authored 18-cell reveal before capturing
-the room again. Focused action probes drive a package-authored Talk conversation
-and consume a carried healing item only after the unit is wounded. The campaign
+the room again. Focused action probes drive a package-authored Talk conversation,
+consume a carried healing item only after the unit is wounded, and arrange a
+real unit inside an authored deployment area before starting battle. The campaign
 probe additionally starts, saves, resumes, and traverses all five encounters
 from the same disc in its complete one- and two-player forms. See
 `VALIDATION.md` for the current measurements and hashes.
