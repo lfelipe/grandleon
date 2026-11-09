@@ -646,25 +646,31 @@ def append_terrain_form(
         face(top_front_left, top_back_right, top_back_left,
              shifted_colour(face_colour, 128))
 
-    if kind == 2:  # forest: one efficient solid, faceted canopy
+    if kind == 2:  # forest: trunk plus a layered, faceted canopy
         canopy_height = 88 + int((roll >> 5) % 17)
         canopy_width = 40 + int((roll >> 11) % 8)
-        pyramid(cx, cz, canopy_width, canopy_width - 5,
-                canopy_height, colour, 18)
+        box(cx, cz, 6, 6, 44, (102, 70, 42))
+        pyramid(cx - 5, cz + 2, canopy_width, canopy_width - 5,
+                canopy_height, colour, 24)
+        pyramid(cx + 15, cz - 9, canopy_width - 12, canopy_width - 15,
+                canopy_height - 19, light, 39)
     elif kind == 3:  # mountain: a small range, not one isolated pyramid
         pyramid(cx - 12, cz + 7, 48, 42, 108, colour)
         pyramid(cx + 32, cz - 17, 31, 29, 76, light)
+        pyramid(cx - 43, cz - 21, 24, 22, 58,
+                shifted_colour(colour, 88))
     elif kind == 11:  # bamboo: solid clustered stalks
         box(cx - 9, cz + 4, 4, 4, 108, colour)
         box(cx + 10, cz - 3, 4, 4, 128, light)
+        box(cx + 1, cz + 13, 3, 3, 91, shifted_colour(colour, 90))
     elif kind == 10:  # farmland: short crop rows with visible volume
-        for offset, height in ((-15, 48), (16, 58)):
+        for offset, height in ((-22, 42), (0, 54), (22, 48)):
             box(cx + offset, cz + offset // 6, 4, 5, height, colour)
     elif kind in (0, 6):  # water/swamp: sparse native reed fans
         for offset, height in ((-11, 45), (12, 58)):
             pyramid(
                 cx + offset, cz + offset // 5, 4, 5, height,
-                light if offset == 0 else colour,
+                light if offset < 0 else colour,
             )
     elif kind in (1, 12):  # road/paved: two shallow raised stones
         box(cx - 22, cz + 8, 27, 20, 9, colour)
@@ -816,12 +822,49 @@ def write_meshes(
             (first, first + 2, first + 1, *colour),
             (first + 2, first + 3, first + 1, *colour),
         ))
-    combat_floor_vertices = [
-        (-192, 0, 192, 0), (192, 0, 192, 0),
-        (-192, 0, -192, 0), (192, 0, -192, 0),
-    ]
-    combat_floor_uvs = [(0, 31), (31, 31), (0, 0), (31, 0)]
-    combat_floor_texture = terrain_indices[sorted(terrain_indices)[0]]
+    # The close view used to expose the edge of one small quad, making its
+    # actors look as though they stood on a card in empty space. A modest grid
+    # reaches past the camera frustum, repeats a readable material instead of
+    # stretching it, and still costs much less geometry than one board page.
+    combat_floor_vertices: list[tuple[int, int, int, int]] = []
+    combat_floor_uvs: list[tuple[int, int]] = []
+    combat_floor_triangles: list[tuple[int, int, int, int]] = []
+    combat_floor_columns = 4
+    combat_floor_rows = 6
+    combat_floor_cell = 192
+    combat_floor_left = -(combat_floor_columns * combat_floor_cell) // 2
+    combat_floor_front = (combat_floor_rows * combat_floor_cell) // 3
+    for row in range(combat_floor_rows):
+        front = combat_floor_front - row * combat_floor_cell
+        back = front - combat_floor_cell
+        for column in range(combat_floor_columns):
+            left = combat_floor_left + column * combat_floor_cell
+            right = left + combat_floor_cell
+            first = len(combat_floor_vertices)
+            combat_floor_vertices.extend((
+                (left, 0, front, 0), (right, 0, front, 0),
+                (left, 0, back, 0), (right, 0, back, 0),
+            ))
+            combat_floor_uvs.extend(((0, 31), (31, 31), (0, 0), (31, 0)))
+            shade = 255 if (row + column) % 2 == 0 else 232
+            combat_floor_triangles.extend((
+                (first, first + 1, first + 2, shade),
+                (first + 2, first + 1, first + 3, shade),
+            ))
+    combat_floor_counts: dict[int, int] = {}
+    for _, group_cells in cell_groups:
+        for _, _, terrain_id, authored, span_x, span_y in group_cells:
+            if authored:
+                combat_floor_counts[terrain_id] = (
+                    combat_floor_counts.get(terrain_id, 0) + span_x * span_y
+                )
+    combat_floor_id = min(
+        combat_floor_counts or terrain_indices,
+        key=lambda terrain_id: (
+            -combat_floor_counts.get(terrain_id, 0), terrain_id
+        ),
+    )
+    combat_floor_texture = terrain_indices[combat_floor_id]
 
     # Only one terrain page is enabled by the camera at a time. All pages stay
     # in executable data, but the renderer's transformed-geometry cache must
@@ -857,12 +900,19 @@ def write_meshes(
         focus_z = height - start_y - end_y
         chunk_descriptors.append((chunk_index + 2, *bounds, focus_x, focus_z))
     lines += emit_vectors("k_combat_floor_vertices", combat_floor_vertices)
-    lines += emit_vectors("k_combat_floor_normals", [(0, 4096, 0, 0)] * 4)
+    lines += emit_vectors(
+        "k_combat_floor_normals",
+        [(0, 4096, 0, 0)] * len(combat_floor_vertices),
+    )
     lines.append("static const ps1_uv8 k_combat_floor_uvs[] = {")
     lines.extend(f"    {{ {u}, {v} }}," for u, v in combat_floor_uvs)
     lines.extend(("};", "", "static const ps1_mesh_tri k_combat_floor_triangles[] = {"))
-    lines.append(f"    {{ .i0=0, .i1=1, .i2=2, .ny=4096, .shade=255, .color_r=255, .color_g=255, .color_b=255, .texture_index={combat_floor_texture} }},")
-    lines.append(f"    {{ .i0=2, .i1=1, .i2=3, .ny=4096, .shade=255, .color_r=255, .color_g=255, .color_b=255, .texture_index={combat_floor_texture} }},")
+    for i0, i1, i2, shade in combat_floor_triangles:
+        lines.append(
+            f"    {{ .i0={i0}, .i1={i1}, .i2={i2}, .ny=4096, "
+            f".shade={shade}, .color_r=255, .color_g=255, .color_b=255, "
+            f".texture_index={combat_floor_texture} }},"
+        )
     lines.extend(("};", ""))
     lines += emit_vectors("k_cursor_vertices", cursor_vertices)
     lines += emit_vectors("k_cursor_normals", [(0, 4096, 0, 0)] * 4)
@@ -922,12 +972,16 @@ def write_meshes(
         "};", "", "const ps1_mesh g_ps1_meshes[] = {",
         "    { .verts=k_billboard_vertices, .norms=k_billboard_normals, .vert_count=4, .uvs=k_billboard_uvs, .tris=k_billboard_triangles, .tri_count=2, .scale_q12=256, .bounds_center_y=512, .bounds_radius=724 },",
         *chunk_mesh_lines,
-        "    { .verts=k_combat_floor_vertices, .norms=k_combat_floor_normals, .vert_count=4, .uvs=k_combat_floor_uvs, .tris=k_combat_floor_triangles, .tri_count=2, .scale_q12=4096, .bounds_radius=272, .flags=PS1_MESH_FLAG_TERRAIN },",
+        "    { .verts=k_combat_floor_vertices, .norms=k_combat_floor_normals, .vert_count=sizeof(k_combat_floor_vertices)/sizeof(k_combat_floor_vertices[0]), .uvs=k_combat_floor_uvs, .tris=k_combat_floor_triangles, .tri_count=sizeof(k_combat_floor_triangles)/sizeof(k_combat_floor_triangles[0]), .scale_q12=4096, .bounds_radius=860, .flags=PS1_MESH_FLAG_TERRAIN },",
         "    { .verts=k_cursor_vertices, .norms=k_cursor_normals, .vert_count=4, .uvs=k_cursor_uvs, .tris=k_cursor_triangles, .tri_count=2, .scale_q12=256, .bounds_radius=640, .flags=PS1_MESH_FLAG_TERRAIN },",
         *([visibility_mesh_line] if visibility_mesh_line else []),
         "};", "const unsigned int g_ps1_mesh_count =", "    sizeof(g_ps1_meshes) / sizeof(g_ps1_meshes[0]);", ""))
     (output / "mesh_data.c").write_text("\n".join(lines), encoding="utf-8")
-    return vertex_count + 8, triangle_count + 4, chunk_descriptors
+    return (
+        max(vertex_count, len(combat_floor_vertices)) + 8,
+        max(triangle_count, len(combat_floor_triangles)) + 4,
+        chunk_descriptors,
+    )
 
 
 def fixed(value: float) -> int:
@@ -949,12 +1003,12 @@ def select_terrain_form_cells(
     present_kinds = {cell[2] for cell in candidates}
     # A handful of props over an entire large map still reads as a flat tile
     # sheet.  The active PS1 page has ample transformed-geometry headroom, so
-    # give roughly one structural form to every eighteen cells while keeping
+    # give roughly one structural form to every nine cells while keeping
     # a firm global ceiling. This is dense enough to define regions but keeps
-    # worst-case terrain-page changes inside one PS1 VBlank. Open grass, road
-    # and paved cells remain uncluttered.
-    budget = max(len(present_kinds), max(1, (width * height + 17) // 18))
-    budget = min(14, budget, len(candidates))
+    # worst-case terrain-page changes inside the two-retrace 30 fps budget.
+    # Open grass, road and paved cells remain uncluttered.
+    budget = max(len(present_kinds), max(1, (width * height + 8) // 9))
+    budget = min(30, budget, len(candidates))
     selected: list[tuple[int, int, int]] = []
     selected_coordinates: set[tuple[int, int]] = set()
     for kind in sorted(present_kinds):

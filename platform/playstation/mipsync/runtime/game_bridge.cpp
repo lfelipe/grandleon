@@ -100,7 +100,7 @@ bool s_ai_active{};
 bool s_close_combat_enabled{true};
 bool s_reduced_motion{};
 view::ConsoleDisplayOptions s_display_options{};
-std::uint16_t s_measured_fps{60U};
+std::uint16_t s_measured_fps{30U};
 unsigned s_result_frames{};
 unsigned s_result_duration{};
 unsigned s_camera_return_frames{};
@@ -1586,7 +1586,8 @@ extern "C" void grandleon_game_log_boot(unsigned int packet_bytes) {
 }
 
 extern "C" void grandleon_game_log_metrics(
-    uint32_t frames, uint32_t rendered_frames, uint32_t deferred_frames,
+    uint32_t frames, uint32_t rendered_frames, uint32_t scheduled_frames,
+    uint32_t deferred_frames,
     uint32_t render_average, uint16_t render_maximum,
     uint32_t ready_average, uint16_t ready_maximum,
     uint16_t mutation_maximum, uint32_t missed_vblanks, int maximum_elapsed,
@@ -1594,14 +1595,16 @@ extern "C" void grandleon_game_log_metrics(
 ) {
     psx::Line().text("MIPSYNC_GRANDLEON_METRICS frames=").decimal(frames)
         .text(" rendered_frames=").decimal(rendered_frames)
+        .text(" scheduled_frames=").decimal(scheduled_frames)
         .text(" deferred_frames=").decimal(deferred_frames)
-        .text(" render_hbl_avg=").decimal(render_average)
+        .text(" missed_vblanks=").decimal(missed_vblanks)
+        .text(" max_elapsed_vblanks=").signed_decimal(maximum_elapsed).flush();
+    psx::Line().text("MIPSYNC_FRAME_BUDGET render_hbl_avg=")
+        .decimal(render_average)
         .text(" render_hbl_max=").decimal(render_maximum)
         .text(" ready_hbl_avg=").decimal(ready_average)
         .text(" ready_hbl_max=").decimal(ready_maximum)
-        .text(" mutation_hbl_max=").decimal(mutation_maximum)
-        .text(" missed_vblanks=").decimal(missed_vblanks)
-        .text(" max_elapsed_vblanks=").signed_decimal(maximum_elapsed).flush();
+        .text(" mutation_hbl_max=").decimal(mutation_maximum).flush();
     psx::Line().text("MIPSYNC_MISS_RANGE first=").decimal(first_missed_frame)
         .text(" last=").decimal(last_missed_frame).flush();
     ps1_entity* camera = grandleon_scene_mutable_entity(

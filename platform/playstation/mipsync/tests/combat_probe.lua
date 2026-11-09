@@ -13,20 +13,28 @@ local function sequence(target, start, values)
   end
 end
 
+-- Dismiss both two-line authored opening conversations before driving the
+-- board, so the following inputs prove combat rather than merely closing
+-- dialogue.
+actions[20] = 0x4000
+actions[40] = 0x4000
+actions[60] = 0x4000
+actions[80] = 0x4000
+
 -- Rowan walks beside the raider, then attacks after the visible movement has
 -- settled. Keeping these phases separate proves that input cannot skip the
 -- route animation or accidentally act from the old square.
-sequence(actions, 80, {
+sequence(actions, 100, {
   0x4000, 0x0020, 0x0020, 0x0020, 0x4000, -- select, destination 4,1, move
 })
-sequence(actions, 150, {
+sequence(actions, 170, {
   0x4000, 0x0020, 0x4000, -- Attack, target 5,1, commit
 })
 
 -- After the close view returns, Elowen casts her authored ability on Rowan.
 -- She is already within its two-tile reach, so the probe also covers choosing
 -- an action without forcing an unnecessary move.
-sequence(actions, 340, {
+sequence(actions, 380, {
   0x0080, 0x0080, 0x0080, -- cursor from 5,1 to Elowen at 2,1
   0x4000, 0x4000,         -- select, keep the current square
   0x0040, 0x4000,         -- Ability 1
@@ -36,7 +44,7 @@ sequence(actions, 340, {
 -- Player 2 spends Akari's two units through the second controller. This hands
 -- the encounter to the package-authored opponent policy without violating
 -- the co-op ownership rules the probe is meant to protect.
-sequence(player_two_actions, 570, {
+sequence(player_two_actions, 650, {
   0x4000, 0x4000, 0x0010, 0x4000,
   0x0020, 0x4000, 0x4000, 0x0010, 0x4000,
 })
@@ -51,8 +59,8 @@ grandleon_combat_breakpoint = PCSX.addBreakpoint(
   end
   PCSX.getRegisters().GPR.n.a0 = held
   PCSX.getRegisters().GPR.n.a1 = player_two_actions[runtime_frame] or 0
-  if runtime_frame == 160 then forecast_capture = true end
-  if runtime_frame == 220 then cinematic_capture = true end
+  if runtime_frame == 180 then forecast_capture = true end
+  if runtime_frame == 240 then cinematic_capture = true end
   if runtime_frame == 1800 then final_capture = true end
   return true
 end)

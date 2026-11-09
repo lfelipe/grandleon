@@ -570,7 +570,7 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
 
     /* Browsing is the renderer's heaviest full-board view. Keep it clear and
      * reserve controls and unit stats for the selected-unit popup. Besides
-     * matching the player UI, this preserves a full 60 Hz hardware frame
+     * matching the player UI, this preserves the measured 30 fps frame budget
      * instead of spending the last scanlines on redundant persistent help. */
     if (state.mode == GRANDLEON_UI_BROWSE) {
         if (state.show_fps) {

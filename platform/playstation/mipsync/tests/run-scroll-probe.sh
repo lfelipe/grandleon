@@ -83,7 +83,7 @@ require() {
 }
 require 'GRANDLEON_PS1_RENDERER=MIPSYNC' 'the Mipsync renderer identity'
 require 'MIPSYNC_SIM_READY width=14 height=9 units=11 .*hash=72216135b6c8e9d3' 'the real Cedar Deepwood simulation'
-require 'MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=600 deferred_frames=0 .*missed_vblanks=0 max_elapsed_vblanks=1$' 'the steady scrolling frame result'
+require 'MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=300 scheduled_frames=300 deferred_frames=0 missed_vblanks=0 max_elapsed_vblanks=[12]$' 'the steady 30 fps scrolling frame result'
 require 'MIPSYNC_MISS_RANGE first=0 last=0$' 'an empty missed-frame range'
 require 'MIPSYNC_CAMERA_PROOF min_x=-6 max_x=6 min_z=11 max_z=17 current_x=6 current_z=11 chunks=1' 'the viewport clamp and bounded terrain page'
 require 'MIPSYNC_SCROLL_CAPTURE 320x240 bytes=153600' 'the final framebuffer capture'

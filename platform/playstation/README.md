@@ -5,6 +5,10 @@ campaign, combat rules, localization, and saves as the Godot player and the
 Nintendo 64 version. The PlayStation presentation runs at 320×240 through the
 project's single Mipsync-based renderer.
 
+The disc targets a stable 30 fps presentation while polling controllers and
+updating tactical rules at 60 Hz. The larger render budget is used for shaped
+terrain, native scenery, clearer characters, and the close-combat view.
+
 ## Export and play
 
 Open **Finish & Export** in the Grandleon creator and choose **PlayStation**.

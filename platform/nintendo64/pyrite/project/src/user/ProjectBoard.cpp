@@ -62,9 +62,9 @@ constexpr std::size_t kMaxElevationVertices = kMaxCells * 8U;
 constexpr std::size_t kGroundVertexCount = 4U;
 constexpr std::size_t kMaxApronCells = 800U;
 constexpr std::size_t kTreeVertexCount = 12U;
-constexpr std::size_t kMaxTrees = 128U;
+constexpr std::size_t kMaxTrees = 176U;
 constexpr std::size_t kTerrainFormVertexCount = 8U;
-constexpr std::size_t kMaxTerrainForms = 96U;
+constexpr std::size_t kMaxTerrainForms = 144U;
 constexpr std::size_t kUnitVertexCount = 4U;
 constexpr std::size_t kMaxUnits = 48U;
 constexpr std::size_t kCursorVerticesPerPlayer = 16U;
@@ -346,6 +346,9 @@ BattleUiState battle_ui;
 BattleMomentState battle_moment;
 CameraPose current_camera{kTacticalCamera};
 std::uint32_t frame_count = 0;
+// Pyrite presents every second NTSC retrace. Timings in the shared campaign
+// remain authored in 60 Hz ticks, so each 30 Hz update advances two ticks.
+constexpr std::uint32_t kLogicTicksPerUpdate = 2U;
 std::uint64_t sample_start = 0;
 std::uint64_t previous_frame = 0;
 std::uint64_t min_frame_ticks = ~std::uint64_t{0};
@@ -648,14 +651,26 @@ void terrain_uv(
         grandleon_project_atlas_cell;
     const int base_t = (slot / grandleon_project_atlas_columns) *
         grandleon_project_atlas_cell;
-    constexpr int offsets[4][2] = {{1, 1}, {3, 1}, {1, 3}, {3, 3}};
     const int variation = static_cast<int>((index * 5U + index / 8U) & 3U);
-    const int offset_s = offsets[variation][0];
-    const int offset_t = offsets[variation][1];
-    s0 = static_cast<std::int16_t>((base_s + offset_s) << 5);
-    t0 = static_cast<std::int16_t>((base_t + offset_t) << 5);
-    s1 = static_cast<std::int16_t>((base_s + offset_s + 27) << 5);
-    t1 = static_cast<std::int16_t>((base_t + offset_t + 27) << 5);
+    const int low_s = base_s + 1;
+    const int high_s = base_s + grandleon_project_atlas_cell - 2;
+    const int low_t = base_t + 1;
+    const int high_t = base_t + grandleon_project_atlas_cell - 2;
+    // Flip the complete padded material for deterministic variation. The old
+    // 28-texel window crossed each 20-texel atlas slot and mixed unrelated
+    // terrain families under bilinear filtering.
+    s0 = static_cast<std::int16_t>(
+        ((variation & 1) ? high_s : low_s) << 5
+    );
+    s1 = static_cast<std::int16_t>(
+        ((variation & 1) ? low_s : high_s) << 5
+    );
+    t0 = static_cast<std::int16_t>(
+        ((variation & 2) ? high_t : low_t) << 5
+    );
+    t1 = static_cast<std::int16_t>(
+        ((variation & 2) ? low_t : high_t) << 5
+    );
 }
 
 std::uint32_t terrain_tint(std::uint64_t id, std::size_t index) {
@@ -966,7 +981,7 @@ void build_terrain_form_vertices() {
         const auto z = static_cast<std::int16_t>(index / width);
         const std::uint32_t roll = environment_hash(x, z);
         const std::uint32_t divisor =
-            (kind == 3U || kind == 7U || kind == 10U || kind == 11U) ? 2U : 4U;
+            (kind == 3U || kind == 7U || kind == 10U || kind == 11U) ? 1U : 3U;
         if (roll % divisor != 0U) continue;
         const std::int16_t cx = static_cast<std::int16_t>(
             world_x(x, width) + ((roll & 1U) ? 13 : -13)
@@ -1232,7 +1247,7 @@ void build_tree_vertices() {
             const std::uint64_t edge_terrain = surrounding_terrain_at(x, z);
             const std::uint8_t kind = terrain_kind(edge_terrain);
             const std::uint32_t divisor =
-                (kind == 2U || kind == 10U || kind == 11U) ? 3U : 7U;
+                (kind == 2U || kind == 10U || kind == 11U) ? 2U : 5U;
             if (hash % divisor != 0U || board.tree_count >= kMaxTrees) continue;
             append_tree(
                 world_x(static_cast<std::int16_t>(x), width) +
@@ -3648,7 +3663,8 @@ void update_performance_sample() {
         "GRANDLEON_PYRITE_GAMEPLAY frames=120 avg_frame_us=%llu "
         "min_frame_us=%llu max_frame_us=%llu fps_x100=%lu heap_used=%lu "
         "heap_total=%lu heap_free=%lu rdram=%d battles=%lu commands=%lu "
-        "enemy_commands=%lu combat=%lu slot_bytes=%lu hash=%llu\n",
+        "enemy_commands=%lu combat=%lu trees=%lu forms=%lu "
+        "slot_bytes=%lu hash=%llu\n",
         TICKS_TO_US(elapsed) / 120U, TICKS_TO_US(min_frame_ticks),
         TICKS_TO_US(max_frame_ticks),
         static_cast<unsigned long>(P64::VI::SwapChain::getFPS() * 100.0F),
@@ -3659,6 +3675,8 @@ void update_performance_sample() {
         static_cast<unsigned long>(shell.total_commands),
         static_cast<unsigned long>(shell.total_enemy_commands),
         static_cast<unsigned long>(shell.total_combats),
+        static_cast<unsigned long>(board.tree_count),
+        static_cast<unsigned long>(board.terrain_form_count),
         static_cast<unsigned long>(storage::used_bytes(*board.saves)),
         board.game.encounter().canonical_hash()
     );
@@ -4791,7 +4809,7 @@ void onGameInit() {
 void onSceneUpdate() {
     if (shell.phase != ShellPhase::battle) {
         update_shell_input();
-        ++frame_count;
+        frame_count += kLogicTicksPerUpdate;
         update_performance_sample();
         return;
     }
@@ -4828,7 +4846,7 @@ void onSceneUpdate() {
     build_visibility_vertices();
     build_cursor_vertices();
 
-    ++frame_count;
+    frame_count += kLogicTicksPerUpdate;
     update_performance_sample();
 }
 

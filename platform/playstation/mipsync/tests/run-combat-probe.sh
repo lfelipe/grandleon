@@ -84,7 +84,7 @@ require() {
 require 'GRANDLEON_PS1_RENDERER=MIPSYNC' 'the Mipsync renderer identity'
 require 'MIPSYNC_SIM_READY width=8 height=6 units=8 .*hash=ab6ddf2e9a634fa0' 'the real Bell Orchard simulation'
 require 'MIPSYNC_SIM_PROOF .*p_attack=1 p_ability=1 .*' 'player attack and equipped ability commands plus opposing turn'
-require 'MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=59[0-9] deferred_frames=[1-9][0-9]* .*max_elapsed_vblanks=2$' 'the bounded hybrid 30/60 Hz combat frame result'
+require 'MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=300 scheduled_frames=300 deferred_frames=0 missed_vblanks=0 max_elapsed_vblanks=2$' 'the stable 30 fps combat frame result'
 require 'MIPSYNC_COMBAT_FORECAST_CAPTURE 320x240 bytes=153600' 'the live attack forecast frame'
 require 'MIPSYNC_COMBAT_CLOSE_CAPTURE 320x240 bytes=153600' 'the close-combat camera frame'
 require 'MIPSYNC_COMBAT_FINAL_CAPTURE 320x240 bytes=153600' 'the completed-turn frame'

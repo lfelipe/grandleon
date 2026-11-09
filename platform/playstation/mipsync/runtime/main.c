@@ -15,6 +15,7 @@
 #define SCREEN_HEIGHT 240
 #define ORDERING_TABLE_LENGTH PS1_RENDER_OT_LEN
 #define PACKET_BYTES_PER_FRAME 24576
+#define TARGET_RENDER_FPS 30
 
 /* Artifact audit marker: release/export must fail closed if this is absent. */
 __attribute__((used, section(".rodata")))
@@ -99,6 +100,7 @@ int main(void) {
     uint32_t frame = 0;
     uint32_t measured_frames = 0;
     uint32_t rendered_frames = 0;
+    uint32_t scheduled_frames = 0;
     uint32_t deferred_frames = 0;
     uint32_t render_total = 0;
     uint32_t ready_total = 0;
@@ -124,7 +126,7 @@ int main(void) {
     TIMER_VALUE(1) = 0;
     last_vblank = VSync(-1);
     fps_window_start = (uint32_t)last_vblank;
-    grandleon_game_set_fps(60);
+    grandleon_game_set_fps(TARGET_RENDER_FPS);
     if (!grandleon_game_init()) {
         grandleon_game_log_boot(0);
     }
@@ -138,9 +140,9 @@ int main(void) {
         uint16_t ready_ticks;
         uint16_t pressed[2] = {0, 0};
         int deferred;
+        const int render_due = (frame & 1u) == 0u;
         unsigned pad_index;
         last_vblank = current_vblank;
-        ++fps_frames;
         if ((uint32_t)current_vblank - fps_window_start >= 60u) {
             const uint32_t elapsed_vblanks =
                 (uint32_t)current_vblank - fps_window_start;
@@ -151,8 +153,10 @@ int main(void) {
             fps_window_start = (uint32_t)current_vblank;
         }
         if (frame >= 60) {
-            if (elapsed > 1) {
-                missed_vblanks += (uint32_t)(elapsed - 1);
+            /* A quality frame may intentionally occupy both retraces in the
+             * 30 fps presentation budget. Only a third retrace is missed. */
+            if (elapsed > 2) {
+                missed_vblanks += (uint32_t)(elapsed - 2);
                 if (!first_missed_frame) first_missed_frame = frame;
                 last_missed_frame = frame;
             }
@@ -177,14 +181,15 @@ int main(void) {
             const uint16_t mutation_ticks =
                 (uint16_t)((uint16_t)TIMER_VALUE(1) - frame_start);
             if (mutation_ticks > mutation_max) mutation_max = mutation_ticks;
-            /* Keep the already-complete front buffer for one retrace.  Rules
-             * work and a full 3D redraw each fit separately; scheduling them
-             * as two slices prevents either from making the other miss 60 Hz. */
+            /* Keep the already-complete front buffer for one retrace. Rules
+             * still update at 60 Hz; presentation is deliberately paced at
+             * 30 Hz so a full quality render owns two hardware retraces. */
             VSync(0);
             if (deferred > 1) {
                 frame = 0;
                 measured_frames = 0;
                 rendered_frames = 0;
+                scheduled_frames = 0;
                 deferred_frames = 0;
                 render_total = 0;
                 ready_total = 0;
@@ -196,12 +201,31 @@ int main(void) {
                 mutation_max = 0;
                 maximum_elapsed = 1;
                 last_vblank = VSync(-1);
+                fps_frames = 0;
+                fps_window_start = (uint32_t)last_vblank;
                 continue;
             }
             ++frame;
             if (frame > 60) {
                 ++measured_frames;
-                ++deferred_frames;
+                if (render_due) ++deferred_frames;
+                else ++scheduled_frames;
+            }
+            goto report_metrics;
+        }
+
+        if (!render_due) {
+            /* Input and game rules remain at 60 Hz. Holding the completed
+             * front buffer on alternating retraces gives the renderer a
+             * stable 30 Hz budget without changing gameplay speed. */
+            /* A render that already consumed the second retrace has supplied
+             * this cadence slot. Run the second 60 Hz rules tick immediately
+             * instead of inserting a third retrace and falling to 20 fps. */
+            if (elapsed < 2) VSync(0);
+            ++frame;
+            if (frame > 60) {
+                ++measured_frames;
+                ++scheduled_frames;
             }
             goto report_metrics;
         }
@@ -213,6 +237,7 @@ int main(void) {
         );
         render_ticks = (uint16_t)((uint16_t)TIMER_VALUE(1) - render_start);
         present();
+        ++fps_frames;
         ready_ticks = (uint16_t)(s_gpu_ready_tick - frame_start);
         ++frame;
         if (frame > 60) {
@@ -227,7 +252,8 @@ int main(void) {
 report_metrics:
         if (measured_frames == 600) {
             grandleon_game_log_metrics(
-                measured_frames, rendered_frames, deferred_frames,
+                measured_frames, rendered_frames, scheduled_frames,
+                deferred_frames,
                 render_total / rendered_frames, render_max,
                 ready_total / rendered_frames, ready_max, mutation_max,
                 missed_vblanks, maximum_elapsed,

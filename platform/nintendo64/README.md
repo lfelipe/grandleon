@@ -44,6 +44,10 @@ team-coloured character cutouts. Attacks can switch to larger character art on
 a terrain-aware backdrop, show the counterattack and result, then restore the
 same board position.
 
+The release ROM targets a stable 30 fps on NTSC hardware. Campaign timing is
+unchanged; the extra frame budget is spent on filtered materials, denser
+terrain forms, and readable character art rather than a sparse 60 fps board.
+
 Campaign authors do not make a separate N64 map. The exporter reads the same
 project package and generated artwork as the other players, then fits it to the
 cartridge, RDRAM and frame budgets. Unsupported project size or missing art is

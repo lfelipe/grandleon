@@ -24,18 +24,20 @@ real Twin Gate simulation. The same build supports one or two local players.
 
 ## Performance and memory
 
-Both measured campaign windows rendered all 600 frames with zero missed
-VBlanks and a maximum interval of one VBlank. Cedar Deepwood averaged 178
-HBlanks and peaked at 179; Twin Gate averaged 193 and peaked at 194. A separate
-two-axis Deepwood scrolling stress pass averaged 163 HBlanks and peaked at 253,
-again with zero missed VBlanks. These figures include the terrain relief,
-native forms, seam fill, and live unit rendering described below.
+The player deliberately presents at 30 fps while input and tactical rules
+continue at 60 Hz. The two-axis Cedar Deepwood scrolling pass recorded 300
+renders and 300 scheduled holds across 600 rule ticks, with no deferred frames
+or missed 30 fps deadlines. Its render work averaged 194 HBlanks and peaked at
+313; completed frames averaged 195 and peaked at 314. The two-retrace maximum
+is inside the intended 30 fps cadence and includes a live terrain-page change.
+These figures include terrain relief, native forms, seam fill, and live units.
 
-The separate combat probe waits for routed movement to settle, performs a real
-melee attack and healing ability with Player 1, spends Player 2's units through
-the second controller, and observes the authored opposing turn. Board frames
-keep their 60 Hz budget; the optional close view remains bounded to two VBlanks
-per presented frame.
+The separate Bell Orchard combat probe waits for routed movement to settle,
+performs a real melee attack and healing ability with Player 1, spends Player
+2's units through the second controller, and observes the authored opposing
+turn. It also recorded 300 renders and 300 scheduled holds with no missed 30
+fps deadlines. Render work averaged 246 HBlanks and peaked at 394; completed
+frames averaged 248 and peaked at 396, below the two-retrace close-view budget.
 
 Two focused action probes cover behavior that the release campaign does not
 force into its short automated route. One selects Talk through the normal menu
@@ -65,11 +67,11 @@ The build keeps the planned 64 KiB audio reserve, 32 KiB stack reserve, and
 
 | Encounter | Committed RAM | Texture VRAM | Active cache |
 | --- | ---: | ---: | ---: |
-| Bell Orchard | 1,460,944 / 2,097,152 | 116,736 / 196,608 | 214 vertices, 212 triangles |
-| Cedar Deepwood | 1,493,712 / 2,097,152 | 133,120 / 196,608 | 193 vertices, 140 triangles |
-| Cedar Watch | 1,549,008 / 2,097,152 | 149,504 / 196,608 | 199 vertices, 158 triangles |
-| Gate Village | 1,549,008 / 2,097,152 | 165,888 / 196,608 | 183 vertices, 128 triangles |
-| Twin Gate Keep | 1,510,096 / 2,097,152 | 124,928 / 196,608 | 237 vertices, 182 triangles |
+| Bell Orchard | 1,467,064 / 2,097,152 | 116,736 / 196,608 | 289 vertices, 270 triangles |
+| Cedar Deepwood | 1,505,976 / 2,097,152 | 133,120 / 196,608 | 298 vertices, 226 triangles |
+| Cedar Watch | 1,563,320 / 2,097,152 | 149,504 / 196,608 | 269 vertices, 212 triangles |
+| Gate Village | 1,561,272 / 2,097,152 | 165,888 / 196,608 | 232 vertices, 172 triangles |
+| Twin Gate Keep | 1,526,456 / 2,097,152 | 124,928 / 196,608 | 294 vertices, 218 triangles |
 
 Larger maps use overlapping 8x6 terrain pages, with only the nearest page
 active. Unit and prop culling changes presentation only; the full encounter
@@ -87,6 +89,11 @@ fill remove the previous flat-card and floating-board appearance. The full
 campaign capture is produced by the checked-in campaign probe so every stage
 can be compared from the same build.
 
+The close view repeats the encounter's dominant material across a 24-cell
+floor extending beyond the camera frustum. It removes the visible edge of the
+old single quad without adding another texture allocation or exceeding the
+measured two-retrace budget.
+
 The optional close-combat presentation keeps attacker and defender on fixed
 sides during attacks and counterattacks. Forecasts, results, objectives, and
 story screens use the compact in-game font rather than Sony's debug font. All
@@ -95,13 +102,12 @@ English label texture is no longer shipped.
 
 ## Exact artifact
 
-- CUE SHA-256: `29d16c06436b8a5210108dcf67bbbd29ef0c78753e18cceed2e506a8f9ffecff`
-- BIN SHA-256: `9aa16c5a9f5b9732a8d666cb1782cdefc2f40aa837af85e73996c4da542d628c`
-- final memory-card SHA-256: `c0a525c5d9318ad4b88a629549168261a43be9948fb6c2902716e4656a4e1e26`
+- CUE SHA-256: `1175e80086decd95d63c584f4375d420e64a5b609aec8876cf680bce6b912ae3`
+- BIN SHA-256: `b7063b551f92f9aa969b38a98f1170415a84b45450badf1aeb87457219dc07aa`
 
-The exact build manifests, emulator logs, card, and hashes remain outside
-source control at
-`/home/lstrano/.cache/grandleon-mipsync-release05-campaign/`.
+The exact disc, build manifests, hashes, emulator logs, and captured
+framebuffers remain outside source control at
+`/home/lstrano/.cache/grandleon-mipsync-30fps-floor-final-GBLSsW/build/`.
 
 The executable and BIN embed `GRANDLEON_PS1_RENDERER=MIPSYNC`. Mipsync is
 pinned to `866f405a0e34b5925a8d832272fe52c657688430` and receives the five

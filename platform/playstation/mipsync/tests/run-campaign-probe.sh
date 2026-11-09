@@ -165,7 +165,7 @@ require "$output/new.log" 'MIPSYNC_BATTLE_MOMENT dialogue=830ac62c3f992c4c lines
 require "$output/new.log" 'MIPSYNC_CAMPAIGN_CAPTURE name=deepwood 320x240' 'the Deepwood capture'
 require "$output/new.log" 'MIPSYNC_BATTLE_MOMENT dialogue=b46de5c083313842 lines=2' 'the Deepwood March opening conversation'
 require "$output/new.log" 'MIPSYNC_BATTLE_MOMENT dialogue=35a3ea52846d6bf2 lines=2' 'the Deepwood Cedar opening conversation'
-require "$output/new.log" 'MIPSYNC_GRANDLEON_METRICS frames=600 .*missed_vblanks=0 max_elapsed_vblanks=1$' 'the Deepwood 60 Hz result'
+require "$output/new.log" 'MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=300 scheduled_frames=300 deferred_frames=0 missed_vblanks=0 max_elapsed_vblanks=[12]$' 'the Deepwood 30 fps result'
 require "$output/continue.log" 'MIPSYNC_CAMPAIGN_READY card=1 continue=1' 'Continue from a later process'
 require "$output/continue.log" 'MIPSYNC_CAMPAIGN_RESUME node=0079abb4797ff5b4 players=2' 'the Cedar Watch hand-off'
 require "$output/continue.log" 'MIPSYNC_CAMPAIGN_RESUME node=07cb9d097af3a9a1 players=2' 'the Gate Village hand-off'
@@ -180,7 +180,7 @@ require "$output/continue.log" 'MIPSYNC_BATTLE_MOMENT dialogue=d312ee0bdab15c06 
 for capture in deepwood watch village gate; do
     require "$output/continue.log" "MIPSYNC_CAMPAIGN_CAPTURE name=$capture 320x240" "$capture capture"
 done
-require "$output/continue.log" 'MIPSYNC_GRANDLEON_METRICS frames=600 .*missed_vblanks=0 max_elapsed_vblanks=1$' 'the Twin Gate 60 Hz result'
+require "$output/continue.log" 'MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=300 scheduled_frames=300 deferred_frames=0 missed_vblanks=0 max_elapsed_vblanks=[12]$' 'the Twin Gate 30 fps result'
 require "$output/continue.log" 'MIPSYNC_MISS_RANGE first=0 last=0$' 'an empty missed-frame range'
 
 run_mode solo

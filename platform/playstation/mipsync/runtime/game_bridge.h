@@ -154,7 +154,8 @@ void grandleon_platform_card_begin(void);
 void grandleon_platform_card_end(void);
 void grandleon_platform_load_stage(const char* disc_path);
 void grandleon_game_log_metrics(
-    uint32_t frames, uint32_t rendered_frames, uint32_t deferred_frames,
+    uint32_t frames, uint32_t rendered_frames, uint32_t scheduled_frames,
+    uint32_t deferred_frames,
     uint32_t render_average, uint16_t render_maximum,
     uint32_t ready_average, uint16_t ready_maximum,
     uint16_t mutation_maximum, uint32_t missed_vblanks, int maximum_elapsed,

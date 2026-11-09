@@ -133,6 +133,11 @@ hardware-sized cutouts over shaped, textured tactical terrain, with full-frame
 terrain backdrops for close battles. There is no renderer choice in the game
 or in **Finish & Export**.
 
+Nintendo 64 and PlayStation intentionally target a stable 30 fps. That gives
+their renderers room for filtered materials, denser raised terrain, clearer
+silhouettes, and richer effects while input and tactical rules remain
+responsive. Godot keeps its own higher display cadence.
+
 The 0.5 work is also the middle of an engine transition: Nintendo 64 is moving
 to Pyrite/Tiny3D and PlayStation is moving to Mipsync. Those are the only
 console paths being developed; removed renderers are not retained as fallbacks.
@@ -164,7 +169,7 @@ rest of the documentation describes the current Godot application.
 | **0.2** | Complete campaign runtime. Added richer campaign play, in-battle dialogue, progression and inventory, weapon relationships, larger scrolling boards, console export work, and cross-target conformance for the shipped campaigns. |
 | **0.3** | Godot player and creator. Moved the supported PC experience to Godot, joined creation and play in one application, and added local co-op, standalone export, authored 3D terrain, and a complete high-resolution sci-fi archetype roster. |
 | **0.4** | Broader art and console campaigns. Completes seven coherent Godot character directions, improves terrain clusters and movement presentation, adds portable one/two/choice campaign launch policy, streamlines the player around a nearly full-screen board, includes distinct solo and local co-op campaigns, and uses one textured renderer for the PlayStation and Nintendo 64 campaigns. It also introduces the first optional terrain-aware Godot combat close-up. |
-| **0.5** | Editor, localization, and console parity. Concentrates on a friendly end-to-end creation workflow, stronger previews and validation, safer project management, and a test that creates, exports, launches, and wins a game through the normal Godot screens. It adds a manual **Translations** step, localizes Grandleon's shell, and lets authors mark characters as player-nameable while keeping translated defaults. It also moves Nintendo 64 to Pyrite/Tiny3D and PlayStation to Mipsync. This engine transition is still in progress; 0.5 requires both consoles to play the same campaign features as Godot, including the castle reveal showcase, while their graphics continue to mature. |
+| **0.5** | Editor, localization, and console parity. Concentrates on a friendly end-to-end creation workflow, stronger previews and validation, safer project management, and a test that creates, exports, launches, and wins a game through the normal Godot screens. It adds a manual **Translations** step, localizes Grandleon's shell, and lets authors mark characters as player-nameable while keeping translated defaults. It also moves Nintendo 64 to Pyrite/Tiny3D and PlayStation to Mipsync. This engine transition is still in progress; 0.5 requires both consoles to play the same campaign features as Godot, including the castle reveal showcase, while their graphics continue to mature around a measured 30 fps target. |
 | **Prior to 1.0** | Expand terrain-aware backdrops for combat and conversations, with optional ambient motion such as moving water, weather, foliage, light, and particles. Continue improving console character readability, terrain variety, animation, effects, interface clarity, close-up scenes, and performance measured on real hardware. Experiment with Android and, if practical, iOS exports of the Godot player and creator using the same portable games and presentation. Completely rework audio across music, ambience, battle effects, interface feedback, mixing, and platform consistency. Static backdrops remain the dependable fallback. |
 
 Importing external artwork may be explored later, but it is not part of the

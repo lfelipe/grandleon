@@ -120,13 +120,12 @@ roadmap work.
     existing simulation inside Pyrite's application shell. Adopt it only if a
     playable Steel and Cedar slice materially improves the real ROM. It is now
     the sole N64 player; the previous renderer and fallback were removed.
-    - [x] Prove the isolated runtime boundary on a real Bell Orchard GPK and
-      generated character cutouts: the 835,584-byte ROM holds 60.00 fps over a
-      measured 120-frame window under accurate real-RSP ares in 4 MB mode,
-      using 836,056 bytes of heap with 2,370,128 bytes free. The later campaign,
-      save, localization, name-entry, visibility, movement, close-view, and
-      base-4-MB gates completed the adoption rather than creating a second
-      selectable renderer.
+    - [x] Prove the runtime boundary on real packages and generated character
+      cutouts. The full five-battle Steel and Cedar ROM holds its intentional
+      30.00 fps target over a measured 120-frame window under accurate real-RSP
+      ares in 4 MB mode, including denser terrain, campaign saves, localization,
+      name entry, visibility, movement and close combat. This completed the
+      adoption rather than creating a second selectable renderer.
   - [x] Establish the shared console UI kit with framed tactical action panels,
     focus rows, platform-correct button badges, owner accents, concise labels,
     and health meters on Nintendo 64 and PlayStation. It uses only bounded flat
@@ -146,6 +145,13 @@ roadmap work.
     all 13 terrain kinds while preserving walkable-cell clarity. The N64 pass
     adds no packaged texture payload; the PlayStation keeps its existing VRAM
     allocation and remains inside its measured frame budget.
+  - [x] Set both console players to a stable 30 fps presentation target and
+    spend the recovered budget on visible quality. Nintendo 64 now uses
+    filtered atlas materials without cross-cell texture bleed plus denser
+    scenery; PlayStation uses more frequent, more detailed native terrain
+    forms and a full-frustum close-combat floor while keeping controller input
+    and rules at 60 Hz. Exact-emulator probes measure the resulting frame
+    budget rather than assuming it.
   - [ ] Expand that runtime composition with richer reviewed texture and art
     packs for the campaign's important terrain families. Keep the shared map
     footprint and tactical readability authoritative, then recheck ROM, RAM,

@@ -5,11 +5,17 @@ local capture_pending = false
 local actions = {}
 for _ = 1, 10 do actions[#actions + 1] = 0x0020 end -- right, x=3 to x=13
 for _ = 1, 6 do actions[#actions + 1] = 0x0040 end  -- down, y=2 to y=8
+local opening = {
+  [20] = 0x4000,
+  [35] = 0x4000,
+  [50] = 0x4000,
+  [65] = 0x4000,
+}
 
 grandleon_scroll_breakpoint = PCSX.addBreakpoint(
     update_address, 'Exec', 4, 'Grandleon scrolling probe', function()
   runtime_frame = runtime_frame + 1
-  local held = 0
+  local held = opening[runtime_frame] or 0
   if runtime_frame >= 90 then
     local action_frame = runtime_frame - 90
     local index = math.floor(action_frame / 8) + 1

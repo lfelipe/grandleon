@@ -12,8 +12,8 @@
     "fbFormat": 0,
     "fbHeight": 240,
     "fbWidth": 320,
-    "filter": 1,
-    "frameLimit": 0,
+    "filter": 3,
+    "frameLimit": 1,
     "gravity": [
       0.0,
       -9.8100004196167,

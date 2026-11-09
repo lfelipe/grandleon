@@ -10,8 +10,8 @@ drawings required by that project:
 
 | Source project | Battles | Drawings | Terrain families | ROM bytes | SHA-256 |
 | --- | ---: | ---: | ---: | ---: | --- |
-| The Bridge at Dawn demo | 1 | 6 | 6 | 1,703,936 | `03f31660029243d3d53776a544a3ee5539f8e518528f6685ce9cee613b385f3c` |
-| Steel and Cedar | 5 | 12 | 9 | 1,884,160 | `ce79b6ffbb315e22d919ecaf7e1c12f5a2068d0c2a3349ae53f0126f2861c76b` |
+| The Bridge at Dawn demo | 1 | 6 | 6 | 1,785,856 | `66483d9e322e3d80c24435372e4283b6d22e27220007885b38c4f68639dc07e3` |
+| Steel and Cedar | 5 | 12 | 9 | 1,884,160 | `5be6295207a08755e251c65c93935fc647cb07e3c44d2644a598ecbe79a363ea` |
 
 The generated headers, terrain atlases, close plates, character counts and ROM
 hashes differ. The focused project-preparation test repeats the demo export
@@ -31,9 +31,9 @@ close handoff, commits its real defeat route and reaches its terminal. Its
 settled 120-frame sample was:
 
 ```text
-avg_frame_us=16710 min_frame_us=16451 max_frame_us=16893 fps_x100=6000
-heap_used=1146984 heap_total=2690824 heap_free=1543840 rdram=4194304
-battles=1 commands=5 enemy_commands=2 combat=1 slot_bytes=588
+avg_frame_us=33423 min_frame_us=32877 max_frame_us=34079 fps_x100=3000
+heap_used=1213928 heap_total=2623464 heap_free=1409536 rdram=4194304
+battles=1 commands=5 enemy_commands=2 combat=1 trees=4 forms=8 slot_bytes=588
 RESULT PASS PYRITE_GAMEPLAY
 ```
 
@@ -46,18 +46,19 @@ movement path, and then recorded the same region as revealed. Its exact-4-MB
 sample was:
 
 ```text
-avg_frame_us=16633 min_frame_us=7484 max_frame_us=17248 fps_x100=5999
-heap_used=1340504 heap_total=2623128 heap_free=1282624 rdram=4194304
-battles=5 commands=290 enemy_commands=170 combat=5 slot_bytes=1340
+avg_frame_us=33348 min_frame_us=24024 max_frame_us=33979 fps_x100=3000
+heap_used=1355856 heap_total=2622920 heap_free=1267064 rdram=4194304
+battles=5 commands=290 enemy_commands=170 combat=5 trees=82 forms=111
+slot_bytes=1340
 RESULT PASS PYRITE_GAMEPLAY
 ```
 
 Evidence remains outside source control:
 
-- demo: `/home/lstrano/.cache/grandleon-pyrite-generic-demo/ares-final/`
-- Steel castle/parity/deployment-regression run:
-  `/home/lstrano/.cache/grandleon-pyrite-release05-deployment/`
+- demo ROM: `/home/lstrano/.cache/grandleon-pyrite-30fps-demo/`
+- Steel ROM: `/home/lstrano/.cache/grandleon-pyrite-30fps-quality/`
+- accurate-emulator logs and named frames: `build-n64/ares/`
 
-Each directory contains the emulator log, final screenshot, Vulkan device
-record and named checkpoint frames. Both logs begin with
+The ares evidence directory contains each emulator log, final screenshot,
+Vulkan device record, and named checkpoint frames. Both logs begin with
 `GRANDLEON_RENDERER identity=pyrite-tiny3d fallback=none`.

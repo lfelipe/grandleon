@@ -13,6 +13,12 @@ renderer. Grandleon has no second Nintendo 64 presenter or compatibility
 fallback; an unavailable pinned dependency makes the export fail with a clear
 diagnostic.
 
+The renderer deliberately presents at 30 fps on NTSC systems. Authored
+movement and cinematic timings remain expressed in 60 Hz ticks and advance at
+the same real-world speed. The recovered rendering budget enables the filtered
+terrain atlas, denser scenery, and stronger silhouettes used by the production
+ROM.
+
 The target deliberately contains no ROM, compiled GPK, generated cutout, or
 vendored Pyrite source. `scripts/build.sh` derives the game inputs from the
 selected source project:

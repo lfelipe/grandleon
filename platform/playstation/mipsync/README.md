@@ -145,16 +145,20 @@ and recognizable silhouettes without turning every cell into a separate
 object. Characters and the cursor follow the same surface. The distant fog
 colour follows the dominant natural terrain, and clustered surroundings plus
 opt-in seam fill keep the board from reading as a noisy grid floating in a blue
-void. These features remain inside the paged terrain mesh, preserving the 60 Hz
-board-view budget. Close combat may use a bounded two-VBlank frame while its
-larger presentation is active. The generated surroundings policy stays portable
-across renderers (`natural_blend`, `extend_edges` or `fixed_terrain`).
+void. The player presents at a measured 30 fps while controller polling and
+tactical rules continue at 60 Hz. Alternating retraces hold the completed front
+buffer, giving shaped terrain and close combat a predictable two-VBlank render
+budget without changing game speed. The close view repeats its dominant
+terrain material across a floor that extends beyond the camera, so it no
+longer exposes the edge of a small floating quad. The generated surroundings
+policy stays portable across renderers (`natural_blend`, `extend_edges` or
+`fixed_terrain`).
 
 Release validation checks the following on the exact CUE/BIN:
 
 - BIOS-style emulator and real PlayStation hardware boot;
 - a clear visual improvement over the explicit baseline;
-- steady 60 Hz board rendering with bounded 30 Hz close-combat frames;
+- steady 30 fps board and close-combat presentation with 60 Hz input and rules;
 - main RAM, VRAM and packet headroom for the full campaign;
 - real packages, complete encounters, save data and campaign flow;
 - embedded `GRANDLEON_PS1_RENDERER=MIPSYNC` plus the fail-closed renderer audit.
