@@ -847,10 +847,29 @@ def write_meshes(
     billboard_vertices = [(-512, 0, 0, 0), (512, 0, 0, 0), (512, 1024, 0, 0), (-512, 1024, 0, 0)]
     billboard_uvs = [(0, 63), (63, 63), (63, 0), (0, 0)]
 
+    # A tile is 128 scene units across. The cursor mesh uses a 1/16 scale, so
+    # +/-960 covers 120 of them and leaves only a four-unit breathing edge.
+    # Four narrow quads make a border instead of the old solid 56-unit square:
+    # the player can now see which whole tile is selected without losing the
+    # terrain, unit feet, or team-colour information inside it.
     cursor_vertices = [
-        (-450, 24, -450, 0), (450, 24, -450, 0),
-        (450, 24, 450, 0), (-450, 24, 450, 0),
+        (-960, 28, -960, 0), (960, 28, -960, 0),
+        (960, 28, -800, 0), (-960, 28, -800, 0),
+        (800, 28, -800, 0), (960, 28, -800, 0),
+        (960, 28, 800, 0), (800, 28, 800, 0),
+        (-960, 28, 800, 0), (960, 28, 800, 0),
+        (960, 28, 960, 0), (-960, 28, 960, 0),
+        (-960, 28, -800, 0), (-800, 28, -800, 0),
+        (-800, 28, 800, 0), (-960, 28, 800, 0),
     ]
+    cursor_triangles = tuple(
+        triangle
+        for first in range(0, len(cursor_vertices), 4)
+        for triangle in (
+            (first, first + 2, first + 1),
+            (first, first + 3, first + 2),
+        )
+    )
     visibility_vertices: list[tuple[int, int, int, int]] = []
     visibility_uvs: list[tuple[int, int]] = []
     visibility_triangles: list[tuple[int, int, int, int, int, int]] = []
@@ -977,7 +996,9 @@ def write_meshes(
         )
     lines.extend(("};", ""))
     lines += emit_vectors("k_cursor_vertices", cursor_vertices)
-    lines += emit_vectors("k_cursor_normals", [(0, 4096, 0, 0)] * 4)
+    lines += emit_vectors(
+        "k_cursor_normals", [(0, 4096, 0, 0)] * len(cursor_vertices)
+    )
     if visibility_vertices:
         lines += emit_vectors("k_visibility_vertices", visibility_vertices)
         lines += emit_vectors(
@@ -1026,16 +1047,19 @@ def write_meshes(
         )
     else:
         visibility_mesh_line = None
+    lines.append("static const ps1_uv8 k_cursor_uvs[] = {")
+    lines.extend("    {0,0}," for _ in cursor_vertices)
+    lines.extend(("};", "", "static const ps1_mesh_tri k_cursor_triangles[] = {"))
+    lines.extend(
+        f"    {{ .i0={i0}, .i1={i1}, .i2={i2}, .ny=4096, .shade=255, .color_r=255, .color_g=255, .color_b=255 }},"
+        for i0, i1, i2 in cursor_triangles
+    )
     lines.extend((
-        "static const ps1_uv8 k_cursor_uvs[] = { {0,0}, {0,0}, {0,0}, {0,0} };",
-        "static const ps1_mesh_tri k_cursor_triangles[] = {",
-        "    { .i0=0, .i1=2, .i2=1, .ny=4096, .shade=255, .color_r=255, .color_g=255, .color_b=255 },",
-        "    { .i0=0, .i1=3, .i2=2, .ny=4096, .shade=255, .color_r=255, .color_g=255, .color_b=255 },",
         "};", "", "const ps1_mesh g_ps1_meshes[] = {",
         "    { .verts=k_billboard_vertices, .norms=k_billboard_normals, .vert_count=4, .uvs=k_billboard_uvs, .tris=k_billboard_triangles, .tri_count=2, .scale_q12=256, .bounds_center_y=512, .bounds_radius=724 },",
         *chunk_mesh_lines,
         "    { .verts=k_combat_floor_vertices, .norms=k_combat_floor_normals, .vert_count=sizeof(k_combat_floor_vertices)/sizeof(k_combat_floor_vertices[0]), .uvs=k_combat_floor_uvs, .tris=k_combat_floor_triangles, .tri_count=sizeof(k_combat_floor_triangles)/sizeof(k_combat_floor_triangles[0]), .scale_q12=4096, .bounds_radius=860, .flags=PS1_MESH_FLAG_TERRAIN },",
-        "    { .verts=k_cursor_vertices, .norms=k_cursor_normals, .vert_count=4, .uvs=k_cursor_uvs, .tris=k_cursor_triangles, .tri_count=2, .scale_q12=256, .bounds_radius=640, .flags=PS1_MESH_FLAG_TERRAIN },",
+        "    { .verts=k_cursor_vertices, .norms=k_cursor_normals, .vert_count=sizeof(k_cursor_vertices)/sizeof(k_cursor_vertices[0]), .uvs=k_cursor_uvs, .tris=k_cursor_triangles, .tri_count=sizeof(k_cursor_triangles)/sizeof(k_cursor_triangles[0]), .scale_q12=256, .bounds_radius=1360, .flags=PS1_MESH_FLAG_TERRAIN },",
         *([visibility_mesh_line] if visibility_mesh_line else []),
         "    { .verts=k_billboard_vertices, .norms=k_billboard_normals, .vert_count=4, .uvs=k_billboard_mirrored_uvs, .tris=k_billboard_triangles, .tri_count=2, .scale_q12=256, .bounds_center_y=512, .bounds_radius=724 },",
         "    { .verts=k_billboard_vertices, .norms=k_billboard_normals, .vert_count=4, .uvs=k_directional_billboard_uvs, .tris=k_billboard_triangles, .tri_count=2, .scale_q12=256, .bounds_center_y=512, .bounds_radius=724 },",

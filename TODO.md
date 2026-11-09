@@ -60,9 +60,10 @@ roadmap work.
 - [x] Evaluate directional board poses for the curated roster and make
   east/west travel follow the current authoritative route leg on Nintendo 64
   and PlayStation, matching Godot's existing camera-relative mirroring. The
-  shared right-facing walk cells mirror at no texture-memory cost; compact-
-  console vertical legs retain the last horizontal view rather than changing
-  the route or inventing art.
+  shared right-facing walk cells mirror at no texture-memory cost. PlayStation
+  now uses compact authored north/south walk frames; Nintendo 64 chooses its
+  left/right silhouette from the route's projected screen direction so a
+  vertical leg no longer appears to walk backwards.
 - [x] Establish the genuine north/south art pipeline with matching team masks,
   explicit profile metadata, Godot route-driven selection, fallback behavior,
   source audits, and measured compact-console projection. The current set
@@ -70,8 +71,9 @@ roadmap work.
   CI4 source payload per platform without changing current console executables.
 - [x] Complete genuine north/south idle/walk coverage for all 112 curated
   bodies, reviewing identity, front/back readability, team tint, and planted
-  walk phases for each. Enable it on N64/PS1 only after gameplay captures and
-  frame/ROM gates justify the renderer-specific transition.
+  walk phases for each. PlayStation enables compact north/south movement inside
+  its measured RAM, VRAM, and frame budgets. A full Nintendo 64 compass bank
+  remains a later quality step once its resident-memory cost is justified.
 
 ## Character art and console graphics
 
