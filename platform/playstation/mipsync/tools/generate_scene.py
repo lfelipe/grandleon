@@ -1589,7 +1589,10 @@ def write_scene(
     camera_index = entity_index
     lines.extend((
         f"    {{ .id={next_id}u, .name=\"clamped_board_camera\", .parent_entity_index=-1, .position={{{fixed(camera_focus_x)},{fixed(CAMERA_HEIGHT)},{fixed(camera_focus_z + CAMERA_TRAILING_DISTANCE)}}}, .rotation={{{fixed(-40)},0,0}}, .scale={{65536,65536,65536}}, .rigid_root_entity_index=-1, .collider_shape=-1, .has_camera=1, .camera_primary=1, .camera_fov={fixed(45)}, .camera_near={fixed(0.2)}, .camera_far={fixed(80)}, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},",
-        "};", "", "const ps1_scene g_ps1_scene = {", "    .entities=k_ps1_entities,", "    .entity_count=sizeof(k_ps1_entities)/sizeof(k_ps1_entities[0]),", f"    .camera_entity_index={camera_index},", "    .light={ .enabled=1, .dir_x=-1024, .dir_y=3072, .dir_z=2048, .color_r=255, .color_g=244, .color_b=220, .ambient_r=96, .ambient_g=96, .ambient_b=112 },", f"    .fog_enabled=1, .fog_r={fog_colour[0]}, .fog_g={fog_colour[1]}, .fog_b={fog_colour[2]},", f"    .fog_start={fixed(18)}, .fog_end={fixed(36)},", f"    .meshes=g_ps1_meshes, .mesh_count={cursor_mesh_index + (1 if hidden_cells else 0) + 3},", "};", "",
+        "};", "", "const ps1_scene g_ps1_scene = {", "    .entities=k_ps1_entities,", "    .entity_count=sizeof(k_ps1_entities)/sizeof(k_ps1_entities[0]),", f"    .camera_entity_index={camera_index},", "    .light={ .enabled=1, .dir_x=-1024, .dir_y=3072, .dir_z=2048, .color_r=255, .color_g=244, .color_b=220, .ambient_r=96, .ambient_g=96, .ambient_b=112 },", f"    .fog_enabled=1, .fog_r={fog_colour[0]}, .fog_g={fog_colour[1]}, .fog_b={fog_colour[2]},",
+        # Keep foreground terrain legible; haze belongs beyond the near board.
+        f"    .fog_start={fixed(24)}, .fog_end={fixed(36)},",
+        f"    .meshes=g_ps1_meshes, .mesh_count={cursor_mesh_index + (1 if hidden_cells else 0) + 3},", "};", "",
         "const uint64_t g_grandleon_unit_ids[] = {",
         *(f"    {int(unit['id'])}ULL," for unit in units if isinstance(unit, dict)),
         "};",
