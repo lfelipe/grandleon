@@ -114,16 +114,19 @@ roadmap work.
     Cedar ROM and disc were each driven through title, save, story and the real
     board; the N64 autopilot and depth probe pass, while the PS1 turn, campaign,
     resume, BIOS-disc and framebuffer gates pass inside their measured budgets.
-  - [ ] Evaluate Pyrite/Tiny3D as the N64 production runtime, including the
+  - [x] Evaluate Pyrite/Tiny3D as the N64 production runtime, including the
     libdragon Preview toolchain, real-RSP emulator and hardware path, generated
     scene data, ROM/RAM/frame budgets, and the cost of hosting Grandleon's
     existing simulation inside Pyrite's application shell. Adopt it only if a
-    playable Steel and Cedar slice materially improves the real ROM.
+    playable Steel and Cedar slice materially improves the real ROM. It is now
+    the sole N64 player; the previous renderer and fallback were removed.
     - [x] Prove the isolated runtime boundary on a real Bell Orchard GPK and
       generated character cutouts: the 835,584-byte ROM holds 60.00 fps over a
       measured 120-frame window under accurate real-RSP ares in 4 MB mode,
-      using 836,056 bytes of heap with 2,370,128 bytes free. Keep the migration
-      non-shipping and non-selectable until gameplay parity and hardware review.
+      using 836,056 bytes of heap with 2,370,128 bytes free. The later campaign,
+      save, localization, name-entry, visibility, movement, close-view, and
+      base-4-MB gates completed the adoption rather than creating a second
+      selectable renderer.
   - [x] Establish the shared console UI kit with framed tactical action panels,
     focus rows, platform-correct button badges, owner accents, concise labels,
     and health meters on Nintendo 64 and PlayStation. It uses only bounded flat
@@ -445,7 +448,7 @@ than reproduce those implementation details.
 - [x] Let an author mark specific characters as player-nameable while requiring
   a normal authored default. The translated default appears until the player
   chooses another name and remains the safe fallback when naming is skipped.
-- [ ] Carry the chosen name through dialogue and objective substitutions,
+- [x] Carry the chosen name through dialogue and objective substitutions,
   rosters, saves, campaign continuation, co-op views, and every export target.
   Player-entered names are never sent for translation; validate length, glyphs,
   duplicate-name clarity, and each platform's text-entry limitations.
@@ -463,6 +466,12 @@ than reproduce those implementation details.
     cross-build exercises the sole Pyrite player; the PS1 emulator probe enters
     a name on a real campaign disc, reboots over the same memory card, restores
     it, and proves that Continue does not repeat the prompt.
+  - [x] Apply the chosen literal to explicit member tokens on both compact
+    console players after localization. Nintendo 64 uses it in dialogue,
+    objectives, and its deployment roster; PlayStation resolves the same token
+    from generated stable member identities. Unknown, empty, or malformed
+    tokens remain visible. The PS1 campaign probe enters `A`, renders
+    `Hold, A.`, then proves the saved name survives reboot.
 
 ## Cinematic battle presentation
 

@@ -175,15 +175,15 @@ To use that choice in dialogue or an objective label, write an explicit member
 token such as `{{member:aren}}`, using the character's internal campaign ID.
 Each player replaces it with the authored default or the player's literal
 choice; an unknown or malformed token stays visible so an authoring mistake is
-easy to find.
+easy to find. This works in Godot, Nintendo 64, and PlayStation exports.
 
 Nintendo 64 and PlayStation show a compact controller keyboard when a
 nameable character joins. Console names use up to 18 visible characters. The
 player can keep the translated default, enter another name, or cancel without
 changing the save; fixed-name characters never show the keyboard, and Continue
 does not ask for the same founding name again. Godot accepts portable UTF-8
-names through its Company screen and remains the best place to check how a
-chosen name reads inside longer dialogue and objective text.
+names through its Company screen; the compact consoles use their shared
+displayable alphabet so the saved name remains readable in their smaller UI.
 
 Keep roles and gear small at first; add new choices when a chapter gives the
 player a reason to use them.

@@ -3,9 +3,12 @@
 set -eu
 
 test "$#" -eq 2 || {
-    echo "usage: PSN00BSDK_ROOT=/path/to/sdk $0 nameable-campaign-build empty-output-directory" >&2
+    echo "usage: PSN00BSDK_ROOT=/path/to/sdk $0 nameable-token-fixture-build empty-output-directory" >&2
     exit 2
 }
+# The fixture marks Rowan as player-nameable and gives the opening story the
+# portable text `Hold, {{member:rowan}}.`. The probe therefore checks entry,
+# persistence, Continue behavior, and a visible substitution in one run.
 test -n "${PSN00BSDK_ROOT:-}" || {
     echo "PSN00BSDK_ROOT is required" >&2
     exit 1
@@ -75,6 +78,11 @@ grep -Eq 'MIPSYNC_NAME_PROMPT member=.* limit=18' "$output/write.log" || {
 }
 grep -Eq 'MIPSYNC_NAME_SAVED member=.* default=0 saved=1' "$output/write.log" || {
     echo "name probe did not save the chosen name" >&2
+    tail -n 80 "$output/write.log" >&2
+    exit 1
+}
+grep -Eq 'MIPSYNC_MEMBER_TEXT node=.* value=Hold, A\.' "$output/write.log" || {
+    echo "name probe did not apply the saved name to campaign dialogue" >&2
     tail -n 80 "$output/write.log" >&2
     exit 1
 }

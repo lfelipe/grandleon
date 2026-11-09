@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include <grandleon/client/campaign_session.hpp>
+#include <grandleon/client/member_name_tokens.hpp>
 
 #include <grandleon/client/session.hpp>
 #include <grandleon/package_runtime/campaign.hpp>
@@ -86,34 +87,9 @@ std::string substitute_campaign_member_names(
     std::string_view authored_text,
     const std::vector<RosterEntry>& roster
 ) {
-    constexpr std::string_view opening = "{{member:";
-    constexpr std::string_view closing = "}}";
-    std::string result;
-    // Nugget's PlayStation libstdc++ omits the hosted pointer-length append
-    // symbol. A token is bounded source text, so copying its bytes one at a
-    // time is equivalent and keeps unknown-token fallback byte-for-byte.
-    const auto append_bytes = [&result](std::string_view text) {
-        for (char byte : text) result.push_back(byte);
-    };
-    std::size_t cursor = 0;
-    while (cursor < authored_text.size()) {
-        const std::size_t begin = authored_text.find(opening, cursor);
-        if (begin == std::string_view::npos) {
-            append_bytes(authored_text.substr(cursor));
-            break;
-        }
-        append_bytes(authored_text.substr(cursor, begin - cursor));
-        const std::size_t key_begin = begin + opening.size();
-        const std::size_t end = authored_text.find(closing, key_begin);
-        if (end == std::string_view::npos) {
-            append_bytes(authored_text.substr(begin));
-            break;
-        }
-        const std::string_view key = authored_text.substr(
-            key_begin, end - key_begin
-        );
-        const RosterEntry* member = nullptr;
-        if (!key.empty()) {
+    return substitute_member_name_tokens(
+        authored_text,
+        [&roster](std::string_view key) -> std::string_view {
             const std::uint64_t source_key = core::stable_content_id_v1(key);
             const auto found = std::find_if(
                 roster.begin(), roster.end(),
@@ -121,20 +97,10 @@ std::string substitute_campaign_member_names(
                     return candidate.placement_source_key == source_key;
                 }
             );
-            if (found != roster.end() && !found->name.empty()) {
-                member = &*found;
-            }
+            return found != roster.end() ? std::string_view(found->name)
+                                         : std::string_view{};
         }
-        if (member != nullptr) {
-            append_bytes(member->name);
-        } else {
-            append_bytes(authored_text.substr(
-                begin, end + closing.size() - begin
-            ));
-        }
-        cursor = end + closing.size();
-    }
-    return result;
+    );
 }
 
 std::string_view campaign_session_error_name(

@@ -217,8 +217,8 @@ in dialogue, objectives, rosters, and exact on-board unit labels. Nintendo 64
 and PlayStation now offer the same compact controller keyboard when an author
 allows a name to be changed. It has an 18-character console limit, keeps fixed
 names fixed, saves the choice with the campaign, and does not ask again on
-Continue. Applying those choices to every compact console dialogue and battle
-label remains part of the wider console parity pass.
+Continue. Explicit member references in console dialogue and objectives use
+the player's literal choice after the surrounding authored text is localized.
 
 The concrete presentation experiments currently in progress are kept in the
 short [development TODO](TODO.md).

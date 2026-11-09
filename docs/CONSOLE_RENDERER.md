@@ -44,7 +44,10 @@ the authored translated name, and **C-Up** on Nintendo 64 or **Triangle** on
 PlayStation keeps the current name without writing. Fixed-name characters skip
 the screen, and loading an existing campaign never repeats the founding prompt.
 The choice is part of the normal portable campaign save, not console-specific
-renderer data.
+renderer data. Explicit `{{member:character_id}}` references in authored
+dialogue and objectives show the chosen literal after the surrounding text is
+localized. A malformed or unknown reference stays visible for the author to
+fix.
 
 ## Showcase campaigns
 

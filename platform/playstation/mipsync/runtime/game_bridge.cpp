@@ -9,6 +9,7 @@
 #include <grandleon/campaign/save.hpp>
 #include <grandleon/client/console_localization.hpp>
 #include <grandleon/client/console_name_editor.hpp>
+#include <grandleon/client/member_name_tokens.hpp>
 #include <grandleon/simulation/encounter.hpp>
 #include <grandleon/storage/byte_window_storage.hpp>
 #include <grandleon/tactics/policy.hpp>
@@ -116,6 +117,9 @@ std::uint64_t s_name_member{};
 std::optional<client::ConsoleNameEditor> s_name_editor;
 CampaignMode s_name_return_mode{CampaignMode::prologue};
 bool s_name_route_after{};
+std::array<char, 192U> s_ui_headline{};
+std::array<char, 768U> s_ui_body{};
+std::uint64_t s_logged_member_text_node{};
 bool s_continue_available{};
 bool s_card_available{};
 bool s_campaign_completion_handled{};
@@ -330,6 +334,41 @@ const char* effective_member_name(
         s_campaign_save.state, camp::PersistentEntityId{member.persistent_id}
     );
     return chosen ? chosen->value.c_str() : authored_member_name(member);
+}
+
+std::string substitute_player_names(std::string_view text) {
+    return client::substitute_member_name_tokens(
+        text,
+        [](std::string_view source_key) -> std::string_view {
+            const std::uint64_t source_id =
+                grandleon::core::stable_content_id_v1(source_key);
+            for (const auto& member : grandleon_generated_campaign_members()) {
+                if (member.source_id != source_id ||
+                    camp::find_unit(
+                        s_campaign_save.state,
+                        camp::PersistentEntityId{member.persistent_id}
+                    ) == nullptr) {
+                    continue;
+                }
+                return effective_member_name(member);
+            }
+            return {};
+        }
+    );
+}
+
+template <std::size_t Capacity>
+void keep_ui_text(
+    std::array<char, Capacity>& target,
+    const std::string& source
+) {
+    const std::size_t length = std::min(
+        source.size(), Capacity > 0U ? Capacity - 1U : 0U
+    );
+    for (std::size_t index = 0U; index < length; ++index) {
+        target[index] = source[index];
+    }
+    target[length] = '\0';
 }
 
 void queue_player_names(const std::vector<std::uint64_t>& members) {
@@ -1491,30 +1530,53 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
             }
             case CampaignMode::prologue:
                 output->mode = GRANDLEON_UI_STORY;
-                output->headline = node_name[0]
-                    ? node_name : ui(console::Message::story);
-                output->body = node_dialogue;
+                keep_ui_text(s_ui_headline, substitute_player_names(
+                    node_name[0] ? node_name : ui(console::Message::story)
+                ));
+                keep_ui_text(
+                    s_ui_body, substitute_player_names(node_dialogue)
+                );
+                output->headline = s_ui_headline.data();
+                output->body = s_ui_body.data();
+                if (node && node->id != s_logged_member_text_node &&
+                    std::string_view{s_ui_body.data()} !=
+                        std::string_view{node_dialogue}) {
+                    s_logged_member_text_node = node->id;
+                    psx::Line().text("MIPSYNC_MEMBER_TEXT node=")
+                        .hex64(node->id).text(" value=")
+                        .text(s_ui_body.data()).flush();
+                }
                 break;
             case CampaignMode::objective:
                 output->mode = GRANDLEON_UI_OBJECTIVE;
-                output->headline = node_name[0]
-                    ? node_name : ui(console::Message::battle_heading);
-                output->body = grandleon_generated_objective_for(
-                    s_language_index
-                );
+                keep_ui_text(s_ui_headline, substitute_player_names(
+                    node_name[0]
+                        ? node_name : ui(console::Message::battle_heading)
+                ));
+                keep_ui_text(s_ui_body, substitute_player_names(
+                    grandleon_generated_objective_for(s_language_index)
+                ));
+                output->headline = s_ui_headline.data();
+                output->body = s_ui_body.data();
                 break;
             case CampaignMode::aftermath:
                 output->mode = GRANDLEON_UI_AFTERMATH;
-                output->headline = node && node->kind == 2U
+                keep_ui_text(s_ui_headline, substitute_player_names(
+                    node && node->kind == 2U
                     ? ui(console::Message::campaign_ended)
                     : node_name[0] ? node_name
                     : s_campaign_victory ? ui(console::Message::story)
-                    : ui(console::Message::defeat);
-                output->body = node && node->kind == 2U ? "RETURN TO TITLE"
+                    : ui(console::Message::defeat)
+                ));
+                keep_ui_text(s_ui_body, substitute_player_names(
+                    node && node->kind == 2U ? "RETURN TO TITLE"
                     : node_dialogue[0] ? node_dialogue
                         : (s_campaign_victory
                               ? ui(console::Message::campaign_complete)
-                                              : "THE COMPANY MUST REGROUP");
+                              : "THE COMPANY MUST REGROUP")
+                ));
+                output->headline = s_ui_headline.data();
+                output->body = s_ui_body.data();
                 break;
             case CampaignMode::save_error:
                 output->mode = GRANDLEON_UI_SAVE_ERROR;

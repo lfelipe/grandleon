@@ -4170,6 +4170,26 @@ void draw_wrapped_story(std::string_view text) {
     }
 }
 
+std::vector<client::RosterEntry> localized_campaign_roster() {
+    if (!board.campaign.has_value()) return {};
+    client::CompanyManagement company = board.campaign->management();
+    if (company.error != client::CampaignSessionError::none) return {};
+    for (client::RosterEntry& member : company.roster) {
+        if (member.has_player_name) continue;
+        const std::string_view authored = member.authored_name.empty()
+            ? std::string_view(member.name)
+            : std::string_view(member.authored_name);
+        const std::string_view localized =
+            pr::localized_campaign_member_name(
+                board.runtime.package(), game_language(),
+                grandleon_project_campaign_id,
+                member.placement_source_key, authored
+            );
+        member.name.assign(localized.data(), localized.size());
+    }
+    return company.roster;
+}
+
 void draw_name_editor() {
     if (!shell.name_editor.has_value()) return;
     const client::ConsoleNameEditor& editor = *shell.name_editor;
@@ -4295,14 +4315,26 @@ void draw_shell() {
             if (shell.story_line_index < shell.story.lines.size()) {
                 const pr::DialogueLine& line =
                     shell.story.lines[shell.story_line_index];
-                const std::string_view speaker = pr::localized_dialogue_line(
+                const std::string_view localized_speaker =
+                    pr::localized_dialogue_line(
                     board.runtime.package(), game_language(), shell.story.id,
                     shell.story_line_index, "speaker", line.speaker
                 );
-                const std::string_view text = pr::localized_dialogue_line(
+                const std::string_view localized_text =
+                    pr::localized_dialogue_line(
                     board.runtime.package(), game_language(), shell.story.id,
                     shell.story_line_index, "text", line.text
                 );
+                const std::vector<client::RosterEntry> roster =
+                    localized_campaign_roster();
+                const std::string speaker =
+                    client::substitute_campaign_member_names(
+                        localized_speaker, roster
+                    );
+                const std::string text =
+                    client::substitute_campaign_member_names(
+                        localized_text, roster
+                    );
                 P64::Debug::printf(
                     40, 96, "%.*s", static_cast<int>(speaker.size()),
                     speaker.data()
@@ -4376,6 +4408,12 @@ void draw_shell() {
                         board.runtime.package(), game_language(),
                         objective.id, name
                     );
+                const std::vector<client::RosterEntry> roster =
+                    localized_campaign_roster();
+                const std::string displayed_name =
+                    client::substitute_campaign_member_names(
+                        localized_name, roster
+                    );
                 const char* result = objective.state == sim::ObjectiveState::satisfied
                     ? "CLEAR" : objective.state == sim::ObjectiveState::failed
                         ? "FAILED" : "PENDING";
@@ -4383,8 +4421,8 @@ void draw_shell() {
                     42, 116 + static_cast<int>(row) * 18,
                     "%.*s  %s",
                     static_cast<int>(std::min<std::size_t>(
-                        localized_name.size(), 21U
-                    )), localized_name.data(), result
+                        displayed_name.size(), 21U
+                    )), displayed_name.data(), result
                 );
             }
             P64::Debug::printf(
