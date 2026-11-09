@@ -6,3 +6,5 @@
 0005-Honor-per-entity-PS1-seam-fill.patch
 0006-Support-indexed-PS1-texture-palettes.patch
 0007-Reclaim-static-render-caches-when-entities-are-disabled.patch
+0008-Use-native-GPU-clipping-for-safe-cached-world-polygons.patch
+0009-Build-visibility-batches-with-bounded-vertex-stamps.patch

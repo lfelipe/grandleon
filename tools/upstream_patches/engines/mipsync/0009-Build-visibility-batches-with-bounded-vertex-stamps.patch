@@ -1,0 +1,56 @@
+From 2b3284593e6f50b285ca3f3dc5825f0e8e4b4978 Mon Sep 17 00:00:00 2001
+From: Grandleon contributors <grandleon@example.invalid>
+Date: Mon, 9 Nov 2026 10:51:39 -0800
+Subject: [PATCH 9/9] Build visibility batches with bounded vertex stamps
+
+---
+ templates/ps1/starter/runtime/render.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c
+index b75e0e9..a6d5442 100644
+--- a/templates/ps1/starter/runtime/render.c
++++ b/templates/ps1/starter/runtime/render.c
+@@ -760,6 +760,7 @@ static uint32_t s_visibility_vertex_used;
+ static uint16_t s_visibility_batch_used;
+ static uint8_t s_visibility_batch_outside[PS1_VISIBILITY_BATCH_MAX];
+ static uint8_t s_static_active_vertex[PS1_STATIC_VERTEX_CACHE_TOTAL];
++static uint16_t s_visibility_vertex_stamp[PS1_STATIC_VERTEX_CACHE_MAX];
+ 
+ typedef struct {
+     const ps1_mesh* mesh;
+@@ -829,6 +830,7 @@ static void reset_static_entity_caches(void) {
+  * retain their unique position indices. An entire group can be rejected only
+  * when every vertex is outside the same frustum plane. */
+ static const ps1_visibility_topology* visibility_topology_for(const ps1_mesh* mesh) {
++    if (mesh->vert_count > PS1_STATIC_VERTEX_CACHE_MAX) return 0;
+     ps1_visibility_topology* free_entry = 0;
+     const unsigned batches = (mesh->tri_count + PS1_VISIBILITY_BATCH_TRIANGLES - 1) / PS1_VISIBILITY_BATCH_TRIANGLES;
+     unsigned i;
+@@ -839,6 +841,7 @@ static const ps1_visibility_topology* visibility_topology_for(const ps1_mesh* me
+     if(!free_entry || s_visibility_batch_used+batches>PS1_VISIBILITY_BATCH_MAX ||
+        s_visibility_vertex_used+(uint32_t)mesh->tri_count*3>PS1_STATIC_TRI_CACHE_TOTAL*3)
+         return 0;
++    memset(s_visibility_vertex_stamp, 0, mesh->vert_count * sizeof(uint16_t));
+     free_entry->mesh=mesh;free_entry->batch_offset=s_visibility_batch_used;free_entry->batch_count=batches;
+     for(i=0;i<batches;++i) {
+         ps1_visibility_batch* batch=&s_visibility_batches[s_visibility_batch_used++];
+@@ -851,12 +854,11 @@ static const ps1_visibility_topology* visibility_topology_for(const ps1_mesh* me
+             const uint16_t indices[3]={face->i0,face->i1,face->i2};
+             unsigned corner;
+             for(corner=0;corner<3;++corner) {
+-                uint16_t p=indices[corner],j;
++                uint16_t p=indices[corner];
+                 if(p>=mesh->vert_count)continue;
+                 if(mesh->position_refs && mesh->position_refs[p]<mesh->vert_count)p=mesh->position_refs[p];
+-                for(j=0;j<batch->vertex_count;++j)
+-                    if(s_visibility_vertices[batch->vertex_offset+j]==p)break;
+-                if(j==batch->vertex_count) {
++                if(s_visibility_vertex_stamp[p] != i + 1u) {
++                    s_visibility_vertex_stamp[p] = i + 1u;
+                     s_visibility_vertices[s_visibility_vertex_used++]=p;
+                     ++batch->vertex_count;
+                 }
+-- 
+2.53.0
+

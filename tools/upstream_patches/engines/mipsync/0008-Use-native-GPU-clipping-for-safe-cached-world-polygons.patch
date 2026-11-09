@@ -1,0 +1,106 @@
+From 657029fd0a6eda04f95f9d31b7c894560ae679a1 Mon Sep 17 00:00:00 2001
+From: Grandleon contributors <grandleon@example.invalid>
+Date: Mon, 9 Nov 2026 10:49:30 -0800
+Subject: [PATCH 8/9] Use native GPU clipping for safe cached world polygons
+
+---
+ .../ps1/starter/runtime/projection_safety.h   | 16 ++++++++++++++
+ templates/ps1/starter/runtime/render.c        |  9 ++++++--
+ tests/Ps1GpuClippingTests.c                   | 21 +++++++++++++++++++
+ 3 files changed, 44 insertions(+), 2 deletions(-)
+ create mode 100644 tests/Ps1GpuClippingTests.c
+
+diff --git a/templates/ps1/starter/runtime/projection_safety.h b/templates/ps1/starter/runtime/projection_safety.h
+index d0a0dd8..b1fd3fc 100644
+--- a/templates/ps1/starter/runtime/projection_safety.h
++++ b/templates/ps1/starter/runtime/projection_safety.h
+@@ -1,6 +1,22 @@
+ #ifndef MIPSYNC_PROJECTION_SAFETY_H
+ #define MIPSYNC_PROJECTION_SAFETY_H
+ #include <stdint.h>
++/* Native rasterization clips against the drawing area. Reserve coordinate
++   and extent headroom for seam expansion; larger faces still need CPU clips. */
++static inline int ps1_polygon_fits_gpu(const int16_t* x, const int16_t* y,
++                                     unsigned count) {
++    if (!count) return 0;
++    int min_x = x[0], max_x = x[0], min_y = y[0], max_y = y[0];
++    for (unsigned i = 0; i < count; ++i) {
++        if (x[i] < -1020 || x[i] > 1019 || y[i] < -1020 || y[i] > 1019)
++            return 0;
++        if (x[i] < min_x) min_x = x[i];
++        if (x[i] > max_x) max_x = x[i];
++        if (y[i] < min_y) min_y = y[i];
++        if (y[i] > max_y) max_y = y[i];
++    }
++    return max_x - min_x <= 1020 && max_y - min_y <= 508;
++}
+ /* RTPS clamps H/Z to two and screen coordinates to signed 11 bits.
+    A clamped point cannot be used for winding, visibility, or GPU packets. */
+ static inline int ps1_projection_vertex_needs_clip(int32_t xy, int32_t z,
+diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c
+index 0acf222..b75e0e9 100644
+--- a/templates/ps1/starter/runtime/render.c
++++ b/templates/ps1/starter/runtime/render.c
+@@ -2273,6 +2273,8 @@ static int __attribute__((noinline)) draw_cached_flat_quad(
+         x[i] = (int16_t)(sxy[i] & 0xffff);
+         y[i] = (int16_t)(sxy[i] >> 16);
+     }
++    if (!ps1_polygon_fits_gpu(x, y, 4))
++        return 2;
+     if (!screen_front_facing_strict(x[0], y[0], x[1], y[1], x[2], y[2]) ||
+         !screen_front_facing_strict(x[2], y[2], x[1], y[1], x[3], y[3]))
+         return 2;
+@@ -3041,10 +3043,13 @@ static void __attribute__((noinline)) cache_world_visibility(
+                             const int32_t xy=s_static_screen_cache[static_vertex_offset+vi];
+                             const int32_t z=s_static_depth_cache[static_vertex_offset+vi];
+                             const int x=(int16_t)xy, y=(int16_t)(xy>>16);
++                            /* The GPU clips safe native polygons to the draw
++                             * area. Crossing a viewport edge alone does not
++                             * require a CPU polygon clip. */
+                             s_static_projection_flags[static_vertex_offset+vi] =
+                                 (ps1_projection_vertex_needs_clip(xy,z,entity_near_z,INT32_MAX,s_geom_screen) ? 1 : 0) |
+                                 (s_static_camera_cache[static_vertex_offset+vi].vz>s_far_z ? 2 : 0) |
+-                                (x < -2 || x>s_screen_w+1 || y < -2 || y>s_screen_h+1 ? 4 : 0);
++                                (x < -1020 || x > 1019 || y < -1020 || y > 1019 ? 4 : 0);
+                         }
+                         static_cache->visible_triangle_count = 0;
+                         for(unsigned bi=0;bi<batch_count;++bi) {
+@@ -3095,7 +3100,7 @@ static void __attribute__((noinline)) cache_world_visibility(
+                                     &s_static_camera_cache[static_vertex_offset + p2]))
+                                 continue;
+                             int needs_clip = projection_flags != 0;
+-                            if (!needs_clip && (!authored_floor_face(ent,face) || s_screen_w>1020 || s_screen_h>508)) {
++                            if (!needs_clip) {
+                                 int min_x=(int16_t)xy0,max_x=min_x,min_y=(int16_t)(xy0>>16),max_y=min_y;
+                                 const int x1=(int16_t)xy1,x2=(int16_t)xy2,y1=(int16_t)(xy1>>16),y2=(int16_t)(xy2>>16);
+                                 if(x1<min_x)min_x=x1;if(x2<min_x)min_x=x2;
+diff --git a/tests/Ps1GpuClippingTests.c b/tests/Ps1GpuClippingTests.c
+new file mode 100644
+index 0000000..96cec32
+--- /dev/null
++++ b/tests/Ps1GpuClippingTests.c
+@@ -0,0 +1,21 @@
++#include <assert.h>
++#include "../templates/ps1/starter/runtime/projection_safety.h"
++
++int main(void) {
++    const int16_t x[] = {-80, 400, -80, 400};
++    const int16_t y[] = {-40, -40, 280, 280};
++    assert(ps1_polygon_fits_gpu(x, y, 4)); /* GPU clips all four screen edges. */
++    const int16_t wide[] = {-510, 511, -510, 511};
++    const int16_t tall[] = {-254, -254, 255, 255};
++    assert(!ps1_polygon_fits_gpu(wide, y, 4));
++    assert(!ps1_polygon_fits_gpu(x, tall, 4));
++    const int16_t saturated[] = {-1024, 100, -1024, 100};
++    assert(!ps1_polygon_fits_gpu(saturated, y, 4));
++    assert(!ps1_polygon_fits_gpu(x, y, 0));
++    /* Depth/GTE saturation must retain CPU clipping independently of XY. */
++    assert(ps1_projection_vertex_needs_clip(0, 1, 2, 5000, 160));
++    assert(ps1_projection_vertex_needs_clip(0, 6000, 2, 5000, 160));
++    assert(ps1_projection_vertex_needs_clip(0, 50, 2, 5000, 160));
++    assert(!ps1_projection_vertex_needs_clip(0, 100, 2, 5000, 160));
++    return 0;
++}
+-- 
+2.53.0
+
