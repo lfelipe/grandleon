@@ -25,8 +25,8 @@ real Twin Gate simulation. The same build supports one or two local players.
 ## Performance and memory
 
 Both measured campaign windows rendered all 600 frames with zero missed
-VBlanks and a maximum interval of one VBlank. Cedar Deepwood averaged 165
-HBlanks and peaked at 166; Twin Gate averaged 169 and peaked at 170. A separate
+VBlanks and a maximum interval of one VBlank. Cedar Deepwood averaged 175
+HBlanks and peaked at 176; Twin Gate averaged 189 and peaked at 190. A separate
 two-axis Deepwood scrolling stress pass averaged 163 HBlanks and peaked at 253,
 again with zero missed VBlanks. These figures include the terrain relief,
 native forms, seam fill, and live unit rendering described below.
@@ -37,16 +37,25 @@ the second controller, and observes the authored opposing turn. Board frames
 keep their 60 Hz budget; the optional close view remains bounded to two VBlanks
 per presented frame.
 
+The focused Twin Gate probe boots the real one-player 20x14 encounter and uses
+ordinary controller input. Rowan advances to the keep, both friendly units end
+their turns, the authored opposing side takes its turn, and Rowan then crosses
+the door. The log records the first settled approach before
+`MIPSYNC_VISIBILITY_REVEAL cells=18`, followed by the settled doorway move.
+Captured frames show the room covered before entry and the same board revealed
+after entry. Evidence is kept outside source control at
+`/home/lstrano/.cache/grandleon-mipsync-release05-castle/`.
+
 The build keeps the planned 64 KiB audio reserve, 32 KiB stack reserve, and
 512 KiB gameplay heap on every stage:
 
 | Encounter | Committed RAM | Texture VRAM | Active cache |
 | --- | ---: | ---: | ---: |
-| Bell Orchard | 1,375,608 / 2,097,152 | 126,976 / 196,608 | 214 vertices, 212 triangles |
-| Cedar Deepwood | 1,406,328 / 2,097,152 | 143,360 / 196,608 | 193 vertices, 140 triangles |
-| Cedar Watch | 1,457,528 / 2,097,152 | 159,744 / 196,608 | 199 vertices, 158 triangles |
-| Gate Village | 1,459,576 / 2,097,152 | 176,128 / 196,608 | 183 vertices, 128 triangles |
-| Twin Gate Keep | 1,420,664 / 2,097,152 | 135,168 / 196,608 | 165 vertices, 146 triangles |
+| Bell Orchard | 1,450,592 / 2,097,152 | 116,736 / 196,608 | 214 vertices, 212 triangles |
+| Cedar Deepwood | 1,483,360 / 2,097,152 | 133,120 / 196,608 | 193 vertices, 140 triangles |
+| Cedar Watch | 1,538,656 / 2,097,152 | 149,504 / 196,608 | 199 vertices, 158 triangles |
+| Gate Village | 1,536,608 / 2,097,152 | 165,888 / 196,608 | 183 vertices, 128 triangles |
+| Twin Gate Keep | 1,499,744 / 2,097,152 | 124,928 / 196,608 | 237 vertices, 182 triangles |
 
 Larger maps use overlapping 8x6 terrain pages, with only the nearest page
 active. Unit and prop culling changes presentation only; the full encounter
@@ -73,16 +82,19 @@ English label texture is no longer shipped.
 ## Exact artifact
 
 - CUE SHA-256: `29d16c06436b8a5210108dcf67bbbd29ef0c78753e18cceed2e506a8f9ffecff`
-- BIN SHA-256: `f5c6c37b266f134d4e716fffe6d2509c1579c1052f3c197344865ec8329e1d89`
-- final memory-card SHA-256: `48fc152503401d53e177aaf1b60898ec904d0c09a1534a0b459bfd65c0a7cf5a`
+- BIN SHA-256: `de30e8bc855aaef91ffa174b1f4b5b9b9151ec71994ac15b8fe06e7829a3ca53`
+- final memory-card SHA-256: `c0a525c5d9318ad4b88a629549168261a43be9948fb6c2902716e4656a4e1e26`
+
+The exact build manifests, emulator logs, card, and hashes remain outside
+source control at
+`/home/lstrano/.cache/grandleon-mipsync-release05-campaign/`.
 
 The executable and BIN embed `GRANDLEON_PS1_RENDERER=MIPSYNC`. Mipsync is
 pinned to `866f405a0e34b5925a8d832272fe52c657688430` and receives the five
 checked-in upstream patches before each clean build.
 
-## Still required before cutover
+## Remaining platform work
 
-The remaining platform gates are the Grandleon audio implementation, testing
-on real PlayStation hardware, continued visual and control polish, and the
-final removal of the explicitly named comparison renderer. Mipsync is never a
-silent fallback.
+The remaining platform work is Grandleon's audio implementation, testing on
+real PlayStation hardware, and continued visual and control polish. Mipsync is
+the only PlayStation renderer and is never a silent fallback.

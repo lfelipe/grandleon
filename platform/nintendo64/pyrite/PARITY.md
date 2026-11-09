@@ -11,6 +11,7 @@ ares checkpoint.
 | Story and battle moments | Ready | Campaign story nodes and packaged stage-open/fall/talk dialogue are loaded from the GPK and shown as advanceable framed dialogue. |
 | Deployment | Ready | The screen appears only when the packaged encounter authors deployment; fixed formations skip it. |
 | Maps, objectives and aftermath | Ready within the bounded export contract | The demo's one battle and Steel and Cedar's five battles load from their distinct packages, commit reports and reach their authored terminal nodes. |
+| Authored hidden areas | Ready | The current exact-4-MB Steel ROM records Twin Gate's 18-cell room as closed, crosses its doorway through routed movement, reveals the room, and captures both states under real-RSP ares. |
 | Save and resume | Ready | Project-derived 1P/2P slot identities keep games separate. A third settings slot preserves presentation choices. |
 | Help and settings | Ready | Title Help plus in-battle Help cover the controls. Close view, reduced motion, audio and FPS display are persistent settings; FPS remains off by default. |
 | Optional close presentation | Ready | Full, reduced, 3x and skip paths keep physical sides stable and restore the exact tactical camera/hash. |

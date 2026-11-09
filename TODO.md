@@ -225,8 +225,12 @@ and it safely replaces the included campaigns on all three players.
   footprint, keeps the exterior closed until the rendered unit crosses a door,
   then reveals and retains the walkable room without moving the board, camera,
   or units. Its five exact campaign maps also use one coherent Medieval terrain
-  family rather than the Relay demo art. Complete matched hardware review for
-  the Nintendo 64 and PlayStation room and doorway before closing this item.
+  family rather than the Relay demo art. Godot's real-source smoke now proves
+  threshold reveal and stable framing; the current exact-4-MB Nintendo 64 ROM
+  records closed and revealed frames in real-RSP ares; and a BIOS-style
+  PlayStation probe walks Rowan through the real one-player doorway and records
+  the same 18-cell transition. Complete the matched review on the physical
+  Nintendo 64 and PlayStation targets before closing this item.
 - [ ] Tune 1P and 2P separately. Co-op must give both players useful characters
   and decisions without merely doubling the battle size; solo play must retain
   the same strategic possibilities at a manageable pace. Playtest every map
@@ -256,12 +260,12 @@ and it safely replaces the included campaigns on all three players.
 
 ### Future visibility and exploration
 
-- [ ] Generalize Twin Gate's interior occlusion into a portable visibility
-  system instead of embedding castle-specific reveal rules in a renderer.
-  Entering a connected building should reveal nearby interior cells while
-  unexplored rooms remain covered; the authoritative map, movement and units
-  continue underneath. Keep this separate from the optional cinematic
-  cutaway used for conversations, recruits, shops or item rewards.
+- [ ] Extend the portable visual-visibility foundation beyond Twin Gate's one
+  authored region. Let a map define multiple connected rooms so entering one
+  building reveals nearby interior cells while unexplored rooms remain
+  covered; the authoritative map, movement and units continue underneath.
+  Keep this separate from the optional cinematic cutaway used for
+  conversations, recruits, shops or item rewards.
 - [ ] Later, let authors enable the same visibility foundation for ordinary
   maps, including nighttime scenarios with limited sight. Treat visual fog,
   player knowledge and gameplay rules as separate choices: define sight

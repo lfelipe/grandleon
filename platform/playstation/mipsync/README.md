@@ -1,7 +1,7 @@
 # Mipsync PlayStation renderer
 
-This directory is Grandleon's in-progress transition to Mipsync as the sole
-PlayStation renderer. It now boots the full five-encounter Steel and Cedar
+This directory contains Grandleon's sole PlayStation renderer, built on
+Mipsync. It boots the full five-encounter Steel and Cedar
 campaign, saves and resumes on a PlayStation memory card, and supports both
 one- and two-player campaigns. Battles use the shared simulation for movement,
 Attack, equipped abilities, Wait, reinforcements, objectives, and
@@ -9,9 +9,9 @@ package-authored opposing turns. In two-player battles each physical controller
 keeps its own visible cursor and can command only its authored units; choosing
 two players is not merely a larger roster driven by controller one. A compact
 forecast and result UI plus the optional close-combat camera use the same disc
-and rules. Functional parity with Godot, audio, real hardware validation, and
-the final cutover remain. Mipsync is never used as a fallback, and the removed
-renderer will not be retained as one.
+and rules. The 0.5 gameplay-parity paths are in place; audio, real-hardware
+review, and continued graphics and control polish remain. Mipsync is never
+used as a fallback, and the removed renderer is not retained as one.
 
 Solo and co-op are generated from their complete authored encounter variants,
 not by removing Player 2 from the co-op battle. That preserves different
@@ -76,6 +76,10 @@ platform/playstation/mipsync/tests/run-combat-probe.sh \
 PSN00BSDK_ROOT=/path/to/PSn00bSDK \
 platform/playstation/mipsync/tests/run-scroll-probe.sh \
   /tmp/deepwood-output/build /tmp/deepwood-probe-output
+
+PSN00BSDK_ROOT=/path/to/PSn00bSDK \
+platform/playstation/mipsync/tests/run-visibility-probe.sh \
+  /tmp/twin-gate-output/build /tmp/twin-gate-probe-output
 ```
 
 To review motion rather than still frames, run
@@ -88,11 +92,14 @@ requires real animated movement, Player 1 Attack and healing, Player 2 Wait,
 and the package-authored opposing turn. It captures the live forecast, close
 combat and completed board views. The scroll probe drives both axes on the real
 14x9 Cedar Deepwood map and requires viewport clamp, one active terrain page
-and zero missed VBlanks. The campaign probe additionally starts, saves, resumes,
-and traverses all five encounters from the same disc. See `VALIDATION.md` for
-the current measurements and hashes.
+and zero missed VBlanks. The visibility probe uses ordinary controls on the
+real one-player Twin Gate encounter, captures the covered room, walks Rowan
+through the door, and requires the authored 18-cell reveal before capturing
+the room again. The campaign probe additionally starts, saves, resumes, and
+traverses all five encounters from the same disc. See `VALIDATION.md` for the
+current measurements and hashes.
 
-## Budgets and cutover gates
+## Budgets and validation
 
 The generic Mipsync runtime cannot coexist with Grandleon's campaign runtime
 unchanged. This target compiles only the renderer pieces it uses and sizes the
@@ -118,16 +125,15 @@ board-view budget. Close combat may use a bounded two-VBlank frame while its
 larger presentation is active. The generated surroundings policy stays portable
 across renderers (`natural_blend`, `extend_edges` or `fixed_terrain`).
 
-Cutover requires all of the following on the exact CUE/BIN:
+Release validation checks the following on the exact CUE/BIN:
 
 - BIOS-style emulator and real PlayStation hardware boot;
 - a clear visual improvement over the explicit baseline;
 - steady 60 Hz board rendering with bounded 30 Hz close-combat frames;
 - main RAM, VRAM and packet headroom for the full campaign;
 - real packages, complete encounters, save data and campaign flow;
-- embedded `GRANDLEON_PS1_RENDERER=MIPSYNC` plus the fail-closed cutover audit.
+- embedded `GRANDLEON_PS1_RENDERER=MIPSYNC` plus the fail-closed renderer audit.
 
-Until the remaining gates pass, comparison uses a separately named build; it is
-never selected as a fallback. At cutover, release/export will point only to
-Mipsync and fail if it cannot build, then remove the comparison renderer in the
-same transition series.
+Release and creator exports already point only to Mipsync and fail clearly if
+it cannot build. There is no comparison renderer or alternate PlayStation
+graphics path in the repository.
