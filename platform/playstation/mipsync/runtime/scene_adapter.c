@@ -249,7 +249,7 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
         draw_text(ordering_table, next_packet, packet_end, 42, 47,
                   state.headline ? state.headline : "GRANDLEON",
                   255, 205, 68);
-        if (state.body) {
+        if (state.body && state.mode != GRANDLEON_UI_NAME) {
             draw_wrapped_text(ordering_table, next_packet, packet_end, 42, 72,
                               state.body, 168, 181, 196);
         }
@@ -277,6 +277,50 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
                       grandleon_game_text(GRANDLEON_TEXT_ONE_PLAYER), 247, 239, 209);
             draw_text(ordering_table, next_packet, packet_end, 91, 141,
                       grandleon_game_text(GRANDLEON_TEXT_TWO_PLAYERS), 247, 239, 209);
+        } else if (state.mode == GRANDLEON_UI_NAME) {
+            int row;
+            int column;
+            draw_text(ordering_table, next_packet, packet_end, 42, 70,
+                      "NAME", 168, 181, 196);
+            draw_box(ordering_table, next_packet, packet_end,
+                     83, 65, 187, 18, 30, 53, 66);
+            draw_text(ordering_table, next_packet, packet_end, 91, 69,
+                      state.name_value ? state.name_value : "", 247, 239, 209);
+            if (state.name_invalid) {
+                draw_text(ordering_table, next_packet, packet_end, 225, 69,
+                          "REQUIRED", 255, 112, 92);
+            }
+            for (row = 0; row < 5; ++row) {
+                const int columns = row < 4 ? 9 : 4;
+                for (column = 0; column < columns; ++column) {
+                    int key_x;
+                    int key_width;
+                    const int key_y = 92 + row * 19;
+                    const char* label = grandleon_game_name_key(
+                        (uint8_t)row, (uint8_t)column
+                    );
+                    if (row < 4) {
+                        key_x = 47 + column * 25;
+                        key_width = 21;
+                    } else {
+                        static const int last_x[4] = {47, 74, 101, 163};
+                        static const int last_width[4] = {21, 21, 56, 91};
+                        key_x = last_x[column];
+                        key_width = last_width[column];
+                    }
+                    if (state.name_row == row &&
+                        state.name_column == column) {
+                        draw_box(ordering_table, next_packet, packet_end,
+                                 key_x, key_y, key_width, 15, 52, 63, 45);
+                    }
+                    draw_text(ordering_table, next_packet, packet_end,
+                              key_x + 6, key_y + 3, label,
+                              247, 239, 209);
+                }
+            }
+            draw_text(ordering_table, next_packet, packet_end, 42, 190,
+                      "X TYPE  O ERASE  TRIANGLE KEEP  START SAVE",
+                      168, 181, 196);
         } else if (state.mode == GRANDLEON_UI_TITLE_SETTINGS) {
             const char* close = grandleon_game_text(
                 state.close_combat ? GRANDLEON_TEXT_ON : GRANDLEON_TEXT_OFF

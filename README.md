@@ -213,8 +213,12 @@ uncommon help and error copy is still receiving a compact-layout translation
 audit.
 Player-chosen character names remain literal player input rather than
 translation material; in Godot they survive save and continue and can appear
-in dialogue, objectives, rosters, and exact on-board unit labels. Controller
-name entry is likewise still being moved to the new console players.
+in dialogue, objectives, rosters, and exact on-board unit labels. Nintendo 64
+and PlayStation now offer the same compact controller keyboard when an author
+allows a name to be changed. It has an 18-character console limit, keeps fixed
+names fixed, saves the choice with the campaign, and does not ask again on
+Continue. Applying those choices to every compact console dialogue and battle
+label remains part of the wider console parity pass.
 
 The concrete presentation experiments currently in progress are kept in the
 short [development TODO](TODO.md).

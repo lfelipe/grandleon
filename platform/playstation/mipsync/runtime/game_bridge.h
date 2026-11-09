@@ -25,7 +25,8 @@ enum grandleon_ui_mode {
     GRANDLEON_UI_AFTERMATH,
     GRANDLEON_UI_SAVE_ERROR,
     GRANDLEON_UI_TITLE_HELP,
-    GRANDLEON_UI_TITLE_SETTINGS
+    GRANDLEON_UI_TITLE_SETTINGS,
+    GRANDLEON_UI_NAME
 };
 
 enum grandleon_ui_text_id {
@@ -83,6 +84,12 @@ typedef struct grandleon_ui_state {
     uint8_t show_fps;
     uint16_t measured_fps;
     const char* language_code;
+    const char* name_value;
+    const char* name_default;
+    uint8_t name_row;
+    uint8_t name_column;
+    uint8_t name_invalid;
+    uint8_t name_limit;
 } grandleon_ui_state;
 
 int grandleon_game_init(void);
@@ -92,6 +99,7 @@ int grandleon_game_update(
 );
 void grandleon_game_ui_state(grandleon_ui_state* output);
 const char* grandleon_game_text(uint8_t text_id);
+const char* grandleon_game_name_key(uint8_t row, uint8_t column);
 void grandleon_game_set_fps(uint16_t fps);
 void grandleon_game_log_boot(unsigned int packet_bytes);
 void grandleon_platform_card_begin(void);

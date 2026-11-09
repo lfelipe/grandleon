@@ -154,15 +154,20 @@ def emit_localizations(document: dict[str, object]) -> list[str]:
             "objective": document.get("campaign", {}).get(
                 "objective", "Complete the objective."
             ),
+            "members": document.get("campaign", {}).get("members", []),
             "nodes": document.get("campaign", {}).get("nodes", []),
         }]
     lines = [
         "namespace {",
+        "struct generated_localized_member final {",
+        "    std::uint64_t persistent_id; const char* name;",
+        "};",
         "struct generated_localized_node final {",
         "    std::uint64_t id; const char* name; const char* dialogue;",
         "};",
         "struct generated_language final {",
         "    const char* code; const char* project_title; const char* objective;",
+        "    std::vector<generated_localized_member> members;",
         "    std::vector<generated_localized_node> nodes;",
         "};",
         "const std::vector<generated_language>& generated_languages() {",
@@ -174,6 +179,16 @@ def emit_localizations(document: dict[str, object]) -> list[str]:
         nodes = language.get("nodes", [])
         if not isinstance(nodes, list):
             raise ValueError("language nodes are not an array")
+        members = language.get("members", [])
+        if not isinstance(members, list):
+            raise ValueError("language members are not an array")
+        member_values = ",".join(
+            "{" + ",".join((
+                f"{int(member['persistent_id'])}ULL",
+                cpp_string(member.get("name", "")),
+            )) + "}"
+            for member in members
+        )
         node_values = ",".join(
             "{" + ",".join((
                 f"{int(node['id'])}ULL",
@@ -187,6 +202,7 @@ def emit_localizations(document: dict[str, object]) -> list[str]:
                 cpp_string(language.get("code", "en")),
                 cpp_string(language.get("project_title", "Grandleon")),
                 cpp_string(language.get("objective", "Complete the objective.")),
+                "{" + member_values + "}",
                 "{" + node_values + "}",
             )) + "},"
         )
@@ -203,6 +219,13 @@ def emit_localizations(document: dict[str, object]) -> list[str]:
         ") {",
         "    for (const auto& node : generated_language(language).nodes)",
         "        if (node.id == id) return &node;",
+        "    return nullptr;",
+        "}",
+        "const generated_localized_member* generated_localized_member_for(",
+        "    unsigned language, std::uint64_t persistent_id",
+        ") {",
+        "    for (const auto& member : generated_language(language).members)",
+        "        if (member.persistent_id == persistent_id) return &member;",
         "    return nullptr;",
         "}",
         "}",
@@ -230,6 +253,14 @@ def emit_localizations(document: dict[str, object]) -> list[str]:
         ") {",
         "    const auto* node = generated_localized_node_for(language, id);",
         "    return node ? node->dialogue : \"\";",
+        "}",
+        "const char* grandleon_generated_campaign_member_name_for(",
+        "    unsigned language, std::uint64_t persistent_id",
+        ") {",
+        "    const auto* member = generated_localized_member_for(",
+        "        language, persistent_id",
+        "    );",
+        "    return member ? member->name : \"\";",
         "}",
         "",
     ]
@@ -386,6 +417,26 @@ def main() -> int:
         "        generated_ref(grandleon::core::ContentCategory::campaign_node, "
         f"{int(campaign['entry_node_id'])}ULL), std::move(nodes));",
         "}", "",
+        "const std::vector<grandleon_generated_campaign_member>& grandleon_generated_campaign_members() {",
+        "    static const std::vector<grandleon_generated_campaign_member> values = {",
+    ]
+    for member in campaign.get("members", []):
+        lines.append(
+            "        {"
+            f"{int(member['persistent_id'])}ULL, "
+            f"{int(member['source_id'])}ULL, "
+            f"{int(member['unit_type_id'])}ULL, "
+            f"{int(member.get('join_node_id', 0))}ULL, "
+            f"{cpp_string(member.get('name', ''))}, "
+            f"{'true' if int(member.get('player_nameable', 0)) else 'false'}"
+            "},"
+        )
+    lines += [
+        "    };", "    return values;", "}", "",
+        "const grandleon_generated_campaign_member* grandleon_generated_campaign_member_for(std::uint64_t persistent_id) {",
+        "    for (const auto& member : grandleon_generated_campaign_members())",
+        "        if (member.persistent_id == persistent_id) return &member;",
+        "    return nullptr;", "}", "",
         "const std::vector<grandleon_generated_campaign_node>& grandleon_generated_campaign_nodes() {",
         "    static const std::vector<grandleon_generated_campaign_node> values = {",
     ]
@@ -431,9 +482,19 @@ struct grandleon_generated_campaign_node final {{
     const char* dialogue{{}};
     const char* disc_path{{}};
 }};
+struct grandleon_generated_campaign_member final {{
+    std::uint64_t persistent_id{{}};
+    std::uint64_t source_id{{}};
+    std::uint64_t unit_type_id{{}};
+    std::uint64_t join_node_id{{}};
+    const char* authored_name{{}};
+    bool player_nameable{{}};
+}};
 grandleon::simulation::EncounterDefinition grandleon_generated_definition(unsigned local_players = 2);
 const std::vector<grandleon_generated_behavior>& grandleon_generated_behaviors(unsigned local_players = 2);
 grandleon::campaign::CampaignGraph grandleon_generated_campaign_graph();
+const std::vector<grandleon_generated_campaign_member>& grandleon_generated_campaign_members();
+const grandleon_generated_campaign_member* grandleon_generated_campaign_member_for(std::uint64_t persistent_id);
 const std::vector<grandleon_generated_campaign_node>& grandleon_generated_campaign_nodes();
 const grandleon_generated_campaign_node* grandleon_generated_campaign_node_for(std::uint64_t id);
 const std::vector<std::uint64_t>& grandleon_generated_objective_ids();
@@ -443,6 +504,7 @@ const char* grandleon_generated_project_title_for(unsigned language);
 const char* grandleon_generated_objective_for(unsigned language);
 const char* grandleon_generated_campaign_node_name_for(unsigned language, std::uint64_t id);
 const char* grandleon_generated_campaign_node_dialogue_for(unsigned language, std::uint64_t id);
+const char* grandleon_generated_campaign_member_name_for(unsigned language, std::uint64_t persistent_id);
 inline constexpr std::uint64_t grandleon_generated_canonical_hash(unsigned local_players) {{
     return local_players > 1 ? {int(document['canonical_hash'])}ULL : {int(one_player['canonical_hash']) if one_player else int(document['canonical_hash'])}ULL;
 }}

@@ -177,11 +177,13 @@ Each player replaces it with the authored default or the player's literal
 choice; an unknown or malformed token stays visible so an authoring mistake is
 easy to find.
 
-Controller name entry is being reconnected to the new Nintendo 64 and
-PlayStation players during the 0.5 engine transition. The intended console
-contract is an 18-glyph shared-font limit, authored-default reset,
-Cancel-without-writing, fixed-name exclusion, and no repeated prompt after a
-continued save; until that cutover is complete, test this workflow in Godot.
+Nintendo 64 and PlayStation show a compact controller keyboard when a
+nameable character joins. Console names use up to 18 visible characters. The
+player can keep the translated default, enter another name, or cancel without
+changing the save; fixed-name characters never show the keyboard, and Continue
+does not ask for the same founding name again. Godot accepts portable UTF-8
+names through its Company screen and remains the best place to check how a
+chosen name reads inside longer dialogue and objective text.
 
 Keep roles and gear small at first; add new choices when a chapter gives the
 player a reason to use them.

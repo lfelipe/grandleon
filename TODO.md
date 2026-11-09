@@ -455,11 +455,14 @@ than reproduce those implementation details.
   - [x] Apply chosen names to exact Godot battle units and explicit dialogue or
     objective member tokens, and warn clearly about duplicate company names
     without forbidding a deliberate duplicate.
-  - [ ] Reconnect controller-driven player name entry to the new Pyrite/Tiny3D
+  - [x] Reconnect controller-driven player name entry to the new Pyrite/Tiny3D
     and Mipsync players, with an explicit 18-glyph shared-console limit,
     authored-default reset, Cancel-without-writing, fixed-name exclusion, and
-    no repeated prompt when a save is continued. The removed renderer path is
-    not release evidence for the sole console players.
+    no repeated prompt when a save is continued. Both players store the name in
+    the portable campaign state rather than renderer-only data. The N64 ROM
+    cross-build exercises the sole Pyrite player; the PS1 emulator probe enters
+    a name on a real campaign disc, reboots over the same memory card, restores
+    it, and proves that Continue does not repeat the prompt.
 
 ## Cinematic battle presentation
 

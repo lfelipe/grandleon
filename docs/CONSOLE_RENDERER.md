@@ -35,6 +35,17 @@ Common title, launch, pause, Settings, and outcome copy is available in English,
 Spanish, and Brazilian Portuguese. The remaining uncommon help, tactical-result,
 deployment, and error labels are still under compact-layout review.
 
+## Choosing a character name
+
+If an author marks a character as player-nameable, the consoles show a small
+controller keyboard when that character first joins. A console name can use up
+to 18 visible characters. **Start** saves, the on-screen **Default** key restores
+the authored translated name, and **C-Up** on Nintendo 64 or **Triangle** on
+PlayStation keeps the current name without writing. Fixed-name characters skip
+the screen, and loading an existing campaign never repeats the founding prompt.
+The choice is part of the normal portable campaign save, not console-specific
+renderer data.
+
 ## Showcase campaigns
 
 **Sevenfold Gate** is the compact 0.4 showcase built to make the art range easy

@@ -8,17 +8,22 @@
 #include <grandleon/campaign/outcome.hpp>
 #include <grandleon/campaign/save.hpp>
 #include <grandleon/client/console_localization.hpp>
+#include <grandleon/client/console_name_editor.hpp>
 #include <grandleon/simulation/encounter.hpp>
 #include <grandleon/storage/byte_window_storage.hpp>
 #include <grandleon/tactics/policy.hpp>
 #include <grandleon/view/motion.hpp>
 #include "psx_card.h"
 #include "psx_runtime.h"
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <new>
+#include <optional>
+#include <string>
 #include <string_view>
 #include <type_traits>
+#include <vector>
 
 namespace sim = grandleon::simulation;
 namespace tac = grandleon::tactics;
@@ -28,6 +33,7 @@ namespace storage = grandleon::storage;
 namespace card = grandleon::playstation::card;
 namespace view = grandleon::view;
 namespace console = grandleon::client::console_localization;
+namespace client = grandleon::client;
 
 namespace {
 
@@ -35,7 +41,7 @@ enum class InputMode : std::uint8_t {
     browse, move, action, attack, ability, pause, help, settings
 };
 enum class CampaignMode : std::uint8_t {
-    title, players, prologue, objective, battle, aftermath, save_error,
+    title, players, name, prologue, objective, battle, aftermath, save_error,
     help, settings
 };
 
@@ -105,6 +111,11 @@ unsigned s_active_terrain_page{0xffffffffU};
 CampaignMode s_campaign_mode{CampaignMode::battle};
 unsigned s_campaign_menu_index{};
 unsigned s_local_players{1};
+std::vector<std::uint64_t> s_pending_player_names;
+std::uint64_t s_name_member{};
+std::optional<client::ConsoleNameEditor> s_name_editor;
+CampaignMode s_name_return_mode{CampaignMode::prologue};
+bool s_name_route_after{};
 bool s_continue_available{};
 bool s_card_available{};
 bool s_campaign_completion_handled{};
@@ -301,6 +312,168 @@ unsigned saved_player_count() {
            value->value == 2 ? 2U : 1U;
 }
 
+void route_active_campaign_node();
+
+const char* authored_member_name(
+    const grandleon_generated_campaign_member& member
+) {
+    const char* localized = grandleon_generated_campaign_member_name_for(
+        s_language_index, member.persistent_id
+    );
+    return localized && localized[0] ? localized : member.authored_name;
+}
+
+const char* effective_member_name(
+    const grandleon_generated_campaign_member& member
+) {
+    const camp::PlayerName* chosen = camp::find_player_name(
+        s_campaign_save.state, camp::PersistentEntityId{member.persistent_id}
+    );
+    return chosen ? chosen->value.c_str() : authored_member_name(member);
+}
+
+void queue_player_names(const std::vector<std::uint64_t>& members) {
+    for (const std::uint64_t persistent_id : members) {
+        const auto* member = grandleon_generated_campaign_member_for(
+            persistent_id
+        );
+        if (!member || !member->player_nameable ||
+            camp::find_player_name(
+                s_campaign_save.state,
+                camp::PersistentEntityId{persistent_id}
+            )) {
+            continue;
+        }
+        if (std::find(
+                s_pending_player_names.begin(),
+                s_pending_player_names.end(), persistent_id
+            ) == s_pending_player_names.end()) {
+            s_pending_player_names.push_back(persistent_id);
+        }
+    }
+}
+
+std::vector<std::uint64_t> append_recruitment_at(
+    std::uint64_t node_id,
+    std::vector<camp::CampaignOutcomeOperation>& operations
+) {
+    std::vector<std::uint64_t> joined;
+    for (const auto& member : grandleon_generated_campaign_members()) {
+        if (member.join_node_id != node_id) continue;
+        operations.push_back(camp::recruit_unit(
+            camp::PersistentEntityId{member.persistent_id},
+            content_ref(
+                grandleon::core::ContentCategory::unit_type,
+                member.unit_type_id
+            )
+        ));
+        joined.push_back(member.persistent_id);
+    }
+    return joined;
+}
+
+bool begin_next_player_name() {
+    while (!s_pending_player_names.empty()) {
+        const std::uint64_t persistent_id = s_pending_player_names.front();
+        s_pending_player_names.erase(s_pending_player_names.begin());
+        const auto* member = grandleon_generated_campaign_member_for(
+            persistent_id
+        );
+        if (!member || !member->player_nameable ||
+            camp::find_unit(
+                s_campaign_save.state,
+                camp::PersistentEntityId{persistent_id}
+            ) == nullptr) {
+            continue;
+        }
+        s_name_member = persistent_id;
+        s_name_editor.emplace(
+            effective_member_name(*member), authored_member_name(*member)
+        );
+        s_campaign_mode = CampaignMode::name;
+        psx::Line().text("MIPSYNC_NAME_PROMPT member=")
+            .hex64(persistent_id).text(" limit=")
+            .decimal(static_cast<unsigned>(client::console_player_name_glyphs))
+            .flush();
+        return true;
+    }
+    return false;
+}
+
+void enter_after_player_names(CampaignMode mode) {
+    s_name_route_after = false;
+    s_name_return_mode = mode;
+    if (!begin_next_player_name()) s_campaign_mode = mode;
+}
+
+void route_after_player_names() {
+    s_name_route_after = true;
+    if (!begin_next_player_name()) route_active_campaign_node();
+}
+
+bool store_player_name(client::ConsoleNameAnswer answer) {
+    if (!s_name_editor || s_name_member == 0U ||
+        answer == client::ConsoleNameAnswer::editing ||
+        answer == client::ConsoleNameAnswer::cancel) {
+        return false;
+    }
+    const auto* authored = grandleon_generated_campaign_member_for(
+        s_name_member
+    );
+    if (!authored || !authored->player_nameable ||
+        camp::find_unit(
+            s_campaign_save.state, camp::PersistentEntityId{s_name_member}
+        ) == nullptr) {
+        return false;
+    }
+    camp::CampaignState candidate = s_campaign_save.state;
+    const camp::PersistentEntityId member{s_name_member};
+    auto position = std::lower_bound(
+        candidate.player_names.begin(), candidate.player_names.end(), member,
+        [](const camp::PlayerName& current, camp::PersistentEntityId value) {
+            return current.member < value;
+        }
+    );
+    bool used_default = answer == client::ConsoleNameAnswer::use_default;
+    if (used_default) {
+        if (position != candidate.player_names.end() &&
+            position->member == member) {
+            candidate.player_names.erase(position);
+        }
+    } else {
+        const std::string name{s_name_editor->name()};
+        if (!camp::player_name_is_valid(name)) return false;
+        if (position != candidate.player_names.end() &&
+            position->member == member) {
+            position->value = name;
+        } else {
+            candidate.player_names.insert(position, {member, name});
+        }
+    }
+    if (camp::validate(candidate) != camp::StateError::none) return false;
+    s_campaign_save.state = std::move(candidate);
+    const bool saved = save_campaign();
+    psx::Line().text("MIPSYNC_NAME_SAVED member=").hex64(s_name_member)
+        .text(" default=").decimal(used_default ? 1U : 0U)
+        .text(" saved=").decimal(saved ? 1U : 0U).flush();
+    return saved;
+}
+
+void finish_player_name(client::ConsoleNameAnswer answer) {
+    if (answer == client::ConsoleNameAnswer::cancel) {
+        psx::Line().text("MIPSYNC_NAME_CANCEL member=")
+            .hex64(s_name_member).text(" wrote=0").flush();
+    } else if (!store_player_name(answer)) {
+        s_campaign_mode = CampaignMode::save_error;
+        return;
+    }
+    s_name_editor.reset();
+    s_name_member = 0U;
+    if (begin_next_player_name()) return;
+    if (s_name_route_after) route_active_campaign_node();
+    else s_campaign_mode = s_name_return_mode;
+}
+
 void begin_new_campaign(unsigned players) {
     s_local_players = players;
     camp::SavePackageRequirement requirement;
@@ -309,25 +482,36 @@ void begin_new_campaign(unsigned players) {
     }
     requirement.content_revision = grandleon_generated_content_revision;
     s_campaign_save = camp::make_campaign_save({}, {requirement});
-    if (camp::begin_campaign(s_campaign_save.state, s_campaign_graph) !=
-        camp::ProgressionError::none) {
-        s_campaign_mode = CampaignMode::save_error;
-        return;
-    }
     const auto key = keyed_ref(
         grandleon::core::ContentCategory::world_flag, "local_players"
     );
+    std::vector<camp::CampaignOutcomeOperation> operations;
+    const std::vector<std::uint64_t> founders = append_recruitment_at(
+        0U, operations
+    );
+    operations.push_back(camp::set_world_flag(
+        key, {camp::WorldValueType::integer,
+              static_cast<std::int64_t>(players)}
+    ));
     const camp::CampaignOutcomeBatch founding = outcome_batch(
-        "campaign_foundation",
-        {camp::set_world_flag(key, {camp::WorldValueType::integer,
-                                    static_cast<std::int64_t>(players)})}
+        "campaign_foundation", std::move(operations)
     );
     if (!camp::apply_outcome(s_campaign_save.state, founding)) {
         s_campaign_mode = CampaignMode::save_error;
         return;
     }
-    s_campaign_mode = CampaignMode::prologue;
-    (void)save_campaign();
+    if (camp::begin_campaign(s_campaign_save.state, s_campaign_graph) !=
+        camp::ProgressionError::none) {
+        s_campaign_mode = CampaignMode::save_error;
+        return;
+    }
+    s_pending_player_names.clear();
+    queue_player_names(founders);
+    if (!save_campaign()) {
+        s_campaign_mode = CampaignMode::save_error;
+        return;
+    }
+    enter_after_player_names(CampaignMode::prologue);
 }
 
 bool load_saved_campaign() {
@@ -340,11 +524,23 @@ bool load_saved_campaign() {
     );
     const camp::SaveLoadResult loaded = camp::load_campaign(stored.bytes, options);
     if (!loaded) return false;
+    for (const camp::PlayerName& name : loaded.save.state.player_names) {
+        const auto* member = grandleon_generated_campaign_member_for(
+            name.member.value
+        );
+        if (!member || !member->player_nameable) return false;
+    }
     s_campaign_save = loaded.save;
+    s_pending_player_names.clear();
+    s_name_editor.reset();
+    s_name_member = 0U;
     s_local_players = saved_player_count();
     psx::Line().text("MIPSYNC_CAMPAIGN_RESUME node=")
         .hex64(s_campaign_save.state.progress.active_node.stable_id)
-        .text(" players=").decimal(s_local_players).flush();
+        .text(" players=").decimal(s_local_players).text(" names=")
+        .decimal(static_cast<unsigned>(
+            s_campaign_save.state.player_names.size()
+        )).flush();
     return true;
 }
 
@@ -1008,14 +1204,20 @@ bool advance_story() {
     const std::uint64_t source = s_campaign_save.state.progress.active
         ? s_campaign_save.state.progress.active_node.stable_id
         : grandleon_generated_current_encounter_id;
+    std::vector<camp::CampaignOutcomeOperation> operations;
+    const std::vector<std::uint64_t> joined = append_recruitment_at(
+        source, operations
+    );
     const camp::NodeCompletion completion = camp::complete_node(
-        s_campaign_save.state, s_campaign_graph, outcome_batch(source, {})
+        s_campaign_save.state, s_campaign_graph,
+        outcome_batch(source, std::move(operations))
     );
     if (!completion) {
         psx::Line().text("MIPSYNC_CAMPAIGN_ADVANCE_FAIL error=")
             .decimal(static_cast<unsigned>(completion.error)).flush();
         return false;
     }
+    queue_player_names(joined);
     return save_campaign();
 }
 
@@ -1040,6 +1242,9 @@ bool complete_battle(bool victory, bool force_pending = false) {
                 : camp::ObjectiveOutcome::failed
         ));
     }
+    const std::vector<std::uint64_t> joined = append_recruitment_at(
+        grandleon_generated_current_encounter_id, operations
+    );
     const camp::NodeCompletion completion = camp::complete_node(
         s_campaign_save.state, s_campaign_graph,
         outcome_batch(grandleon_generated_current_encounter_id,
@@ -1050,6 +1255,7 @@ bool complete_battle(bool victory, bool force_pending = false) {
             .decimal(static_cast<unsigned>(completion.error)).flush();
         return false;
     }
+    queue_player_names(joined);
     return save_campaign();
 }
 
@@ -1260,6 +1466,29 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
                 output->body = ui(console::Message::choose_how_to_play);
                 output->campaign_menu_count = 2;
                 break;
+            case CampaignMode::name: {
+                output->mode = GRANDLEON_UI_NAME;
+                const auto* member = grandleon_generated_campaign_member_for(
+                    s_name_member
+                );
+                output->headline = member
+                    ? authored_member_name(*member) : "NAME";
+                output->body = "CHOOSE A NAME";
+                output->name_value = s_name_editor
+                    ? s_name_editor->c_str() : "";
+                output->name_default = member
+                    ? authored_member_name(*member) : "";
+                output->name_row = s_name_editor
+                    ? static_cast<std::uint8_t>(s_name_editor->row()) : 0U;
+                output->name_column = s_name_editor
+                    ? static_cast<std::uint8_t>(s_name_editor->column()) : 0U;
+                output->name_invalid = s_name_editor && s_name_editor->invalid()
+                    ? 1U : 0U;
+                output->name_limit = static_cast<std::uint8_t>(
+                    client::console_player_name_glyphs
+                );
+                break;
+            }
             case CampaignMode::prologue:
                 output->mode = GRANDLEON_UI_STORY;
                 output->headline = node_name[0]
@@ -1412,6 +1641,12 @@ extern "C" const char* grandleon_game_text(uint8_t text_id) {
     return "";
 }
 
+extern "C" const char* grandleon_game_name_key(
+    uint8_t row, uint8_t column
+) {
+    return client::ConsoleNameEditor::key(row, column).label;
+}
+
 extern "C" void grandleon_game_set_fps(uint16_t fps) {
     s_measured_fps = fps;
 }
@@ -1476,10 +1711,38 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
             }
             return 0;
         }
+        if (s_campaign_mode == CampaignMode::name) {
+            if (!s_name_editor) {
+                s_campaign_mode = CampaignMode::save_error;
+                return 0;
+            }
+            if (pressed & pad_triangle) {
+                finish_player_name(client::ConsoleNameAnswer::cancel);
+            } else if (pressed & pad_circle) {
+                s_name_editor->erase();
+            } else if (pressed & pad_start) {
+                const client::ConsoleNameAnswer answer = s_name_editor->save();
+                if (answer != client::ConsoleNameAnswer::editing) {
+                    finish_player_name(answer);
+                }
+            } else if (pressed & pad_cross) {
+                const client::ConsoleNameAnswer answer =
+                    s_name_editor->activate();
+                if (answer == client::ConsoleNameAnswer::use_default) {
+                    finish_player_name(answer);
+                }
+            } else {
+                s_name_editor->move(
+                    (pressed & pad_right) ? 1 : (pressed & pad_left) ? -1 : 0,
+                    (pressed & pad_down) ? 1 : (pressed & pad_up) ? -1 : 0
+                );
+            }
+            return 0;
+        }
         if (s_campaign_mode == CampaignMode::prologue && (pressed & pad_cross)) {
             if (advance_story()) {
                 s_continue_available = true;
-                route_active_campaign_node();
+                route_after_player_names();
             } else {
                 s_campaign_mode = CampaignMode::save_error;
             }
@@ -1491,7 +1754,7 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
                 active_node_is(grandleon_generated_current_node_id)) {
                 if (complete_battle(true, true)) {
                     s_campaign_victory = true;
-                    s_campaign_mode = CampaignMode::aftermath;
+                    enter_after_player_names(CampaignMode::aftermath);
                 } else {
                     s_campaign_mode = CampaignMode::save_error;
                 }
@@ -1512,7 +1775,7 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
                 return 0;
             }
             if (node && node->kind == 3U && advance_story()) {
-                route_active_campaign_node();
+                route_after_player_names();
             } else {
                 s_campaign_mode = CampaignMode::save_error;
             }
@@ -1579,7 +1842,7 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
         s_campaign_victory = s_snapshot.outcome == sim::Outcome::first_side_won;
         if (complete_battle(s_campaign_victory)) {
             hide_board();
-            s_campaign_mode = CampaignMode::aftermath;
+            enter_after_player_names(CampaignMode::aftermath);
         } else {
             s_campaign_mode = CampaignMode::save_error;
         }
@@ -1592,7 +1855,7 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
         s_campaign_completion_handled = true;
         if (complete_battle(true, true)) {
             hide_board();
-            s_campaign_mode = CampaignMode::aftermath;
+            enter_after_player_names(CampaignMode::aftermath);
         } else {
             s_campaign_mode = CampaignMode::save_error;
         }

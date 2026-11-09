@@ -129,7 +129,24 @@ void write_campaign(
     } else {
         write_string(output, {});
     }
-    output << ",\"nodes\":[";
+    output << ",\"members\":[";
+    for (std::size_t member_index = 0;
+         member_index < campaign.members.size(); ++member_index) {
+        if (member_index != 0U) output << ',';
+        const pr::CampaignMember& member = campaign.members[member_index];
+        output << "{\"persistent_id\":" << member_index + 1U
+               << ",\"source_id\":";
+        write_id(output, member.id);
+        output << ",\"unit_type_id\":";
+        write_id(output, member.unit_type_id);
+        output << ",\"join_node_id\":";
+        write_id(output, member.join_node_id);
+        output << ",\"name\":";
+        write_string(output, member.name_in(package));
+        output << ",\"player_nameable\":"
+               << (member.player_nameable ? 1 : 0) << '}';
+    }
+    output << "],\"nodes\":[";
     for (std::size_t node_index = 0;
          node_index < campaign.nodes.size(); ++node_index) {
         if (node_index != 0) output << ',';
@@ -218,7 +235,20 @@ void write_localizations(
         } else {
             write_string(output, {});
         }
-        output << ",\"nodes\":[";
+        output << ",\"members\":[";
+        for (std::size_t member_index = 0;
+             member_index < campaign.members.size(); ++member_index) {
+            if (member_index != 0U) output << ',';
+            const pr::CampaignMember& member = campaign.members[member_index];
+            const std::string_view source = member.name_in(package);
+            output << "{\"persistent_id\":" << member_index + 1U
+                   << ",\"name\":";
+            write_string(output, pr::localized_campaign_member_name(
+                package, language, campaign_id, member.id, source
+            ));
+            output << '}';
+        }
+        output << "],\"nodes\":[";
         for (std::size_t node_index = 0;
              node_index < campaign.nodes.size(); ++node_index) {
             if (node_index != 0U) output << ',';

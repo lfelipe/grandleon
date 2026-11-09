@@ -3,6 +3,7 @@
 
 #include <grandleon/client/campaign_session.hpp>
 #include <grandleon/client/console_localization.hpp>
+#include <grandleon/client/console_name_editor.hpp>
 #include <grandleon/client/session.hpp>
 #include <grandleon/core/content_identity.hpp>
 #include <grandleon/package_runtime/dialogue.hpp>
@@ -180,6 +181,7 @@ enum class ShellPhase : std::uint8_t {
     players,
     save,
     story,
+    name,
     deployment,
     aftermath,
     complete,
@@ -214,6 +216,9 @@ struct ShellState final {
     std::size_t story_id_index{};
     std::size_t story_line_index{};
     pr::Dialogue story;
+    std::vector<campaign::PersistentEntityId> pending_player_names;
+    client::RosterEntry name_member;
+    std::optional<client::ConsoleNameEditor> name_editor;
     client::CompanyManagement deployment;
     client::BattleAftermath aftermath;
     std::vector<sim::ObjectiveResult> aftermath_objectives;
@@ -1859,6 +1864,57 @@ bool begin_required_deployment() {
     return true;
 }
 
+void queue_player_names(const std::vector<client::RosterEntry>& roster) {
+    for (const client::RosterEntry& member : roster) {
+        if (!member.player_nameable || member.has_player_name) continue;
+        const bool queued = std::any_of(
+            shell.pending_player_names.begin(),
+            shell.pending_player_names.end(),
+            [&member](campaign::PersistentEntityId candidate) {
+                return candidate == member.member;
+            }
+        );
+        if (!queued) shell.pending_player_names.push_back(member.member);
+    }
+}
+
+bool begin_next_player_name() {
+    if (!board.campaign.has_value()) return false;
+    while (!shell.pending_player_names.empty()) {
+        const campaign::PersistentEntityId requested =
+            shell.pending_player_names.front();
+        shell.pending_player_names.erase(shell.pending_player_names.begin());
+        const client::CompanyManagement company = board.campaign->management();
+        if (company.error != client::CampaignSessionError::none) return false;
+        const auto found = std::find_if(
+            company.roster.begin(), company.roster.end(),
+            [requested](const client::RosterEntry& member) {
+                return member.member == requested;
+            }
+        );
+        if (found == company.roster.end() || !found->player_nameable ||
+            found->has_player_name) {
+            continue;
+        }
+        shell.name_member = *found;
+        const std::string_view authored = found->authored_name.empty()
+            ? std::string_view(found->name)
+            : std::string_view(found->authored_name);
+        shell.name_editor.emplace(found->name, authored);
+        shell.phase = ShellPhase::name;
+        shell.next_automatic_frame = 0U;
+        debugf(
+            "CHECKPOINT PYRITE_NAME_PROMPT member=%llu limit=%lu\n",
+            requested.value,
+            static_cast<unsigned long>(client::console_player_name_glyphs)
+        );
+        return true;
+    }
+    shell.name_editor.reset();
+    shell.name_member = {};
+    return false;
+}
+
 void begin_performance_sample();
 
 bool stand_on_campaign_encounter() {
@@ -1913,6 +1969,8 @@ bool stand_on_campaign_encounter() {
         if (board.campaign->advance_story(joined) !=
             client::CampaignSessionError::none) return false;
         if (board.campaign->save() != storage::StorageError::none) return false;
+        queue_player_names(joined);
+        if (begin_next_player_name()) return true;
     }
     return false;
 }
@@ -1935,6 +1993,8 @@ bool advance_story_beat() {
     if (board.campaign->save() != storage::StorageError::none) return false;
     shell.story_ids.clear();
     shell.story = {};
+    queue_player_names(joined);
+    if (begin_next_player_name()) return true;
     if (!stand_on_campaign_encounter()) return false;
     if (shell.phase == ShellPhase::battle && shell.first_battle_committed &&
         shell.stage_index == 1U) {
@@ -1978,6 +2038,13 @@ bool begin_campaign(bool resume) {
         board.campaign->begin(failure, refused, resumed);
     if (begun != client::CampaignSessionError::none) return false;
     shell.resumed = resumed;
+    shell.pending_player_names.clear();
+    if (!resumed) {
+        const client::CompanyManagement company = board.campaign->management();
+        if (company.error != client::CampaignSessionError::none) return false;
+        queue_player_names(company.roster);
+        if (begin_next_player_name()) return true;
+    }
     if (!stand_on_campaign_encounter()) return false;
     if (resumed && shell.phase == ShellPhase::battle) {
         debugf(
@@ -2033,6 +2100,46 @@ bool toggle_deployment_member() {
     return shell.deployment.error == client::CampaignSessionError::none;
 }
 
+bool finish_player_name(client::ConsoleNameAnswer answer) {
+    if (!shell.name_editor.has_value() ||
+        answer == client::ConsoleNameAnswer::editing) {
+        return false;
+    }
+    if (answer != client::ConsoleNameAnswer::cancel) {
+        const std::string_view authored =
+            shell.name_member.authored_name.empty()
+                ? std::string_view(shell.name_member.name)
+                : std::string_view(shell.name_member.authored_name);
+        const std::string_view selected =
+            answer == client::ConsoleNameAnswer::use_default
+                ? authored : shell.name_editor->name();
+        const client::ManagementCommit committed =
+            board.campaign->set_player_name(
+                shell.name_member.member, selected
+            );
+        if (committed.error != client::ManagementError::none ||
+            !committed.saved ||
+            committed.save != storage::StorageError::none) {
+            return false;
+        }
+        debugf(
+            "CHECKPOINT PYRITE_NAME_SAVED member=%llu glyphs=%lu default=%u\n",
+            shell.name_member.member.value,
+            static_cast<unsigned long>(selected.size()),
+            answer == client::ConsoleNameAnswer::use_default ? 1U : 0U
+        );
+    } else {
+        debugf(
+            "CHECKPOINT PYRITE_NAME_CANCEL member=%llu wrote=0\n",
+            shell.name_member.member.value
+        );
+    }
+    shell.name_editor.reset();
+    shell.name_member = {};
+    if (begin_next_player_name()) return true;
+    return stand_on_campaign_encounter();
+}
+
 bool confirm_shell_choice() {
     play_ui_cue();
     switch (shell.phase) {
@@ -2074,6 +2181,8 @@ bool confirm_shell_choice() {
         }
         case ShellPhase::story:
             return advance_story_beat();
+        case ShellPhase::name:
+            return false;
         case ShellPhase::deployment:
             shell.deployment_approved = true;
             return stand_on_campaign_encounter();
@@ -2096,8 +2205,31 @@ void update_shell_input() {
     const joypad_buttons_t pressed = joypad_get_buttons_pressed(JOYPAD_PORT_1);
     shell.second_connected = joypad_is_connected(JOYPAD_PORT_2);
     const bool physical = pressed.a || pressed.start || pressed.d_up ||
-        pressed.d_down || pressed.d_left || pressed.d_right || pressed.b;
+        pressed.d_down || pressed.d_left || pressed.d_right || pressed.b ||
+        pressed.c_up;
     if (physical) shell.user_took_over = true;
+    if (shell.phase == ShellPhase::name && shell.name_editor.has_value()) {
+        if (pressed.d_left || pressed.d_right ||
+            pressed.d_up || pressed.d_down) {
+            shell.name_editor->move(
+                pressed.d_left ? -1 : pressed.d_right ? 1 : 0,
+                pressed.d_up ? -1 : pressed.d_down ? 1 : 0
+            );
+        }
+        if (pressed.b) shell.name_editor->erase();
+        if (pressed.c_up) {
+            (void)finish_player_name(client::ConsoleNameAnswer::cancel);
+            return;
+        }
+        client::ConsoleNameAnswer answer =
+            client::ConsoleNameAnswer::editing;
+        if (pressed.a) answer = shell.name_editor->activate();
+        if (pressed.start) answer = shell.name_editor->save();
+        if (answer != client::ConsoleNameAnswer::editing) {
+            (void)finish_player_name(answer);
+        }
+        return;
+    }
     if (shell.phase == ShellPhase::title &&
         (pressed.d_up || pressed.d_down || pressed.d_left || pressed.d_right)) {
         const std::uint8_t rows = game_languages().size() > 1U ? 3U : 2U;
@@ -4038,6 +4170,36 @@ void draw_wrapped_story(std::string_view text) {
     }
 }
 
+void draw_name_editor() {
+    if (!shell.name_editor.has_value()) return;
+    const client::ConsoleNameEditor& editor = *shell.name_editor;
+    P64::Debug::printf(
+        42, 84, "%s / 18", shell.name_member.name.c_str()
+    );
+    P64::Debug::printf(
+        42, 101, "NAME  %s%s",
+        editor.name().empty() ? "_" : editor.c_str(),
+        editor.invalid() ? "  REQUIRED" : ""
+    );
+    for (int row = 0; row < client::ConsoleNameEditor::rows; ++row) {
+        for (int column = 0;
+             column < client::ConsoleNameEditor::columns(row); ++column) {
+            const client::ConsoleNameKey key =
+                client::ConsoleNameEditor::key(row, column);
+            const bool selected = row == editor.row() &&
+                                  column == editor.column();
+            int x = 27 + column * 30;
+            if (row == 4 && column >= 2) x = column == 2 ? 87 : 151;
+            P64::Debug::printf(
+                x, 119 + row * 15, "%s%s%s",
+                selected ? "[" : " ", key.label,
+                selected ? "]" : " "
+            );
+        }
+    }
+    P64::Debug::printf(31, 198, "A TYPE B ERASE C-UP KEEP START SAVE");
+}
+
 void draw_shell() {
     rdpq_mode_push();
     rdpq_mode_begin();
@@ -4152,6 +4314,9 @@ void draw_shell() {
             }
             break;
         }
+        case ShellPhase::name:
+            draw_name_editor();
+            break;
         case ShellPhase::deployment: {
             P64::Debug::printf(76, 88, "%s %lu/%u",
                 ui(console::Message::deployment),
