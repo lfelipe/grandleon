@@ -8,3 +8,4 @@
 0008-Use-GPU-clipping-for-safe-cached-PS1-polygons.patch
 0009-Avoid-duplicate-vertex-searches-in-PS1-visibility-ba.patch
 0010-Select-one-tool-when-resolving-Windows-build-command.patch
+0011-Reclaim-disabled-PS1-cache-entries-only-under-alloca.patch
