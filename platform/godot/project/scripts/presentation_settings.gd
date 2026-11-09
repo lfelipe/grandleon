@@ -52,7 +52,8 @@ func save_settings(
 	cinematic_motion := "full",
 	show_fps := false,
 	store_battle_closeups := true,
-	game_language := ""
+	game_language := "",
+	music_level: float = 0.45
 ) -> bool:
 	_warning = ""
 	if not available_profiles.has(graphics_profile):
@@ -61,7 +62,7 @@ func save_settings(
 	if text_scale < 1.0 or text_scale > 1.20:
 		_warning = "DISPLAY SETTINGS WERE NOT SAVED"
 		return false
-	if not _valid_effects_level(effects_level):
+	if not _valid_effects_level(effects_level) or not _valid_effects_level(music_level):
 		_warning = "DISPLAY SETTINGS WERE NOT SAVED"
 		return false
 	if stick_mode not in STICK_MODES:
@@ -94,6 +95,7 @@ func save_settings(
 		"cameraImpulse": camera_impulse,
 		"textScale": text_scale,
 		"effectsLevel": effects_level,
+		"musicLevel": music_level,
 		"stickMode": stick_mode,
 		"cinematicMotion": cinematic_motion,
 		"showFps": show_fps,
@@ -169,6 +171,12 @@ func _read(path: String, available_profiles: Array) -> Dictionary:
 	if typeof(effects_value) != TYPE_FLOAT and typeof(effects_value) != TYPE_INT:
 		return {}
 	var effects := float(effects_value)
+	var music_value: Variant = document.get("musicLevel", 0.45)
+	if typeof(music_value) != TYPE_FLOAT and typeof(music_value) != TYPE_INT:
+		return {}
+	var music := float(music_value)
+	if not _valid_effects_level(music):
+		return {}
 	if not _valid_effects_level(effects):
 		return {}
 	var stick_mode := String(document.get("stickMode", "deliberate"))
@@ -191,6 +199,7 @@ func _read(path: String, available_profiles: Array) -> Dictionary:
 		"camera_impulse": bool(document.cameraImpulse),
 		"text_scale": scale,
 		"effects_level": effects,
+		"music_level": music,
 		"stick_mode": stick_mode,
 		"battle_closeups": bool(battle_closeups_value),
 		"battle_closeups_set": document.has("battleCloseups"),
@@ -201,8 +210,4 @@ func _read(path: String, available_profiles: Array) -> Dictionary:
 
 
 func _valid_effects_level(value: float) -> bool:
-	return (
-		is_equal_approx(value, 0.0)
-		or is_equal_approx(value, 0.45)
-		or is_equal_approx(value, 1.0)
-	)
+	return is_finite(value) and value >= 0.0 and value <= 1.0

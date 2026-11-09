@@ -20,7 +20,7 @@ func _run() -> void:
 		"valid settings save",
 		settings.save_settings(
 			"voxel-sprites", false, 1.15, PROFILES, 0.45, "extra_firm",
-			false, "reduced", true, true, "pt-BR"
+			false, "reduced", true, true, "pt-BR", 0.25
 		)
 	)
 
@@ -30,6 +30,7 @@ func _run() -> void:
 	_expect("stored camera comfort", values.get("camera_impulse"), false)
 	_expect("stored text size", values.get("text_scale"), 1.15)
 	_expect("stored effects level", values.get("effects_level"), 0.45)
+	_expect("music volume is stored independently", values.get("music_level"), 0.25)
 	_expect("stored stick input", values.get("stick_mode"), "extra_firm")
 	_expect("stored battle close-ups", values.get("battle_closeups"), false)
 	_expect("stored close-up choice is explicit", values.get("battle_closeups_set"), true)
@@ -51,7 +52,7 @@ func _run() -> void:
 			keys,
 			[
 				"battleCloseups", "cameraImpulse", "cinematicMotion",
-				"contractVersion", "effectsLevel", "gameLanguage", "graphicsProfile",
+				"contractVersion", "effectsLevel", "gameLanguage", "graphicsProfile", "musicLevel",
 				"showFps", "stickMode", "textScale"
 			]
 		)
@@ -68,7 +69,7 @@ func _run() -> void:
 
 	_expect_true(
 		"invalid effects level is refused",
-		not settings.save_settings("voxel-sprites", false, 1.15, PROFILES, 0.73)
+		not settings.save_settings("voxel-sprites", false, 1.15, PROFILES, 1.01)
 	)
 	_expect_true(
 		"invalid stick input is refused",
@@ -99,6 +100,7 @@ func _run() -> void:
 		"voxel-sprites"
 	)
 	_expect("previous effects level recovers", recovered_values.get("effects_level"), 0.45)
+	_expect("previous music level recovers", recovered_values.get("music_level"), 0.25)
 	_expect("previous stick input recovers", recovered_values.get("stick_mode"), "extra_firm")
 	_expect("previous close-up choice recovers", recovered_values.get("battle_closeups"), false)
 	_expect("previous motion choice recovers", recovered_values.get("cinematic_motion"), "reduced")
@@ -123,6 +125,11 @@ func _run() -> void:
 		"textScale": 1.0,
 	}))
 	legacy.close()
+	_expect(
+		"legacy settings default to quiet music",
+		PresentationSettings.new(path).load_settings(PROFILES).get("music_level"),
+		0.45
+	)
 	_expect(
 		"removed profiles migrate to the supported presentation",
 		PresentationSettings.new(path).load_settings(PROFILES).get("graphics_profile"),

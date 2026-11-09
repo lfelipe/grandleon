@@ -141,11 +141,12 @@ from the same disc in its complete one- and two-player forms. See
 
 The generic Mipsync runtime cannot coexist with Grandleon's campaign runtime
 unchanged. This target compiles only the renderer pieces it uses and sizes the
-static caches for the scene. The playable-slice gate reserves 64 KiB for the
-future Grandleon platform audio seam, 32 KiB for stack and 512 KiB for gameplay
-heap inside the PlayStation's 2 MiB RAM. Omitting Mipsync's generic audio from
-this target does not remove PlayStation music or effects from the production
-plan.
+static caches for the scene. Music plays from six CD audio tracks; a resident
+51 KiB SPU ADPCM bank supplies interface, movement and combat effects. Music
+and Effects have independent saved controls on the title and battle menus.
+The playable-slice gate includes the audio code and bank in resident memory,
+and retains an additional 64 KiB platform reserve, 32 KiB for stack and
+512 KiB for gameplay heap inside the PlayStation's 2 MiB RAM.
 
 Larger maps are split into overlapping viewport-sized terrain pages. Only the
 closest page is visible, while the camera follows the cursor and clamps to the

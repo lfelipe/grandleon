@@ -55,6 +55,7 @@
     "player.settings.text_size": "TEXT SIZE  /  {value}",
     "player.settings.stick_input": "STICK INPUT  /  {value}",
     "player.settings.sound_effects": "SOUND EFFECTS  /  {value}",
+    "player.settings.music": "MUSIC  /  {value}",
     "player.settings.battle_closeups": "BATTLE CLOSE-UPS  /  {value}",
     "player.settings.cinematic_motion": "CINEMATIC MOTION  /  {value}",
     "player.settings.show_fps": "SHOW FPS  /  {value}",

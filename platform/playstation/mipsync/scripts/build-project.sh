@@ -66,7 +66,7 @@ psn_ar=$(command -v "${GRANDLEON_PSN00B_AR:-mipsel-linux-gnu-ar}")
 psn_size=$(command -v "${GRANDLEON_PSN00B_SIZE:-mipsel-linux-gnu-size}")
 psn_nm=$(command -v "${GRANDLEON_PSN00B_NM:-mipsel-linux-gnu-nm}")
 disc_builder=$(command -v "${GRANDLEON_MKPSXISO:-mkpsxiso}")
-for library in psxgpu psxetc psxapi; do
+for library in psxgpu psxetc psxspu psxcd psxapi; do
     python3 "$mipsync_dir/tools/normalize_psn00b_archive.py" \
         --ar "$psn_ar" \
         "$PSN00BSDK_ROOT/lib/libpsn00b/release/lib${library}_exe_nogprel.a" \
@@ -85,9 +85,12 @@ stage_runtime() {
     cp "$mipsync_dir/runtime/scene_adapter.c" "$source_dir/scene_adapter.c"
     cp "$mipsync_dir/runtime/game_bridge.cpp" "$source_dir/game_bridge.cpp"
     cp "$mipsync_dir/runtime/game_bridge.h" "$source_dir/game_bridge.h"
+    cp "$mipsync_dir/runtime/grandleon_audio.c" "$source_dir/grandleon_audio.c"
+    cp "$mipsync_dir/runtime/grandleon_audio.h" "$source_dir/grandleon_audio.h"
     cp "$mipsync_dir/runtime/iso.xml" "$source_dir/iso.xml"
     cp "$mipsync_dir/runtime/system.cnf" "$source_dir/system.cnf"
     mkdir -p "$source_dir/generated"
+    python3 "$mipsync_dir/tools/generate_audio.py" "$repo_root" "$source_dir/generated"
     python3 "$mipsync_dir/tools/generate_scene.py" \
         "$primary" "$repo_root" "$source_dir/generated"
     if test -n "$one_player"; then
@@ -174,9 +177,13 @@ printf 'BOOT = cdrom:\\%s;1\nTCB = 4\nEVENT = 16\nSTACK = 801FFFF0\n' \
         printf '<file name="%s" type="data" source="%s" />\n' \
             "$filename" "$filename"
     done < "$stage_files"
-    printf '%s\n' '<dummy sectors="1024" />' \
-        '</directory_tree></track></iso_project>'
+    printf '%s\n' '<dummy sectors="1024" />' '</directory_tree></track>'
+    for theme in cedar_overture banners_afar willow_village stone_and_shadow drums_at_the_gate first_light; do
+        printf '<track type="audio" source="music/%s.wav"><pregap duration="00:02:00" /></track>\n' "$theme"
+    done
+    printf '%s\n' '</iso_project>'
 } > "$disc/disc.xml"
+python3 "$mipsync_dir/tools/generate_audio.py" "$repo_root" "$output/audio" --music "$disc/music"
 (cd "$disc" && "$disc_builder" -y \
     -o "$output/game.bin" -c "$output/game.cue" disc.xml)
 

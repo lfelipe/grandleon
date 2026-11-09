@@ -1314,6 +1314,11 @@ add_test(
 # fallback, without requiring either cross compiler.
 find_program(GRANDLEON_PYTHON_EXECUTABLE python3 REQUIRED)
 add_test(
+    NAME grandleon.console_audio
+    COMMAND "${GRANDLEON_PYTHON_EXECUTABLE}"
+        "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/tests/audio_encoder_test.py"
+)
+add_test(
     NAME grandleon.console_directional_bank
     COMMAND
         "${GRANDLEON_PYTHON_EXECUTABLE}"

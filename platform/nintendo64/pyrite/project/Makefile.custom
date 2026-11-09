@@ -57,6 +57,10 @@ filesystem/ambience.wav64: assets/ambience.wav
 	@mkdir -p $(dir $@)
 	$(N64_AUDIOCONV) --wav-mono --wav-resample 22050 --wav-compress 1 \
 		--wav-loop true -o $(dir $@) "$<"
+filesystem/music_%.wav64: assets/music_%.wav
+	@mkdir -p $(dir $@)
+	$(N64_AUDIOCONV) --wav-mono --wav-resample 22050 --wav-compress 1 \
+		--wav-loop true -o $(dir $@) "$<"
 filesystem/%_cue.wav64: assets/%_cue.wav
 	@mkdir -p $(dir $@)
 	$(N64_AUDIOCONV) --wav-mono --wav-resample 22050 --wav-compress 1 \
@@ -76,6 +80,8 @@ GRANDLEON_DFS_INPUTS := \
 	filesystem/ui_cue.wav64 \
 	filesystem/impact_cue.wav64 \
 	filesystem/victory_cue.wav64 \
+	$(foreach n,1 2 3 4 5,filesystem/music_$(n).wav64) \
+	$(foreach cue,blade bow heavy arcane healing,filesystem/$(cue)_cue.wav64) \
 	$(GRANDLEON_PROJECT_SPRITES)
 # Pyrite's editor-side asset pass can leave same-named compressed placeholders
 # in `filesystem/` before GNU make evaluates these cartridge-specific rules.

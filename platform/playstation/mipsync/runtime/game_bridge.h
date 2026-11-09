@@ -43,6 +43,8 @@ enum grandleon_ui_text_id {
     GRANDLEON_TEXT_REDUCED_MOTION,
     GRANDLEON_TEXT_SHOW_FPS,
     GRANDLEON_TEXT_LANGUAGE,
+    GRANDLEON_TEXT_MUSIC,
+    GRANDLEON_TEXT_EFFECTS,
     GRANDLEON_TEXT_ON,
     GRANDLEON_TEXT_OFF,
     GRANDLEON_TEXT_BACK,
@@ -121,6 +123,8 @@ typedef struct grandleon_ui_state {
     uint8_t settings_menu_count;
     uint8_t reduced_motion;
     uint8_t show_fps;
+    uint8_t music_volume;
+    uint8_t effects_volume;
     uint16_t measured_fps;
     const char* language_code;
     const char* name_value;

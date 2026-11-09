@@ -1964,6 +1964,8 @@ gd::Dictionary GrandleonSession::event_dictionary(
                 value["kind"] = ability.kind == sim::AbilityKind::damage
                                       ? "damage"
                                       : "restore";
+                value["damage_type"] = ability.damage_type == sim::DamageType::magical
+                                           ? "magical" : "physical";
                 value["power"] = ability.power;
                 value["minimum_reach"] = ability.minimum_reach;
                 value["maximum_reach"] = ability.maximum_reach;

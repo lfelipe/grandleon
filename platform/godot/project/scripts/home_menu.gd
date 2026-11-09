@@ -42,6 +42,9 @@ func _ready() -> void:
 		GRAPHICS_PROFILES
 	)
 	stick_mode = String(stored_settings.get("stick_mode", "deliberate"))
+	PCAudio.set_effects_level(float(stored_settings.get("effects_level", 1.0)))
+	PCAudio.set_music_level(float(stored_settings.get("music_level", 0.45)))
+	PCAudio.play_music()
 	PCNavigation.configure(
 		controls.stick_press_threshold(),
 		controls.stick_release_threshold(),
@@ -187,6 +190,25 @@ func _build_interface() -> void:
 			language_select.select(at)
 	language_select.item_selected.connect(_select_language)
 	language_column.add_child(language_select)
+	for category: String in ["music", "sound_effects"]:
+		var row := HBoxContainer.new()
+		var label := _label("", 15, Color("8ba5b3"))
+		label.custom_minimum_size.x = 180
+		row.add_child(label)
+		var slider := HSlider.new()
+		slider.custom_minimum_size = Vector2(120, 28)
+		slider.max_value = 1.0
+		slider.step = 0.05
+		slider.value = PCAudio.music_level() if category == "music" else PCAudio.effects_level()
+		label.text = _t("player.settings." + category, {"value": "%d%%" % roundi(slider.value * 100)})
+		slider.value_changed.connect(func(value: float):
+			if category == "music": PCAudio.set_music_level(value)
+			else: PCAudio.set_effects_level(value)
+			label.text = _t("player.settings." + category, {"value": "%d%%" % roundi(value * 100)})
+			_save_audio_settings()
+		)
+		row.add_child(slider)
+		language_column.add_child(row)
 
 	column.add_child(_label(_t("home.play.heading"), 16, Color("69d9ff")))
 	var scroll := ScrollContainer.new()
@@ -218,6 +240,19 @@ func _build_interface() -> void:
 	)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(hint)
+
+
+func _save_audio_settings() -> void:
+	var store = PresentationSettings.new()
+	var saved: Dictionary = store.load_settings(GRAPHICS_PROFILES)
+	store.save_settings(
+		String(saved.get("graphics_profile", "voxel-sprites")),
+		bool(saved.get("camera_impulse", true)), float(saved.get("text_scale", 1.0)),
+		GRAPHICS_PROFILES, PCAudio.effects_level(), String(saved.get("stick_mode", "deliberate")),
+		bool(saved.get("battle_closeups", true)), String(saved.get("cinematic_motion", "full")),
+		bool(saved.get("show_fps", false)), bool(saved.get("battle_closeups_set", false)),
+		String(saved.get("game_language", "")), PCAudio.music_level()
+	)
 
 
 func _build_player_choice() -> void:

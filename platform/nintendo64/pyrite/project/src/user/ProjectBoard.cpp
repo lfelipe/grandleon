@@ -120,6 +120,11 @@ struct BoardResources final {
     sprite_t* combat_shadow{};
     std::array<UnitArt, grandleon_project_drawings.size()> art{};
     wav64_t ambience{};
+    std::array<wav64_t, 5> music{};
+    std::array<wav64_t, 5> combat_cues{};
+    std::array<P64::Audio::Handle, 8> effect_handles{};
+    std::size_t next_effect{};
+    unsigned music_track{99U};
     wav64_t ui_cue{};
     wav64_t impact_cue{};
     wav64_t victory_cue{};
@@ -183,6 +188,7 @@ enum class ReplayPhase : std::uint8_t {
 
 enum class ShellPhase : std::uint8_t {
     title,
+    settings,
     help,
     players,
     save,
@@ -199,6 +205,7 @@ struct ShellState final {
     std::uint8_t local_players{1U};
     std::uint8_t player_choice{};
     std::uint8_t title_row{};
+    std::uint8_t audio_row{};
     std::uint8_t save_choice{};
     std::uint32_t next_automatic_frame{75U};
     bool save_present{};
@@ -366,7 +373,8 @@ bool verdict_reported = false;
 std::uint32_t performance_frames = 0;
 std::uint8_t restore_checkpoint_delay = 0U;
 bool debug_hud = false;
-bool audio_enabled = true;
+unsigned music_volume = 45U;
+unsigned effects_volume = 75U;
 std::string selected_language;
 float camera_min_x = 0.0F;
 float camera_max_x = 0.0F;
@@ -414,12 +422,12 @@ const char* campaign_slot() {
 void save_user_settings() {
     if (!board.saves) return;
     std::vector<std::uint8_t> bytes(kSettingsMagic.begin(), kSettingsMagic.end());
-    bytes.push_back(2U);
+    bytes.push_back(3U);
     std::uint8_t flags = 0U;
     if (combat.enabled) flags |= 1U << 0U;
     if (combat.reduced_motion) flags |= 1U << 1U;
     if (debug_hud) flags |= 1U << 2U;
-    if (audio_enabled) flags |= 1U << 3U;
+    if (music_volume != 0U || effects_volume != 0U) flags |= 1U << 3U;
     bytes.push_back(flags);
     const std::size_t language_size = std::min<std::size_t>(
         selected_language.size(), 15U
@@ -429,6 +437,8 @@ void save_user_settings() {
         bytes.end(), selected_language.begin(),
         selected_language.begin() + static_cast<std::ptrdiff_t>(language_size)
     );
+    bytes.push_back(static_cast<std::uint8_t>(music_volume));
+    bytes.push_back(static_cast<std::uint8_t>(effects_volume));
     assertf(
         board.saves->write(kSettingsSlot, bytes) == storage::StorageError::none,
         "Pyrite settings could not be saved"
@@ -446,17 +456,22 @@ void load_user_settings() {
         return;
     }
     const std::uint8_t version = saved.bytes[3];
+    if (version < 1U || version > 3U) return;
     const std::uint8_t flags = saved.bytes[4];
     combat.enabled = (flags & (1U << 0U)) != 0U;
     combat.reduced_motion = (flags & (1U << 1U)) != 0U;
     debug_hud = (flags & (1U << 2U)) != 0U;
-    audio_enabled = (flags & (1U << 3U)) != 0U;
+    if ((flags & (1U << 3U)) == 0U) music_volume = effects_volume = 0U;
     if (version < 2U || saved.bytes.size() < 6U) return;
     const std::size_t language_size = saved.bytes[5];
     if (language_size == 0U || language_size > 15U ||
-        saved.bytes.size() != 6U + language_size) return;
+        saved.bytes.size() != 6U + language_size + (version == 3U ? 2U : 0U)) return;
+    if (version == 3U) {
+        music_volume = std::min<unsigned>(100U, saved.bytes[6U + language_size]);
+        effects_volume = std::min<unsigned>(100U, saved.bytes[7U + language_size]);
+    }
     const std::string stored(
-        saved.bytes.begin() + 6, saved.bytes.end()
+        saved.bytes.begin() + 6, saved.bytes.begin() + 6 + language_size
     );
     for (const std::string_view available : game_languages()) {
         if (available == stored) {
@@ -467,19 +482,51 @@ void load_user_settings() {
 }
 
 void apply_audio_setting() {
-    P64::AudioManager::setMasterVolume(audio_enabled ? 0.72F : 0.0F);
+    P64::AudioManager::setMasterVolume(1.0F);
+    board.ambience_handle.setVolume(static_cast<float>(music_volume) / 100.0F);
+    for (auto& handle : board.effect_handles) {
+        handle.setVolume(static_cast<float>(effects_volume) / 100.0F);
+    }
+}
+
+void adjust_volume(unsigned row, int direction) {
+    unsigned& volume = row == 0U ? music_volume : effects_volume;
+    volume = static_cast<unsigned>(std::clamp(static_cast<int>(volume) + direction * 5, 0, 100));
+    apply_audio_setting();
+    save_user_settings();
+    debugf("PYRITE_AUDIO_SETTINGS music=%u effects=%u\n", music_volume, effects_volume);
+}
+
+void play_effect(wav64_t* cue) {
+    if (effects_volume == 0U) return;
+    auto& handle = board.effect_handles[board.next_effect++ % board.effect_handles.size()];
+    handle = P64::AudioManager::play2D(cue);
+    handle.setVolume(static_cast<float>(effects_volume) / 100.0F);
+}
+
+void update_music() {
+    const unsigned track = shell.phase == ShellPhase::battle
+        ? (shell.stage_index >= 4U ? 4U : shell.stage_index == 1U ? 3U : 1U)
+        : shell.phase == ShellPhase::story ? 2U
+        : shell.phase == ShellPhase::complete ? 5U : 0U;
+    if (track == board.music_track) return;
+    board.ambience_handle.stop();
+    board.music_track = track;
+    board.ambience_handle = P64::AudioManager::play2D(
+        track == 0U ? &board.ambience : &board.music[track - 1U]);
+    board.ambience_handle.setVolume(static_cast<float>(music_volume) / 100.0F);
 }
 
 void play_ui_cue() {
-    if (audio_enabled) (void)P64::AudioManager::play2D(&board.ui_cue);
+    play_effect(&board.ui_cue);
 }
 
 void play_impact_cue() {
-    if (audio_enabled) (void)P64::AudioManager::play2D(&board.impact_cue);
+    play_effect(&board.impact_cue);
 }
 
 void play_victory_cue() {
-    if (audio_enabled) (void)P64::AudioManager::play2D(&board.victory_cue);
+    play_effect(&board.victory_cue);
 }
 
 constexpr std::uint32_t pack_rgba(
@@ -1663,6 +1710,15 @@ void load_runtime_board() {
     wav64_open(&board.ui_cue, "rom:/ui_cue.wav64");
     wav64_open(&board.impact_cue, "rom:/impact_cue.wav64");
     wav64_open(&board.victory_cue, "rom:/victory_cue.wav64");
+    for (unsigned index = 0; index < board.music.size(); ++index) {
+        std::snprintf(path, sizeof path, "rom:/music_%u.wav64", index + 1U);
+        wav64_open(&board.music[index], path);
+    }
+    const char* cue_names[] = {"blade", "bow", "heavy", "arcane", "healing"};
+    for (unsigned index = 0; index < board.combat_cues.size(); ++index) {
+        std::snprintf(path, sizeof path, "rom:/%s_cue.wav64", cue_names[index]);
+        wav64_open(&board.combat_cues[index], path);
+    }
     const auto complete_art = [](const UnitArt& art) {
         return art.idle && art.moving && art.close_idle && art.attack && art.hurt;
     };
@@ -2217,6 +2273,10 @@ bool confirm_shell_choice() {
     play_ui_cue();
     switch (shell.phase) {
         case ShellPhase::title:
+            if (shell.title_row == (game_languages().size() > 1U ? 3U : 2U)) {
+                enter_shell_phase(ShellPhase::settings);
+                return true;
+            }
             if (shell.title_row == 2U && game_languages().size() > 1U) {
                 return cycle_game_language();
             }
@@ -2229,6 +2289,9 @@ bool confirm_shell_choice() {
             return true;
         case ShellPhase::help:
             enter_shell_phase(ShellPhase::title);
+            return true;
+        case ShellPhase::settings:
+            adjust_volume(shell.audio_row, 1);
             return true;
         case ShellPhase::players:
             shell.second_connected = joypad_is_connected(JOYPAD_PORT_2);
@@ -2305,7 +2368,7 @@ void update_shell_input() {
     }
     if (shell.phase == ShellPhase::title &&
         (pressed.d_up || pressed.d_down || pressed.d_left || pressed.d_right)) {
-        const std::uint8_t rows = game_languages().size() > 1U ? 3U : 2U;
+        const std::uint8_t rows = game_languages().size() > 1U ? 4U : 3U;
         if (pressed.d_up || pressed.d_left) {
             shell.title_row = shell.title_row == 0U
                 ? static_cast<std::uint8_t>(rows - 1U)
@@ -2315,6 +2378,13 @@ void update_shell_input() {
                 (shell.title_row + 1U) % rows
             );
         }
+    } else if (shell.phase == ShellPhase::settings) {
+        if (pressed.b || pressed.start) enter_shell_phase(ShellPhase::title);
+        else if (pressed.d_up || pressed.d_down) shell.audio_row ^= 1U;
+        else if (pressed.d_left || pressed.d_right) {
+            adjust_volume(shell.audio_row, pressed.d_left ? -1 : 1);
+        } else if (pressed.a) adjust_volume(shell.audio_row, 1);
+        return;
     } else if (shell.phase == ShellPhase::help && pressed.b) {
         enter_shell_phase(ShellPhase::title);
         return;
@@ -3108,6 +3178,17 @@ bool apply_battle_command(
     if (!accepted) return false;
     if (command.type == sim::CommandType::attack ||
         command.type == sim::CommandType::ability) {
+        unsigned cue = actor_before.minimum_reach > 1U ? 1U : 0U;
+        if (command.type == sim::CommandType::ability) {
+            cue = 2U;
+            for (const auto& ability : board.game.encounter().abilities()) {
+                if (ability.id != command.ability_id) continue;
+                cue = ability.kind == sim::AbilityKind::restore ? 4U
+                    : ability.damage_type == sim::DamageType::magical ? 3U : 2U;
+                break;
+            }
+        }
+        play_effect(&board.combat_cues[cue]);
         play_impact_cue();
     }
     remember_transition_events();
@@ -3252,7 +3333,7 @@ bool nudge_toward(sim::Position destination) {
 }
 
 std::uint8_t system_rows() {
-    return game_languages().size() > 1U ? 7U : 6U;
+    return game_languages().size() > 1U ? 8U : 7U;
 }
 
 void open_system_menu(std::uint8_t player) {
@@ -3276,9 +3357,7 @@ bool confirm_system_choice() {
             save_user_settings();
             return true;
         case 3U:
-            audio_enabled = !audio_enabled;
-            apply_audio_setting();
-            save_user_settings();
+            adjust_volume(0U, 1);
             return true;
         case 4U:
             debug_hud = !debug_hud;
@@ -3288,10 +3367,17 @@ bool confirm_system_choice() {
             if (game_languages().size() > 1U) {
                 (void)cycle_game_language();
             } else {
-                battle_ui.phase = BattleUiPhase::help;
+                adjust_volume(1U, 1);
             }
             return true;
         case 6U:
+            if (game_languages().size() > 1U) {
+                adjust_volume(1U, 1);
+                return true;
+            }
+            battle_ui.phase = BattleUiPhase::help;
+            return true;
+        case 7U:
             battle_ui.phase = BattleUiPhase::help;
             return true;
         default:
@@ -3393,7 +3479,7 @@ bool physical_input_for(
     }
     if (battle_ui.phase == BattleUiPhase::system) {
         if (player != battle_ui.player) return false;
-        if (!pressed.d_up && !pressed.d_down && !pressed.a && !pressed.b &&
+        if (!pressed.d_up && !pressed.d_down && !pressed.d_left && !pressed.d_right && !pressed.a && !pressed.b &&
             !pressed.start) {
             return false;
         }
@@ -3406,6 +3492,9 @@ bool physical_input_for(
             battle_ui.row = static_cast<std::uint8_t>(
                 (battle_ui.row + 1U) % system_rows()
             );
+        } else if ((pressed.d_left || pressed.d_right) &&
+                   (battle_ui.row == 3U || battle_ui.row == (game_languages().size() > 1U ? 6U : 5U))) {
+            adjust_volume(battle_ui.row == 3U ? 0U : 1U, pressed.d_left ? -1 : 1);
         } else if (pressed.b || pressed.start) {
             battle_ui = {};
         } else if (pressed.a) {
@@ -4285,7 +4374,7 @@ void draw_battle_ui() {
         } else {
             const bool languages = game_languages().size() > 1U;
             const auto y = [](unsigned row) {
-                return 64 + static_cast<int>(row) * 20;
+                return 62 + static_cast<int>(row) * 18;
             };
             P64::Debug::printf(94, 44, "%s P%u",
                 ui(console::Message::settings),
@@ -4301,10 +4390,9 @@ void draw_battle_ui() {
                 battle_ui.row == 2U ? ">" : " ",
                 ui(console::Message::reduced_motion),
                 ui(combat.reduced_motion ? console::Message::on : console::Message::off));
-            P64::Debug::printf(69, y(3), "%s %s: %s",
+            P64::Debug::printf(69, y(3), "%s %s: %u%%",
                 battle_ui.row == 3U ? ">" : " ",
-                ui(console::Message::audio),
-                ui(audio_enabled ? console::Message::on : console::Message::off));
+                ui(console::Message::music_volume), music_volume);
             P64::Debug::printf(69, y(4), "%s %s",
                 battle_ui.row == 4U ? ">" : " ",
                 ui(debug_hud ? console::Message::show_fps_on
@@ -4315,7 +4403,11 @@ void draw_battle_ui() {
                     ui(console::Message::language),
                     console::language_code(game_language()));
             }
-            const unsigned help_row = languages ? 6U : 5U;
+            const unsigned effects_row = languages ? 6U : 5U;
+            P64::Debug::printf(69, y(effects_row), "%s %s: %u%%",
+                battle_ui.row == effects_row ? ">" : " ",
+                ui(console::Message::effects_volume), effects_volume);
+            const unsigned help_row = languages ? 7U : 6U;
             P64::Debug::printf(69, y(help_row), "%s %s",
                 battle_ui.row == help_row ? ">" : " ",
                 ui(console::Message::help));
@@ -4660,7 +4752,18 @@ void draw_shell() {
                     console::language_code(game_language())
                 );
             }
-            P64::Debug::printf(61, 194, "RENDERER: PYRITE");
+            P64::Debug::printf(91, 184, "%s %s",
+                shell.title_row == (game_languages().size() > 1U ? 3U : 2U) ? ">" : " ",
+                ui(console::Message::settings));
+            break;
+        case ShellPhase::settings:
+            P64::Debug::printf(91, 90, "%s", ui(console::Message::settings));
+            P64::Debug::printf(65, 120, "%s %s: %u%%", shell.audio_row == 0U ? ">" : " ",
+                ui(console::Message::music_volume), music_volume);
+            P64::Debug::printf(65, 146, "%s %s: %u%%", shell.audio_row == 1U ? ">" : " ",
+                ui(console::Message::effects_volume), effects_volume);
+            P64::Debug::printf(43, 174, "%s", ui(console::Message::volume_controls));
+            P64::Debug::printf(43, 194, "B %s", ui(console::Message::back));
             break;
         case ShellPhase::help:
             P64::Debug::printf(119, 88, "%s", ui(console::Message::help));
@@ -4864,8 +4967,8 @@ void onGameInit() {
     assertf(board.saves->available(), "Cartridge save storage is unavailable");
     load_user_settings();
     apply_audio_setting();
-    board.ambience_handle = P64::AudioManager::play2D(&board.ambience);
-    board.ambience_handle.setVolume(0.34F);
+    debugf("PYRITE_AUDIO_LOADED music=%u effects=%u\n", music_volume, effects_volume);
+    update_music();
     const pr::CampaignLoadResult campaign = pr::load_campaign(
         board.runtime.package(), grandleon_project_campaign_id
     );
@@ -4891,6 +4994,7 @@ void onGameInit() {
 }
 
 void onSceneUpdate() {
+    update_music();
     if (shell.phase != ShellPhase::battle) {
         update_shell_input();
         frame_count += kLogicTicksPerUpdate;

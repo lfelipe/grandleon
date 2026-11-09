@@ -7,6 +7,7 @@
 #include <psxpad.h>
 
 #include "game_bridge.h"
+#include "grandleon_audio.h"
 #include "runtime/render.h"
 #include "runtime/scene.h"
 #include "runtime/textures.h"
@@ -53,6 +54,7 @@ void grandleon_platform_card_end(void) {
 void grandleon_platform_load_stage(const char* disc_path) {
     if (!disc_path || !disc_path[0]) return;
     DrawSync(0);
+    grandleon_audio_shutdown();
     StopPAD();
     StopCallback();
     _96_remove();
@@ -130,6 +132,7 @@ int main(void) {
     if (!grandleon_game_init()) {
         grandleon_game_log_boot(0);
     }
+    grandleon_audio_init();
 
     for (;;) {
         const uint16_t frame_start = (uint16_t)TIMER_VALUE(1);
@@ -176,6 +179,7 @@ int main(void) {
             }
         }
         deferred = grandleon_runtime_update(pressed[0], pressed[1]);
+        grandleon_audio_update();
 
         if (deferred) {
             const uint16_t mutation_ticks =

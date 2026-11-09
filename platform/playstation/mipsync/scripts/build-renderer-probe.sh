@@ -49,16 +49,19 @@ cp "$mipsync_dir/runtime/main.c" "$stage/main.c"
 cp "$mipsync_dir/runtime/scene_adapter.c" "$stage/scene_adapter.c"
 cp "$mipsync_dir/runtime/game_bridge.cpp" "$stage/game_bridge.cpp"
 cp "$mipsync_dir/runtime/game_bridge.h" "$stage/game_bridge.h"
+cp "$mipsync_dir/runtime/grandleon_audio.c" "$stage/grandleon_audio.c"
+cp "$mipsync_dir/runtime/grandleon_audio.h" "$stage/grandleon_audio.h"
 cp "$mipsync_dir/runtime/iso.xml" "$stage/iso.xml"
 cp "$mipsync_dir/runtime/system.cnf" "$stage/system.cnf"
 mkdir -p "$stage/generated"
+python3 "$mipsync_dir/tools/generate_audio.py" "$repo_root" "$stage/generated" --music "$stage/music"
 python3 "$mipsync_dir/tools/generate_scene.py" \
     "$manifest" "$repo_root" "$stage/generated"
 python3 "$mipsync_dir/tools/generate_simulation.py" \
     "$manifest" "$stage/generated"
 normalized=$output/dependencies/psn00b
 mkdir -p "$normalized"
-for library in psxgpu psxetc psxapi; do
+for library in psxgpu psxetc psxspu psxcd psxapi; do
     python3 "$mipsync_dir/tools/normalize_psn00b_archive.py" \
         --ar "$PSN00BSDK_ROOT/bin/mipsel-none-elf-ar" \
         "$PSN00BSDK_ROOT/lib/libpsn00b/release/lib${library}_exe_nogprel.a" \

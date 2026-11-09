@@ -22,7 +22,7 @@ add_library(grandleon_mipsync_nugget STATIC ${grandleon_nugget_sources})
 target_include_directories(grandleon_mipsync_nugget PRIVATE "${PLAYSTATION_NUGGET}")
 
 add_executable(grandleon_mipsync
-    main.c scene_adapter.c game_bridge.cpp
+    main.c scene_adapter.c game_bridge.cpp grandleon_audio.c generated/audio_data.c
     "${GRANDLEON_SOURCE_ROOT}/engine/core/src/random.cpp"
     "${GRANDLEON_SOURCE_ROOT}/engine/core/src/version.cpp"
     "${GRANDLEON_SOURCE_ROOT}/engine/campaign/src/graph.cpp"
@@ -82,6 +82,8 @@ target_link_libraries(grandleon_mipsync PRIVATE
     grandleon_mipsync_nugget
     "${GRANDLEON_PSN00B_ARCHIVE_ROOT}/libpsxgpu_exe_nogprel.a"
     "${GRANDLEON_PSN00B_ARCHIVE_ROOT}/libpsxetc_exe_nogprel.a"
+    "${GRANDLEON_PSN00B_ARCHIVE_ROOT}/libpsxspu_exe_nogprel.a"
+    "${GRANDLEON_PSN00B_ARCHIVE_ROOT}/libpsxcd_exe_nogprel.a"
     "${GRANDLEON_PSN00B_ARCHIVE_ROOT}/libpsxapi_exe_nogprel.a"
 )
 target_link_options(grandleon_mipsync PRIVATE

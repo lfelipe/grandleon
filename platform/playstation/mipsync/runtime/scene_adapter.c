@@ -162,6 +162,28 @@ static void draw_number(
     }
 }
 
+static void draw_settings_rows(uint32_t* ot, char** next, const char* end,
+                               const grandleon_ui_state* state, int x, int y) {
+    const unsigned labels[] = {GRANDLEON_TEXT_CLOSE_VIEW, GRANDLEON_TEXT_REDUCED_MOTION,
+        GRANDLEON_TEXT_SHOW_FPS, GRANDLEON_TEXT_MUSIC, GRANDLEON_TEXT_EFFECTS, GRANDLEON_TEXT_LANGUAGE};
+    for (unsigned row = 0; row < state->settings_menu_count && row < 6; ++row) {
+        const int line = y + (int)row * 19;
+        if (row == state->settings_menu_index) draw_box(ot, next, end, x - 5, line - 3, 198, 17, 52, 63, 45);
+        draw_text(ot, next, end, x, line, grandleon_game_text(labels[row]), 247, 239, 209);
+        if (row == 3 || row == 4) {
+            const unsigned value = row == 3 ? state->music_volume : state->effects_volume;
+            if (value) draw_box_depth(ot, next, end, x + 100, line + 3, (int)(value * 34 / 100), 5, 94, 206, 227, 1);
+            draw_box_depth(ot, next, end, x + 100, line + 3, 34, 5, 31, 46, 57, 1);
+            draw_number(ot, next, end, x + 143, line, value, 94, 206, 227);
+            draw_text(ot, next, end, x + 165, line, "%", 94, 206, 227);
+        } else {
+            const int enabled = row == 0 ? state->close_combat : row == 1 ? state->reduced_motion : state->show_fps;
+            draw_text(ot, next, end, x + 143, line, row == 5 ? state->language_code
+                : grandleon_game_text(enabled ? GRANDLEON_TEXT_ON : GRANDLEON_TEXT_OFF), 94, 206, 227);
+        }
+    }
+}
+
 static void draw_menu_row(
     uint32_t* ordering_table, char** next_packet, const char* packet_end,
     int x, int y, const char* label, int selected, int suffix
@@ -216,8 +238,9 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
 
     if (state.mode >= GRANDLEON_UI_TITLE) {
         draw_box_depth(ordering_table, next_packet, packet_end,
-                       0, 0, 320, 240, 7, 13, 24, 3);
-        draw_panel(ordering_table, next_packet, packet_end, 22, 28, 276, 174);
+                       0, 0, 320, 240, 7, 13, 24, 4);
+        draw_panel(ordering_table, next_packet, packet_end, 22, 28, 276,
+                   state.mode == GRANDLEON_UI_TITLE_SETTINGS ? 196 : 174);
         draw_text(ordering_table, next_packet, packet_end, 42, 47,
                   state.headline ? state.headline : "GRANDLEON",
                   255, 205, 68);
@@ -307,37 +330,8 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
             draw_text(ordering_table, next_packet, packet_end, 212, 192,
                       grandleon_game_text(GRANDLEON_TEXT_SAVE), 168, 181, 196);
         } else if (state.mode == GRANDLEON_UI_TITLE_SETTINGS) {
-            const char* close = grandleon_game_text(
-                state.close_combat ? GRANDLEON_TEXT_ON : GRANDLEON_TEXT_OFF
-            );
-            const char* reduced = grandleon_game_text(
-                state.reduced_motion ? GRANDLEON_TEXT_ON : GRANDLEON_TEXT_OFF
-            );
-            const char* fps = grandleon_game_text(
-                state.show_fps ? GRANDLEON_TEXT_ON : GRANDLEON_TEXT_OFF
-            );
-            draw_box(ordering_table, next_packet, packet_end,
-                     48, 101 + state.settings_menu_index * 22, 224, 18,
-                     52, 63, 45);
-            draw_text(ordering_table, next_packet, packet_end, 60, 105,
-                      grandleon_game_text(GRANDLEON_TEXT_CLOSE_VIEW), 247, 239, 209);
-            draw_text(ordering_table, next_packet, packet_end, 228, 105,
-                      close, 94, 206, 227);
-            draw_text(ordering_table, next_packet, packet_end, 60, 127,
-                      grandleon_game_text(GRANDLEON_TEXT_REDUCED_MOTION), 247, 239, 209);
-            draw_text(ordering_table, next_packet, packet_end, 228, 127,
-                      reduced, 94, 206, 227);
-            draw_text(ordering_table, next_packet, packet_end, 60, 149,
-                      grandleon_game_text(GRANDLEON_TEXT_SHOW_FPS), 247, 239, 209);
-            draw_text(ordering_table, next_packet, packet_end, 228, 149,
-                      fps, 94, 206, 227);
-            if (state.settings_menu_count > 3) {
-                draw_text(ordering_table, next_packet, packet_end, 60, 171,
-                          grandleon_game_text(GRANDLEON_TEXT_LANGUAGE), 247, 239, 209);
-                draw_text(ordering_table, next_packet, packet_end, 228, 171,
-                          state.language_code, 94, 206, 227);
-            }
-            draw_text(ordering_table, next_packet, packet_end, 95, 194,
+            draw_settings_rows(ordering_table, next_packet, packet_end, &state, 60, 96);
+            draw_text(ordering_table, next_packet, packet_end, 60, 212,
                       grandleon_game_text(GRANDLEON_TEXT_BACK), 168, 181, 196);
         } else {
             draw_box(ordering_table, next_packet, packet_end,
@@ -389,43 +383,12 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
         return;
     }
     if (state.mode == GRANDLEON_UI_BATTLE_SETTINGS) {
-        const char* close = grandleon_game_text(
-            state.close_combat ? GRANDLEON_TEXT_ON : GRANDLEON_TEXT_OFF
-        );
-        const char* reduced = grandleon_game_text(
-            state.reduced_motion ? GRANDLEON_TEXT_ON : GRANDLEON_TEXT_OFF
-        );
-        const char* fps = grandleon_game_text(
-            state.show_fps ? GRANDLEON_TEXT_ON : GRANDLEON_TEXT_OFF
-        );
         x = state.cursor_on_left ? 104 : 8;
-        draw_panel(ordering_table, next_packet, packet_end, x, 42, 208,
-                   state.settings_menu_count > 3 ? 142 : 116);
+        draw_panel(ordering_table, next_packet, packet_end, x, 42, 208, 166);
         draw_text(ordering_table, next_packet, packet_end, x + 12, 51,
                   grandleon_game_text(GRANDLEON_TEXT_SETTINGS), 94, 206, 227);
-        draw_box(ordering_table, next_packet, packet_end,
-                 x + 8, 72 + state.settings_menu_index * 21, 192, 17,
-                 52, 63, 45);
-        draw_text(ordering_table, next_packet, packet_end, x + 17, 76,
-                  grandleon_game_text(GRANDLEON_TEXT_CLOSE_VIEW), 247, 239, 209);
-        draw_text(ordering_table, next_packet, packet_end, x + 164, 76,
-                  close, 94, 206, 227);
-        draw_text(ordering_table, next_packet, packet_end, x + 17, 97,
-                  grandleon_game_text(GRANDLEON_TEXT_REDUCED_MOTION), 247, 239, 209);
-        draw_text(ordering_table, next_packet, packet_end, x + 164, 97,
-                  reduced, 94, 206, 227);
-        draw_text(ordering_table, next_packet, packet_end, x + 17, 118,
-                  grandleon_game_text(GRANDLEON_TEXT_SHOW_FPS), 247, 239, 209);
-        draw_text(ordering_table, next_packet, packet_end, x + 164, 118,
-                  fps, 94, 206, 227);
-        if (state.settings_menu_count > 3) {
-            draw_text(ordering_table, next_packet, packet_end, x + 17, 139,
-                      grandleon_game_text(GRANDLEON_TEXT_LANGUAGE), 247, 239, 209);
-            draw_text(ordering_table, next_packet, packet_end, x + 164, 139,
-                      state.language_code, 94, 206, 227);
-        }
-        draw_text(ordering_table, next_packet, packet_end, x + 17,
-                  state.settings_menu_count > 3 ? 162 : 141,
+        draw_settings_rows(ordering_table, next_packet, packet_end, &state, x + 12, 76);
+        draw_text(ordering_table, next_packet, packet_end, x + 17, 194,
                   grandleon_game_text(GRANDLEON_TEXT_BACK), 168, 181, 196);
         activate_ui_tpage(ordering_table, next_packet, packet_end);
         return;

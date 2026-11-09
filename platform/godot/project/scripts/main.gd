@@ -37,6 +37,7 @@ var controls_path := ""
 var camera_impulse_enabled := true
 var text_scale := 1.0
 var effects_level := 1.0
+var music_level := 0.45
 var stick_mode := "deliberate"
 var battle_closeups_enabled := true
 var battle_closeups_argument_explicit := false
@@ -157,7 +158,10 @@ var session_menu_settings_button: Button
 var session_menu_camera: Button
 var session_menu_text: Button
 var session_menu_stick: Button
-var session_menu_audio: Button
+var session_menu_audio: HSlider
+var session_menu_music: HSlider
+var session_menu_audio_label: Label
+var session_menu_music_label: Label
 var session_menu_closeups: Button
 var session_menu_cinematic_motion: Button
 var session_menu_fps: Button
@@ -240,9 +244,12 @@ func _ready() -> void:
 		1.20
 	)
 	effects_level = float(stored_settings.get("effects_level", 1.0))
+	music_level = float(stored_settings.get("music_level", 0.45))
 	cinematic_motion = String(stored_settings.get("cinematic_motion", "full"))
 	show_fps_enabled = bool(stored_settings.get("show_fps", false))
 	PCAudio.set_effects_level(effects_level)
+	PCAudio.set_music_level(music_level)
+	PCAudio.play_music()
 	_create_background()
 	_create_board(graphics_profile)
 	_create_interface()
@@ -755,7 +762,7 @@ func _run_controls_smoke() -> void:
 		"battle HUD omits menu": not help_label.text.contains("SESSION MENU"),
 		"resume label": session_menu_resume.text == "RESUME",
 		"save label": session_menu_save_load.text == "SAVE / LOAD",
-		"audio label": session_menu_audio.text == "SOUND EFFECTS  /  FULL",
+		"audio label": session_menu_audio_label.text == "SOUND EFFECTS  /  100%",
 		"close-up label": session_menu_closeups.text == "BATTLE CLOSE-UPS  /  ON",
 		"cinematic motion label": session_menu_cinematic_motion.text == "CINEMATIC MOTION  /  FULL",
 		"FPS label defaults off": session_menu_fps.text == "SHOW FPS  /  OFF",
@@ -1409,18 +1416,16 @@ func _set_text_scale(value: float) -> void:
 	_persist_presentation_settings()
 
 
-func _cycle_effects_level() -> void:
-	if effects_level > 0.75:
-		_set_effects_level(0.45)
-	elif effects_level > 0.0:
-		_set_effects_level(0.0)
-	else:
-		_set_effects_level(1.0)
-
-
 func _set_effects_level(value: float) -> void:
 	effects_level = value
 	PCAudio.set_effects_level(effects_level)
+	_update_session_labels()
+	_persist_presentation_settings()
+
+
+func _set_music_level(value: float) -> void:
+	music_level = clampf(value, 0.0, 1.0)
+	PCAudio.set_music_level(music_level)
 	_update_session_labels()
 	_persist_presentation_settings()
 
@@ -1592,7 +1597,8 @@ func _persist_presentation_settings() -> void:
 		cinematic_motion,
 		show_fps_enabled,
 		battle_closeups_local_override,
-		game_language
+		game_language,
+		music_level
 	):
 		_show_toast(_localized_runtime_warning(presentation_settings.warning()))
 
@@ -1629,9 +1635,15 @@ func _update_session_labels() -> void:
 			"value": _state_text("extra_firm" if stick_mode == "extra_firm" else "deliberate"),
 		})
 	if session_menu_audio != null:
-		session_menu_audio.text = _ui("player.settings.sound_effects", {
-			"value": _state_text(PCAudio.level_name().to_lower()),
+		session_menu_audio_label.text = _ui("player.settings.sound_effects", {
+			"value": "%d%%" % roundi(effects_level * 100.0),
 		})
+		session_menu_audio.set_value_no_signal(effects_level)
+	if session_menu_music != null:
+		session_menu_music_label.text = _ui("player.settings.music", {
+			"value": "%d%%" % roundi(music_level * 100.0),
+		})
+		session_menu_music.set_value_no_signal(music_level)
 	if session_menu_closeups != null:
 		session_menu_closeups.text = _ui("player.settings.battle_closeups", {
 			"value": _state_text("on" if battle_closeups_enabled else "off"),
@@ -1984,8 +1996,21 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	session_menu_stick = _settings_button("")
 	session_menu_stick.pressed.connect(_toggle_stick_mode)
 	session_menu_settings.add_child(session_menu_stick)
-	session_menu_audio = _settings_button("")
-	session_menu_audio.pressed.connect(_cycle_effects_level)
+	session_menu_music_label = Label.new()
+	session_menu_settings.add_child(session_menu_music_label)
+	session_menu_music = HSlider.new()
+	session_menu_music.max_value = 1.0
+	session_menu_music.step = 0.05
+	session_menu_music.custom_minimum_size = Vector2(280, 32)
+	session_menu_music.value_changed.connect(_set_music_level)
+	session_menu_settings.add_child(session_menu_music)
+	session_menu_audio_label = Label.new()
+	session_menu_settings.add_child(session_menu_audio_label)
+	session_menu_audio = HSlider.new()
+	session_menu_audio.max_value = 1.0
+	session_menu_audio.step = 0.05
+	session_menu_audio.custom_minimum_size = Vector2(280, 32)
+	session_menu_audio.value_changed.connect(_set_effects_level)
 	session_menu_settings.add_child(session_menu_audio)
 	session_menu_closeups = _settings_button("")
 	session_menu_closeups.pressed.connect(_toggle_battle_closeups)
@@ -2638,6 +2663,8 @@ func _handle_event(event: Dictionary) -> void:
 					"reason": reason.to_upper().replace("_", " "),
 				}))
 		"dialogue":
+			if not bool(event.get("over_board", false)):
+				PCAudio.play_music("willow_village")
 			var scene_cast: Array[int] = []
 			for cast_line_value: Variant in event.get("lines", []):
 				if not cast_line_value is Dictionary:
@@ -2660,6 +2687,7 @@ func _handle_event(event: Dictionary) -> void:
 				dialogue_index = dialogue_lines.size() - event.get("lines", []).size()
 				_show_dialogue_line()
 		"battle_begins":
+			PCAudio.play_music("banners_afar")
 			pending_combat_presentation.clear()
 			if combat_cinematic != null:
 				combat_cinematic.clear()
@@ -2732,7 +2760,8 @@ func _handle_event(event: Dictionary) -> void:
 			if coop_smoke:
 				_verify_coop_motion(presentation_events)
 			PCAudio.present_events(
-				presentation_events, presentation_action
+				presentation_events, presentation_action,
+				int(event.get("action_content_id", 0)), definitions, snapshot
 			)
 			if board.has_method("present_events"):
 				board.present_events(
@@ -2782,6 +2811,7 @@ func _handle_event(event: Dictionary) -> void:
 				else "player.result.battle_lost"
 			)
 		"campaign_ended":
+			PCAudio.play_music("first_light")
 			campaign_complete = true
 			_show_toast(
 				_ui("player.session.company_defeated")

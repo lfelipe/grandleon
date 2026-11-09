@@ -33,6 +33,13 @@ authored Bell Orchard simulation through the normal title and player chooser.
 The same disc persists the FPS preference and restores it in a new emulator
 process. FPS is off on a fresh card.
 
+The audio export has six CD music tracks and 21 resident ADPCM effects.
+The audio probe verifies CD initialization and acknowledged title playback,
+changes Music and Effects independently through both title and battle menus,
+then restarts the emulator and checks the saved values. It captures both menus.
+This verifies transport and settings; listening to the final mix on hardware
+remains part of acceptance.
+
 Focused captures boot the real Deepwood 2P and Twin Gate 1P encounters directly
 and inject controller input at the normal update boundary. Deepwood exercises
 both scrolling axes. Twin Gate advances Rowan to the approach, ends both
@@ -51,18 +58,20 @@ disc still needs that full playthrough and hardware acceptance.
 
 ## Memory and performance
 
-Committed RAM includes 64 KiB reserved for audio, 32 KiB for stack, and
-512 KiB for the gameplay heap. Reserved space is not implemented PS1 audio.
+Committed RAM includes the implemented audio code and 51 KiB effect bank,
+an additional 64 KiB platform reserve, 32 KiB for stack, and 512 KiB for the
+gameplay heap. Music remains on the CD.
 
 | Encounter | Committed RAM / 2,097,152 | Texture VRAM / 720,896 |
 | --- | ---: | ---: |
-| Bell Orchard | 1,731,040 | 211,744 |
-| Cedar Deepwood | 1,782,240 | 167,200 |
-| Cedar Watch | 1,978,848 | 262,976 |
-| Gate Village | 1,999,328 | 281,440 |
-| Twin Gate Keep | 1,948,128 | 242,432 |
+| Bell Orchard | 1,790,860 | 211,744 |
+| Cedar Deepwood | 1,842,060 | 167,200 |
+| Cedar Watch | 2,036,636 | 262,976 |
+| Gate Village | 2,057,132 | 281,440 |
+| Twin Gate Keep | 2,007,948 | 242,432 |
 
-**The corrected graphics do not yet pass the strict 30 fps gates.** Across
+**The corrected graphics do not yet pass the strict 30 fps gates.** Before
+the audio integration, across
 600 rule ticks, Deepwood records 300 renders with 13 missed retraces during
 camera movement; completed work averages 288 HBlanks and peaks at 593.
 Twin Gate records 297 renders, three deferred updates and 55 missed
@@ -75,14 +84,16 @@ scroll/combat tests and reduce rendering cost before calling performance ready.
 ## Artifacts and remaining gates
 
 The review export and manifests are in
-`~/.cache/grandleon-ps1-indexed-build.mOZON2/review-release05-v3/`.
+`~/.cache/grandleon-ps1-indexed-build.mOZON2/review-release05-audio-final/`.
 The BIN SHA-256 is
-`13b704fbf3e94b559b8b2ad9e4201988434308300358e4f3083254e07bdacc11`.
-Focused evidence is in `review-accepted-deep/` and `review-accepted-gate/` beside it.
+`0978d0d10cf4a5d7416e0d02e8a90500e437228499ab82c4e53f89be8d2ae3c3`.
+The audio menu evidence is in `review-release05-audio-final-controls-v2/`.
+The earlier graphics evidence is in `review-accepted-deep/` and
+`review-accepted-gate/` beside it; repeat performance checks with audio enabled.
 Campaign/card evidence is in `review-route05-corrected-evidence/`; that disc
 is a separate probe and must not be distributed as the playable release.
 
 Before release: resolve the frame-budget misses, rerun the final campaign and
 card checks on the resulting disc, test pose transfers and pacing on hardware,
-and play both campaign modes for balance. The PS1 audio implementation remains
-separate unfinished platform work.
+and play both campaign modes for balance. Check music across stage loads,
+the final mix and combat-effect timing on hardware.

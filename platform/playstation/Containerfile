@@ -105,7 +105,7 @@ RUN set -eu \
         | sha256sum --check --strict - \
     && chmod -R a+rX /libstdcxx
 
-# Mipsync uses PSn00bSDK's public GPU/API headers and three target archives.
+# Mipsync uses PSn00bSDK's public GPU/API/audio headers and five target archives.
 # Keep only those MPL-2.0 core files rather than adding the release's second
 # GCC toolchain and host programs to the offline builder. The archive itself is
 # pinned, and SOURCE.md tells recipients exactly where the corresponding source
@@ -127,6 +127,8 @@ RUN set -eu \
         "${release}/lib/libpsn00b/release/libpsxgpu_exe_nogprel.a" \
         "${release}/lib/libpsn00b/release/libpsxetc_exe_nogprel.a" \
         "${release}/lib/libpsn00b/release/libpsxapi_exe_nogprel.a" \
+        "${release}/lib/libpsn00b/release/libpsxspu_exe_nogprel.a" \
+        "${release}/lib/libpsn00b/release/libpsxcd_exe_nogprel.a" \
         /psn/lib/libpsn00b/release/ \
     && install -m 0644 "${release}/lib/libpsn00b/cmake/sdk.cmake" \
         /psn/lib/libpsn00b/cmake/sdk.cmake \

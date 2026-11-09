@@ -16,5 +16,11 @@
             <dummy sectors="1024" />
         </directory_tree>
     </track>
+    <track type="audio" source="${PROJECT_SOURCE_DIR}/music/cedar_overture.wav"><pregap duration="00:02:00" /></track>
+    <track type="audio" source="${PROJECT_SOURCE_DIR}/music/banners_afar.wav"><pregap duration="00:02:00" /></track>
+    <track type="audio" source="${PROJECT_SOURCE_DIR}/music/willow_village.wav"><pregap duration="00:02:00" /></track>
+    <track type="audio" source="${PROJECT_SOURCE_DIR}/music/stone_and_shadow.wav"><pregap duration="00:02:00" /></track>
+    <track type="audio" source="${PROJECT_SOURCE_DIR}/music/drums_at_the_gate.wav"><pregap duration="00:02:00" /></track>
+    <track type="audio" source="${PROJECT_SOURCE_DIR}/music/first_light.wav"><pregap duration="00:02:00" /></track>
 </iso_project>
 

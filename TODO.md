@@ -2,6 +2,10 @@
 
 ## 0.5 closing review
 
+- [x] Finish shared orchestral music, weapon and magic effects, PS1 audio
+  playback, and independently saved Music and Effects controls on all targets.
+  Six score previews are on the private review page. Verify the final mix,
+  effect timing and campaign music changes during the hardware playthrough.
 - [x] Correct PS1 visible floor coverage, authored castle masonry, the
   hidden-room cover winding, and action-menu indexing. Inspect the resulting
   scrolling and castle before/after captures.
@@ -52,6 +56,16 @@ roadmap work.
 - [x] Build and verify the final ROM, BIN/CUE, and Godot package; publish the
   review branch; and copy the exact console images to the MiSTer for hardware
   review. Tag 0.4 only after the branch is approved and merged.
+
+## Creator audio customization
+
+- [ ] Let authors import their own music and sound effects in the editor,
+  preview them, and assign music to menus, maps, story scenes and boss battles.
+- [ ] Allow distinct sounds for individual weapons and spells, including
+  launch, hit, miss and healing cues synchronized with combat animations.
+- [ ] Export the assigned audio with the game to Godot, Nintendo 64 and
+  PlayStation, with clear file-format, duration and platform size guidance.
+  Retain separate player Music and Effects volume controls.
 
 ## Planned Windows desktop edition
 

@@ -99,7 +99,7 @@ fi
 if [[ "${target}" == playstation ]] && {
     ! docker image inspect "${image}" >/dev/null 2>&1 \
         || ! docker run --rm "${image}" \
-            sh -c 'python3 -c "from PIL import Image" && test -s /psn/PSN00BSDK_VERSION' \
+            sh -c 'python3 -c "from PIL import Image" && test -s /psn/PSN00BSDK_VERSION && test -f /psn/lib/libpsn00b/release/libpsxspu_exe_nogprel.a && test -f /psn/lib/libpsn00b/release/libpsxcd_exe_nogprel.a' \
             >/dev/null 2>&1;
 }; then
     docker build \
@@ -220,6 +220,8 @@ install -m 0755 "${script_dir}/console-builder-payload.sh" "${payload}/${executa
 install -m 0755 /usr/bin/busybox "${payload}/busybox"
 install -m 0644 "${repo_root}/LICENSE" "${payload}/LICENSE.txt"
 install -m 0644 "${repo_root}/NOTICE" "${payload}/NOTICE.txt"
+install -m 0644 "${repo_root}/assets/audio/VSCO-2-CE-LICENSE.txt" \
+    "${payload}/VSCO-2-CE-LICENSE.txt"
 
 busybox_version="$(/usr/bin/busybox | sed -n '1s/^BusyBox \([^ ]*\).*/\1/p')"
 [[ -n "${busybox_version}" ]] || {

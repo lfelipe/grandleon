@@ -107,6 +107,9 @@ enum class Message : std::uint8_t {
     reduced_motion,
     show_fps,
     audio,
+    music_volume,
+    effects_volume,
+    volume_controls,
     on,
     off,
     next,
@@ -586,6 +589,15 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
             return selected == Language::spanish ? "SONIDO"
                  : selected == Language::portuguese_brazil ? "AUDIO"
                  : "AUDIO";
+        case Message::music_volume:
+            return selected == Language::english ? "MUSIC" : "MUSICA";
+        case Message::effects_volume:
+            return selected == Language::spanish ? "EFECTOS"
+                 : selected == Language::portuguese_brazil ? "EFEITOS" : "EFFECTS";
+        case Message::volume_controls:
+            return selected == Language::spanish ? "IZQ / DER  VOLUMEN"
+                 : selected == Language::portuguese_brazil ? "ESQ / DIR  VOLUME"
+                 : "LEFT / RIGHT  VOLUME";
         case Message::on:
             return selected == Language::spanish ? "SI"
                  : selected == Language::portuguese_brazil ? "SIM"

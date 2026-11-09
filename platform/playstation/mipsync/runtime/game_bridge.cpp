@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 #include "game_bridge.h"
+#include "grandleon_audio.h"
 
 #include "generated/grandleon_scene.h"
 #include "generated/grandleon_simulation.hpp"
 extern "C" {
 #include "runtime/textures.h"
+#include "generated/audio_data.h"
 }
 
 #include <grandleon/campaign/graph.hpp>
@@ -103,6 +105,8 @@ InputMode s_mode{InputMode::browse};
 unsigned s_menu_index{};
 unsigned s_pause_menu_index{};
 unsigned s_settings_menu_index{};
+unsigned s_music_volume{45U};
+unsigned s_effects_volume{75U};
 unsigned s_language_index{};
 unsigned s_ai_delay{};
 bool s_ai_active{};
@@ -199,7 +203,7 @@ const char* ui(console::Message message) {
 }
 
 unsigned settings_menu_count() {
-    return grandleon_generated_language_count() > 1U ? 4U : 3U;
+    return grandleon_generated_language_count() > 1U ? 6U : 5U;
 }
 
 camp::DefinitionRef content_ref(
@@ -255,7 +259,7 @@ bool save_display_settings() {
     if (!s_card_available || !s_device) return false;
     const std::string_view language = game_language();
     std::vector<std::uint8_t> bytes{
-        'G', 'S', 2U,
+        'G', 'S', 3U,
         static_cast<std::uint8_t>(
             (s_close_combat_enabled ? 1U : 0U) |
             (s_reduced_motion ? 2U : 0U) |
@@ -264,6 +268,8 @@ bool save_display_settings() {
         static_cast<std::uint8_t>(language.size()),
     };
     bytes.insert(bytes.end(), language.begin(), language.end());
+    bytes.push_back(static_cast<std::uint8_t>(s_music_volume));
+    bytes.push_back(static_cast<std::uint8_t>(s_effects_volume));
     grandleon_platform_card_begin();
     const storage::StorageError result = s_device->write(settings_slot, bytes);
     grandleon_platform_card_end();
@@ -275,13 +281,13 @@ void load_display_settings() {
     const storage::StorageRead stored = s_device->read(settings_slot);
     if (!stored || stored.bytes.size() < 4U || stored.bytes[0] != 'G' ||
         stored.bytes[1] != 'S' ||
-        (stored.bytes[2] != 1U && stored.bytes[2] != 2U)) {
+        (stored.bytes[2] < 1U || stored.bytes[2] > 3U)) {
         return;
     }
     if (stored.bytes[2] == 1U && stored.bytes.size() != 4U) return;
-    if (stored.bytes[2] == 2U) {
+    if (stored.bytes[2] >= 2U) {
         if (stored.bytes.size() < 5U ||
-            stored.bytes.size() != 5U + stored.bytes[4]) {
+            stored.bytes.size() != 5U + stored.bytes[4] + (stored.bytes[2] == 3U ? 2U : 0U)) {
             return;
         }
         const std::string_view selected(
@@ -299,14 +305,20 @@ void load_display_settings() {
     s_close_combat_enabled = (stored.bytes[3] & 1U) != 0U;
     s_reduced_motion = (stored.bytes[3] & 2U) != 0U;
     s_display_options.show_fps = (stored.bytes[3] & 4U) != 0U;
+    if (stored.bytes[2] == 3U) {
+        s_music_volume = std::min<unsigned>(100U, stored.bytes[5U + stored.bytes[4]]);
+        s_effects_volume = std::min<unsigned>(100U, stored.bytes[6U + stored.bytes[4]]);
+    }
+    grandleon_audio_set_volumes(s_music_volume, s_effects_volume);
     psx::Line().text("MIPSYNC_SETTINGS_LOAD close=")
         .decimal(s_close_combat_enabled ? 1U : 0U).text(" reduced=")
         .decimal(s_reduced_motion ? 1U : 0U).text(" fps=")
         .decimal(s_display_options.show_fps ? 1U : 0U).text(" language=")
-        .text(game_language()).flush();
+        .text(game_language()).text(" music=").decimal(s_music_volume)
+        .text(" effects=").decimal(s_effects_volume).flush();
 }
 
-void toggle_setting(unsigned row) {
+void toggle_setting(unsigned row, int direction = 1) {
     const char* name = "close";
     bool value = false;
     if (row == 0U) {
@@ -320,6 +332,14 @@ void toggle_setting(unsigned row) {
         s_display_options.toggle_fps();
         value = s_display_options.show_fps;
         name = "fps";
+    } else if (row == 3U || row == 4U) {
+        unsigned& volume = row == 3U ? s_music_volume : s_effects_volume;
+        volume = static_cast<unsigned>(std::clamp(static_cast<int>(volume) + direction * 5, 0, 100));
+        grandleon_audio_set_volumes(s_music_volume, s_effects_volume);
+        const bool saved = save_display_settings();
+        psx::Line().text("MIPSYNC_SETTING name=").text(row == 3U ? "music" : "effects")
+            .text(" value=").decimal(volume).text(" saved=").decimal(saved ? 1U : 0U).flush();
+        return;
     } else {
         const unsigned count = grandleon_generated_language_count();
         if (count > 1U) s_language_index = (s_language_index + 1U) % count;
@@ -1302,6 +1322,33 @@ bool apply_command(
             .text(" error=").decimal(static_cast<unsigned>(result.error)).flush();
         return false;
     }
+    if (command.type == sim::CommandType::attack || command.type == sim::CommandType::ability) {
+        unsigned cue = GRANDLEON_SOUND_BLADE;
+        if (command.type == sim::CommandType::ability) {
+            cue = GRANDLEON_SOUND_HEAVY;
+            for (const auto& ability : s_created->encounter.abilities()) {
+                if (ability.id != command.ability_id) continue;
+                cue = ability.kind == sim::AbilityKind::restore ? GRANDLEON_SOUND_HEALING
+                    : ability.damage_type == sim::DamageType::magical ? GRANDLEON_SOUND_ARCANE : GRANDLEON_SOUND_HEAVY;
+                break;
+            }
+        } else {
+            for (const auto& weapon : s_created->encounter.weapons()) {
+                if (weapon.id == command.weapon_id) {
+                    cue = weapon.minimum_reach > 1U ? GRANDLEON_SOUND_BOW : GRANDLEON_SOUND_BLADE;
+                    break;
+                }
+            }
+            if (command.weapon_id == 0U) {
+                for (const auto& unit : s_snapshot.units) {
+                    if (unit.id == command.unit_id && unit.minimum_reach > 1U) cue = GRANDLEON_SOUND_BOW;
+                }
+            }
+        }
+        grandleon_audio_cue(cue);
+    } else if (command.type == sim::CommandType::move) grandleon_audio_cue(GRANDLEON_SOUND_MOVE);
+    else if (command.type == sim::CommandType::use_item) grandleon_audio_cue(GRANDLEON_SOUND_ITEM);
+    else if (command.type == sim::CommandType::talk) grandleon_audio_cue(GRANDLEON_SOUND_TALK);
     queue_event_moments(result.events);
     s_snapshot = s_created->encounter.snapshot();
     if (!s_motion.active) (void)update_visual_visibility(s_snapshot);
@@ -1752,6 +1799,8 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
     output->settings_menu_count = static_cast<std::uint8_t>(settings_menu_count());
     output->reduced_motion = s_reduced_motion ? 1 : 0;
     output->show_fps = s_display_options.show_fps ? 1 : 0;
+    output->music_volume = static_cast<std::uint8_t>(s_music_volume);
+    output->effects_volume = static_cast<std::uint8_t>(s_effects_volume);
     output->measured_fps = s_measured_fps;
     output->language_code = console::language_code(game_language());
     if (s_campaign_mode != CampaignMode::battle) {
@@ -2002,6 +2051,10 @@ extern "C" const char* grandleon_game_text(uint8_t text_id) {
             return ui(console::Message::show_fps);
         case GRANDLEON_TEXT_LANGUAGE:
             return ui(console::Message::language);
+        case GRANDLEON_TEXT_MUSIC:
+            return ui(console::Message::music_volume);
+        case GRANDLEON_TEXT_EFFECTS:
+            return ui(console::Message::effects_volume);
         case GRANDLEON_TEXT_ON:
             return ui(console::Message::on);
         case GRANDLEON_TEXT_OFF:
@@ -2100,6 +2153,9 @@ extern "C" void grandleon_game_set_fps(uint16_t fps) {
 
 int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
     std::uint16_t pressed = player_one;
+    grandleon_audio_theme(s_campaign_mode == CampaignMode::battle ? 1U
+        : s_campaign_mode == CampaignMode::prologue || s_campaign_mode == CampaignMode::aftermath ? 2U : 0U);
+    if ((player_one | player_two) & pad_cross) grandleon_audio_cue(GRANDLEON_SOUND_CONFIRM);
     if (s_campaign_mode != CampaignMode::battle) {
         if (!pressed) return 0;
         if (s_campaign_mode == CampaignMode::title) {
@@ -2146,6 +2202,10 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
                 s_settings_menu_index = (s_settings_menu_index + 1U) % count;
             }
             if (pressed & pad_cross) toggle_setting(s_settings_menu_index);
+            if ((s_settings_menu_index == 3U || s_settings_menu_index == 4U) &&
+                (pressed & (pad_left | pad_right))) {
+                toggle_setting(s_settings_menu_index, (pressed & pad_left) ? -1 : 1);
+            }
             if (pressed & (pad_circle | pad_start)) {
                 s_campaign_menu_index = 0U;
                 s_campaign_mode = CampaignMode::title;
@@ -2337,6 +2397,10 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
             s_settings_menu_index = (s_settings_menu_index + 1U) % count;
         }
         if (player_one & pad_cross) toggle_setting(s_settings_menu_index);
+        if ((s_settings_menu_index == 3U || s_settings_menu_index == 4U) &&
+            (player_one & (pad_left | pad_right))) {
+            toggle_setting(s_settings_menu_index, (player_one & pad_left) ? -1 : 1);
+        }
         if (player_one & (pad_circle | pad_start)) s_mode = InputMode::pause;
         return 0;
     }

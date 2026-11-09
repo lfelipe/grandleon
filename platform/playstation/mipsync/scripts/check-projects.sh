@@ -22,6 +22,8 @@ toolchain_ready() {
         'test "$(cat /nugget/NUGGET_REVISION)" = "$1" &&
          test "$(cat /MKPSXISO_REVISION)" = "$2" &&
          test "$(cat /psn/PSN00BSDK_VERSION)" = 0.24 &&
+         test -f /psn/lib/libpsn00b/release/libpsxcd_exe_nogprel.a &&
+         test -f /psn/lib/libpsn00b/release/libpsxspu_exe_nogprel.a &&
          python3 -c "from PIL import Image"' sh "$nugget" "$mkpsxiso"
 }
 if ! toolchain_ready >/dev/null 2>&1; then
@@ -94,6 +96,9 @@ GRANDLEON_UPDATE_ADDRESS=$steel_update \
 GRANDLEON_PLAYSTATION_EMULATOR_IMAGE=$emulator \
     "$mipsync_dir/tests/run-project-launch-probe.sh" \
     "$work/steel" "$work/steel-probe"
+GRANDLEON_PLAYSTATION_TOOLCHAIN_IMAGE=$toolchain \
+GRANDLEON_PLAYSTATION_EMULATOR_IMAGE=$emulator \
+    "$mipsync_dir/tests/run-audio-probe.sh" "$work/steel" "$work/steel-audio"
 
 printf 'Mipsync project export gate passed: demo=%s steel=%s\n' \
     "$demo_update" "$steel_update"
