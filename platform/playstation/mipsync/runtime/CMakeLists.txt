@@ -104,10 +104,12 @@ add_custom_command(TARGET grandleon_mipsync POST_BUILD
 )
 
 configure_file(iso.xml "${CMAKE_CURRENT_BINARY_DIR}/disc.xml")
+find_program(GRANDLEON_MKPSXISO_EXECUTABLE NAMES mkpsxiso
+    HINTS "${PSN00BSDK_ROOT}/bin" REQUIRED)
 add_custom_command(
     OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/grandleon-mipsync.bin"
         "${CMAKE_CURRENT_BINARY_DIR}/grandleon-mipsync.cue"
-    COMMAND "${PSN00BSDK_ROOT}/bin/mkpsxiso" -y
+    COMMAND "${GRANDLEON_MKPSXISO_EXECUTABLE}" -y
         -o grandleon-mipsync.bin -c grandleon-mipsync.cue disc.xml
     DEPENDS grandleon_mipsync system.cnf iso.xml
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
