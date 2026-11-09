@@ -169,6 +169,19 @@ func _test_tactical_camera() -> void:
 		board._surrounding_depth(),
 		3
 	)
+	_expect(
+		"explicit legacy surroundings do not trigger a duplicate board build",
+		board._surroundings_visual_signature({}),
+		board._surroundings_visual_signature({
+			"mode": "none", "colour": 0, "depth": 0, "terrain": [],
+		})
+	)
+	_expect(
+		"authored surroundings retain a distinct board contract",
+		board._surroundings_visual_signature({"mode": "fill", "depth": 2, "terrain": [2]})
+			!= board._surroundings_visual_signature({"mode": "continue", "depth": 2}),
+		true
+	)
 	var fitting := board.tactical_focus_for_cell(Vector2i(7, 5), 8.4, 16.0 / 9.0)
 	_expect("a fitting Godot board stays horizontally centred", fitting.x, 0.0)
 	_expect("a fitting Godot board stays vertically centred", fitting.z, 0.0)

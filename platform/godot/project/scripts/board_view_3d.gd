@@ -230,10 +230,37 @@ func configure(
 
 
 func set_surroundings(value: Dictionary) -> void:
+	var previous_signature := _surroundings_visual_signature(surroundings)
+	var next_signature := _surroundings_visual_signature(value)
 	surroundings = value.duplicate(true)
 	_update_surrounding_background()
-	_rebuild_terrain()
+	# The runtime publishes an explicit `mode: none` record immediately after
+	# battle_begins. It is visually identical to the legacy empty record that
+	# configure() already rendered. Avoid building every mesh a second time on
+	# startup; authored edge modes still rebuild when their visual contract differs.
+	if previous_signature != next_signature:
+		_rebuild_terrain()
 	_configure_visual_visibility()
+
+
+func _surroundings_visual_signature(value: Dictionary) -> Dictionary:
+	var mode := String(value.get("mode", "none"))
+	if mode == "none":
+		return {"kind": "legacy_edge", "depth": DEFAULT_DECORATIVE_DEPTH}
+	if mode == "solid":
+		return {"kind": "solid", "colour": int(value.get("colour", 0))}
+	if mode in ["automatic", "continue"]:
+		return {
+			"kind": "continued_edge",
+			"depth": clampi(int(value.get("depth", 0)), 0, 8),
+		}
+	if mode in ["manual", "fill", "blend"]:
+		return {
+			"kind": "authored_edge",
+			"depth": clampi(int(value.get("depth", 0)), 0, 8),
+			"terrain": value.get("terrain", []).duplicate(),
+		}
+	return {"kind": "no_edge"}
 
 
 func set_visual_visibility(value: Dictionary) -> void:

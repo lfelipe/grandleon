@@ -37,12 +37,17 @@ export_root="${state_dir}/exports"
 result_path="${state_dir}/exported-game.txt"
 automation_dir="${state_dir}/automation"
 game_pid=""
+keep_state="${GRANDLEON_KEEP_ACCEPTANCE_STATE:-0}"
 cleanup() {
     if [[ -n "${game_pid}" ]] && kill -0 "${game_pid}" 2>/dev/null; then
         kill "${game_pid}" 2>/dev/null || true
         wait "${game_pid}" 2>/dev/null || true
     fi
-    cmake -E rm -rf "${state_dir}"
+    if [[ "${keep_state}" == "1" ]]; then
+        printf 'Preserved editor acceptance state: %s\n' "${state_dir}" >&2
+    else
+        cmake -E rm -rf "${state_dir}"
+    fi
 }
 trap cleanup EXIT
 
@@ -165,9 +170,11 @@ selected=""
 for _attempt in 1 2; do
     "${command[@]}" press e >/dev/null
     selected="$(${command[@]} inspect)"
-    grep -Fq 'First Hero' <<<"${selected}" && break
+    grep -Fq 'Rowan' <<<"${selected}" && break
 done
-grep -Fq 'First Hero' <<<"${selected}"
+# The authoring half renamed this character. Seeing Rowan here proves that the
+# exported player is running the edited campaign rather than its starter data.
+grep -Fq 'Rowan' <<<"${selected}"
 # Switch to Attack, move the cursor onto the adjacent opponent, and confirm.
 "${command[@]}" press tab >/dev/null
 "${command[@]}" press right >/dev/null

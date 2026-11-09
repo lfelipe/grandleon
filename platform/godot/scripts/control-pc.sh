@@ -63,10 +63,11 @@ result_file="${control_dir}/results/${command_id}.json"
 printf '%s\n' "${payload}" >"${temporary}"
 mv "${temporary}" "${command_file}"
 
-# Scene changes can import and bind the complete curated art library before the
-# automation autoload receives another frame. Allow that work to finish even
-# under the software renderer used by release smoke tests.
-for _attempt in $(seq 1 300); do
+# The first 3D scene also compiles its material pipeline under the software
+# renderer used by release smoke tests. Keep the command pending across that
+# one-time transition; the launcher's independent timeout still detects a hung
+# player.
+for _attempt in $(seq 1 600); do
     if [[ -s "${result_file}" ]]; then
         cat "${result_file}"
         exit 0
