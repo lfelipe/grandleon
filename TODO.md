@@ -53,6 +53,18 @@ roadmap work.
   review branch; and copy the exact console images to the MiSTer for hardware
   review. Tag 0.4 only after the branch is approved and merged.
 
+## Planned Windows desktop edition
+
+- [ ] Build and package the Godot player and creator for Windows, including
+  the native extension, required DLLs, pinned Godot runtime and export templates.
+- [ ] Add Windows standalone-game export and run the native tests plus the
+  complete create → export → play acceptance flow in Windows CI.
+- [ ] Verify the downloadable package on a clean Windows machine, including
+  saves, controllers, audio, translations and paths with spaces or accents.
+- [ ] Define the optional console-builder installation and launch path on
+  Windows. See [Setting up](docs/SETUP.md#planned-windows-edition) for the
+  implementation checklist.
+
 ## Terrain joins and variety
 
 - [x] Make transitions between neighbouring terrain scenes feel seamless.
