@@ -12,8 +12,10 @@
   takeover across encounter changes. Verify an idle production boot separately.
 - [ ] Resolve PS1 scrolling and castle frame-budget misses. The corrected
   graphics fit memory, but the latest 600-tick scrolling window still misses
-  55 retraces during camera movement; the larger castle window misses 257.
+  57 retraces during camera movement; the castle correction window misses 257.
   Keep the existing strict 30 fps tests and fix the rendering cost.
+- [x] Keep PS1 units visible through terrain-page changes; remove the
+  single-update suppression and inspect a two-axis scrolling capture.
 - [ ] Pass the host suite and exact console memory/performance gates; record
   any remaining hitches explicitly rather than treating a simulation log as
   proof that its picture is correct.

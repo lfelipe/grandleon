@@ -17,6 +17,8 @@ revision `866f405a0e34b5925a8d832272fe52c657688430`.
 - Menus with fewer than five actions no longer underflow their first row.
 - Disabled terrain pages release their static renderer-cache reservations.
   This is a standalone upstream patch, with no campaign-specific engine code.
+- Units remain visible through terrain-page changes, removing a one-update
+  blink. The scrolling probe can capture these transitions as a video.
 
 ## What was checked
 
@@ -50,12 +52,12 @@ Committed RAM includes 64 KiB reserved for audio, 32 KiB for stack, and
 | Cedar Deepwood | 1,780,192 | 167,200 |
 | Cedar Watch | 1,974,752 | 262,976 |
 | Gate Village | 1,995,232 | 281,440 |
-| Twin Gate Keep | 1,946,080 | 242,432 |
+| Twin Gate Keep | 1,944,032 | 242,432 |
 
 **The corrected graphics do not yet pass the strict 30 fps gates.** Across
-600 rule ticks, Deepwood records 300 renders with 55 missed retraces during
-camera movement; completed work averages 422 HBlanks and peaks at 869.
-Twin Gate records 297 renders, three deferred updates and 257 missed
+600 rule ticks, Deepwood records 300 renders with 57 missed retraces during
+camera movement; completed work averages 423 HBlanks and peaks at 894.
+The castle correction pass records 297 renders, three deferred updates and 257 missed
 retraces; completed work averages 530 HBlanks and peaks at 1,245.
 Those are the current measurements. Earlier zero-miss results used smaller
 terrain coverage and must not be applied to this build. Keep the strict
@@ -64,10 +66,10 @@ scroll/combat tests and reduce rendering cost before calling performance ready.
 ## Artifacts and remaining gates
 
 The review export and manifests are in
-`~/.cache/grandleon-ps1-indexed-build.mOZON2/review-release05/`.
+`~/.cache/grandleon-ps1-indexed-build.mOZON2/review-release05-v2/`.
 The BIN SHA-256 is
-`73f823e016719d017d3fcaca7d21dc95a4b4c8a1ae7dc1c16c2362463fb9f1e5`.
-Focused evidence is in `review-final-deep/` and `review-final-gate/` beside it.
+`2435b68fed4c58bd92c87cdffd68d0a4660018b54b48bc52dadb1d7ce402b57c`.
+Focused evidence is in `review-visible-deep/` and `review-final-gate/` beside it.
 
 Before release: resolve the frame-budget misses, rerun the final campaign and
 card checks on the resulting disc, test pose transfers and pacing on hardware,

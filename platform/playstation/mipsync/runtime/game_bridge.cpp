@@ -149,7 +149,6 @@ BoardMotion s_motion{};
 BattleMomentState s_battle_moment{};
 sim::ContentId s_action_content{};
 unsigned s_camera_settle_frames{};
-unsigned s_active_terrain_page{0xffffffffU};
 CampaignMode s_campaign_mode{CampaignMode::battle};
 unsigned s_campaign_menu_index{};
 unsigned s_local_players{1};
@@ -1148,9 +1147,6 @@ void tick_camera() {
             closest_page = index;
         }
     }
-    const bool terrain_page_changed =
-        g_grandleon_terrain_chunk_count && closest_page != s_active_terrain_page;
-    s_active_terrain_page = closest_page;
     s_active_terrain_chunks = g_grandleon_terrain_chunk_count ? 1U : 0U;
     for (unsigned index = 0; index < g_grandleon_terrain_chunk_count; ++index) {
         ps1_entity* chunk = grandleon_scene_mutable_entity(
@@ -1214,7 +1210,7 @@ void tick_camera() {
             );
         }
         unit->mesh_enabled = close_combat ? combat_actor :
-            (!terrain_page_changed && s_unit_on_board[index] &&
+            (s_unit_on_board[index] &&
              s_unit_visible[index] &&
              unit_x >= camera_x - half_x && unit_x <= camera_x + half_x &&
              unit_z >= camera_focus_z - half_z && unit_z <= camera_focus_z + half_z);

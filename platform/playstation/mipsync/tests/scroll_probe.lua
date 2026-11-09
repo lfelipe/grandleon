@@ -2,6 +2,9 @@ local update_address = assert(tonumber(os.getenv('GRANDLEON_UPDATE_ADDRESS')),
                               'GRANDLEON_UPDATE_ADDRESS is required')
 local runtime_frame = 0
 local capture_pending = false
+local capture_motion = os.getenv('GRANDLEON_CAPTURE_MOTION') == '1'
+local motion_due = false
+local motion_index = 0
 local actions = {}
 for _ = 1, 10 do actions[#actions + 1] = 0x0020 end -- right, x=3 to x=13
 for _ = 1, 6 do actions[#actions + 1] = 0x0040 end  -- down, y=2 to y=8
@@ -28,10 +31,20 @@ grandleon_scroll_breakpoint = PCSX.addBreakpoint(
   PCSX.getRegisters().GPR.n.a0 = held
   PCSX.getRegisters().GPR.n.a1 = 0
   if runtime_frame == 900 then capture_pending = true end
+  if capture_motion and runtime_frame >= 80 and runtime_frame <= 340 and
+     runtime_frame % 2 == 0 then motion_due = true end
   return true
 end)
 
 grandleon_scroll_listener = PCSX.Events.createEventListener('GPU::Vsync', function()
+  if motion_due then
+    motion_due = false
+    local shot = PCSX.GPU.takeScreenShot()
+    local output = Support.File.open(string.format('/out/frame-%04d.bin', motion_index), 'TRUNCATE')
+    output:writeMoveSlice(shot.data)
+    output:close()
+    motion_index = motion_index + 1
+  end
   if capture_pending then
     capture_pending = false
     local shot = PCSX.GPU.takeScreenShot()
