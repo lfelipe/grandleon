@@ -111,9 +111,10 @@ authoritative encounter hash did not change during presentation. Full timing
 is 1.10 s in / 0.95 s out; reduced motion uses a direct 8/6-frame settle;
 fast-forward is 3x and skip restores immediately.
 
-The tactical board has filtered CI4 terrain materials, elevation sidewalls,
-deterministic tree clusters, generated directional walk poses and I8 falloff
-contact shadows. Campaign launch, player-count selection, authored story
+The tactical board has filtered CI4 terrain materials, shared edges between
+coplanar neighbours, elevation sidewalls where heights differ, deterministic
+tree clusters, generated directional walk poses and I8 falloff contact
+shadows. Campaign launch, player-count selection, authored story
 dialogue, interactive attacks and abilities, packaged battles,
 aftermath/objective results, terminal progression and cartridge saving run in
 the generated ROM. A packaged deployment

@@ -55,6 +55,7 @@ git -C "$work/mipsync" checkout --quiet --detach "$UPSTREAM_REVISION"
 test "$(git -C "$work/mipsync" rev-parse HEAD)" = "$UPSTREAM_REVISION"
 
 python3 "$mipsync_dir/tests/project_plan_test.py"
+python3 "$mipsync_dir/tests/scene_generator_test.py"
 build_project() {
     name=$1
     project=$2

@@ -1,6 +1,6 @@
 # Generic project export validation
 
-Validated on 2026-11-08 with the pinned Pyrite, libdragon, Tiny3D and ares
+Validated on 2026-11-09 with the pinned Pyrite, libdragon, Tiny3D and ares
 versions recorded in this directory.
 
 The same build wrapper produced two independent ROMs from two ordinary source
@@ -11,7 +11,7 @@ drawings required by that project:
 | Source project | Battles | Drawings | Terrain families | ROM bytes | SHA-256 |
 | --- | ---: | ---: | ---: | ---: | --- |
 | The Bridge at Dawn demo | 1 | 6 | 6 | 1,785,856 | `66483d9e322e3d80c24435372e4283b6d22e27220007885b38c4f68639dc07e3` |
-| Steel and Cedar | 5 | 12 | 9 | 1,884,160 | `5be6295207a08755e251c65c93935fc647cb07e3c44d2644a598ecbe79a363ea` |
+| Steel and Cedar | 5 | 12 | 9 | 1,884,160 | `baed417055f26251efd84dacb55e685ca1b8fda649fcee4474b54553ce47e444` |
 
 The generated headers, terrain atlases, close plates, character counts and ROM
 hashes differ. The focused project-preparation test repeats the demo export
@@ -46,8 +46,8 @@ movement path, and then recorded the same region as revealed. Its exact-4-MB
 sample was:
 
 ```text
-avg_frame_us=33348 min_frame_us=24024 max_frame_us=33979 fps_x100=3000
-heap_used=1355856 heap_total=2622920 heap_free=1267064 rdram=4194304
+avg_frame_us=33351 min_frame_us=24364 max_frame_us=34014 fps_x100=3000
+heap_used=1355872 heap_total=2622936 heap_free=1267064 rdram=4194304
 battles=5 commands=290 enemy_commands=170 combat=5 trees=82 forms=111
 slot_bytes=1340
 RESULT PASS PYRITE_GAMEPLAY
@@ -56,7 +56,7 @@ RESULT PASS PYRITE_GAMEPLAY
 Evidence remains outside source control:
 
 - demo ROM: `/home/lstrano/.cache/grandleon-pyrite-30fps-demo/`
-- Steel ROM: `/home/lstrano/.cache/grandleon-pyrite-30fps-quality/`
+- Steel ROM: `/home/lstrano/.cache/grandleon-release05-20261109/nintendo64/`
 - accurate-emulator logs and named frames: `build-n64/ares/`
 
 The ares evidence directory contains each emulator log, final screenshot,

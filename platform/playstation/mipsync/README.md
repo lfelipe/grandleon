@@ -22,7 +22,8 @@ all five exact 1P definitions as well as the full 2P save-and-resume route.
 
 Board movement follows the authoritative reachable route at ten presented
 frames per tile. It uses both authored walk poses, left/right facing, compact
-north/south views, terrain height, and a small footfall lift. The action menu
+north/south views, terrain height, a small footfall lift, and a dithered
+contact cue baked into the existing character texture. The action menu
 stays out of the way until the unit stops, and input waits for the presentation
 to settle. Entering an authored hidden area reveals it only when the rendered
 unit reaches the doorway rather than when the rules commit the destination.

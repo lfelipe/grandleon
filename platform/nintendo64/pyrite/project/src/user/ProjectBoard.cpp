@@ -54,7 +54,11 @@ namespace gp = grandleon::nintendo64::pyrite;
 namespace {
 
 constexpr std::int16_t kCell = 52;
-constexpr std::int16_t kHalfCell = kCell / 2 - 1;
+// Coplanar neighbours share their edge. The former one-unit inset on both
+// sides exposed the clear colour as a heavy black grid, making a connected
+// landscape read as separate board-game cards. Actual height changes still
+// receive the shaded elevation faces built below.
+constexpr std::int16_t kHalfCell = kCell / 2;
 constexpr std::size_t kCellVertexCount = 4;
 constexpr std::size_t kMaxCells = 20U * 14U;
 constexpr std::size_t kBatchCells = 15U;

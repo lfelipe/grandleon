@@ -273,6 +273,29 @@ def fitted_cutout(image: Image.Image, side: int = 64) -> Image.Image:
         Image.Resampling.LANCZOS,
     )
     result = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+    # Ground the billboard without spending another entity, mesh or texture.
+    # A separate ground-plane shadow made combat miss the 30 fps frame gate;
+    # this deliberately coarse, dithered cue is part of the existing cutout.
+    shadow = ImageDraw.Draw(result)
+    shadow_left = side * 3 // 16
+    shadow_right = side - shadow_left - 1
+    shadow_top = side - max(4, side // 9)
+    shadow_bottom = side - 2
+    shadow.ellipse(
+        (shadow_left, shadow_top, shadow_right, shadow_bottom),
+        fill=(20, 23, 26, 255),
+    )
+    # Knock alternating pixels from the perimeter so the hard PS1 cutout
+    # reads as a soft contact shadow after texture filtering.
+    pixels = result.load()
+    assert pixels is not None
+    for y in range(shadow_top, shadow_bottom + 1):
+        for x in range(shadow_left, shadow_right + 1):
+            if pixels[x, y][3] and (
+                x <= shadow_left + 1 or x >= shadow_right - 1
+                or y == shadow_top or y == shadow_bottom
+            ) and (x + y) % 2:
+                pixels[x, y] = (0, 0, 0, 0)
     result.alpha_composite(crop, ((side - crop.width) // 2, side - crop.height))
     result.putalpha(result.getchannel("A").point(lambda value: 255 if value >= 40 else 0))
     return result
