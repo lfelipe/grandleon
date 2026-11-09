@@ -44,6 +44,8 @@ The Windows build needs to cover both playing games and creating them:
   Windows. Check saves, keyboard and controllers, audio, live language changes,
   and project paths containing spaces or accented characters. Test the packaged
   download on a clean Windows machine as well as the development build.
+  Graphics and audio integration tests need a runner that can create the
+  required OpenGL context and open an audio output device.
 - Decide how optional console builders work on Windows. Their current Linux
   containers and shell launchers need an explicit integration plan; desktop
   playing and editing should work without installing those optional tools.
