@@ -483,7 +483,8 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
         draw_text(ordering_table, next_packet, packet_end, x + 7, 59,
                   grandleon_game_text(GRANDLEON_TEXT_ACTION), 94, 206, 227);
         if (state.menu_count > 5 && state.menu_index > 2) first = state.menu_index - 2;
-        if (first + 5 > state.menu_count) first = state.menu_count - 5;
+        if (state.menu_count > 5 && first + 5 > state.menu_count)
+            first = state.menu_count - 5;
         for (row = 0; row < 5 && first + row < state.menu_count; ++row) {
             const unsigned int entry = first + row;
             const uint8_t kind = grandleon_game_action_kind((uint8_t)entry);

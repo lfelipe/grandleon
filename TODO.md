@@ -1,5 +1,26 @@
 # Current development TODO
 
+## 0.5 closing review
+
+- [x] Correct PS1 visible floor coverage, authored castle masonry, the
+  hidden-room cover winding, and action-menu indexing. Inspect the resulting
+  scrolling and castle before/after captures.
+- [ ] Review both console captures for movement, scrolling, UI overlap, combat
+  sides, castle entry, story, save/resume, and campaign completion.
+- [x] Disable the Nintendo 64 automated review driver in normal exports,
+  opt into it explicitly for emulator campaign checks, and preserve physical
+  takeover across encounter changes. Verify an idle production boot separately.
+- [ ] Resolve PS1 scrolling and castle frame-budget misses. The corrected
+  graphics fit memory, but the latest 600-tick scrolling window still misses
+  55 retraces during camera movement; the larger castle window misses 257.
+  Keep the existing strict 30 fps tests and fix the rendering cost.
+- [ ] Pass the host suite and exact console memory/performance gates; record
+  any remaining hitches explicitly rather than treating a simulation log as
+  proof that its picture is correct.
+- [ ] Refresh the private review page with the corrected artifacts.
+- [ ] Prepare final 0.5 packages and release notes after review, and validate
+  the exact console builds on hardware before declaring the milestone done.
+
 This is the short list of active presentation work. These changes may improve
 how a battle looks and moves, but must not change the authoritative grid,
 terrain rules, routes, timing, or combat results.

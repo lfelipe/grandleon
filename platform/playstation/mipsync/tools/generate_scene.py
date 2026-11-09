@@ -135,6 +135,13 @@ def load_manifest(path: Path) -> dict[str, object]:
     visibility = document.get("visual_visibility")
     if not isinstance(terrain, list) or len(terrain) != width * height:
         raise ValueError("terrain length does not match width times height")
+    terrain_ids = document.get("terrain_ids")
+    if terrain_ids is not None:
+        if not isinstance(terrain_ids, list) or len(terrain_ids) != width * height:
+            raise ValueError("terrain_ids length does not match the map")
+        if any(not isinstance(value, str) or not value.isdecimal() or
+               not 0 <= int(value) <= 0xFFFFFFFFFFFFFFFF for value in terrain_ids):
+            raise ValueError("terrain_ids must contain unsigned 64-bit decimal strings")
     if not isinstance(passability, list) or len(passability) != width * height:
         raise ValueError("passability length does not match width times height")
     if not isinstance(units, list) or len(units) > 48:
@@ -167,6 +174,13 @@ def hash_cell(x: int, y: int, seed: int) -> int:
     value ^= value >> 15
     value = (value * 0x846CA68B) & 0xFFFFFFFF
     return (value ^ (value >> 16)) & 0xFFFFFFFF
+
+
+def content_id(name: str) -> int:
+    value = 14695981039346656037
+    for byte in name.encode("utf-8"):
+        value = ((value ^ byte) * 1099511628211) & 0xFFFFFFFFFFFFFFFF
+    return value
 
 
 def default_policy(mode: int) -> str:
@@ -832,12 +846,12 @@ def page_cells(
     pages = []
     for start_y in page_starts(height, CAMERA_VIEW_TILES_Y):
         end_y = min(height, start_y + CAMERA_VIEW_TILES_Y)
-        page_min_y = -apron_depth if start_y == 0 else start_y
-        page_max_y = height + apron_depth if end_y == height else end_y
+        page_min_y = max(-apron_depth, start_y - 2)
+        page_max_y = min(height + apron_depth, end_y + 2)
         for start_x in page_starts(width, CAMERA_VIEW_TILES_X):
             end_x = min(width, start_x + CAMERA_VIEW_TILES_X)
-            page_min_x = -apron_depth if start_x == 0 else start_x
-            page_max_x = width + apron_depth if end_x == width else end_x
+            page_min_x = max(-apron_depth, start_x - 2)
+            page_max_x = min(width + apron_depth, end_x + 2)
             visible = []
             for x, y, kind, authored, span_x, span_y in cells:
                 clipped_x0 = max(x, page_min_x)
@@ -895,6 +909,7 @@ def append_terrain_form(
     triangles: list[tuple[int, int, int, int, int, int, int, int]],
     kind: int, cx: int, floor: int, cz: int, roll: int,
     materials: dict[int, int],
+    castle_wall: bool = False,
 ) -> None:
     """Append one small native low-poly landmark for a terrain cell."""
     colour, scale = TERRAIN_FORM_STYLES[kind]
@@ -951,7 +966,11 @@ def append_terrain_form(
         face(top_front_left, top_back_right, top_back_left,
              shifted_colour(face_colour, 128))
 
-    if kind == 2:  # forest: trunk plus a layered, faceted canopy
+    if castle_wall:
+        stone = (157, 147, 130)
+        box(cx, cz, 62, 62, 84, stone)
+        box(cx, cz, 21, 60, 18, light, 84)
+    elif kind == 2:  # forest: trunk plus a layered, faceted canopy
         canopy_height = 88 + int((roll >> 5) % 17)
         canopy_width = 40 + int((roll >> 11) % 8)
         box(cx, cz, 6, 6, 44, (102, 70, 42))
@@ -1005,6 +1024,7 @@ def write_meshes(
     terrain_indices: dict[int, int], seed: int,
     relief_mode: str, cell_lifts: dict[tuple[int, int], int],
     hidden_cells: list[int],
+    castle_cells: list[tuple[int, int]],
 ) -> tuple[int, int, list[tuple[int, int, int, int, int, int, int]]]:
     board_groups: list[tuple[
         list[tuple[int, int, int, int]], list[tuple[int, int]],
@@ -1028,19 +1048,23 @@ def write_meshes(
             u_wave = (0, 31, 63, 95, 127, 95, 63, 31)
             relief_min_x = min(cell[0] for cell in cell_lifts)
             grid: dict[tuple[int, int], int] = {}
-            for grid_y in range(min_y, max_y + 1):
-                for grid_x in range(min_x, max_x + 1):
-                    grid[(grid_x, grid_y)] = len(board_vertices)
-                    board_vertices.append((
-                        (grid_x * 2 - width) * 64,
-                        corner_relief(grid_x, grid_y, cell_lifts),
-                        (height - grid_y * 2) * 64,
-                        0,
-                    ))
-                    board_uvs.append((
-                        u_wave[(grid_x - relief_min_x) % len(u_wave)],
-                        31 if grid_y & 1 else 0,
-                    ))
+            corners = {
+                point for x, y, _kind, _authored, span_x, span_y in group_cells
+                for point in ((x, y), (x + span_x, y),
+                              (x, y + span_y), (x + span_x, y + span_y))
+            }
+            for grid_y, grid_x in sorted((y, x) for x, y in corners):
+                grid[(grid_x, grid_y)] = len(board_vertices)
+                board_vertices.append((
+                    (grid_x * 2 - width) * 64,
+                    corner_relief(grid_x, grid_y, cell_lifts),
+                    (height - grid_y * 2) * 64,
+                    0,
+                ))
+                board_uvs.append((
+                    u_wave[(grid_x - relief_min_x) % len(u_wave)],
+                    31 if grid_y & 1 else 0,
+                ))
             for x, y, kind, authored, span_x, span_y in group_cells:
                 top_left = grid[(x, y)]
                 top_right = grid[(x + span_x, y)]
@@ -1088,7 +1112,15 @@ def write_meshes(
                      255, 255, 255),
                 ))
         for x, y, kind in terrain_form_cells:
+            if (x, y) in castle_cells:
+                continue
             if not (min_x <= x < max_x and min_y <= y < max_y):
+                continue
+            # The outer floor guard closes the perspective frustum. Keep
+            # expensive raised scenery to the nearer guard ring; distant floor
+            # remains continuous and the next page supplies its nearer props.
+            if not (key[0] - 1 <= x < key[0] + CAMERA_VIEW_TILES_X + 1 and
+                    key[1] - 1 <= y < key[1] + CAMERA_VIEW_TILES_Y + 1):
                 continue
             roll = hash_cell(x, y, seed)
             cx = (x * 2 + 1 - width) * 64 + (26 if roll & 1 else -26)
@@ -1099,6 +1131,14 @@ def write_meshes(
                 kind, cx, floor, cz, roll,
                 terrain_indices,
             )
+        for x, y in castle_cells:
+            if min_x <= x < max_x and min_y <= y < max_y:
+                append_terrain_form(
+                    board_vertices, board_uvs, board_triangles, 3,
+                    (x * 2 + 1 - width) * 64,
+                    surface_relief(x, y, cell_lifts),
+                    (height - y * 2 - 1) * 64, 0, terrain_indices, True,
+                )
         # Keep native triangle pairs together for the cached quad fast path,
         # and group their material descriptors to reduce texture switches.
         batches = [board_triangles[i:i + 2]
@@ -1155,8 +1195,8 @@ def write_meshes(
         visibility_uvs.extend(((0, 0), (0, 0), (0, 0), (0, 0)))
         colour = (109, 59, 49) if order % 2 == 0 else (91, 48, 43)
         visibility_triangles.extend((
-            (first, first + 2, first + 1, *colour),
-            (first + 2, first + 3, first + 1, *colour),
+            (first, first + 1, first + 2, *colour),
+            (first + 2, first + 1, first + 3, *colour),
         ))
     # The close view used to expose the edge of one small quad, making its
     # actors look as though they stood on a card in empty space. A modest grid
@@ -1767,6 +1807,9 @@ def main() -> int:
     visibility = document["visual_visibility"]
     assert isinstance(visibility, dict)
     hidden_cells = [int(value) for value in visibility["hidden_cells"]]
+    castle_cells = [(index % width, index // width)
+                    for index, value in enumerate(document.get("terrain_ids", []))
+                    if int(value) == content_id("mountain_castle_wall")]
     surface_lifts = (
         [
             surface_relief(x, y, cell_lifts)
@@ -1777,7 +1820,7 @@ def main() -> int:
     board_vertices, board_triangles, terrain_chunks = write_meshes(
         output, terrain_groups, width, height, terrain_form_cells,
         terrain_indices, args.surroundings_seed,
-        args.terrain_relief, cell_lifts, hidden_cells,
+        args.terrain_relief, cell_lifts, hidden_cells, castle_cells,
     )
     entities = write_scene(
         output, document, unit_indices, terrain_chunks,

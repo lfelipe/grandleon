@@ -4,6 +4,8 @@
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 import struct
+import re
+import tempfile
 
 from PIL import Image, ImageDraw
 
@@ -92,9 +94,39 @@ def test_four_bit_material_packs_texels_and_owns_palette() -> None:
     assert payload[image_offset + 12] >> 4 != 0
 
 
+def test_hidden_cover_faces_the_same_way_as_the_floor() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        output = Path(directory)
+        lifts = {(x, y): 0 for y in range(-2, 5) for x in range(-2, 5)}
+        SCENE.write_meshes(output, [((0, 0), [(0, 0, 9, True, 2, 2)])],
+                           2, 2, [], {9: 1}, 0, "smooth", lifts, [0], [])
+        generated = (output / "mesh_data.c").read_text()
+        section = generated.split("k_visibility_vertices[] = {")[1].split("};")[0]
+        vertices = [tuple(map(int, values)) for values in
+                    re.findall(r"\{\s*(-?\d+),\s*(-?\d+),\s*(-?\d+),\s*(-?\d+)\s*\}", section)]
+        section = generated.split("k_visibility_triangles[] = {")[1].split("};")[0]
+        for indices in re.findall(r"\.i0=(\d+), \.i1=(\d+), \.i2=(\d+)", section):
+            a, b, c = (vertices[int(index)] for index in indices)
+            # Cross-product Y must point upward; reversed covers disappear
+            # under the production renderer's backface rejection.
+            assert (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2]) > 0
+
+
+def test_interior_terrain_pages_overlap_the_visible_window() -> None:
+    cells = [(x, y, 9, True, 1, 1) for y in range(14) for x in range(20)]
+    for (start_x, start_y), page in SCENE.page_cells(cells, 20, 14, 0):
+        xs, ys = [cell[0] for cell in page], [cell[1] for cell in page]
+        if start_x > 0:
+            assert min(xs) <= start_x - 2
+        if start_y > 0:
+            assert min(ys) <= start_y - 2
+
+
 if __name__ == "__main__":
     test_cutout_keeps_grounding_inside_existing_texture()
     test_stage_palette_keeps_transparency_and_uses_8bpp_tim()
     test_texture_packer_reserves_shared_clut_row()
     test_four_bit_material_packs_texels_and_owns_palette()
+    test_hidden_cover_faces_the_same_way_as_the_floor()
+    test_interior_terrain_pages_overlap_the_visible_window()
     print("Mipsync scene generator presentation passed.")

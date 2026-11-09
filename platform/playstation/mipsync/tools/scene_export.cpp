@@ -512,6 +512,11 @@ int main(int argc, char** argv) {
             shown.presentation.kind_of_terrain(loaded.terrain[index])
         );
     }
+    output << "],\n  \"terrain_ids\": [";
+    for (std::size_t index = 0; index < loaded.terrain.size(); ++index) {
+        if (index != 0) output << ',';
+        output << '"' << loaded.terrain[index] << '"';
+    }
     output << "],\n  \"passability\": [";
     for (std::size_t index = 0; index < snapshot.terrain.size(); ++index) {
         if (index != 0) output << ',';
