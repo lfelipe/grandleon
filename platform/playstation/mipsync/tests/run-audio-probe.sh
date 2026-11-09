@@ -17,18 +17,31 @@ update=$(address grandleon_runtime_update)
 ready=$(address s_cd_ready)
 tracks=$(address s_track_count)
 playing=$(address s_playing)
-for mode in write read; do
+pad=$(address s_pad_buffers)
+for mode in raw write read; do
+    probe=audio_probe.lua
+    card=audio.mcd
+    if [[ "$mode" == raw ]]; then probe=raw_audio_input_probe.lua; card=raw.mcd; fi
     timeout --kill-after=10 180 docker run --rm --user "$(id -u):$(id -g)" \
         --env HOME=/tmp --env "GRANDLEON_UPDATE_ADDRESS=$update" \
         --env "GRANDLEON_AUDIO_MODE=$mode" --env "GRANDLEON_CD_READY_ADDRESS=$ready" \
         --env "GRANDLEON_TRACK_COUNT_ADDRESS=$tracks" --env "GRANDLEON_PLAYING_ADDRESS=$playing" \
+        --env "GRANDLEON_PAD_BUFFER_ADDRESS=$pad" \
         --volume "$build:/disc:ro" --volume "$scripts:/probe:ro" --volume "$out:/out" \
         --workdir /tmp "$emulator" stdbuf -oL -eL pcsx-redux -no-ui -run -softgpu \
         -bios /usr/local/share/pcsx-redux/openbios.bin -testmode -interpreter -debugger \
-        -memcard1 /out/audio.mcd -dofile /probe/audio_probe.lua -iso /disc/game.cue \
+        -memcard1 "/out/$card" -dofile "/probe/$probe" -iso /disc/game.cue \
         > "$out/$mode.log" 2>&1
-    rg -q 'MIPSYNC_AUDIO_TRANSPORT_READY tracks=7 theme=0' "$out/$mode.log"
-    rg -q "MIPSYNC_AUDIO_PROBE_DONE mode=$mode" "$out/$mode.log"
+    if [[ "$mode" == raw ]]; then
+        rg -q 'MIPSYNC_RAW_AUDIO_INPUT_DONE' "$out/raw.log"
+        rg -q 'MIPSYNC_SETTING name=music value=50 saved=1' "$out/raw.log"
+        rg -q 'MIPSYNC_SETTING name=effects value=80 saved=1' "$out/raw.log"
+        [[ "$(rg -c 'MIPSYNC_SETTING name=music ' "$out/raw.log")" == 1 ]]
+        [[ "$(rg -c 'MIPSYNC_SETTING name=effects ' "$out/raw.log")" == 1 ]]
+    else
+        rg -q 'MIPSYNC_AUDIO_TRANSPORT_READY tracks=7 theme=0' "$out/$mode.log"
+        rg -q "MIPSYNC_AUDIO_PROBE_DONE mode=$mode" "$out/$mode.log"
+    fi
 done
 rg -q 'MIPSYNC_SETTING name=music value=35 saved=1' "$out/write.log"
 rg -q 'MIPSYNC_SETTING name=effects value=80 saved=1' "$out/write.log"

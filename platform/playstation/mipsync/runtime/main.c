@@ -47,8 +47,8 @@ void grandleon_platform_card_begin(void) {
 void grandleon_platform_card_end(void) {
     StartPAD();
     ChangeClearPAD(0);
-    s_last_buttons[0] = 0xffffu;
-    s_last_buttons[1] = 0xffffu;
+    /* Keep the sampled button state across card I/O. Resetting it here makes
+     * a held Confirm or direction look newly pressed after every save. */
 }
 
 void grandleon_platform_load_stage(const char* disc_path) {
