@@ -456,6 +456,9 @@ def main() -> int:
     campaign = document.get("campaign")
     if not isinstance(campaign, dict) or not isinstance(campaign.get("nodes"), list):
         raise ValueError("manifest has no package-authored campaign graph")
+    player_mode = int(campaign.get("player_mode", 0))
+    if player_mode not in (1, 2, 3):
+        raise ValueError("campaign has no valid local-player policy")
     stage_names = campaign_stage_names(campaign)
     current_node_id = int(campaign.get("current_node_id", 0))
     if current_node_id not in stage_names:
@@ -707,6 +710,7 @@ inline constexpr std::uint64_t grandleon_generated_canonical_hash(unsigned local
 inline constexpr unsigned char grandleon_generated_game_id[16] = {{{','.join(str(int(document.get('game_id', '0' * 32)[i:i+2], 16)) for i in range(0, 32, 2))}}};
 inline constexpr unsigned grandleon_generated_content_revision = {int(document.get('content_revision', 0))}U;
 inline constexpr unsigned grandleon_generated_local_players = {int(document.get('local_players', 2))}U;
+inline constexpr unsigned grandleon_generated_player_mode = {player_mode}U;
 inline constexpr const char* grandleon_generated_project_title = {cpp_string(document.get('project_title', 'Grandleon'))};
 inline constexpr std::uint64_t grandleon_generated_current_node_id = {current_node_id}ULL;
 inline constexpr std::uint64_t grandleon_generated_boot_node_id = {boot_node_id}ULL;

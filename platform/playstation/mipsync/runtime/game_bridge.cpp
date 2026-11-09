@@ -1985,7 +1985,13 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
             if (pressed & pad_cross) {
                 if (s_campaign_menu_index == 0) {
                     s_campaign_menu_index = 0;
-                    s_campaign_mode = CampaignMode::players;
+                    if (grandleon_generated_player_mode == 1U) {
+                        begin_new_campaign(1U);
+                    } else if (grandleon_generated_player_mode == 2U) {
+                        begin_new_campaign(2U);
+                    } else {
+                        s_campaign_mode = CampaignMode::players;
+                    }
                 } else if (s_continue_available && s_campaign_menu_index == 1U) {
                     route_active_campaign_node();
                 } else if (s_campaign_menu_index ==

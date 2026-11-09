@@ -166,6 +166,8 @@ void write_campaign(
     write_id(output, campaign_id);
     output << ",\"entry_node_id\":";
     write_id(output, campaign.entry_node_id);
+    output << ",\"player_mode\":"
+           << static_cast<unsigned>(campaign.player_mode);
     output << ",\"current_node_id\":";
     std::uint64_t current_node_id = 0U;
     for (const pr::CampaignNode& node : campaign.nodes) {
