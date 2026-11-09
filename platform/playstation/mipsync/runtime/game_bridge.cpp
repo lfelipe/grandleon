@@ -1025,7 +1025,7 @@ std::int32_t approach(std::int32_t current, std::int32_t target) {
 }
 
 void animate_combat_units(const sim::EncounterSnapshot& snapshot) {
-    if (!s_result_frames || !s_result_close_combat) return;
+    if ((!s_result_frames && !s_camera_return_frames) || !s_result_close_combat) return;
     const sim::UnitSnapshot* attacker = find_unit(snapshot, s_combat_attacker);
     const sim::UnitSnapshot* target = find_unit(snapshot, s_combat_target);
     if (!attacker || !target) return;
@@ -1745,6 +1745,8 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
     if (!output) return;
     *output = {};
     output->close_combat = s_close_combat_enabled ? 1 : 0;
+    output->combat_view_active = (s_result_frames || s_camera_return_frames) &&
+        s_result_close_combat ? 1 : 0;
     output->cursor_on_left = s_cursor.x < s_map_width / 2 ? 1 : 0;
     output->camera_settled = s_camera_settle_frames >= 8 ? 1 : 0;
     output->campaign_menu_index = static_cast<std::uint8_t>(s_campaign_menu_index);

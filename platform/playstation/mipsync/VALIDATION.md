@@ -1,5 +1,18 @@
 # PlayStation renderer validation
 
+The private castle review now dismisses the authored opening through normal
+input, waits for the opposing turn and combat camera to finish, walks Rowan
+through the doorway, and records the revealed room with its post-move action
+menu. Optional motion capture records the same input sequence. The test
+requires the reveal between the settled approach and doorway-crossing logs.
+Panorama visibility is driven by the active combat view rather than the
+saved preference; actors remain staged through the return camera so the
+board is restored only after the camera has pulled back.
+The latest Bell combat window has zero missed deadlines (316 HBlanks average,
+511 maximum). The larger one-player castle run has one missed deadline during
+the opposing turn (625 HBlanks maximum), which remains a performance-polish
+item and is disclosed on the private comparison page.
+
 ## Graphics pipeline work in progress
 
 The indexed-texture work restores all nine character poses to 64×64, shares

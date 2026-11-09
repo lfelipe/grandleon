@@ -6,6 +6,9 @@ local cinematic_capture = false
 local final_capture = false
 local actions = {}
 local player_two_actions = {}
+local capture_motion = os.getenv('GRANDLEON_CAPTURE_MOTION') == '1'
+local motion_due = false
+local motion_index = 0
 
 local function sequence(target, start, values)
   for index, value in ipairs(values) do
@@ -62,10 +65,20 @@ grandleon_combat_breakpoint = PCSX.addBreakpoint(
   if runtime_frame == 240 then forecast_capture = true end
   if runtime_frame == 300 then cinematic_capture = true end
   if runtime_frame == 1800 then final_capture = true end
+  if capture_motion and runtime_frame >= 90 and runtime_frame <= 900 and
+     runtime_frame % 2 == 0 then motion_due = true end
   return true
 end)
 
 grandleon_combat_listener = PCSX.Events.createEventListener('GPU::Vsync', function()
+  if motion_due then
+    motion_due = false
+    local shot = PCSX.GPU.takeScreenShot()
+    local output = Support.File.open(string.format('/out/frame-%04d.bin', motion_index), 'TRUNCATE')
+    output:writeMoveSlice(shot.data)
+    output:close()
+    motion_index = motion_index + 1
+  end
   if forecast_capture then
     forecast_capture = false
     local shot = PCSX.GPU.takeScreenShot()

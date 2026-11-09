@@ -96,6 +96,7 @@ typedef struct grandleon_ui_state {
     uint8_t counter_chance;
     uint8_t counter;
     uint8_t close_combat;
+    uint8_t combat_view_active;
     uint8_t local_player;
     uint8_t cursor_on_left;
     uint8_t camera_settled;

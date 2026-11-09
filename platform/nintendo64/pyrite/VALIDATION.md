@@ -1,5 +1,12 @@
 # Generic project export validation
 
+The castle review adds battlement silhouettes and a capture-driver cursor
+move into the revealed room, followed by a camera-settling pause. The driver
+does not alter visibility: normal campaign movement must reveal the room
+first. The full campaign passed again at 30.00 fps, with 1,258,880 bytes of
+free heap. The settled room frame is
+`/home/lstrano/.cache/grandleon-pyrite-surface-quality/ares/room-trail/112-PYRITE_CASTLE_ROOM_REVIEW.png`.
+
 The latest graphics review adds filtered detail to raised terrain, trees,
 elevation faces, and castle masonry, plus compatible Godot panorama plates
 loaded one stage at a time. The full accurate-emulator campaign passed with

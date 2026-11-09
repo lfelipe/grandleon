@@ -74,7 +74,7 @@ constexpr std::size_t kMaxUnits = 48U;
 constexpr std::size_t kCursorVerticesPerPlayer = 16U;
 constexpr std::size_t kCursorVertexCount =
     kMaxCells * 4U + kCursorVerticesPerPlayer * 2U;
-constexpr std::size_t kMaxLandmarkVertices = 256U;
+constexpr std::size_t kMaxLandmarkVertices = 512U;
 
 enum class VisualPose : std::uint8_t {
     idle,
@@ -265,6 +265,8 @@ struct BattleMomentState final {
 };
 
 struct ReplayState final {
+    bool castle_review_aimed{};
+    bool castle_review_checkpoint{};
     ReplayPhase phase{ReplayPhase::explore_northwest};
     sim::Position rowan_start{};
     sim::Position rowan_destination{};
@@ -1095,6 +1097,12 @@ void build_landmark_vertices() {
                 cx, floor, cz, kHalfCell - 2, 42, kHalfCell - 2,
                 pack_rgba(143U, 132U, 119U)
             );
+            // Broken-up battlements identify masonry at board scale without
+            // hiding the doorway or placing an oversized building on it.
+            for (const int offset : {-12, 12}) {
+                append_box(cx + offset, floor + 42, cz, 5, 9,
+                           kHalfCell - 3, pack_rgba(166U, 155U, 137U));
+            }
         } else if (terrain == castle_dais) {
             append_box(
                 cx, floor, cz, kHalfCell - 4, 8, kHalfCell - 4,
@@ -3744,6 +3752,31 @@ void update_replay() {
     }
     if (combat.active || replay.user_took_over || replay.phase == ReplayPhase::complete ||
         frame_count < replay.next_frame) {
+        return;
+    }
+    // The capture driver must look at the revealed room, rather than leave
+    // its cursor at a previous fight. Use the same cursor navigation as play
+    // and wait for camera follow to settle; no visibility state is changed.
+    const auto& covered = board.content->visual_visibility.hidden_cells;
+    if (!covered.empty() && board.visibility_revealed[covered.front()] &&
+        !replay.castle_review_checkpoint) {
+        const int width = board.content->definition.width;
+        const auto cell = covered[covered.size() / 2U];
+        const sim::Position focus{static_cast<std::int16_t>(cell % width),
+                                  static_cast<std::int16_t>(cell / width)};
+        if (!replay.castle_review_aimed) {
+            if (board.game.cursor() == focus) {
+                replay.castle_review_aimed = true;
+                replay.next_frame = frame_count + 90U;
+            } else {
+                nudge_toward(focus);
+                replay.next_frame = frame_count + 3U;
+            }
+        } else {
+            replay.castle_review_checkpoint = true;
+            debugf("CHECKPOINT PYRITE_CASTLE_ROOM_REVIEW\n");
+            replay.next_frame = frame_count + 90U;
+        }
         return;
     }
     switch (replay.phase) {

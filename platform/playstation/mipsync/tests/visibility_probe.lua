@@ -4,6 +4,12 @@ local runtime_frame = 0
 local before_capture = false
 local after_capture = false
 local actions = {}
+local capture_motion = os.getenv('GRANDLEON_CAPTURE_MOTION') == '1'
+local motion_due = false
+local motion_index = 0
+-- The package-authored two-line opening precedes normal board input.
+actions[20] = 0x4000
+actions[40] = 0x4000
 
 local function sequence(start, spacing, values)
   for index, value in ipairs(values) do
@@ -28,7 +34,7 @@ sequence(260, 10, {
   0x4000, 0x4000,                 -- select Elowen; keep 5,6
   0x0010, 0x4000,                 -- choose Wait
 })
-sequence(700, 10, {
+sequence(1400, 10, {
   0x0020, 0x0020, 0x0020, 0x0020,
   0x4000,                         -- select Rowan at 9,6
   0x0020, 0x0020, 0x0020, 0x0020, 0x4000,
@@ -45,12 +51,22 @@ grandleon_visibility_breakpoint = PCSX.addBreakpoint(
     print(string.format('MIPSYNC_VISIBILITY_INPUT held=%04x frame=%d',
                         held, runtime_frame))
   end
-  if runtime_frame == 650 then before_capture = true end
-  if runtime_frame == 850 then after_capture = true end
+  if runtime_frame == 1350 then before_capture = true end
+  if runtime_frame == 1700 then after_capture = true end
+  if capture_motion and runtime_frame >= 1300 and runtime_frame <= 1700 and
+     runtime_frame % 2 == 0 then motion_due = true end
   return true
 end)
 
 grandleon_visibility_listener = PCSX.Events.createEventListener('GPU::Vsync', function()
+  if motion_due then
+    motion_due = false
+    local shot = PCSX.GPU.takeScreenShot()
+    local output = Support.File.open(string.format('/out/frame-%04d.bin', motion_index), 'TRUNCATE')
+    output:writeMoveSlice(shot.data)
+    output:close()
+    motion_index = motion_index + 1
+  end
   local name = nil
   if before_capture then
     before_capture = false

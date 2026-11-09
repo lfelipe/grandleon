@@ -183,7 +183,7 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
     int x;
     grandleon_game_ui_state(&state);
 
-    if (state.close_combat && g_grandleon_combat_plate_indices[0]) {
+    if (state.combat_view_active && g_grandleon_combat_plate_indices[0]) {
         unsigned int strip;
         for (strip = 0; strip < 4; ++strip) {
             const unsigned int texture = g_grandleon_combat_plate_indices[strip];

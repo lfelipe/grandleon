@@ -981,7 +981,12 @@ def append_terrain_form(
         box(cx - 22, cz + 8, 27, 20, 9, colour)
         box(cx + 24, cz - 14, 24, 18, 7, light)
     elif kind == 8:  # ruins: broken wall profile plus fallen masonry
-        box(cx - 10, cz, 28, 8, 58, colour)
+        if roll & 3 == 0:
+            box(cx - 25, cz, 7, 9, 58, colour)
+            box(cx + 25, cz, 7, 9, 58, light)
+            box(cx, cz, 33, 10, 12, colour, 58)
+        else:
+            box(cx - 10, cz, 28, 8, 58, colour)
         box(cx + 29, cz + 15, 20, 16, 15, light)
     elif kind == 5:  # snow: one clear faceted ice shard
         pyramid(cx, cz, 19, 16, 82, light)
