@@ -67,6 +67,11 @@ grep -Eq 'MIPSYNC_REVIEW_MOTION frames=1[0-9][0-9]' "$output/capture.log" || {
     tail -n 80 "$output/capture.log" >&2
     exit 1
 }
+grep -Eq 'MIPSYNC_MOVE_SETTLED unit=[0-9a-f]+ steps=2' "$output/capture.log" || {
+    echo "review capture did not exercise the routed two-cell walk" >&2
+    tail -n 80 "$output/capture.log" >&2
+    exit 1
+}
 ffmpeg -hide_banner -loglevel error -y \
     -f image2 -vcodec rawvideo -pixel_format bgr555le \
     -video_size 320x240 -framerate 30 -start_number 0 \

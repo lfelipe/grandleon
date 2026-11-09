@@ -10,8 +10,10 @@
 #include <grandleon/simulation/encounter.hpp>
 #include <grandleon/storage/byte_window_storage.hpp>
 #include <grandleon/tactics/policy.hpp>
+#include <grandleon/view/motion.hpp>
 #include "psx_card.h"
 #include "psx_runtime.h"
+#include <array>
 #include <cstdint>
 #include <new>
 #include <type_traits>
@@ -22,12 +24,26 @@ namespace psx = grandleon::playstation;
 namespace camp = grandleon::campaign;
 namespace storage = grandleon::storage;
 namespace card = grandleon::playstation::card;
+namespace view = grandleon::view;
 
 namespace {
 
 enum class InputMode : std::uint8_t { browse, move, action, attack, ability };
 enum class CampaignMode : std::uint8_t {
     title, players, prologue, objective, battle, aftermath, save_error
+};
+
+constexpr unsigned maximum_board_cells = 4096U;
+
+struct BoardMotion final {
+    sim::UnitId unit{};
+    sim::Position from{};
+    sim::Position to{};
+    std::array<view::RouteTile, maximum_board_cells> route{};
+    unsigned route_count{};
+    unsigned frame{};
+    unsigned total_frames{};
+    bool active{};
 };
 
 sim::Encounter::CreateResult* s_created{};
@@ -68,7 +84,10 @@ std::int32_t s_map_height{};
 unsigned s_active_terrain_chunks{};
 bool s_unit_on_board[64]{};
 bool s_unit_visible[64]{};
-bool s_visibility_revealed[4096]{};
+bool s_visibility_revealed[maximum_board_cells]{};
+std::array<std::uint8_t, maximum_board_cells> s_motion_crossable{};
+std::array<std::uint8_t, maximum_board_cells> s_motion_distance{};
+BoardMotion s_motion{};
 unsigned s_camera_settle_frames{};
 unsigned s_active_terrain_page{0xffffffffU};
 CampaignMode s_campaign_mode{CampaignMode::battle};
@@ -267,26 +286,30 @@ bool unit_visible(const sim::UnitSnapshot& unit, int width) {
         s_visibility_revealed[hidden_index];
 }
 
+bool reveal_visual_visibility_at(std::size_t cell) {
+    if (!visibility_hidden(cell)) return false;
+    bool changed = false;
+    for (unsigned index = 0;
+         index < g_grandleon_visibility_cell_count; ++index) {
+        if (!s_visibility_revealed[index]) {
+            s_visibility_revealed[index] = true;
+            changed = true;
+        }
+    }
+    if (changed) {
+        psx::Line().text("MIPSYNC_VISIBILITY_REVEAL cells=")
+            .decimal(g_grandleon_visibility_cell_count).flush();
+    }
+    return changed;
+}
+
 bool update_visual_visibility(const sim::EncounterSnapshot& snapshot) {
     for (const sim::UnitSnapshot& unit : snapshot.units) {
         if (!sim::on_board(unit) || unit.side != sim::Side::first) continue;
         const std::size_t origin = static_cast<std::size_t>(
             unit.position.y * snapshot.width + unit.position.x
         );
-        if (!visibility_hidden(origin)) continue;
-        bool changed = false;
-        for (unsigned index = 0;
-             index < g_grandleon_visibility_cell_count; ++index) {
-            if (!s_visibility_revealed[index]) {
-                s_visibility_revealed[index] = true;
-                changed = true;
-            }
-        }
-        if (changed) {
-            psx::Line().text("MIPSYNC_VISIBILITY_REVEAL cells=")
-                .decimal(g_grandleon_visibility_cell_count).flush();
-        }
-        return changed;
+        if (reveal_visual_visibility_at(origin)) return true;
     }
     return false;
 }
@@ -317,6 +340,124 @@ void place_entity(
     }
     entity.position[2] =
         (height - static_cast<std::int32_t>(position.y) * 2 - 1) * 65536;
+}
+
+std::int32_t terrain_surface(sim::Position position, int width) {
+    const unsigned index = static_cast<unsigned>(position.y) *
+        static_cast<unsigned>(width) + static_cast<unsigned>(position.x);
+    return index < g_grandleon_terrain_surface_count
+        ? g_grandleon_terrain_surface_y_q16[index] : 0;
+}
+
+void plan_board_motion(
+    const sim::EncounterSnapshot& snapshot,
+    sim::UnitId unit_id,
+    sim::Position destination
+) {
+    s_motion = {};
+    const sim::UnitSnapshot* actor = find_unit(snapshot, unit_id);
+    if (!actor || !sim::on_board(*actor) || actor->position == destination) {
+        return;
+    }
+    const int width = snapshot.width;
+    const int height = snapshot.height;
+    const unsigned cells = static_cast<unsigned>(width * height);
+    if (cells == 0U || cells > maximum_board_cells) return;
+    for (unsigned index = 0; index < cells; ++index) {
+        s_motion_crossable[index] = 0U;
+    }
+    for (const sim::Position tile : sim::reachable_tiles(snapshot, unit_id)) {
+        s_motion_crossable[static_cast<unsigned>(tile.y * width + tile.x)] = 1U;
+    }
+    for (const sim::UnitSnapshot& unit : snapshot.units) {
+        if (unit.id == unit_id || unit.side != actor->side ||
+            !sim::on_board(unit)) {
+            continue;
+        }
+        s_motion_crossable[static_cast<unsigned>(
+            unit.position.y * width + unit.position.x
+        )] = 1U;
+    }
+    view::Route route(
+        s_motion.route.data(), static_cast<int>(s_motion.route.size())
+    );
+    const bool found = view::plan_route(
+        actor->position.x, actor->position.y,
+        destination.x, destination.y,
+        width, height,
+        [width](int x, int y) {
+            return s_motion_crossable[static_cast<unsigned>(y * width + x)] != 0U;
+        },
+        s_motion_distance.data(), route
+    );
+    s_motion.unit = unit_id;
+    s_motion.from = actor->position;
+    s_motion.to = destination;
+    if (found) {
+        s_motion.route_count = static_cast<unsigned>(route.size());
+    } else {
+        s_motion.route_count = 1U;
+        s_motion.route[0] = {
+            static_cast<std::int16_t>(destination.x),
+            static_cast<std::int16_t>(destination.y),
+        };
+    }
+    s_motion.total_frames = static_cast<unsigned>(
+        view::slide_frames_for(static_cast<int>(s_motion.route_count))
+    );
+    s_motion.active = s_motion.total_frames != 0U;
+}
+
+void pose_board_motion() {
+    if (!s_motion.active || s_motion.route_count == 0U) return;
+    ps1_entity* entity = nullptr;
+    unsigned binding = 0U;
+    for (; binding < g_grandleon_unit_count; ++binding) {
+        if (g_grandleon_unit_ids[binding] == s_motion.unit) {
+            entity = grandleon_scene_mutable_entity(
+                g_grandleon_unit_entity_indices[binding]
+            );
+            break;
+        }
+    }
+    if (!entity) return;
+    const unsigned route_index = s_motion.frame / view::slide_frames_per_tile <
+        s_motion.route_count
+        ? s_motion.frame / view::slide_frames_per_tile
+        : s_motion.route_count - 1U;
+    const sim::Position from = route_index == 0U
+        ? s_motion.from
+        : sim::Position{
+            s_motion.route[route_index - 1U].x,
+            s_motion.route[route_index - 1U].y,
+        };
+    const sim::Position to{
+        s_motion.route[route_index].x,
+        s_motion.route[route_index].y,
+    };
+    const int segment_frame = static_cast<int>(
+        s_motion.frame - route_index * view::slide_frames_per_tile
+    );
+    const int from_x = (from.x * 2 + 1 - s_map_width) * 65536;
+    const int to_x = (to.x * 2 + 1 - s_map_width) * 65536;
+    const int from_z = (s_map_height - from.y * 2 - 1) * 65536;
+    const int to_z = (s_map_height - to.y * 2 - 1) * 65536;
+    entity->position[0] = view::slide_between(
+        from_x, to_x, segment_frame, view::slide_frames_per_tile
+    );
+    entity->position[1] = 3072 + view::slide_between(
+        terrain_surface(from, s_map_width), terrain_surface(to, s_map_width),
+        segment_frame, view::slide_frames_per_tile
+    );
+    entity->position[1] += 4096 * 4 * segment_frame *
+        (view::slide_frames_per_tile - segment_frame) /
+        (view::slide_frames_per_tile * view::slide_frames_per_tile);
+    entity->position[2] = view::slide_between(
+        from_z, to_z, segment_frame, view::slide_frames_per_tile
+    );
+    entity->mesh_enabled = 1;
+    s_unit_on_board[binding] = true;
+    s_unit_visible[binding] = true;
 }
 
 std::int32_t clamp_camera_focus(
@@ -541,19 +682,52 @@ void sync_scene(const sim::EncounterSnapshot& snapshot) {
     sync_visibility_entities(false);
 }
 
+bool advance_board_motion() {
+    if (!s_motion.active) return false;
+    if (s_motion.frame < s_motion.total_frames) ++s_motion.frame;
+    const unsigned completed_steps = s_motion.frame /
+        static_cast<unsigned>(view::slide_frames_per_tile);
+    for (unsigned index = 0;
+         index < completed_steps && index < s_motion.route_count; ++index) {
+        const sim::Position reached{
+            s_motion.route[index].x, s_motion.route[index].y,
+        };
+        const std::size_t cell = static_cast<std::size_t>(
+            reached.y * s_map_width + reached.x
+        );
+        (void)reveal_visual_visibility_at(cell);
+    }
+    if (s_motion.frame >= s_motion.total_frames) {
+        psx::Line().text("MIPSYNC_MOVE_SETTLED unit=")
+            .hex64(s_motion.unit).text(" steps=")
+            .decimal(s_motion.route_count).flush();
+        s_motion.active = false;
+        (void)update_visual_visibility(s_snapshot);
+        sync_scene(s_snapshot);
+    } else {
+        pose_board_motion();
+    }
+    return true;
+}
+
 bool apply_command(
     const sim::Command& command, const char* action,
     sim::CommandResult* accepted, sim::EncounterSnapshot* after
 ) {
+    if (command.type == sim::CommandType::move) {
+        plan_board_motion(s_snapshot, command.unit_id, command.destination);
+    }
     sim::CommandResult result = s_created->encounter.apply(command);
     if (!result) {
+        s_motion = {};
         psx::Line().text("MIPSYNC_SIM_REJECT action=").text(action)
             .text(" error=").decimal(static_cast<unsigned>(result.error)).flush();
         return false;
     }
     s_snapshot = s_created->encounter.snapshot();
-    (void)update_visual_visibility(s_snapshot);
+    if (!s_motion.active) (void)update_visual_visibility(s_snapshot);
     sync_scene(s_snapshot);
+    pose_board_motion();
     if (accepted) *accepted = result;
     if (after) *after = s_snapshot;
     return true;
@@ -811,7 +985,8 @@ bool start_encounter() {
     }
     s_snapshot = s_created->encounter.snapshot();
     const sim::EncounterSnapshot& snapshot = s_snapshot;
-    for (unsigned index = 0; index < 4096; ++index) {
+    s_motion = {};
+    for (unsigned index = 0; index < maximum_board_cells; ++index) {
         s_visibility_revealed[index] = false;
     }
     (void)update_visual_visibility(snapshot);
@@ -1123,7 +1298,9 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
         return 0;
     }
     if (!s_created || !*s_created) return 0;
+    const bool motion_was_active = advance_board_motion();
     tick_camera();
+    if (motion_was_active) return 0;
     if (s_snapshot.outcome != sim::Outcome::ongoing &&
         !s_campaign_completion_handled) {
         s_campaign_completion_handled = true;

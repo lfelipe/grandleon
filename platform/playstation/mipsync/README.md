@@ -13,6 +13,12 @@ and rules. Functional parity with Godot, audio, real hardware validation, and
 the final cutover remain. Mipsync is never used as a fallback, and the removed
 renderer will not be retained as one.
 
+Board movement follows the authoritative reachable route at ten frames per
+tile, including terrain height and a small footfall lift. Input waits for that
+presentation to settle, and entering an authored hidden area reveals it only
+when the rendered unit reaches the doorway rather than when the rules commit
+the destination.
+
 Mipsync is pinned to commit `866f405a0e34b5925a8d832272fe52c657688430`.
 The upstream source is not copied into Grandleon. Generic engine fixes live as
 replayable `git format-patch` files under
