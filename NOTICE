@@ -23,5 +23,13 @@ release packaging copies them beside distributed console artifacts.
     https://github.com/pcsx-redux/nugget
     https://www.gnu.org/licenses/gcc-exception-3.1.html
 
+The orchestral music and sound effects use instrument recordings from VSCO 2
+Community Edition, dedicated to the public domain under CC0 1.0 by Sam Gossner
+and Simon Dalzell. Sample editing includes work by Elan Hickler / Soundemote.
+The original Grandleon compositions and rendering scripts use the project's
+MIT License. Sample provenance and the CC0 text are in assets/audio.
+
+    https://github.com/sgossner/VSCO-2-CE
+
 Everything else in this repository is the project's own work, generated art and
 the console font included.

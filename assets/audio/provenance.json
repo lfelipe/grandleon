@@ -1,0 +1,84 @@
+{
+  "score_license": "MIT",
+  "sample_license": "CC0-1.0",
+  "library": "VSCO 2 CE",
+  "recorded_by": [
+    "Sam Gossner",
+    "Simon Dalzell"
+  ],
+  "sample_editing": "Elan Hickler / Soundemote",
+  "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+  "sample_rate": 22050,
+  "instruments": [
+    {
+      "instrument": "violins",
+      "source": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Violin%20Section/susVib/VlnEns_susVib_A3_v1.wav",
+      "git_blob": "ec84b89a4b93ecdc7e23d0c023b897b6f151bca7",
+      "sha256": "72817a53dfd2eb61eca94658c14e1cab6017629ca2f27bab8e394c6675bfaad7",
+      "base_midi_note": 69
+    },
+    {
+      "instrument": "violas",
+      "source": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Violin%20Section/susVib/VlnEns_susVib_A2_v1.wav",
+      "git_blob": "b86c2e7000da2a80466196acca2ddbdf6cf83fe8",
+      "sha256": "5b3ff9f991642a6dc2fdad56a7d94f581077d2c4082cc1ed89156737716ff22c",
+      "base_midi_note": 57
+    },
+    {
+      "instrument": "cellos",
+      "source": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/susvib/susvib_D2_v1_1.wav",
+      "git_blob": "8076f809d4f6a8057f3835e12d22751a25e39252",
+      "sha256": "e8640dec9febc6e39fcf06b19d2c95a85d5ff8c38f13c9879e69f551eaf38ab8",
+      "base_midi_note": 50
+    },
+    {
+      "instrument": "horn",
+      "source": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Brass/F%20Horn/sus/MOHorn_sus_D2_v2_1.wav",
+      "git_blob": "665f09cf0fe70efdcec1d93b064d5a5a32d6ebe0",
+      "sha256": "9155ef0c33c06ebe55daeaaaca7dec4090578af6cf3d6a028fbfa7b7f2ec876e",
+      "base_midi_note": 50
+    },
+    {
+      "instrument": "flute",
+      "source": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Woodwinds/Flute/susvib/LDFlute_susvib_C4_v1_1.wav",
+      "git_blob": "7be22f8b86e5dc405a10f51dd71d44712d23c9aa",
+      "sha256": "e88a0ff35e6b8c29fd88bc778a4c817d955b2c3a2934def97a7d093b72e2ae97",
+      "base_midi_note": 72
+    },
+    {
+      "instrument": "pizzicato",
+      "source": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Violin%20Section/Pizz/VlnEns_Pizz_A3_v1_rr1.wav",
+      "git_blob": "06793268b9279f7cac16e997732515851e619173",
+      "sha256": "6807c9f8a2b8851e866e1f9bb92e9809982693e3593882673d0fe6dedf9b7a96",
+      "base_midi_note": 69
+    },
+    {
+      "instrument": "timpani",
+      "source": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Percussion/Timpani/Timpani1_Hit_v1_rr1_Sum.wav",
+      "git_blob": "77c36162c32a539649022e5917e0aa764a9c081b",
+      "sha256": "a43d60795e9eab808866c22b6b6b42a64d3a13f6754838f0100a0a1e9a3029cd",
+      "base_midi_note": 43
+    },
+    {
+      "instrument": "drum",
+      "source": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Percussion/BDrumNewhit_v1_rr1_Sum.wav",
+      "git_blob": "2bd179131d6b00e99f018210fe62c7443b4f4bd5",
+      "sha256": "dbd08796629b6987b64d03810b6d93f3a42dd7d05a15027b0af144bde46114fc",
+      "base_midi_note": 36
+    },
+    {
+      "instrument": "snare",
+      "source": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Percussion/Snare2-HitNS_v1_rr1_Sum.wav",
+      "git_blob": "0c81018f93ce433876c4d1e488fadd821b0d92ea",
+      "sha256": "cb715753d4ff2ae82670d658b273731d4b38afb51143e9e38c3b393094ab40a4",
+      "base_midi_note": 60
+    },
+    {
+      "instrument": "triangle",
+      "source": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Percussion/Triangle3-HitFM_v1_rr1_Sum.wav",
+      "git_blob": "e7e6c32d6910c46b270af65c875321d299bbd014",
+      "sha256": "20f093db68d1520babf2ce1c96e33e9fdc971e1e7aa9823daaf7c411be2eede4",
+      "base_midi_note": 84
+    }
+  ]
+}
