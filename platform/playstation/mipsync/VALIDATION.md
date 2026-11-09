@@ -31,6 +31,12 @@ two-axis Deepwood scrolling stress pass averaged 163 HBlanks and peaked at 253,
 again with zero missed VBlanks. These figures include the terrain relief,
 native forms, seam fill, and live unit rendering described below.
 
+The separate combat probe waits for routed movement to settle, performs a real
+melee attack and healing ability with Player 1, spends Player 2's units through
+the second controller, and observes the authored opposing turn. Board frames
+keep their 60 Hz budget; the optional close view remains bounded to two VBlanks
+per presented frame.
+
 The build keeps the planned 64 KiB audio reserve, 32 KiB stack reserve, and
 512 KiB gameplay heap on every stage:
 
@@ -60,7 +66,9 @@ can be compared from the same build.
 
 The optional close-combat presentation keeps attacker and defender on fixed
 sides during attacks and counterattacks. Forecasts, results, objectives, and
-story screens use the compact in-game UI rather than Sony's debug font.
+story screens use the compact in-game font rather than Sony's debug font. All
+interface labels are generated live in the selected language; the old baked
+English label texture is no longer shipped.
 
 ## Exact artifact
 

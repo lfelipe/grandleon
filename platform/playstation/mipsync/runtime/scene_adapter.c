@@ -92,49 +92,6 @@ static void draw_glyph(
     *next_packet = (char*)(glyph + 1);
 }
 
-enum ui_label {
-    UI_ATTACK, UI_ABILITY, UI_HIT, UI_DMG, UI_HEAL,
-    UI_ACTION, UI_WAIT, UI_MISS, UI_COUNTER, UI_MOVE, UI_BACK
-};
-
-typedef struct ui_label_desc {
-    uint8_t x;
-    uint8_t y;
-    uint8_t width;
-} ui_label_desc;
-
-static const ui_label_desc k_ui_labels[] = {
-    {0,0,42}, {0,10,49}, {0,20,21}, {22,20,21}, {40,20,24},
-    {0,30,42}, {0,40,28}, {30,40,28}, {0,50,49},
-    {0,60,42}, {0,70,42},
-};
-
-static void draw_label(
-    uint32_t* ordering_table, char** next_packet, const char* packet_end,
-    int x, int y, enum ui_label label,
-    uint8_t red, uint8_t green, uint8_t blue
-) {
-    const ui_label_desc* desc = &k_ui_labels[label];
-    const unsigned int texture = g_grandleon_ui_label_texture_index;
-    const uint8_t u = (uint8_t)(ps1_texture_u_offset(texture) + desc->x);
-    const uint8_t v = (uint8_t)(ps1_texture_v_offset(texture) + desc->y);
-    POLY_FT4* sprite;
-    if ((const char*)(*next_packet + sizeof(POLY_FT4)) > packet_end) return;
-    sprite = (POLY_FT4*)*next_packet;
-    setPolyFT4(sprite);
-    setXY4(sprite, x, y, x + desc->width - 1, y,
-           x, y + 9, x + desc->width - 1, y + 9);
-    setUV4(sprite, u, v, (uint8_t)(u + desc->width - 1), v,
-           u, (uint8_t)(v + 9),
-           (uint8_t)(u + desc->width - 1), (uint8_t)(v + 9));
-    setRGB0(sprite, red, green, blue);
-    setShadeTex(sprite, 0);
-    sprite->tpage = ps1_texture_tpage(texture);
-    sprite->clut = 0;
-    addPrim(ordering_table + 1, sprite);
-    *next_packet = (char*)(sprite + 1);
-}
-
 static void activate_ui_tpage(
     uint32_t* ordering_table, char** next_packet, const char* packet_end
 ) {
@@ -209,21 +166,13 @@ static void draw_menu_row(
     int x, int y, const char* label, int selected, int suffix
 ) {
     if (selected) {
-        draw_box(ordering_table, next_packet, packet_end, x, y - 1, 76, 11, 52, 63, 45);
+        draw_box(ordering_table, next_packet, packet_end, x, y - 1, 92, 11, 52, 63, 45);
         draw_glyph(ordering_table, next_packet, packet_end, x + 2, y, '>', 255, 205, 68);
     }
-    if (label[0] == 'A' && label[1] == 'T') {
-        draw_label(ordering_table, next_packet, packet_end, x + 11, y, UI_ATTACK,
-                   selected ? 255 : 210, selected ? 239 : 218, selected ? 162 : 228);
-    } else if (label[0] == 'A' && label[1] == 'B') {
-        draw_label(ordering_table, next_packet, packet_end, x + 11, y, UI_ABILITY,
-                   selected ? 255 : 210, selected ? 239 : 218, selected ? 162 : 228);
-    } else {
-        draw_label(ordering_table, next_packet, packet_end, x + 11, y, UI_WAIT,
-                   selected ? 255 : 210, selected ? 239 : 218, selected ? 162 : 228);
-    }
+    draw_text(ordering_table, next_packet, packet_end, x + 11, y, label,
+              selected ? 255 : 210, selected ? 239 : 218, selected ? 162 : 228);
     if (suffix >= 0) {
-        draw_number(ordering_table, next_packet, packet_end, x + 61, y, suffix,
+        draw_number(ordering_table, next_packet, packet_end, x + 83, y, suffix,
                     94, 206, 227);
     }
 }
@@ -280,15 +229,15 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
         } else if (state.mode == GRANDLEON_UI_NAME) {
             int row;
             int column;
-            draw_text(ordering_table, next_packet, packet_end, 42, 70,
-                      "NAME", 168, 181, 196);
+            draw_text(ordering_table, next_packet, packet_end, 42, 59,
+                      grandleon_game_text(GRANDLEON_TEXT_CHARACTER_NAME), 168, 181, 196);
             draw_box(ordering_table, next_packet, packet_end,
-                     83, 65, 187, 18, 30, 53, 66);
-            draw_text(ordering_table, next_packet, packet_end, 91, 69,
+                     42, 71, 228, 18, 30, 53, 66);
+            draw_text(ordering_table, next_packet, packet_end, 50, 75,
                       state.name_value ? state.name_value : "", 247, 239, 209);
             if (state.name_invalid) {
-                draw_text(ordering_table, next_packet, packet_end, 225, 69,
-                          "REQUIRED", 255, 112, 92);
+                draw_text(ordering_table, next_packet, packet_end, 190, 75,
+                          grandleon_game_text(GRANDLEON_TEXT_REQUIRED), 255, 112, 92);
             }
             for (row = 0; row < 5; ++row) {
                 const int columns = row < 4 ? 9 : 4;
@@ -318,9 +267,22 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
                               247, 239, 209);
                 }
             }
-            draw_text(ordering_table, next_packet, packet_end, 42, 190,
-                      "X TYPE  O ERASE  TRIANGLE KEEP  START SAVE",
-                      168, 181, 196);
+            draw_text(ordering_table, next_packet, packet_end, 42, 180,
+                      "X", 94, 206, 227);
+            draw_text(ordering_table, next_packet, packet_end, 56, 180,
+                      grandleon_game_text(GRANDLEON_TEXT_TYPE_NAME), 168, 181, 196);
+            draw_text(ordering_table, next_packet, packet_end, 150, 180,
+                      "O", 94, 206, 227);
+            draw_text(ordering_table, next_packet, packet_end, 164, 180,
+                      grandleon_game_text(GRANDLEON_TEXT_ERASE), 168, 181, 196);
+            draw_text(ordering_table, next_packet, packet_end, 42, 192,
+                      "TRI", 94, 206, 227);
+            draw_text(ordering_table, next_packet, packet_end, 70, 192,
+                      grandleon_game_text(GRANDLEON_TEXT_KEEP), 168, 181, 196);
+            draw_text(ordering_table, next_packet, packet_end, 170, 192,
+                      "START", 94, 206, 227);
+            draw_text(ordering_table, next_packet, packet_end, 212, 192,
+                      grandleon_game_text(GRANDLEON_TEXT_SAVE), 168, 181, 196);
         } else if (state.mode == GRANDLEON_UI_TITLE_SETTINGS) {
             const char* close = grandleon_game_text(
                 state.close_combat ? GRANDLEON_TEXT_ON : GRANDLEON_TEXT_OFF
@@ -358,7 +320,10 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
             draw_box(ordering_table, next_packet, packet_end,
                      105, 163, 110, 18, 30, 53, 66);
             draw_text(ordering_table, next_packet, packet_end, 124, 167,
-                      state.mode == GRANDLEON_UI_SAVE_ERROR ? "BACK" : "CONTINUE",
+                      grandleon_game_text(
+                          state.mode == GRANDLEON_UI_SAVE_ERROR
+                              ? GRANDLEON_TEXT_BACK : GRANDLEON_TEXT_CONTINUE
+                      ),
                       247, 239, 209);
         }
         activate_ui_tpage(ordering_table, next_packet, packet_end);
@@ -386,17 +351,17 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
         x = state.cursor_on_left ? 104 : 8;
         draw_panel(ordering_table, next_packet, packet_end, x, 42, 208, 116);
         draw_text(ordering_table, next_packet, packet_end, x + 12, 51,
-                  "HELP", 94, 206, 227);
+                  grandleon_game_text(GRANDLEON_TEXT_HELP), 94, 206, 227);
         draw_text(ordering_table, next_packet, packet_end, x + 12, 72,
-                  "D-PAD  MOVE CURSOR", 247, 239, 209);
+                  grandleon_game_text(GRANDLEON_TEXT_MOVE_CURSOR), 247, 239, 209);
         draw_text(ordering_table, next_packet, packet_end, x + 12, 88,
-                  "CROSS  CONFIRM", 247, 239, 209);
+                  grandleon_game_text(GRANDLEON_TEXT_CROSS_CONFIRM), 247, 239, 209);
         draw_text(ordering_table, next_packet, packet_end, x + 12, 104,
-                  "CIRCLE BACK", 247, 239, 209);
+                  grandleon_game_text(GRANDLEON_TEXT_CIRCLE_BACK), 247, 239, 209);
         draw_text(ordering_table, next_packet, packet_end, x + 12, 120,
-                  "START  MENU", 247, 239, 209);
+                  grandleon_game_text(GRANDLEON_TEXT_START_MENU), 247, 239, 209);
         draw_text(ordering_table, next_packet, packet_end, x + 12, 139,
-                  "CROSS OR CIRCLE TO RETURN", 168, 181, 196);
+                  grandleon_game_text(GRANDLEON_TEXT_CROSS_CIRCLE_RETURN), 168, 181, 196);
         activate_ui_tpage(ordering_table, next_packet, packet_end);
         return;
     }
@@ -453,30 +418,36 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
     if (state.mode == GRANDLEON_UI_COMPLETE) {
         draw_panel(ordering_table, next_packet, packet_end, 84, 8, 152, 25);
         draw_text(ordering_table, next_packet, packet_end, 102, 16,
-                  "ENCOUNTER CLEAR", 255, 205, 68);
+                  grandleon_game_text(GRANDLEON_TEXT_ENCOUNTER_CLEAR), 255, 205, 68);
         activate_ui_tpage(ordering_table, next_packet, packet_end);
         return;
     }
     if (state.mode == GRANDLEON_UI_ACTION) {
         unsigned int first = 0;
         unsigned int row;
-        x = state.cursor_on_left ? 238 : 6;
-        draw_panel(ordering_table, next_packet, packet_end, x, 54, 80, 70);
-        draw_label(ordering_table, next_packet, packet_end, x + 7, 59,
-                   UI_ACTION, 94, 206, 227);
+        x = state.cursor_on_left ? 222 : 6;
+        draw_panel(ordering_table, next_packet, packet_end, x, 54, 96, 70);
+        draw_text(ordering_table, next_packet, packet_end, x + 7, 59,
+                  grandleon_game_text(GRANDLEON_TEXT_ACTION), 94, 206, 227);
         if (state.menu_count > 5 && state.menu_index > 2) first = state.menu_index - 2;
         if (first + 5 > state.menu_count) first = state.menu_count - 5;
         for (row = 0; row < 5 && first + row < state.menu_count; ++row) {
             const unsigned int entry = first + row;
             if (entry == 0) {
                 draw_menu_row(ordering_table, next_packet, packet_end,
-                              x + 2, 72 + row * 10, "ATTACK", entry == state.menu_index, -1);
+                              x + 2, 72 + row * 10,
+                              grandleon_game_text(GRANDLEON_TEXT_ATTACK),
+                              entry == state.menu_index, -1);
             } else if (entry + 1 == state.menu_count) {
                 draw_menu_row(ordering_table, next_packet, packet_end,
-                              x + 2, 72 + row * 10, "WAIT", entry == state.menu_index, -1);
+                              x + 2, 72 + row * 10,
+                              grandleon_game_text(GRANDLEON_TEXT_WAIT),
+                              entry == state.menu_index, -1);
             } else {
                 draw_menu_row(ordering_table, next_packet, packet_end,
-                              x + 2, 72 + row * 10, "ABILITY", entry == state.menu_index, entry);
+                              x + 2, 72 + row * 10,
+                              grandleon_game_text(GRANDLEON_TEXT_ABILITY),
+                              entry == state.menu_index, entry);
             }
         }
     }
@@ -491,40 +462,47 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
             }
             return;
         }
-        x = state.cursor_on_left ? 174 : 6;
-        draw_label(ordering_table, next_packet, packet_end, x + 6, 14,
-                   UI_HIT, 168, 181, 196);
-        draw_number(ordering_table, next_packet, packet_end, x + 34, 14,
+        x = state.cursor_on_left ? 150 : 6;
+        draw_panel(ordering_table, next_packet, packet_end, x, 8, 164,
+                   state.counter ? 37 : 25);
+        draw_text(ordering_table, next_packet, packet_end, x + 6, 14,
+                  grandleon_game_text(GRANDLEON_TEXT_HIT), 168, 181, 196);
+        draw_number(ordering_table, next_packet, packet_end, x + 61, 14,
                     state.hit_chance, 247, 239, 209);
-        draw_label(ordering_table, next_packet, packet_end, x + 70, 14,
-                   state.restored ? UI_HEAL : UI_DMG, 168, 181, 196);
-        draw_number(ordering_table, next_packet, packet_end, x + 105, 14,
+        draw_text(ordering_table, next_packet, packet_end, x + 89, 14,
+                  grandleon_game_text(
+                      state.restored ? GRANDLEON_TEXT_MEND : GRANDLEON_TEXT_DAMAGE
+                  ), 168, 181, 196);
+        draw_number(ordering_table, next_packet, packet_end, x + 146, 14,
                     state.restored ? state.restored : state.damage, 247, 239, 209);
         if (state.counter) {
-            draw_label(ordering_table, next_packet, packet_end, x + 6, 27,
-                       UI_COUNTER, 231, 133, 104);
-            draw_number(ordering_table, next_packet, packet_end, x + 62, 27,
+            draw_text(ordering_table, next_packet, packet_end, x + 6, 27,
+                      grandleon_game_text(GRANDLEON_TEXT_COUNTER), 231, 133, 104);
+            draw_number(ordering_table, next_packet, packet_end, x + 111, 27,
                         state.counter_damage, 247, 239, 209);
         }
     }
 
     if (state.mode == GRANDLEON_UI_RESULT) {
-        draw_panel(ordering_table, next_packet, packet_end, 90, 8, 140, 37);
+        draw_panel(ordering_table, next_packet, packet_end, 70, 8, 180, 37);
         if (state.result_missed) {
-            draw_label(ordering_table, next_packet, packet_end, 98, 13,
-                       UI_MISS, 231, 133, 104);
+            draw_text(ordering_table, next_packet, packet_end, 78, 13,
+                      grandleon_game_text(GRANDLEON_TEXT_MISS), 231, 133, 104);
         } else {
-            draw_text(ordering_table, next_packet, packet_end, 98, 13,
-                      state.restored ? "RESTORED" : "DAMAGE", 255, 205, 68);
+            draw_text(ordering_table, next_packet, packet_end, 78, 13,
+                      grandleon_game_text(
+                          state.restored ? GRANDLEON_TEXT_RESTORED
+                                         : GRANDLEON_TEXT_DAMAGE
+                      ), 255, 205, 68);
         }
         if (!state.result_missed) {
-            draw_number(ordering_table, next_packet, packet_end, 184, 13,
+            draw_number(ordering_table, next_packet, packet_end, 187, 13,
                         state.result_damage, 247, 239, 209);
         }
         if (state.result_counter_damage) {
-            draw_label(ordering_table, next_packet, packet_end, 98, 26,
-                       UI_COUNTER, 168, 181, 196);
-            draw_number(ordering_table, next_packet, packet_end, 164, 26,
+            draw_text(ordering_table, next_packet, packet_end, 78, 26,
+                      grandleon_game_text(GRANDLEON_TEXT_COUNTER), 168, 181, 196);
+            draw_number(ordering_table, next_packet, packet_end, 183, 26,
                         state.result_counter_damage, 247, 239, 209);
         }
     }
@@ -573,10 +551,10 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
                 13, 210, health_width, 6, 72, 191, 211, 1
             );
         }
-        draw_label(ordering_table, next_packet, packet_end, 13, 220,
-                   UI_MOVE, 168, 181, 196);
-        draw_label(ordering_table, next_packet, packet_end, 76, 220,
-                   UI_BACK, 168, 181, 196);
+        draw_text(ordering_table, next_packet, packet_end, 13, 220,
+                  grandleon_game_text(GRANDLEON_TEXT_MOVE), 168, 181, 196);
+        draw_text(ordering_table, next_packet, packet_end, 76, 220,
+                  grandleon_game_text(GRANDLEON_TEXT_BACK), 168, 181, 196);
     }
     activate_ui_tpage(ordering_table, next_packet, packet_end);
 }

@@ -120,6 +120,51 @@ enum class Message : std::uint8_t {
     no_save,
     menu,
     opponent_turn,
+    character_actions,
+    close_view_help,
+    ability,
+    wait,
+    attack_target,
+    ability_target,
+    hit,
+    counter,
+    no_counter,
+    clear_ground,
+    target_safe,
+    mend,
+    cast,
+    result,
+    turn_complete,
+    miss,
+    mended,
+    damage,
+    restored,
+    encounter_clear,
+    required,
+    type_name,
+    erase,
+    save_action,
+    toggle,
+    deploy,
+    clear,
+    failed,
+    pending,
+    return_to_title,
+    company_regroup,
+    memory_card,
+    save_unavailable,
+    cross_confirm,
+    circle_back,
+    start_menu,
+    cross_circle_return,
+    ready,
+    out_of_range,
+    choose_enemy,
+    choose_target,
+    target_down,
+    ability_spent,
+    finish_turn,
+    action_refused,
     presentation_options,
 };
 
@@ -593,6 +638,186 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
             return selected == Language::spanish ? "TURNO DEL OPONENTE"
                  : selected == Language::portuguese_brazil ? "TURNO DO OPONENTE"
                  : "OPPONENT TURN";
+        case Message::character_actions:
+            return selected == Language::spanish ? "ACCIONES DEL PERSONAJE"
+                 : selected == Language::portuguese_brazil ? "ACOES DO PERSONAGEM"
+                 : "CHARACTER ACTIONS";
+        case Message::close_view_help:
+            return selected == Language::spanish ? "L REDUCIDO  R VISTA RAPIDA"
+                 : selected == Language::portuguese_brazil ? "L REDUZIDO  R VISTA RAPIDA"
+                 : "L REDUCED   R FAST CLOSE";
+        case Message::ability:
+            return selected == Language::spanish ? "HABILIDAD"
+                 : selected == Language::portuguese_brazil ? "HABILIDADE"
+                 : "ABILITY";
+        case Message::wait:
+            return selected == Language::spanish ? "ESPERAR"
+                 : selected == Language::portuguese_brazil ? "ESPERAR"
+                 : "WAIT";
+        case Message::attack_target:
+            return selected == Language::spanish ? "OBJETIVO DEL ATAQUE"
+                 : selected == Language::portuguese_brazil ? "ALVO DO ATAQUE"
+                 : "ATTACK TARGET";
+        case Message::ability_target:
+            return selected == Language::spanish ? "OBJETIVO DE HABILIDAD"
+                 : selected == Language::portuguese_brazil ? "ALVO DA HABILIDADE"
+                 : "ABILITY TARGET";
+        case Message::hit:
+            return selected == Language::spanish ? "IMPACTO"
+                 : selected == Language::portuguese_brazil ? "ACERTO"
+                 : "HIT";
+        case Message::counter:
+            return selected == Language::spanish ? "CONTRAATAQUE"
+                 : selected == Language::portuguese_brazil ? "CONTRA-ATAQUE"
+                 : "COUNTER";
+        case Message::no_counter:
+            return selected == Language::spanish ? "SIN CONTRAATAQUE"
+                 : selected == Language::portuguese_brazil ? "SEM CONTRA-ATAQUE"
+                 : "NO COUNTER";
+        case Message::clear_ground:
+            return selected == Language::spanish ? "TERRENO LIBRE"
+                 : selected == Language::portuguese_brazil ? "AREA LIVRE"
+                 : "CLEAR GROUND";
+        case Message::target_safe:
+            return selected == Language::spanish ? "OBJETIVO SEGURO"
+                 : selected == Language::portuguese_brazil ? "ALVO SEGURO"
+                 : "TARGET SAFE";
+        case Message::mend:
+            return selected == Language::spanish ? "CURAR"
+                 : selected == Language::portuguese_brazil ? "CURAR"
+                 : "MEND";
+        case Message::cast:
+            return selected == Language::spanish ? "LANZAR"
+                 : selected == Language::portuguese_brazil ? "LANCAR"
+                 : "CAST";
+        case Message::result:
+            return selected == Language::spanish ? "RESULTADO"
+                 : selected == Language::portuguese_brazil ? "RESULTADO"
+                 : "RESULT";
+        case Message::turn_complete:
+            return selected == Language::spanish ? "TURNO COMPLETO"
+                 : selected == Language::portuguese_brazil ? "TURNO CONCLUIDO"
+                 : "TURN COMPLETE";
+        case Message::miss:
+            return selected == Language::spanish ? "FALLO"
+                 : selected == Language::portuguese_brazil ? "ERROU"
+                 : "MISS";
+        case Message::mended:
+            return selected == Language::spanish ? "CURADO"
+                 : selected == Language::portuguese_brazil ? "CURADO"
+                 : "MENDED";
+        case Message::damage:
+            return selected == Language::spanish ? "DANO"
+                 : selected == Language::portuguese_brazil ? "DANO"
+                 : "DAMAGE";
+        case Message::restored:
+            return selected == Language::spanish ? "RESTAURADO"
+                 : selected == Language::portuguese_brazil ? "RECUPERADO"
+                 : "RESTORED";
+        case Message::encounter_clear:
+            return selected == Language::spanish ? "COMBATE SUPERADO"
+                 : selected == Language::portuguese_brazil ? "BATALHA CONCLUIDA"
+                 : "ENCOUNTER CLEAR";
+        case Message::required:
+            return selected == Language::spanish ? "OBLIGATORIO"
+                 : selected == Language::portuguese_brazil ? "OBRIGATORIO"
+                 : "REQUIRED";
+        case Message::type_name:
+            return selected == Language::spanish ? "ESCRIBIR"
+                 : selected == Language::portuguese_brazil ? "DIGITAR"
+                 : "TYPE";
+        case Message::erase:
+            return selected == Language::spanish ? "BORRAR"
+                 : selected == Language::portuguese_brazil ? "APAGAR"
+                 : "ERASE";
+        case Message::save_action:
+            return selected == Language::spanish ? "GUARDAR"
+                 : selected == Language::portuguese_brazil ? "SALVAR"
+                 : "SAVE";
+        case Message::toggle:
+            return selected == Language::spanish ? "CAMBIAR"
+                 : selected == Language::portuguese_brazil ? "ALTERAR"
+                 : "TOGGLE";
+        case Message::deploy:
+            return selected == Language::spanish ? "DESPLEGAR"
+                 : selected == Language::portuguese_brazil ? "POSICIONAR"
+                 : "DEPLOY";
+        case Message::clear:
+            return selected == Language::spanish ? "SUPERADO"
+                 : selected == Language::portuguese_brazil ? "CONCLUIDO"
+                 : "CLEAR";
+        case Message::failed:
+            return selected == Language::spanish ? "FALLIDO"
+                 : selected == Language::portuguese_brazil ? "FALHOU"
+                 : "FAILED";
+        case Message::pending:
+            return selected == Language::spanish ? "PENDIENTE"
+                 : selected == Language::portuguese_brazil ? "PENDENTE"
+                 : "PENDING";
+        case Message::return_to_title:
+            return selected == Language::spanish ? "VOLVER AL TITULO"
+                 : selected == Language::portuguese_brazil ? "VOLTAR AO TITULO"
+                 : "RETURN TO TITLE";
+        case Message::company_regroup:
+            return selected == Language::spanish ? "LA COMPANIA DEBE REAGRUPARSE"
+                 : selected == Language::portuguese_brazil ? "A COMPANHIA DEVE SE REORGANIZAR"
+                 : "THE COMPANY MUST REGROUP";
+        case Message::memory_card:
+            return selected == Language::spanish ? "TARJETA DE MEMORIA"
+                 : selected == Language::portuguese_brazil ? "CARTAO DE MEMORIA"
+                 : "MEMORY CARD";
+        case Message::save_unavailable:
+            return selected == Language::spanish ? "PARTIDA NO DISPONIBLE"
+                 : selected == Language::portuguese_brazil ? "SAVE INDISPONIVEL"
+                 : "SAVE DATA IS NOT AVAILABLE";
+        case Message::cross_confirm:
+            return selected == Language::spanish ? "CRUZ  CONFIRMAR"
+                 : selected == Language::portuguese_brazil ? "X  CONFIRMAR"
+                 : "CROSS  CONFIRM";
+        case Message::circle_back:
+            return selected == Language::spanish ? "CIRCULO  VOLVER"
+                 : selected == Language::portuguese_brazil ? "CIRCULO  VOLTAR"
+                 : "CIRCLE  BACK";
+        case Message::start_menu:
+            return selected == Language::spanish ? "START  MENU"
+                 : selected == Language::portuguese_brazil ? "START  MENU"
+                 : "START  MENU";
+        case Message::cross_circle_return:
+            return selected == Language::spanish ? "CRUZ O CIRCULO PARA VOLVER"
+                 : selected == Language::portuguese_brazil ? "X OU CIRCULO PARA VOLTAR"
+                 : "CROSS OR CIRCLE TO RETURN";
+        case Message::ready:
+            return selected == Language::spanish ? "LISTO"
+                 : selected == Language::portuguese_brazil ? "PRONTO"
+                 : "READY";
+        case Message::out_of_range:
+            return selected == Language::spanish ? "FUERA DE ALCANCE"
+                 : selected == Language::portuguese_brazil ? "FORA DE ALCANCE"
+                 : "OUT OF RANGE";
+        case Message::choose_enemy:
+            return selected == Language::spanish ? "ELIGE UN ENEMIGO"
+                 : selected == Language::portuguese_brazil ? "ESCOLHA UM INIMIGO"
+                 : "CHOOSE AN ENEMY";
+        case Message::choose_target:
+            return selected == Language::spanish ? "ELIGE UN OBJETIVO"
+                 : selected == Language::portuguese_brazil ? "ESCOLHA UM ALVO"
+                 : "CHOOSE A TARGET";
+        case Message::target_down:
+            return selected == Language::spanish ? "OBJETIVO CAIDO"
+                 : selected == Language::portuguese_brazil ? "ALVO DERROTADO"
+                 : "TARGET IS DOWN";
+        case Message::ability_spent:
+            return selected == Language::spanish ? "HABILIDAD AGOTADA"
+                 : selected == Language::portuguese_brazil ? "HABILIDADE ESGOTADA"
+                 : "ABILITY SPENT";
+        case Message::finish_turn:
+            return selected == Language::spanish ? "TERMINA ESTE TURNO"
+                 : selected == Language::portuguese_brazil ? "TERMINE ESTE TURNO"
+                 : "FINISH THIS TURN";
+        case Message::action_refused:
+            return selected == Language::spanish ? "ACCION RECHAZADA"
+                 : selected == Language::portuguese_brazil ? "ACAO RECUSADA"
+                 : "ACTION REFUSED";
         case Message::presentation_options:
             return selected == Language::spanish ? "OPCIONES DE PRESENTACION"
                  : selected == Language::portuguese_brazil ? "OPCOES DE APRESENTACAO"

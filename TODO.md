@@ -413,14 +413,14 @@ than reproduce those implementation details.
 - [x] Treat character names as translatable authored text rather than assuming
   every proper name is universal. An author can save the same spelling as the
   reviewed translation when a proper name is deliberately shared.
-- [ ] Let authors preview the game in a selected language and validate
+- [x] Let authors preview the game in a selected language and validate
   completeness. Authored catalogs travel through the portable project and
   compiled package, the Godot player offers the authored languages before
   launch, and it localizes the project title, campaign/stage names, dialogue,
   objectives, company character names, named battle placements, unit types,
-  weapons, abilities, and items with current-source fallback. Finish the
-  remaining console and shell surfaces. Keep the workflow fully useful offline
-  and without an external service.
+  weapons, abilities, and items with current-source fallback, including the
+  console and shell surfaces. The workflow stays fully useful offline and
+  without an external service.
   - [x] Add **Play Language** to the Translations screen with an explicit
     campaign and valid 1P/2P choice. It compiles the current project into a
     save-isolated preview, launches directly in the selected language, and
@@ -433,11 +433,11 @@ than reproduce those implementation details.
     choice without requiring a restart. The PS1 probe exercises an actual
     translated campaign disc and memory-card restore; N64 and Godot builds
     exercise their package-backed path without the retired renderer.
-  - [ ] Finish the remaining compact-console interface-copy and glyph audit.
-    Title, launch, pause, Settings, common outcomes, and authored game copy now
-    follow the selected language, but every uncommon help, tactical-result,
-    deployment, and error label still needs bounded English, Spanish, and
-    Brazilian Portuguese review on both hardware layouts.
+  - [x] Finish the compact-console interface-copy and glyph audit. Title,
+    launch, help, pause, Settings, naming, tactical actions and results,
+    deployment, aftermath, errors, and authored game copy follow the selected
+    language. Automated checks keep English, Spanish, and Brazilian Portuguese
+    inside the shared console glyph set and the measured PlayStation panels.
 - [ ] Later, explore optional translation suggestions from an external AI model.
   Suggestions must be explicitly requested, remain visibly unapproved until a
   person accepts them, preserve source and manual translations, and never be a

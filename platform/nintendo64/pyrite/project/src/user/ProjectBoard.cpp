@@ -3833,14 +3833,20 @@ void draw_combat_stage_2d() {
         if (combat.phase == CombatPhase::first_strike) {
             if (combat.phase_ticks >= 30U) {
                 right_health = combat.defender_health_after;
-                result = combat.first_missed ? "MISS" : "HIT";
+                result = ui(
+                    combat.first_missed
+                        ? console::Message::miss : console::Message::hit
+                );
                 amount = combat.first_damage;
             }
         } else if (combat.phase == CombatPhase::counter) {
             right_health = combat.defender_health_after;
             if (combat.phase_ticks >= 30U) {
                 left_health = combat.attacker_health_after;
-                result = combat.counter_missed ? "MISS" : "COUNTER";
+                result = ui(
+                    combat.counter_missed
+                        ? console::Message::miss : console::Message::counter
+                );
                 amount = combat.counter_damage;
             }
         } else if (combat.phase == CombatPhase::returning) {
@@ -3891,32 +3897,49 @@ void draw_combat_stage_2d() {
 
 const char* command_error_label(sim::CommandError error) {
     switch (error) {
-        case sim::CommandError::none: return "READY";
-        case sim::CommandError::target_out_of_range: return "OUT OF RANGE";
-        case sim::CommandError::friendly_target: return "CHOOSE AN ENEMY";
-        case sim::CommandError::unknown_target: return "CHOOSE A TARGET";
-        case sim::CommandError::target_defeated: return "TARGET IS DOWN";
-        case sim::CommandError::unavailable_ability: return "ABILITY SPENT";
-        case sim::CommandError::activation_in_progress: return "FINISH THIS TURN";
-        default: return "ACTION REFUSED";
+        case sim::CommandError::none:
+            return ui(console::Message::ready);
+        case sim::CommandError::target_out_of_range:
+            return ui(console::Message::out_of_range);
+        case sim::CommandError::friendly_target:
+            return ui(console::Message::choose_enemy);
+        case sim::CommandError::unknown_target:
+            return ui(console::Message::choose_target);
+        case sim::CommandError::target_defeated:
+            return ui(console::Message::target_down);
+        case sim::CommandError::unavailable_ability:
+            return ui(console::Message::ability_spent);
+        case sim::CommandError::activation_in_progress:
+            return ui(console::Message::finish_turn);
+        default:
+            return ui(console::Message::action_refused);
     }
 }
+
+std::vector<client::RosterEntry> localized_campaign_roster();
 
 void draw_battle_ui() {
     if (battle_moment.active &&
         battle_moment.line_index < battle_moment.dialogue.lines.size()) {
         const pr::DialogueLine& line =
             battle_moment.dialogue.lines[battle_moment.line_index];
-        const std::string_view speaker = pr::localized_dialogue_line(
+        const std::string_view localized_speaker = pr::localized_dialogue_line(
             board.runtime.package(), game_language(),
             battle_moment.dialogue.id, battle_moment.line_index,
             "speaker", line.speaker
         );
-        const std::string_view dialogue_text = pr::localized_dialogue_line(
+        const std::string_view localized_text = pr::localized_dialogue_line(
             board.runtime.package(), game_language(),
             battle_moment.dialogue.id, battle_moment.line_index,
             "text", line.text
         );
+        const std::vector<client::RosterEntry> roster =
+            localized_campaign_roster();
+        const std::string speaker = client::substitute_campaign_member_names(
+            localized_speaker, roster
+        );
+        const std::string dialogue_text =
+            client::substitute_campaign_member_names(localized_text, roster);
         rdpq_mode_push();
         rdpq_mode_begin();
             rdpq_mode_zbuf(false, false);
@@ -3973,10 +3996,14 @@ void draw_battle_ui() {
             P64::Debug::printf(132, 48, "%s", ui(console::Message::help));
             P64::Debug::printf(63, 76, "%s", ui(console::Message::move_cursor));
             P64::Debug::printf(63, 98, "%s", ui(console::Message::select_confirm));
-            P64::Debug::printf(63, 120, "Z      CHARACTER ACTIONS");
+            P64::Debug::printf(
+                63, 120, "Z      %s", ui(console::Message::character_actions)
+            );
             P64::Debug::printf(63, 142, "START  %s", ui(console::Message::settings));
             P64::Debug::printf(63, 164, "%s", ui(console::Message::back));
-            P64::Debug::printf(63, 186, "L REDUCED   R FAST CLOSE");
+            P64::Debug::printf(
+                63, 186, "%s", ui(console::Message::close_view_help)
+            );
             P64::Debug::printf(91, 208, "A / B  %s", ui(console::Message::settings));
         } else {
             const bool languages = game_languages().size() > 1U;
@@ -4028,7 +4055,7 @@ void draw_battle_ui() {
     P64::Debug::printStart();
     if (battle_ui.phase == BattleUiPhase::action) {
         P64::Debug::printf(
-            190, 140, "ACTION P%u",
+            190, 140, "%s P%u", ui(console::Message::action_heading),
             static_cast<unsigned>(battle_ui.player + 1U)
         );
         const sim::UnitSnapshot* menu_actor = find_unit(battle_ui.actor);
@@ -4041,7 +4068,9 @@ void draw_battle_ui() {
             const int y = 158 + static_cast<int>(row - first) * 17;
             const char* marker = selected == row ? ">" : " ";
             if (row == 0U) {
-                P64::Debug::printf(190, y, "%s ATTACK", marker);
+                P64::Debug::printf(
+                    190, y, "%s %s", marker, ui(console::Message::attack)
+                );
             } else if (row <= abilities && menu_actor != nullptr) {
                 const sim::ContentId ability = menu_actor->ability_ids[row - 1U];
                 const std::string_view name = pr::content_name(
@@ -4060,9 +4089,13 @@ void draw_battle_ui() {
                     )), localized_name.data()
                 );
             } else if (row == abilities + 1U) {
-                P64::Debug::printf(190, y, "%s WAIT", marker);
+                P64::Debug::printf(
+                    190, y, "%s %s", marker, ui(console::Message::wait)
+                );
             } else {
-                P64::Debug::printf(190, y, "%s CANCEL", marker);
+                P64::Debug::printf(
+                    190, y, "%s %s", marker, ui(console::Message::cancel)
+                );
             }
         }
         rdpq_mode_pop();
@@ -4076,20 +4109,29 @@ void draw_battle_ui() {
         const sim::AttackForecast forecast = target != nullptr
             ? sim::forecast_attack(board.game.snapshot(), actor->id, target->id)
             : sim::AttackForecast{sim::CommandError::unknown_target};
-        P64::Debug::printf(190, 140, "ATTACK TARGET");
+        P64::Debug::printf(
+            190, 140, "%s", ui(console::Message::attack_target)
+        );
         if (forecast) {
             P64::Debug::printf(
-                190, 164, "%d%%  HIT %d", forecast.hit_chance,
+                190, 164, "%d%%  %s %d", forecast.hit_chance,
+                ui(console::Message::hit),
                 forecast.damage
             );
             if (forecast.counter) {
                 P64::Debug::printf(
-                    190, 182, "COUNTER %d", forecast.counter_damage
+                    190, 182, "%s %d", ui(console::Message::counter),
+                    forecast.counter_damage
                 );
             } else {
-                P64::Debug::printf(190, 182, "NO COUNTER");
+                P64::Debug::printf(
+                    190, 182, "%s", ui(console::Message::no_counter)
+                );
             }
-            P64::Debug::printf(190, 208, "A GO  B BACK");
+            P64::Debug::printf(
+                190, 208, "A %s  B %s", ui(console::Message::confirm),
+                ui(console::Message::back_button)
+            );
         } else {
             P64::Debug::printf(
                 190, 170, "%s", command_error_label(forecast.error)
@@ -4103,47 +4145,66 @@ void draw_battle_ui() {
             target != nullptr ? target->id : 0U,
             board.game.encounter().abilities()
         );
-        P64::Debug::printf(190, 140, "ABILITY TARGET");
+        P64::Debug::printf(
+            190, 140, "%s", ui(console::Message::ability_target)
+        );
         if (forecast) {
             if (!forecast.covered) {
-                P64::Debug::printf(190, 170, "CLEAR GROUND");
+                P64::Debug::printf(
+                    190, 170, "%s", ui(console::Message::clear_ground)
+                );
             } else if (forecast.spared) {
-                P64::Debug::printf(190, 170, "TARGET SAFE");
+                P64::Debug::printf(
+                    190, 170, "%s", ui(console::Message::target_safe)
+                );
             } else if (forecast.kind == sim::AbilityKind::restore) {
                 P64::Debug::printf(
-                    190, 170, "MEND %d TO %d", forecast.restored,
+                    190, 170, "%s %d/%d", ui(console::Message::mend),
+                    forecast.restored,
                     forecast.target_health_after
                 );
             } else {
                 P64::Debug::printf(
-                    190, 170, "%d%%  CAST %d", forecast.hit_chance,
+                    190, 170, "%d%%  %s %d", forecast.hit_chance,
+                    ui(console::Message::cast),
                     forecast.damage
                 );
             }
-            P64::Debug::printf(190, 208, "A GO  B BACK");
+            P64::Debug::printf(
+                190, 208, "A %s  B %s", ui(console::Message::confirm),
+                ui(console::Message::back_button)
+            );
         } else {
             P64::Debug::printf(
                 190, 170, "%s", command_error_label(forecast.error)
             );
         }
     } else if (battle_ui.phase == BattleUiPhase::result) {
-        P64::Debug::printf(190, 140, "RESULT");
+        P64::Debug::printf(
+            190, 140, "%s", ui(console::Message::result)
+        );
         if (battle_ui.result_error != sim::CommandError::none) {
             P64::Debug::printf(
                 190, 170, "%s",
                 command_error_label(battle_ui.result_error)
             );
         } else if (battle_ui.result_command == sim::CommandType::wait) {
-            P64::Debug::printf(190, 170, "TURN COMPLETE");
+            P64::Debug::printf(
+                190, 170, "%s", ui(console::Message::turn_complete)
+            );
         } else if (battle_ui.result_missed) {
-            P64::Debug::printf(190, 170, "MISS");
+            P64::Debug::printf(
+                190, 170, "%s", ui(console::Message::miss)
+            );
         } else if (battle_ui.result_restored) {
             P64::Debug::printf(
-                190, 170, "MENDED %d", battle_ui.result_amount
+                190, 170, "%s %d", ui(console::Message::mended),
+                battle_ui.result_amount
             );
         } else {
             P64::Debug::printf(
-                190, 170, "HIT %d", battle_ui.result_amount
+                190, 170, "%s %d", ui(console::Message::hit),
+                battle_ui.result_amount
             );
         }
     }
@@ -4194,12 +4255,12 @@ void draw_name_editor() {
     if (!shell.name_editor.has_value()) return;
     const client::ConsoleNameEditor& editor = *shell.name_editor;
     P64::Debug::printf(
-        42, 84, "%s / 18", shell.name_member.name.c_str()
+        42, 84, "%s", ui(console::Message::character_name)
     );
     P64::Debug::printf(
-        42, 101, "NAME  %s%s",
+        42, 101, "%s  %s",
         editor.name().empty() ? "_" : editor.c_str(),
-        editor.invalid() ? "  REQUIRED" : ""
+        editor.invalid() ? ui(console::Message::required) : ""
     );
     for (int row = 0; row < client::ConsoleNameEditor::rows; ++row) {
         for (int column = 0;
@@ -4217,7 +4278,14 @@ void draw_name_editor() {
             );
         }
     }
-    P64::Debug::printf(31, 198, "A TYPE B ERASE C-UP KEEP START SAVE");
+    P64::Debug::printf(
+        31, 192, "A %s  B %s",
+        ui(console::Message::type_name), ui(console::Message::erase)
+    );
+    P64::Debug::printf(
+        31, 204, "C-UP %s  START %s",
+        ui(console::Message::keep), ui(console::Message::save_action)
+    );
 }
 
 void draw_shell() {
@@ -4383,7 +4451,10 @@ void draw_shell() {
                     )), name.data()
                 );
             }
-            P64::Debug::printf(65, 194, "A TOGGLE  START DEPLOY");
+            P64::Debug::printf(
+                55, 194, "A %s  START %s",
+                ui(console::Message::toggle), ui(console::Message::deploy)
+            );
             break;
         }
         case ShellPhase::aftermath: {
@@ -4396,6 +4467,8 @@ void draw_shell() {
             const std::size_t count = std::min<std::size_t>(
                 shell.aftermath_objectives.size(), 3U
             );
+            const std::vector<client::RosterEntry> roster =
+                localized_campaign_roster();
             for (std::size_t row = 0; row < count; ++row) {
                 const sim::ObjectiveResult& objective =
                     shell.aftermath_objectives[row];
@@ -4408,15 +4481,17 @@ void draw_shell() {
                         board.runtime.package(), game_language(),
                         objective.id, name
                     );
-                const std::vector<client::RosterEntry> roster =
-                    localized_campaign_roster();
                 const std::string displayed_name =
                     client::substitute_campaign_member_names(
                         localized_name, roster
                     );
-                const char* result = objective.state == sim::ObjectiveState::satisfied
-                    ? "CLEAR" : objective.state == sim::ObjectiveState::failed
-                        ? "FAILED" : "PENDING";
+                const char* result = ui(
+                    objective.state == sim::ObjectiveState::satisfied
+                        ? console::Message::clear
+                        : objective.state == sim::ObjectiveState::failed
+                            ? console::Message::failed
+                            : console::Message::pending
+                );
                 P64::Debug::printf(
                     42, 116 + static_cast<int>(row) * 18,
                     "%.*s  %s",
@@ -4426,11 +4501,15 @@ void draw_shell() {
                 );
             }
             P64::Debug::printf(
-                42, 176, "FALLEN %lu  JOINED %lu",
+                42, 176, "%s %lu  %s %lu",
+                ui(console::Message::fell),
                 static_cast<unsigned long>(shell.aftermath.fallen.size()),
+                ui(console::Message::joined),
                 static_cast<unsigned long>(shell.aftermath.recruited.size())
             );
-            P64::Debug::printf(202, 194, "A NEXT");
+            P64::Debug::printf(
+                202, 194, "A %s", ui(console::Message::next)
+            );
             break;
         }
         case ShellPhase::complete:

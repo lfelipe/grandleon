@@ -375,7 +375,7 @@ def unit_image(repo: Path, unit: dict[str, object], profiles: dict[str, object])
 
 def write_textures(
     output: Path, repo: Path, terrain_kinds: list[int], units: list[dict[str, object]],
-) -> tuple[dict[int, int], dict[tuple[int, int, int, int], int], int, int, dict[str, int]]:
+) -> tuple[dict[int, int], dict[tuple[int, int, int, int], int], int, dict[str, int]]:
     profiles_path = repo / "platform/godot/project/content/graphics_profiles.json"
     profiles = json.loads(profiles_path.read_text(encoding="utf-8"))["profiles"]["voxel-sprites"]["assets"]["characterSprites"]
     packer = TexturePacker()
@@ -415,19 +415,6 @@ def write_textures(
     textures.append(("compact_ui_font", ui, True, 0, 0))
     ui_index = len(textures)
 
-    labels = Image.new("RGBA", (64, 80), (0, 0, 0, 0))
-    label_draw = ImageDraw.Draw(labels)
-    for y, label, x in (
-        (0, "ATTACK", 0), (10, "ABILITY", 0),
-        (20, "HIT", 0), (20, "DMG", 22), (20, "HEAL", 40),
-        (30, "ACTION", 0), (40, "WAIT", 0), (40, "MISS", 30),
-        (50, "COUNTER", 0),
-        (60, "X MOVE", 0), (70, "O BACK", 0),
-    ):
-        label_draw.text((x, y - 2), label, font=font, fill=(255, 255, 255, 255))
-    textures.append(("compact_ui_labels", labels, True, 0, 0))
-    ui_label_index = len(textures)
-
     # Pack the tallest rectangles first. Scene order is semantic (indices are
     # embedded in meshes), but atlas placement is not; separating the two
     # avoids the narrow holes produced by first-fit terrain strips on stages
@@ -466,7 +453,7 @@ def write_textures(
         "texture_bytes": occupied_pixels * 2,
         "vram_reserved_bytes": TEXTURE_WIDTH * TEXTURE_HEIGHT * 2 - occupied_pixels * 2,
     }
-    return terrain_indices, unit_indices, ui_index, ui_label_index, metrics
+    return terrain_indices, unit_indices, ui_index, metrics
 
 
 def emit_vectors(name: str, values: list[tuple[int, int, int, int]]) -> list[str]:
@@ -1039,7 +1026,7 @@ def visible_position_peak(
 def write_scene(
     output: Path, document: dict[str, object], unit_indices: dict[tuple[int, int, int, int], int],
     terrain_chunks: list[tuple[int, int, int, int, int, int, int]],
-    ui_texture_index: int, ui_label_texture_index: int,
+    ui_texture_index: int,
     surface_lifts: list[int], fog_colour: tuple[int, int, int],
 ) -> int:
     width = int(document["width"])
@@ -1165,7 +1152,6 @@ def write_scene(
         f"const unsigned int g_grandleon_camera_view_tiles_x = {CAMERA_VIEW_TILES_X}u;",
         f"const unsigned int g_grandleon_camera_view_tiles_y = {CAMERA_VIEW_TILES_Y}u;",
         f"const unsigned int g_grandleon_ui_texture_index = {ui_texture_index}u;",
-        f"const unsigned int g_grandleon_ui_label_texture_index = {ui_label_texture_index}u;",
         "ps1_entity* grandleon_scene_mutable_entity(unsigned int index) {",
         "    return index < g_ps1_scene.entity_count ? &k_ps1_entities[index] : 0;",
         "}", ""))
@@ -1201,7 +1187,6 @@ extern const int32_t g_grandleon_camera_trailing_distance;
 extern const unsigned int g_grandleon_camera_view_tiles_x;
 extern const unsigned int g_grandleon_camera_view_tiles_y;
 extern const unsigned int g_grandleon_ui_texture_index;
-extern const unsigned int g_grandleon_ui_label_texture_index;
 ps1_entity* grandleon_scene_mutable_entity(unsigned int index);
 #ifdef __cplusplus
 }
@@ -1307,7 +1292,7 @@ def main() -> int:
     assert isinstance(units, list)
     typed_units = [unit for unit in units if isinstance(unit, dict)]
     all_kinds = [kind for _x, _y, kind, _authored, _span_x, _span_y in cells]
-    terrain_indices, unit_indices, ui_texture, ui_label_texture, texture_metrics = write_textures(
+    terrain_indices, unit_indices, ui_texture, texture_metrics = write_textures(
         output, repo, all_kinds, typed_units,
     )
     terrain_form_cells = select_terrain_form_cells(
@@ -1335,7 +1320,7 @@ def main() -> int:
     )
     entities = write_scene(
         output, document, unit_indices, terrain_chunks,
-        ui_texture, ui_label_texture,
+        ui_texture,
         surface_lifts,
         shifted_colour(relay_colours(repo, distant_kind)[0], 65),
     )

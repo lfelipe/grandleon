@@ -31,9 +31,10 @@ still loads safely. The Nintendo 64 reads the catalog directly from the GPK;
 the PlayStation exporter writes the same reviewed strings into each campaign
 executable. No retired renderer or separate console translation file is used.
 
-Common title, launch, pause, Settings, and outcome copy is available in English,
-Spanish, and Brazilian Portuguese. The remaining uncommon help, tactical-result,
-deployment, and error labels are still under compact-layout review.
+Title, launch, help, pause, Settings, naming, tactical actions and results,
+deployment, aftermath, and error copy is available in English, Spanish, and
+Brazilian Portuguese. Automated checks keep those labels inside the shared
+console glyph set and the measured PlayStation panels.
 
 ## Choosing a character name
 

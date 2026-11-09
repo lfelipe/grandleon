@@ -1497,7 +1497,7 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
         switch (s_campaign_mode) {
             case CampaignMode::title:
                 output->mode = GRANDLEON_UI_TITLE;
-                output->body = "THE ORCHARD BELL";
+                output->body = ui(console::Message::campaign_tagline);
                 output->campaign_menu_count = s_continue_available ? 4 : 3;
                 break;
             case CampaignMode::players:
@@ -1511,8 +1511,9 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
                     s_name_member
                 );
                 output->headline = member
-                    ? authored_member_name(*member) : "NAME";
-                output->body = "CHOOSE A NAME";
+                    ? authored_member_name(*member)
+                    : ui(console::Message::character_name);
+                output->body = ui(console::Message::choose_name);
                 output->name_value = s_name_editor
                     ? s_name_editor->c_str() : "";
                 output->name_default = member
@@ -1569,24 +1570,25 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
                     : ui(console::Message::defeat)
                 ));
                 keep_ui_text(s_ui_body, substitute_player_names(
-                    node && node->kind == 2U ? "RETURN TO TITLE"
+                    node && node->kind == 2U
+                        ? ui(console::Message::return_to_title)
                     : node_dialogue[0] ? node_dialogue
                         : (s_campaign_victory
                               ? ui(console::Message::campaign_complete)
-                              : "THE COMPANY MUST REGROUP")
+                              : ui(console::Message::company_regroup))
                 ));
                 output->headline = s_ui_headline.data();
                 output->body = s_ui_body.data();
                 break;
             case CampaignMode::save_error:
                 output->mode = GRANDLEON_UI_SAVE_ERROR;
-                output->headline = "MEMORY CARD";
-                output->body = "SAVE DATA IS NOT AVAILABLE";
+                output->headline = ui(console::Message::memory_card);
+                output->body = ui(console::Message::save_unavailable);
                 break;
             case CampaignMode::help:
                 output->mode = GRANDLEON_UI_TITLE_HELP;
                 output->headline = ui(console::Message::help);
-                output->body = "D-PAD MOVE  CROSS CONFIRM  CIRCLE BACK  START MENU";
+                output->body = ui(console::Message::how_to_play);
                 break;
             case CampaignMode::settings:
                 output->mode = GRANDLEON_UI_TITLE_SETTINGS;
@@ -1692,13 +1694,71 @@ extern "C" const char* grandleon_game_text(uint8_t text_id) {
         case GRANDLEON_TEXT_OFF:
             return ui(console::Message::off);
         case GRANDLEON_TEXT_BACK:
-            return ui(console::Message::back);
+            return ui(console::Message::back_button);
         case GRANDLEON_TEXT_MENU:
             return ui(console::Message::menu);
         case GRANDLEON_TEXT_RESUME:
             return ui(console::Message::resume);
         case GRANDLEON_TEXT_OPPONENT_TURN:
             return ui(console::Message::opponent_turn);
+        case GRANDLEON_TEXT_CHARACTER_NAME:
+            return ui(console::Message::character_name);
+        case GRANDLEON_TEXT_CHOOSE_NAME:
+            return ui(console::Message::choose_name);
+        case GRANDLEON_TEXT_REQUIRED:
+            return ui(console::Message::required);
+        case GRANDLEON_TEXT_TYPE_NAME:
+            return ui(console::Message::type_name);
+        case GRANDLEON_TEXT_ERASE:
+            return ui(console::Message::erase);
+        case GRANDLEON_TEXT_KEEP:
+            return ui(console::Message::keep);
+        case GRANDLEON_TEXT_SAVE:
+            return ui(console::Message::save_action);
+        case GRANDLEON_TEXT_MOVE_CURSOR:
+            return ui(console::Message::move_cursor);
+        case GRANDLEON_TEXT_CROSS_CONFIRM:
+            return ui(console::Message::cross_confirm);
+        case GRANDLEON_TEXT_CIRCLE_BACK:
+            return ui(console::Message::circle_back);
+        case GRANDLEON_TEXT_START_MENU:
+            return ui(console::Message::start_menu);
+        case GRANDLEON_TEXT_CROSS_CIRCLE_RETURN:
+            return ui(console::Message::cross_circle_return);
+        case GRANDLEON_TEXT_ENCOUNTER_CLEAR:
+            return ui(console::Message::encounter_clear);
+        case GRANDLEON_TEXT_ATTACK:
+            return ui(console::Message::attack);
+        case GRANDLEON_TEXT_WAIT:
+            return ui(console::Message::wait);
+        case GRANDLEON_TEXT_ABILITY:
+            return ui(console::Message::ability);
+        case GRANDLEON_TEXT_ACTION:
+            return ui(console::Message::action_heading);
+        case GRANDLEON_TEXT_MOVE:
+            return ui(console::Message::walk);
+        case GRANDLEON_TEXT_HIT:
+            return ui(console::Message::hit);
+        case GRANDLEON_TEXT_MEND:
+            return ui(console::Message::mend);
+        case GRANDLEON_TEXT_COUNTER:
+            return ui(console::Message::counter);
+        case GRANDLEON_TEXT_MISS:
+            return ui(console::Message::miss);
+        case GRANDLEON_TEXT_RESTORED:
+            return ui(console::Message::restored);
+        case GRANDLEON_TEXT_DAMAGE:
+            return ui(console::Message::damage);
+        case GRANDLEON_TEXT_RETURN_TO_TITLE:
+            return ui(console::Message::return_to_title);
+        case GRANDLEON_TEXT_COMPANY_REGROUP:
+            return ui(console::Message::company_regroup);
+        case GRANDLEON_TEXT_MEMORY_CARD:
+            return ui(console::Message::memory_card);
+        case GRANDLEON_TEXT_SAVE_UNAVAILABLE:
+            return ui(console::Message::save_unavailable);
+        case GRANDLEON_TEXT_CAMPAIGN_TAGLINE:
+            return ui(console::Message::campaign_tagline);
     }
     return "";
 }

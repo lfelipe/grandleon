@@ -149,6 +149,48 @@ int main() {
         "Spanish and Brazilian Portuguese carry shared and renderer UI copy"
     );
     for (const std::string_view language : {"en", "es", "pt-BR"}) {
+        for (std::uint8_t raw = 0;
+             raw <= static_cast<std::uint8_t>(
+                 console::Message::presentation_options
+             );
+             ++raw) {
+            const std::string_view value = console::text(
+                language, static_cast<console::Message>(raw)
+            );
+            expect(!value.empty(), "every compact-console label is translated");
+            for (const unsigned char glyph : value) {
+                expect(
+                    glyph >= 32U && glyph <= 126U,
+                    "compact-console interface copy stays in the shared glyph atlas"
+                );
+            }
+        }
+        expect(
+            std::string_view(console::text(
+                language, console::Message::action_heading
+            )).size() <= 10U &&
+                std::string_view(console::text(
+                    language, console::Message::ability
+                )).size() <= 10U &&
+                std::string_view(console::text(
+                    language, console::Message::hit
+                )).size() <= 7U &&
+                std::string_view(console::text(
+                    language, console::Message::counter
+                )).size() <= 15U &&
+                std::string_view(console::text(
+                    language, console::Message::cross_circle_return
+                )).size() <= 26U &&
+                std::string_view(console::text(
+                    language, console::Message::character_name
+                )).size() <= 32U &&
+                std::string_view(console::text(
+                    language, console::Message::encounter_clear
+                )).size() <= 19U,
+            "localized tactical and help labels fit the measured PS1 panels"
+        );
+    }
+    for (const std::string_view language : {"en", "es", "pt-BR"}) {
         expect(
             std::string_view(console::text(
                 language, console::Message::company_footer

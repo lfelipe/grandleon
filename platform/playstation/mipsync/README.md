@@ -84,8 +84,8 @@ real routed move and attack from the CUE/BIN and writes a browser-ready MP4.
 
 The combat probe boots the CUE through the pinned BIOS-style PCSX-Redux
 interpreter, injects controller edges only at the public update boundary and
-requires real movement, player Attack, an equipped healing ability, Wait and
-seven package-authored opposing actions. It captures the live forecast, close
+requires real animated movement, Player 1 Attack and healing, Player 2 Wait,
+and the package-authored opposing turn. It captures the live forecast, close
 combat and completed board views. The scroll probe drives both axes on the real
 14x9 Cedar Deepwood map and requires viewport clamp, one active terrain page
 and zero missed VBlanks. The campaign probe additionally starts, saves, resumes,
@@ -113,15 +113,16 @@ and recognizable silhouettes without turning every cell into a separate
 object. Characters and the cursor follow the same surface. The distant fog
 colour follows the dominant natural terrain, and clustered surroundings plus
 opt-in seam fill keep the board from reading as a noisy grid floating in a blue
-void. These features remain inside the paged terrain mesh, preserving the
-zero-missed-VBlank budget. The generated surroundings policy stays portable
+void. These features remain inside the paged terrain mesh, preserving the 60 Hz
+board-view budget. Close combat may use a bounded two-VBlank frame while its
+larger presentation is active. The generated surroundings policy stays portable
 across renderers (`natural_blend`, `extend_edges` or `fixed_terrain`).
 
 Cutover requires all of the following on the exact CUE/BIN:
 
 - BIOS-style emulator and real PlayStation hardware boot;
 - a clear visual improvement over the explicit baseline;
-- steady 60 Hz rendering with rule mutations scheduled as bounded redraw slices;
+- steady 60 Hz board rendering with bounded 30 Hz close-combat frames;
 - main RAM, VRAM and packet headroom for the full campaign;
 - real packages, complete encounters, save data and campaign flow;
 - embedded `GRANDLEON_PS1_RENDERER=MIPSYNC` plus the fail-closed cutover audit.
