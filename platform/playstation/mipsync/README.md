@@ -13,11 +13,20 @@ and rules. Functional parity with Godot, audio, real hardware validation, and
 the final cutover remain. Mipsync is never used as a fallback, and the removed
 renderer will not be retained as one.
 
+Solo and co-op are generated from their complete authored encounter variants,
+not by removing Player 2 from the co-op battle. That preserves different
+starts, opposition, reinforcement timing and tuning. The campaign probe boots
+all five exact 1P definitions as well as the full 2P save-and-resume route.
+
 Board movement follows the authoritative reachable route at ten frames per
 tile, including terrain height and a small footfall lift. Input waits for that
 presentation to settle, and entering an authored hidden area reveals it only
 when the rendered unit reaches the doorway rather than when the rules commit
 the destination.
+
+Help is available from the title and the in-battle Start menu. Close view,
+reduced motion and FPS display can be changed there and are kept on the memory
+card; retail play starts with FPS hidden.
 
 Mipsync is pinned to commit `866f405a0e34b5925a8d832272fe52c657688430`.
 The upstream source is not copied into Grandleon. Generic engine fixes live as

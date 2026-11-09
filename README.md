@@ -205,14 +205,12 @@ campaign and stage names, dialogue, objectives, company character names, named
 battle placements, and named units, weapons, abilities, and items. Grandleon
 keeps the original source strings; missing or outdated work falls back to the
 current source rather than stale or empty text. Nintendo 64 and PlayStation
-offer the authored languages at launch and localize their compact title, story,
-stage, roster, content, board, action, help, save, and turn copy in English,
-Spanish, and Brazilian Portuguese. Player-chosen character names remain literal
-player input rather than translation material; they survive save and continue
-and can appear in
-dialogue, objectives, rosters, and exact on-board unit labels. The compact
-consoles offer a bounded controller keyboard using the characters their shared
-font can display.
+localization is being reconnected as part of the Pyrite/Tiny3D and Mipsync
+transition; the removed console path is not treated as release evidence.
+Player-chosen character names remain literal player input rather than
+translation material; in Godot they survive save and continue and can appear
+in dialogue, objectives, rosters, and exact on-board unit labels. Controller
+name entry is likewise still being moved to the new console players.
 
 The concrete presentation experiments currently in progress are kept in the
 short [development TODO](TODO.md).

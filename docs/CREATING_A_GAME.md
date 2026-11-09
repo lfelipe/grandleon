@@ -173,11 +173,11 @@ Each player replaces it with the authored default or the player's literal
 choice; an unknown or malformed token stays visible so an authoring mistake is
 easy to find.
 
-Nintendo 64 and PlayStation show a compact controller keyboard only for a
-character the author marked nameable. It accepts up to 18 shared-font glyphs,
-can restore the authored default, and can be cancelled without changing the
-save. Fixed-name characters and continued games do not show that new-game
-prompt.
+Controller name entry is being reconnected to the new Nintendo 64 and
+PlayStation players during the 0.5 engine transition. The intended console
+contract is an 18-glyph shared-font limit, authored-default reset,
+Cancel-without-writing, fixed-name exclusion, and no repeated prompt after a
+continued save; until that cutover is complete, test this workflow in Godot.
 
 Keep roles and gear small at first; add new choices when a chapter gives the
 player a reason to use them.

@@ -410,7 +410,7 @@ than reproduce those implementation details.
 - [x] Treat character names as translatable authored text rather than assuming
   every proper name is universal. An author can save the same spelling as the
   reviewed translation when a proper name is deliberately shared.
-- [x] Let authors preview the game in a selected language and validate
+- [ ] Let authors preview the game in a selected language and validate
   completeness. Authored catalogs travel through the portable project and
   compiled package, the Godot player offers the authored languages before
   launch, and it localizes the project title, campaign/stage names, dialogue,
@@ -422,9 +422,11 @@ than reproduce those implementation details.
     campaign and valid 1P/2P choice. It compiles the current project into a
     save-isolated preview, launches directly in the selected language, and
     returns to the same translation workflow.
-  - [x] Add authored-language selection and localized interface copy to the
-    Nintendo 64 and PlayStation players. Keep their compact layouts readable
-    and use the same current-source fallback as Godot.
+  - [ ] Reconnect authored-language selection and localized interface copy to
+    the new Pyrite/Tiny3D and Mipsync players. The retired shared console path
+    had this workflow, but the 0.5 engine transition is not complete until the
+    sole N64 and PlayStation runtimes use the same current-source fallback as
+    Godot and keep their compact layouts readable.
 - [ ] Later, explore optional translation suggestions from an external AI model.
   Suggestions must be explicitly requested, remain visibly unapproved until a
   person accepts them, preserve source and manual translations, and never be a
@@ -435,7 +437,7 @@ than reproduce those implementation details.
 - [x] Let an author mark specific characters as player-nameable while requiring
   a normal authored default. The translated default appears until the player
   chooses another name and remains the safe fallback when naming is skipped.
-- [x] Carry the chosen name through dialogue and objective substitutions,
+- [ ] Carry the chosen name through dialogue and objective substitutions,
   rosters, saves, campaign continuation, co-op views, and every export target.
   Player-entered names are never sent for translation; validate length, glyphs,
   duplicate-name clarity, and each platform's text-entry limitations.
@@ -445,10 +447,11 @@ than reproduce those implementation details.
   - [x] Apply chosen names to exact Godot battle units and explicit dialogue or
     objective member tokens, and warn clearly about duplicate company names
     without forbidding a deliberate duplicate.
-  - [x] Add controller-driven player name entry on Nintendo 64 and PlayStation,
-    with an explicit 18-glyph shared-console limit, authored-default reset,
-    Cancel-without-writing, fixed-name exclusion, and no repeated prompt when a
-    save is continued.
+  - [ ] Reconnect controller-driven player name entry to the new Pyrite/Tiny3D
+    and Mipsync players, with an explicit 18-glyph shared-console limit,
+    authored-default reset, Cancel-without-writing, fixed-name exclusion, and
+    no repeated prompt when a save is continued. The removed renderer path is
+    not release evidence for the sole console players.
 
 ## Cinematic battle presentation
 
