@@ -1283,144 +1283,22 @@ else()
     )
 endif()
 
-# The PlayStation entry gate, gated separately for the same reasons: its own
-# toolchain image, its own emulator, and no reason to make a contributor
-# working on one console build another's container.
+# The PlayStation lane builds two ordinary projects through the same Mipsync
+# source-to-disc path as the installed creator and boots both generated discs.
 if(GRANDLEON_PLAYSTATION_TESTS)
-    configure_file(
-        cmake/playstation_test.cmake.in
-        "${CMAKE_CURRENT_BINARY_DIR}/playstation_test.cmake"
-        @ONLY
-    )
     add_test(
         NAME grandleon.playstation
         COMMAND
-            "${CMAKE_COMMAND}"
-            -P "${CMAKE_CURRENT_BINARY_DIR}/playstation_test.cmake"
+            "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/scripts/check-projects.sh"
     )
-    set_tests_properties(grandleon.playstation PROPERTIES TIMEOUT 3600)
-
-    # The same board, played. A third test rather than a flag on the second
-    # because its subject is not one picture but a session: the transcript the
-    # rules say a controller script adds up to, and the pixels the console drew
-    # at every point it settled. Its expectations are derived on the host before
-    # the executable is built, which is why it has a step the other two do not.
-    configure_file(
-        cmake/playstation_turn_test.cmake.in
-        "${CMAKE_CURRENT_BINARY_DIR}/playstation_turn_test.cmake"
-        @ONLY
-    )
-    add_test(
-        NAME grandleon.playstation_turn
-        COMMAND
-            "${CMAKE_COMMAND}"
-            -P "${CMAKE_CURRENT_BINARY_DIR}/playstation_turn_test.cmake"
-    )
-    set_tests_properties(grandleon.playstation_turn PROPERTIES TIMEOUT 3600)
-
-    # The save path, against a memory card, across three emulator processes.
-    # A fourth test rather than a flag on any of the others because it is the
-    # only one whose subject outlives a run: what it proves is that bytes on a
-    # card were still there when a different process came looking.
-    configure_file(
-        cmake/playstation_card_test.cmake.in
-        "${CMAKE_CURRENT_BINARY_DIR}/playstation_card_test.cmake"
-        @ONLY
-    )
-    add_test(
-        NAME grandleon.playstation_card
-        COMMAND
-            "${CMAKE_COMMAND}"
-            -P "${CMAKE_CURRENT_BINARY_DIR}/playstation_card_test.cmake"
-    )
-    set_tests_properties(grandleon.playstation_card PROPERTIES TIMEOUT 3600)
-
-    # Both shipped campaigns, played end to end and then picked up again in a
-    # second process over the same card. A fifth test because its subject is
-    # neither one picture nor one battle but a whole game: every screen the
-    # campaign half composes, placed on this display, against a transcript
-    # derived on the host before the executable existed.
-    configure_file(
-        cmake/playstation_campaign_test.cmake.in
-        "${CMAKE_CURRENT_BINARY_DIR}/playstation_campaign_test.cmake"
-        @ONLY
-    )
-    add_test(
-        NAME grandleon.playstation_campaign
-        COMMAND
-            "${CMAKE_COMMAND}"
-            -P "${CMAKE_CURRENT_BINARY_DIR}/playstation_campaign_test.cmake"
-    )
-    set_tests_properties(
-        grandleon.playstation_campaign PROPERTIES TIMEOUT 7200
-    )
-
-    # The disc, booted the way a console boots one. A sixth test because it is
-    # the only one whose subject is the path in front of the executable: every
-    # other run here injects the image straight into RAM with `-loadexe`, and
-    # this one makes the BIOS shell read SYSTEM.CNF off an ISO 9660 filesystem
-    # and load MAIN.EXE sector by sector. What comes out is compared against the
-    # same host derivation the injected campaign is compared against.
-    configure_file(
-        cmake/playstation_disc_test.cmake.in
-        "${CMAKE_CURRENT_BINARY_DIR}/playstation_disc_test.cmake"
-        @ONLY
-    )
-    add_test(
-        NAME grandleon.playstation_disc
-        COMMAND
-            "${CMAKE_COMMAND}"
-            -P "${CMAKE_CURRENT_BINARY_DIR}/playstation_disc_test.cmake"
-    )
-    set_tests_properties(grandleon.playstation_disc PROPERTIES TIMEOUT 7200)
-
-    # A disc of a game this repository does not ship, built through the path an
-    # author's project actually takes and booted the way a console boots one.
-    #
-    # A seventh test because it is the only one whose subject is *whose game*
-    # the image is. Every other run here is one of the two shipped campaigns,
-    # and every decision that makes an image a particular game — the package it
-    # carries, the campaign it asks that package for, the slot the card keeps
-    # it in — is made at build time, so a build that quietly kept naming
-    # Tarnholt would pass all six.
-    configure_file(
-        cmake/playstation_other_game_test.cmake.in
-        "${CMAKE_CURRENT_BINARY_DIR}/playstation_other_game_test.cmake"
-        @ONLY
-    )
-    add_test(
-        NAME grandleon.playstation_other_game
-        COMMAND
-            "${CMAKE_COMMAND}"
-            -P "${CMAKE_CURRENT_BINARY_DIR}/playstation_other_game_test.cmake"
-    )
-    set_tests_properties(
-        grandleon.playstation_other_game PROPERTIES TIMEOUT 7200
-    )
+    set_tests_properties(grandleon.playstation PROPERTIES TIMEOUT 7200)
 else()
     message(
         STATUS
         "ctest holds no PlayStation lane: -DGRANDLEON_PLAYSTATION_TESTS=ON "
-        "adds seven, or scripts/local-ci.sh --playstation runs the checks "
-        "without reconfiguring"
+        "adds the demo + Steel Mipsync export gate"
     )
 endif()
-
-# The PlayStation turn probe's own memory safety.
-#
-# It sits here rather than in the PlayStation lane below on purpose: the probe
-# is a single host translation unit that links nothing from this repository, so
-# checking it needs a C compiler and nothing else: no container, no emulator,
-# no ROM. Behind the console flag it would be checked only by whoever
-# remembered to raise the flag, and the input it parses is an emulator's stdout.
-find_program(GRANDLEON_BASH_EXECUTABLE bash REQUIRED)
-add_test(
-    NAME grandleon.playstation_turn_probe
-    COMMAND
-        "${GRANDLEON_BASH_EXECUTABLE}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/playstation/turn_probe_test.sh"
-        "${PROJECT_SOURCE_DIR}/platform/playstation/harness/playstation_turn_probe.c"
-)
 
 find_program(GRANDLEON_NODE_EXECUTABLE node REQUIRED)
 add_test(

@@ -6,9 +6,3 @@
 # would stop the patch applying, which is the one thing it has to do.
 *.patch -whitespace
 *.diff -whitespace
-
-# A PlayStation boot descriptor's line endings are the console's, not this
-# repository's. SYSTEM.CNF goes onto the disc byte for byte, and the convention
-# every pressed disc follows is CRLF. The carriage returns are content, not
-# trailing whitespace, and no checkout may convert them away.
-platform/playstation/disc/SYSTEM.CNF -whitespace -text

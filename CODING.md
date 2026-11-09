@@ -99,7 +99,6 @@ nothing:
 ```sh
 cmake --build build --target grandleon_n64_check_all
 cmake --build build --target grandleon_playstation_check
-cmake --build build --target grandleon_playstation_turn_check
 ```
 
 A change is not complete until the behaviour it claims is demonstrably true, not
@@ -203,56 +202,26 @@ Configure with `-DGRANDLEON_N64_TESTS=ON` to add the same dual-project gate to
 
 ### PlayStation (pinned container, pinned SDK, pinned BIOS)
 
-The PlayStation targets build inside a container derived from PCSX-Redux's own
-build image, pinned by digest, which already carries Debian's
-`g++-mipsel-linux-gnu` and a hosted `libstdc++` for that ABI. The layer on top
-adds CMake, Nugget (the MIT SDK, pinned by commit) and mkpsxiso, which writes
-the disc:
+The PlayStation player uses Mipsync for rendering and PSn00bSDK for the console
+runtime. Its pinned container also carries the small Nugget and mkpsxiso pieces
+needed to produce a bootable disc. Build and boot two ordinary projects through
+the same export path the installed creator uses with:
 
 ```sh
-cmake --build build --target grandleon_playstation                 # build the executables
-cmake --build build --target grandleon_playstation_check           # conformance: run it
-cmake --build build --target grandleon_playstation_turn_check      # play a turn into it
-cmake --build build --target grandleon_playstation_card_check      # the memory card, across processes
-cmake --build build --target grandleon_playstation_campaign_check  # both campaigns, twice over one card
-cmake --build build --target grandleon_playstation_disc            # write a burnable .bin and .cue
-cmake --build build --target grandleon_playstation_disc_check      # boot that disc through the BIOS shell
+cmake --build build --target grandleon_playstation_check
 ```
 
-`scripts/local-ci.sh --playstation` runs those five checks.
+That check exports the direct-entry demo and the five-stage Steel and Cedar
+campaign, then boots both discs in pinned PCSX-Redux with OpenBIOS. It verifies
+that the first project honors its authored one-player policy and the second can
+reach its authored two-player battle. Configure with
+`-DGRANDLEON_PLAYSTATION_TESTS=ON` to add the same gate to `ctest` as
+`grandleon.playstation`. `scripts/local-ci.sh --playstation` runs it directly.
 
-Artifacts land in the gitignored `build-playstation/`. Nothing produced by this
-target is committed. Configure with `-DGRANDLEON_PLAYSTATION_TESTS=ON` to add
-the runs to `ctest` as `grandleon.playstation`,
-`grandleon.playstation_turn`, `grandleon.playstation_card`,
-`grandleon.playstation_campaign`, `grandleon.playstation_disc` and
-`grandleon.playstation_other_game`; they are off by default because they pull a
-cross toolchain image and build an emulator from source on first use.
-
-The last of those is the export path's lane, and it is the pair of
-`grandleon.nintendo64_other_game`: it builds a game this repository does not
-ship through the service the editor talks to, boots the disc that comes out
-through the BIOS shell, and requires the machine to name that game's campaign
-and title and neither shipped one's. Which game an image is, is decided at
-build time, so nothing a host can check would catch a build that quietly kept
-naming Tarnholt.
-
-The disc image carries **no licence sector**. That data is Sony's, and none of
-it is fetched or vendored. `platform/playstation/scripts/build-disc.sh` reads
-those sectors back and fails if any byte of them is not zero. A stock
-PlayStation reads them too, and will refuse the disc;
-[platform/playstation/README.md](platform/playstation/README.md) says so and
-does not work around it.
-
-**The emulator here is not ares**, and for a stated reason rather than a
-drift: ares marks its PlayStation core Experimental, where the cores this
-repository uses it for carry no such marking. The gate is PCSX-Redux with
-OpenBIOS, a reverse-engineered MIT BIOS built from the same pinned commit as
-the emulator, so no copyrighted firmware is involved. A post-build step asserts
-the linked executable's ELF header says `mips1`, because the toolchain's
-prebuilt libraries are built for a later ISA and the R3000A's response to an
-instruction it does not implement is a wrong answer rather than a crash. Full
-detail is in [platform/playstation/README.md](platform/playstation/README.md).
+The generated image carries no Sony licence sector or other Sony material.
+That means a stock unmodified PlayStation will refuse it; emulators and suitable
+development hardware can run it. Full commands, controls, and licensing notes
+are in [platform/playstation/README.md](platform/playstation/README.md).
 
 ### Whole environment (dev container)
 

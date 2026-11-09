@@ -117,9 +117,8 @@ void copy_line(char* out, std::size_t capacity, const char* text) noexcept {
 }
 
 #ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
-// The pinned PlayStation standard library supplies pointer-length string
-// assignment but not the hosted lvalue string copy symbols. Copy the two text
-// fields explicitly and keep the remaining value/vector fields ordinary.
+// Copy text explicitly so this compact client remains friendly to freestanding
+// C++ libraries without relying on hosted lvalue string-copy symbols.
 void copy_roster_entry(
     client::RosterEntry& target, const client::RosterEntry& source
 ) {
@@ -3537,7 +3536,7 @@ void TurnClient::compose_member_menu(
 }
 
 // One controller keyboard, composed into the same fixed page both the host
-// tests and PlayStation draw. The selected key carries its own brackets, so a
+// tests and compact clients draw. The selected key carries its own brackets, so a
 // two-dimensional caret does not have to masquerade as the vertical list caret
 // used by company and inventory screens.
 void TurnClient::compose_name_editor(

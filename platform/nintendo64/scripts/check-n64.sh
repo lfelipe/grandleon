@@ -3,7 +3,7 @@
 
 # Build and boot two distinct authored games through the normal Nintendo 64
 # export path. Both must identify the Pyrite renderer and pass on an exact 4 MB
-# accurate-ares machine; a missing engine/toolchain is an export failure.
+# accurate-ares machine; a missing renderer or toolchain is an export failure.
 
 set -euo pipefail
 

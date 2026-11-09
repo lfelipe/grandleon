@@ -47,6 +47,10 @@ OPTIONAL = (
 SKIP_FILES = (
     "package-lock.json", "spikes/", "tests/fixtures/",
     "scripts/check_links.py", "third_party/",
+    # These files describe paths inside pinned upstream checkouts or paths
+    # whose *absence* is the cutover contract being tested.
+    "platform/nintendo64/pyrite/cutover-contract.tsv",
+    "platform/nintendo64/pyrite/toolchain/Containerfile",
 )
 
 # Names that appear in test data and worked examples rather than as citations:
@@ -55,6 +59,7 @@ SKIP_FILES = (
 ILLUSTRATIVE = {
     "scripts/rally.lua", "scripts/alternate.lua", "scripts/reinforce.js",
     "scripts/alternate.js", "games/tworivers/", "games/tworivers",
+    "platform/nintendo64/src/old_renderer.cpp",
 }
 
 LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")

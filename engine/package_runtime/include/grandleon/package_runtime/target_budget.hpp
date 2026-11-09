@@ -19,9 +19,9 @@ namespace grandleon::package_runtime::target_budget {
 // to the load in the Nintendo 64 project's GPK runtime adapter.
 inline constexpr std::uint32_t nintendo64_units_per_encounter = 48U;
 
-// PlayStation: 48 characters take 21.8 ms on the R3000A root counter under the
-// pinned PCSX-Redux gate. platform/playstation/src/conformance_exe.cpp reports
-// the 20, 32 and 48-character points on every conformance run.
+// PlayStation: the production Mipsync exporter validates this cap before it
+// writes any stage. Its build manifest also records the resulting RAM and VRAM
+// budgets so a release artifact can be audited without a second build.
 inline constexpr std::uint32_t playstation_units_per_encounter = 48U;
 
 }  // namespace grandleon::package_runtime::target_budget

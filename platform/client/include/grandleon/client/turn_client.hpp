@@ -3,20 +3,8 @@
 //
 // Everything a player expresses with a controller, and everything the client
 // believes is on the board because of it, lives here. None of it draws a
-// pixel or reads a port. Every build derives from it: the PlayStation's
-// executable, which paints with the GPU and polls SIO0; and the host tools
-// that paint nothing and read a scripted sequence of presses.
-//
-// That split is the whole verification argument. The host build derives what
-// every step of a scripted session should look like *from the rules*, and
-// writes it out before the ROM or the executable is built or run. The rules
-// are the engine's own `reachable_tiles`, `danger_tiles` and
-// `forecast_attack`, applied to the state `client::run_campaign` actually
-// reaches. The console then reports the same transcript from its own CPU, and
-// the harness requires the two to agree line for line. Neither side can
-// quietly agree with itself: the expectations are produced by a different
-// compiler on a different architecture, ahead of the run that is checked
-// against them.
+// pixel or reads a port. Focused host tests give it scripted presses and check
+// the resulting interaction transcript against the real engine rules.
 //
 // It lives here rather than beside one console because nothing in it is any
 // one console's, and a second copy on a second machine would be a second
@@ -42,10 +30,8 @@
 // touches on a board is identical, and a second copy of it would be a second
 // chance for two ROMs to disagree about what a turn is.
 //
-// The PlayStation defines it: `grandleon_psx_campaign` and its sibling are this
-// file with the macro on, beside a turn executable that is this file with the
-// macro off. Two host tests compile it as well, so the campaign composer is
-// checked whether or not a console links it:
+// Host tests compile both forms, so the campaign composer is checked without a
+// renderer:
 // `tests/client/company_scroll_test.cpp` walks a company longer than the
 // screen, and `tests/client/story_paging_test.cpp` a speech taller than a page.
 //
@@ -94,20 +80,13 @@ namespace pr = grandleon::package_runtime;
 // derivation made against a taller window would put the camera somewhere the
 // console never puts it, and every coordinate downstream would differ.
 //
-// At the native cell it is ten columns by six rows, and a console arrives at
-// that from its own hardware rather than from this line. The PlayStation is
-// 320x240 with a 32-pixel cell, less the four eight-pixel rows the message bar
-// takes, which leaves 208 lines: six whole rows and sixteen lines over. The
-// sixteen become the headroom a raised cell lifts into rather than a seventh
-// row a shorter screen could not match.
-// `platform/playstation/src/turn_exe.cpp` derives the two numbers and asserts
-// they match these, so this is one definition rather than a copy per machine.
+// At the reference cell it is ten columns by six rows. Keeping the reference
+// dimensions here makes the camera tests independent of a renderer.
 // ---------------------------------------------------------------------------
 inline constexpr int viewport_cols = 10;
 inline constexpr int viewport_rows = 6;
 
-// What the PlayStation actually gives a board, once the cell is allowed to
-// shrink.
+// What the compact reference layout gives a board once the cell may shrink.
 //
 // The window above is what ten by six of the *native* cell buys, and every map
 // this repository ships is larger than it in at least one direction. So the
@@ -140,19 +119,9 @@ inline constexpr view::FitRule board_fit{320, 208, 32, 16, 16};
 // session this repository checks was written against and a rename would move
 // every one of them.
 //
-// A console keeps the names and maps its own face buttons onto them, which is
-// cheaper than a vocabulary per machine. The PlayStation's mapping, decided in
-// `platform/playstation/src/psx_pad.h` and stated here so a reader of a script
-// can follow it:
-//
-//     pad_a      cross     confirm: pick a character up, put it down, take a
-//                          menu row, aim a strike at the tile under the cursor
-//     pad_b      circle    back out: drop a selection, close the menu, put the
-//                          sheet down, abandon an aim
-//     pad_c      triangle  open the unit action menu, and on the company
-//                          screen open the Stage picker where a game has one
-//     pad_start  start     "I am done": open the battle from the arranging
-//                          stage, end an activation
+// A platform may map its own face buttons onto these names. In this model A
+// confirms, B cancels, C opens the unit action menu, and Start opens the board
+// menu or completes a setup screen.
 //
 // The company screen's use of C is the one place a button does something a row
 // does not also do, and the footer names it there whenever it does anything at
@@ -160,10 +129,6 @@ inline constexpr view::FitRule board_fit{320, 208, 32, 16, 16};
 // company, and a row that was not a member would be a row the member menu below
 // has nothing to open for.
 //
-// Cross confirms and circle cancels, which is the Western PlayStation
-// convention and the one a player who has used this console will already have
-// in their thumbs. Triangle is the menu because it is the button neither of the
-// other two idioms claims, and because it is the third one.
 // ---------------------------------------------------------------------------
 inline constexpr std::uint16_t pad_up = 1U << 0;
 inline constexpr std::uint16_t pad_down = 1U << 1;
@@ -950,9 +915,8 @@ public:
         const sim::EncounterSnapshot& snapshot, const client::Roster& roster
     ) override;
 
-    // A compact console launch menu. Kept available to both forms of the
-    // client because the PlayStation builds its campaign and single-battle
-    // executable from the same source file.
+    // A compact launch menu, available to both the single-board and campaign
+    // forms so their authored player policy behaves identically.
     struct LaunchMenu final {
         bool offer{false};
         bool allow_one{true};

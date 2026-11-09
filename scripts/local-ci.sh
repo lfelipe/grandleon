@@ -231,26 +231,13 @@ if [ "${run_n64}" -eq 1 ]; then
     (cd "${clone}" && cmake --build build --target grandleon_n64_check_all)
 fi
 
-# The PlayStation's six checks: the conformance executable's own assertions,
-# what the play executables drew, the turn the autopilot plays against
-# expectations derived on the host before the executable exists, the save
-# path against a memory card across three emulator processes, both
-# shipped campaigns played end to end, each across two processes over one
-# card, and the disc image booted the way a console boots it. A console
-# reachable only by somebody remembering to type a CMake target is a console
-# whose claims nothing verifies, which is why it is a flag here.
-#
-# The disc is last because it is the only one that is an artifact rather than
-# an argument: it is what somebody downloads and burns, and every other check
-# here injects the executable straight into RAM, so nothing but this one has
-# ever run the BIOS shell that a real boot goes through.
+# The PlayStation gate builds the demo and Steel and Cedar through the sole
+# Mipsync project exporter, then boots both ordinary disc images. This keeps the
+# optional CI lane on the same route a creator uses instead of a test-only
+# executable.
 if [ "${run_playstation}" -eq 1 ]; then
-    step "PlayStation: conformance, what it drew, a turn, a save, two campaigns, a disc"
+    step "PlayStation: export and boot the demo and Steel and Cedar"
     (cd "${clone}" && cmake --build build --target grandleon_playstation_check)
-    (cd "${clone}" && cmake --build build --target grandleon_playstation_turn_check)
-    (cd "${clone}" && cmake --build build --target grandleon_playstation_card_check)
-    (cd "${clone}" && cmake --build build --target grandleon_playstation_campaign_check)
-    (cd "${clone}" && cmake --build build --target grandleon_playstation_disc_check)
 fi
 
 step "every documented path and anchor resolves"

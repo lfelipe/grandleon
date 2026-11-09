@@ -44,19 +44,11 @@ option(
     "Build and boot the Nintendo 64 Pyrite projects as part of ctest"
     OFF
 )
-# Set by platform/playstation/scripts/build-playstation.sh together with
-# cmake/toolchains/PlayStation.cmake. A host build never sets it.
-option(
-    GRANDLEON_PLAYSTATION
-    "Configure the engine libraries and the conformance executable for the PlayStation"
-    OFF
-)
-# Adds the containerised PlayStation conformance run to the test suite. Off by
-# default because it needs a container runtime, pulls a cross toolchain image
-# and builds an emulator from source on first use.
+# Adds the Mipsync PlayStation project-export gate to the test suite. Off by
+# default because it needs a container runtime and builds two complete discs.
 option(
     GRANDLEON_PLAYSTATION_TESTS
-    "Run the PlayStation conformance executable as part of ctest"
+    "Build and boot the PlayStation demo and Steel projects as part of ctest"
     OFF
 )
 
@@ -410,14 +402,6 @@ target_include_directories(
 )
 
 target_compile_options(grandleon_game_content PRIVATE ${GRANDLEON_WARNING_FLAGS})
-
-# The command-line tools and the installed SDK are host concerns. A cross build
-# compiles the engine libraries, the content compiler, and its own platform
-# adapter only.
-if(GRANDLEON_PLAYSTATION)
-    add_subdirectory(platform/playstation)
-    return()
-endif()
 
 include(cmake/GrandleonNintendo64.cmake)
 include(cmake/GrandleonPlayStation.cmake)

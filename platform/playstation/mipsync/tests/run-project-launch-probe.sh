@@ -6,7 +6,6 @@ test "$#" -eq 2 || {
     echo "usage: PSN00BSDK_ROOT=/path/to/sdk $0 project-build-directory empty-output-directory" >&2
     exit 2
 }
-test -n "${PSN00BSDK_ROOT:-}" || { echo "PSN00BSDK_ROOT is required" >&2; exit 1; }
 build=$(CDPATH= cd -- "$1" && pwd)
 output=$2
 for artifact in "$build/game.cue" "$build/game.bin" \
@@ -41,13 +40,20 @@ else
 fi
 output=$(CDPATH= cd -- "$output" && pwd)
 
-nm=$PSN00BSDK_ROOT/bin/mipsel-none-elf-nm
-update=$(
-    "$nm" -n "$build/stages/01/build/grandleon_mipsync.elf" |
-        awk '$3 == "grandleon_runtime_update" {
-            print "0x" substr($1, length($1) - 7); found = 1
-        } END { if (!found) exit 1 }'
-)
+update=${GRANDLEON_UPDATE_ADDRESS:-}
+if test -z "$update"; then
+    test -n "${PSN00BSDK_ROOT:-}" || {
+        echo "PSN00BSDK_ROOT or GRANDLEON_UPDATE_ADDRESS is required" >&2
+        exit 1
+    }
+    nm=$PSN00BSDK_ROOT/bin/mipsel-none-elf-nm
+    update=$(
+        "$nm" -n "$build/stages/01/build/grandleon_mipsync.elf" |
+            awk '$3 == "grandleon_runtime_update" {
+                print "0x" substr($1, length($1) - 7); found = 1
+            } END { if (!found) exit 1 }'
+    )
+fi
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 docker=${GRANDLEON_DOCKER:-docker}
 revision=a415a98e6c347b41ca5a1d3f23bbc4eb26059687

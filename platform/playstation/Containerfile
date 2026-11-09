@@ -24,9 +24,8 @@
 # A minimal, pinned PSn00bSDK core subset supplies the renderer headers and
 # target archives without adding a redundant compiler toolchain.
 #
-# Built by platform/playstation/scripts/build-playstation.sh, which verifies
-# the base image digest before the build and refuses to continue if the tag has
-# moved.
+# Built by the creator payload packager and the Mipsync project gate. Both use
+# this digest-pinned definition rather than a mutable local SDK installation.
 
 FROM ghcr.io/grumpycoders/pcsx-redux-build@sha256:e8db332e2b2d035cb0bbc5aeec2c134b9daac60c6f787e91c94cf03194eb7a5b
 
@@ -150,7 +149,7 @@ RUN set -eu \
 # choice is this tool or hand-rolling a sector writer. It is the tool the
 # PlayStation homebrew world already uses, it is pinned by commit at v2.30,
 # and it takes an XML description of the disc rather than a directory, which is
-# what lets `scripts/build-disc.sh` say exactly what goes on the image.
+# what lets the Mipsync project builder say exactly what goes on the image.
 #
 # It is GPL-2.0, the same licence as PCSX-Redux, which this target already
 # builds and runs. Nothing links it and nothing it emits is derived from it:

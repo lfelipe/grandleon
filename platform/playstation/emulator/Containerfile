@@ -1,4 +1,4 @@
-# Reproducible PlayStation emulator, for running the conformance executable
+# Reproducible PlayStation emulator for booting generated Mipsync discs
 # headlessly, plus the MIT OpenBIOS it boots.
 #
 # PCSX-Redux rather than the alternatives, and the reason is the opposite of
@@ -7,8 +7,7 @@
 # wants. It is the only PlayStation emulator that has all four of the
 # things this gate needs already built in: a no-op UI with no GL and no window,
 # an interception of the BIOS teletype calls that writes them to its own
-# stdout, a control port that turns a guest exit code into the emulator's own
-# process exit code, and a reverse-engineered BIOS with a licence this
+# stdout, a debugger usable by the project probes, and a reverse-engineered BIOS with a licence this
 # repository can check.
 #
 # ares is this repository's authoritative Nintendo 64 emulator and cannot be
