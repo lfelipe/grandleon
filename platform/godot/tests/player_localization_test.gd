@@ -100,6 +100,7 @@ func _run() -> void:
 	var saw_company := false
 	var saw_definitions := false
 	var saw_battle := false
+	var dialogue_id := 0
 	for _frame: int in 360:
 		await process_frame
 		for event_value: Variant in session.poll():
@@ -110,6 +111,7 @@ func _run() -> void:
 					_expect("campaign heading is localized", event.campaign_name, "Primeira Aventura")
 				"dialogue":
 					saw_dialogue = true
+					dialogue_id = int(event.get("id", 0))
 					_expect("scene title is localized", event.name, "Primeiros Passos")
 					var lines: Array = event.lines
 					_expect("speaker name is localized", lines[0].speaker, "Aren da Ponte")
@@ -160,6 +162,41 @@ func _run() -> void:
 					_expect("named battle placement is localized", localized_placement_found, true)
 		if saw_campaign and saw_dialogue and saw_company and saw_definitions and saw_battle:
 			break
+	_expect("active session accepts its source language", session.set_language("en"), true)
+	_expect("active language changes without restarting", session.language(), "en")
+	var relocalized: Dictionary = session.localized_state()
+	_expect("live localization state is available", relocalized.ok, true)
+	_expect(
+		"live campaign heading returns to source",
+		str(relocalized.campaign.campaign_name),
+		"First Adventure"
+	)
+	_expect(
+		"live stage heading returns to source",
+		str(relocalized.management.company.stage_name),
+		"Hold the Crossing"
+	)
+	var source_objective_found := false
+	for objective_value: Variant in relocalized.definitions.get("objectives", []):
+		if str(objective_value.get("name", "")) == "Defeat all opponents":
+			source_objective_found = true
+	_expect("live objective returns to source", source_objective_found, true)
+	var source_member_found := false
+	var source_placement_found := false
+	for unit_value: Variant in relocalized.snapshot.snapshot.get("units", []):
+		if str(unit_value.get("name", "")) == "Aren":
+			source_member_found = true
+		if str(unit_value.get("name", "")) == "Warden Kesh":
+			source_placement_found = true
+	_expect("live board member returns to source", source_member_found, true)
+	_expect("live board placement returns to source", source_placement_found, true)
+	var source_dialogue: Dictionary = session.localized_dialogue(dialogue_id)
+	_expect(
+		"already queued dialogue returns to source",
+		str(source_dialogue.lines[0].text),
+		"The road was quiet when we left home. I was hoping it would stay that way."
+	)
+	_expect("unsupported live language is refused", session.set_language("xx"), false)
 	session.stop()
 	context.free()
 	_expect("campaign event reached the player", saw_campaign, true)

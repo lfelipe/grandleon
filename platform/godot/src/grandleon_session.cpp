@@ -853,6 +853,21 @@ void GrandleonSession::_bind_methods() {
         &GrandleonSession::package_presentation
     );
     gd::ClassDB::bind_method(
+        gd::D_METHOD("set_language", "language"),
+        &GrandleonSession::set_language
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD("language"), &GrandleonSession::language
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD("localized_state"),
+        &GrandleonSession::localized_state
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD("localized_dialogue", "dialogue_id"),
+        &GrandleonSession::localized_dialogue
+    );
+    gd::ClassDB::bind_method(
         gd::D_METHOD("has_progress"), &GrandleonSession::has_progress
     );
     gd::ClassDB::bind_method(
@@ -1027,8 +1042,84 @@ void GrandleonSession::reset_for_start() {
     has_snapshot_ = false;
     latest_weapons_.clear();
     latest_abilities_.clear();
+    latest_snapshot_event_.reset();
+    latest_definitions_event_.reset();
+    latest_campaign_event_.reset();
+    latest_management_event_.reset();
+    latest_dialogue_events_.clear();
     progress_available_ = false;
     save_slot_.clear();
+}
+
+bool GrandleonSession::set_language(const gd::String& requested) {
+    const std::string selected = narrow(requested);
+    const std::vector<std::string_view> available =
+        pr::available_languages(package_);
+    const bool supported = std::find(
+        available.begin(), available.end(), selected
+    ) != available.end();
+    if (!supported) {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        last_error_ = "game language is not available in this package";
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    language_ = selected;
+    last_error_.clear();
+    return true;
+}
+
+gd::String GrandleonSession::language() const {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    return text(language_);
+}
+
+gd::Dictionary GrandleonSession::localized_state() const {
+    std::optional<FrontendEvent> definitions;
+    std::optional<FrontendEvent> snapshot;
+    std::optional<FrontendEvent> campaign;
+    std::optional<FrontendEvent> management;
+    {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        definitions = latest_definitions_event_;
+        snapshot = latest_snapshot_event_;
+        campaign = latest_campaign_event_;
+        management = latest_management_event_;
+    }
+    gd::Dictionary result;
+    result["ok"] = true;
+    result["language"] = language();
+    if (definitions.has_value()) {
+        result["definitions"] = event_dictionary(*definitions);
+    }
+    if (snapshot.has_value()) {
+        result["snapshot"] = event_dictionary(*snapshot);
+    }
+    if (campaign.has_value()) {
+        result["campaign"] = event_dictionary(*campaign);
+    }
+    if (management.has_value()) {
+        result["management"] = event_dictionary(*management);
+    }
+    return result;
+}
+
+gd::Dictionary GrandleonSession::localized_dialogue(
+    std::int64_t dialogue_id
+) const {
+    std::optional<FrontendEvent> dialogue;
+    {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        for (auto current = latest_dialogue_events_.rbegin();
+             current != latest_dialogue_events_.rend(); ++current) {
+            if (signed_id(current->dialogue.id) == dialogue_id) {
+                dialogue = *current;
+                break;
+            }
+        }
+    }
+    if (!dialogue.has_value()) return {};
+    return event_dictionary(*dialogue);
 }
 
 bool GrandleonSession::start_bytes(
@@ -1224,6 +1315,11 @@ bool GrandleonSession::load_checkpoint(std::int64_t slot) {
         has_snapshot_ = false;
         latest_weapons_.clear();
         latest_abilities_.clear();
+        latest_snapshot_event_.reset();
+        latest_definitions_event_.reset();
+        latest_campaign_event_.reset();
+        latest_management_event_.reset();
+        latest_dialogue_events_.clear();
         progress_available_ = true;
     }
     return launch_worker();
@@ -1250,6 +1346,11 @@ bool GrandleonSession::reset_progress() {
         has_snapshot_ = false;
         latest_weapons_.clear();
         latest_abilities_.clear();
+        latest_snapshot_event_.reset();
+        latest_definitions_event_.reset();
+        latest_campaign_event_.reset();
+        latest_management_event_.reset();
+        latest_dialogue_events_.clear();
         progress_available_ = false;
     }
     return launch_worker();
@@ -1291,11 +1392,33 @@ gd::Array GrandleonSession::poll() {
                 event.kind == FrontendEvent::Kind::snapshot ||
                 event.kind == FrontendEvent::Kind::battle_ended) {
                 latest_snapshot_ = event.snapshot;
+                latest_snapshot_event_ = event;
                 has_snapshot_ = true;
             }
             if (event.kind == FrontendEvent::Kind::definitions) {
                 latest_weapons_ = event.weapons;
                 latest_abilities_ = event.abilities;
+                latest_definitions_event_ = event;
+            }
+            if (event.kind == FrontendEvent::Kind::dialogue) {
+                latest_dialogue_events_.erase(
+                    std::remove_if(
+                        latest_dialogue_events_.begin(),
+                        latest_dialogue_events_.end(),
+                        [&event](const FrontendEvent& previous) {
+                            return previous.dialogue.id == event.dialogue.id;
+                        }
+                    ),
+                    latest_dialogue_events_.end()
+                );
+                latest_dialogue_events_.push_back(event);
+            }
+            if (event.kind == FrontendEvent::Kind::campaign_begun) {
+                latest_campaign_event_ = event;
+            }
+            if (event.kind == FrontendEvent::Kind::management ||
+                event.kind == FrontendEvent::Kind::management_committed) {
+                latest_management_event_ = event;
             }
             if (event.kind == FrontendEvent::Kind::campaign_begun) {
                 progress_available_ = event.resumed;

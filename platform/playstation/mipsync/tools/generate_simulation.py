@@ -145,6 +145,97 @@ def emit_behavior_values(
     return lines
 
 
+def emit_localizations(document: dict[str, object]) -> list[str]:
+    languages = document.get("languages", [])
+    if not isinstance(languages, list) or not languages:
+        languages = [{
+            "code": "en",
+            "project_title": document.get("project_title", "Grandleon"),
+            "objective": document.get("campaign", {}).get(
+                "objective", "Complete the objective."
+            ),
+            "nodes": document.get("campaign", {}).get("nodes", []),
+        }]
+    lines = [
+        "namespace {",
+        "struct generated_localized_node final {",
+        "    std::uint64_t id; const char* name; const char* dialogue;",
+        "};",
+        "struct generated_language final {",
+        "    const char* code; const char* project_title; const char* objective;",
+        "    std::vector<generated_localized_node> nodes;",
+        "};",
+        "const std::vector<generated_language>& generated_languages() {",
+        "    static const std::vector<generated_language> values = {",
+    ]
+    for language in languages:
+        if not isinstance(language, dict):
+            raise ValueError("language entry is not an object")
+        nodes = language.get("nodes", [])
+        if not isinstance(nodes, list):
+            raise ValueError("language nodes are not an array")
+        node_values = ",".join(
+            "{" + ",".join((
+                f"{int(node['id'])}ULL",
+                cpp_string(node.get("name", "")),
+                cpp_string(node.get("dialogue", "")),
+            )) + "}"
+            for node in nodes
+        )
+        lines.append(
+            "        {" + ",".join((
+                cpp_string(language.get("code", "en")),
+                cpp_string(language.get("project_title", "Grandleon")),
+                cpp_string(language.get("objective", "Complete the objective.")),
+                "{" + node_values + "}",
+            )) + "},"
+        )
+    lines += [
+        "    };",
+        "    return values;",
+        "}",
+        "const generated_language& generated_language(unsigned index) {",
+        "    const auto& values = generated_languages();",
+        "    return values[index < values.size() ? index : 0U];",
+        "}",
+        "const generated_localized_node* generated_localized_node_for(",
+        "    unsigned language, std::uint64_t id",
+        ") {",
+        "    for (const auto& node : generated_language(language).nodes)",
+        "        if (node.id == id) return &node;",
+        "    return nullptr;",
+        "}",
+        "}",
+        "",
+        "unsigned grandleon_generated_language_count() {",
+        "    return static_cast<unsigned>(generated_languages().size());",
+        "}",
+        "const char* grandleon_generated_language_code(unsigned language) {",
+        "    return generated_language(language).code;",
+        "}",
+        "const char* grandleon_generated_project_title_for(unsigned language) {",
+        "    return generated_language(language).project_title;",
+        "}",
+        "const char* grandleon_generated_objective_for(unsigned language) {",
+        "    return generated_language(language).objective;",
+        "}",
+        "const char* grandleon_generated_campaign_node_name_for(",
+        "    unsigned language, std::uint64_t id",
+        ") {",
+        "    const auto* node = generated_localized_node_for(language, id);",
+        "    return node ? node->name : \"\";",
+        "}",
+        "const char* grandleon_generated_campaign_node_dialogue_for(",
+        "    unsigned language, std::uint64_t id",
+        ") {",
+        "    const auto* node = generated_localized_node_for(language, id);",
+        "    return node ? node->dialogue : \"\";",
+        "}",
+        "",
+    ]
+    return lines
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("manifest", type=Path)
@@ -222,6 +313,7 @@ def main() -> int:
         "        : grandleon_generated_one_player_behaviors();",
         "}", "",
     ]
+    lines += emit_localizations(document)
     lines += [
         "namespace camp = grandleon::campaign;", "",
         "namespace {",
@@ -345,6 +437,12 @@ grandleon::campaign::CampaignGraph grandleon_generated_campaign_graph();
 const std::vector<grandleon_generated_campaign_node>& grandleon_generated_campaign_nodes();
 const grandleon_generated_campaign_node* grandleon_generated_campaign_node_for(std::uint64_t id);
 const std::vector<std::uint64_t>& grandleon_generated_objective_ids();
+unsigned grandleon_generated_language_count();
+const char* grandleon_generated_language_code(unsigned language);
+const char* grandleon_generated_project_title_for(unsigned language);
+const char* grandleon_generated_objective_for(unsigned language);
+const char* grandleon_generated_campaign_node_name_for(unsigned language, std::uint64_t id);
+const char* grandleon_generated_campaign_node_dialogue_for(unsigned language, std::uint64_t id);
 inline constexpr std::uint64_t grandleon_generated_canonical_hash(unsigned local_players) {{
     return local_players > 1 ? {int(document['canonical_hash'])}ULL : {int(one_player['canonical_hash']) if one_player else int(document['canonical_hash'])}ULL;
 }}

@@ -20,6 +20,21 @@ deployment, close combat, localization and player names, and the castle's
 hidden-area reveal. Visual polish may differ by machine and will continue to
 improve after functional parity.
 
+## Language during play
+
+A translated game adds **Language** to the live Settings menu on both consoles.
+Changing it immediately updates the compact interface and package-authored
+title, stage, objective, dialogue, company, and content names; missing or
+outdated translations continue to use the current source copy. The selected
+language is stored with presentation settings, while an older settings save
+still loads safely. The Nintendo 64 reads the catalog directly from the GPK;
+the PlayStation exporter writes the same reviewed strings into each campaign
+executable. No retired renderer or separate console translation file is used.
+
+Common title, launch, pause, Settings, and outcome copy is available in English,
+Spanish, and Brazilian Portuguese. The remaining uncommon help, tactical-result,
+deployment, and error labels are still under compact-layout review.
+
 ## Showcase campaigns
 
 **Sevenfold Gate** is the compact 0.4 showcase built to make the art range easy

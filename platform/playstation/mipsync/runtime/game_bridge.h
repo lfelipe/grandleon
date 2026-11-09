@@ -28,6 +28,25 @@ enum grandleon_ui_mode {
     GRANDLEON_UI_TITLE_SETTINGS
 };
 
+enum grandleon_ui_text_id {
+    GRANDLEON_TEXT_NEW_GAME = 0,
+    GRANDLEON_TEXT_CONTINUE,
+    GRANDLEON_TEXT_HELP,
+    GRANDLEON_TEXT_SETTINGS,
+    GRANDLEON_TEXT_ONE_PLAYER,
+    GRANDLEON_TEXT_TWO_PLAYERS,
+    GRANDLEON_TEXT_CLOSE_VIEW,
+    GRANDLEON_TEXT_REDUCED_MOTION,
+    GRANDLEON_TEXT_SHOW_FPS,
+    GRANDLEON_TEXT_LANGUAGE,
+    GRANDLEON_TEXT_ON,
+    GRANDLEON_TEXT_OFF,
+    GRANDLEON_TEXT_BACK,
+    GRANDLEON_TEXT_MENU,
+    GRANDLEON_TEXT_RESUME,
+    GRANDLEON_TEXT_OPPONENT_TURN
+};
+
 typedef struct grandleon_ui_state {
     uint8_t mode;
     uint8_t menu_index;
@@ -59,9 +78,11 @@ typedef struct grandleon_ui_state {
     uint8_t continue_available;
     uint8_t pause_menu_index;
     uint8_t settings_menu_index;
+    uint8_t settings_menu_count;
     uint8_t reduced_motion;
     uint8_t show_fps;
     uint16_t measured_fps;
+    const char* language_code;
 } grandleon_ui_state;
 
 int grandleon_game_init(void);
@@ -70,6 +91,7 @@ int grandleon_game_update(
     uint16_t player_one_buttons, uint16_t player_two_buttons
 );
 void grandleon_game_ui_state(grandleon_ui_state* output);
+const char* grandleon_game_text(uint8_t text_id);
 void grandleon_game_set_fps(uint16_t fps);
 void grandleon_game_log_boot(unsigned int packet_bytes);
 void grandleon_platform_card_begin(void);

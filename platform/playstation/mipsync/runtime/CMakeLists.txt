@@ -56,6 +56,7 @@ target_include_directories(grandleon_mipsync PRIVATE
     "${GRANDLEON_SOURCE_ROOT}/engine/simulation/include"
     "${GRANDLEON_SOURCE_ROOT}/engine/tactics/include"
     "${GRANDLEON_SOURCE_ROOT}/platform/view/include"
+    "${GRANDLEON_SOURCE_ROOT}/platform/client/include"
     "${GRANDLEON_SOURCE_ROOT}/platform/storage/include"
     "${GRANDLEON_SOURCE_ROOT}/platform/playstation/src"
 )

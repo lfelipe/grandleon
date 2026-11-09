@@ -58,6 +58,7 @@
     "player.settings.battle_closeups": "PRIMEROS PLANOS  /  {value}",
     "player.settings.cinematic_motion": "MOVIMIENTO CINEMÁTICO  /  {value}",
     "player.settings.show_fps": "MOSTRAR FPS  /  {value}",
+    "player.settings.game_language": "IDIOMA DEL JUEGO  /  {value}",
     "player.graphics.pixel": "PÍXEL 2D",
     "player.graphics.diorama": "DIORAMA 3D + SPRITES",
     "player.graphics.voxel_sprites": "TERRENO VÓXEL + SPRITES",

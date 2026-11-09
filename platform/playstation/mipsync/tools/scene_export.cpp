@@ -9,6 +9,7 @@
 #include <grandleon/package_runtime/encounter_loader.hpp>
 #include <grandleon/package_runtime/campaign.hpp>
 #include <grandleon/package_runtime/dialogue.hpp>
+#include <grandleon/package_runtime/localization.hpp>
 #include <grandleon/package_runtime/manifest.hpp>
 #include <grandleon/package_runtime/names.hpp>
 #include <grandleon/package_runtime/presentation.hpp>
@@ -55,7 +56,8 @@ void write_string(std::ostream& output, std::string_view value) {
 std::string first_dialogue_text(
     const pf::LoadedPackage& package,
     const pr::CampaignDefinition& campaign,
-    std::uint64_t node_id
+    std::uint64_t node_id,
+    std::string_view language
 ) {
     for (const pr::CampaignNode& node : campaign.nodes) {
         if (node.id != node_id || node.dialogue_ids.empty()) continue;
@@ -63,22 +65,32 @@ std::string first_dialogue_text(
             package, node.dialogue_ids.front()
         );
         if (!dialogue || dialogue.dialogue.lines.empty()) return {};
-        return dialogue.dialogue.lines.front().text;
+        const std::string_view source = dialogue.dialogue.lines.front().text;
+        return std::string(pr::localized_dialogue_line(
+            package, language, node.dialogue_ids.front(), 0U, "text", source
+        ));
     }
     return {};
 }
 
 std::string campaign_node_name(
     const pf::LoadedPackage& package,
-    const pr::CampaignNode& node
+    const pr::CampaignNode& node,
+    std::uint64_t campaign_id,
+    std::string_view language
 ) {
+    std::string source;
     if (node.kind == pr::CampaignNodeKind::encounter && node.encounter_id != 0U) {
-        return std::string(pr::content_name(
+        source = std::string(pr::content_name(
             package, pf::SectionType::encounters, node.encounter_id
         ));
+    } else {
+        source = node.kind == pr::CampaignNodeKind::terminal
+            ? "Campaign ended" : "Story";
     }
-    if (node.kind == pr::CampaignNodeKind::terminal) return "Campaign ended";
-    return "Story";
+    return std::string(pr::localized_campaign_node_name(
+        package, language, campaign_id, node.id, source
+    ));
 }
 
 void write_campaign(
@@ -87,7 +99,8 @@ void write_campaign(
     const pr::CampaignDefinition& campaign,
     std::uint64_t campaign_id,
     std::uint64_t current_encounter_id,
-    const sim::EncounterDefinition& encounter
+    const sim::EncounterDefinition& encounter,
+    std::string_view language
 ) {
     output << "{\"id\":";
     write_id(output, campaign_id);
@@ -105,9 +118,13 @@ void write_campaign(
     write_id(output, current_node_id);
     output << ",\"objective\":";
     if (!encounter.objectives.empty()) {
-        write_string(output, pr::content_name(
+        const std::uint64_t objective_id = encounter.objectives.front().id;
+        const std::string_view source = pr::content_name(
             package, pf::SectionType::objectives,
-            encounter.objectives.front().id
+            objective_id
+        );
+        write_string(output, pr::localized_objective_name(
+            package, language, objective_id, source
         ));
     } else {
         write_string(output, {});
@@ -123,9 +140,13 @@ void write_campaign(
                << ",\"encounter_id\":";
         write_id(output, node.encounter_id);
         output << ",\"name\":";
-        write_string(output, campaign_node_name(package, node));
+        write_string(output, campaign_node_name(
+            package, node, campaign_id, language
+        ));
         output << ",\"dialogue\":";
-        write_string(output, first_dialogue_text(package, campaign, node.id));
+        write_string(output, first_dialogue_text(
+            package, campaign, node.id, language
+        ));
         output << ",\"has_fallback\":"
                << (node.has_unconditional_target ? 1 : 0)
                << ",\"fallback\":";
@@ -160,6 +181,63 @@ void write_campaign(
         output << "]}";
     }
     output << "]}";
+}
+
+void write_localizations(
+    std::ostream& output,
+    const pf::LoadedPackage& package,
+    const pr::CampaignDefinition& campaign,
+    std::uint64_t campaign_id,
+    const sim::EncounterDefinition& encounter
+) {
+    std::vector<std::string_view> languages = pr::available_languages(package);
+    if (languages.empty()) {
+        languages.push_back(pr::source_language(package));
+    }
+    output << '[';
+    for (std::size_t language_index = 0;
+         language_index < languages.size(); ++language_index) {
+        if (language_index != 0U) output << ',';
+        const std::string_view language = languages[language_index];
+        const std::string_view source_title = pr::project_title(package);
+        output << "{\"code\":";
+        write_string(output, language);
+        output << ",\"project_title\":";
+        write_string(output, pr::localized_project_title(
+            package, language, source_title
+        ));
+        output << ",\"objective\":";
+        if (!encounter.objectives.empty()) {
+            const std::uint64_t objective_id = encounter.objectives.front().id;
+            const std::string_view source = pr::content_name(
+                package, pf::SectionType::objectives, objective_id
+            );
+            write_string(output, pr::localized_objective_name(
+                package, language, objective_id, source
+            ));
+        } else {
+            write_string(output, {});
+        }
+        output << ",\"nodes\":[";
+        for (std::size_t node_index = 0;
+             node_index < campaign.nodes.size(); ++node_index) {
+            if (node_index != 0U) output << ',';
+            const pr::CampaignNode& node = campaign.nodes[node_index];
+            output << "{\"id\":";
+            write_id(output, node.id);
+            output << ",\"name\":";
+            write_string(output, campaign_node_name(
+                package, node, campaign_id, language
+            ));
+            output << ",\"dialogue\":";
+            write_string(output, first_dialogue_text(
+                package, campaign, node.id, language
+            ));
+            output << '}';
+        }
+        output << "]}";
+    }
+    output << ']';
 }
 
 template <typename T>
@@ -322,7 +400,13 @@ int main(int argc, char** argv) {
     output << "]},\n  \"campaign\": ";
     write_campaign(
         output, package.package, campaign.definition, campaign_id,
-        encounter_id, loaded.definition
+        encounter_id, loaded.definition,
+        pr::source_language(package.package)
+    );
+    output << ",\n  \"languages\": ";
+    write_localizations(
+        output, package.package, campaign.definition, campaign_id,
+        loaded.definition
     );
     output << ",\n  \"terrain\": [";
     for (std::size_t index = 0; index < loaded.terrain.size(); ++index) {

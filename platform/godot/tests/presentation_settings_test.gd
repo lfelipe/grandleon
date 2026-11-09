@@ -20,7 +20,7 @@ func _run() -> void:
 		"valid settings save",
 		settings.save_settings(
 			"voxel-sprites", false, 1.15, PROFILES, 0.45, "extra_firm",
-			false, "reduced", true
+			false, "reduced", true, true, "pt-BR"
 		)
 	)
 
@@ -35,6 +35,7 @@ func _run() -> void:
 	_expect("stored close-up choice is explicit", values.get("battle_closeups_set"), true)
 	_expect("stored cinematic motion", values.get("cinematic_motion"), "reduced")
 	_expect("stored FPS choice", values.get("show_fps"), true)
+	_expect("stored game language", values.get("game_language"), "pt-BR")
 	_expect("valid settings have no warning", reloaded.warning(), "")
 
 	var raw: Variant = JSON.parse_string(
@@ -50,7 +51,7 @@ func _run() -> void:
 			keys,
 			[
 				"battleCloseups", "cameraImpulse", "cinematicMotion",
-				"contractVersion", "effectsLevel", "graphicsProfile",
+				"contractVersion", "effectsLevel", "gameLanguage", "graphicsProfile",
 				"showFps", "stickMode", "textScale"
 			]
 		)
@@ -102,6 +103,7 @@ func _run() -> void:
 	_expect("previous close-up choice recovers", recovered_values.get("battle_closeups"), false)
 	_expect("previous motion choice recovers", recovered_values.get("cinematic_motion"), "reduced")
 	_expect("previous FPS choice recovers", recovered_values.get("show_fps"), true)
+	_expect("previous game language recovers", recovered_values.get("game_language"), "pt-BR")
 	_expect("recovery is coarse", recovered.warning(), "PREVIOUS DISPLAY SETTINGS RESTORED")
 	var restored = PresentationSettings.new(path)
 	_expect(
@@ -155,6 +157,11 @@ func _run() -> void:
 		"settings written before the FPS toggle default safely",
 		PresentationSettings.new(path).load_settings(PROFILES).get("show_fps"),
 		false
+	)
+	_expect(
+		"settings written before language selection follow the package default",
+		PresentationSettings.new(path).load_settings(PROFILES).get("game_language"),
+		""
 	)
 	_expect_true("legacy fixture reset", PresentationSettings.new(path).reset())
 

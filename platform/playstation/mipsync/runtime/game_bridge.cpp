@@ -7,6 +7,7 @@
 #include <grandleon/campaign/graph.hpp>
 #include <grandleon/campaign/outcome.hpp>
 #include <grandleon/campaign/save.hpp>
+#include <grandleon/client/console_localization.hpp>
 #include <grandleon/simulation/encounter.hpp>
 #include <grandleon/storage/byte_window_storage.hpp>
 #include <grandleon/tactics/policy.hpp>
@@ -16,6 +17,7 @@
 #include <array>
 #include <cstdint>
 #include <new>
+#include <string_view>
 #include <type_traits>
 
 namespace sim = grandleon::simulation;
@@ -25,6 +27,7 @@ namespace camp = grandleon::campaign;
 namespace storage = grandleon::storage;
 namespace card = grandleon::playstation::card;
 namespace view = grandleon::view;
+namespace console = grandleon::client::console_localization;
 
 namespace {
 
@@ -58,6 +61,7 @@ InputMode s_mode{InputMode::browse};
 unsigned s_menu_index{};
 unsigned s_pause_menu_index{};
 unsigned s_settings_menu_index{};
+unsigned s_language_index{};
 unsigned s_ai_delay{};
 bool s_ai_active{};
 bool s_close_combat_enabled{true};
@@ -131,6 +135,18 @@ constexpr std::uint16_t pad_square = 1U << 15U;
 constexpr unsigned close_combat_frames = 120;
 constexpr unsigned result_only_frames = 50;
 
+const char* game_language() {
+    return grandleon_generated_language_code(s_language_index);
+}
+
+const char* ui(console::Message message) {
+    return console::text(game_language(), message);
+}
+
+unsigned settings_menu_count() {
+    return grandleon_generated_language_count() > 1U ? 4U : 3U;
+}
+
 camp::DefinitionRef content_ref(
     grandleon::core::ContentCategory category, std::uint64_t stable_id
 ) {
@@ -182,14 +198,17 @@ camp::CampaignOutcomeBatch outcome_batch(
 
 bool save_display_settings() {
     if (!s_card_available || !s_device) return false;
-    const std::vector<std::uint8_t> bytes{
-        'G', 'S', 1U,
+    const std::string_view language = game_language();
+    std::vector<std::uint8_t> bytes{
+        'G', 'S', 2U,
         static_cast<std::uint8_t>(
             (s_close_combat_enabled ? 1U : 0U) |
             (s_reduced_motion ? 2U : 0U) |
             (s_display_options.show_fps ? 4U : 0U)
         ),
+        static_cast<std::uint8_t>(language.size()),
     };
+    bytes.insert(bytes.end(), language.begin(), language.end());
     grandleon_platform_card_begin();
     const storage::StorageError result = s_device->write(settings_slot, bytes);
     grandleon_platform_card_end();
@@ -199,9 +218,28 @@ bool save_display_settings() {
 void load_display_settings() {
     if (!s_device || !s_device->contains(settings_slot)) return;
     const storage::StorageRead stored = s_device->read(settings_slot);
-    if (!stored || stored.bytes.size() != 4U || stored.bytes[0] != 'G' ||
-        stored.bytes[1] != 'S' || stored.bytes[2] != 1U) {
+    if (!stored || stored.bytes.size() < 4U || stored.bytes[0] != 'G' ||
+        stored.bytes[1] != 'S' ||
+        (stored.bytes[2] != 1U && stored.bytes[2] != 2U)) {
         return;
+    }
+    if (stored.bytes[2] == 1U && stored.bytes.size() != 4U) return;
+    if (stored.bytes[2] == 2U) {
+        if (stored.bytes.size() < 5U ||
+            stored.bytes.size() != 5U + stored.bytes[4]) {
+            return;
+        }
+        const std::string_view selected(
+            reinterpret_cast<const char*>(stored.bytes.data() + 5U),
+            stored.bytes[4]
+        );
+        for (unsigned index = 0U;
+             index < grandleon_generated_language_count(); ++index) {
+            if (selected == grandleon_generated_language_code(index)) {
+                s_language_index = index;
+                break;
+            }
+        }
     }
     s_close_combat_enabled = (stored.bytes[3] & 1U) != 0U;
     s_reduced_motion = (stored.bytes[3] & 2U) != 0U;
@@ -209,7 +247,8 @@ void load_display_settings() {
     psx::Line().text("MIPSYNC_SETTINGS_LOAD close=")
         .decimal(s_close_combat_enabled ? 1U : 0U).text(" reduced=")
         .decimal(s_reduced_motion ? 1U : 0U).text(" fps=")
-        .decimal(s_display_options.show_fps ? 1U : 0U).flush();
+        .decimal(s_display_options.show_fps ? 1U : 0U).text(" language=")
+        .text(game_language()).flush();
 }
 
 void toggle_setting(unsigned row) {
@@ -222,15 +261,21 @@ void toggle_setting(unsigned row) {
         s_reduced_motion = !s_reduced_motion;
         value = s_reduced_motion;
         name = "reduced";
-    } else {
+    } else if (row == 2U) {
         s_display_options.toggle_fps();
         value = s_display_options.show_fps;
         name = "fps";
+    } else {
+        const unsigned count = grandleon_generated_language_count();
+        if (count > 1U) s_language_index = (s_language_index + 1U) % count;
+        name = "language";
+        value = true;
     }
     const bool saved = save_display_settings();
     psx::Line().text("MIPSYNC_SETTING name=").text(name).text(" value=")
         .decimal(value ? 1U : 0U).text(" saved=")
-        .decimal(saved ? 1U : 0U).flush();
+        .decimal(saved ? 1U : 0U).text(" language=")
+        .text(game_language()).flush();
 }
 
 bool save_campaign() {
@@ -1184,12 +1229,26 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
     output->continue_available = s_continue_available ? 1 : 0;
     output->pause_menu_index = static_cast<std::uint8_t>(s_pause_menu_index);
     output->settings_menu_index = static_cast<std::uint8_t>(s_settings_menu_index);
+    output->settings_menu_count = static_cast<std::uint8_t>(settings_menu_count());
     output->reduced_motion = s_reduced_motion ? 1 : 0;
     output->show_fps = s_display_options.show_fps ? 1 : 0;
     output->measured_fps = s_measured_fps;
+    output->language_code = console::language_code(game_language());
     if (s_campaign_mode != CampaignMode::battle) {
         const grandleon_generated_campaign_node* node = active_campaign_node();
-        output->headline = grandleon_generated_project_title;
+        const char* node_name = node
+            ? grandleon_generated_campaign_node_name_for(
+                  s_language_index, node->id
+              )
+            : "";
+        const char* node_dialogue = node
+            ? grandleon_generated_campaign_node_dialogue_for(
+                  s_language_index, node->id
+              )
+            : "";
+        output->headline = grandleon_generated_project_title_for(
+            s_language_index
+        );
         switch (s_campaign_mode) {
             case CampaignMode::title:
                 output->mode = GRANDLEON_UI_TITLE;
@@ -1198,28 +1257,34 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
                 break;
             case CampaignMode::players:
                 output->mode = GRANDLEON_UI_PLAYERS;
-                output->body = "CHOOSE YOUR COMPANY";
+                output->body = ui(console::Message::choose_how_to_play);
                 output->campaign_menu_count = 2;
                 break;
             case CampaignMode::prologue:
                 output->mode = GRANDLEON_UI_STORY;
-                output->headline = node && node->name ? node->name : "STORY";
-                output->body = node && node->dialogue ? node->dialogue : "";
+                output->headline = node_name[0]
+                    ? node_name : ui(console::Message::story);
+                output->body = node_dialogue;
                 break;
             case CampaignMode::objective:
                 output->mode = GRANDLEON_UI_OBJECTIVE;
-                output->headline = node && node->name ? node->name : "BATTLE";
-                output->body = grandleon_generated_objective;
+                output->headline = node_name[0]
+                    ? node_name : ui(console::Message::battle_heading);
+                output->body = grandleon_generated_objective_for(
+                    s_language_index
+                );
                 break;
             case CampaignMode::aftermath:
                 output->mode = GRANDLEON_UI_AFTERMATH;
-                output->headline = node && node->kind == 2U ? "CAMPAIGN ENDED"
-                    : node && node->name ? node->name
-                    : (s_campaign_victory ? "STORY" : "DEFEAT");
+                output->headline = node && node->kind == 2U
+                    ? ui(console::Message::campaign_ended)
+                    : node_name[0] ? node_name
+                    : s_campaign_victory ? ui(console::Message::story)
+                    : ui(console::Message::defeat);
                 output->body = node && node->kind == 2U ? "RETURN TO TITLE"
-                    : node && node->dialogue && node->dialogue[0]
-                        ? node->dialogue
-                        : (s_campaign_victory ? "CAMPAIGN COMPLETE"
+                    : node_dialogue[0] ? node_dialogue
+                        : (s_campaign_victory
+                              ? ui(console::Message::campaign_complete)
                                               : "THE COMPANY MUST REGROUP");
                 break;
             case CampaignMode::save_error:
@@ -1229,13 +1294,13 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
                 break;
             case CampaignMode::help:
                 output->mode = GRANDLEON_UI_TITLE_HELP;
-                output->headline = "HELP";
+                output->headline = ui(console::Message::help);
                 output->body = "D-PAD MOVE  CROSS CONFIRM  CIRCLE BACK  START MENU";
                 break;
             case CampaignMode::settings:
                 output->mode = GRANDLEON_UI_TITLE_SETTINGS;
-                output->headline = "SETTINGS";
-                output->body = "PRESENTATION OPTIONS";
+                output->headline = ui(console::Message::settings);
+                output->body = ui(console::Message::presentation_options);
                 break;
             case CampaignMode::battle: break;
         }
@@ -1309,6 +1374,44 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
     if (s_last_result_restored) output->restored = s_last_result_damage;
 }
 
+extern "C" const char* grandleon_game_text(uint8_t text_id) {
+    switch (text_id) {
+        case GRANDLEON_TEXT_NEW_GAME:
+            return ui(console::Message::new_game);
+        case GRANDLEON_TEXT_CONTINUE:
+            return ui(console::Message::continue_game);
+        case GRANDLEON_TEXT_HELP:
+            return ui(console::Message::help);
+        case GRANDLEON_TEXT_SETTINGS:
+            return ui(console::Message::settings);
+        case GRANDLEON_TEXT_ONE_PLAYER:
+            return ui(console::Message::one_player);
+        case GRANDLEON_TEXT_TWO_PLAYERS:
+            return ui(console::Message::two_players);
+        case GRANDLEON_TEXT_CLOSE_VIEW:
+            return ui(console::Message::close_view);
+        case GRANDLEON_TEXT_REDUCED_MOTION:
+            return ui(console::Message::reduced_motion);
+        case GRANDLEON_TEXT_SHOW_FPS:
+            return ui(console::Message::show_fps);
+        case GRANDLEON_TEXT_LANGUAGE:
+            return ui(console::Message::language);
+        case GRANDLEON_TEXT_ON:
+            return ui(console::Message::on);
+        case GRANDLEON_TEXT_OFF:
+            return ui(console::Message::off);
+        case GRANDLEON_TEXT_BACK:
+            return ui(console::Message::back);
+        case GRANDLEON_TEXT_MENU:
+            return ui(console::Message::menu);
+        case GRANDLEON_TEXT_RESUME:
+            return ui(console::Message::resume);
+        case GRANDLEON_TEXT_OPPONENT_TURN:
+            return ui(console::Message::opponent_turn);
+    }
+    return "";
+}
+
 extern "C" void grandleon_game_set_fps(uint16_t fps) {
     s_measured_fps = fps;
 }
@@ -1346,12 +1449,13 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
             return 0;
         }
         if (s_campaign_mode == CampaignMode::settings) {
+            const unsigned count = settings_menu_count();
             if (pressed & pad_up) {
                 s_settings_menu_index = s_settings_menu_index == 0U
-                    ? 2U : s_settings_menu_index - 1U;
+                    ? count - 1U : s_settings_menu_index - 1U;
             }
             if (pressed & pad_down) {
-                s_settings_menu_index = (s_settings_menu_index + 1U) % 3U;
+                s_settings_menu_index = (s_settings_menu_index + 1U) % count;
             }
             if (pressed & pad_cross) toggle_setting(s_settings_menu_index);
             if (pressed & (pad_circle | pad_start)) {
@@ -1450,12 +1554,13 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
         return 0;
     }
     if (s_mode == InputMode::settings) {
+        const unsigned count = settings_menu_count();
         if (player_one & pad_up) {
             s_settings_menu_index = s_settings_menu_index == 0U
-                ? 2U : s_settings_menu_index - 1U;
+                ? count - 1U : s_settings_menu_index - 1U;
         }
         if (player_one & pad_down) {
-            s_settings_menu_index = (s_settings_menu_index + 1U) % 3U;
+            s_settings_menu_index = (s_settings_menu_index + 1U) % count;
         }
         if (player_one & pad_cross) toggle_setting(s_settings_menu_index);
         if (player_one & (pad_circle | pad_start)) s_mode = InputMode::pause;

@@ -133,7 +133,11 @@ the chosen Grandleon language: session and display settings,
 checkpoints, dialogue controls, battle actions, campaign results, deployment
 and controller notices, runtime warnings, and the optional Company screen.
 Fixed formations skip that screen and begin immediately. Console interface
-localization is still being audited.
+localization is still being audited. On Godot, Nintendo 64, and PlayStation,
+the player can also change among the game's authored languages from the live
+**Settings** menu. Loaded titles, stage and objective copy, and queued dialogue
+update immediately; missing or outdated entries keep showing the current
+source text, and the choice is remembered without restarting the game.
 
 ## Add chapters and branches
 

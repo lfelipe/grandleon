@@ -27,6 +27,7 @@ var player_count := 2
 var package_path := "res://game.gpk"
 var campaign_key := "emberbound"
 var game_language := ""
+var game_languages: Array[String] = []
 var creator_enabled := true
 var graphics_profile := ""
 var graphics_argument_explicit := false
@@ -140,6 +141,7 @@ var dialogue_hint: Label
 var conversation_backdrop: Control
 var campaign_manager: Control
 var session_menu_layer: Control
+var session_menu_header: Label
 var session_menu_title: Label
 var session_menu_subtitle: Label
 var session_menu_hint: Label
@@ -159,11 +161,15 @@ var session_menu_audio: Button
 var session_menu_closeups: Button
 var session_menu_cinematic_motion: Button
 var session_menu_fps: Button
+var session_menu_language: Button
 var session_menu_new_campaign: Button
 var session_menu_quit: Button
 var session_menu_checkpoint_buttons: Array[Button] = []
 var session_menu_checkpoint_save: Button
 var session_menu_checkpoint_load: Button
+var session_menu_saves_back: Button
+var session_menu_slot_back: Button
+var session_menu_settings_back: Button
 var session_menu_page := "root"
 var selected_checkpoint_slot := 1
 var art = ArtLibrary.new()
@@ -278,11 +284,18 @@ func _ready() -> void:
 	_update_session_labels()
 	var language_info: Dictionary = session.package_languages(launch_package)
 	var authored_languages: Array = language_info.get("languages", [])
+	game_languages.clear()
+	for value: Variant in authored_languages:
+		game_languages.append(str(value))
+	var remembered_language := str(stored_settings.get("game_language", ""))
+	if game_language.is_empty() and remembered_language in game_languages:
+		game_language = remembered_language
 	if game_language.is_empty() and authored_languages.size() > 1:
 		_show_game_language_picker(staged, launch_package, language_info)
 		return
 	if game_language.is_empty():
 		game_language = str(language_info.get("source", ""))
+	_select_matching_interface_language(game_language)
 	_configure_seats()
 	Input.joy_connection_changed.connect(_on_joy_connection_changed)
 	var started := false
@@ -301,6 +314,7 @@ func _ready() -> void:
 		_show_fatal(session.last_error())
 	else:
 		status_label.text = _ui("player.status.loading_campaign")
+		_persist_presentation_settings()
 		if included_campaign_smoke:
 			print(
 				"included campaign integration smoke passed: %s (%d players)" % [
@@ -521,6 +535,13 @@ func _select_game_language(language: String) -> void:
 		language
 	)
 	get_tree().reload_current_scene()
+
+
+func _select_matching_interface_language(language: String) -> void:
+	# Grandleon's shell currently ships English, Spanish, and Brazilian
+	# Portuguese. An authored language outside that set still changes all game
+	# copy, while the shell predictably falls back to English.
+	Localization.select_language(language)
 
 
 func _shell_text(message_id: String) -> String:
@@ -1450,6 +1471,113 @@ func _toggle_show_fps() -> void:
 	_persist_presentation_settings()
 
 
+func _cycle_game_language() -> void:
+	if session == null or game_languages.size() < 2:
+		return
+	var at := game_languages.find(game_language)
+	var selected := game_languages[wrapi(at + 1, 0, game_languages.size())]
+	if not session.set_language(selected):
+		_show_toast(session.last_error())
+		return
+	game_language = selected
+	_select_matching_interface_language(game_language)
+	_apply_localized_runtime_state(session.localized_state())
+	_refresh_queued_dialogue_language()
+	_refresh_live_interface_language()
+	_persist_presentation_settings()
+
+
+func _apply_localized_runtime_state(state: Dictionary) -> void:
+	var definitions_event: Dictionary = state.get("definitions", {})
+	if not definitions_event.is_empty():
+		definitions = definitions_event
+	var snapshot_event: Dictionary = state.get("snapshot", {})
+	if not snapshot_event.is_empty() and snapshot_event.has("snapshot"):
+		snapshot = snapshot_event.snapshot
+		if board != null:
+			board.update_snapshot(snapshot)
+	var campaign_event: Dictionary = state.get("campaign", {})
+	if not campaign_event.is_empty():
+		current_campaign_name = str(campaign_event.get("campaign_name", current_campaign_name))
+	var management_event: Dictionary = state.get("management", {})
+	if not management_event.is_empty():
+		var company: Dictionary = management_event.get("company", {})
+		if not company.is_empty():
+			current_stage_name = str(company.get("stage_name", current_stage_name))
+			if management_menu_suspended:
+				pending_company = company.duplicate(true)
+			elif _management_visible():
+				campaign_manager.present(company)
+
+
+func _refresh_queued_dialogue_language() -> void:
+	if session == null or dialogue_lines.is_empty():
+		return
+	var localized_by_id: Dictionary = {}
+	for index in dialogue_lines.size():
+		var current: Dictionary = dialogue_lines[index]
+		var dialogue_id := int(current.get("dialogue_id", 0))
+		if dialogue_id == 0:
+			continue
+		if not localized_by_id.has(dialogue_id):
+			localized_by_id[dialogue_id] = session.localized_dialogue(dialogue_id)
+		var event: Dictionary = localized_by_id[dialogue_id]
+		var lines: Array = event.get("lines", [])
+		var line_index := int(current.get("dialogue_line_index", -1))
+		if line_index < 0 or line_index >= lines.size():
+			continue
+		var localized: Dictionary = lines[line_index]
+		current["speaker"] = localized.get("speaker", current.get("speaker", ""))
+		current["text"] = localized.get("text", current.get("text", ""))
+		dialogue_lines[index] = current
+	if _dialogue_visible():
+		_show_dialogue_line()
+
+
+func _refresh_live_interface_language() -> void:
+	if session_menu_header != null:
+		session_menu_header.text = _ui("player.session.header")
+	if session_menu_resume != null:
+		session_menu_resume.text = _ui("player.session.resume")
+	if session_menu_save_load != null:
+		session_menu_save_load.text = _ui("player.session.save_load")
+	if session_menu_settings_button != null:
+		session_menu_settings_button.text = _ui("player.session.settings")
+	if session_menu_projects != null:
+		session_menu_projects.text = (
+			_ui("player.session.return_editor")
+			if not preview_return_scene.is_empty()
+			else _ui("player.session.main_menu")
+		)
+	if session_menu_quit != null:
+		session_menu_quit.text = _ui("player.session.exit_game")
+	for button: Button in [
+		session_menu_saves_back, session_menu_slot_back, session_menu_settings_back
+	]:
+		if button != null:
+			button.text = _ui("player.session.back")
+	if session_menu_checkpoint_save != null:
+		session_menu_checkpoint_save.text = _ui("player.session.save_here")
+	if session_menu_checkpoint_load != null:
+		session_menu_checkpoint_load.text = _ui("player.session.load_checkpoint")
+	for heading: Label in action_popup_titles:
+		heading.text = _ui("player.hud.action")
+	for seat in action_popups.size():
+		if bool(action_popups[seat].get("open", false)):
+			_close_action_popup(seat)
+	if dialogue_hint != null:
+		dialogue_hint.text = _ui(
+			"player.dialogue.continue", {"confirm": controls.label("confirm")}
+		)
+	_configure_combat_cinematic()
+	_update_session_labels()
+	_update_status()
+	_refresh_selected_panel()
+	_update_controller_label()
+	if session_menu_layer != null and session_menu_layer.visible:
+		_show_session_menu_page(session_menu_page)
+
+
 func _persist_presentation_settings() -> void:
 	if presentation_settings == null or not _use_presentation_settings():
 		return
@@ -1463,7 +1591,8 @@ func _persist_presentation_settings() -> void:
 		persistent_battle_closeups_enabled,
 		cinematic_motion,
 		show_fps_enabled,
-		battle_closeups_local_override
+		battle_closeups_local_override,
+		game_language
 	):
 		_show_toast(_localized_runtime_warning(presentation_settings.warning()))
 
@@ -1514,6 +1643,11 @@ func _update_session_labels() -> void:
 	if session_menu_fps != null:
 		session_menu_fps.text = _ui("player.settings.show_fps", {
 			"value": _state_text("on" if show_fps_enabled else "off"),
+		})
+	if session_menu_language != null:
+		session_menu_language.visible = game_languages.size() > 1
+		session_menu_language.text = _ui("player.settings.game_language", {
+			"value": _game_language_name(game_language),
 		})
 
 
@@ -1768,8 +1902,8 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	session_menu_layer.add_child(shade)
 	var panel := PanelContainer.new()
-	panel.position = Vector2(590, 115)
-	panel.size = Vector2(740, 850)
+	panel.position = Vector2(590, 75)
+	panel.size = Vector2(740, 930)
 	panel.add_theme_stylebox_override(
 		"panel", _panel(
 			Color(0.018, 0.032, 0.052, 0.99), 24,
@@ -1780,7 +1914,8 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 14)
 	panel.add_child(column)
-	column.add_child(_label(_ui("player.session.header"), 16, Color("69d9ff")))
+	session_menu_header = _label(_ui("player.session.header"), 16, Color("69d9ff"))
+	column.add_child(session_menu_header)
 	session_menu_title = _label(_ui("player.session.paused"), 38, Color("f2f7f9"))
 	column.add_child(session_menu_title)
 	session_menu_subtitle = _label(_ui("player.session.choose_option"), 18, Color("a9bdc9"))
@@ -1822,9 +1957,9 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 		session_menu_new_campaign = _menu_button("")
 		session_menu_new_campaign.pressed.connect(_request_progress_reset)
 		session_menu_saves.add_child(session_menu_new_campaign)
-	var saves_back := _menu_button(_ui("player.session.back"))
-	saves_back.pressed.connect(_show_root_page)
-	session_menu_saves.add_child(saves_back)
+	session_menu_saves_back = _menu_button(_ui("player.session.back"))
+	session_menu_saves_back.pressed.connect(_show_root_page)
+	session_menu_saves.add_child(session_menu_saves_back)
 
 	session_menu_slot_actions = _session_menu_page()
 	column.add_child(session_menu_slot_actions)
@@ -1834,9 +1969,9 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	session_menu_checkpoint_load = _menu_button(_ui("player.session.load_checkpoint"))
 	session_menu_checkpoint_load.pressed.connect(_load_selected_checkpoint)
 	session_menu_slot_actions.add_child(session_menu_checkpoint_load)
-	var slot_back := _menu_button(_ui("player.session.back"))
-	slot_back.pressed.connect(_show_save_page)
-	session_menu_slot_actions.add_child(slot_back)
+	session_menu_slot_back = _menu_button(_ui("player.session.back"))
+	session_menu_slot_back.pressed.connect(_show_save_page)
+	session_menu_slot_actions.add_child(session_menu_slot_back)
 
 	session_menu_settings = _session_menu_page()
 	column.add_child(session_menu_settings)
@@ -1861,13 +1996,16 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	session_menu_fps = _settings_button("")
 	session_menu_fps.pressed.connect(_toggle_show_fps)
 	session_menu_settings.add_child(session_menu_fps)
+	session_menu_language = _settings_button("")
+	session_menu_language.pressed.connect(_cycle_game_language)
+	session_menu_settings.add_child(session_menu_language)
 	session_menu_diagnostics = _label("", 16, Color("718896"))
 	session_menu_diagnostics.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	session_menu_diagnostics.custom_minimum_size.y = 86
 	session_menu_settings.add_child(session_menu_diagnostics)
-	var settings_back := _settings_button(_ui("player.session.back"))
-	settings_back.pressed.connect(_show_root_page)
-	session_menu_settings.add_child(settings_back)
+	session_menu_settings_back = _settings_button(_ui("player.session.back"))
+	session_menu_settings_back.pressed.connect(_show_root_page)
+	session_menu_settings.add_child(session_menu_settings_back)
 
 	session_menu_hint = _label("", 16, Color("718896"))
 	session_menu_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -2507,10 +2645,13 @@ func _handle_event(event: Dictionary) -> void:
 				var cast_unit_type := int(cast_line_value.get("unit_type_id", 0))
 				if cast_unit_type != 0 and cast_unit_type not in scene_cast:
 					scene_cast.append(cast_unit_type)
-			for source_line: Dictionary in event.get("lines", []):
+			var event_lines: Array = event.get("lines", [])
+			for line_index in event_lines.size():
+				var source_line: Dictionary = event_lines[line_index]
 				var line := source_line.duplicate()
 				line["backdrop"] = int(event.get("backdrop", 0))
 				line["dialogue_id"] = event.get("id", 0)
+				line["dialogue_line_index"] = line_index
 				line["over_board"] = bool(event.get("over_board", false))
 				line["subject_unit_id"] = event.get("subject_unit_id", 0)
 				line["scene_cast"] = scene_cast.duplicate()

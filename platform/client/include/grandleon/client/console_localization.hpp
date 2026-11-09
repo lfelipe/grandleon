@@ -101,6 +101,26 @@ enum class Message : std::uint8_t {
     take,
     company_footer,
     company_footer_stages,
+    settings,
+    resume,
+    close_view,
+    reduced_motion,
+    show_fps,
+    audio,
+    on,
+    off,
+    next,
+    victory,
+    defeat,
+    deployment,
+    campaign_ended,
+    battles_played,
+    progress_saved,
+    start_campaign,
+    no_save,
+    menu,
+    opponent_turn,
+    presentation_options,
 };
 
 enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
@@ -497,6 +517,86 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : selected == Language::portuguese_brazil
                      ? "A ESCOLHE START BATALHA B SAI C FASES"
                  : "A CHOOSE  START BATTLE  B LEAVE  C GO";
+        case Message::settings:
+            return selected == Language::spanish ? "AJUSTES"
+                 : selected == Language::portuguese_brazil ? "CONFIGURACOES"
+                 : "SETTINGS";
+        case Message::resume:
+            return selected == Language::spanish ? "CONTINUAR"
+                 : selected == Language::portuguese_brazil ? "CONTINUAR"
+                 : "RESUME";
+        case Message::close_view:
+            return selected == Language::spanish ? "VISTA CERCANA"
+                 : selected == Language::portuguese_brazil ? "VISTA DE PERTO"
+                 : "CLOSE VIEW";
+        case Message::reduced_motion:
+            return selected == Language::spanish ? "MOVIMIENTO REDUCIDO"
+                 : selected == Language::portuguese_brazil ? "MOVIMENTO REDUZIDO"
+                 : "REDUCED MOTION";
+        case Message::show_fps:
+            return selected == Language::spanish ? "MOSTRAR FPS"
+                 : selected == Language::portuguese_brazil ? "MOSTRAR FPS"
+                 : "SHOW FPS";
+        case Message::audio:
+            return selected == Language::spanish ? "SONIDO"
+                 : selected == Language::portuguese_brazil ? "AUDIO"
+                 : "AUDIO";
+        case Message::on:
+            return selected == Language::spanish ? "SI"
+                 : selected == Language::portuguese_brazil ? "SIM"
+                 : "ON";
+        case Message::off:
+            return selected == Language::spanish ? "NO"
+                 : selected == Language::portuguese_brazil ? "NAO"
+                 : "OFF";
+        case Message::next:
+            return selected == Language::spanish ? "SIGUIENTE"
+                 : selected == Language::portuguese_brazil ? "CONTINUAR"
+                 : "NEXT";
+        case Message::victory:
+            return selected == Language::spanish ? "VICTORIA"
+                 : selected == Language::portuguese_brazil ? "VITORIA"
+                 : "VICTORY";
+        case Message::defeat:
+            return selected == Language::spanish ? "DERROTA"
+                 : selected == Language::portuguese_brazil ? "DERROTA"
+                 : "DEFEAT";
+        case Message::deployment:
+            return selected == Language::spanish ? "DESPLIEGUE"
+                 : selected == Language::portuguese_brazil ? "POSICIONAMENTO"
+                 : "DEPLOYMENT";
+        case Message::campaign_ended:
+            return selected == Language::spanish ? "CAMPANA TERMINADA"
+                 : selected == Language::portuguese_brazil ? "CAMPANHA ENCERRADA"
+                 : "CAMPAIGN ENDED";
+        case Message::battles_played:
+            return selected == Language::spanish ? "BATALLAS JUGADAS"
+                 : selected == Language::portuguese_brazil ? "BATALHAS JOGADAS"
+                 : "BATTLES PLAYED";
+        case Message::progress_saved:
+            return selected == Language::spanish ? "PROGRESO GUARDADO"
+                 : selected == Language::portuguese_brazil ? "PROGRESSO SALVO"
+                 : "PROGRESS SAVED";
+        case Message::start_campaign:
+            return selected == Language::spanish ? "INICIAR CAMPANA"
+                 : selected == Language::portuguese_brazil ? "INICIAR CAMPANHA"
+                 : "START CAMPAIGN";
+        case Message::no_save:
+            return selected == Language::spanish ? "NO HAY PARTIDA GUARDADA"
+                 : selected == Language::portuguese_brazil ? "NENHUM SAVE NO CARTUCHO"
+                 : "NO SAVE ON CARTRIDGE";
+        case Message::menu:
+            return selected == Language::spanish ? "MENU"
+                 : selected == Language::portuguese_brazil ? "MENU"
+                 : "MENU";
+        case Message::opponent_turn:
+            return selected == Language::spanish ? "TURNO DEL OPONENTE"
+                 : selected == Language::portuguese_brazil ? "TURNO DO OPONENTE"
+                 : "OPPONENT TURN";
+        case Message::presentation_options:
+            return selected == Language::spanish ? "OPCIONES DE PRESENTACION"
+                 : selected == Language::portuguese_brazil ? "OPCOES DE APRESENTACAO"
+                 : "PRESENTATION OPTIONS";
     }
     return "";
 }

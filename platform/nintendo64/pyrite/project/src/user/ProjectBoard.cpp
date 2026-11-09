@@ -2,9 +2,11 @@
 #include "script/globalScript.h"
 
 #include <grandleon/client/campaign_session.hpp>
+#include <grandleon/client/console_localization.hpp>
 #include <grandleon/client/session.hpp>
 #include <grandleon/core/content_identity.hpp>
 #include <grandleon/package_runtime/dialogue.hpp>
+#include <grandleon/package_runtime/localization.hpp>
 #include <grandleon/package_runtime/names.hpp>
 #include <grandleon/package_runtime/presentation.hpp>
 #include <grandleon/storage/byte_window_storage.hpp>
@@ -18,6 +20,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -38,6 +41,7 @@
 
 namespace campaign = grandleon::campaign;
 namespace client = grandleon::client;
+namespace console = grandleon::client::console_localization;
 namespace package_format = grandleon::package_format;
 namespace pr = grandleon::package_runtime;
 namespace sim = grandleon::simulation;
@@ -346,13 +350,44 @@ std::uint32_t performance_frames = 0;
 std::uint8_t restore_checkpoint_delay = 0U;
 bool debug_hud = false;
 bool audio_enabled = true;
+std::string selected_language;
 float camera_min_x = 0.0F;
 float camera_max_x = 0.0F;
 float camera_min_z = 0.0F;
 float camera_max_z = 0.0F;
 
 constexpr std::string_view kSettingsSlot = "pyrite_settings";
-constexpr std::array<std::uint8_t, 4> kSettingsMagic{'P', 'Y', 'S', 1U};
+constexpr std::array<std::uint8_t, 3> kSettingsMagic{'P', 'Y', 'S'};
+
+std::string_view game_language() {
+    return selected_language;
+}
+
+const char* ui(console::Message message) {
+    return console::text(game_language(), message);
+}
+
+std::vector<std::string_view> game_languages() {
+    return pr::available_languages(board.runtime.package());
+}
+
+void save_user_settings();
+
+bool cycle_game_language() {
+    const std::vector<std::string_view> languages = game_languages();
+    if (languages.size() < 2U) return false;
+    std::size_t selected = 0U;
+    for (std::size_t index = 0; index < languages.size(); ++index) {
+        if (languages[index] == game_language()) selected = index;
+    }
+    selected_language = languages[(selected + 1U) % languages.size()];
+    save_user_settings();
+    debugf(
+        "CHECKPOINT PYRITE_LANGUAGE code=%s live=1\n",
+        selected_language.c_str()
+    );
+    return true;
+}
 
 const char* campaign_slot() {
     return shell.local_players == 2U
@@ -362,12 +397,21 @@ const char* campaign_slot() {
 void save_user_settings() {
     if (!board.saves) return;
     std::vector<std::uint8_t> bytes(kSettingsMagic.begin(), kSettingsMagic.end());
+    bytes.push_back(2U);
     std::uint8_t flags = 0U;
     if (combat.enabled) flags |= 1U << 0U;
     if (combat.reduced_motion) flags |= 1U << 1U;
     if (debug_hud) flags |= 1U << 2U;
     if (audio_enabled) flags |= 1U << 3U;
     bytes.push_back(flags);
+    const std::size_t language_size = std::min<std::size_t>(
+        selected_language.size(), 15U
+    );
+    bytes.push_back(static_cast<std::uint8_t>(language_size));
+    bytes.insert(
+        bytes.end(), selected_language.begin(),
+        selected_language.begin() + static_cast<std::ptrdiff_t>(language_size)
+    );
     assertf(
         board.saves->write(kSettingsSlot, bytes) == storage::StorageError::none,
         "Pyrite settings could not be saved"
@@ -375,19 +419,34 @@ void save_user_settings() {
 }
 
 void load_user_settings() {
+    selected_language = std::string(pr::source_language(board.runtime.package()));
     if (!board.saves || !board.saves->contains(kSettingsSlot)) return;
     const storage::StorageRead saved = board.saves->read(kSettingsSlot);
-    if (!saved || saved.bytes.size() != kSettingsMagic.size() + 1U ||
+    if (!saved || saved.bytes.size() < kSettingsMagic.size() + 2U ||
         !std::equal(
             kSettingsMagic.begin(), kSettingsMagic.end(), saved.bytes.begin()
         )) {
         return;
     }
-    const std::uint8_t flags = saved.bytes.back();
+    const std::uint8_t version = saved.bytes[3];
+    const std::uint8_t flags = saved.bytes[4];
     combat.enabled = (flags & (1U << 0U)) != 0U;
     combat.reduced_motion = (flags & (1U << 1U)) != 0U;
     debug_hud = (flags & (1U << 2U)) != 0U;
     audio_enabled = (flags & (1U << 3U)) != 0U;
+    if (version < 2U || saved.bytes.size() < 6U) return;
+    const std::size_t language_size = saved.bytes[5];
+    if (language_size == 0U || language_size > 15U ||
+        saved.bytes.size() != 6U + language_size) return;
+    const std::string stored(
+        saved.bytes.begin() + 6, saved.bytes.end()
+    );
+    for (const std::string_view available : game_languages()) {
+        if (available == stored) {
+            selected_language = stored;
+            return;
+        }
+    }
 }
 
 void apply_audio_setting() {
@@ -1978,6 +2037,9 @@ bool confirm_shell_choice() {
     play_ui_cue();
     switch (shell.phase) {
         case ShellPhase::title:
+            if (shell.title_row == 2U && game_languages().size() > 1U) {
+                return cycle_game_language();
+            }
             if (shell.title_row == 1U) {
                 enter_shell_phase(ShellPhase::help);
                 return true;
@@ -2038,7 +2100,16 @@ void update_shell_input() {
     if (physical) shell.user_took_over = true;
     if (shell.phase == ShellPhase::title &&
         (pressed.d_up || pressed.d_down || pressed.d_left || pressed.d_right)) {
-        shell.title_row ^= 1U;
+        const std::uint8_t rows = game_languages().size() > 1U ? 3U : 2U;
+        if (pressed.d_up || pressed.d_left) {
+            shell.title_row = shell.title_row == 0U
+                ? static_cast<std::uint8_t>(rows - 1U)
+                : static_cast<std::uint8_t>(shell.title_row - 1U);
+        } else {
+            shell.title_row = static_cast<std::uint8_t>(
+                (shell.title_row + 1U) % rows
+            );
+        }
     } else if (shell.phase == ShellPhase::help && pressed.b) {
         enter_shell_phase(ShellPhase::title);
         return;
@@ -2886,7 +2957,9 @@ bool nudge_toward(sim::Position destination) {
     return false;
 }
 
-constexpr std::uint8_t kSystemRows = 6U;
+std::uint8_t system_rows() {
+    return game_languages().size() > 1U ? 7U : 6U;
+}
 
 void open_system_menu(std::uint8_t player) {
     battle_ui = {};
@@ -2918,6 +2991,13 @@ bool confirm_system_choice() {
             save_user_settings();
             return true;
         case 5U:
+            if (game_languages().size() > 1U) {
+                (void)cycle_game_language();
+            } else {
+                battle_ui.phase = BattleUiPhase::help;
+            }
+            return true;
+        case 6U:
             battle_ui.phase = BattleUiPhase::help;
             return true;
         default:
@@ -2966,11 +3046,11 @@ bool physical_input_for(
         replay.user_took_over = true;
         if (pressed.d_up) {
             battle_ui.row = battle_ui.row == 0U
-                ? kSystemRows - 1U
+                ? static_cast<std::uint8_t>(system_rows() - 1U)
                 : static_cast<std::uint8_t>(battle_ui.row - 1U);
         } else if (pressed.d_down) {
             battle_ui.row = static_cast<std::uint8_t>(
-                (battle_ui.row + 1U) % kSystemRows
+                (battle_ui.row + 1U) % system_rows()
             );
         } else if (pressed.b || pressed.start) {
             battle_ui = {};
@@ -3695,6 +3775,16 @@ void draw_battle_ui() {
         battle_moment.line_index < battle_moment.dialogue.lines.size()) {
         const pr::DialogueLine& line =
             battle_moment.dialogue.lines[battle_moment.line_index];
+        const std::string_view speaker = pr::localized_dialogue_line(
+            board.runtime.package(), game_language(),
+            battle_moment.dialogue.id, battle_moment.line_index,
+            "speaker", line.speaker
+        );
+        const std::string_view dialogue_text = pr::localized_dialogue_line(
+            board.runtime.package(), game_language(),
+            battle_moment.dialogue.id, battle_moment.line_index,
+            "text", line.text
+        );
         rdpq_mode_push();
         rdpq_mode_begin();
             rdpq_mode_zbuf(false, false);
@@ -3709,25 +3799,25 @@ void draw_battle_ui() {
         P64::Debug::printStart();
         P64::Debug::printf(
             29, 169, "%.*s",
-            static_cast<int>(std::min<std::size_t>(line.speaker.size(), 30U)),
-            line.speaker.c_str()
+            static_cast<int>(std::min<std::size_t>(speaker.size(), 30U)),
+            speaker.data()
         );
         constexpr std::size_t width = 42U;
         std::size_t start = 0U;
-        for (int row = 0; row < 2 && start < line.text.size(); ++row) {
-            std::size_t end = std::min(start + width, line.text.size());
-            if (end < line.text.size()) {
-                const std::size_t space = line.text.rfind(' ', end);
+        for (int row = 0; row < 2 && start < dialogue_text.size(); ++row) {
+            std::size_t end = std::min(start + width, dialogue_text.size());
+            if (end < dialogue_text.size()) {
+                const std::size_t space = dialogue_text.rfind(' ', end);
                 if (space != std::string_view::npos && space > start) end = space;
             }
             P64::Debug::printf(
                 29, 189 + row * 17, "%.*s",
-                static_cast<int>(end - start), line.text.c_str() + start
+                static_cast<int>(end - start), dialogue_text.data() + start
             );
             start = end;
-            while (start < line.text.size() && line.text[start] == ' ') ++start;
+            while (start < dialogue_text.size() && dialogue_text[start] == ' ') ++start;
         }
-        P64::Debug::printf(254, 215, "A NEXT");
+        P64::Debug::printf(238, 215, "A %s", ui(console::Message::next));
         rdpq_mode_pop();
         return;
     }
@@ -3748,35 +3838,53 @@ void draw_battle_ui() {
         rdpq_fill_rectangle(49, 36, 271, 222);
         P64::Debug::printStart();
         if (battle_ui.phase == BattleUiPhase::help) {
-            P64::Debug::printf(132, 48, "HELP");
-            P64::Debug::printf(63, 76, "D-PAD  MOVE CURSOR / ROW");
-            P64::Debug::printf(63, 98, "A      SELECT / CONFIRM");
+            P64::Debug::printf(132, 48, "%s", ui(console::Message::help));
+            P64::Debug::printf(63, 76, "%s", ui(console::Message::move_cursor));
+            P64::Debug::printf(63, 98, "%s", ui(console::Message::select_confirm));
             P64::Debug::printf(63, 120, "Z      CHARACTER ACTIONS");
-            P64::Debug::printf(63, 142, "START  BATTLE SETTINGS");
-            P64::Debug::printf(63, 164, "B      CANCEL / SKIP");
+            P64::Debug::printf(63, 142, "START  %s", ui(console::Message::settings));
+            P64::Debug::printf(63, 164, "%s", ui(console::Message::back));
             P64::Debug::printf(63, 186, "L REDUCED   R FAST CLOSE");
-            P64::Debug::printf(91, 208, "A / B  SETTINGS");
+            P64::Debug::printf(91, 208, "A / B  %s", ui(console::Message::settings));
         } else {
-            constexpr int ys[kSystemRows] = {70, 92, 114, 136, 158, 180};
-            P64::Debug::printf(94, 48, "BATTLE SETTINGS P%u",
+            const bool languages = game_languages().size() > 1U;
+            const auto y = [](unsigned row) {
+                return 64 + static_cast<int>(row) * 20;
+            };
+            P64::Debug::printf(94, 44, "%s P%u",
+                ui(console::Message::settings),
                 static_cast<unsigned>(battle_ui.player + 1U));
-            P64::Debug::printf(69, ys[0], "%s RESUME",
-                battle_ui.row == 0U ? ">" : " ");
-            P64::Debug::printf(69, ys[1], "%s CLOSE VIEW: %s",
+            P64::Debug::printf(69, y(0), "%s %s",
+                battle_ui.row == 0U ? ">" : " ",
+                ui(console::Message::resume));
+            P64::Debug::printf(69, y(1), "%s %s: %s",
                 battle_ui.row == 1U ? ">" : " ",
-                combat.enabled ? "ON" : "OFF");
-            P64::Debug::printf(69, ys[2], "%s REDUCED MOTION: %s",
+                ui(console::Message::close_view),
+                ui(combat.enabled ? console::Message::on : console::Message::off));
+            P64::Debug::printf(69, y(2), "%s %s: %s",
                 battle_ui.row == 2U ? ">" : " ",
-                combat.reduced_motion ? "ON" : "OFF");
-            P64::Debug::printf(69, ys[3], "%s AUDIO: %s",
+                ui(console::Message::reduced_motion),
+                ui(combat.reduced_motion ? console::Message::on : console::Message::off));
+            P64::Debug::printf(69, y(3), "%s %s: %s",
                 battle_ui.row == 3U ? ">" : " ",
-                audio_enabled ? "ON" : "OFF");
-            P64::Debug::printf(69, ys[4], "%s SHOW FPS: %s",
+                ui(console::Message::audio),
+                ui(audio_enabled ? console::Message::on : console::Message::off));
+            P64::Debug::printf(69, y(4), "%s %s",
                 battle_ui.row == 4U ? ">" : " ",
-                debug_hud ? "ON" : "OFF");
-            P64::Debug::printf(69, ys[5], "%s HELP",
-                battle_ui.row == 5U ? ">" : " ");
-            P64::Debug::printf(76, 208, "A CHANGE   B RESUME");
+                ui(debug_hud ? console::Message::show_fps_on
+                             : console::Message::show_fps_off));
+            if (languages) {
+                P64::Debug::printf(69, y(5), "%s %s: %s",
+                    battle_ui.row == 5U ? ">" : " ",
+                    ui(console::Message::language),
+                    console::language_code(game_language()));
+            }
+            const unsigned help_row = languages ? 6U : 5U;
+            P64::Debug::printf(69, y(help_row), "%s %s",
+                battle_ui.row == help_row ? ">" : " ",
+                ui(console::Message::help));
+            P64::Debug::printf(76, 210, "A %s   B %s",
+                ui(console::Message::confirm), ui(console::Message::resume));
         }
         rdpq_mode_pop();
         return;
@@ -3808,10 +3916,16 @@ void draw_battle_ui() {
                     board.runtime.package(),
                     package_format::SectionType::abilities, ability
                 );
+                const std::string_view localized_name =
+                    pr::localized_content_name(
+                        board.runtime.package(), game_language(),
+                        package_format::SectionType::abilities, ability, name
+                    );
                 P64::Debug::printf(
                     190, y, "%s %.*s", marker,
-                    static_cast<int>(std::min<std::size_t>(name.size(), 14U)),
-                    name.data()
+                    static_cast<int>(std::min<std::size_t>(
+                        localized_name.size(), 14U
+                    )), localized_name.data()
                 );
             } else if (row == abilities + 1U) {
                 P64::Debug::printf(190, y, "%s WAIT", marker);
@@ -3941,77 +4055,106 @@ void draw_shell() {
     rdpq_set_prim_color({184, 145, 66, 255});
     rdpq_fill_rectangle(42, 56, 278, 59);
     P64::Debug::printStart();
+    const std::string_view project_title = pr::localized_project_title(
+        board.runtime.package(), game_language(), grandleon_project_title
+    );
     P64::Debug::printf(
         43, 38, "%.*s",
-        static_cast<int>(std::min<std::size_t>(
-            sizeof grandleon_project_title - 1U, 29U
-        )),
-        grandleon_project_title
+        static_cast<int>(std::min<std::size_t>(project_title.size(), 29U)),
+        project_title.data()
     );
     P64::Debug::printf(74, 66, "PYRITE / TINY3D");
     switch (shell.phase) {
         case ShellPhase::title:
             P64::Debug::printf(
-                91, 126, "%s START",
-                shell.title_row == 0U ? ">" : " "
+                91, 116, "%s %s",
+                shell.title_row == 0U ? ">" : " ",
+                ui(console::Message::begin)
             );
             P64::Debug::printf(
-                91, 150, "%s HELP",
-                shell.title_row == 1U ? ">" : " "
+                91, 140, "%s %s",
+                shell.title_row == 1U ? ">" : " ",
+                ui(console::Message::help)
             );
-            P64::Debug::printf(61, 184, "RENDERER: PYRITE");
+            if (game_languages().size() > 1U) {
+                P64::Debug::printf(
+                    91, 164, "%s %s: %s",
+                    shell.title_row == 2U ? ">" : " ",
+                    ui(console::Message::language),
+                    console::language_code(game_language())
+                );
+            }
+            P64::Debug::printf(61, 194, "RENDERER: PYRITE");
             break;
         case ShellPhase::help:
-            P64::Debug::printf(119, 88, "HELP");
-            P64::Debug::printf(43, 112, "D-PAD  CURSOR / CHOOSE");
-            P64::Debug::printf(43, 132, "A      SELECT / CONFIRM");
-            P64::Debug::printf(43, 152, "Z      CHARACTER ACTIONS");
-            P64::Debug::printf(43, 172, "START  BATTLE SETTINGS");
-            P64::Debug::printf(43, 192, "B      BACK      L REDUCED");
+            P64::Debug::printf(119, 88, "%s", ui(console::Message::help));
+            P64::Debug::printf(43, 112, "%s", ui(console::Message::move_cursor));
+            P64::Debug::printf(43, 132, "%s", ui(console::Message::select_confirm));
+            P64::Debug::printf(43, 152, "Z      %s", ui(console::Message::action_heading));
+            P64::Debug::printf(43, 172, "START  %s", ui(console::Message::settings));
+            P64::Debug::printf(43, 192, "%s", ui(console::Message::back));
             break;
         case ShellPhase::players:
-            P64::Debug::printf(78, 100, "LOCAL PLAYERS");
+            P64::Debug::printf(78, 100, "%s", ui(console::Message::players));
             if (shell.allow_one) {
                 P64::Debug::printf(
-                    91, 128, "%s ONE PLAYER",
-                    shell.player_choice == 0U ? ">" : " "
+                    91, 128, "%s %s",
+                    shell.player_choice == 0U ? ">" : " ",
+                    ui(console::Message::one_player)
                 );
             }
             if (shell.allow_two) {
                 P64::Debug::printf(
-                    76, 150, "%s TWO PLAYERS%s",
+                    76, 150, "%s %s%s",
                     shell.player_choice == 1U ? ">" : " ",
+                    ui(console::Message::two_players),
                     shell.second_connected ? "" : " (PAD 2)"
                 );
             }
             break;
         case ShellPhase::save:
-            P64::Debug::printf(84, 100, "START CAMPAIGN");
+            P64::Debug::printf(84, 100, "%s", ui(console::Message::start_campaign));
             P64::Debug::printf(
-                96, 128, "%s NEW GAME",
-                shell.save_choice == 0U ? ">" : " "
+                96, 128, "%s %s",
+                shell.save_choice == 0U ? ">" : " ",
+                ui(console::Message::new_game)
             );
             if (shell.save_present) {
                 P64::Debug::printf(
-                    96, 150, "%s CONTINUE",
-                    shell.save_choice == 1U ? ">" : " "
+                    96, 150, "%s %s",
+                    shell.save_choice == 1U ? ">" : " ",
+                    ui(console::Message::continue_game)
                 );
             } else {
-                P64::Debug::printf(75, 178, "NO SAVE ON CARTRIDGE");
+                P64::Debug::printf(75, 178, "%s", ui(console::Message::no_save));
             }
             break;
         case ShellPhase::story: {
             if (shell.story_line_index < shell.story.lines.size()) {
                 const pr::DialogueLine& line =
                     shell.story.lines[shell.story_line_index];
-                P64::Debug::printf(40, 96, "%s", line.speaker.c_str());
-                draw_wrapped_story(line.text);
-                P64::Debug::printf(220, 194, "A NEXT");
+                const std::string_view speaker = pr::localized_dialogue_line(
+                    board.runtime.package(), game_language(), shell.story.id,
+                    shell.story_line_index, "speaker", line.speaker
+                );
+                const std::string_view text = pr::localized_dialogue_line(
+                    board.runtime.package(), game_language(), shell.story.id,
+                    shell.story_line_index, "text", line.text
+                );
+                P64::Debug::printf(
+                    40, 96, "%.*s", static_cast<int>(speaker.size()),
+                    speaker.data()
+                );
+                draw_wrapped_story(text);
+                P64::Debug::printf(
+                    220, 194, "A %s", ui(console::Message::next)
+                );
             }
             break;
         }
         case ShellPhase::deployment: {
-            P64::Debug::printf(76, 88, "DEPLOYMENT %lu/%u",
+            P64::Debug::printf(76, 88, "%s %lu/%u",
+                ui(console::Message::deployment),
                 static_cast<unsigned long>(shell.deployment.fielded.size()),
                 static_cast<unsigned>(shell.deployment.capacity));
             const std::size_t first = shell.deployment_row >= 4U
@@ -4022,14 +4165,25 @@ void draw_shell() {
             for (std::size_t row = first; row < last; ++row) {
                 const client::RosterEntry& entry =
                     shell.deployment.roster[row];
+                const std::string_view authored_name =
+                    entry.authored_name.empty()
+                        ? std::string_view(entry.name)
+                        : std::string_view(entry.authored_name);
+                const std::string_view name = entry.has_player_name
+                    ? std::string_view(entry.name)
+                    : pr::localized_campaign_member_name(
+                          board.runtime.package(), game_language(),
+                          grandleon_project_campaign_id,
+                          entry.placement_source_key, authored_name
+                      );
                 P64::Debug::printf(
                     48, 116 + static_cast<int>(row - first) * 18,
                     "%s %s %.*s",
                     shell.deployment_row == row ? ">" : " ",
                     deployment_contains(entry.member) ? "[X]" : "[ ]",
                     static_cast<int>(std::min<std::size_t>(
-                        entry.name.size(), 22U
-                    )), entry.name.c_str()
+                        name.size(), 22U
+                    )), name.data()
                 );
             }
             P64::Debug::printf(65, 194, "A TOGGLE  START DEPLOY");
@@ -4039,7 +4193,8 @@ void draw_shell() {
             P64::Debug::printf(
                 91, 88, "%s",
                 shell.aftermath.outcome == sim::Outcome::first_side_won
-                    ? "VICTORY" : "DEFEAT"
+                    ? ui(console::Message::victory)
+                    : ui(console::Message::defeat)
             );
             const std::size_t count = std::min<std::size_t>(
                 shell.aftermath_objectives.size(), 3U
@@ -4051,14 +4206,20 @@ void draw_shell() {
                     board.runtime.package(),
                     package_format::SectionType::objectives, objective.id
                 );
+                const std::string_view localized_name =
+                    pr::localized_objective_name(
+                        board.runtime.package(), game_language(),
+                        objective.id, name
+                    );
                 const char* result = objective.state == sim::ObjectiveState::satisfied
                     ? "CLEAR" : objective.state == sim::ObjectiveState::failed
                         ? "FAILED" : "PENDING";
                 P64::Debug::printf(
                     42, 116 + static_cast<int>(row) * 18,
                     "%.*s  %s",
-                    static_cast<int>(std::min<std::size_t>(name.size(), 21U)),
-                    name.data(), result
+                    static_cast<int>(std::min<std::size_t>(
+                        localized_name.size(), 21U
+                    )), localized_name.data(), result
                 );
             }
             P64::Debug::printf(
@@ -4070,12 +4231,13 @@ void draw_shell() {
             break;
         }
         case ShellPhase::complete:
-            P64::Debug::printf(91, 112, "CAMPAIGN ENDED");
+            P64::Debug::printf(91, 112, "%s", ui(console::Message::campaign_ended));
             P64::Debug::printf(
-                72, 142, "%lu BATTLES PLAYED",
-                static_cast<unsigned long>(shell.completed_battles)
+                72, 142, "%lu %s",
+                static_cast<unsigned long>(shell.completed_battles),
+                ui(console::Message::battles_played)
             );
-            P64::Debug::printf(72, 178, "PROGRESS SAVED");
+            P64::Debug::printf(72, 178, "%s", ui(console::Message::progress_saved));
             break;
         case ShellPhase::battle:
             break;

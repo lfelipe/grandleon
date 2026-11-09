@@ -51,7 +51,8 @@ func save_settings(
 	battle_closeups := true,
 	cinematic_motion := "full",
 	show_fps := false,
-	store_battle_closeups := true
+	store_battle_closeups := true,
+	game_language := ""
 ) -> bool:
 	_warning = ""
 	if not available_profiles.has(graphics_profile):
@@ -71,6 +72,7 @@ func save_settings(
 		or cinematic_motion not in CINEMATIC_MOTION_MODES
 		or typeof(show_fps) != TYPE_BOOL
 		or typeof(store_battle_closeups) != TYPE_BOOL
+		or game_language.length() > 31
 	):
 		_warning = "DISPLAY SETTINGS WERE NOT SAVED"
 		return false
@@ -95,6 +97,7 @@ func save_settings(
 		"stickMode": stick_mode,
 		"cinematicMotion": cinematic_motion,
 		"showFps": show_fps,
+		"gameLanguage": game_language,
 	}
 	if store_battle_closeups:
 		document["battleCloseups"] = battle_closeups
@@ -180,6 +183,9 @@ func _read(path: String, available_profiles: Array) -> Dictionary:
 	var show_fps_value: Variant = document.get("showFps", false)
 	if typeof(show_fps_value) != TYPE_BOOL:
 		return {}
+	var game_language := String(document.get("gameLanguage", ""))
+	if game_language.length() > 31:
+		return {}
 	return {
 		"graphics_profile": profile,
 		"camera_impulse": bool(document.cameraImpulse),
@@ -190,6 +196,7 @@ func _read(path: String, available_profiles: Array) -> Dictionary:
 		"battle_closeups_set": document.has("battleCloseups"),
 		"cinematic_motion": cinematic_motion,
 		"show_fps": bool(show_fps_value),
+		"game_language": game_language,
 	}
 
 

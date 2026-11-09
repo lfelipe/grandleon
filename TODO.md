@@ -422,11 +422,19 @@ than reproduce those implementation details.
     campaign and valid 1P/2P choice. It compiles the current project into a
     save-isolated preview, launches directly in the selected language, and
     returns to the same translation workflow.
-  - [ ] Reconnect authored-language selection and localized interface copy to
-    the new Pyrite/Tiny3D and Mipsync players. The retired shared console path
-    had this workflow, but the 0.5 engine transition is not complete until the
-    sole N64 and PlayStation runtimes use the same current-source fallback as
-    Godot and keep their compact layouts readable.
+  - [x] Reconnect authored-language selection to the new Pyrite/Tiny3D and
+    Mipsync players. Godot, Nintendo 64, and PlayStation can now change among a
+    game's authored languages from the live Settings menu, immediately refresh
+    already-loaded title, stage, objective, dialogue, company, and named-content
+    copy, preserve missing/outdated current-source fallback, and remember the
+    choice without requiring a restart. The PS1 probe exercises an actual
+    translated campaign disc and memory-card restore; N64 and Godot builds
+    exercise their package-backed path without the retired renderer.
+  - [ ] Finish the remaining compact-console interface-copy and glyph audit.
+    Title, launch, pause, Settings, common outcomes, and authored game copy now
+    follow the selected language, but every uncommon help, tactical-result,
+    deployment, and error label still needs bounded English, Spanish, and
+    Brazilian Portuguese review on both hardware layouts.
 - [ ] Later, explore optional translation suggestions from an external AI model.
   Suggestions must be explicitly requested, remain visibly unapproved until a
   person accepts them, preserve source and manual translations, and never be a

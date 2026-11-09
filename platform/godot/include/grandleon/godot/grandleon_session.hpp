@@ -251,6 +251,12 @@ public:
     [[nodiscard]] ::godot::Dictionary package_presentation(
         const ::godot::PackedByteArray& package_bytes
     ) const;
+    [[nodiscard]] bool set_language(const ::godot::String& language);
+    [[nodiscard]] ::godot::String language() const;
+    [[nodiscard]] ::godot::Dictionary localized_state() const;
+    [[nodiscard]] ::godot::Dictionary localized_dialogue(
+        std::int64_t dialogue_id
+    ) const;
     [[nodiscard]] bool has_progress() const;
     [[nodiscard]] ::godot::Array checkpoint_slots() const;
     [[nodiscard]] bool checkpoint_save_ready() const;
@@ -329,6 +335,11 @@ private:
     simulation::EncounterSnapshot latest_snapshot_;
     std::vector<simulation::WeaponDefinition> latest_weapons_;
     std::vector<simulation::AbilityDefinition> latest_abilities_;
+    std::optional<FrontendEvent> latest_snapshot_event_;
+    std::optional<FrontendEvent> latest_definitions_event_;
+    std::optional<FrontendEvent> latest_campaign_event_;
+    std::optional<FrontendEvent> latest_management_event_;
+    std::vector<FrontendEvent> latest_dialogue_events_;
     bool has_snapshot_{false};
     std::uint8_t local_players_{1};
     bool progress_available_{false};

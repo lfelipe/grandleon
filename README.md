@@ -204,9 +204,13 @@ from its authored languages. Godot then applies that choice to the game title,
 campaign and stage names, dialogue, objectives, company character names, named
 battle placements, and named units, weapons, abilities, and items. Grandleon
 keeps the original source strings; missing or outdated work falls back to the
-current source rather than stale or empty text. Nintendo 64 and PlayStation
-localization is being reconnected as part of the Pyrite/Tiny3D and Mipsync
-transition; the removed console path is not treated as release evidence.
+current source rather than stale or empty text. During play, **Settings** can
+change among those authored languages immediately on Godot, Nintendo 64, and
+PlayStation, including dialogue that is already queued; the choice is saved and
+does not require a restart. The Pyrite/Tiny3D and Mipsync players use this real
+package-backed path rather than the removed console renderer. Their remaining
+uncommon help and error copy is still receiving a compact-layout translation
+audit.
 Player-chosen character names remain literal player input rather than
 translation material; in Godot they survive save and continue and can appear
 in dialogue, objectives, rosters, and exact on-board unit labels. Controller
