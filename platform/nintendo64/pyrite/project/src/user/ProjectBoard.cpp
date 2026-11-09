@@ -231,6 +231,7 @@ enum class BattleUiPhase : std::uint8_t {
     action,
     attack_target,
     ability_target,
+    talk_target,
     result,
 };
 
@@ -1687,14 +1688,7 @@ void queue_event_moments(const std::vector<sim::Event>& events) {
         } else {
             continue;
         }
-        std::uint64_t placement = 0U;
-        for (const pr::PlacementIdentity& identity : board.content->placements) {
-            if (identity.unit_id == event.unit_id) {
-                placement = identity.source_key_id;
-                break;
-            }
-        }
-        if (placement != 0U) queue_battle_moments(trigger, placement);
+        queue_battle_moments(trigger, event.unit_id);
     }
 }
 
@@ -2904,16 +2898,7 @@ bool actor_has_ability() {
     return actor != nullptr && !actor->ability_ids.empty();
 }
 
-std::size_t actor_ability_count() {
-    const sim::UnitSnapshot* actor = find_unit(battle_ui.actor);
-    return actor != nullptr ? actor->ability_ids.size() : 0U;
-}
-
-std::uint8_t action_rows() {
-    return static_cast<std::uint8_t>(std::min<std::size_t>(
-        actor_ability_count() + 3U, 255U
-    ));
-}
+std::uint8_t action_rows();
 
 void open_action_menu(sim::UnitId actor, std::uint8_t player = 0U) {
     const sim::UnitSnapshot* unit = find_unit(actor);
@@ -2925,19 +2910,68 @@ void open_action_menu(sim::UnitId actor, std::uint8_t player = 0U) {
     if (!unit->ability_ids.empty()) battle_ui.ability = unit->ability_ids.front();
 }
 
-enum class ActionChoice : std::uint8_t {
+enum class ActionChoiceKind : std::uint8_t {
     attack,
     ability,
+    item,
+    talk,
     wait,
     cancel,
 };
 
+struct ActionChoice final {
+    ActionChoiceKind kind{ActionChoiceKind::cancel};
+    sim::ContentId content{};
+};
+
+struct ActionMenu final {
+    std::array<ActionChoice, 32> choices{};
+    std::size_t count{};
+
+    void append(ActionChoiceKind kind, sim::ContentId content = 0U) {
+        if (count < choices.size()) choices[count++] = {kind, content};
+    }
+};
+
+ActionMenu action_menu() {
+    ActionMenu menu;
+    const sim::UnitSnapshot* actor = find_unit(battle_ui.actor);
+    if (actor == nullptr) return menu;
+    menu.append(ActionChoiceKind::attack);
+    for (const sim::ContentId ability : actor->ability_ids) {
+        menu.append(ActionChoiceKind::ability, ability);
+    }
+    for (std::size_t index = 0; index < actor->item_ids.size() &&
+         index < actor->item_counts.size(); ++index) {
+        if (actor->item_counts[index] == 0U) continue;
+        const sim::ItemForecast forecast = sim::forecast_item(
+            board.game.snapshot(), actor->id, actor->id,
+            board.game.encounter().items(), actor->item_ids[index]
+        );
+        if (forecast &&
+            (forecast.kind != sim::ItemKind::restore || forecast.restored > 0)) {
+            menu.append(ActionChoiceKind::item, actor->item_ids[index]);
+        }
+    }
+    for (const sim::UnitSnapshot& target : board.game.snapshot().units) {
+        if (sim::forecast_talk(board.game.snapshot(), actor->id, target.id)) {
+            menu.append(ActionChoiceKind::talk);
+            break;
+        }
+    }
+    menu.append(ActionChoiceKind::wait);
+    menu.append(ActionChoiceKind::cancel);
+    return menu;
+}
+
+std::uint8_t action_rows() {
+    return static_cast<std::uint8_t>(action_menu().count);
+}
+
 ActionChoice action_choice() {
-    if (battle_ui.row == 0U) return ActionChoice::attack;
-    const std::size_t abilities = actor_ability_count();
-    if (battle_ui.row <= abilities) return ActionChoice::ability;
-    if (battle_ui.row == abilities + 1U) return ActionChoice::wait;
-    return ActionChoice::cancel;
+    const ActionMenu menu = action_menu();
+    return battle_ui.row < menu.count
+        ? menu.choices[battle_ui.row] : ActionChoice{};
 }
 
 void close_action_menu() {
@@ -3020,23 +3054,31 @@ bool confirm_action_choice() {
         close_action_menu();
         return false;
     }
-    switch (action_choice()) {
-        case ActionChoice::attack:
+    const ActionChoice choice = action_choice();
+    switch (choice.kind) {
+        case ActionChoiceKind::attack:
             battle_ui.phase = BattleUiPhase::attack_target;
             return true;
-        case ActionChoice::ability:
-            if (battle_ui.row == 0U ||
-                battle_ui.row > actor->ability_ids.size()) {
-                return false;
-            }
-            battle_ui.ability = actor->ability_ids[battle_ui.row - 1U];
+        case ActionChoiceKind::ability:
+            battle_ui.ability = choice.content;
             battle_ui.phase = BattleUiPhase::ability_target;
             return true;
-        case ActionChoice::wait:
+        case ActionChoiceKind::item: {
+            sim::Command command{};
+            command.type = sim::CommandType::use_item;
+            command.unit_id = actor->id;
+            command.target_id = actor->id;
+            command.item_id = choice.content;
+            return apply_battle_command(command, false);
+        }
+        case ActionChoiceKind::talk:
+            battle_ui.phase = BattleUiPhase::talk_target;
+            return true;
+        case ActionChoiceKind::wait:
             return apply_battle_command({
                 sim::CommandType::wait, actor->id, {}, 0U, 0U, 0U, 0U,
             });
-        case ActionChoice::cancel:
+        case ActionChoiceKind::cancel:
             close_action_menu();
             return true;
     }
@@ -3076,6 +3118,20 @@ bool confirm_target() {
             board.game.cursor(battle_ui.player), 0U,
             battle_ui.ability, 0U, 0U,
         });
+    }
+    if (battle_ui.phase == BattleUiPhase::talk_target) {
+        const sim::UnitSnapshot* target = unit_at(
+            board.game.cursor(battle_ui.player)
+        );
+        if (target == nullptr ||
+            !sim::forecast_talk(board.game.snapshot(), actor->id, target->id)) {
+            return false;
+        }
+        sim::Command command{};
+        command.type = sim::CommandType::talk;
+        command.unit_id = actor->id;
+        command.target_id = target->id;
+        return apply_battle_command(command, false);
     }
     return false;
 }
@@ -3213,7 +3269,8 @@ bool physical_input_for(
         return pressed.d_up || pressed.d_down || pressed.a || pressed.b;
     }
     if (battle_ui.phase == BattleUiPhase::attack_target ||
-        battle_ui.phase == BattleUiPhase::ability_target) {
+        battle_ui.phase == BattleUiPhase::ability_target ||
+        battle_ui.phase == BattleUiPhase::talk_target) {
         if (player != battle_ui.player) return false;
         if (!pressed.b && !pressed.a && !pressed.d_left && !pressed.d_right &&
             !pressed.d_up && !pressed.d_down) {
@@ -4063,24 +4120,26 @@ void draw_battle_ui() {
         const std::size_t selected = battle_ui.row;
         const std::size_t first = selected >= 4U ? selected - 3U : 0U;
         const std::size_t last = std::min(first + 4U, total);
-        const std::size_t abilities = actor_ability_count();
+        const ActionMenu menu = action_menu();
         for (std::size_t row = first; row < last; ++row) {
             const int y = 158 + static_cast<int>(row - first) * 17;
             const char* marker = selected == row ? ">" : " ";
-            if (row == 0U) {
+            const ActionChoice choice = menu.choices[row];
+            if (choice.kind == ActionChoiceKind::attack) {
                 P64::Debug::printf(
                     190, y, "%s %s", marker, ui(console::Message::attack)
                 );
-            } else if (row <= abilities && menu_actor != nullptr) {
-                const sim::ContentId ability = menu_actor->ability_ids[row - 1U];
+            } else if (choice.kind == ActionChoiceKind::ability &&
+                       menu_actor != nullptr) {
                 const std::string_view name = pr::content_name(
                     board.runtime.package(),
-                    package_format::SectionType::abilities, ability
+                    package_format::SectionType::abilities, choice.content
                 );
                 const std::string_view localized_name =
                     pr::localized_content_name(
                         board.runtime.package(), game_language(),
-                        package_format::SectionType::abilities, ability, name
+                        package_format::SectionType::abilities, choice.content,
+                        name
                     );
                 P64::Debug::printf(
                     190, y, "%s %.*s", marker,
@@ -4088,7 +4147,27 @@ void draw_battle_ui() {
                         localized_name.size(), 14U
                     )), localized_name.data()
                 );
-            } else if (row == abilities + 1U) {
+            } else if (choice.kind == ActionChoiceKind::item) {
+                const std::string_view name = pr::content_name(
+                    board.runtime.package(),
+                    package_format::SectionType::items, choice.content
+                );
+                const std::string_view localized_name =
+                    pr::localized_content_name(
+                        board.runtime.package(), game_language(),
+                        package_format::SectionType::items, choice.content, name
+                    );
+                P64::Debug::printf(
+                    190, y, "%s %.*s", marker,
+                    static_cast<int>(std::min<std::size_t>(
+                        localized_name.size(), 14U
+                    )), localized_name.data()
+                );
+            } else if (choice.kind == ActionChoiceKind::talk) {
+                P64::Debug::printf(
+                    190, y, "%s %s", marker, ui(console::Message::talk)
+                );
+            } else if (choice.kind == ActionChoiceKind::wait) {
                 P64::Debug::printf(
                     190, y, "%s %s", marker, ui(console::Message::wait)
                 );
@@ -4179,6 +4258,32 @@ void draw_battle_ui() {
                 190, 170, "%s", command_error_label(forecast.error)
             );
         }
+    } else if (battle_ui.phase == BattleUiPhase::talk_target &&
+               actor != nullptr) {
+        sim::TalkForecast forecast;
+        if (target != nullptr) {
+            forecast = sim::forecast_talk(
+                board.game.snapshot(), actor->id, target->id
+            );
+        } else {
+            forecast.error = sim::CommandError::unknown_target;
+        }
+        P64::Debug::printf(
+            190, 140, "%s", ui(console::Message::talk_to_whom)
+        );
+        if (forecast) {
+            P64::Debug::printf(
+                190, 170, "%s", ui(console::Message::confirm)
+            );
+            P64::Debug::printf(
+                190, 208, "A %s  B %s", ui(console::Message::confirm),
+                ui(console::Message::back_button)
+            );
+        } else {
+            P64::Debug::printf(
+                190, 170, "%s", command_error_label(forecast.error)
+            );
+        }
     } else if (battle_ui.phase == BattleUiPhase::result) {
         P64::Debug::printf(
             190, 140, "%s", ui(console::Message::result)
@@ -4188,7 +4293,8 @@ void draw_battle_ui() {
                 190, 170, "%s",
                 command_error_label(battle_ui.result_error)
             );
-        } else if (battle_ui.result_command == sim::CommandType::wait) {
+        } else if (battle_ui.result_command == sim::CommandType::wait ||
+                   battle_ui.result_command == sim::CommandType::talk) {
             P64::Debug::printf(
                 190, 170, "%s", ui(console::Message::turn_complete)
             );

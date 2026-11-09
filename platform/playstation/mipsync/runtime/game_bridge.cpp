@@ -39,7 +39,7 @@ namespace client = grandleon::client;
 namespace {
 
 enum class InputMode : std::uint8_t {
-    browse, move, action, attack, ability, pause, help, settings
+    browse, move, action, attack, ability, talk, pause, help, settings
 };
 enum class CampaignMode : std::uint8_t {
     title, players, name, prologue, objective, battle, aftermath, save_error,
@@ -57,6 +57,31 @@ struct BoardMotion final {
     unsigned frame{};
     unsigned total_frames{};
     bool active{};
+};
+
+struct BattleMomentState final {
+    std::vector<std::uint64_t> dialogue_ids;
+    std::size_t dialogue_index{};
+    std::size_t line_index{};
+    bool active{};
+};
+
+enum class ActionKind : std::uint8_t {
+    attack, ability, item, talk, wait
+};
+
+struct ActionChoice final {
+    ActionKind kind{ActionKind::wait};
+    sim::ContentId content{};
+};
+
+struct ActionMenu final {
+    std::array<ActionChoice, 32> choices{};
+    unsigned count{};
+
+    void append(ActionKind kind, sim::ContentId content = 0U) {
+        if (count < choices.size()) choices[count++] = {kind, content};
+    }
 };
 
 sim::Encounter::CreateResult* s_created{};
@@ -84,6 +109,7 @@ sim::Position s_combat_centre{};
 bool s_combat_counter{};
 bool s_last_result_missed{};
 bool s_last_result_restored{};
+bool s_result_close_combat{};
 std::int16_t s_last_result_damage{};
 std::int16_t s_last_result_counter_damage{};
 unsigned s_select_count{};
@@ -93,6 +119,8 @@ unsigned s_attack_count{};
 unsigned s_ability_count{};
 unsigned s_player_attack_count{};
 unsigned s_player_ability_count{};
+unsigned s_player_item_count{};
+unsigned s_player_talk_count{};
 unsigned s_ai_command_count{};
 std::int32_t s_camera_min_x{};
 std::int32_t s_camera_max_x{};
@@ -107,6 +135,8 @@ bool s_visibility_revealed[maximum_board_cells]{};
 std::array<std::uint8_t, maximum_board_cells> s_motion_crossable{};
 std::array<std::uint8_t, maximum_board_cells> s_motion_distance{};
 BoardMotion s_motion{};
+BattleMomentState s_battle_moment{};
+sim::ContentId s_action_content{};
 unsigned s_camera_settle_frames{};
 unsigned s_active_terrain_page{0xffffffffU};
 CampaignMode s_campaign_mode{CampaignMode::battle};
@@ -629,6 +659,84 @@ bool unit_visible(const sim::UnitSnapshot& unit, int width) {
         s_visibility_revealed[hidden_index];
 }
 
+bool activate_pending_battle_moment() {
+    while (s_battle_moment.dialogue_index <
+           s_battle_moment.dialogue_ids.size()) {
+        const std::uint64_t dialogue_id =
+            s_battle_moment.dialogue_ids[s_battle_moment.dialogue_index];
+        const auto& lines = grandleon_generated_moment_lines(
+            s_language_index, dialogue_id
+        );
+        if (!lines.empty()) {
+            s_battle_moment.line_index = 0U;
+            s_battle_moment.active = true;
+            psx::Line().text("MIPSYNC_BATTLE_MOMENT dialogue=")
+                .hex64(dialogue_id).text(" lines=")
+                .decimal(static_cast<unsigned>(lines.size())).flush();
+            return true;
+        }
+        ++s_battle_moment.dialogue_index;
+    }
+    s_battle_moment = {};
+    return false;
+}
+
+void queue_battle_moments(
+    unsigned trigger, std::uint64_t placement_id = 0U, bool reset = false
+) {
+    if (reset) s_battle_moment = {};
+    for (const auto& moment : grandleon_generated_moments(s_local_players)) {
+        if (moment.trigger != trigger) continue;
+        if (moment.placement_id != 0U &&
+            moment.placement_id != placement_id) {
+            continue;
+        }
+        s_battle_moment.dialogue_ids.push_back(moment.dialogue_id);
+    }
+}
+
+void queue_event_moments(const std::vector<sim::Event>& events) {
+    for (const sim::Event& event : events) {
+        unsigned trigger = 0U;
+        if (event.type == sim::EventType::unit_talked) trigger = 2U;
+        else if (event.type == sim::EventType::unit_defeated) trigger = 3U;
+        else continue;
+        queue_battle_moments(trigger, event.unit_id);
+    }
+}
+
+void advance_battle_moment() {
+    if (!s_battle_moment.active ||
+        s_battle_moment.dialogue_index >=
+            s_battle_moment.dialogue_ids.size()) {
+        return;
+    }
+    const std::uint64_t dialogue_id =
+        s_battle_moment.dialogue_ids[s_battle_moment.dialogue_index];
+    const auto& lines = grandleon_generated_moment_lines(
+        s_language_index, dialogue_id
+    );
+    ++s_battle_moment.line_index;
+    if (s_battle_moment.line_index < lines.size()) return;
+    s_battle_moment.active = false;
+    ++s_battle_moment.dialogue_index;
+    (void)activate_pending_battle_moment();
+}
+
+const grandleon_generated_dialogue_line* current_battle_moment_line() {
+    if (!s_battle_moment.active ||
+        s_battle_moment.dialogue_index >=
+            s_battle_moment.dialogue_ids.size()) {
+        return nullptr;
+    }
+    const auto& lines = grandleon_generated_moment_lines(
+        s_language_index,
+        s_battle_moment.dialogue_ids[s_battle_moment.dialogue_index]
+    );
+    return s_battle_moment.line_index < lines.size()
+        ? &lines[s_battle_moment.line_index] : nullptr;
+}
+
 bool reveal_visual_visibility_at(std::size_t cell) {
     if (!visibility_hidden(cell)) return false;
     bool changed = false;
@@ -821,7 +929,7 @@ std::int32_t approach(std::int32_t current, std::int32_t target) {
 }
 
 void animate_combat_units(const sim::EncounterSnapshot& snapshot) {
-    if (!s_result_frames || !s_close_combat_enabled) return;
+    if (!s_result_frames || !s_result_close_combat) return;
     const sim::UnitSnapshot* attacker = find_unit(snapshot, s_combat_attacker);
     const sim::UnitSnapshot* target = find_unit(snapshot, s_combat_target);
     if (!attacker || !target) return;
@@ -878,8 +986,8 @@ void tick_camera() {
     std::int32_t desired_height = g_grandleon_camera_height;
     std::int32_t desired_trailing = g_grandleon_camera_trailing_distance;
     const bool close_combat =
-        (s_result_frames || s_camera_return_frames) && s_close_combat_enabled;
-    if (s_result_frames && s_close_combat_enabled) {
+        (s_result_frames || s_camera_return_frames) && s_result_close_combat;
+    if (s_result_frames && s_result_close_combat) {
         const sim::UnitSnapshot* attacker = find_unit(snapshot, s_combat_attacker);
         const sim::UnitSnapshot* target = find_unit(snapshot, s_combat_target);
         const sim::Position a = attacker ? attacker->position : s_combat_centre;
@@ -1071,6 +1179,7 @@ bool apply_command(
             .text(" error=").decimal(static_cast<unsigned>(result.error)).flush();
         return false;
     }
+    queue_event_moments(result.events);
     s_snapshot = s_created->encounter.snapshot();
     if (!s_motion.active) (void)update_visual_visibility(s_snapshot);
     sync_scene(s_snapshot);
@@ -1096,7 +1205,7 @@ const grandleon_generated_behavior* behavior_for(sim::UnitId id) {
 
 void begin_result(
     const sim::Command& command, const sim::CommandResult& result,
-    bool counter, sim::Position centre
+    bool counter, sim::Position centre, bool allow_close_combat = true
 ) {
     s_combat_attacker = command.unit_id;
     s_combat_target = command.target_id;
@@ -1123,7 +1232,9 @@ void begin_result(
             if (s_combat_target == 0) s_combat_target = event.unit_id;
         }
     }
-    s_result_duration = s_close_combat_enabled ? close_combat_frames : result_only_frames;
+    s_result_close_combat = allow_close_combat && s_close_combat_enabled;
+    s_result_duration = s_result_close_combat
+        ? close_combat_frames : result_only_frames;
     s_result_frames = s_result_duration;
     s_camera_return_frames = 0;
 }
@@ -1205,7 +1316,9 @@ bool update_ai() {
             .decimal(s_wait_count).text(" attack=").decimal(s_attack_count)
             .text(" ability=").decimal(s_ability_count).text(" p_attack=")
             .decimal(s_player_attack_count).text(" p_ability=")
-            .decimal(s_player_ability_count).text(" ai=")
+            .decimal(s_player_ability_count).text(" p_item=")
+            .decimal(s_player_item_count).text(" p_talk=")
+            .decimal(s_player_talk_count).text(" ai=")
             .decimal(s_ai_command_count).text(" hash=")
             .hex64(s_created->encounter.canonical_hash()).flush();
     }
@@ -1223,8 +1336,35 @@ void move_cursor(std::uint16_t pressed, const sim::EncounterSnapshot& snapshot) 
     if (s_cursor.y >= snapshot.height) s_cursor.y = snapshot.height - 1;
 }
 
-unsigned action_count(const sim::UnitSnapshot* actor) {
-    return actor ? static_cast<unsigned>(actor->ability_ids.size()) + 2U : 0U;
+ActionMenu action_menu(
+    const sim::UnitSnapshot* actor, const sim::EncounterSnapshot& snapshot
+) {
+    ActionMenu menu;
+    if (!actor) return menu;
+    menu.append(ActionKind::attack);
+    for (const sim::ContentId ability : actor->ability_ids) {
+        menu.append(ActionKind::ability, ability);
+    }
+    for (std::size_t index = 0; index < actor->item_ids.size() &&
+         index < actor->item_counts.size(); ++index) {
+        if (actor->item_counts[index] == 0U) continue;
+        const sim::ItemForecast forecast = sim::forecast_item(
+            snapshot, actor->id, actor->id,
+            s_created->encounter.items(), actor->item_ids[index]
+        );
+        if (forecast &&
+            (forecast.kind != sim::ItemKind::restore || forecast.restored > 0)) {
+            menu.append(ActionKind::item, actor->item_ids[index]);
+        }
+    }
+    for (const sim::UnitSnapshot& target : snapshot.units) {
+        if (sim::forecast_talk(snapshot, actor->id, target.id)) {
+            menu.append(ActionKind::talk);
+            break;
+        }
+    }
+    menu.append(ActionKind::wait);
+    return menu;
 }
 
 const grandleon_generated_campaign_node* active_campaign_node() {
@@ -1343,6 +1483,9 @@ bool start_encounter() {
     s_snapshot = s_created->encounter.snapshot();
     const sim::EncounterSnapshot& snapshot = s_snapshot;
     s_motion = {};
+    s_battle_moment = {};
+    s_action_content = 0U;
+    s_result_close_combat = false;
     s_mode = InputMode::browse;
     s_selected = 0;
     for (unsigned index = 0; index < maximum_board_cells; ++index) {
@@ -1381,6 +1524,8 @@ bool start_encounter() {
     tick_camera();
     s_ai_active = snapshot.active_side == sim::Side::second;
     s_campaign_mode = CampaignMode::battle;
+    queue_battle_moments(1U, 0U, true);
+    (void)activate_pending_battle_moment();
     psx::Line().text("MIPSYNC_SIM_READY width=").decimal(snapshot.width)
         .text(" height=").decimal(snapshot.height).text(" units=")
         .decimal(static_cast<unsigned>(snapshot.units.size())).text(" cursor_x=")
@@ -1601,7 +1746,13 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
     }
     if (!s_created || !*s_created) return;
     const sim::EncounterSnapshot& snapshot = s_snapshot;
-    if (s_mode == InputMode::pause) output->mode = GRANDLEON_UI_PAUSE;
+    if (const auto* line = current_battle_moment_line()) {
+        output->mode = GRANDLEON_UI_BATTLE_MOMENT;
+        keep_ui_text(s_ui_headline, substitute_player_names(line->speaker));
+        keep_ui_text(s_ui_body, substitute_player_names(line->text));
+        output->headline = s_ui_headline.data();
+        output->body = s_ui_body.data();
+    } else if (s_mode == InputMode::pause) output->mode = GRANDLEON_UI_PAUSE;
     else if (s_mode == InputMode::help) output->mode = GRANDLEON_UI_BATTLE_HELP;
     else if (s_mode == InputMode::settings) {
         output->mode = GRANDLEON_UI_BATTLE_SETTINGS;
@@ -1613,6 +1764,7 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
     else if (s_mode == InputMode::action) output->mode = GRANDLEON_UI_ACTION;
     else if (s_mode == InputMode::attack) output->mode = GRANDLEON_UI_ATTACK;
     else if (s_mode == InputMode::ability) output->mode = GRANDLEON_UI_ABILITY;
+    else if (s_mode == InputMode::talk) output->mode = GRANDLEON_UI_TALK;
     else output->mode = GRANDLEON_UI_BROWSE;
 
     const sim::UnitSnapshot* actor = find_unit(snapshot, s_selected);
@@ -1622,7 +1774,9 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
         output->actor_maximum = actor->maximum_health;
         output->ability_count = static_cast<std::uint8_t>(actor->ability_ids.size());
         output->local_player = actor->local_player;
-        output->menu_count = static_cast<std::uint8_t>(action_count(actor));
+        output->menu_count = static_cast<std::uint8_t>(
+            action_menu(actor, snapshot).count
+        );
     }
     output->menu_index = static_cast<std::uint8_t>(s_menu_index);
     output->result_missed = s_last_result_missed ? 1 : 0;
@@ -1646,13 +1800,19 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
                 output->counter_damage = forecast.counter_damage;
             }
         }
-    } else if (s_mode == InputMode::ability && actor && s_menu_index > 0 &&
-               s_menu_index <= actor->ability_ids.size()) {
-        output->ability_index = static_cast<std::uint8_t>(s_menu_index - 1);
+    } else if (s_mode == InputMode::ability && actor && s_action_content != 0U) {
+        const auto ability = std::find(
+            actor->ability_ids.begin(), actor->ability_ids.end(), s_action_content
+        );
+        if (ability != actor->ability_ids.end()) {
+            output->ability_index = static_cast<std::uint8_t>(
+                std::distance(actor->ability_ids.begin(), ability)
+            );
+        }
         const sim::UnitSnapshot* target = unit_at(snapshot, s_cursor);
         const sim::UnitId affected = target ? target->id : actor->id;
         const sim::AbilityForecast forecast = sim::forecast_ability(
-            snapshot, actor->id, actor->ability_ids[s_menu_index - 1],
+            snapshot, actor->id, s_action_content,
             s_cursor, affected, s_created->encounter.abilities()
         );
         if (forecast && target && forecast.covered && !forecast.spared) {
@@ -1665,6 +1825,21 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
         }
     }
     if (s_last_result_restored) output->restored = s_last_result_damage;
+}
+
+extern "C" uint8_t grandleon_game_action_kind(uint8_t index) {
+    if (!s_created || !*s_created) return GRANDLEON_ACTION_WAIT;
+    const sim::UnitSnapshot* actor = find_unit(s_snapshot, s_selected);
+    const ActionMenu menu = action_menu(actor, s_snapshot);
+    if (index >= menu.count) return GRANDLEON_ACTION_WAIT;
+    switch (menu.choices[index].kind) {
+        case ActionKind::attack: return GRANDLEON_ACTION_ATTACK;
+        case ActionKind::ability: return GRANDLEON_ACTION_ABILITY;
+        case ActionKind::item: return GRANDLEON_ACTION_ITEM;
+        case ActionKind::talk: return GRANDLEON_ACTION_TALK;
+        case ActionKind::wait: return GRANDLEON_ACTION_WAIT;
+    }
+    return GRANDLEON_ACTION_WAIT;
 }
 
 extern "C" const char* grandleon_game_text(uint8_t text_id) {
@@ -1733,6 +1908,10 @@ extern "C" const char* grandleon_game_text(uint8_t text_id) {
             return ui(console::Message::wait);
         case GRANDLEON_TEXT_ABILITY:
             return ui(console::Message::ability);
+        case GRANDLEON_TEXT_ITEM:
+            return ui(console::Message::inventory);
+        case GRANDLEON_TEXT_TALK:
+            return ui(console::Message::talk);
         case GRANDLEON_TEXT_ACTION:
             return ui(console::Message::action_heading);
         case GRANDLEON_TEXT_MOVE:
@@ -1909,6 +2088,10 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
     const bool motion_was_active = advance_board_motion();
     tick_camera();
     if (motion_was_active) return 0;
+    if (s_battle_moment.active) {
+        if (player_one & (pad_cross | pad_start)) advance_battle_moment();
+        return 0;
+    }
     if (s_mode == InputMode::pause) {
         if (player_one & pad_up) {
             s_pause_menu_index = s_pause_menu_index == 0U
@@ -1959,7 +2142,8 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
         return 0;
     }
     if (s_snapshot.outcome != sim::Outcome::ongoing &&
-        !s_campaign_completion_handled) {
+        !s_campaign_completion_handled && !s_result_frames &&
+        !s_camera_return_frames && s_battle_moment.dialogue_ids.empty()) {
         s_campaign_completion_handled = true;
         s_campaign_victory = s_snapshot.outcome == sim::Outcome::first_side_won;
         if (complete_battle(s_campaign_victory)) {
@@ -1987,7 +2171,7 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
     if (s_result_frames) {
         --s_result_frames;
         if (s_result_frames == 0) {
-            if (s_close_combat_enabled) {
+            if (s_result_close_combat) {
                 s_camera_return_frames = 30;
                 return 0;
             }
@@ -1995,6 +2179,7 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
             finish_side_if_needed(s_snapshot);
             s_selected = 0;
             s_mode = InputMode::browse;
+            (void)activate_pending_battle_moment();
         }
         return 0;
     }
@@ -2005,6 +2190,7 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
             finish_side_if_needed(s_snapshot);
             s_selected = 0;
             s_mode = InputMode::browse;
+            (void)activate_pending_battle_moment();
         }
         return 0;
     }
@@ -2031,7 +2217,8 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
         toggle_setting(0U);
     }
     if (pressed & pad_circle) {
-        if (s_mode == InputMode::attack || s_mode == InputMode::ability) {
+        if (s_mode == InputMode::attack || s_mode == InputMode::ability ||
+            s_mode == InputMode::talk) {
             s_mode = InputMode::action;
         } else if (s_mode == InputMode::action) {
             const sim::UnitSnapshot* actor = find_unit(snapshot, s_selected);
@@ -2050,6 +2237,7 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
             s_selected = unit->id;
             s_mode = InputMode::move;
             s_menu_index = 0;
+            s_action_content = 0U;
             ++s_select_count;
             psx::Line().text("MIPSYNC_LOCAL_INPUT player=")
                 .decimal(input_player + 1U).text(" unit=")
@@ -2077,28 +2265,62 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
         }
     } else if (s_mode == InputMode::action) {
         const sim::UnitSnapshot* actor = find_unit(snapshot, s_selected);
-        const unsigned count = action_count(actor);
+        const ActionMenu menu = action_menu(actor, snapshot);
+        const unsigned count = menu.count;
         if ((pressed & pad_up) && count) {
             s_menu_index = s_menu_index == 0 ? count - 1 : s_menu_index - 1;
         }
         if ((pressed & pad_down) && count) {
             s_menu_index = (s_menu_index + 1) % count;
         }
+        if (pressed & (pad_up | pad_down)) {
+            psx::Line().text("MIPSYNC_ACTION_NAV row=")
+                .decimal(s_menu_index).text(" count=").decimal(count).flush();
+        }
         if ((pressed & pad_cross) && actor && count) {
-            if (s_menu_index == 0) {
+            const ActionChoice choice = menu.choices[s_menu_index];
+            const char* kind = choice.kind == ActionKind::attack ? "attack"
+                : choice.kind == ActionKind::ability ? "ability"
+                : choice.kind == ActionKind::item ? "item"
+                : choice.kind == ActionKind::talk ? "talk" : "wait";
+            psx::Line().text("MIPSYNC_ACTION_CHOICE kind=").text(kind)
+                .text(" row=").decimal(s_menu_index).flush();
+            if (choice.kind == ActionKind::attack) {
                 s_mode = InputMode::attack;
                 s_cursor = actor->position;
-            } else if (s_menu_index + 1 == count) {
-                if (apply_wait(actor->id, "wait", &snapshot)) {
-                    ++s_wait_count;
-                    s_selected = 0;
-                    s_mode = InputMode::browse;
-                    mutated = true;
-                    finish_side_if_needed(snapshot);
-                }
-            } else {
+            } else if (choice.kind == ActionKind::ability) {
+                s_action_content = choice.content;
                 s_mode = InputMode::ability;
                 s_cursor = actor->position;
+            } else if (choice.kind == ActionKind::item) {
+                const sim::ItemForecast forecast = sim::forecast_item(
+                    snapshot, actor->id, actor->id,
+                    s_created->encounter.items(), choice.content
+                );
+                if (forecast) {
+                    sim::Command command{};
+                    command.type = sim::CommandType::use_item;
+                    command.unit_id = actor->id;
+                    command.target_id = actor->id;
+                    command.item_id = choice.content;
+                    sim::CommandResult result;
+                    if (apply_command(command, "item", &result, &snapshot)) {
+                        ++s_player_item_count;
+                        begin_result(
+                            command, result, false, actor->position, false
+                        );
+                        mutated = true;
+                    }
+                }
+            } else if (choice.kind == ActionKind::talk) {
+                s_mode = InputMode::talk;
+                s_cursor = actor->position;
+            } else if (apply_wait(actor->id, "wait", &snapshot)) {
+                ++s_wait_count;
+                s_selected = 0;
+                s_mode = InputMode::browse;
+                mutated = true;
+                finish_side_if_needed(snapshot);
             }
         }
     } else if ((pressed & pad_cross) && s_mode == InputMode::attack) {
@@ -2125,8 +2347,8 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
         }
     } else if ((pressed & pad_cross) && s_mode == InputMode::ability) {
         const sim::UnitSnapshot* actor = find_unit(snapshot, s_selected);
-        if (actor && s_menu_index > 0 && s_menu_index <= actor->ability_ids.size()) {
-            const sim::ContentId ability = actor->ability_ids[s_menu_index - 1];
+        if (actor && s_action_content != 0U) {
+            const sim::ContentId ability = s_action_content;
             const sim::AbilityForecast gate = sim::forecast_ability(
                 snapshot, actor->id, ability, s_cursor, actor->id,
                 s_created->encounter.abilities()
@@ -2144,6 +2366,23 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
                     begin_result(command, result, false, s_cursor);
                     mutated = true;
                 }
+            }
+        }
+    } else if ((pressed & pad_cross) && s_mode == InputMode::talk) {
+        const sim::UnitSnapshot* actor = find_unit(snapshot, s_selected);
+        const sim::UnitSnapshot* target = unit_at(snapshot, s_cursor);
+        if (actor && target && sim::forecast_talk(snapshot, actor->id, target->id)) {
+            sim::Command command{};
+            command.type = sim::CommandType::talk;
+            command.unit_id = actor->id;
+            command.target_id = target->id;
+            if (apply_command(command, "talk", nullptr, &snapshot)) {
+                ++s_player_talk_count;
+                s_selected = 0;
+                s_mode = InputMode::browse;
+                mutated = true;
+                finish_side_if_needed(snapshot);
+                (void)activate_pending_battle_moment();
             }
         }
     }

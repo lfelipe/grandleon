@@ -408,6 +408,18 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
         return;
     }
 
+    if (state.mode == GRANDLEON_UI_BATTLE_MOMENT) {
+        draw_panel(ordering_table, next_packet, packet_end, 8, 157, 304, 75);
+        if (state.headline && state.headline[0]) {
+            draw_text(ordering_table, next_packet, packet_end, 19, 165,
+                      state.headline, 94, 206, 227);
+        }
+        draw_wrapped_text(ordering_table, next_packet, packet_end, 19, 180,
+                          state.body ? state.body : "", 247, 239, 209);
+        activate_ui_tpage(ordering_table, next_packet, packet_end);
+        return;
+    }
+
     if (state.mode == GRANDLEON_UI_OPPONENT) {
         draw_panel(ordering_table, next_packet, packet_end, 91, 8, 138, 25);
         draw_text(ordering_table, next_packet, packet_end, 108, 16,
@@ -433,23 +445,41 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
         if (first + 5 > state.menu_count) first = state.menu_count - 5;
         for (row = 0; row < 5 && first + row < state.menu_count; ++row) {
             const unsigned int entry = first + row;
-            if (entry == 0) {
+            const uint8_t kind = grandleon_game_action_kind((uint8_t)entry);
+            if (kind == GRANDLEON_ACTION_ATTACK) {
                 draw_menu_row(ordering_table, next_packet, packet_end,
                               x + 2, 72 + row * 10,
                               grandleon_game_text(GRANDLEON_TEXT_ATTACK),
                               entry == state.menu_index, -1);
-            } else if (entry + 1 == state.menu_count) {
+            } else if (kind == GRANDLEON_ACTION_WAIT) {
                 draw_menu_row(ordering_table, next_packet, packet_end,
                               x + 2, 72 + row * 10,
                               grandleon_game_text(GRANDLEON_TEXT_WAIT),
                               entry == state.menu_index, -1);
-            } else {
+            } else if (kind == GRANDLEON_ACTION_ABILITY) {
                 draw_menu_row(ordering_table, next_packet, packet_end,
                               x + 2, 72 + row * 10,
                               grandleon_game_text(GRANDLEON_TEXT_ABILITY),
                               entry == state.menu_index, entry);
+            } else if (kind == GRANDLEON_ACTION_ITEM) {
+                draw_menu_row(ordering_table, next_packet, packet_end,
+                              x + 2, 72 + row * 10,
+                              grandleon_game_text(GRANDLEON_TEXT_ITEM),
+                              entry == state.menu_index, -1);
+            } else {
+                draw_menu_row(ordering_table, next_packet, packet_end,
+                              x + 2, 72 + row * 10,
+                              grandleon_game_text(GRANDLEON_TEXT_TALK),
+                              entry == state.menu_index, -1);
             }
         }
+    }
+
+    if (state.mode == GRANDLEON_UI_TALK) {
+        x = state.cursor_on_left ? 184 : 6;
+        draw_panel(ordering_table, next_packet, packet_end, x, 8, 130, 25);
+        draw_text(ordering_table, next_packet, packet_end, x + 7, 14,
+                  grandleon_game_text(GRANDLEON_TEXT_TALK), 94, 206, 227);
     }
 
     if (state.mode == GRANDLEON_UI_ATTACK || state.mode == GRANDLEON_UI_ABILITY) {
@@ -514,6 +544,7 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
     if (state.mode == GRANDLEON_UI_ACTION ||
         state.mode == GRANDLEON_UI_ATTACK ||
         state.mode == GRANDLEON_UI_ABILITY ||
+        state.mode == GRANDLEON_UI_TALK ||
         state.mode == GRANDLEON_UI_RESULT) {
         activate_ui_tpage(ordering_table, next_packet, packet_end);
         return;

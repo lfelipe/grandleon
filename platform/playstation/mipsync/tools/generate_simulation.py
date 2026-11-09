@@ -145,7 +145,104 @@ def emit_behavior_values(
     return lines
 
 
-def emit_localizations(document: dict[str, object]) -> list[str]:
+def validate_moments(
+    document: dict[str, object], label: str,
+) -> None:
+    moments = document.get("moments", [])
+    if not isinstance(moments, list):
+        raise ValueError(f"{label} moments are not an array")
+    simulation = document.get("simulation")
+    if not isinstance(simulation, dict):
+        raise ValueError(f"{label} manifest has no simulation definition")
+    units = simulation.get("units", [])
+    if not isinstance(units, list):
+        raise ValueError(f"{label} simulation units are not an array")
+    unit_ids = {
+        int(unit["id"])
+        for unit in units
+        if isinstance(unit, dict)
+    }
+    dialogue_ids: set[int] = set()
+    moment_ids: set[int] = set()
+    for moment in moments:
+        if not isinstance(moment, dict):
+            raise ValueError(f"{label} moment entry is not an object")
+        moment_id = int(moment["id"])
+        trigger = int(moment["trigger"])
+        placement_id = int(moment["placement_id"])
+        dialogue_id = int(moment["dialogue_id"])
+        if moment_id == 0 or dialogue_id == 0:
+            raise ValueError(f"{label} moment identities must be nonzero")
+        if moment_id in moment_ids:
+            raise ValueError(f"{label} moment identity is duplicated: {moment_id}")
+        moment_ids.add(moment_id)
+        if trigger not in (1, 2, 3):
+            raise ValueError(f"{label} moment has unknown trigger: {trigger}")
+        if trigger == 1 and placement_id != 0:
+            raise ValueError(f"{label} stage-open moment names a unit")
+        if trigger != 1 and placement_id not in unit_ids:
+            raise ValueError(
+                f"{label} event moment names an unknown unit: {placement_id}"
+            )
+        dialogue_ids.add(dialogue_id)
+
+    languages = document.get("languages", [])
+    if not isinstance(languages, list) or not languages:
+        raise ValueError(f"{label} manifest has no localized languages")
+    for language in languages:
+        if not isinstance(language, dict):
+            raise ValueError(f"{label} language entry is not an object")
+        code = str(language.get("code", ""))
+        localized = language.get("moments", [])
+        if not isinstance(localized, list):
+            raise ValueError(f"{label} language moments are not an array")
+        localized_ids: set[int] = set()
+        for dialogue in localized:
+            if not isinstance(dialogue, dict):
+                raise ValueError(f"{label} localized moment is not an object")
+            dialogue_id = int(dialogue["dialogue_id"])
+            lines = dialogue.get("lines", [])
+            if not isinstance(lines, list) or not lines:
+                raise ValueError(
+                    f"{label} {code} dialogue has no lines: {dialogue_id}"
+                )
+            localized_ids.add(dialogue_id)
+        missing = dialogue_ids - localized_ids
+        if missing:
+            raise ValueError(
+                f"{label} {code} is missing moment dialogue: {min(missing)}"
+            )
+
+
+def emit_moment_values(
+    prefix: str, document: dict[str, object]
+) -> list[str]:
+    moments = document.get("moments", [])
+    if not isinstance(moments, list):
+        raise ValueError("moments are not an array")
+    lines = [
+        "const std::vector<grandleon_generated_moment>& "
+        f"grandleon_generated_{prefix}_moments() {{",
+        "    static const std::vector<grandleon_generated_moment> values = {",
+    ]
+    for moment in moments:
+        if not isinstance(moment, dict):
+            raise ValueError("moment entry is not an object")
+        lines.append(
+            "        {"
+            f"{int(moment['id'])}ULL, "
+            f"{int(moment['trigger'])}U, "
+            f"{int(moment['placement_id'])}ULL, "
+            f"{int(moment['dialogue_id'])}ULL"
+            "},"
+        )
+    lines += ["    };", "    return values;", "}", ""]
+    return lines
+
+
+def emit_localizations(
+    document: dict[str, object], additional: dict[str, object] | None = None,
+) -> list[str]:
     languages = document.get("languages", [])
     if not isinstance(languages, list) or not languages:
         languages = [{
@@ -157,6 +254,24 @@ def emit_localizations(document: dict[str, object]) -> list[str]:
             "members": document.get("campaign", {}).get("members", []),
             "nodes": document.get("campaign", {}).get("nodes", []),
         }]
+    additional_by_code: dict[str, dict[str, object]] = {}
+    if additional is not None:
+        additional_languages = additional.get("languages", [])
+        if not isinstance(additional_languages, list):
+            raise ValueError("additional languages are not an array")
+        for language in additional_languages:
+            if not isinstance(language, dict):
+                raise ValueError("additional language entry is not an object")
+            additional_by_code[str(language.get("code", "en"))] = language
+        existing_codes = {
+            str(language.get("code", "en"))
+            for language in languages
+            if isinstance(language, dict)
+        }
+        languages = list(languages) + [
+            language for code, language in additional_by_code.items()
+            if code not in existing_codes
+        ]
     lines = [
         "namespace {",
         "struct generated_localized_member final {",
@@ -165,10 +280,14 @@ def emit_localizations(document: dict[str, object]) -> list[str]:
         "struct generated_localized_node final {",
         "    std::uint64_t id; const char* name; const char* dialogue;",
         "};",
+        "struct generated_localized_dialogue final {",
+        "    std::uint64_t id; std::vector<grandleon_generated_dialogue_line> lines;",
+        "};",
         "struct generated_language final {",
         "    const char* code; const char* project_title; const char* objective;",
         "    std::vector<generated_localized_member> members;",
         "    std::vector<generated_localized_node> nodes;",
+        "    std::vector<generated_localized_dialogue> moments;",
         "};",
         "const std::vector<generated_language>& generated_languages() {",
         "    static const std::vector<generated_language> values = {",
@@ -182,6 +301,27 @@ def emit_localizations(document: dict[str, object]) -> list[str]:
         members = language.get("members", [])
         if not isinstance(members, list):
             raise ValueError("language members are not an array")
+        moments = language.get("moments", [])
+        if not isinstance(moments, list):
+            raise ValueError("language moments are not an array")
+        moments = list(moments)
+        additional_language = additional_by_code.get(
+            str(language.get("code", "en"))
+        )
+        if additional_language is not None and additional_language is not language:
+            additional_moments = additional_language.get("moments", [])
+            if not isinstance(additional_moments, list):
+                raise ValueError("additional language moments are not an array")
+            existing_dialogues = {
+                int(moment["dialogue_id"])
+                for moment in moments
+                if isinstance(moment, dict)
+            }
+            moments.extend(
+                moment for moment in additional_moments
+                if isinstance(moment, dict) and
+                int(moment["dialogue_id"]) not in existing_dialogues
+            )
         member_values = ",".join(
             "{" + ",".join((
                 f"{int(member['persistent_id'])}ULL",
@@ -197,6 +337,19 @@ def emit_localizations(document: dict[str, object]) -> list[str]:
             )) + "}"
             for node in nodes
         )
+        moment_values = ",".join(
+            "{" + ",".join((
+                f"{int(moment['dialogue_id'])}ULL",
+                "{" + ",".join(
+                    "{" + ",".join((
+                        cpp_string(line.get("speaker", "")),
+                        cpp_string(line.get("text", "")),
+                    )) + "}"
+                    for line in moment.get("lines", [])
+                ) + "}",
+            )) + "}"
+            for moment in moments
+        )
         lines.append(
             "        {" + ",".join((
                 cpp_string(language.get("code", "en")),
@@ -204,6 +357,7 @@ def emit_localizations(document: dict[str, object]) -> list[str]:
                 cpp_string(language.get("objective", "Complete the objective.")),
                 "{" + member_values + "}",
                 "{" + node_values + "}",
+                "{" + moment_values + "}",
             )) + "},"
         )
     lines += [
@@ -226,6 +380,13 @@ def emit_localizations(document: dict[str, object]) -> list[str]:
         ") {",
         "    for (const auto& member : generated_language(language).members)",
         "        if (member.persistent_id == persistent_id) return &member;",
+        "    return nullptr;",
+        "}",
+        "const generated_localized_dialogue* generated_localized_moment_for(",
+        "    unsigned language, std::uint64_t id",
+        ") {",
+        "    for (const auto& dialogue : generated_language(language).moments)",
+        "        if (dialogue.id == id) return &dialogue;",
         "    return nullptr;",
         "}",
         "}",
@@ -262,6 +423,12 @@ def emit_localizations(document: dict[str, object]) -> list[str]:
         "    );",
         "    return member ? member->name : \"\";",
         "}",
+        "const std::vector<grandleon_generated_dialogue_line>& ",
+        "grandleon_generated_moment_lines(unsigned language, std::uint64_t id) {",
+        "    static const std::vector<grandleon_generated_dialogue_line> empty;",
+        "    const auto* dialogue = generated_localized_moment_for(language, id);",
+        "    return dialogue ? dialogue->lines : empty;",
+        "}",
         "",
     ]
     return lines
@@ -279,11 +446,13 @@ def main() -> int:
     simulation = document.get("simulation")
     if not isinstance(simulation, dict):
         raise ValueError("manifest has no simulation definition")
+    validate_moments(document, "two-player")
     one_player = None
     if args.one_player_manifest is not None:
         one_player = json.loads(args.one_player_manifest.read_text(encoding="utf-8"))
         if one_player.get("schema") != "grandleon.mipsync.scene.v2":
             raise ValueError("one-player manifest is not a Mipsync scene v2 document")
+        validate_moments(one_player, "one-player")
     campaign = document.get("campaign")
     if not isinstance(campaign, dict) or not isinstance(campaign.get("nodes"), list):
         raise ValueError("manifest has no package-authored campaign graph")
@@ -296,9 +465,14 @@ def main() -> int:
          if int(node["id"]) == int(campaign["entry_node_id"])),
         None,
     )
-    if not entry_node or not int(entry_node.get("has_fallback", 0)):
-        raise ValueError("campaign entry must lead to its first encounter")
-    boot_node_id = int(entry_node["fallback"])
+    if not entry_node:
+        raise ValueError("campaign entry is missing")
+    if int(entry_node.get("kind", 0)) == 1:
+        boot_node_id = int(entry_node["id"])
+    elif int(entry_node.get("has_fallback", 0)):
+        boot_node_id = int(entry_node["fallback"])
+    else:
+        raise ValueError("campaign entry must be an encounter or lead to one")
     if boot_node_id not in stage_names:
         raise ValueError("campaign entry does not lead to an encounter")
     lines = [
@@ -344,7 +518,17 @@ def main() -> int:
         "        : grandleon_generated_one_player_behaviors();",
         "}", "",
     ]
-    lines += emit_localizations(document)
+    lines += emit_moment_values("two_player", document)
+    lines += emit_moment_values(
+        "one_player", one_player if one_player is not None else document
+    )
+    lines += [
+        "const std::vector<grandleon_generated_moment>& grandleon_generated_moments(unsigned local_players) {",
+        "    return local_players > 1 ? grandleon_generated_two_player_moments()",
+        "        : grandleon_generated_one_player_moments();",
+        "}", "",
+    ]
+    lines += emit_localizations(document, one_player)
     lines += [
         "namespace camp = grandleon::campaign;", "",
         "namespace {",
@@ -490,8 +674,20 @@ struct grandleon_generated_campaign_member final {{
     const char* authored_name{{}};
     bool player_nameable{{}};
 }};
+struct grandleon_generated_moment final {{
+    std::uint64_t id{{}};
+    std::uint8_t trigger{{}};
+    std::uint64_t placement_id{{}};
+    std::uint64_t dialogue_id{{}};
+}};
+struct grandleon_generated_dialogue_line final {{
+    const char* speaker{{}};
+    const char* text{{}};
+}};
 grandleon::simulation::EncounterDefinition grandleon_generated_definition(unsigned local_players = 2);
 const std::vector<grandleon_generated_behavior>& grandleon_generated_behaviors(unsigned local_players = 2);
+const std::vector<grandleon_generated_moment>& grandleon_generated_moments(unsigned local_players = 2);
+const std::vector<grandleon_generated_dialogue_line>& grandleon_generated_moment_lines(unsigned language, std::uint64_t id);
 grandleon::campaign::CampaignGraph grandleon_generated_campaign_graph();
 const std::vector<grandleon_generated_campaign_member>& grandleon_generated_campaign_members();
 const grandleon_generated_campaign_member* grandleon_generated_campaign_member_for(std::uint64_t persistent_id);

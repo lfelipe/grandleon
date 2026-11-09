@@ -93,6 +93,66 @@ std::string campaign_node_name(
     ));
 }
 
+void write_moments(
+    std::ostream& output,
+    const std::vector<pr::EncounterMoment>& moments
+) {
+    output << '[';
+    for (std::size_t index = 0; index < moments.size(); ++index) {
+        if (index != 0U) output << ',';
+        const pr::EncounterMoment& moment = moments[index];
+        output << "{\"id\":";
+        write_id(output, moment.id);
+        output << ",\"trigger\":" << static_cast<unsigned>(moment.trigger)
+               << ",\"placement_id\":";
+        write_id(output, moment.placement_id);
+        output << ",\"dialogue_id\":";
+        write_id(output, moment.dialogue_id);
+        output << '}';
+    }
+    output << ']';
+}
+
+void write_localized_moments(
+    std::ostream& output,
+    const pf::LoadedPackage& package,
+    const std::vector<pr::EncounterMoment>& moments,
+    std::string_view language
+) {
+    output << '[';
+    for (std::size_t index = 0; index < moments.size(); ++index) {
+        if (index != 0U) output << ',';
+        const pr::EncounterMoment& moment = moments[index];
+        const pr::DialogueLoadResult loaded = pr::load_dialogue(
+            package, moment.dialogue_id
+        );
+        output << "{\"dialogue_id\":";
+        write_id(output, moment.dialogue_id);
+        output << ",\"lines\":[";
+        if (loaded) {
+            for (std::size_t line_index = 0;
+                 line_index < loaded.dialogue.lines.size(); ++line_index) {
+                if (line_index != 0U) output << ',';
+                const pr::DialogueLine& line =
+                    loaded.dialogue.lines[line_index];
+                output << "{\"speaker\":";
+                write_string(output, pr::localized_dialogue_line(
+                    package, language, moment.dialogue_id, line_index,
+                    "speaker", line.speaker
+                ));
+                output << ",\"text\":";
+                write_string(output, pr::localized_dialogue_line(
+                    package, language, moment.dialogue_id, line_index,
+                    "text", line.text
+                ));
+                output << '}';
+            }
+        }
+        output << "]}";
+    }
+    output << ']';
+}
+
 void write_campaign(
     std::ostream& output,
     const pf::LoadedPackage& package,
@@ -205,7 +265,8 @@ void write_localizations(
     const pf::LoadedPackage& package,
     const pr::CampaignDefinition& campaign,
     std::uint64_t campaign_id,
-    const sim::EncounterDefinition& encounter
+    const sim::EncounterDefinition& encounter,
+    const std::vector<pr::EncounterMoment>& moments
 ) {
     std::vector<std::string_view> languages = pr::available_languages(package);
     if (languages.empty()) {
@@ -265,7 +326,9 @@ void write_localizations(
             ));
             output << '}';
         }
-        output << "]}";
+        output << "],\"moments\":";
+        write_localized_moments(output, package, moments, language);
+        output << '}';
     }
     output << ']';
 }
@@ -436,8 +499,10 @@ int main(int argc, char** argv) {
     output << ",\n  \"languages\": ";
     write_localizations(
         output, package.package, campaign.definition, campaign_id,
-        loaded.definition
+        loaded.definition, loaded.moments
     );
+    output << ",\n  \"moments\": ";
+    write_moments(output, loaded.moments);
     output << ",\n  \"terrain\": [";
     for (std::size_t index = 0; index < loaded.terrain.size(); ++index) {
         if (index != 0) output << ',';

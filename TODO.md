@@ -479,8 +479,8 @@ than reproduce those implementation details.
 
 ## Cinematic battle presentation
 
-The Sevenfold console renderer and the Godot player now consume real hit and
-miss events in terrain-derived close views. Damage comes from the
+The Nintendo 64, PlayStation, and Godot players now consume real hit and miss
+events in terrain-derived close views. Damage comes from the
 simulation, and a legal counter-attack arrives as the next authoritative event
 with the roles reversed. The remaining work is richer art and animation,
 portable campaign authoring, and complete combat-outcome coverage.

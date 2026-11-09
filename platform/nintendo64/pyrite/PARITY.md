@@ -7,7 +7,7 @@ ares checkpoint.
 | Release contract | Status | Evidence |
 | --- | --- | --- |
 | 1P and 2P launch | Ready | The packaged `choice` policy drives the launch screen. Each mode has its own SRAM slot, and the two controllers keep independent cursors and selection ownership. |
-| Manual board actions | Ready | Move, Attack, every equipped Ability, Wait and Cancel enter the authoritative `Encounter` command boundary. Physical takeover leaves the review driver and opposing turns continue through the packaged tactics policy. |
+| Manual board actions | Ready | Move, Attack, every equipped Ability, usable carried items, Talk, Wait and Cancel enter the authoritative `Encounter` command boundary. Physical takeover leaves the review driver and opposing turns continue through the packaged tactics policy. |
 | Story and battle moments | Ready | Campaign story nodes and packaged stage-open/fall/talk dialogue are loaded from the GPK and shown as advanceable framed dialogue. |
 | Deployment | Ready | The screen appears only when the packaged encounter authors deployment; fixed formations skip it. |
 | Maps, objectives and aftermath | Ready within the bounded export contract | The demo's one battle and Steel and Cedar's five battles load from their distinct packages, commit reports and reach their authored terminal nodes. |

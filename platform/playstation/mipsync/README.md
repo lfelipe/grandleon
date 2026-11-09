@@ -4,8 +4,10 @@ This directory contains Grandleon's sole PlayStation renderer, built on
 Mipsync. It boots the full five-encounter Steel and Cedar
 campaign, saves and resumes on a PlayStation memory card, and supports both
 one- and two-player campaigns. Battles use the shared simulation for movement,
-Attack, equipped abilities, Wait, reinforcements, objectives, and
-package-authored opposing turns. In two-player battles each physical controller
+Attack, equipped abilities, carried items, Talk, Wait, reinforcements,
+objectives, and package-authored opposing turns. Stage-opening, Talk, and
+character-fall conversations come from the game package and remain localized.
+In two-player battles each physical controller
 keeps its own visible cursor and can command only its authored units; choosing
 two players is not merely a larger roster driven by controller one. A compact
 forecast and result UI plus the optional close-combat camera use the same disc
@@ -80,6 +82,12 @@ platform/playstation/mipsync/tests/run-scroll-probe.sh \
 PSN00BSDK_ROOT=/path/to/PSn00bSDK \
 platform/playstation/mipsync/tests/run-visibility-probe.sh \
   /tmp/twin-gate-output/build /tmp/twin-gate-probe-output
+
+platform/playstation/mipsync/tests/run-battle-moment-probe.sh \
+  /tmp/conversation-output /tmp/conversation-probe-output
+
+platform/playstation/mipsync/tests/run-item-probe.sh \
+  /tmp/item-output /tmp/item-probe-output
 ```
 
 To review motion rather than still frames, run
@@ -95,9 +103,11 @@ combat and completed board views. The scroll probe drives both axes on the real
 and zero missed VBlanks. The visibility probe uses ordinary controls on the
 real one-player Twin Gate encounter, captures the covered room, walks Rowan
 through the door, and requires the authored 18-cell reveal before capturing
-the room again. The campaign probe additionally starts, saves, resumes, and
-traverses all five encounters from the same disc. See `VALIDATION.md` for the
-current measurements and hashes.
+the room again. Focused action probes drive a package-authored Talk conversation
+and consume a carried healing item only after the unit is wounded. The campaign
+probe additionally starts, saves, resumes, and traverses all five encounters
+from the same disc in its complete one- and two-player forms. See
+`VALIDATION.md` for the current measurements and hashes.
 
 ## Budgets and validation
 

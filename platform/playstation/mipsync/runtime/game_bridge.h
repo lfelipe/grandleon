@@ -12,12 +12,14 @@ enum grandleon_ui_mode {
     GRANDLEON_UI_ACTION,
     GRANDLEON_UI_ATTACK,
     GRANDLEON_UI_ABILITY,
+    GRANDLEON_UI_TALK,
     GRANDLEON_UI_RESULT,
     GRANDLEON_UI_OPPONENT,
     GRANDLEON_UI_COMPLETE,
     GRANDLEON_UI_PAUSE,
     GRANDLEON_UI_BATTLE_HELP,
     GRANDLEON_UI_BATTLE_SETTINGS,
+    GRANDLEON_UI_BATTLE_MOMENT,
     GRANDLEON_UI_TITLE,
     GRANDLEON_UI_PLAYERS,
     GRANDLEON_UI_STORY,
@@ -62,6 +64,8 @@ enum grandleon_ui_text_id {
     GRANDLEON_TEXT_ATTACK,
     GRANDLEON_TEXT_WAIT,
     GRANDLEON_TEXT_ABILITY,
+    GRANDLEON_TEXT_ITEM,
+    GRANDLEON_TEXT_TALK,
     GRANDLEON_TEXT_ACTION,
     GRANDLEON_TEXT_MOVE,
     GRANDLEON_TEXT_HIT,
@@ -121,6 +125,14 @@ typedef struct grandleon_ui_state {
     uint8_t name_limit;
 } grandleon_ui_state;
 
+enum grandleon_action_kind {
+    GRANDLEON_ACTION_ATTACK = 0,
+    GRANDLEON_ACTION_ABILITY,
+    GRANDLEON_ACTION_ITEM,
+    GRANDLEON_ACTION_TALK,
+    GRANDLEON_ACTION_WAIT
+};
+
 int grandleon_game_init(void);
 /* 1 defers rendering for a rules mutation; 2 begins a fresh gameplay timing window. */
 int grandleon_game_update(
@@ -128,6 +140,7 @@ int grandleon_game_update(
 );
 void grandleon_game_ui_state(grandleon_ui_state* output);
 const char* grandleon_game_text(uint8_t text_id);
+uint8_t grandleon_game_action_kind(uint8_t index);
 const char* grandleon_game_name_key(uint8_t row, uint8_t column);
 void grandleon_game_set_fps(uint16_t fps);
 void grandleon_game_log_boot(unsigned int packet_bytes);

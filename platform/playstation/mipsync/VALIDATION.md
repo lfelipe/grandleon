@@ -25,8 +25,8 @@ real Twin Gate simulation. The same build supports one or two local players.
 ## Performance and memory
 
 Both measured campaign windows rendered all 600 frames with zero missed
-VBlanks and a maximum interval of one VBlank. Cedar Deepwood averaged 175
-HBlanks and peaked at 176; Twin Gate averaged 189 and peaked at 190. A separate
+VBlanks and a maximum interval of one VBlank. Cedar Deepwood averaged 178
+HBlanks and peaked at 179; Twin Gate averaged 193 and peaked at 194. A separate
 two-axis Deepwood scrolling stress pass averaged 163 HBlanks and peaked at 253,
 again with zero missed VBlanks. These figures include the terrain relief,
 native forms, seam fill, and live unit rendering described below.
@@ -36,6 +36,13 @@ melee attack and healing ability with Player 1, spends Player 2's units through
 the second controller, and observes the authored opposing turn. Board frames
 keep their 60 Hz budget; the optional close view remains bounded to two VBlanks
 per presented frame.
+
+Two focused action probes cover behavior that the release campaign does not
+force into its short automated route. One selects Talk through the normal menu
+and requires the exact package-authored conversation. The other moves and
+attacks with the demo's item carrier, takes counter and opposing-turn damage,
+then requires the newly usable field tonic to restore two health through the
+shared `use_item` command.
 
 The focused Twin Gate probe boots the real one-player 20x14 encounter and uses
 ordinary controller input. Rowan advances to the keep, both friendly units end
@@ -51,11 +58,11 @@ The build keeps the planned 64 KiB audio reserve, 32 KiB stack reserve, and
 
 | Encounter | Committed RAM | Texture VRAM | Active cache |
 | --- | ---: | ---: | ---: |
-| Bell Orchard | 1,450,592 / 2,097,152 | 116,736 / 196,608 | 214 vertices, 212 triangles |
-| Cedar Deepwood | 1,483,360 / 2,097,152 | 133,120 / 196,608 | 193 vertices, 140 triangles |
-| Cedar Watch | 1,538,656 / 2,097,152 | 149,504 / 196,608 | 199 vertices, 158 triangles |
-| Gate Village | 1,536,608 / 2,097,152 | 165,888 / 196,608 | 183 vertices, 128 triangles |
-| Twin Gate Keep | 1,499,744 / 2,097,152 | 124,928 / 196,608 | 237 vertices, 182 triangles |
+| Bell Orchard | 1,460,944 / 2,097,152 | 116,736 / 196,608 | 214 vertices, 212 triangles |
+| Cedar Deepwood | 1,491,664 / 2,097,152 | 133,120 / 196,608 | 193 vertices, 140 triangles |
+| Cedar Watch | 1,546,960 / 2,097,152 | 149,504 / 196,608 | 199 vertices, 158 triangles |
+| Gate Village | 1,546,960 / 2,097,152 | 165,888 / 196,608 | 183 vertices, 128 triangles |
+| Twin Gate Keep | 1,508,048 / 2,097,152 | 124,928 / 196,608 | 237 vertices, 182 triangles |
 
 Larger maps use overlapping 8x6 terrain pages, with only the nearest page
 active. Unit and prop culling changes presentation only; the full encounter
@@ -82,7 +89,7 @@ English label texture is no longer shipped.
 ## Exact artifact
 
 - CUE SHA-256: `29d16c06436b8a5210108dcf67bbbd29ef0c78753e18cceed2e506a8f9ffecff`
-- BIN SHA-256: `de30e8bc855aaef91ffa174b1f4b5b9b9151ec71994ac15b8fe06e7829a3ca53`
+- BIN SHA-256: `5df87ae78576579532002ae27ef6975137ea613421103fe1592535d47fd6410f`
 - final memory-card SHA-256: `c0a525c5d9318ad4b88a629549168261a43be9948fb6c2902716e4656a4e1e26`
 
 The exact build manifests, emulator logs, card, and hashes remain outside
