@@ -202,9 +202,9 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
     const Language selected = interface_language(language);
     switch (message) {
         case Message::campaign_tagline:
-            return selected == Language::spanish ? "UNA CAMPANA QUE GUARDA ESTE JUEGO"
-                 : selected == Language::portuguese_brazil ? "UMA CAMPANHA SALVA NESTE JOGO"
-                 : "A CAMPAIGN THIS CARTRIDGE KEEPS";
+            return selected == Language::spanish ? "UNA NUEVA AVENTURA"
+                 : selected == Language::portuguese_brazil ? "UMA NOVA AVENTURA"
+                 : "YOUR NEXT ADVENTURE";
         case Message::press_start:
             return selected == Language::spanish ? "PULSA START"
                  : selected == Language::portuguese_brazil ? "APERTE START"
