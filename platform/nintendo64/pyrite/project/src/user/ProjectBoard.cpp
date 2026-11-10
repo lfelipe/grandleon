@@ -19,6 +19,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdarg>
 #include <cstdio>
 #include <optional>
 #include <string>
@@ -35,11 +36,14 @@
 #include "GeneratedProject.hpp"
 #include "GpkRuntimeAdapter.hpp"
 #include "scene/camera.h"
+#include "renderer/renderScale.h"
 #include "scene/scene.h"
 #include "scene/sceneManager.h"
 #include "vi/swapChain.h"
 #include <grandleon/view/motion.hpp>
 #include <grandleon/view/ambient_motion.hpp>
+#include <grandleon/view/brand_logo.h>
+#include <grandleon/view/console_text.h>
 
 namespace campaign = grandleon::campaign;
 namespace client = grandleon::client;
@@ -230,6 +234,9 @@ struct ShellState final {
     std::vector<std::uint64_t> story_ids;
     std::size_t story_id_index{};
     std::size_t story_line_index{};
+    std::size_t story_text_offset{};
+    std::size_t story_text_next{};
+    bool story_text_more{};
     pr::Dialogue story;
     std::vector<campaign::PersistentEntityId> pending_player_names;
     client::RosterEntry name_member;
@@ -268,6 +275,9 @@ struct BattleMomentState final {
     std::vector<std::uint64_t> dialogue_ids;
     std::size_t dialogue_index{};
     std::size_t line_index{};
+    std::size_t text_offset{};
+    std::size_t text_next{};
+    bool text_more{};
     std::uint32_t next_automatic_frame{};
     pr::Dialogue dialogue;
     bool active{};
@@ -336,6 +346,8 @@ struct CombatPresentation final {
     std::uint32_t phase_ticks{};
     sim::UnitId attacker{};
     sim::UnitId defender{};
+    sim::UnitSnapshot attacker_art{};
+    sim::UnitSnapshot defender_art{};
     sim::Position attacker_position{};
     sim::Position defender_position{};
     std::int16_t attacker_health_before{};
@@ -351,7 +363,7 @@ struct CombatPresentation final {
 };
 
 constexpr CameraPose kTacticalCamera{
-    -5.5F, 6.8F, 5.5F,
+    0.0F, 6.8F, 7.78F,
     0.0F, 0.12F, 0.0F,
     2.08F,
 };
@@ -392,6 +404,30 @@ constexpr std::array<std::uint8_t, 3> kSettingsMagic{'P', 'Y', 'S'};
 
 std::string_view game_language() {
     return selected_language;
+}
+
+std::string console_ascii(std::string_view utf8) {
+    const std::string terminated(utf8);
+    const char* cursor = terminated.c_str();
+    std::string result;
+    result.reserve(utf8.size());
+    while (*cursor != '\0') result.push_back(grandleon_text_next(&cursor));
+    return result;
+}
+
+void display_printf(int x, int y, const char* format, ...) {
+    std::array<char, 512> formatted{};
+    std::array<char, 512> ascii{};
+    va_list arguments;
+    va_start(arguments, format);
+    std::vsnprintf(formatted.data(), formatted.size(), format, arguments);
+    va_end(arguments);
+    const char* cursor = formatted.data();
+    std::size_t count = 0U;
+    while (*cursor != '\0' && count + 1U < ascii.size()) {
+        ascii[count++] = grandleon_text_next(&cursor);
+    }
+    P64::Debug::printf(x, y, "%s", ascii.data());
 }
 
 const char* ui(console::Message message) {
@@ -641,7 +677,7 @@ CameraPose tactical_camera_for(sim::Position requested) {
         half_visible_x, half_visible_y
     );
     assert(gp::board_camera_target_is_playable(window, width, height));
-    constexpr float render_scale = 64.0F;
+    const float render_scale = P64::Renderer::getRenderScale();
     const float centre_x = static_cast<float>(width - 1) * 0.5F;
     const float centre_y = static_cast<float>(height - 1) * 0.5F;
     const float offset_x = (window.focus_x - centre_x) * kCell / render_scale;
@@ -1461,6 +1497,12 @@ int lunge_percent(const sim::UnitSnapshot& unit) {
     return static_cast<int>((44U - combat.phase_ticks) * 22U / 14U);
 }
 
+const sim::UnitSnapshot& presented_unit(const sim::UnitSnapshot& unit) {
+    if (combat.active && unit.id == combat.attacker) return combat.attacker_art;
+    if (combat.active && unit.id == combat.defender) return combat.defender_art;
+    return unit;
+}
+
 void build_unit_vertices() {
     const auto width = board.content->definition.width;
     const auto height = board.content->definition.height;
@@ -1471,7 +1513,8 @@ void build_unit_vertices() {
     board.rowan_x = -1;
     board.rowan_y = -1;
     board.rowan_health = 0;
-    for (const sim::UnitSnapshot& unit : board.game.snapshot().units) {
+    for (const sim::UnitSnapshot& authoritative : board.game.snapshot().units) {
+        const sim::UnitSnapshot& unit = presented_unit(authoritative);
         if (!sim::on_board(unit) || board.unit_count >= kMaxUnits) continue;
         const std::size_t unit_cell = static_cast<std::size_t>(
             unit.position.y * width + unit.position.x
@@ -1504,19 +1547,9 @@ void build_unit_vertices() {
                 segment_from.x, segment_from.y,
                 segment_to.x, segment_to.y
             );
-            // The fixed isometric camera projects north toward screen-left
-            // and south toward screen-right. Preserving the previous profile
-            // on those legs made a diagonal route visibly walk backwards even
-            // though its world-space route was correct. Until the generated
-            // compass bank is resident at runtime, choose the side silhouette
-            // from projected travel for all four headings.
-            motion.facing_left = heading == view::BoardHeading::north
-                ? true
-                : heading == view::BoardHeading::south
-                    ? false
-                    : view::board_heading_faces_left(
-                        heading, motion.facing_left
-                    );
+            motion.facing_left = view::board_heading_faces_left(
+                heading, motion.facing_left
+            );
             facing_left = motion.facing_left;
             const int segment_frame = static_cast<int>(
                 elapsed - route_index * view::slide_frames_per_tile
@@ -1553,8 +1586,11 @@ void build_unit_vertices() {
                 (view::slide_frames_per_tile - segment_frame) /
                 (view::slide_frames_per_tile * view::slide_frames_per_tile);
         }
-        const std::int16_t right_x = 17;
-        const std::int16_t right_z = 17;
+        const float yaw_x = current_camera.eye_z - current_camera.target_z;
+        const float yaw_z = current_camera.target_x - current_camera.eye_x;
+        const float yaw_length = std::max(0.01F, std::sqrt(yaw_x * yaw_x + yaw_z * yaw_z));
+        const std::int16_t right_x = static_cast<std::int16_t>(24.0F * yaw_x / yaw_length);
+        const std::int16_t right_z = static_cast<std::int16_t>(24.0F * yaw_z / yaw_length);
         const auto idle = view::idle_pose(
             frame_count / 2U, unit.id,
             !combat.reduced_motion && !combat.active &&
@@ -1615,8 +1651,11 @@ void build_cursor_vertices() {
     constexpr std::int16_t inner = kHalfCell - 6;
     const sim::EncounterSnapshot& snapshot = board.game.snapshot();
     std::size_t first = 0U;
-    if (snapshot.deploying) {
-        for (const sim::Position tile : snapshot.deployment_tiles) {
+    const sim::UnitId selected = board.game.selected(board.game.active_player());
+    const std::vector<sim::Position> reach = !snapshot.deploying && selected != 0U
+        ? sim::reachable_tiles(snapshot, selected) : std::vector<sim::Position>{};
+    if (snapshot.deploying || !reach.empty()) {
+        for (const sim::Position tile : snapshot.deploying ? snapshot.deployment_tiles : reach) {
             const std::size_t terrain_index =
                 static_cast<std::size_t>(tile.y) * width +
                 static_cast<std::size_t>(tile.x);
@@ -1629,7 +1668,7 @@ void build_cursor_vertices() {
             const std::int16_t cz = world_z(tile.y, height);
             cursor_quad(
                 first, cx - 10, cz - 10, cx + 10, cz + 10, floor,
-                pack_rgba(62U, 184U, 171U)
+                pack_rgba(72U, 185U, 235U)
             );
             first += 4U;
         }
@@ -1767,6 +1806,8 @@ bool load_battle_moment_dialogue() {
         if (loaded && !loaded.dialogue.lines.empty()) {
             battle_moment.dialogue = loaded.dialogue;
             battle_moment.line_index = 0U;
+            battle_moment.text_offset = battle_moment.text_next = 0U;
+            battle_moment.text_more = false;
             battle_moment.active = true;
             battle_moment.next_automatic_frame = frame_count + 75U;
             debugf(
@@ -1800,6 +1841,13 @@ void queue_battle_moments(
 bool advance_battle_moment() {
     if (!battle_moment.active) return false;
     play_ui_cue();
+    if (battle_moment.text_more) {
+        battle_moment.text_offset = battle_moment.text_next;
+        battle_moment.text_more = false;
+        battle_moment.next_automatic_frame = frame_count + 75U;
+        return true;
+    }
+    battle_moment.text_offset = battle_moment.text_next = 0U;
     ++battle_moment.line_index;
     if (battle_moment.line_index < battle_moment.dialogue.lines.size()) {
         battle_moment.next_automatic_frame = frame_count + 75U;
@@ -1966,6 +2014,8 @@ bool load_story_dialogue() {
     if (!loaded) return false;
     shell.story = loaded.dialogue;
     shell.story_line_index = 0U;
+    shell.story_text_offset = shell.story_text_next = 0U;
+    shell.story_text_more = false;
     return !shell.story.lines.empty();
 }
 
@@ -2123,6 +2173,13 @@ bool stand_on_campaign_encounter() {
 }
 
 bool advance_story_beat() {
+    if (shell.story_text_more) {
+        shell.story_text_offset = shell.story_text_next;
+        shell.story_text_more = false;
+        shell.next_automatic_frame = frame_count + 75U;
+        return true;
+    }
+    shell.story_text_offset = shell.story_text_next = 0U;
     if (shell.story_line_index + 1U < shell.story.lines.size()) {
         ++shell.story_line_index;
         shell.next_automatic_frame = frame_count + 75U;
@@ -2309,6 +2366,7 @@ bool confirm_shell_choice() {
             enter_shell_phase(ShellPhase::title);
             return true;
         case ShellPhase::settings:
+            if (shell.audio_row == 2U && game_languages().size() > 1U) return cycle_game_language();
             adjust_volume(shell.audio_row, 1);
             return true;
         case ShellPhase::players:
@@ -2352,11 +2410,31 @@ bool confirm_shell_choice() {
     return false;
 }
 
+joypad_buttons_t directional_input(joypad_port_t port, unsigned seat) {
+    joypad_buttons_t pressed = joypad_get_buttons_pressed(port);
+    const joypad_inputs_t input = joypad_get_inputs(port);
+    static std::array<int, 2> previous_direction{};
+    static std::array<std::uint32_t, 2> next_repeat{};
+    const int x = input.stick_x;
+    const int y = input.stick_y;
+    const int direction = std::abs(x) < 32 && std::abs(y) < 32 ? 0
+        : std::abs(x) > std::abs(y) ? (x < 0 ? 1 : 2) : (y > 0 ? 3 : 4);
+    if (direction != 0 && (direction != previous_direction[seat] || frame_count >= next_repeat[seat])) {
+        pressed.d_left |= direction == 1;
+        pressed.d_right |= direction == 2;
+        pressed.d_up |= direction == 3;
+        pressed.d_down |= direction == 4;
+        next_repeat[seat] = frame_count + (direction != previous_direction[seat] ? 16U : 8U);
+    }
+    previous_direction[seat] = direction;
+    return pressed;
+}
+
 void update_shell_input() {
     if (shell.phase == ShellPhase::battle) {
         return;
     }
-    const joypad_buttons_t pressed = joypad_get_buttons_pressed(JOYPAD_PORT_1);
+    const joypad_buttons_t pressed = directional_input(JOYPAD_PORT_1, 0U);
     shell.second_connected = joypad_is_connected(JOYPAD_PORT_2);
     const bool physical = pressed.a || pressed.start || pressed.d_up ||
         pressed.d_down || pressed.d_left || pressed.d_right || pressed.b ||
@@ -2398,10 +2476,16 @@ void update_shell_input() {
         }
     } else if (shell.phase == ShellPhase::settings) {
         if (pressed.b || pressed.start) enter_shell_phase(ShellPhase::title);
-        else if (pressed.d_up || pressed.d_down) shell.audio_row ^= 1U;
+        else if (pressed.d_up || pressed.d_down) {
+            shell.audio_row = static_cast<std::uint8_t>((shell.audio_row + (pressed.d_up ? (game_languages().size() > 1U ? 2U : 1U) : 1U)) % (game_languages().size() > 1U ? 3U : 2U));
+        }
         else if (pressed.d_left || pressed.d_right) {
-            adjust_volume(shell.audio_row, pressed.d_left ? -1 : 1);
-        } else if (pressed.a) adjust_volume(shell.audio_row, 1);
+            if (shell.audio_row == 2U) (void)cycle_game_language();
+            else adjust_volume(shell.audio_row, pressed.d_left ? -1 : 1);
+        } else if (pressed.a) {
+            if (shell.audio_row == 2U) (void)cycle_game_language();
+            else adjust_volume(shell.audio_row, 1);
+        }
         return;
     } else if (shell.phase == ShellPhase::help && pressed.b) {
         enter_shell_phase(ShellPhase::title);
@@ -2697,7 +2781,8 @@ void draw_units() {
     rdpq_mode_end();
     t3d_state_set_drawflags(static_cast<T3DDrawFlags>(T3D_FLAG_TEXTURED | T3D_FLAG_DEPTH));
     std::size_t visual_index = 0;
-    for (const sim::UnitSnapshot& unit : board.game.snapshot().units) {
+    for (const sim::UnitSnapshot& authoritative : board.game.snapshot().units) {
+        const sim::UnitSnapshot& unit = presented_unit(authoritative);
         if (!sim::on_board(unit)) continue;
         // The authored 84px close poses are composed in screen space because
         // they exceed one CI4 TMEM load. Keep board sprites resident beneath
@@ -2822,7 +2907,7 @@ CameraPose close_camera_for(
 ) {
     const auto width = board.content->definition.width;
     const auto height = board.content->definition.height;
-    constexpr float render_scale = 64.0F;
+    const float render_scale = P64::Renderer::getRenderScale();
     const float attacker_x = world_x(attacker.x, width) / render_scale;
     const float attacker_z = world_z(attacker.y, height) / render_scale;
     const float defender_x = world_x(defender.x, width) / render_scale;
@@ -2878,8 +2963,9 @@ void finish_combat(bool skipped) {
     // capture landmark. This keeps a checkpoint grab from photographing the
     // preceding return frame still held by the emulator window.
     restore_checkpoint_delay = 4U;
-    if (battle_ui.phase == BattleUiPhase::result) {
-        battle_ui.result_until = frame_count + 75U;
+    if (battle_ui.phase == BattleUiPhase::result &&
+        battle_ui.result_error == sim::CommandError::none) {
+        battle_ui = {};
     }
 }
 
@@ -2895,6 +2981,8 @@ void start_combat(
     combat.skipped = false;
     combat.phase = CombatPhase::entering;
     combat.phase_ticks = 0;
+    combat.attacker_art = attacker_before;
+    combat.defender_art = defender_before;
     combat.attacker = attacker_before.id;
     combat.defender = defender_before.id;
     combat.attacker_position = attacker_before.position;
@@ -3159,7 +3247,12 @@ ActionMenu action_menu() {
     ActionMenu menu;
     const sim::UnitSnapshot* actor = find_unit(battle_ui.actor);
     if (actor == nullptr) return menu;
-    menu.append(ActionChoiceKind::attack);
+    for (const sim::UnitSnapshot& target : board.game.snapshot().units) {
+        if (sim::forecast_attack(board.game.snapshot(), actor->id, target.id)) {
+            menu.append(ActionChoiceKind::attack);
+            break;
+        }
+    }
     for (const sim::ContentId ability : actor->ability_ids) {
         menu.append(ActionChoiceKind::ability, ability);
     }
@@ -3283,6 +3376,7 @@ bool apply_battle_command(
             else play_impact_cue();
         }
     }
+    if (command.type == sim::CommandType::attack && !combat.active) battle_ui = {};
     build_cursor_vertices();
     return true;
 }
@@ -3296,6 +3390,21 @@ bool confirm_action_choice() {
     const ActionChoice choice = action_choice();
     switch (choice.kind) {
         case ActionChoiceKind::attack:
+            for (const sim::UnitSnapshot& target : board.game.snapshot().units) {
+                if (!sim::forecast_attack(board.game.snapshot(), actor->id, target.id)) continue;
+                // Cursor focus is presentation state; use directional gestures
+                // to preserve the gameplay boundary and multiplayer ownership.
+                for (unsigned step = 0; step < kMaxCells; ++step) {
+                    const sim::Position cursor = board.game.cursor(battle_ui.player);
+                    if (cursor == target.position) break;
+                    const auto direction = cursor.x < target.position.x ? gp::GameplaySlice::Action::right
+                        : cursor.x > target.position.x ? gp::GameplaySlice::Action::left
+                        : cursor.y < target.position.y ? gp::GameplaySlice::Action::down
+                        : gp::GameplaySlice::Action::up;
+                    (void)issue(direction, battle_ui.player);
+                }
+                break;
+            }
             battle_ui.phase = BattleUiPhase::attack_target;
             return true;
         case ActionChoiceKind::ability:
@@ -3385,7 +3494,7 @@ bool nudge_toward(sim::Position destination) {
 }
 
 std::uint8_t system_rows() {
-    return game_languages().size() > 1U ? 8U : 7U;
+    return game_languages().size() > 1U ? 7U : 6U;
 }
 
 void open_system_menu(std::uint8_t player) {
@@ -3405,31 +3514,21 @@ bool confirm_system_choice() {
             save_user_settings();
             return true;
         case 2U:
-            combat.reduced_motion = !combat.reduced_motion;
-            save_user_settings();
-            return true;
-        case 3U:
             adjust_volume(0U, 1);
             return true;
-        case 4U:
+        case 3U:
             debug_hud = !debug_hud;
             save_user_settings();
             return true;
+        case 4U:
+            if (game_languages().size() > 1U) (void)cycle_game_language();
+            else adjust_volume(1U, 1);
+            return true;
         case 5U:
-            if (game_languages().size() > 1U) {
-                (void)cycle_game_language();
-            } else {
-                adjust_volume(1U, 1);
-            }
+            if (game_languages().size() > 1U) adjust_volume(1U, 1);
+            else battle_ui.phase = BattleUiPhase::help;
             return true;
         case 6U:
-            if (game_languages().size() > 1U) {
-                adjust_volume(1U, 1);
-                return true;
-            }
-            battle_ui.phase = BattleUiPhase::help;
-            return true;
-        case 7U:
             battle_ui.phase = BattleUiPhase::help;
             return true;
         default:
@@ -3510,11 +3609,7 @@ bool physical_input_for(
     }
     if (combat.active) {
         if (pressed.b) finish_combat(true);
-        if (pressed.l) {
-            combat.reduced_motion = !combat.reduced_motion;
-            save_user_settings();
-        }
-        return pressed.b || pressed.l || pressed.r;
+        return pressed.b || pressed.r;
     }
     if (battle_ui.phase == BattleUiPhase::result) {
         if (player != battle_ui.player) return false;
@@ -3545,8 +3640,8 @@ bool physical_input_for(
                 (battle_ui.row + 1U) % system_rows()
             );
         } else if ((pressed.d_left || pressed.d_right) &&
-                   (battle_ui.row == 3U || battle_ui.row == (game_languages().size() > 1U ? 6U : 5U))) {
-            adjust_volume(battle_ui.row == 3U ? 0U : 1U, pressed.d_left ? -1 : 1);
+                   (battle_ui.row == 2U || battle_ui.row == (game_languages().size() > 1U ? 5U : 4U))) {
+            adjust_volume(battle_ui.row == 2U ? 0U : 1U, pressed.d_left ? -1 : 1);
         } else if (pressed.b || pressed.start) {
             battle_ui = {};
         } else if (pressed.a) {
@@ -3607,12 +3702,6 @@ bool physical_input_for(
         replay.user_took_over = true;
         return true;
     }
-    if (pressed.l) {
-        combat.reduced_motion = !combat.reduced_motion;
-        save_user_settings();
-        replay.user_took_over = true;
-        return true;
-    }
     if (!pressed.d_left && !pressed.d_right && !pressed.d_up &&
         !pressed.d_down && !pressed.a && !pressed.b && !pressed.z) {
         return false;
@@ -3651,7 +3740,7 @@ bool physical_input() {
     constexpr joypad_port_t ports[2] = {JOYPAD_PORT_1, JOYPAD_PORT_2};
     bool handled = false;
     for (std::uint8_t player = 0U; player < board.game.local_players(); ++player) {
-        const joypad_buttons_t pressed = joypad_get_buttons_pressed(ports[player]);
+        const joypad_buttons_t pressed = directional_input(ports[player], player);
         handled = physical_input_for(player, pressed) || handled;
     }
     return handled;
@@ -3694,25 +3783,27 @@ bool advance_ai() {
             plan_motion(snapshot, command.unit_id, command.destination);
         }
         bool accepted = false;
-        if (command.type == sim::CommandType::attack) {
-            const sim::AttackForecast forecast = sim::forecast_attack(
-                snapshot, command.unit_id, command.target_id
-            );
-            assertf(static_cast<bool>(forecast), "Tactics emitted a refused attack");
-            if (!replay.attack_forecast_checkpoint) {
-                debugf(
-                    "CHECKPOINT PYRITE_ACTION_FORECAST hit=%d damage=%d "
-                    "counter=%d counter_damage=%d\n",
-                    forecast.hit_chance, forecast.damage,
-                    forecast.counter ? 1 : 0, forecast.counter_damage
+        if (command.type == sim::CommandType::attack || command.type == sim::CommandType::ability) {
+            if (command.type == sim::CommandType::attack) {
+                const sim::AttackForecast forecast = sim::forecast_attack(
+                    snapshot, command.unit_id, command.target_id
                 );
-                replay.attack_forecast_checkpoint = true;
+                assertf(static_cast<bool>(forecast), "Tactics emitted a refused attack");
+                if (!replay.attack_forecast_checkpoint) {
+                    debugf(
+                        "CHECKPOINT PYRITE_ACTION_FORECAST hit=%d damage=%d "
+                        "counter=%d counter_damage=%d\n",
+                        forecast.hit_chance, forecast.damage,
+                        forecast.counter ? 1 : 0, forecast.counter_damage
+                    );
+                    replay.attack_forecast_checkpoint = true;
+                }
             }
             // The bounded review driver proves one complete optional handoff;
             // physical player commands keep the default and present every
             // attack while the setting is enabled.
             accepted = apply_battle_command(
-                command, combat.exchanges == 0U
+                command, !grandleon_project_review_driver || combat.exchanges == 0U
             );
         } else {
             accepted = board.game.apply(command);
@@ -4121,8 +4212,8 @@ void update_replay() {
 void draw_combat_stage_2d() {
     const std::uint8_t alpha = close_overlay_alpha();
     if (alpha == 0U) return;
-    const sim::UnitSnapshot* left = find_unit(combat.attacker);
-    const sim::UnitSnapshot* right = find_unit(combat.defender);
+    const sim::UnitSnapshot* left = &combat.attacker_art;
+    const sim::UnitSnapshot* right = &combat.defender_art;
     assert(left && right);
     const VisualPose left_pose = close_combat_phase()
         ? pose_for_unit(*left) : VisualPose::close_idle;
@@ -4277,11 +4368,11 @@ void draw_combat_stage_2d() {
             rdpq_fill_rectangle(116, 36, 204, 54);
         }
         P64::Debug::printStart();
-        P64::Debug::printf(14, 11, "ATK %d/%d", left_health, left->maximum_health);
-        P64::Debug::printf(202, 11, "DEF %d/%d", right_health, right->maximum_health);
+        display_printf(14, 11, "ATK %d/%d", left_health, left->maximum_health);
+        display_printf(202, 11, "DEF %d/%d", right_health, right->maximum_health);
         if (result != nullptr) {
-            if (amount > 0) P64::Debug::printf(130, 40, "%s -%d", result, amount);
-            else P64::Debug::printf(142, 40, "%s", result);
+            if (amount > 0) display_printf(130, 40, "%s -%d", result, amount);
+            else display_printf(142, 40, "%s", result);
         }
     }
     rdpq_mode_pop();
@@ -4330,8 +4421,8 @@ void draw_battle_ui() {
         const std::string speaker = client::substitute_campaign_member_names(
             localized_speaker, roster
         );
-        const std::string dialogue_text =
-            client::substitute_campaign_member_names(localized_text, roster);
+        const std::string dialogue_text = console_ascii(
+            client::substitute_campaign_member_names(localized_text, roster));
         rdpq_mode_push();
         rdpq_mode_begin();
             rdpq_mode_zbuf(false, false);
@@ -4344,27 +4435,29 @@ void draw_battle_ui() {
         rdpq_set_prim_color({12, 22, 33, 248});
         rdpq_fill_rectangle(19, 161, 301, 231);
         P64::Debug::printStart();
-        P64::Debug::printf(
+        display_printf(
             29, 169, "%.*s",
             static_cast<int>(std::min<std::size_t>(speaker.size(), 30U)),
             speaker.data()
         );
         constexpr std::size_t width = 42U;
-        std::size_t start = 0U;
+        std::size_t start = std::min(battle_moment.text_offset, dialogue_text.size());
         for (int row = 0; row < 2 && start < dialogue_text.size(); ++row) {
             std::size_t end = std::min(start + width, dialogue_text.size());
             if (end < dialogue_text.size()) {
                 const std::size_t space = dialogue_text.rfind(' ', end);
                 if (space != std::string_view::npos && space > start) end = space;
             }
-            P64::Debug::printf(
+            display_printf(
                 29, 189 + row * 17, "%.*s",
                 static_cast<int>(end - start), dialogue_text.data() + start
             );
             start = end;
             while (start < dialogue_text.size() && dialogue_text[start] == ' ') ++start;
         }
-        P64::Debug::printf(238, 215, "A %s", ui(console::Message::next));
+        battle_moment.text_next = start;
+        battle_moment.text_more = start < dialogue_text.size();
+        display_printf(238, 215, "A %s", ui(console::Message::next));
         rdpq_mode_pop();
         return;
     }
@@ -4381,10 +4474,10 @@ void draw_battle_ui() {
         rdpq_set_prim_color({12, 22, 33, 248});
         rdpq_fill_rectangle(69, 16, 251, 59);
         P64::Debug::printStart();
-        P64::Debug::printf(
+        display_printf(
             80, 22, "%s", ui(console::Message::deployment)
         );
-        P64::Debug::printf(
+        display_printf(
             80, 42, "A %s   START %s",
             board.game.selected(board.game.active_player()) == 0U
                 ? ui(console::Message::select)
@@ -4411,72 +4504,111 @@ void draw_battle_ui() {
         rdpq_fill_rectangle(49, 36, 271, 222);
         P64::Debug::printStart();
         if (battle_ui.phase == BattleUiPhase::help) {
-            P64::Debug::printf(132, 48, "%s", ui(console::Message::help));
-            P64::Debug::printf(63, 76, "%s", ui(console::Message::move_cursor));
-            P64::Debug::printf(63, 98, "%s", ui(console::Message::select_confirm));
-            P64::Debug::printf(
+            display_printf(132, 48, "%s", ui(console::Message::help));
+            display_printf(63, 76, "%s", ui(console::Message::move_cursor));
+            display_printf(63, 98, "%s", ui(console::Message::select_confirm));
+            display_printf(
                 63, 120, "Z      %s", ui(console::Message::character_actions)
             );
-            P64::Debug::printf(63, 142, "START  %s", ui(console::Message::settings));
-            P64::Debug::printf(63, 164, "%s", ui(console::Message::back));
-            P64::Debug::printf(
+            display_printf(63, 142, "START  %s", ui(console::Message::settings));
+            display_printf(63, 164, "%s", ui(console::Message::back));
+            display_printf(
                 63, 186, "%s", ui(console::Message::close_view_help)
             );
-            P64::Debug::printf(91, 208, "A / B  %s", ui(console::Message::settings));
+            display_printf(91, 208, "A / B  %s", ui(console::Message::settings));
         } else {
             const bool languages = game_languages().size() > 1U;
             const auto y = [](unsigned row) {
                 return 62 + static_cast<int>(row) * 18;
             };
-            P64::Debug::printf(94, 44, "%s P%u",
+            display_printf(94, 44, "%s P%u",
                 ui(console::Message::settings),
                 static_cast<unsigned>(battle_ui.player + 1U));
-            P64::Debug::printf(69, y(0), "%s %s",
+            display_printf(69, y(0), "%s %s",
                 battle_ui.row == 0U ? ">" : " ",
                 ui(console::Message::resume));
-            P64::Debug::printf(69, y(1), "%s %s: %s",
+            display_printf(69, y(1), "%s %s: %s",
                 battle_ui.row == 1U ? ">" : " ",
                 ui(console::Message::close_view),
                 ui(combat.enabled ? console::Message::on : console::Message::off));
-            P64::Debug::printf(69, y(2), "%s %s: %s",
+            display_printf(69, y(2), "%s %s: %u%%",
                 battle_ui.row == 2U ? ">" : " ",
-                ui(console::Message::reduced_motion),
-                ui(combat.reduced_motion ? console::Message::on : console::Message::off));
-            P64::Debug::printf(69, y(3), "%s %s: %u%%",
-                battle_ui.row == 3U ? ">" : " ",
                 ui(console::Message::music_volume), music_volume);
-            P64::Debug::printf(69, y(4), "%s %s",
-                battle_ui.row == 4U ? ">" : " ",
+            display_printf(69, y(3), "%s %s",
+                battle_ui.row == 3U ? ">" : " ",
                 ui(debug_hud ? console::Message::show_fps_on
                              : console::Message::show_fps_off));
             if (languages) {
-                P64::Debug::printf(69, y(5), "%s %s: %s",
-                    battle_ui.row == 5U ? ">" : " ",
+                display_printf(69, y(4), "%s %s: %s",
+                    battle_ui.row == 4U ? ">" : " ",
                     ui(console::Message::language),
                     console::language_code(game_language()));
             }
-            const unsigned effects_row = languages ? 6U : 5U;
-            P64::Debug::printf(69, y(effects_row), "%s %s: %u%%",
+            const unsigned effects_row = languages ? 5U : 4U;
+            display_printf(69, y(effects_row), "%s %s: %u%%",
                 battle_ui.row == effects_row ? ">" : " ",
                 ui(console::Message::effects_volume), effects_volume);
-            const unsigned help_row = languages ? 7U : 6U;
-            P64::Debug::printf(69, y(help_row), "%s %s",
+            rdpq_mode_push();
+            rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
+            rdpq_mode_alphacompare(0);
+            rdpq_set_prim_color({39, 59, 71, 255});
+            rdpq_fill_rectangle(69, y(2) + 13, 251, y(2) + 16);
+            rdpq_fill_rectangle(69, y(effects_row) + 13, 251, y(effects_row) + 16);
+            rdpq_set_prim_color({206, 170, 83, 255});
+            rdpq_fill_rectangle(69, y(2) + 13, 69 + music_volume * 182 / 100, y(2) + 16);
+            rdpq_fill_rectangle(69, y(effects_row) + 13, 69 + effects_volume * 182 / 100, y(effects_row) + 16);
+            rdpq_mode_pop();
+            P64::Debug::printStart();
+            const unsigned help_row = languages ? 6U : 5U;
+            display_printf(69, y(help_row), "%s %s",
                 battle_ui.row == help_row ? ">" : " ",
                 ui(console::Message::help));
-            P64::Debug::printf(76, 210, "A %s   B %s",
+            display_printf(76, 210, "A %s   B %s",
                 ui(console::Message::confirm), ui(console::Message::resume));
         }
         rdpq_mode_pop();
         return;
     }
+    struct PanelCorner { int x; int y; };
+    constexpr std::array<PanelCorner, 4> corners{{{5, 12}, {176, 12}, {5, 130}, {176, 130}}};
+    unsigned best_score = ~0U;
+    PanelCorner panel = corners[0];
+    const auto projected = [](sim::Position tile) {
+        const float scale = 120.0F / current_camera.ortho;
+        const float dx = world_x(tile.x, board.content->definition.width) / P64::Renderer::getRenderScale() - current_camera.target_x;
+        const float dz = world_z(tile.y, board.content->definition.height) / P64::Renderer::getRenderScale() - current_camera.target_z;
+        const std::size_t cell = static_cast<std::size_t>(tile.y) * board.content->definition.width + tile.x;
+        const float floor = cell < board.content->terrain.size()
+            ? terrain_lift(board.content->terrain[cell]) / P64::Renderer::getRenderScale() : 0.0F;
+        const float dy = current_camera.eye_y - current_camera.target_y;
+        const float depth = current_camera.eye_z - current_camera.target_z;
+        const float length = std::max(0.01F, std::sqrt(dy * dy + depth * depth));
+        return PanelCorner{static_cast<int>(160.0F + dx * scale),
+            static_cast<int>(120.0F + (dz * dy + (current_camera.target_y - floor) * depth) / length * scale)};
+    };
+    for (const PanelCorner corner : corners) {
+        unsigned score = 0U;
+        const auto overlaps = [corner](PanelCorner point) {
+            return point.x + 16 > corner.x && point.x - 16 < corner.x + 139 &&
+                point.y > corner.y && point.y - 52 < corner.y + 105;
+        };
+        for (const sim::UnitSnapshot& unit : board.game.snapshot().units) {
+            if (!sim::on_board(unit)) continue;
+            if (overlaps(projected(unit.position))) score += unit.id == battle_ui.actor ? 20U : 4U;
+        }
+        if (overlaps(projected(board.game.cursor(battle_ui.player)))) score += 30U;
+        if (score < best_score) { best_score = score; panel = corner; }
+    }
+    const int menu_x = panel.x;
+    const int menu_y = panel.y;
     rdpq_set_prim_color({45, 73, 92, 242});
-    rdpq_fill_rectangle(176, 130, 315, 235);
+    rdpq_fill_rectangle(menu_x, menu_y, menu_x + 139, menu_y + 105);
     rdpq_set_prim_color({12, 22, 33, 246});
-    rdpq_fill_rectangle(180, 134, 311, 231);
+    rdpq_fill_rectangle(menu_x + 4, menu_y + 4, menu_x + 135, menu_y + 101);
     P64::Debug::printStart();
     if (battle_ui.phase == BattleUiPhase::action) {
-        P64::Debug::printf(
-            190, 140, "%s P%u", ui(console::Message::action_heading),
+        display_printf(
+            menu_x + 14, menu_y + 10, "%s P%u", ui(console::Message::action_heading),
             static_cast<unsigned>(battle_ui.player + 1U)
         );
         const sim::UnitSnapshot* menu_actor = find_unit(battle_ui.actor);
@@ -4486,12 +4618,12 @@ void draw_battle_ui() {
         const std::size_t last = std::min(first + 4U, total);
         const ActionMenu menu = action_menu();
         for (std::size_t row = first; row < last; ++row) {
-            const int y = 158 + static_cast<int>(row - first) * 17;
+            const int y = menu_y + 28 + static_cast<int>(row - first) * 17;
             const char* marker = selected == row ? ">" : " ";
             const ActionChoice choice = menu.choices[row];
             if (choice.kind == ActionChoiceKind::attack) {
-                P64::Debug::printf(
-                    190, y, "%s %s", marker, ui(console::Message::attack)
+                display_printf(
+                    menu_x + 14, y, "%s %s", marker, ui(console::Message::attack)
                 );
             } else if (choice.kind == ActionChoiceKind::ability &&
                        menu_actor != nullptr) {
@@ -4505,8 +4637,8 @@ void draw_battle_ui() {
                         package_format::SectionType::abilities, choice.content,
                         name
                     );
-                P64::Debug::printf(
-                    190, y, "%s %.*s", marker,
+                display_printf(
+                    menu_x + 14, y, "%s %.*s", marker,
                     static_cast<int>(std::min<std::size_t>(
                         localized_name.size(), 14U
                     )), localized_name.data()
@@ -4521,23 +4653,23 @@ void draw_battle_ui() {
                         board.runtime.package(), game_language(),
                         package_format::SectionType::items, choice.content, name
                     );
-                P64::Debug::printf(
-                    190, y, "%s %.*s", marker,
+                display_printf(
+                    menu_x + 14, y, "%s %.*s", marker,
                     static_cast<int>(std::min<std::size_t>(
                         localized_name.size(), 14U
                     )), localized_name.data()
                 );
             } else if (choice.kind == ActionChoiceKind::talk) {
-                P64::Debug::printf(
-                    190, y, "%s %s", marker, ui(console::Message::talk)
+                display_printf(
+                    menu_x + 14, y, "%s %s", marker, ui(console::Message::talk)
                 );
             } else if (choice.kind == ActionChoiceKind::wait) {
-                P64::Debug::printf(
-                    190, y, "%s %s", marker, ui(console::Message::wait)
+                display_printf(
+                    menu_x + 14, y, "%s %s", marker, ui(console::Message::wait)
                 );
             } else {
-                P64::Debug::printf(
-                    190, y, "%s %s", marker, ui(console::Message::cancel)
+                display_printf(
+                    menu_x + 14, y, "%s %s", marker, ui(console::Message::cancel)
                 );
             }
         }
@@ -4552,32 +4684,33 @@ void draw_battle_ui() {
         const sim::AttackForecast forecast = target != nullptr
             ? sim::forecast_attack(board.game.snapshot(), actor->id, target->id)
             : sim::AttackForecast{sim::CommandError::unknown_target};
-        P64::Debug::printf(
-            190, 140, "%s", ui(console::Message::attack_target)
+        display_printf(
+            menu_x + 14, menu_y + 10, "%s", ui(console::Message::attack_target)
         );
         if (forecast) {
-            P64::Debug::printf(
-                190, 164, "%d%%  %s %d", forecast.hit_chance,
+            display_printf(menu_x + 14, menu_y + 21, "HP %d", target->health);
+            display_printf(
+                menu_x + 14, menu_y + 34, "%d%%  %s %d", forecast.hit_chance,
                 ui(console::Message::hit),
                 forecast.damage
             );
             if (forecast.counter) {
-                P64::Debug::printf(
-                    190, 182, "%s %d", ui(console::Message::counter),
+                display_printf(
+                    menu_x + 14, menu_y + 52, "%s %d", ui(console::Message::counter),
                     forecast.counter_damage
                 );
             } else {
-                P64::Debug::printf(
-                    190, 182, "%s", ui(console::Message::no_counter)
+                display_printf(
+                    menu_x + 14, menu_y + 52, "%s", ui(console::Message::no_counter)
                 );
             }
-            P64::Debug::printf(
-                190, 208, "A %s  B %s", ui(console::Message::confirm),
+            display_printf(
+                menu_x + 14, menu_y + 78, "A %s  B %s", ui(console::Message::confirm),
                 ui(console::Message::back_button)
             );
         } else {
-            P64::Debug::printf(
-                190, 170, "%s", command_error_label(forecast.error)
+            display_printf(
+                menu_x + 14, menu_y + 40, "%s", command_error_label(forecast.error)
             );
         }
     } else if (battle_ui.phase == BattleUiPhase::ability_target &&
@@ -4588,38 +4721,38 @@ void draw_battle_ui() {
             target != nullptr ? target->id : 0U,
             board.game.encounter().abilities()
         );
-        P64::Debug::printf(
-            190, 140, "%s", ui(console::Message::ability_target)
+        display_printf(
+            menu_x + 14, menu_y + 10, "%s", ui(console::Message::ability_target)
         );
         if (forecast) {
             if (!forecast.covered) {
-                P64::Debug::printf(
-                    190, 170, "%s", ui(console::Message::clear_ground)
+                display_printf(
+                    menu_x + 14, menu_y + 40, "%s", ui(console::Message::clear_ground)
                 );
             } else if (forecast.spared) {
-                P64::Debug::printf(
-                    190, 170, "%s", ui(console::Message::target_safe)
+                display_printf(
+                    menu_x + 14, menu_y + 40, "%s", ui(console::Message::target_safe)
                 );
             } else if (forecast.kind == sim::AbilityKind::restore) {
-                P64::Debug::printf(
-                    190, 170, "%s %d/%d", ui(console::Message::mend),
+                display_printf(
+                    menu_x + 14, menu_y + 40, "%s %d/%d", ui(console::Message::mend),
                     forecast.restored,
                     forecast.target_health_after
                 );
             } else {
-                P64::Debug::printf(
-                    190, 170, "%d%%  %s %d", forecast.hit_chance,
+                display_printf(
+                    menu_x + 14, menu_y + 40, "%d%%  %s %d", forecast.hit_chance,
                     ui(console::Message::cast),
                     forecast.damage
                 );
             }
-            P64::Debug::printf(
-                190, 208, "A %s  B %s", ui(console::Message::confirm),
+            display_printf(
+                menu_x + 14, menu_y + 78, "A %s  B %s", ui(console::Message::confirm),
                 ui(console::Message::back_button)
             );
         } else {
-            P64::Debug::printf(
-                190, 170, "%s", command_error_label(forecast.error)
+            display_printf(
+                menu_x + 14, menu_y + 40, "%s", command_error_label(forecast.error)
             );
         }
     } else if (battle_ui.phase == BattleUiPhase::talk_target &&
@@ -4632,48 +4765,48 @@ void draw_battle_ui() {
         } else {
             forecast.error = sim::CommandError::unknown_target;
         }
-        P64::Debug::printf(
-            190, 140, "%s", ui(console::Message::talk_to_whom)
+        display_printf(
+            menu_x + 14, menu_y + 10, "%s", ui(console::Message::talk_to_whom)
         );
         if (forecast) {
-            P64::Debug::printf(
-                190, 170, "%s", ui(console::Message::confirm)
+            display_printf(
+                menu_x + 14, menu_y + 40, "%s", ui(console::Message::confirm)
             );
-            P64::Debug::printf(
-                190, 208, "A %s  B %s", ui(console::Message::confirm),
+            display_printf(
+                menu_x + 14, menu_y + 78, "A %s  B %s", ui(console::Message::confirm),
                 ui(console::Message::back_button)
             );
         } else {
-            P64::Debug::printf(
-                190, 170, "%s", command_error_label(forecast.error)
+            display_printf(
+                menu_x + 14, menu_y + 40, "%s", command_error_label(forecast.error)
             );
         }
     } else if (battle_ui.phase == BattleUiPhase::result) {
-        P64::Debug::printf(
-            190, 140, "%s", ui(console::Message::result)
+        display_printf(
+            menu_x + 14, menu_y + 10, "%s", ui(console::Message::result)
         );
         if (battle_ui.result_error != sim::CommandError::none) {
-            P64::Debug::printf(
-                190, 170, "%s",
+            display_printf(
+                menu_x + 14, menu_y + 40, "%s",
                 command_error_label(battle_ui.result_error)
             );
         } else if (battle_ui.result_command == sim::CommandType::wait ||
                    battle_ui.result_command == sim::CommandType::talk) {
-            P64::Debug::printf(
-                190, 170, "%s", ui(console::Message::turn_complete)
+            display_printf(
+                menu_x + 14, menu_y + 40, "%s", ui(console::Message::turn_complete)
             );
         } else if (battle_ui.result_missed) {
-            P64::Debug::printf(
-                190, 170, "%s", ui(console::Message::miss)
+            display_printf(
+                menu_x + 14, menu_y + 40, "%s", ui(console::Message::miss)
             );
         } else if (battle_ui.result_restored) {
-            P64::Debug::printf(
-                190, 170, "%s %d", ui(console::Message::mended),
+            display_printf(
+                menu_x + 14, menu_y + 40, "%s %d", ui(console::Message::mended),
                 battle_ui.result_amount
             );
         } else {
-            P64::Debug::printf(
-                190, 170, "%s %d", ui(console::Message::hit),
+            display_printf(
+                menu_x + 14, menu_y + 40, "%s %d", ui(console::Message::hit),
                 battle_ui.result_amount
             );
         }
@@ -4681,24 +4814,28 @@ void draw_battle_ui() {
     rdpq_mode_pop();
 }
 
-void draw_wrapped_story(std::string_view text) {
-    constexpr std::size_t width = 37U;
-    std::size_t start = 0U;
+void draw_wrapped_story(std::string_view utf8) {
+    const std::string ascii = console_ascii(utf8);
+    const std::string_view text = ascii;
+    constexpr std::size_t width = 27U;
+    std::size_t start = std::min(shell.story_text_offset, text.size());
     int line = 0;
-    while (start < text.size() && line < 4) {
+    while (start < text.size() && line < 5) {
         std::size_t end = std::min(start + width, text.size());
         if (end < text.size()) {
             const std::size_t space = text.rfind(' ', end);
             if (space != std::string_view::npos && space > start) end = space;
         }
-        P64::Debug::printf(
-            40, 126 + line * 18, "%.*s",
+        display_printf(
+            102, 109 + line * 16, "%.*s",
             static_cast<int>(end - start), text.data() + start
         );
         start = end;
         while (start < text.size() && text[start] == ' ') ++start;
         ++line;
     }
+    shell.story_text_next = start;
+    shell.story_text_more = start < text.size();
 }
 
 std::vector<client::RosterEntry> localized_campaign_roster() {
@@ -4724,10 +4861,10 @@ std::vector<client::RosterEntry> localized_campaign_roster() {
 void draw_name_editor() {
     if (!shell.name_editor.has_value()) return;
     const client::ConsoleNameEditor& editor = *shell.name_editor;
-    P64::Debug::printf(
+    display_printf(
         42, 84, "%s", ui(console::Message::character_name)
     );
-    P64::Debug::printf(
+    display_printf(
         42, 101, "%s  %s",
         editor.name().empty() ? "_" : editor.c_str(),
         editor.invalid() ? ui(console::Message::required) : ""
@@ -4741,21 +4878,46 @@ void draw_name_editor() {
                                   column == editor.column();
             int x = 27 + column * 30;
             if (row == 4 && column >= 2) x = column == 2 ? 87 : 151;
-            P64::Debug::printf(
+            display_printf(
                 x, 119 + row * 15, "%s%s%s",
                 selected ? "[" : " ", key.label,
                 selected ? "]" : " "
             );
         }
     }
-    P64::Debug::printf(
+    display_printf(
         31, 192, "A %s  B %s",
         ui(console::Message::type_name), ui(console::Message::erase)
     );
-    P64::Debug::printf(
+    display_printf(
         31, 204, "C-UP %s  START %s",
         ui(console::Message::keep), ui(console::Message::save_action)
     );
+}
+
+void draw_brand_mark(int x, int y) {
+    rdpq_mode_push();
+    rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
+    rdpq_mode_alphacompare(0);
+    for (const grandleon_logo_rect& rect : grandleon_logo_rects) {
+        rdpq_set_prim_color({rect.r, rect.g, rect.b, 255});
+        rdpq_fill_rectangle(x + rect.x, y + rect.y,
+            x + rect.x + rect.width, y + rect.y + rect.height);
+    }
+    rdpq_mode_pop();
+    P64::Debug::printStart();
+}
+
+void draw_volume_slider(int x, int y, unsigned volume, int width = 180) {
+    rdpq_mode_push();
+    rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
+    rdpq_mode_alphacompare(0);
+    rdpq_set_prim_color({39, 59, 71, 255});
+    rdpq_fill_rectangle(x, y, x + width, y + 3);
+    rdpq_set_prim_color({206, 170, 83, 255});
+    rdpq_fill_rectangle(x, y, x + static_cast<int>(volume) * width / 100, y + 3);
+    rdpq_mode_pop();
+    P64::Debug::printStart();
 }
 
 void draw_shell() {
@@ -4774,67 +4936,83 @@ void draw_shell() {
     rdpq_fill_rectangle(22, 28, 298, 212);
     rdpq_set_prim_color({184, 145, 66, 255});
     rdpq_fill_rectangle(42, 56, 278, 59);
+    rdpq_set_prim_color({107, 133, 144, 255});
+    rdpq_fill_rectangle(22, 28, 298, 30);
+    rdpq_fill_rectangle(22, 28, 24, 212);
+    rdpq_set_prim_color({184, 145, 66, 255});
+    for (int x : {28, 282}) {
+        rdpq_fill_rectangle(x, 34, x + 10, 36);
+        rdpq_fill_rectangle(x, 34, x + 2, 44);
+        rdpq_fill_rectangle(x, 202, x + 10, 204);
+    }
     P64::Debug::printStart();
     const std::string_view project_title = pr::localized_project_title(
         board.runtime.package(), game_language(), grandleon_project_title
     );
-    P64::Debug::printf(
+    display_printf(
         43, 38, "%.*s",
         static_cast<int>(std::min<std::size_t>(project_title.size(), 29U)),
         project_title.data()
     );
     switch (shell.phase) {
         case ShellPhase::title:
-            P64::Debug::printf(
-                91, 116, "%s %s",
+            draw_brand_mark(127, 61);
+            display_printf(
+                91, 126, "%s %s",
                 shell.title_row == 0U ? ">" : " ",
                 ui(console::Message::begin)
             );
-            P64::Debug::printf(
-                91, 140, "%s %s",
+            display_printf(
+                91, 146, "%s %s",
                 shell.title_row == 1U ? ">" : " ",
                 ui(console::Message::help)
             );
             if (game_languages().size() > 1U) {
-                P64::Debug::printf(
+                display_printf(
                     91, 164, "%s %s: %s",
                     shell.title_row == 2U ? ">" : " ",
                     ui(console::Message::language),
                     console::language_code(game_language())
                 );
             }
-            P64::Debug::printf(91, 184, "%s %s",
+            display_printf(91, 184, "%s %s",
                 shell.title_row == (game_languages().size() > 1U ? 3U : 2U) ? ">" : " ",
                 ui(console::Message::settings));
             break;
         case ShellPhase::settings:
-            P64::Debug::printf(91, 90, "%s", ui(console::Message::settings));
-            P64::Debug::printf(65, 120, "%s %s: %u%%", shell.audio_row == 0U ? ">" : " ",
+            display_printf(91, 76, "%s", ui(console::Message::settings));
+            display_printf(65, 100, "%s %s: %u%%", shell.audio_row == 0U ? ">" : " ",
                 ui(console::Message::music_volume), music_volume);
-            P64::Debug::printf(65, 146, "%s %s: %u%%", shell.audio_row == 1U ? ">" : " ",
+            display_printf(65, 130, "%s %s: %u%%", shell.audio_row == 1U ? ">" : " ",
                 ui(console::Message::effects_volume), effects_volume);
-            P64::Debug::printf(43, 174, "%s", ui(console::Message::volume_controls));
-            P64::Debug::printf(43, 194, "%s", ui(console::Message::back));
+            draw_volume_slider(65, 116, music_volume);
+            draw_volume_slider(65, 146, effects_volume);
+            if (game_languages().size() > 1U) {
+                display_printf(65, 160, "%s %s: %s", shell.audio_row == 2U ? ">" : " ",
+                    ui(console::Message::language), console::language_code(game_language()));
+            }
+            display_printf(43, 180, "%s", ui(console::Message::volume_controls));
+            display_printf(43, 194, "%s", ui(console::Message::back));
             break;
         case ShellPhase::help:
-            P64::Debug::printf(119, 88, "%s", ui(console::Message::help));
-            P64::Debug::printf(43, 112, "%s", ui(console::Message::move_cursor));
-            P64::Debug::printf(43, 132, "%s", ui(console::Message::select_confirm));
-            P64::Debug::printf(43, 152, "Z      %s", ui(console::Message::action_heading));
-            P64::Debug::printf(43, 172, "START  %s", ui(console::Message::settings));
-            P64::Debug::printf(43, 192, "%s", ui(console::Message::back));
+            display_printf(119, 88, "%s", ui(console::Message::help));
+            display_printf(43, 112, "%s", ui(console::Message::move_cursor));
+            display_printf(43, 132, "%s", ui(console::Message::select_confirm));
+            display_printf(43, 152, "Z      %s", ui(console::Message::action_heading));
+            display_printf(43, 172, "START  %s", ui(console::Message::settings));
+            display_printf(43, 192, "%s", ui(console::Message::back));
             break;
         case ShellPhase::players:
-            P64::Debug::printf(78, 100, "%s", ui(console::Message::players));
+            display_printf(78, 100, "%s", ui(console::Message::players));
             if (shell.allow_one) {
-                P64::Debug::printf(
+                display_printf(
                     91, 128, "%s %s",
                     shell.player_choice == 0U ? ">" : " ",
                     ui(console::Message::one_player)
                 );
             }
             if (shell.allow_two) {
-                P64::Debug::printf(
+                display_printf(
                     76, 150, "%s %s%s",
                     shell.player_choice == 1U ? ">" : " ",
                     ui(console::Message::two_players),
@@ -4843,20 +5021,20 @@ void draw_shell() {
             }
             break;
         case ShellPhase::save:
-            P64::Debug::printf(84, 100, "%s", ui(console::Message::start_campaign));
-            P64::Debug::printf(
+            display_printf(84, 100, "%s", ui(console::Message::start_campaign));
+            display_printf(
                 96, 128, "%s %s",
                 shell.save_choice == 0U ? ">" : " ",
                 ui(console::Message::new_game)
             );
             if (shell.save_present) {
-                P64::Debug::printf(
+                display_printf(
                     96, 150, "%s %s",
                     shell.save_choice == 1U ? ">" : " ",
                     ui(console::Message::continue_game)
                 );
             } else {
-                P64::Debug::printf(75, 178, "%s", ui(console::Message::no_save));
+                display_printf(75, 178, "%s", ui(console::Message::no_save));
             }
             break;
         case ShellPhase::story: {
@@ -4883,12 +5061,36 @@ void draw_shell() {
                     client::substitute_campaign_member_names(
                         localized_text, roster
                     );
-                P64::Debug::printf(
-                    40, 96, "%.*s", static_cast<int>(speaker.size()),
+                bool portrait = false;
+                for (const client::RosterEntry& member : roster) {
+                    if (member.name.find(speaker) == std::string::npos &&
+                        (line.speaker.empty() || member.authored_name.find(line.speaker) == std::string::npos)) continue;
+                    sim::UnitSnapshot represented{};
+                    represented.unit_type_id = member.unit_type.stable_id;
+                    sprite_t* sprite = sprite_for_unit(represented, VisualPose::close_idle);
+                    if (sprite == nullptr) break;
+                    rdpq_mode_push();
+                    rdpq_mode_begin();
+                        rdpq_mode_combiner(RDPQ_COMBINER_TEX);
+                        rdpq_mode_alphacompare(1);
+                        rdpq_mode_blender(RDPQ_BLENDER_MULTIPLY);
+                    rdpq_mode_end();
+                    rdpq_blitparms_t params{};
+                    params.filtering = true;
+                    params.scale_x = params.scale_y = 0.8F;
+                    rdpq_sprite_blit(sprite, 30.0F, 75.0F + (frame_count / 24U % 2U), &params);
+                    rdpq_mode_pop();
+                    P64::Debug::printStart();
+                    portrait = true;
+                    break;
+                }
+                if (!portrait) draw_brand_mark(31, 76);
+                display_printf(
+                    102, 86, "%.*s", static_cast<int>(std::min<std::size_t>(speaker.size(), 23U)),
                     speaker.data()
                 );
                 draw_wrapped_story(text);
-                P64::Debug::printf(
+                display_printf(
                     220, 194, "A %s", ui(console::Message::next)
                 );
             }
@@ -4898,7 +5100,7 @@ void draw_shell() {
             draw_name_editor();
             break;
         case ShellPhase::deployment: {
-            P64::Debug::printf(76, 88, "%s %lu/%u",
+            display_printf(76, 88, "%s %lu/%u",
                 ui(console::Message::deployment),
                 static_cast<unsigned long>(shell.deployment.fielded.size()),
                 static_cast<unsigned>(shell.deployment.capacity));
@@ -4921,7 +5123,7 @@ void draw_shell() {
                           grandleon_project_campaign_id,
                           entry.placement_source_key, authored_name
                       );
-                P64::Debug::printf(
+                display_printf(
                     48, 116 + static_cast<int>(row - first) * 18,
                     "%s %s %.*s",
                     shell.deployment_row == row ? ">" : " ",
@@ -4931,14 +5133,14 @@ void draw_shell() {
                     )), name.data()
                 );
             }
-            P64::Debug::printf(
+            display_printf(
                 55, 194, "A %s  START %s",
                 ui(console::Message::toggle), ui(console::Message::deploy)
             );
             break;
         }
         case ShellPhase::aftermath: {
-            P64::Debug::printf(
+            display_printf(
                 91, 88, "%s",
                 shell.aftermath.outcome == sim::Outcome::first_side_won
                     ? ui(console::Message::victory)
@@ -4972,7 +5174,7 @@ void draw_shell() {
                             ? console::Message::failed
                             : console::Message::pending
                 );
-                P64::Debug::printf(
+                display_printf(
                     42, 116 + static_cast<int>(row) * 18,
                     "%.*s  %s",
                     static_cast<int>(std::min<std::size_t>(
@@ -4980,26 +5182,26 @@ void draw_shell() {
                     )), displayed_name.data(), result
                 );
             }
-            P64::Debug::printf(
+            display_printf(
                 42, 176, "%s %lu  %s %lu",
                 ui(console::Message::fell),
                 static_cast<unsigned long>(shell.aftermath.fallen.size()),
                 ui(console::Message::joined),
                 static_cast<unsigned long>(shell.aftermath.recruited.size())
             );
-            P64::Debug::printf(
+            display_printf(
                 202, 194, "A %s", ui(console::Message::next)
             );
             break;
         }
         case ShellPhase::complete:
-            P64::Debug::printf(91, 112, "%s", ui(console::Message::campaign_ended));
-            P64::Debug::printf(
+            display_printf(91, 112, "%s", ui(console::Message::campaign_ended));
+            display_printf(
                 72, 142, "%lu %s",
                 static_cast<unsigned long>(shell.completed_battles),
                 ui(console::Message::battles_played)
             );
-            P64::Debug::printf(72, 178, "%s", ui(console::Message::progress_saved));
+            display_printf(72, 178, "%s", ui(console::Message::progress_saved));
             break;
         case ShellPhase::battle:
             break;

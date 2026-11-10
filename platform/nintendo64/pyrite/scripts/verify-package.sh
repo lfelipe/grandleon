@@ -24,7 +24,7 @@ for file in \
     project/src/user/GpkRuntimeAdapter.cpp \
     project/src/user/ProjectBoard.cpp \
     tests/board_camera_test.cpp tests/gameplay_slice_test.cpp \
-    tests/project_prepare_test.py \
+    tests/project_prepare_test.py tests/hardware_camera_projection_test.py \
     scripts/build.sh scripts/stage-inputs.sh scripts/fetch-pyrite.sh \
     scripts/generate-soft-shadow.py \
     scripts/generate-audio.py scripts/prepare-project.py \
@@ -52,6 +52,8 @@ python3 -c 'compile(open(__import__("sys").argv[1], encoding="utf-8").read(), __
     "$package_root/scripts/prepare-project.py"
 python3 -c 'compile(open(__import__("sys").argv[1], encoding="utf-8").read(), __import__("sys").argv[1], "exec")' \
     "$package_root/tests/project_prepare_test.py"
+python3 -c 'compile(open(__import__("sys").argv[1], encoding="utf-8").read(), __import__("sys").argv[1], "exec")' \
+    "$package_root/tests/hardware_camera_projection_test.py"
 grep -q 'eb8545428f1059841c844169b7b307535e0bfeb2' \
     "$package_root/versions.env"
 grep -q 'Copyright (c) 2025-2026 Max Bebök' \
