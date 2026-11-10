@@ -10,12 +10,14 @@ script_dir="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(CDPATH= cd -- "${script_dir}/../../.." && pwd)"
 target="${1:-}"
 output="${2:-}"
-version="${3:-0.4.0-1}"
+version="${3:-$(tr -d '\r\n' <"${repo_root}/RELEASE_VERSION")-1}"
+compression_threads="${GRANDLEON_PACKAGE_THREADS:-2}"
 if [[ "${target}" != nintendo64 && "${target}" != playstation ]] || [[ -z "${output}" ]]; then
     echo "usage: $(basename "$0") nintendo64|playstation OUTPUT-DIRECTORY [BUILDER-VERSION]" >&2
     exit 64
 fi
 [[ "${version}" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "invalid builder version" >&2; exit 64; }
+[[ "${compression_threads}" =~ ^[1-9][0-9]*$ ]] || { echo "invalid package thread count" >&2; exit 64; }
 command -v docker >/dev/null
 command -v git >/dev/null
 command -v python3 >/dev/null
@@ -187,7 +189,7 @@ docker start --attach "${container}"
 # One archive is easier for Steam to install atomically and for the Godot host
 # to authenticate than tens of thousands of toolchain files. The installed
 # launcher expands it only inside the ephemeral request and then deletes it.
-docker export "${container}" | xz -T0 -6 > "${payload}/rootfs.tar.xz"
+docker export "${container}" | xz -T"${compression_threads}" -6 > "${payload}/rootfs.tar.xz"
 docker cp "${container}:/usr/share/doc" "${temp}/usr-share-doc"
 docker cp "${container}:/usr/share/common-licenses" "${temp}/common-licenses"
 docker cp "${container}:/GRANDLEON_PACKAGES.tsv" "${temp}/packages.tsv"
