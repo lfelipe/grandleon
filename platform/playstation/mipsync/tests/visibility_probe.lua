@@ -34,8 +34,14 @@ sequence(260, 10, {
   0x4000, 0x4000,                 -- select Elowen; keep 5,6
   0x0010, 0x4000,                 -- choose Wait
 })
-sequence(1400, 10, {
+-- After the enemy turn returns the camera to the player's cursor, inspect
+-- the covered doorway with that cursor. Looking inside must not reveal it.
+sequence(1350, 10, {
   0x0020, 0x0020, 0x0020, 0x0020,
+  0x0020, 0x0020, 0x0020, 0x0020,
+})
+sequence(1480, 10, {
+  0x0080, 0x0080, 0x0080, 0x0080,
   0x4000,                         -- select Rowan at 9,6
   0x0020, 0x0020, 0x0020, 0x0020, 0x4000,
                                     -- cross into the castle at 13,6
@@ -51,9 +57,9 @@ grandleon_visibility_breakpoint = PCSX.addBreakpoint(
     print(string.format('MIPSYNC_VISIBILITY_INPUT held=%04x frame=%d',
                         held, runtime_frame))
   end
-  if runtime_frame == 1350 then before_capture = true end
-  if runtime_frame == 1700 then after_capture = true end
-  if capture_motion and runtime_frame >= 1300 and runtime_frame <= 1700 and
+  if runtime_frame == 1450 then before_capture = true end
+  if runtime_frame == 1800 then after_capture = true end
+  if capture_motion and runtime_frame >= 1300 and runtime_frame <= 1800 and
      runtime_frame % 2 == 0 then motion_due = true end
   return true
 end)
