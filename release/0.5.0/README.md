@@ -7,6 +7,9 @@ engine transition.
 
 ## Steel and Cedar
 
+This demo currently serves as a feature and translation test. A polished,
+fully designed campaign is planned before 1.0.
+
 The shared demo follows a false treaty signal across five battles: Bell
 Orchard, Cedar Deepwood, Cedar Watch, Gate Village, and Twin Gate Keep.
 
@@ -50,14 +53,13 @@ See [console controls and exports](../../docs/CONSOLE_RENDERER.md).
 ## Current limits
 
 Nintendo 64 uses Pyrite/Tiny3D and PlayStation uses Mipsync. Each console has
-one supported renderer. The transition is judged against Godot’s campaign,
-co-op, save, settings, localization, and hidden-castle behavior; presentation
-quality can still differ between machines.
+one supported renderer. Both consoles support the shared campaign, local co-op, saves, settings,
+translations and castle exploration. Presentation quality still differs
+between machines.
 
 The console target is 30 fps. PlayStation scrolling and castle scenes can
 still judder or miss that target; frame-pacing improvements are deferred beyond
-0.5. Real-hardware controls, listening, full 1P/2P playthroughs, and balance
-remain part of release acceptance.
+0.5. Real-hardware controls, listening, full 1P/2P playthroughs, remain part of release acceptance.
 
 Release packaging is being prepared. This directory currently contains release
 notes, not the final downloadable builds or their checksums. Earlier

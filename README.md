@@ -57,6 +57,9 @@ a language before play or change it in Settings. Games offer a language choice
 only when their package contains translations. Missing or outdated lines use
 the current source text.
 
+Use the demo mainly as a feature and translation test for now. A polished,
+fully designed campaign is planned before 1.0.
+
 The editable project is in [games/steel_and_cedar](games/steel_and_cedar).
 Earlier campaigns remain in `games/` as examples and regression fixtures.
 
