@@ -4401,6 +4401,68 @@ const char* command_error_label(sim::CommandError error) {
 
 std::vector<client::RosterEntry> localized_campaign_roster();
 
+bool speaker_name_matches(std::string_view name, std::string_view speaker) {
+    if (speaker.empty()) return false;
+    for (std::size_t at = name.find(speaker); at != std::string_view::npos;
+         at = name.find(speaker, at + 1U)) {
+        const std::size_t end = at + speaker.size();
+        if ((at == 0U || name[at - 1U] == ' ') &&
+            (end == name.size() || name[end] == ' ')) return true;
+    }
+    return false;
+}
+
+sim::ContentId speaker_unit_type(
+    std::string_view speaker,
+    std::string_view authored_speaker,
+    const std::vector<client::RosterEntry>& roster
+) {
+    for (const client::RosterEntry& member : roster) {
+        if (speaker_name_matches(member.name, speaker) ||
+            speaker_name_matches(member.authored_name, authored_speaker)) {
+            return member.unit_type.stable_id;
+        }
+    }
+    // Enemy and other non-company speakers still name authored unit types.
+    // Presentation holds the whole package bank, including off-board actors.
+    for (const pr::UnitTypeColour& type : board.presentation.unit_types) {
+        const std::string_view name = pr::content_name(
+            board.runtime.package(), package_format::SectionType::unit_types,
+            type.unit_type_id
+        );
+        if (speaker_name_matches(name, authored_speaker) ||
+            speaker_name_matches(name, speaker)) return type.unit_type_id;
+    }
+    return 0U;
+}
+
+bool draw_speaker_portrait(
+    std::string_view speaker,
+    std::string_view authored_speaker,
+    const std::vector<client::RosterEntry>& roster,
+    float x, float y, float scale
+) {
+    const sim::ContentId type = speaker_unit_type(speaker, authored_speaker, roster);
+    if (type == 0U) return false;
+    sim::UnitSnapshot represented{};
+    represented.unit_type_id = type;
+    sprite_t* sprite = sprite_for_unit(represented, VisualPose::close_idle);
+    if (sprite == nullptr) return false;
+    rdpq_mode_push();
+    rdpq_mode_begin();
+        rdpq_mode_combiner(RDPQ_COMBINER_TEX);
+        rdpq_mode_alphacompare(1);
+        rdpq_mode_blender(RDPQ_BLENDER_MULTIPLY);
+    rdpq_mode_end();
+    rdpq_blitparms_t params{};
+    params.filtering = true;
+    params.scale_x = params.scale_y = scale;
+    rdpq_sprite_blit(sprite, x, y + (frame_count / 24U % 2U), &params);
+    rdpq_mode_pop();
+    P64::Debug::printStart();
+    return true;
+}
+
 void draw_battle_ui() {
     if (battle_moment.active &&
         battle_moment.line_index < battle_moment.dialogue.lines.size()) {
@@ -4434,13 +4496,14 @@ void draw_battle_ui() {
         rdpq_fill_rectangle(15, 157, 305, 235);
         rdpq_set_prim_color({12, 22, 33, 248});
         rdpq_fill_rectangle(19, 161, 301, 231);
+        (void)draw_speaker_portrait(speaker, line.speaker, roster, 23.0F, 164.0F, 0.64F);
         P64::Debug::printStart();
         display_printf(
-            29, 169, "%.*s",
+            90, 169, "%.*s",
             static_cast<int>(std::min<std::size_t>(speaker.size(), 30U)),
             speaker.data()
         );
-        constexpr std::size_t width = 42U;
+        constexpr std::size_t width = 31U;
         std::size_t start = std::min(battle_moment.text_offset, dialogue_text.size());
         for (int row = 0; row < 2 && start < dialogue_text.size(); ++row) {
             std::size_t end = std::min(start + width, dialogue_text.size());
@@ -4449,7 +4512,7 @@ void draw_battle_ui() {
                 if (space != std::string_view::npos && space > start) end = space;
             }
             display_printf(
-                29, 189 + row * 17, "%.*s",
+                90, 189 + row * 17, "%.*s",
                 static_cast<int>(end - start), dialogue_text.data() + start
             );
             start = end;
@@ -5061,30 +5124,9 @@ void draw_shell() {
                     client::substitute_campaign_member_names(
                         localized_text, roster
                     );
-                bool portrait = false;
-                for (const client::RosterEntry& member : roster) {
-                    if (member.name.find(speaker) == std::string::npos &&
-                        (line.speaker.empty() || member.authored_name.find(line.speaker) == std::string::npos)) continue;
-                    sim::UnitSnapshot represented{};
-                    represented.unit_type_id = member.unit_type.stable_id;
-                    sprite_t* sprite = sprite_for_unit(represented, VisualPose::close_idle);
-                    if (sprite == nullptr) break;
-                    rdpq_mode_push();
-                    rdpq_mode_begin();
-                        rdpq_mode_combiner(RDPQ_COMBINER_TEX);
-                        rdpq_mode_alphacompare(1);
-                        rdpq_mode_blender(RDPQ_BLENDER_MULTIPLY);
-                    rdpq_mode_end();
-                    rdpq_blitparms_t params{};
-                    params.filtering = true;
-                    params.scale_x = params.scale_y = 0.8F;
-                    rdpq_sprite_blit(sprite, 30.0F, 75.0F + (frame_count / 24U % 2U), &params);
-                    rdpq_mode_pop();
-                    P64::Debug::printStart();
-                    portrait = true;
-                    break;
+                if (!draw_speaker_portrait(speaker, line.speaker, roster, 30.0F, 75.0F, 0.8F)) {
+                    draw_brand_mark(31, 76);
                 }
-                if (!portrait) draw_brand_mark(31, 76);
                 display_printf(
                     102, 86, "%.*s", static_cast<int>(std::min<std::size_t>(speaker.size(), 23U)),
                     speaker.data()

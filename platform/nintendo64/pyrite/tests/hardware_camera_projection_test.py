@@ -3,6 +3,7 @@
 """Project the shipping tactical camera to catch diagonal controller movement."""
 from pathlib import Path
 import math
+import json
 import os
 import re
 import subprocess
@@ -117,7 +118,7 @@ class HardwareCameraProjection(unittest.TestCase):
         ascii_end = source.index("\nvoid display_printf(", ascii_start)
         story_start = source.index("void draw_wrapped_story(")
         story_end = source.index("\nstd::vector<client::RosterEntry>", story_start)
-        moment_start = source.index("        constexpr std::size_t width = 42U;")
+        moment_start = source.index("        constexpr std::size_t width = 31U;")
         moment_end = source.index('        display_printf(238, 215,', moment_start)
         harness = r"""
             #include <grandleon/view/console_text.h>
@@ -180,6 +181,66 @@ class HardwareCameraProjection(unittest.TestCase):
             include = repo / "platform/view/include"
             subprocess.run(["c++", "-std=c++20", "-Wall", "-Werror", "-I", str(include), str(cpp), "-o", str(binary)], check=True)
             subprocess.run([str(binary)], check=True)
+
+
+    def test_company_and_enemy_speakers_use_shared_portrait_draw_path(self):
+        source = SOURCE.read_text()
+        start = source.index("bool speaker_name_matches(")
+        end = source.index("\nvoid draw_battle_ui()", start)
+        repo = Path(os.environ.get("GRANDLEON_REPO", Path(__file__).resolve().parents[4]))
+        project = json.loads((repo / "games/steel_and_cedar/source/project.json").read_text())
+        names = [unit["name"] for unit in project["unitTypes"]]
+        name_literals = ",".join(json.dumps(name) for name in names)
+        checks = []
+        for speaker in ["Akari", "Masatora", "Ren", "Rowan", "Tomas", "Vere"]:
+            matches = [index + 1 for index, name in enumerate(names) if speaker in name.split()]
+            self.assertEqual(len(matches), 1)
+            checks.append(f'assert(draw_speaker_portrait("{speaker}", "{speaker}", roster, 23, 164, .64F)); assert(last_type == {matches[0]}); assert(blits == ++expected_blits);')
+        harness = r"""
+            #include <string>
+            #include <string_view>
+            #include <vector>
+            #include <cstdint>
+            #include <cassert>
+            namespace sim { using ContentId = unsigned; struct UnitSnapshot { unsigned unit_type_id{}; }; }
+            namespace client { struct RosterEntry { std::string name, authored_name; struct { unsigned stable_id; } unit_type; }; }
+            namespace package_format { enum class SectionType { unit_types }; }
+            const char* names[] = { NAMES };
+            namespace pr {
+                struct UnitTypeColour { unsigned unit_type_id; };
+                std::string_view content_name(int, package_format::SectionType, unsigned id) { return names[id - 1]; }
+            }
+            struct { struct { std::vector<pr::UnitTypeColour> unit_types; } presentation;
+                struct { int package() const { return 0; } } runtime; } board;
+            struct sprite_t {} sprite;
+            enum class VisualPose { close_idle };
+            unsigned last_type{}, blits{};
+            sprite_t* sprite_for_unit(const sim::UnitSnapshot& unit, VisualPose) { last_type = unit.unit_type_id; return &sprite; }
+            std::uint32_t frame_count{};
+            struct rdpq_blitparms_t { bool filtering{}; float scale_x{}, scale_y{}; };
+            enum { RDPQ_COMBINER_TEX, RDPQ_BLENDER_MULTIPLY };
+            void rdpq_mode_push() {} void rdpq_mode_pop() {} void rdpq_mode_begin() {} void rdpq_mode_end() {}
+            void rdpq_mode_combiner(int) {} void rdpq_mode_alphacompare(int) {} void rdpq_mode_blender(int) {}
+            void rdpq_sprite_blit(sprite_t*, float, float, rdpq_blitparms_t*) { ++blits; }
+            namespace P64::Debug { void printStart() {} }
+        """.replace("NAMES", name_literals) + source[start:end] + r"""
+            int main() {
+                for (unsigned index = 1; index <= sizeof names / sizeof names[0]; ++index) board.presentation.unit_types.push_back({index});
+                const std::vector<client::RosterEntry> roster;
+                unsigned expected_blits = 0;
+                CHECKS
+                assert(!draw_speaker_portrait("Narrator", "Narrator", roster, 23, 164, .64F));
+                assert(!speaker_name_matches("Joanne", "Ann"));
+            }
+        """.replace("CHECKS", "\n".join(checks))
+        with tempfile.TemporaryDirectory(prefix="grandleon-n64-portrait-") as temporary:
+            cpp = Path(temporary) / "portrait.cpp"
+            binary = Path(temporary) / "portrait-test"
+            cpp.write_text(harness)
+            subprocess.run(["c++", "-std=c++20", "-Wall", "-Werror", str(cpp), "-o", str(binary)], check=True)
+            subprocess.run([str(binary)], check=True)
+        battle = source[source.index("void draw_battle_ui()"):source.index("void draw_wrapped_story(")]
+        self.assertIn("draw_speaker_portrait(speaker, line.speaker, roster, 23.0F, 164.0F, 0.64F)", battle)
 
 
 if __name__ == "__main__":
