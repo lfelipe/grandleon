@@ -12,7 +12,6 @@ if mode == 'write' then
   actions[50] = 0x0040
   actions[70] = 0x4000
   actions[90] = 0x0040
-  actions[110] = 0x0040
   actions[130] = 0x4000
   actions[180] = 0x2000
   -- Return to the title, start the one-player campaign, enter Bell Orchard,

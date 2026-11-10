@@ -133,6 +133,9 @@ typedef struct grandleon_ui_state {
     uint8_t name_column;
     uint8_t name_invalid;
     uint8_t name_limit;
+    uint16_t movement_tile_count;
+    uint16_t portrait_texture;
+    uint8_t talking_phase;
     uint8_t deployment_selected;
 } grandleon_ui_state;
 
@@ -149,6 +152,9 @@ int grandleon_game_init(void);
 int grandleon_game_update(
     uint16_t player_one_buttons, uint16_t player_two_buttons
 );
+int grandleon_game_focus_point(uint8_t index, int32_t* x, int32_t* y, int32_t* z);
+int grandleon_game_movement_tile(uint16_t index, int32_t* x, int32_t* y, int32_t* z);
+uint16_t grandleon_game_map_controller(uint16_t pressed);
 void grandleon_game_ui_state(grandleon_ui_state* output);
 const char* grandleon_game_text(uint8_t text_id);
 uint8_t grandleon_game_action_kind(uint8_t index);

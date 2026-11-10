@@ -31,7 +31,7 @@ sequence(actions, 100, {
   0x4000, 0x0020, 0x0020, 0x0020, 0x4000, -- select, destination 4,1, move
 })
 sequence(actions, 230, {
-  0x4000, 0x0020, 0x4000, -- Attack, target 5,1, commit
+  0x4000, 0x0000, 0x4000, -- Attack auto-focuses legal target 5,1; commit
 })
 
 -- After the close view returns, Elowen casts her authored ability on Rowan.
@@ -40,7 +40,7 @@ sequence(actions, 230, {
 sequence(actions, 500, {
   0x0080, 0x0080, 0x0080, -- cursor from 5,1 to Elowen at 2,1
   0x4000, 0x4000,         -- select, keep the current square
-  0x0040, 0x4000,         -- Ability 1
+  0x4000,                 -- Ability 1 (Attack absent without legal targets)
   0x0020, 0x0020, 0x4000, -- Rowan at 4,1, cast
 })
 

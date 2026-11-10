@@ -100,6 +100,8 @@ struct ActionMenu final {
 sim::Encounter::CreateResult* s_created{};
 sim::EncounterSnapshot s_snapshot{};
 sim::UnitId s_selected{};
+std::vector<sim::Position> s_movement_tiles;
+sim::UnitId s_movement_tiles_unit{};
 sim::Position s_cursor{};
 sim::Position s_player_cursors[2]{};
 unsigned s_focus_player{};
@@ -127,6 +129,8 @@ unsigned s_camera_return_frames{};
 sim::UnitId s_combat_attacker{};
 sim::UnitId s_combat_target{};
 sim::Position s_combat_centre{};
+sim::Position s_combat_attacker_position{};
+sim::Position s_combat_target_position{};
 bool s_combat_counter{};
 bool s_last_result_missed{};
 bool s_last_result_restored{};
@@ -210,7 +214,7 @@ const char* ui(console::Message message) {
 }
 
 unsigned settings_menu_count() {
-    return grandleon_generated_language_count() > 1U ? 6U : 5U;
+    return grandleon_generated_language_count() > 1U ? 5U : 4U;
 }
 
 camp::DefinitionRef content_ref(
@@ -332,19 +336,15 @@ void toggle_setting(unsigned row, int direction = 1) {
         s_close_combat_enabled = !s_close_combat_enabled;
         value = s_close_combat_enabled;
     } else if (row == 1U) {
-        s_reduced_motion = !s_reduced_motion;
-        value = s_reduced_motion;
-        name = "reduced";
-    } else if (row == 2U) {
         s_display_options.toggle_fps();
         value = s_display_options.show_fps;
         name = "fps";
-    } else if (row == 3U || row == 4U) {
-        unsigned& volume = row == 3U ? s_music_volume : s_effects_volume;
+    } else if (row == 2U || row == 3U) {
+        unsigned& volume = row == 2U ? s_music_volume : s_effects_volume;
         volume = static_cast<unsigned>(std::clamp(static_cast<int>(volume) + direction * 5, 0, 100));
         grandleon_audio_set_volumes(s_music_volume, s_effects_volume);
         const bool saved = save_display_settings();
-        psx::Line().text("MIPSYNC_SETTING name=").text(row == 3U ? "music" : "effects")
+        psx::Line().text("MIPSYNC_SETTING name=").text(row == 2U ? "music" : "effects")
             .text(" value=").decimal(volume).text(" saved=").decimal(saved ? 1U : 0U).flush();
         return;
     } else {
@@ -889,6 +889,10 @@ void apply_unit_art(
 UnitPose combat_pose_for(sim::UnitId unit) {
     if (!s_result_frames || !s_result_close_combat) return unit_pose_idle;
     const unsigned elapsed = s_result_duration - s_result_frames;
+    const auto* actor = find_unit(s_snapshot, unit);
+    if (actor && actor->health <= 0 &&
+        ((unit == s_combat_target && elapsed >= 37U) ||
+         (unit == s_combat_attacker && elapsed >= 77U))) return unit_pose_hurt;
     if (elapsed >= 28U && elapsed < 46U && unit == s_combat_attacker) {
         return unit_pose_attack;
     }
@@ -1071,11 +1075,11 @@ void animate_combat_units(const sim::EncounterSnapshot& snapshot) {
     }
     if (!attacker_entity || !target_entity) return;
     place_entity(
-        *attacker_entity, attacker->position, snapshot.width, snapshot.height,
+        *attacker_entity, s_combat_attacker_position, snapshot.width, snapshot.height,
         3072, false
     );
     place_entity(
-        *target_entity, target->position, snapshot.width, snapshot.height,
+        *target_entity, s_combat_target_position, snapshot.width, snapshot.height,
         3072, false
     );
     // Stage the exchange like the N64 close view: both actors keep fixed
@@ -1120,10 +1124,8 @@ void tick_camera() {
     const bool close_combat =
         (s_result_frames || s_camera_return_frames) && s_result_close_combat;
     if (s_result_frames && s_result_close_combat) {
-        const sim::UnitSnapshot* attacker = find_unit(snapshot, s_combat_attacker);
-        const sim::UnitSnapshot* target = find_unit(snapshot, s_combat_target);
-        const sim::Position a = attacker ? attacker->position : s_combat_centre;
-        const sim::Position b = target ? target->position : s_combat_centre;
+        const sim::Position a = s_combat_attacker_position;
+        const sim::Position b = s_combat_target_position;
         focus_x = ((a.x * 2 + 1 - s_map_width) +
                    (b.x * 2 + 1 - s_map_width)) * 65536 / 2;
         focus_z = ((s_map_height - a.y * 2 - 1) +
@@ -1335,6 +1337,14 @@ bool apply_command(
     if (command.type == sim::CommandType::move) {
         plan_board_motion(s_snapshot, command.unit_id, command.destination);
     }
+    // Rules may remove a dying unit from the board immediately. Preserve the
+    // authored cells for the entire exchange, including counterattacks.
+    if (command.type == sim::CommandType::attack || command.type == sim::CommandType::ability) {
+        const auto* actor = find_unit(s_snapshot, command.unit_id);
+        const auto* target = find_unit(s_snapshot, command.target_id);
+        s_combat_attacker_position = actor ? actor->position : command.destination;
+        s_combat_target_position = target ? target->position : command.destination;
+    }
     sim::CommandResult result = s_created->encounter.apply(command);
     if (!result) {
         s_motion = {};
@@ -1489,6 +1499,7 @@ bool update_ai() {
         plan.command.type = sim::CommandType::wait;
         plan.command.unit_id = actor->id;
     }
+    const sim::Position actor_position = actor->position;
     sim::CommandResult result;
     const char* action = plan.command.type == sim::CommandType::move ? "ai_move" :
         plan.command.type == sim::CommandType::attack ? "ai_attack" :
@@ -1505,13 +1516,13 @@ bool update_ai() {
         if (!apply_wait(actor->id, "ai_fallback_wait", &snapshot)) return false;
     } else if (plan.command.type == sim::CommandType::attack) {
         ++s_attack_count;
-        begin_result(plan.command, result, attack_counter, actor->position);
+        begin_result(plan.command, result, attack_counter, actor_position);
     } else if (plan.command.type == sim::CommandType::ability) {
         ++s_ability_count;
         begin_result(plan.command, result, false, plan.command.destination);
     }
     ++s_ai_command_count;
-    s_cursor = actor->position;
+    s_cursor = actor_position;
     s_ai_delay = 10;
     finish_side_if_needed(snapshot);
     if (!s_ai_active) {
@@ -1547,7 +1558,13 @@ ActionMenu action_menu(
 ) {
     ActionMenu menu;
     if (!actor) return menu;
-    menu.append(ActionKind::attack);
+    for (const auto& target : snapshot.units) {
+        if (sim::forecast_attack(snapshot, actor->id, target.id,
+                                 s_created->encounter.weapons(), 0)) {
+            menu.append(ActionKind::attack);
+            break;
+        }
+    }
     for (const sim::ContentId ability : actor->ability_ids) {
         menu.append(ActionKind::ability, ability);
     }
@@ -1821,9 +1838,53 @@ extern "C" void grandleon_game_log_metrics(
     }
 }
 
+extern "C" int grandleon_game_focus_point(uint8_t index, int32_t* x, int32_t* y, int32_t* z) {
+    if (!x || !y || !z || !s_created || !*s_created) return 0;
+    const auto* unit = index == 0 ? find_unit(s_snapshot, s_selected) : unit_at(s_snapshot, s_cursor);
+    if (!unit || !sim::on_board(*unit)) return 0;
+    *x = (unit->position.x * 2 + 1 - s_map_width) * 65536;
+    *y = terrain_surface(unit->position, s_map_width) + 65536;
+    *z = (s_map_height - unit->position.y * 2 - 1) * 65536;
+    return 1;
+}
+
+extern "C" int grandleon_game_movement_tile(uint16_t index, int32_t* x, int32_t* y, int32_t* z) {
+    if (index >= s_movement_tiles.size() || !x || !y || !z) return 0;
+    const auto tile = s_movement_tiles[index];
+    *x = (tile.x * 2 + 1 - s_map_width) * 65536;
+    *y = terrain_surface(tile, s_map_width) + 4096;
+    *z = (s_map_height - tile.y * 2 - 1) * 65536;
+    return 1;
+}
+
+extern "C" uint16_t grandleon_game_map_controller(uint16_t pressed) {
+    // Hardware directions follow the projected board. Recorded/replay commands
+    // enter grandleon_runtime_update directly and retain logical coordinates.
+    if (s_campaign_mode == CampaignMode::battle &&
+        (s_mode == InputMode::browse || s_mode == InputMode::move ||
+         s_mode == InputMode::attack || s_mode == InputMode::ability ||
+         s_mode == InputMode::talk || s_mode == InputMode::deployment)) {
+        const auto vertical = pressed & (pad_up | pad_down);
+        pressed &= ~(pad_up | pad_down);
+        if (vertical & pad_up) pressed |= pad_down;
+        if (vertical & pad_down) pressed |= pad_up;
+    }
+    return pressed;
+}
+
 extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
     if (!output) return;
     *output = {};
+    output->talking_phase = static_cast<std::uint8_t>((s_ambient_ticks / 12U) & 1U);
+    if (s_mode == InputMode::move && s_selected && !s_motion.active) {
+        if (s_movement_tiles_unit != s_selected) {
+            s_movement_tiles = sim::reachable_tiles(s_snapshot, s_selected);
+            s_movement_tiles_unit = s_selected;
+        }
+        output->movement_tile_count = static_cast<std::uint16_t>(s_movement_tiles.size());
+    } else {
+        s_movement_tiles_unit = 0;
+    }
     output->close_combat = s_close_combat_enabled ? 1 : 0;
     output->combat_view_active = (s_result_frames || s_camera_return_frames) &&
         s_result_close_combat ? 1 : 0;
@@ -1841,6 +1902,7 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
     output->measured_fps = s_measured_fps;
     output->language_code = console::language_code(game_language());
     if (s_campaign_mode != CampaignMode::battle) {
+        if (g_grandleon_unit_count) output->portrait_texture = static_cast<std::uint16_t>(g_grandleon_unit_pose_texture_indices[0][unit_pose_idle]);
         const grandleon_generated_campaign_node* node = active_campaign_node();
         const char* node_name = node
             ? grandleon_generated_campaign_node_name_for(
@@ -1964,6 +2026,17 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
     const sim::EncounterSnapshot& snapshot = s_snapshot;
     if (const auto* line = current_battle_moment_line()) {
         output->mode = GRANDLEON_UI_BATTLE_MOMENT;
+        for (const auto& member : grandleon_generated_campaign_members()) {
+            if (std::string_view{line->speaker} != authored_member_name(member) &&
+                std::string_view{line->speaker} != effective_member_name(member)) continue;
+            for (const auto& unit : snapshot.units) {
+                if (unit.unit_type_id != member.unit_type_id) continue;
+                for (unsigned binding = 0; binding < g_grandleon_unit_count; ++binding) {
+                    if (g_grandleon_unit_ids[binding] == unit.id) output->portrait_texture = static_cast<std::uint16_t>(g_grandleon_unit_pose_texture_indices[binding][unit_pose_idle]);
+                }
+                break;
+            }
+        }
         keep_ui_text(s_ui_headline, substitute_player_names(line->speaker));
         keep_ui_text(s_ui_body, substitute_player_names(line->text));
         output->headline = s_ui_headline.data();
@@ -2240,7 +2313,7 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
                 s_settings_menu_index = (s_settings_menu_index + 1U) % count;
             }
             if (pressed & pad_cross) toggle_setting(s_settings_menu_index);
-            if ((s_settings_menu_index == 3U || s_settings_menu_index == 4U) &&
+            if ((s_settings_menu_index == 2U || s_settings_menu_index == 3U) &&
                 (pressed & (pad_left | pad_right))) {
                 toggle_setting(s_settings_menu_index, (pressed & pad_left) ? -1 : 1);
             }
@@ -2436,7 +2509,7 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
             s_settings_menu_index = (s_settings_menu_index + 1U) % count;
         }
         if (player_one & pad_cross) toggle_setting(s_settings_menu_index);
-        if ((s_settings_menu_index == 3U || s_settings_menu_index == 4U) &&
+        if ((s_settings_menu_index == 2U || s_settings_menu_index == 3U) &&
             (player_one & (pad_left | pad_right))) {
             toggle_setting(s_settings_menu_index, (player_one & pad_left) ? -1 : 1);
         }
@@ -2489,14 +2562,18 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
             ? GRANDLEON_SOUND_MISS : GRANDLEON_SOUND_IMPACT);
         --s_result_frames;
         if (s_result_frames == 0) {
-            if (s_result_close_combat) {
-                s_camera_return_frames = 30;
-                return 0;
-            }
+            // Restore tactical actors and camera together. Moving the camera
+            // while actors remain on the close-view stage made them drift away.
             sync_scene(s_snapshot);
             finish_side_if_needed(s_snapshot);
             s_selected = 0;
             s_mode = InputMode::browse;
+            if (s_result_close_combat) {
+                const bool reduced = s_reduced_motion;
+                s_reduced_motion = true;
+                tick_camera();
+                s_reduced_motion = reduced;
+            }
             (void)activate_pending_battle_moment();
         }
         return 0;
@@ -2508,6 +2585,12 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
             finish_side_if_needed(s_snapshot);
             s_selected = 0;
             s_mode = InputMode::browse;
+            if (s_result_close_combat) {
+                const bool reduced = s_reduced_motion;
+                s_reduced_motion = true;
+                tick_camera();
+                s_reduced_motion = reduced;
+            }
             (void)activate_pending_battle_moment();
         }
         return 0;
@@ -2606,7 +2689,13 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
                 .text(" row=").decimal(s_menu_index).flush();
             if (choice.kind == ActionKind::attack) {
                 s_mode = InputMode::attack;
-                s_cursor = actor->position;
+                for (const auto& target : snapshot.units) {
+                    if (sim::forecast_attack(snapshot, actor->id, target.id,
+                                             s_created->encounter.weapons(), 0)) {
+                        s_cursor = target.position;
+                        break;
+                    }
+                }
             } else if (choice.kind == ActionKind::ability) {
                 s_action_content = choice.content;
                 s_mode = InputMode::ability;

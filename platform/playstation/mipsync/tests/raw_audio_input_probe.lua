@@ -6,7 +6,7 @@ local update_address = assert(tonumber(os.getenv('GRANDLEON_UPDATE_ADDRESS')))
 local packet = PCSX.getMemPtr() + bit.band(raw_address, 0x1fffff)
 local frame = 0
 local taps = {[30]=0x0040,[50]=0x0040,[70]=0x4000,
-              [90]=0x0040,[110]=0x0040,[130]=0x0040,[170]=0x0040}
+              [90]=0x0040,[110]=0x0040,[170]=0x0040}
 
 grandleon_raw_audio_input = PCSX.addBreakpoint(raw_address, 'Read', 1, 'Virtual controller packet', function()
   frame = frame + 1

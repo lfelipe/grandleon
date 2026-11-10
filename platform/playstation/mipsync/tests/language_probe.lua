@@ -25,7 +25,7 @@ if mode == 'write' then
     first_setting = 170
   end
   -- Music and Effects precede Language in the current Settings menu.
-  for row = 0, 4 do actions[first_setting + row * 20] = 0x0040 end
+  for row = 0, 3 do actions[first_setting + row * 20] = 0x0040 end
   actions[first_setting + 100] = 0x4000
 end
 

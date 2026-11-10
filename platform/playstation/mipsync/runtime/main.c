@@ -172,10 +172,19 @@ int main(void) {
                     pad->type == PAD_ID_DIGITAL ||
                     pad->type == PAD_ID_ANALOG_STICK ||
                     pad->type == PAD_ID_ANALOG)) {
-                pressed[pad_index] = (uint16_t)(
-                    s_last_buttons[pad_index] & (uint16_t)~pad->btn
-                );
-                s_last_buttons[pad_index] = pad->btn;
+                uint16_t buttons = pad->btn;
+                if ((pad->type == PAD_ID_ANALOG_STICK || pad->type == PAD_ID_ANALOG) && pad->len >= 3) {
+                    if (pad->ls_x < 80) buttons &= (uint16_t)~PAD_LEFT;
+                    if (pad->ls_x > 176) buttons &= (uint16_t)~PAD_RIGHT;
+                    if (pad->ls_y < 80) buttons &= (uint16_t)~PAD_UP;
+                    if (pad->ls_y > 176) buttons &= (uint16_t)~PAD_DOWN;
+                }
+                pressed[pad_index] = grandleon_game_map_controller((uint16_t)(
+                    s_last_buttons[pad_index] & (uint16_t)~buttons
+                ));
+                s_last_buttons[pad_index] = buttons;
+            } else {
+                s_last_buttons[pad_index] = 0xffffu;
             }
         }
         deferred = grandleon_runtime_update(pressed[0], pressed[1]);
