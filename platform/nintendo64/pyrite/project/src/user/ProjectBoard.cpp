@@ -4754,7 +4754,6 @@ void draw_shell() {
         static_cast<int>(std::min<std::size_t>(project_title.size(), 29U)),
         project_title.data()
     );
-    P64::Debug::printf(74, 66, "PYRITE / TINY3D");
     switch (shell.phase) {
         case ShellPhase::title:
             P64::Debug::printf(
@@ -4786,7 +4785,7 @@ void draw_shell() {
             P64::Debug::printf(65, 146, "%s %s: %u%%", shell.audio_row == 1U ? ">" : " ",
                 ui(console::Message::effects_volume), effects_volume);
             P64::Debug::printf(43, 174, "%s", ui(console::Message::volume_controls));
-            P64::Debug::printf(43, 194, "B %s", ui(console::Message::back));
+            P64::Debug::printf(43, 194, "%s", ui(console::Message::back));
             break;
         case ShellPhase::help:
             P64::Debug::printf(119, 88, "%s", ui(console::Message::help));
