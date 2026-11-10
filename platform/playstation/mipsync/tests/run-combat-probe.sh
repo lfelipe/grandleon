@@ -60,6 +60,9 @@ duration_address=$(
 remaining_address=$(
     "$nm" -n "$elf" | awk '$3 ~ /s_result_framesE$/ {print "0x" $1; found=1} END {if (!found) exit 1}'
 )
+cursor_address=$("$nm" -n "$elf" | awk '$3 ~ /8s_cursorE$/ {print "0x" $1; found=1} END {if (!found) exit 1}')
+players_address=$("$nm" -n "$elf" | awk '$3 ~ /16s_player_cursorsE$/ {print "0x" $1; found=1} END {if (!found) exit 1}')
+ai_address=$("$nm" -n "$elf" | awk '$3 ~ /11s_ai_activeE$/ {print "0x" $1; found=1} END {if (!found) exit 1}')
 
 log=$output/emulator.log
 set +e
@@ -70,6 +73,9 @@ timeout --kill-after=10 180 \
         --env "GRANDLEON_AUDIO_CUE_ADDRESS=$audio_address" \
         --env "GRANDLEON_RESULT_DURATION_ADDRESS=$duration_address" \
         --env "GRANDLEON_RESULT_FRAMES_ADDRESS=$remaining_address" \
+        --env "GRANDLEON_CURSOR_ADDRESS=$cursor_address" \
+        --env "GRANDLEON_PLAYER_CURSORS_ADDRESS=$players_address" \
+        --env "GRANDLEON_AI_ACTIVE_ADDRESS=$ai_address" \
         --env "GRANDLEON_CAPTURE_MOTION=${GRANDLEON_CAPTURE_MOTION:-0}" \
         --volume "$build:/disc:ro" \
         --volume "$script_dir:/probe:ro" \
@@ -103,6 +109,7 @@ require 'MIPSYNC_COMBAT_FORECAST_CAPTURE 320x240 bytes=153600' 'the live attack 
 require 'MIPSYNC_COMBAT_CLOSE_CAPTURE 320x240 bytes=153600' 'the close-combat camera frame'
 require 'MIPSYNC_COMBAT_FINAL_CAPTURE 320x240 bytes=153600' 'the completed-turn frame'
 require 'MIPSYNC_COMBAT_AUDIO_PASS launch=28 impact=37 counter_launch=68 counter_impact=77' 'synchronized attack and counterattack sounds'
+require 'MIPSYNC_PLAYER_CAMERA_PASS player=2 ' 'camera focus returned to Player 2 after the opposing turn'
 metrics=$(grep 'MIPSYNC_GRANDLEON_METRICS frames=600 ' "$log" | tail -n 1)
 proof=$(grep 'MIPSYNC_SIM_PROOF ' "$log" | tail -n 1)
 printf 'Mipsync Bell Orchard combat passed: %s\n%s\n' "$metrics" "$proof"

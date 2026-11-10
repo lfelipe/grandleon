@@ -101,6 +101,7 @@ sim::EncounterSnapshot s_snapshot{};
 sim::UnitId s_selected{};
 sim::Position s_cursor{};
 sim::Position s_player_cursors[2]{};
+unsigned s_focus_player{};
 InputMode s_mode{InputMode::browse};
 unsigned s_menu_index{};
 unsigned s_pause_menu_index{};
@@ -1422,8 +1423,16 @@ void begin_result(
 }
 
 void finish_side_if_needed(const sim::EncounterSnapshot& snapshot) {
+    const bool was_ai_active = s_ai_active;
     s_ai_active = snapshot.active_side == sim::Side::second &&
         snapshot.outcome == sim::Outcome::ongoing;
+    if (was_ai_active && !s_ai_active &&
+        snapshot.outcome == sim::Outcome::ongoing) {
+        s_cursor = s_player_cursors[s_focus_player];
+        psx::Line().text("MIPSYNC_CAMERA_RETURN player=")
+            .decimal(s_focus_player + 1U).text(" x=").signed_decimal(s_cursor.x)
+            .text(" y=").signed_decimal(s_cursor.y).flush();
+    }
     if (snapshot.outcome != sim::Outcome::ongoing) {
         s_ai_active = false;
         s_selected = 0;
@@ -1694,6 +1703,7 @@ bool start_encounter() {
     }
     if (!cursor_found[0]) return false;
     if (!cursor_found[1]) s_player_cursors[1] = s_player_cursors[0];
+    s_focus_player = 0U;
     s_cursor = s_player_cursors[0];
     sync_scene(snapshot);
     ps1_entity* camera = grandleon_scene_mutable_entity(
@@ -2329,6 +2339,7 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
             pressed = player_two;
         }
         if (pressed == 0U) return 0;
+        s_focus_player = input_player;
         s_cursor = s_player_cursors[input_player];
         move_cursor(pressed, s_snapshot);
         bool mutated = false;
@@ -2498,6 +2509,7 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
         pressed = player_two;
     }
     if (pressed == 0) return 0;
+    s_focus_player = input_player;
     s_cursor = s_player_cursors[input_player];
     sim::EncounterSnapshot snapshot = s_snapshot;
     if (snapshot.active_side != sim::Side::first ||
