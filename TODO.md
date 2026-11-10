@@ -31,8 +31,10 @@
 - [x] Refresh the matched three-player capture with the current console engines;
   the README shows the same Bell Orchard solo move, attack, counterattack
   and return on all three players, preserving their individual timing.
-- [ ] Prepare final 0.5 packages and release notes after review, and validate
-  the exact console builds on hardware before declaring the milestone done.
+- [x] Prepare 0.5 application, console and optional builder packages, release
+  notes and checksums. Verify both builders through real installed exports.
+- [ ] Continue hardware playthroughs, listening and controller feedback after
+  release; track functional issues separately from the pre-1.0 campaign design.
 
 Known 0.5 limitation: PS1 camera movement can judder on the larger maps.
 The 600-update scrolling probe misses one display deadline; the castle probe

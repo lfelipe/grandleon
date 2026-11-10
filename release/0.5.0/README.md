@@ -54,24 +54,24 @@ See [console controls and exports](../../docs/CONSOLE_RENDERER.md).
 
 Nintendo 64 uses Pyrite/Tiny3D and PlayStation uses Mipsync. Each console has
 one supported renderer. Both consoles support the shared campaign, local
-co-op, saves, settings, translations and castle exploration. Presentation quality still differs
-between machines.
+co-op, saves, settings, translations and castle exploration. Presentation quality
+still differs between machines.
 
 The console target is 30 fps. PlayStation scrolling and castle scenes can
 still judder or miss that target; frame-pacing improvements are deferred beyond
-0.5. Real-hardware controls, listening and full 1P/2P playthroughs remain part
-of release acceptance.
+0.5. Please report issues with controls, audio or campaign play on your
+hardware.
 
-## Review packages
+## Downloads
 
 - `grandleon-0.5.0-linux-x86_64.tar.gz`: the Linux creator and player.
 - `grandleon-0.5.0-consoles.tar.gz`: the N64 ROM and PlayStation BIN/CUE.
 - `grandleon-nintendo64-builder-0.5.0-1.tar.gz`: optional offline N64 exporter.
 - `grandleon-playstation-builder-0.5.0-1.tar.gz`: optional offline PS1 exporter.
 
-The packages are staged in a draft [GitHub release](https://github.com/lfelipe/grandleon/releases)
-for review. Final hardware checks remain open. `SHA256SUMS` identifies the
-reviewed downloads; the console archive also contains checksums for its files.
+Download these files from the [0.5 release](https://github.com/lfelipe/grandleon/releases/tag/v0.5.0).
+[SHA256SUMS](SHA256SUMS) identifies the downloads; the console archive also
+contains checksums for its files.
 
 Grandleon uses the [MIT License](../../LICENSE); bundled dependencies retain
 their own notices in [NOTICE](../../NOTICE).
