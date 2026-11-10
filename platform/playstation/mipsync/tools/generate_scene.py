@@ -580,10 +580,10 @@ def unit_image(
 
 def write_textures(
     output: Path, repo: Path, terrain_kinds: list[int], units: list[dict[str, object]],
-    map_id: str = "0",
+    map_id: str = "0", speakers: list[dict[str, object]] | None = None,
 ) -> tuple[
     dict[int, int], dict[tuple[int, int, int, int], UnitTextureIndices],
-    int, dict[str, object],
+    int, dict[str, object], dict[int, int],
 ]:
     profiles_path = repo / "platform/godot/project/content/graphics_profiles.json"
     profiles = json.loads(profiles_path.read_text(encoding="utf-8"))["profiles"]["voxel-sprites"]["assets"]["characterSprites"]
@@ -637,6 +637,24 @@ def write_textures(
             ))
             pose_indices.append(len(textures))
         unit_indices[key] = tuple(pose_indices)  # type: ignore[assignment]
+
+    # Cast members may speak before entering the board. Reuse resident idle
+    # textures and add only a small portrait for each absent visual variant.
+    speaker_indices: dict[int, int] = {}
+    portrait_variants: dict[tuple[int, int, int, int], int] = {}
+    for speaker in speakers or []:
+        key = tuple(int(speaker[field]) for field in
+                    ("style", "archetype", "figure", "colour"))
+        if key in unit_indices:
+            texture_index = unit_indices[key][0]
+        elif key in portrait_variants:
+            texture_index = portrait_variants[key]
+        else:
+            texture = unit_image(repo, speaker, profiles, 0, side=32)
+            textures.append((f"speaker_{len(portrait_variants)}", texture, True, 0, 0))
+            texture_index = len(textures)
+            portrait_variants[key] = texture_index
+        speaker_indices[int(speaker["unit_type_id"])] = texture_index
 
     # One tiny, deterministic font atlas lets the target draw live health,
     # forecasts and arbitrary ability counts without shipping Sony's debug
@@ -760,7 +778,7 @@ def write_textures(
             TEXTURE_WIDTH * TEXTURE_HEIGHT * 2 - occupied_vram_bytes
         ),
     }
-    return terrain_indices, unit_indices, ui_index, metrics
+    return terrain_indices, unit_indices, ui_index, metrics, speaker_indices
 
 
 def emit_vectors(name: str, values: list[tuple[int, int, int, int]]) -> list[str]:
@@ -1472,6 +1490,7 @@ def write_scene(
     terrain_chunks: list[tuple[int, int, int, int, int, int, int]],
     ui_texture_index: int,
     surface_lifts: list[int], fog_colour: tuple[int, int, int],
+    speaker_indices: dict[int, int] | None = None,
 ) -> int:
     width = int(document["width"])
     height = int(document["height"])
@@ -1597,6 +1616,15 @@ def write_scene(
         *("    {" + ",".join(f"{texture}u" for texture in textures) + "},"
           for textures in unit_pose_texture_indices),
         "};",
+        "const uint64_t g_grandleon_speaker_unit_type_ids[] = {",
+        *(f"    {identity}ULL," for identity in (speaker_indices or {})),
+        "    0ULL," if not speaker_indices else "",
+        "};",
+        "const unsigned int g_grandleon_speaker_texture_indices[] = {",
+        *(f"    {texture}u," for texture in (speaker_indices or {}).values()),
+        "    0u," if not speaker_indices else "",
+        "};",
+        f"const unsigned int g_grandleon_speaker_count = {len(speaker_indices or {})}u;",
         "const unsigned int g_grandleon_board_billboard_mesh_index = 1u;",
         f"const unsigned int g_grandleon_mirrored_billboard_mesh_index = {mirrored_billboard_mesh_index}u;",
         f"const unsigned int g_grandleon_directional_billboard_mesh_index = {directional_billboard_mesh_index}u;",
@@ -1655,6 +1683,9 @@ def write_scene(
 extern "C" {
 #endif
 extern const uint64_t g_grandleon_unit_ids[];
+extern const uint64_t g_grandleon_speaker_unit_type_ids[];
+extern const unsigned int g_grandleon_speaker_texture_indices[];
+extern const unsigned int g_grandleon_speaker_count;
 extern const unsigned int g_grandleon_unit_entity_indices[];
 extern const unsigned int g_grandleon_unit_pose_texture_indices[][9];
 extern const unsigned int g_grandleon_board_billboard_mesh_index;
@@ -1790,8 +1821,9 @@ def main() -> int:
     assert isinstance(units, list)
     typed_units = [unit for unit in units if isinstance(unit, dict)]
     all_kinds = [kind for _x, _y, kind, _authored, _span_x, _span_y in cells]
-    terrain_indices, unit_indices, ui_texture, texture_metrics = write_textures(
+    terrain_indices, unit_indices, ui_texture, texture_metrics, speaker_indices = write_textures(
         output, repo, all_kinds, typed_units, str(document.get("map_id", "0")),
+        document.get("speakers", []),
     )
     terrain_form_cells = select_terrain_form_cells(
         terrain, width, height, args.surroundings_seed,
@@ -1824,6 +1856,7 @@ def main() -> int:
         ui_texture,
         surface_lifts,
         shifted_colour(relay_colours(repo, distant_kind)[0], 65),
+        speaker_indices,
     )
     visible_units = visible_position_peak(
         [(int(unit["x"]), int(unit["y"])) for unit in typed_units],

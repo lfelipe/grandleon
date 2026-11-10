@@ -19,6 +19,7 @@
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -71,6 +72,70 @@ std::string first_dialogue_text(
         ));
     }
     return {};
+}
+
+void write_dialogue_lines(
+    std::ostream& output, const pf::LoadedPackage& package,
+    const pr::CampaignNode& node, std::string_view language
+) {
+    output << '[';
+    bool first = true;
+    for (const auto dialogue_id : node.dialogue_ids) {
+        const auto loaded = pr::load_dialogue(package, dialogue_id);
+        if (!loaded) continue;
+        for (std::size_t index = 0; index < loaded.dialogue.lines.size(); ++index) {
+            if (!first) output << ',';
+            first = false;
+            const auto& line = loaded.dialogue.lines[index];
+            output << "{\"speaker\":";
+            write_string(output, pr::localized_dialogue_line(
+                package, language, dialogue_id, index, "speaker", line.speaker));
+            output << ",\"text\":";
+            write_string(output, pr::localized_dialogue_line(
+                package, language, dialogue_id, index, "text", line.text));
+            output << ",\"unit_type_id\":";
+            const auto* type = loaded.dialogue.speaker_unit_type(line);
+            write_id(output, type ? *type : 0U);
+            output << '}';
+        }
+    }
+    output << ']';
+}
+
+void write_speakers(
+    std::ostream& output, const pf::LoadedPackage& package,
+    const pr::CampaignDefinition& campaign,
+    const std::vector<pr::EncounterMoment>& moments,
+    const pr::Presentation& presentation
+) {
+    std::set<std::uint64_t> types;
+    const auto collect = [&](std::uint64_t dialogue_id) {
+        const auto loaded = pr::load_dialogue(package, dialogue_id);
+        if (loaded) for (const auto type : loaded.dialogue.cast) {
+            if (type != 0U) types.insert(type);
+        }
+    };
+    for (const auto& node : campaign.nodes)
+        for (const auto id : node.dialogue_ids) collect(id);
+    for (const auto& moment : moments) collect(moment.dialogue_id);
+    output << '[';
+    bool first = true;
+    const auto resolved = [](std::uint8_t value) {
+        return value == 255U ? 0U : static_cast<unsigned>(value);
+    };
+    for (const auto type : types) {
+        if (!first) output << ',';
+        first = false;
+        output << "{\"unit_type_id\":";
+        write_id(output, type);
+        output << ",\"name\":";
+        write_string(output, pr::content_name(package, pf::SectionType::unit_types, type));
+        output << ",\"style\":" << resolved(presentation.character_style_of_unit_type(type))
+               << ",\"archetype\":" << resolved(presentation.archetype_of_unit_type(type))
+               << ",\"figure\":" << resolved(presentation.character_figure_of_unit_type(type))
+               << ",\"colour\":" << resolved(presentation.colour_of_unit_type(type)) << '}';
+    }
+    output << ']';
 }
 
 std::string campaign_node_name(
@@ -145,6 +210,9 @@ void write_localized_moments(
                     package, language, moment.dialogue_id, line_index,
                     "text", line.text
                 ));
+                output << ",\"unit_type_id\":";
+                const auto* type = loaded.dialogue.speaker_unit_type(line);
+                write_id(output, type ? *type : 0U);
                 output << '}';
             }
         }
@@ -226,6 +294,8 @@ void write_campaign(
         write_string(output, first_dialogue_text(
             package, campaign, node.id, language
         ));
+        output << ",\"dialogue_lines\":";
+        write_dialogue_lines(output, package, node, language);
         output << ",\"has_fallback\":"
                << (node.has_unconditional_target ? 1 : 0)
                << ",\"fallback\":";
@@ -326,6 +396,8 @@ void write_localizations(
             write_string(output, first_dialogue_text(
                 package, campaign, node.id, language
             ));
+            output << ",\"dialogue_lines\":";
+            write_dialogue_lines(output, package, node, language);
             output << '}';
         }
         output << "],\"moments\":";
@@ -505,6 +577,9 @@ int main(int argc, char** argv) {
     );
     output << ",\n  \"moments\": ";
     write_moments(output, loaded.moments);
+    output << ",\n  \"speakers\": ";
+    write_speakers(output, package.package, campaign.definition, loaded.moments,
+                   shown.presentation);
     output << ",\n  \"terrain\": [";
     for (std::size_t index = 0; index < loaded.terrain.size(); ++index) {
         if (index != 0) output << ',';
