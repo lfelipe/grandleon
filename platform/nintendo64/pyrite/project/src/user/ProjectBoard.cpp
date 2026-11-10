@@ -4092,10 +4092,13 @@ void update_replay() {
             open_action_menu(board.rowan_id);
             assert(battle_ui.phase == BattleUiPhase::action);
             if (!replay.action_menu_checkpoint) {
+                const ActionMenu menu = action_menu();
+                const bool attack = std::any_of(menu.choices.begin(), menu.choices.begin() + menu.count,
+                    [](const ActionChoice& choice) { return choice.kind == ActionChoiceKind::attack; });
                 debugf(
-                    "CHECKPOINT PYRITE_ACTION_MENU rows=%u attack=1 ability=%u "
+                    "CHECKPOINT PYRITE_ACTION_MENU rows=%u attack=%u ability=%u "
                     "wait=1 cancel=1\n",
-                    static_cast<unsigned>(action_rows()),
+                    static_cast<unsigned>(action_rows()), attack ? 1U : 0U,
                     actor_has_ability() ? 1U : 0U
                 );
                 replay.action_menu_checkpoint = true;
@@ -4520,7 +4523,7 @@ void draw_battle_ui() {
         }
         battle_moment.text_next = start;
         battle_moment.text_more = start < dialogue_text.size();
-        display_printf(238, 215, "A %s", ui(console::Message::next));
+        display_printf(215, 215, "A %s", ui(console::Message::next));
         rdpq_mode_pop();
         return;
     }
@@ -4767,10 +4770,8 @@ void draw_battle_ui() {
                     menu_x + 14, menu_y + 52, "%s", ui(console::Message::no_counter)
                 );
             }
-            display_printf(
-                menu_x + 14, menu_y + 78, "A %s  B %s", ui(console::Message::confirm),
-                ui(console::Message::back_button)
-            );
+            display_printf(menu_x + 14, menu_y + 72, "A %s", ui(console::Message::confirm));
+            display_printf(menu_x + 14, menu_y + 88, "B %s", ui(console::Message::back_button));
         } else {
             display_printf(
                 menu_x + 14, menu_y + 40, "%s", command_error_label(forecast.error)
@@ -4809,10 +4810,8 @@ void draw_battle_ui() {
                     forecast.damage
                 );
             }
-            display_printf(
-                menu_x + 14, menu_y + 78, "A %s  B %s", ui(console::Message::confirm),
-                ui(console::Message::back_button)
-            );
+            display_printf(menu_x + 14, menu_y + 72, "A %s", ui(console::Message::confirm));
+            display_printf(menu_x + 14, menu_y + 88, "B %s", ui(console::Message::back_button));
         } else {
             display_printf(
                 menu_x + 14, menu_y + 40, "%s", command_error_label(forecast.error)
@@ -4835,10 +4834,8 @@ void draw_battle_ui() {
             display_printf(
                 menu_x + 14, menu_y + 40, "%s", ui(console::Message::confirm)
             );
-            display_printf(
-                menu_x + 14, menu_y + 78, "A %s  B %s", ui(console::Message::confirm),
-                ui(console::Message::back_button)
-            );
+            display_printf(menu_x + 14, menu_y + 72, "A %s", ui(console::Message::confirm));
+            display_printf(menu_x + 14, menu_y + 88, "B %s", ui(console::Message::back_button));
         } else {
             display_printf(
                 menu_x + 14, menu_y + 40, "%s", command_error_label(forecast.error)

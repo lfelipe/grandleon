@@ -119,7 +119,7 @@ class HardwareCameraProjection(unittest.TestCase):
         story_start = source.index("void draw_wrapped_story(")
         story_end = source.index("\nstd::vector<client::RosterEntry>", story_start)
         moment_start = source.index("        constexpr std::size_t width = 31U;")
-        moment_end = source.index('        display_printf(238, 215,', moment_start)
+        moment_end = source.index('        display_printf(215, 215,', moment_start)
         harness = r"""
             #include <grandleon/view/console_text.h>
             #include <algorithm>
