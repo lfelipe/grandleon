@@ -142,7 +142,7 @@ func _verify_and_capture(
 	for style: String in spec.visuals:
 		_expect(
 			"%s renders %s landmarks" % [spec.node, style],
-			_count_landmark_style(board._terrain_root, style), int(spec.visuals[style])
+			_count_landmark_style(board._terrain_root, style, board), int(spec.visuals[style])
 		)
 	board._focus_tactical_camera(spec.focus)
 	board._update_tactical_camera(10.0)
@@ -167,10 +167,17 @@ func _verify_and_capture(
 	await process_frame
 
 
-func _count_landmark_style(root: Node, style: String) -> int:
-	var count := 1 if String(root.get_meta("landmark_style", "")) == style else 0
+func _count_landmark_style(root: Node, style: String, board: Node) -> int:
+	var count := 0
+	if root is Node3D and String(root.get_meta("landmark_style", "")) == style:
+		# Authored landmark totals describe the playable map. The surrounding
+		# landscape may repeat edge scenery and must not inflate those totals.
+		var at: Vector2 = board._cell_from_world(board._terrain_root.to_local(root.global_position))
+		var bounds := Rect2(-0.5, -0.5, float(board.snapshot.width), float(board.snapshot.height))
+		if bounds.has_point(at):
+			count = 1
 	for child: Node in root.get_children():
-		count += _count_landmark_style(child, style)
+		count += _count_landmark_style(child, style, board)
 	return count
 
 
