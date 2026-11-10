@@ -2,6 +2,8 @@ local update_address = assert(tonumber(os.getenv('GRANDLEON_UPDATE_ADDRESS')),
                               'GRANDLEON_UPDATE_ADDRESS is required')
 local mode = os.getenv('GRANDLEON_LANGUAGE_MODE') or 'write'
 local context = os.getenv('GRANDLEON_LANGUAGE_CONTEXT') or 'title'
+local steps = tonumber(os.getenv('GRANDLEON_LANGUAGE_STEPS') or '1')
+local capture_pending = false
 local frame = 0
 local actions = {}
 local first_setting = 110
@@ -26,7 +28,7 @@ if mode == 'write' then
   end
   -- Music and Effects precede Language in the current Settings menu.
   for row = 0, 3 do actions[first_setting + row * 20] = 0x0040 end
-  actions[first_setting + 100] = 0x4000
+  for step = 0, steps - 1 do actions[first_setting + 100 + step * 20] = 0x4000 end
 end
 
 grandleon_language_update = PCSX.addBreakpoint(
@@ -37,9 +39,19 @@ grandleon_language_update = PCSX.addBreakpoint(
   if (mode == 'write' and frame == 330) or
      (mode == 'read' and frame == 70) then
     print(string.format('MIPSYNC_LANGUAGE_PROBE mode=%s frames=%d', mode, frame))
-    PCSX.quit(0)
+    if mode == 'write' then capture_pending = true else PCSX.quit(0) end
   end
   return true
+end)
+
+grandleon_language_capture = PCSX.Events.createEventListener('GPU::Vsync', function()
+  if not capture_pending then return end
+  capture_pending = false
+  local shot = PCSX.GPU.takeScreenShot()
+  local output = Support.File.open('/out/language-settings.bin', 'TRUNCATE')
+  output:writeMoveSlice(shot.data)
+  output:close()
+  PCSX.quit(0)
 end)
 
 print(string.format('MIPSYNC_LANGUAGE_READY mode=%s update=%08x',

@@ -12,7 +12,20 @@ context=battle
 build=$source_build/build
 cue=$build/grandleon-mipsync.cue
 disc_dir=$build
-if test -f "$source_build/grandleon-mipsync-campaign.cue"; then
+language_index=1
+if test -f "$source_build/game.cue"; then
+    context=title
+    build=$source_build/stages/01/build
+    cue=$source_build/game.cue
+    disc_dir=$source_build
+    language_index=$(python3 - "$source_build/stages/01/two.json" <<'PY'
+import json, sys
+codes = [value['code'] for value in json.load(open(sys.argv[1]))['languages']]
+if 'pt-BR' not in codes: raise SystemExit('production campaign does not provide pt-BR')
+print(codes.index('pt-BR'))
+PY
+    )
+elif test -f "$source_build/grandleon-mipsync-campaign.cue"; then
     context=title
     build=$source_build/bell-build
     cue=$source_build/grandleon-mipsync-campaign.cue
@@ -62,6 +75,7 @@ run_mode() {
             --env "GRANDLEON_UPDATE_ADDRESS=$update" \
             --env "GRANDLEON_LANGUAGE_MODE=$mode" \
             --env "GRANDLEON_LANGUAGE_CONTEXT=$context" \
+            --env "GRANDLEON_LANGUAGE_STEPS=$language_index" \
             --volume "$disc_dir:/disc:ro" \
             --volume "$script_dir:/probe:ro" \
             --volume "$output:/out" \
