@@ -28,6 +28,7 @@ fi
 output=$(CDPATH= cd -- "$output" && pwd)
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+python3 "$script_dir/verify-probe-disc.py" "$build" >"$output/disc-verification.txt"
 docker=${GRANDLEON_DOCKER:-docker}
 revision=a415a98e6c347b41ca5a1d3f23bbc4eb26059687
 image=${GRANDLEON_PLAYSTATION_EMULATOR_IMAGE:-grandleon/playstation-emulator:$revision}

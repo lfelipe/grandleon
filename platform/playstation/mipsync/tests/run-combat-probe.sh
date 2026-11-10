@@ -28,6 +28,7 @@ fi
 output=$(CDPATH= cd -- "$output" && pwd)
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+python3 "$script_dir/verify-probe-disc.py" "$build" >"$output/disc-verification.txt"
 docker=${GRANDLEON_DOCKER:-docker}
 revision=a415a98e6c347b41ca5a1d3f23bbc4eb26059687
 image=${GRANDLEON_PLAYSTATION_EMULATOR_IMAGE:-grandleon/playstation-emulator:$revision}
@@ -69,6 +70,7 @@ timeout --kill-after=10 180 \
         --env "GRANDLEON_AUDIO_CUE_ADDRESS=$audio_address" \
         --env "GRANDLEON_RESULT_DURATION_ADDRESS=$duration_address" \
         --env "GRANDLEON_RESULT_FRAMES_ADDRESS=$remaining_address" \
+        --env "GRANDLEON_CAPTURE_MOTION=${GRANDLEON_CAPTURE_MOTION:-0}" \
         --volume "$build:/disc:ro" \
         --volume "$script_dir:/probe:ro" \
         --volume "$output:/out" \

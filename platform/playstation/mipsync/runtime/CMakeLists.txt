@@ -115,5 +115,5 @@ add_custom_command(
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
     VERBATIM
 )
-add_custom_target(iso DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/grandleon-mipsync.bin"
+add_custom_target(iso ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/grandleon-mipsync.bin"
     "${CMAKE_CURRENT_BINARY_DIR}/grandleon-mipsync.cue")
