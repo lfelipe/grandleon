@@ -74,16 +74,18 @@ require() {
 require 'GRANDLEON_PS1_RENDERER=MIPSYNC' 'the Mipsync renderer identity'
 require 'MIPSYNC_SIM_READY width=20 height=14 units=6 .*hash=8c904e6d40b072d9' 'the real one-player Twin Gate simulation'
 require 'MIPSYNC_MOVE_SETTLED unit=4c0800efeb4ef2bd steps=3' 'Rowan reaching the castle approach'
+require 'MIPSYNC_CAMERA_RETURN player=1 x=5 y=6' 'camera focus returned to the player after the opposing turn'
 require 'MIPSYNC_VISIBILITY_REVEAL cells=18' 'the authored castle reveal'
 require 'MIPSYNC_MOVE_SETTLED unit=4c0800efeb4ef2bd steps=4' 'Rowan crossing the doorway'
 require 'MIPSYNC_VISIBILITY_CAPTURE name=before 320x240 bytes=153600' 'the covered castle frame'
 require 'MIPSYNC_VISIBILITY_CAPTURE name=after 320x240 bytes=153600' 'the revealed castle frame'
 
 approach_line=$(grep -n 'MIPSYNC_MOVE_SETTLED unit=4c0800efeb4ef2bd steps=3' "$log" | head -n 1 | cut -d: -f1)
+covered_line=$(grep -n 'MIPSYNC_VISIBILITY_CAPTURE name=before ' "$log" | head -n 1 | cut -d: -f1)
 reveal_line=$(grep -n 'MIPSYNC_VISIBILITY_REVEAL cells=18' "$log" | head -n 1 | cut -d: -f1)
 cross_line=$(grep -n 'MIPSYNC_MOVE_SETTLED unit=4c0800efeb4ef2bd steps=4' "$log" | head -n 1 | cut -d: -f1)
-test "$approach_line" -lt "$reveal_line" && test "$reveal_line" -lt "$cross_line" || {
-    echo "castle revealed outside Rowan's doorway-crossing movement" >&2
+test "$approach_line" -lt "$covered_line" && test "$covered_line" -lt "$reveal_line" && test "$reveal_line" -lt "$cross_line" || {
+    echo "castle must stay covered during cursor inspection and reveal during Rowan's doorway crossing" >&2
     exit 1
 }
 
