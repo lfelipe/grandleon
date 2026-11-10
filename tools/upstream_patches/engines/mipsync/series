@@ -9,3 +9,4 @@
 0009-Avoid-duplicate-vertex-searches-in-PS1-visibility-ba.patch
 0010-Select-one-tool-when-resolving-Windows-build-command.patch
 0011-Reclaim-disabled-PS1-cache-entries-only-under-alloca.patch
+0012-Expose-camera-projection-for-PS1-world-overlays.patch

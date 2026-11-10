@@ -1,0 +1,157 @@
+From eeb4ba2e4560f9e00d9e66e902ea50902653b520 Mon Sep 17 00:00:00 2001
+From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
+Date: Mon, 9 Nov 2026 22:14:00 -0800
+Subject: [PATCH] Expose camera projection for PS1 world overlays
+
+---
+ templates/ps1/starter/runtime/render.c        | 12 ++++++
+ templates/ps1/starter/runtime/render.h        |  6 +++
+ .../ps1/starter/runtime/world_projection.h    | 41 +++++++++++++++++++
+ tests/Ps1WorldProjectionTests.c               | 40 ++++++++++++++++++
+ 4 files changed, 99 insertions(+)
+ create mode 100644 templates/ps1/starter/runtime/world_projection.h
+ create mode 100644 tests/Ps1WorldProjectionTests.c
+
+diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c
+index ad02238..c05252c 100644
+--- a/templates/ps1/starter/runtime/render.c
++++ b/templates/ps1/starter/runtime/render.c
+@@ -12,6 +12,7 @@
+ #include "projection_safety.h"
+ #include "watertight_projection.h"
+ #include "affine_subdivision.h"
++#include "world_projection.h"
+ 
+ #include <stdint.h>
+ #include <string.h>
+@@ -6113,6 +6114,17 @@ void ps1_render_init(int screen_w, int screen_h) {
+     s_initialized = 1;
+ }
+ 
++int ps1_render_project_world(int32_t x_q16, int32_t y_q16, int32_t z_q16,
++        int16_t* screen_x, int16_t* screen_y, int32_t* depth) {
++    const int32_t translation[3] = {
++        s_cam_mtx.t[0], s_cam_mtx.t[1], s_cam_mtx.t[2]
++    };
++    if (!s_initialized) return 0;
++    return ps1_project_world_point(s_cam_mtx.m, translation,
++        s_screen_w, s_screen_h, s_geom_screen, s_near_z, s_far_z,
++        x_q16, y_q16, z_q16, screen_x, screen_y, depth);
++}
++
+ void ps1_render_frame(uint32_t* ot, char** nextpri, const char* packet_end) {
+     char* pri;
+     unsigned int i, count;
+diff --git a/templates/ps1/starter/runtime/render.h b/templates/ps1/starter/runtime/render.h
+index 3acd09d..3635b45 100644
+--- a/templates/ps1/starter/runtime/render.h
++++ b/templates/ps1/starter/runtime/render.h
+@@ -7,6 +7,12 @@
+ void ps1_render_init(int screen_w, int screen_h);
+ /* nextpri points into the caller's packet buffer; packet_end must be the first byte after it. */
+ void ps1_render_frame(uint32_t* ot, char** nextpri, const char* packet_end);
++/* Project a Q16.16 world point using the current render camera. Returns zero
++ * before initialization, beyond the depth range or outside signed XY limits.
++ * Points outside the viewport are retained for native GPU clipping. Does not
++ * change GTE state. depth may be NULL; screen_x and screen_y are required. */
++int ps1_render_project_world(int32_t x_q16, int32_t y_q16, int32_t z_q16,
++    int16_t* screen_x, int16_t* screen_y, int32_t* depth);
+ /* Submit world, apply authored grading, then submit ungraded overlay UI. */
+ void ps1_render_submit(uint32_t* ot, int framebuffer_x, int framebuffer_y, int width, int height, const uint16_t* lut);
+ 
+diff --git a/templates/ps1/starter/runtime/world_projection.h b/templates/ps1/starter/runtime/world_projection.h
+new file mode 100644
+index 0000000..2d0d851
+--- /dev/null
++++ b/templates/ps1/starter/runtime/world_projection.h
+@@ -0,0 +1,41 @@
++#ifndef MIPSYNC_WORLD_PROJECTION_H
++#define MIPSYNC_WORLD_PROJECTION_H
++#include <stdint.h>
++#include <limits.h>
++#include "watertight_projection.h"
++
++/* Read-only projection for world-anchored overlays. Wide intermediates keep
++ * extreme authored coordinates defined without changing the GTE registers. */
++static inline int ps1_project_world_point(
++        const int16_t rotation[3][3], const int32_t translation[3],
++        int screen_w, int screen_h, int geom_screen, int near_z, int far_z,
++        int32_t x_q16, int32_t y_q16, int32_t z_q16,
++        int16_t* screen_x, int16_t* screen_y, int32_t* depth) {
++    const int32_t world[3] = {x_q16 >> 10, y_q16 >> 10, z_q16 >> 10};
++    int32_t camera[3];
++    int row;
++    int64_t x, y;
++    if (!rotation || !translation || !screen_x || !screen_y || screen_w <= 0 || screen_h <= 0 ||
++        geom_screen <= 0 || near_z <= 0 || far_z < near_z)
++        return 0;
++    for (row = 0; row < 3; ++row) {
++        const int64_t value = (((int64_t)rotation[row][0] * world[0] +
++            (int64_t)rotation[row][1] * world[1] +
++            (int64_t)rotation[row][2] * world[2]) >> 12) + translation[row];
++        if (value < INT32_MIN || value > INT32_MAX)
++            return 0;
++        camera[row] = (int32_t)value;
++    }
++    if (camera[2] < near_z || camera[2] > far_z)
++        return 0;
++    const uint32_t factor = ps1_projection_factor(geom_screen, camera[2]);
++    x = ps1_projection_axis(camera[0], factor, screen_w / 2);
++    y = ps1_projection_axis(camera[1], factor, screen_h / 2);
++    if (x < INT16_MIN || x > INT16_MAX || y < INT16_MIN || y > INT16_MAX)
++        return 0;
++    *screen_x = (int16_t)x;
++    *screen_y = (int16_t)y;
++    if (depth) *depth = camera[2];
++    return 1;
++}
++#endif
+diff --git a/tests/Ps1WorldProjectionTests.c b/tests/Ps1WorldProjectionTests.c
+new file mode 100644
+index 0000000..8382e57
+--- /dev/null
++++ b/tests/Ps1WorldProjectionTests.c
+@@ -0,0 +1,40 @@
++#include <stdio.h>
++#include <stdlib.h>
++#include "../templates/ps1/starter/runtime/world_projection.h"
++
++static void check(int condition, const char* message) {
++    if (!condition) { fprintf(stderr, "%s\n", message); exit(1); }
++}
++
++int main(void) {
++    const int16_t rotation[3][3] = {{4096,0,0},{0,4096,0},{0,0,4096}};
++    const int32_t translation[3] = {0,0,640};
++    int16_t x = -1, y = -1;
++    int32_t depth = -1;
++    check(ps1_project_world_point(rotation, translation, 320,240,160,8,6400,
++        0,0,0,&x,&y,&depth) && x == 160 && y == 120 && depth == 640,
++        "Origin must use the current camera translation and screen center");
++    check(ps1_project_world_point(rotation, translation, 320,240,160,8,6400,
++        65536,-65536,0,&x,&y,0) && x == 176 && y == 104,
++        "World axes must follow camera projection and accept optional depth");
++    const int16_t yaw[3][3] = {{0,0,4096},{0,4096,0},{-4096,0,0}};
++    check(ps1_project_world_point(yaw, translation, 320,240,160,8,6400,
++        65536,0,0,&x,&y,&depth) && x == 160 && depth == 576,
++        "Projection must honor camera rotation, not a fixed board formula");
++    check(ps1_project_world_point(rotation, translation, 320,240,160,8,6400,
++        65536*20,0,0,&x,&y,0) && x == 480,
++        "Offscreen points must survive for partially visible overlays");
++    x = 77; y = 88; depth = 99;
++    check(!ps1_project_world_point(rotation, translation, 320,240,160,8,6400,
++        0,0,-65536*10,&x,&y,&depth) && x == 77 && y == 88 && depth == 99,
++        "Points behind the near plane must leave outputs unchanged");
++    check(!ps1_project_world_point(rotation, translation, 320,240,160,8,6400,
++        0,0,65536*100,&x,&y,&depth), "Far-plane points must be rejected");
++    check(!ps1_project_world_point(rotation, translation, 320,240,160,8,6400,
++        0,0,0,0,&y,&depth), "Required output pointers must be checked");
++    const int32_t extreme[3] = {INT32_MAX,INT32_MAX,640};
++    check(!ps1_project_world_point(rotation, extreme, 320,240,160,8,6400,
++        INT32_MAX,INT32_MAX,0,&x,&y,&depth), "Extreme transforms must not overflow");
++    puts("World projection checks passed");
++    return 0;
++}
+-- 
+2.53.0
+
