@@ -99,6 +99,7 @@ def main() -> None:
                 process = subprocess.Popen([
                     "ffmpeg", "-hide_banner", "-loglevel", "warning",
                     "-f", "x11grab", "-framerate", "30", "-video_size", "1024x768",
+                    "-draw_mouse", "0",
                     "-i", DISPLAY.decode(), "-t", str(seconds),
                     "-vf", "crop=768:576:108:81,scale=640:480:flags=neighbor",
                     "-c:v", "libx264", "-preset", "ultrafast", "-crf", "16",
