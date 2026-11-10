@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: MIT
+# Optional low-overhead video capture layer; the emulator stays pinned.
+ARG ARES_IMAGE=grandleon/n64-ares:0aafd85789215e84e1e43415c07d4c88461b7899
+FROM ${ARES_IMAGE}
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+# OpenAL's null backend still consumes audio buffers on the real-time clock.
+ENV ALSOFT_DRIVERS=null

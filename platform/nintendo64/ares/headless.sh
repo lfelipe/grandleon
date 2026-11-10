@@ -144,12 +144,17 @@ if [ -n "${input_sequence}" ]; then
     )
 fi
 
+# A clocked silent sink is useful for real-time external video capture.
+if [ "${ARES_AUDIO_DRIVER:-None}" = "OpenAL" ]; then
+    export ALSOFT_DRIVERS="${ALSOFT_DRIVERS:-null}"
+fi
 start_epoch=$(date +%s)
 stdbuf -oL -eL ares \
     --system "Nintendo 64" \
     --no-file-prompt \
     --setting "Video/Driver=OpenGL 3.2" \
-    --setting "Audio/Driver=None" \
+    --setting "Audio/Driver=${ARES_AUDIO_DRIVER:-None}" \
+    --setting "Audio/Blocking=true" \
     "${input_settings[@]}" \
     --setting "Input/Defocus=Allow" \
     --setting "General/HomebrewMode=true" \

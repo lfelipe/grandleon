@@ -10,7 +10,8 @@ Set ARES_INPUT_SEQUENCE to comma-separated actions, for example:
     wait:3,press:Return,wait:1,shot:title.png
 
 Supported actions are wait (seconds), press (X11 keysym), keydown, keyup,
-shot (a filename written below ARES_OUT_DIR), and film (seconds with no input,
+shot (a filename written below ARES_OUT_DIR), film-start (ffmpeg capture while later
+controller actions continue; requires ffmpeg in the capture image), and film (seconds with no input,
 timestamped screen captures below ARES_OUT_DIR/idle-film).
 """
 
@@ -68,6 +69,7 @@ def main() -> None:
             raise RuntimeError(f"XTest rejected {name}")
         x11.XFlush(display)
 
+    background_videos = []
     try:
         for raw in SEQUENCE.split(","):
             action, separator, value = raw.strip().partition(":")
@@ -89,6 +91,21 @@ def main() -> None:
                     ["import", "-display", DISPLAY.decode(), "-window", "root", str(path)],
                     check=True,
                 )
+            elif action == "film-start":
+                seconds = float(value)
+                if not math.isfinite(seconds) or not 0 < seconds <= 60:
+                    raise ValueError("film duration must be between zero and 60 seconds")
+                log = (OUT_DIR / "controller-film.log").open("wb")
+                process = subprocess.Popen([
+                    "ffmpeg", "-hide_banner", "-loglevel", "warning",
+                    "-f", "x11grab", "-framerate", "30", "-video_size", "1024x768",
+                    "-i", DISPLAY.decode(), "-t", str(seconds),
+                    "-vf", "crop=768:576:108:81,scale=640:480:flags=neighbor",
+                    "-c:v", "libx264", "-preset", "ultrafast", "-crf", "16",
+                    "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+                    "-y", str(OUT_DIR / "controller-film.mp4"),
+                ], stdout=log, stderr=subprocess.STDOUT)
+                background_videos.append((process, log))
             elif action == "film":
                 seconds = float(value)
                 if not math.isfinite(seconds) or not 0 < seconds <= 60:
@@ -113,6 +130,12 @@ def main() -> None:
             else:
                 raise ValueError(f"unsupported action: {action}")
     finally:
+        for process, log in background_videos:
+            try:
+                if process.wait() != 0:
+                    raise RuntimeError("ffmpeg controller capture failed; inspect controller-film.log")
+            finally:
+                log.close()
         x11.XCloseDisplay(display)
 
 
