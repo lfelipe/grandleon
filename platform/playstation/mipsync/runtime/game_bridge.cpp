@@ -1841,6 +1841,15 @@ extern "C" void grandleon_game_log_metrics(
 extern "C" int grandleon_game_focus_point(uint8_t index, int32_t* x, int32_t* y, int32_t* z) {
     if (!x || !y || !z || !s_created || !*s_created) return 0;
     const auto* unit = index == 0 ? find_unit(s_snapshot, s_selected) : unit_at(s_snapshot, s_cursor);
+    if (index == 1 && s_mode == InputMode::action && s_selected) {
+        for (const auto& target : s_snapshot.units) {
+            if (sim::forecast_attack(s_snapshot, s_selected, target.id,
+                                     s_created->encounter.weapons(), 0)) {
+                unit = &target;
+                break;
+            }
+        }
+    }
     if (!unit || !sim::on_board(*unit)) return 0;
     *x = (unit->position.x * 2 + 1 - s_map_width) * 65536;
     *y = terrain_surface(unit->position, s_map_width) + 65536;
