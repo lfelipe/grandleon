@@ -15,6 +15,16 @@ pinned toolchain used to build review ROMs.
 
     https://github.com/DragonMinded/libdragon/blob/trunk/LICENSE.md
 
+The Nintendo 64 renderer includes Pyrite64 and Tiny3D under the MIT License.
+The PlayStation renderer includes Mipsync under the MIT License and links the
+MPL-2.0 PSn00bSDK core libraries. Console bundles retain the renderer notices,
+SDK license and corresponding-source information with their toolchain notices.
+
+    https://github.com/HailToDodongo/pyrite64
+    https://github.com/HailToDodongo/tiny3d
+    https://github.com/KasaBranca/Mipsync
+    https://github.com/Lameguy64/PSn00bSDK
+
 PlayStation executables use Nugget's startup and C++ support under the MIT
 License and the GNU libstdc++ runtime under GPLv3 with the GCC Runtime Library
 Exception. The pinned toolchain retains the complete upstream licence texts and
@@ -31,11 +41,10 @@ MIT License. Sample provenance and the CC0 text are in assets/audio.
 
     https://github.com/sgossner/VSCO-2-CE
 
-The PlayStation interface uses Spleen 6x12 by Frederic Cambus under the
+The Nintendo 64 and PlayStation interfaces use Spleen 6x12 by Frederic Cambus under the
 BSD 2-Clause license. The font source, bitmap atlas and complete license are
 in assets/fonts/spleen. Distributed console packages retain that license.
 
     https://github.com/fcambus/spleen
 
-Grandleon's original source, generated artwork and shared bitmap glyphs use
-the project's MIT License.
+Grandleon's original source and generated artwork use the project's MIT License.
