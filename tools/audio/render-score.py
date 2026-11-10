@@ -203,32 +203,77 @@ def score(theme: str = "cedar_overture") -> tuple[list, float, dict]:
 
 
 def combat_cues() -> dict[str, np.ndarray]:
-    """Original, deterministic foley: air, metal, a plucked string and magic.
-
-    These are sound effects rather than musical notes announcing each blow.
-    All phases and noise are fixed so regeneration produces the same assets.
-    """
+    """Distinct original foley, with audible identities after console conversion."""
     rng = np.random.default_rng(41871)
-    duration = .48
-    t = np.arange(round(duration * RATE)) / RATE
+
+    def clock(duration: float) -> np.ndarray:
+        return np.arange(round(duration * RATE)) / RATE
+
+    def finish(sound: np.ndarray) -> np.ndarray:
+        # Leave headroom for a contact cue over the end of a casting sound.
+        peak = max(float(np.max(np.abs(sound))), 1e-9)
+        sound = sound * (.62 / peak)
+        fade = min(round(.015 * RATE), len(sound))
+        sound[:min(64, len(sound))] *= np.linspace(0, 1, min(64, len(sound)))
+        sound[-fade:] *= np.linspace(1, 0, fade)
+        return sound
+
+    t = clock(.36)
     noise = rng.normal(0, 1, len(t))
-    air = np.convolve(noise, np.ones(9) / 9, mode="same")
-    sweep = air * np.sin(np.pi * np.minimum(t / .25, 1)) ** 2 * (t < .25)
-    metal = sum(np.sin(2 * np.pi * f * t) * np.exp(-t * d)
-                for f, d in ((1730, 24), (2843, 35), (4117, 43))) / 3
-    bow = sum(np.sin(2 * np.pi * 173 * n * t) / n for n in range(1, 9))
-    heavy = np.sin(2 * np.pi * (110 * t - 45 * t * t)) * np.exp(-t * 17)
-    shimmer = sum(np.sin(2 * np.pi * f * t) for f in (587.33, 880, 1174.66)) / 3
-    sounds = {
-        "blade": .36 * sweep + .18 * metal,
-        "bow": .22 * bow * np.exp(-t * 28) + .30 * sweep,
-        "heavy": .36 * heavy + .13 * noise * np.exp(-t * 35),
-        "arcane": .22 * shimmer * np.sin(np.pi * t / duration) ** 2 + .16 * sweep,
-        "healing": .16 * sum(np.sin(2 * np.pi * f * t) for f in (659.25, 830.61, 987.77))
-                   / 3 * np.sin(np.pi * t / duration) ** 2,
-    }
-    fade = np.minimum(t / .005, 1) * np.minimum((duration - t) / .025, 1)
-    return {name: sound * fade for name, sound in sounds.items()}
+    # Bright, short steel with inharmonic ringing; the bow shares none of it.
+    steel = sum(np.sin(2 * np.pi * f * t) * np.exp(-t * decay)
+                for f, decay in ((1480, 15), (2387, 20), (3511, 28), (4213, 34))) / 4
+    slash = (noise - np.convolve(noise, np.ones(9) / 9, mode="same"))
+    slash *= np.exp(-((t - .035) / .023) ** 2)
+    blade = finish(.70 * steel + .22 * slash)
+
+    t = clock(.56)
+    # A low string snap bends rapidly down, then the arrow leaves a soft wake.
+    phase = 2 * np.pi * (174 * t + 2.5 * (1 - np.exp(-t * 45)))
+    string = sum(np.sin(n * phase) * np.exp(-t * (5 + n * 4)) / n ** 1.3
+                 for n in range(1, 11))
+    noise = rng.normal(0, 1, len(t))
+    wake = np.convolve(noise, np.ones(17) / 17, mode="same")
+    bow = finish(.80 * string + .12 * wake * np.exp(-((t - .16) / .055) ** 2))
+
+    def chimes(t: np.ndarray, notes: tuple[float, ...], spacing: float,
+               decay: float, detune: float) -> np.ndarray:
+        result = np.zeros_like(t)
+        for i, frequency in enumerate(notes):
+            age = np.maximum(t - i * spacing, 0)
+            envelope = (1 - np.exp(-age * 190)) * np.exp(-age * decay)
+            tone = (np.sin(2 * np.pi * frequency * age)
+                    + .32 * np.sin(2 * np.pi * frequency * 2.756 * age)
+                    + .20 * np.sin(2 * np.pi * (frequency + detune) * age))
+            result += tone * envelope
+        return result
+
+    t = clock(.90)
+    # A rising, airy charge blooms into scattered, beating crystal tones.
+    charge = np.sin(2 * np.pi * (330 * t + 480 * t * t))
+    charge *= np.sin(np.pi * np.minimum(t / .65, 1)) ** 2 * (t < .65)
+    crystals = chimes(t, (784, 1174.66, 1568, 2093), .12, 7, 6)
+    arcane = .24 * charge + .36 * crystals * (.85 + .15 * np.sin(2 * np.pi * 11 * t))
+    delayed = np.zeros_like(arcane)
+    offset = round(.09 * RATE)
+    delayed[offset:] = arcane[:-offset] * .24
+    arcane = finish(arcane + delayed)
+
+    t = clock(1.02)
+    # A gentle ascending major chord with a soft halo, rather than a dry beep.
+    bells = chimes(t, (587.33, 739.99, 880, 1174.66), .13, 5, 2)
+    halo = sum(np.sin(2 * np.pi * f * t) for f in (293.66, 369.99, 440)) / 3
+    halo *= np.sin(np.pi * t / 1.02) ** 2 * (.85 + .15 * np.sin(2 * np.pi * 4 * t))
+    healing = finish(.34 * bells + .15 * halo)
+
+    # Preserve the existing heavy-weapon identity.
+    t = clock(.48)
+    heavy_noise = np.random.default_rng(41871).normal(0, 1, len(t))
+    heavy = (.36 * np.sin(2 * np.pi * (110 * t - 45 * t * t)) * np.exp(-t * 17)
+             + .13 * heavy_noise * np.exp(-t * 35))
+    fade = np.minimum(t / .005, 1) * np.minimum((.48 - t) / .025, 1)
+    return {"blade": blade, "bow": bow, "heavy": heavy * fade,
+            "arcane": arcane, "healing": healing}
 
 
 def cues() -> dict:
@@ -258,7 +303,15 @@ def main() -> None:
     parser.add_argument("--cache", type=Path, default=Path.home() / ".cache/grandleon/orchestra")
     parser.add_argument("--only", nargs="*", choices=THEMES,
                         help="Render only these themes; an empty list renders effects only")
+    parser.add_argument("--combat-effects-only", action="store_true",
+                        help="Regenerate original weapon and magic effects without loading the orchestra")
     args = parser.parse_args()
+    if args.combat_effects_only:
+        target = ROOT / "platform/godot/project/audio/sfx"
+        target.mkdir(parents=True, exist_ok=True)
+        for name, sound in combat_cues().items():
+            (target / f"{name}.wav").write_bytes(wav_bytes(sound))
+        return
     instruments, provenance = bank(args.cache)
     source = ROOT / "assets/audio"
     target = ROOT / "platform/godot/project/audio"

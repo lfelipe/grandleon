@@ -22,7 +22,9 @@ func _run() -> void:
 	_expect("complete default cue set", audio.available_cues(), expected)
 	for cue: String in expected:
 		_expect_true("%s has audible duration" % cue, audio.cue_length_msec(cue) >= 40)
-		_expect_true("%s remains a bounded cue" % cue, audio.cue_length_msec(cue) <= (2500 if cue == "victory" else 500))
+		# Casting and healing have deliberate resonant tails; UI clicks stay short.
+		var maximum_msec := 2500 if cue == "victory" else 1200 if cue in ["arcane", "healing"] else 650 if cue == "bow" else 500
+		_expect_true("%s remains a bounded cue" % cue, audio.cue_length_msec(cue) <= maximum_msec)
 
 	audio.set_effects_level(0.45)
 	_expect("low level is retained", audio.effects_level(), 0.45)

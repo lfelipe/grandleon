@@ -11,6 +11,12 @@ The close-up presentations play launch and contact sounds with their animation
 beats, including misses and counterattacks. Assigning custom files to individual
 weapons and spells in the editor is planned for a later release.
 
+To tweak just the weapon and magic effects, edit `combat_cues()` in the render
+script and run `python3 tools/audio/render-score.py --combat-effects-only`.
+This path uses no downloaded samples. Blade uses bright steel; bow uses a
+low string twang and a separate arrow wake. Magic layers rising crystal tones;
+healing uses ascending bells with a soft, warm halo.
+
 To change the compositions or instrumentation, edit
 [`render-score.py`](../../tools/audio/render-score.py), then run it with Python,
 NumPy and ffmpeg installed. It downloads a small, pinned selection of instrument
