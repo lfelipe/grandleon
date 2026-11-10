@@ -36,6 +36,36 @@ def test_console_font_has_complete_pixel_cells() -> None:
     assert w.getbbox() == (1, 1, 6, 9)
 
 
+def test_accented_font_uses_complete_cells_and_dedicated_four_bit_clut() -> None:
+    atlas = Image.open(ROOT.parents[2] / "assets/fonts/spleen/console-latin-6x12.png").convert("RGBA")
+    assert atlas.size == (64, 144)
+    codes = list(range(32, 96)) + [value for value in range(0xc0, 0xdf) if value != 0xd7] + [0xa1, 0xbf]
+    cells = {}
+    for slot, code in enumerate(codes):
+        cell = atlas.crop((slot % 8 * 8, slot // 8 * 12, slot % 8 * 8 + 8, slot // 8 * 12 + 12))
+        assert not cell.crop((7, 0, 8, 12)).getbbox()
+        if code != 32:
+            assert cell.getbbox(), code
+        cells[code] = cell
+    for accent, plain in ((0xc7, ord('C')), (0xc3, ord('A')), (0xc9, ord('E')), (0xd1, ord('N')), (0xdc, ord('U'))):
+        assert cells[accent].tobytes() != cells[plain].tobytes()
+    colours, palette = SCENE.shared_stage_palette([atlas])
+    words = SCENE.tim_words(atlas, 320, 0, True, colours, palette,
+                            include_palette=False, depth_bits=4, font_palette=True)
+    data = struct.pack(f"<{len(words)}I", *words)
+    assert struct.unpack_from('<II', data) == (0x10, 8)
+    assert struct.unpack_from('<IHHHH', data, 8) == (44, SCENE.CLUT_X, SCENE.CLUT_Y - 3, 16, 1)
+    assert struct.unpack_from('<16H', data, 20) == (0,) + (0x7fff,) * 15
+    assert struct.unpack_from('<IHHHH', data, 52) == (4620, 320, 0, 16, 144)
+    texels = [value for byte in data[64:] for value in (byte & 15, byte >> 4)]
+    assert set(texels) == {0, 1}
+    alpha = atlas.getchannel('A')
+    flattened = getattr(alpha, 'get_flattened_data', None)
+    alpha_values = flattened() if flattened is not None else alpha.getdata()
+    assert sum(value != 0 for value in texels) == sum(value != 0 for value in alpha_values)
+    assert len(data) == 4672
+
+
 def test_cutout_keeps_grounding_inside_existing_texture() -> None:
     source = Image.new("RGBA", (8, 20), (0, 0, 0, 0))
     ImageDraw.Draw(source).rectangle((2, 0, 5, 18), fill=(220, 180, 120, 255))
@@ -143,6 +173,7 @@ def test_interior_terrain_pages_overlap_the_visible_window() -> None:
 
 if __name__ == "__main__":
     test_console_font_has_complete_pixel_cells()
+    test_accented_font_uses_complete_cells_and_dedicated_four_bit_clut()
     test_cutout_keeps_grounding_inside_existing_texture()
     test_stage_palette_keeps_transparency_and_uses_8bpp_tim()
     test_texture_packer_reserves_shared_clut_row()

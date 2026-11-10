@@ -7,6 +7,7 @@
 #include "text_paging.h"
 #include <grandleon/view/brand_logo.h>
 #include <grandleon/view/console_text.h>
+#include <grandleon/view/ps1_font.h>
 
 #include <psxgpu.h>
 
@@ -81,9 +82,7 @@ static void draw_glyph(
     uint8_t u;
     uint8_t v;
     SPRT* glyph;
-    if (character >= 'a' && character <= 'z') character -= 'a' - 'A';
-    if (character < 32 || character > 95) character = '?';
-    slot = (unsigned int)(character - 32);
+    slot = grandleon_ps1_glyph_slot((unsigned char)character);
     u = (uint8_t)(base_u + (slot % 8u) * 8u);
     v = (uint8_t)(base_v + (slot / 8u) * 12u);
     if ((const char*)(*next_packet + sizeof(SPRT)) > packet_end) return;
@@ -120,6 +119,18 @@ static void draw_text(
     }
 }
 
+/* Wrapped rows already contain decoded Latin-1 console glyphs. Sending these
+ * bytes through the UTF-8 decoder again would turn ç/ã/ñ into question marks. */
+static void draw_console_glyphs(
+    uint32_t* ot, char** next, const char* end, int x, int y,
+    const char* text, uint8_t red, uint8_t green, uint8_t blue
+) {
+    while (*text) {
+        draw_glyph(ot, next, end, x, y, *text++, red, green, blue);
+        x += 7;
+    }
+}
+
 static void draw_wrapped_text_box(
     uint32_t* ordering_table, char** next_packet, const char* packet_end,
     int x, int y, const char* text, uint8_t red, uint8_t green, uint8_t blue,
@@ -129,7 +140,7 @@ static void draw_wrapped_text_box(
     int row = 0;
     while (*text && row < rows) {
         grandleon_text_wrap_line(&text, line, (unsigned)columns);
-        draw_text(ordering_table, next_packet, packet_end,
+        draw_console_glyphs(ordering_table, next_packet, packet_end,
                   x, y + row * 13, line, red, green, blue);
         ++row;
     }

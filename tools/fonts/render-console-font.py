@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Render the pinned Spleen 6x12 bitmap into the console's ASCII atlas."""
+"""Render pinned Spleen ASCII and compact accented PlayStation font atlases."""
 from pathlib import Path
 from PIL import Image
 
@@ -11,7 +11,10 @@ FONT = ROOT / 'assets/fonts/spleen'
 def main() -> None:
     lines = (FONT / 'spleen-6x12.bdf').read_text().splitlines()
     ascent = int(next(line.split()[1] for line in lines if line.startswith('FONT_ASCENT ')))
-    atlas = Image.new('RGBA', (64, 96), (0, 0, 0, 0))
+    codes = list(range(32, 96)) + [value for value in range(0xc0, 0xdf) if value != 0xd7] + [0xa1, 0xbf]
+    assert len(codes) == 96
+    slots = {code: slot for slot, code in enumerate(codes)}
+    atlas = Image.new('RGBA', (64, 144), (0, 0, 0, 0))
     found = set()
     index = 0
     while index < len(lines):
@@ -21,11 +24,11 @@ def main() -> None:
         end = lines.index('ENDCHAR', index)
         record = lines[index:end]
         code = int(next(line.split()[1] for line in record if line.startswith('ENCODING ')))
-        if 32 <= code < 96:
+        if code in slots:
             width, height, left, bottom = map(int, next(line for line in record if line.startswith('BBX ')).split()[1:])
             assert width <= 6 and height <= 12
             top = ascent - bottom - height
-            slot = code - 32
+            slot = slots[code]
             x, y = slot % 8 * 8 + 1 + left, slot // 8 * 12 + top
             bitmap = record.index('BITMAP') + 1
             for row, value in enumerate(record[bitmap:bitmap + height]):
@@ -38,8 +41,9 @@ def main() -> None:
                         atlas.putpixel((x + column, y + row), (255, 255, 255, 255))
             found.add(code)
         index = end + 1
-    assert found == set(range(32, 96))
-    atlas.save(FONT / 'console-6x12.png', optimize=True)
+    assert found == set(codes)
+    atlas.crop((0, 0, 64, 96)).save(FONT / 'console-6x12.png', optimize=True)
+    atlas.save(FONT / 'console-latin-6x12.png', optimize=True)
 
 
 if __name__ == '__main__':

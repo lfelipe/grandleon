@@ -327,11 +327,21 @@ def tim_words(
     include_palette: bool = True,
     depth_bits: int = 8, palette_slot: int = 0,
     palette_row: int = CLUT_Y,
+    font_palette: bool = False,
 ) -> list[int]:
     rgba = image.convert("RGBA")
     palette_size = 256
     palette_x, palette_y = CLUT_X, palette_row
-    if depth_bits == 4:
+    if font_palette:
+        if depth_bits != 4:
+            raise ValueError("font palette requires 4-bit texture storage")
+        colours = ((255, 255, 255),) * 15
+        palette_image = Image.new("P", (1, 1))
+        palette_image.putpalette([255, 255, 255] * 256)
+        palette_size = 16
+        palette_x, palette_y = CLUT_X, CLUT_Y - 3
+        include_palette = True
+    elif depth_bits == 4:
         quantized = rgba.convert("RGB").quantize(colors=15, method=Image.Quantize.MEDIANCUT)
         raw_palette = list(quantized.getpalette() or [])
         raw_palette += [0] * max(0, 45 - len(raw_palette))
@@ -660,8 +670,8 @@ def write_textures(
     # forecasts and arbitrary ability counts without shipping Sony's debug
     # font or baking encounter-specific text into the background.
     # Keep the atlas inside one indexed PS1 texture page.
-    ui = Image.open(repo / "assets/fonts/spleen/console-6x12.png").convert("RGBA")
-    if ui.size != (64, 96):
+    ui = Image.open(repo / "assets/fonts/spleen/console-latin-6x12.png").convert("RGBA")
+    if ui.size != (64, 144):
         raise ValueError("console font atlas must contain 8x12 pixel cells")
     textures.append(("compact_ui_font", ui, True, 0, 0))
     ui_index = len(textures)
@@ -698,8 +708,9 @@ def write_textures(
     }
     if len(material_palettes) > 16:
         raise ValueError("4-bit terrain bank exceeds reserved CLUT slots")
+    font_index = ui_index - 1
     palette_owner = next(index for index in range(len(textures))
-                         if index not in material_palettes)
+                         if index not in material_palettes and index != font_index)
     # Only one unit walks at a time. Its six compass/contact frames share a
     # slot, while idle, attack and hurt remain independently resident so two
     # identical archetypes can fight without overwriting each other's art.
@@ -720,7 +731,7 @@ def write_textures(
             continue
         image = textures[index][1]
         placements[index] = packer.place(image.width, image.height,
-                                         4 if index in material_palettes else 8)
+                                         4 if index in material_palettes or index == font_index else 8)
     for index, owner in residency_slots.items():
         placements[index] = placements[owner]
     textures = [
@@ -728,7 +739,8 @@ def write_textures(
         for index, (name, image, cutout, _x, _y) in enumerate(textures)
     ]
     palette_colours, palette_image = shared_stage_palette(
-        [image for name, image, _cutout, _x, _y in textures
+        [image.crop((0, 0, 64, 96)) if name == "compact_ui_font" else image
+         for name, image, _cutout, _x, _y in textures
          if not name.startswith("combat_plate_")]
     )
     backdrop_palette = shared_stage_palette(
@@ -744,30 +756,35 @@ def write_textures(
         words = tim_words(
             image, x, y, cutout, colours, palette,
             include_palette=(index + 1 == backdrop_indices[0]) if is_backdrop else index == palette_owner,
-            depth_bits=4 if index in material_palettes else 8,
+            depth_bits=4 if index in material_palettes or index == font_index else 8,
             palette_slot=material_palettes.get(index, 0),
             palette_row=CLUT_Y - 2 if is_backdrop else CLUT_Y,
+            font_palette=index == font_index,
         )
         lines.extend((f"static const uint32_t k_{name}_tim[] = {{", c_words(words), "};", ""))
         if residency_slots.get(index, index) == index:
-            bits = 4 if index in material_palettes else 8
+            bits = 4 if index in material_palettes or index == font_index else 8
             image_vram_bytes += math.ceil(image.width * bits / 16) * image.height * 2
         embedded_texture_bytes += len(words) * 4
     lines.append("const ps1_texture_desc g_ps1_textures[] = {")
     for index, (name, _image, cutout, _x, _y) in enumerate(textures):
         slot = residency_slots.get(index, index) + 1
-        clut_owner = backdrop_indices[0] if index + 1 in backdrop_indices else palette_owner + 1
+        clut_owner = (index + 1 if index == font_index else
+                      backdrop_indices[0] if index + 1 in backdrop_indices else palette_owner + 1)
         lines.append(
             f"    {{ k_{name}_tim, sizeof(k_{name}_tim) / sizeof(k_{name}_tim[0]), 0, {1 if cutout else 0}, {clut_owner}, {slot} }},"
         )
     lines.extend(("};", "const unsigned int g_ps1_texture_count =", "    sizeof(g_ps1_textures) / sizeof(g_ps1_textures[0]);", ""))
     lines.append("const unsigned int g_grandleon_combat_plate_indices[4] = {" + ",".join(map(str, backdrop_indices or [0] * 4)) + "};")
     (output / "textures_data.c").write_text("\n".join(lines), encoding="utf-8")
-    occupied_vram_bytes = image_vram_bytes + CLUT_COLOURS * 2 + len(material_palettes) * 32 + (512 if backdrop_indices else 0)
+    occupied_vram_bytes = image_vram_bytes + CLUT_COLOURS * 2 + len(material_palettes) * 32 + 32 + (512 if backdrop_indices else 0)
     metrics = {
         "texture_count": len(textures),
         "texture_depth_bits": TEXTURE_DEPTH_BITS,
         "material_depth_bits": 4,
+        "font_depth_bits": 4,
+        "font_glyph_count": 96,
+        "font_clut_row": CLUT_Y - 3,
         "palette_colours": CLUT_COLOURS,
         "palette_strategy": "shared_stage_clut",
         "residency_strategy": "resident_idle_combat_paged_walk",
