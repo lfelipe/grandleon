@@ -153,6 +153,7 @@ int grandleon_game_update(
     uint16_t player_one_buttons, uint16_t player_two_buttons
 );
 int grandleon_game_focus_point(uint8_t index, int32_t* x, int32_t* y, int32_t* z);
+uint8_t grandleon_game_movement_edges(uint16_t index);
 int grandleon_game_movement_tile(uint16_t index, int32_t* x, int32_t* y, int32_t* z);
 uint16_t grandleon_game_map_controller(uint16_t pressed);
 void grandleon_game_ui_state(grandleon_ui_state* output);

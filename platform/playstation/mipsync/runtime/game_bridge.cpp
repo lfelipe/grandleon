@@ -101,6 +101,7 @@ sim::Encounter::CreateResult* s_created{};
 sim::EncounterSnapshot s_snapshot{};
 sim::UnitId s_selected{};
 std::vector<sim::Position> s_movement_tiles;
+std::vector<std::uint8_t> s_movement_edges;
 sim::UnitId s_movement_tiles_unit{};
 sim::Position s_cursor{};
 sim::Position s_player_cursors[2]{};
@@ -1857,6 +1858,10 @@ extern "C" int grandleon_game_focus_point(uint8_t index, int32_t* x, int32_t* y,
     return 1;
 }
 
+extern "C" uint8_t grandleon_game_movement_edges(uint16_t index) {
+    return index < s_movement_edges.size() ? s_movement_edges[index] : 0;
+}
+
 extern "C" int grandleon_game_movement_tile(uint16_t index, int32_t* x, int32_t* y, int32_t* z) {
     if (index >= s_movement_tiles.size() || !x || !y || !z) return 0;
     const auto tile = s_movement_tiles[index];
@@ -1888,6 +1893,20 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
     if (s_mode == InputMode::move && s_selected && !s_motion.active) {
         if (s_movement_tiles_unit != s_selected) {
             s_movement_tiles = sim::reachable_tiles(s_snapshot, s_selected);
+            s_movement_edges.assign(s_movement_tiles.size(), 0);
+            // Draw the boundary of the exact reachable set, including holes.
+            // Shared interior edges cost packets without conveying more range.
+            static const int adjacent[4][2] = {{0,1},{1,0},{0,-1},{-1,0}};
+            for (std::size_t index = 0; index < s_movement_tiles.size(); ++index) {
+                for (unsigned edge = 0; edge < 4; ++edge) {
+                    const sim::Position neighbour{
+                        static_cast<std::int16_t>(s_movement_tiles[index].x + adjacent[edge][0]),
+                        static_cast<std::int16_t>(s_movement_tiles[index].y + adjacent[edge][1])
+                    };
+                    if (std::find(s_movement_tiles.begin(), s_movement_tiles.end(), neighbour) == s_movement_tiles.end())
+                        s_movement_edges[index] |= 1U << edge;
+                }
+            }
             s_movement_tiles_unit = s_selected;
         }
         output->movement_tile_count = static_cast<std::uint16_t>(s_movement_tiles.size());

@@ -239,19 +239,22 @@ static void draw_movement_range(uint32_t* ot, char** next, const char* end,
         int visible = 1;
         if (!grandleon_game_movement_tile((uint16_t)tile, &wx, &wy, &wz)) continue;
         for (unsigned corner = 0; corner < 4; ++corner) {
-            if (!ps1_render_project_world(wx + offsets[corner][0] * 56000,
-                wy, wz + offsets[corner][1] * 56000, &sx[corner], &sy[corner], &depth)) visible = 0;
+            if (!ps1_render_project_world(wx + offsets[corner][0] * 65536,
+                wy, wz + offsets[corner][1] * 65536, &sx[corner], &sy[corner], &depth)) visible = 0;
         }
         if (!visible) continue;
         // Thin outlines preserve the terrain and never cover unit artwork.
+        const unsigned edges = grandleon_game_movement_edges((uint16_t)tile);
         for (unsigned edge = 0; edge < 4; ++edge) {
+            if (!(edges & (1U << edge))) continue;
             static const unsigned order[4] = {0,1,3,2};
             const unsigned a = order[edge], b = order[(edge + 1) & 3];
             if ((const char*)(*next + sizeof(LINE_F2)) > end) return;
             LINE_F2* line = (LINE_F2*)*next;
             setLineF2(line);
             setXY2(line, sx[a], sy[a], sx[b], sy[b]);
-            setRGB0(line, 61, 147, 161);
+            if (state->local_player == 2) setRGB0(line, 72, 220, 255);
+            else setRGB0(line, 255, 225, 48);
             addPrim(ot + 3, line);
             *next = (char*)(line + 1);
         }
