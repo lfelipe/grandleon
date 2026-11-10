@@ -592,8 +592,8 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
         case Message::music_volume:
             return selected == Language::english ? "MUSIC" : "MUSICA";
         case Message::effects_volume:
-            return selected == Language::spanish ? "EFECTOS"
-                 : selected == Language::portuguese_brazil ? "EFEITOS" : "EFFECTS";
+            return selected == Language::spanish ? "EFECTOS DE SONIDO"
+                 : selected == Language::portuguese_brazil ? "EFEITOS SONOROS" : "SOUND EFFECTS";
         case Message::volume_controls:
             return selected == Language::spanish ? "IZQ / DER  VOLUMEN"
                  : selected == Language::portuguese_brazil ? "ESQ / DIR  VOLUME"
@@ -655,9 +655,9 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : selected == Language::portuguese_brazil ? "ACOES DO PERSONAGEM"
                  : "CHARACTER ACTIONS";
         case Message::close_view_help:
-            return selected == Language::spanish ? "L REDUCIDO  R VISTA RAPIDA"
-                 : selected == Language::portuguese_brazil ? "L REDUZIDO  R VISTA RAPIDA"
-                 : "L REDUCED   R FAST CLOSE";
+            return selected == Language::spanish ? "R VISTA RAPIDA"
+                 : selected == Language::portuguese_brazil ? "R VISTA RAPIDA"
+                 : "R FAST CLOSE";
         case Message::ability:
             return selected == Language::spanish ? "HABILIDAD"
                  : selected == Language::portuguese_brazil ? "HABILIDADE"

@@ -972,6 +972,10 @@ add_executable(grandleon_view_glyph_tests
 target_link_libraries(grandleon_view_glyph_tests PRIVATE grandleon::view)
 add_test(NAME grandleon.view_glyphs COMMAND grandleon_view_glyph_tests)
 
+add_executable(grandleon_console_text_tests view/console_text_test.cpp)
+target_link_libraries(grandleon_console_text_tests PRIVATE grandleon::view)
+add_test(NAME grandleon.console_text COMMAND grandleon_console_text_tests)
+
 # The full information sheet every client draws and none of them composes.
 # Pinned line for line here, against a snapshot built by hand, because a sheet
 # that said the wrong thing would be three clients saying it at once.
