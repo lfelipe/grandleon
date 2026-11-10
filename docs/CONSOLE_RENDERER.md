@@ -52,9 +52,8 @@ the PlayStation exporter writes the same reviewed strings into each campaign
 executable. No retired renderer or separate console translation file is used.
 
 The Steel and Cedar demo includes English, Spanish and Brazilian Portuguese.
-Games with only one authored language hide the language selector. The source
-catalog keeps its accents; the consoles' limited fonts display readable
-unaccented equivalents, while Godot displays the full text.
+Games with only one authored language hide the language selector. Authored accents are preserved on all three players, including Portuguese
+cedillas and tildes and Spanish accented letters and inverted punctuation.
 
 Title, launch, help, pause, Settings, naming, tactical actions and results,
 deployment, aftermath, and error copy is available in English, Spanish, and

@@ -238,7 +238,7 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : selected == Language::portuguese_brazil ? "D-PAD ESCOLHE  A CONFIRMA"
                  : "D-PAD CHOOSE  A CONFIRM";
         case Message::how_to_play:
-            return selected == Language::spanish ? "COMO JUGAR"
+            return selected == Language::spanish ? "CÓMO JUGAR"
                  : selected == Language::portuguese_brazil ? "COMO JOGAR"
                  : "HOW TO PLAY";
         case Message::move_cursor:
@@ -254,16 +254,16 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : selected == Language::portuguese_brazil ? "B       VOLTAR"
                  : "B       BACK";
         case Message::action_menu:
-            return selected == Language::spanish ? "C       MENU DE ACCION"
-                 : selected == Language::portuguese_brazil ? "C       MENU DE ACAO"
+            return selected == Language::spanish ? "C       MENÚ DE ACCIÓN"
+                 : selected == Language::portuguese_brazil ? "C       MENU DE AÇÃO"
                  : "C       ACTION MENU";
         case Message::board_menu:
-            return selected == Language::spanish ? "START   MENU DEL MAPA"
+            return selected == Language::spanish ? "START   MENÚ DEL MAPA"
                  : selected == Language::portuguese_brazil ? "START   MENU DO MAPA"
                  : "START   BOARD MENU";
         case Message::hints_in_play:
             return selected == Language::spanish ? "LOS BOTONES APARECEN AL JUGAR"
-                 : selected == Language::portuguese_brazil ? "OS BOTOES APARECEM AO JOGAR"
+                 : selected == Language::portuguese_brazil ? "OS BOTÕES APARECEM AO JOGAR"
                  : "BUTTON HINTS APPEAR IN PLAY";
         case Message::back_footer:
             return selected == Language::spanish ? "A O B  VOLVER"
@@ -299,7 +299,7 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : "CANCEL";
         case Message::back_to_battle:
             return selected == Language::spanish ? "VOLVER A LA BATALLA"
-                 : selected == Language::portuguese_brazil ? "VOLTAR A BATALHA"
+                 : selected == Language::portuguese_brazil ? "VOLTAR À BATALHA"
                  : "BACK TO BATTLE";
         case Message::end_player_1_turn:
             return selected == Language::spanish ? "TERMINAR TURNO JUGADOR 1"
@@ -311,15 +311,15 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : "END PLAYER 2 TURN";
         case Message::leave_battle:
             return selected == Language::spanish ? "SALIR - NO SE GUARDA"
-                 : selected == Language::portuguese_brazil ? "SAIR - NAO SERA SALVO"
+                 : selected == Language::portuguese_brazil ? "SAIR - NÃO SERÁ SALVO"
                  : "LEAVE - THIS BATTLE IS NOT KEPT";
         case Message::show_fps_on:
-            return selected == Language::spanish ? "MOSTRAR FPS: SI"
+            return selected == Language::spanish ? "MOSTRAR FPS: SÍ"
                  : selected == Language::portuguese_brazil ? "MOSTRAR FPS: SIM"
                  : "SHOW FPS: ON";
         case Message::show_fps_off:
             return selected == Language::spanish ? "MOSTRAR FPS: NO"
-                 : selected == Language::portuguese_brazil ? "MOSTRAR FPS: NAO"
+                 : selected == Language::portuguese_brazil ? "MOSTRAR FPS: NÃO"
                  : "SHOW FPS: OFF";
         case Message::another_stage:
             return selected == Language::spanish ? "IR A OTRA FASE"
@@ -330,11 +330,11 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : selected == Language::portuguese_brazil ? "IR A OUTRA FASE - TESTE"
                  : "GO TO ANOTHER STAGE - TESTING";
         case Message::walk_where:
-            return selected == Language::spanish ? "MOVER ADONDE"
+            return selected == Language::spanish ? "MOVER ADÓNDE"
                  : selected == Language::portuguese_brazil ? "MOVER PARA ONDE"
                  : "WALK WHERE";
         case Message::talk_to_whom:
-            return selected == Language::spanish ? "HABLAR CON QUIEN"
+            return selected == Language::spanish ? "HABLAR CON QUIÉN"
                  : selected == Language::portuguese_brazil ? "FALAR COM QUEM"
                  : "TALK TO WHOM";
         case Message::pick_target:
@@ -342,11 +342,11 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : selected == Language::portuguese_brazil ? "ESCOLHA UM ALVO"
                  : "PICK A TARGET";
         case Message::after_battle:
-            return selected == Language::spanish ? "DESPUES DE LA BATALLA"
+            return selected == Language::spanish ? "DESPUÉS DE LA BATALLA"
                  : selected == Language::portuguese_brazil ? "DEPOIS DA BATALHA"
                  : "AFTER THE BATTLE";
         case Message::joins_company:
-            return selected == Language::spanish ? "SE UNE A LA COMPANIA"
+            return selected == Language::spanish ? "SE UNE A LA COMPAÑÍA"
                  : selected == Language::portuguese_brazil ? "ENTRA PARA A COMPANHIA"
                  : "JOINS THE COMPANY";
         case Message::go_on:
@@ -355,10 +355,10 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : "A  GO ON";
         case Message::stage_warning:
             return selected == Language::spanish ? "UNA FASE NO VISTA PUEDE NO ABRIR"
-                 : selected == Language::portuguese_brazil ? "FASE NAO VISTA PODE NAO ABRIR"
+                 : selected == Language::portuguese_brazil ? "FASE NÃO VISTA PODE NÃO ABRIR"
                  : "A STAGE YOU HAVE NOT SEEN MAY NOT OPEN";
         case Message::here:
-            return selected == Language::spanish ? "AQUI"
+            return selected == Language::spanish ? "AQUÍ"
                  : selected == Language::portuguese_brazil ? "AQUI"
                  : "HERE";
         case Message::seen:
@@ -394,7 +394,7 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : selected == Language::portuguese_brazil ? "NOVO"
                  : "NEW";
         case Message::new_company:
-            return selected == Language::spanish ? "NUEVA COMPANIA"
+            return selected == Language::spanish ? "NUEVA COMPAÑÍA"
                  : selected == Language::portuguese_brazil ? "NOVA COMPANHIA"
                  : "NEW COMPANY";
         case Message::your_turn:
@@ -427,15 +427,15 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : "LOADOUT";
         case Message::story:
             return selected == Language::spanish ? "HISTORIA"
-                 : selected == Language::portuguese_brazil ? "HISTORIA"
+                 : selected == Language::portuguese_brazil ? "HISTÓRIA"
                  : "STORY";
         case Message::company:
-            return selected == Language::spanish ? "COMPANIA"
+            return selected == Language::spanish ? "COMPAÑÍA"
                  : selected == Language::portuguese_brazil ? "COMPANHIA"
                  : "COMPANY";
         case Message::inventory:
             return selected == Language::spanish ? "INVENTARIO"
-                 : selected == Language::portuguese_brazil ? "INVENTARIO"
+                 : selected == Language::portuguese_brazil ? "INVENTÁRIO"
                  : "INVENTORY";
         case Message::character_name:
             return selected == Language::spanish ? "NOMBRE DEL PERSONAJE"
@@ -454,11 +454,11 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : selected == Language::portuguese_brazil ? "FASES"
                  : "STAGES";
         case Message::campaign_complete:
-            return selected == Language::spanish ? "CAMPANA COMPLETA"
-                 : selected == Language::portuguese_brazil ? "CAMPANHA CONCLUIDA"
+            return selected == Language::spanish ? "CAMPAÑA COMPLETA"
+                 : selected == Language::portuguese_brazil ? "CAMPANHA CONCLUÍDA"
                  : "CAMPAIGN COMPLETE";
         case Message::choose_how_to_play:
-            return selected == Language::spanish ? "ELIGE COMO JUGAR"
+            return selected == Language::spanish ? "ELIGE CÓMO JUGAR"
                  : selected == Language::portuguese_brazil ? "ESCOLHA COMO JOGAR"
                  : "CHOOSE HOW TO PLAY";
         case Message::before_battle:
@@ -466,8 +466,8 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : selected == Language::portuguese_brazil ? "ANTES DA BATALHA"
                  : "BEFORE THE BATTLE";
         case Message::action_heading:
-            return selected == Language::spanish ? "ACCION"
-                 : selected == Language::portuguese_brazil ? "ACAO"
+            return selected == Language::spanish ? "ACCIÓN"
+                 : selected == Language::portuguese_brazil ? "AÇÃO"
                  : "ACTION";
         case Message::battle_heading:
             return selected == Language::spanish ? "BATALLA"
@@ -498,8 +498,8 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : selected == Language::portuguese_brazil ? "DE"
                  : "OF";
         case Message::company_store:
-            return selected == Language::spanish ? "ALMACEN DE LA COMPANIA"
-                 : selected == Language::portuguese_brazil ? "ARMAZEM DA COMPANHIA"
+            return selected == Language::spanish ? "ALMACÉN DE LA COMPAÑÍA"
+                 : selected == Language::portuguese_brazil ? "ARMAZÉM DA COMPANHIA"
                  : "THE COMPANY'S STORE";
         case Message::nothing_but_carry:
             return selected == Language::spanish ? "SOLO LO QUE LLEVAN"
@@ -507,23 +507,23 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : "NOTHING BUT WHAT THEY CARRY";
         case Message::levels:
             return selected == Language::spanish ? "NIVELES"
-                 : selected == Language::portuguese_brazil ? "NIVEIS"
+                 : selected == Language::portuguese_brazil ? "NÍVEIS"
                  : "LEVELS";
         case Message::fell:
-            return selected == Language::spanish ? "CAIDOS"
-                 : selected == Language::portuguese_brazil ? "CAIDOS"
+            return selected == Language::spanish ? "CAÍDOS"
+                 : selected == Language::portuguese_brazil ? "CAÍDOS"
                  : "FELL";
         case Message::joined:
             return selected == Language::spanish ? "UNIDOS"
                  : selected == Language::portuguese_brazil ? "RECRUTADOS"
                  : "JOINED";
         case Message::company_buries:
-            return selected == Language::spanish ? "LA COMPANIA SEPULTA"
+            return selected == Language::spanish ? "LA COMPAÑÍA SEPULTA"
                  : selected == Language::portuguese_brazil ? "A COMPANHIA SEPULTA"
                  : "THE COMPANY BURIES";
         case Message::carried_off_back:
             return selected == Language::spanish ? "RETIRADOS, YA DE VUELTA"
-                 : selected == Language::portuguese_brazil ? "RETIRADOS, JA DE VOLTA"
+                 : selected == Language::portuguese_brazil ? "RETIRADOS, JÁ DE VOLTA"
                  : "CARRIED OFF, AND BACK";
         case Message::choose_name:
             return selected == Language::spanish ? "ELEGIR NOMBRE"
@@ -567,7 +567,7 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : "A CHOOSE  START BATTLE  B LEAVE  C GO";
         case Message::settings:
             return selected == Language::spanish ? "AJUSTES"
-                 : selected == Language::portuguese_brazil ? "CONFIGURACOES"
+                 : selected == Language::portuguese_brazil ? "CONFIGURAÇÕES"
                  : "SETTINGS";
         case Message::resume:
             return selected == Language::spanish ? "CONTINUAR"
@@ -587,10 +587,10 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : "SHOW FPS";
         case Message::audio:
             return selected == Language::spanish ? "SONIDO"
-                 : selected == Language::portuguese_brazil ? "AUDIO"
+                 : selected == Language::portuguese_brazil ? "ÁUDIO"
                  : "AUDIO";
         case Message::music_volume:
-            return selected == Language::english ? "MUSIC" : "MUSICA";
+            return selected == Language::english ? "MUSIC" : "MÚSICA";
         case Message::effects_volume:
             return selected == Language::spanish ? "EFECTOS DE SONIDO"
                  : selected == Language::portuguese_brazil ? "EFEITOS SONOROS" : "SOUND EFFECTS";
@@ -599,12 +599,12 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : selected == Language::portuguese_brazil ? "ESQ / DIR  VOLUME"
                  : "LEFT / RIGHT  VOLUME";
         case Message::on:
-            return selected == Language::spanish ? "SI"
+            return selected == Language::spanish ? "SÍ"
                  : selected == Language::portuguese_brazil ? "SIM"
                  : "ON";
         case Message::off:
             return selected == Language::spanish ? "NO"
-                 : selected == Language::portuguese_brazil ? "NAO"
+                 : selected == Language::portuguese_brazil ? "NÃO"
                  : "OFF";
         case Message::next:
             return selected == Language::spanish ? "SIGUIENTE"
@@ -612,7 +612,7 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : "NEXT";
         case Message::victory:
             return selected == Language::spanish ? "VICTORIA"
-                 : selected == Language::portuguese_brazil ? "VITORIA"
+                 : selected == Language::portuguese_brazil ? "VITÓRIA"
                  : "VICTORY";
         case Message::defeat:
             return selected == Language::spanish ? "DERROTA"
@@ -623,7 +623,7 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : selected == Language::portuguese_brazil ? "POSICIONAMENTO"
                  : "DEPLOYMENT";
         case Message::campaign_ended:
-            return selected == Language::spanish ? "CAMPANA TERMINADA"
+            return selected == Language::spanish ? "CAMPAÑA TERMINADA"
                  : selected == Language::portuguese_brazil ? "CAMPANHA ENCERRADA"
                  : "CAMPAIGN ENDED";
         case Message::battles_played:
@@ -635,7 +635,7 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : selected == Language::portuguese_brazil ? "PROGRESSO SALVO"
                  : "PROGRESS SAVED";
         case Message::start_campaign:
-            return selected == Language::spanish ? "INICIAR CAMPANA"
+            return selected == Language::spanish ? "INICIAR CAMPAÑA"
                  : selected == Language::portuguese_brazil ? "INICIAR CAMPANHA"
                  : "START CAMPAIGN";
         case Message::no_save:
@@ -643,7 +643,7 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : selected == Language::portuguese_brazil ? "NENHUM SAVE NO CARTUCHO"
                  : "NO SAVE ON CARTRIDGE";
         case Message::menu:
-            return selected == Language::spanish ? "MENU"
+            return selected == Language::spanish ? "MENÚ"
                  : selected == Language::portuguese_brazil ? "MENU"
                  : "MENU";
         case Message::opponent_turn:
@@ -652,11 +652,11 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : "OPPONENT TURN";
         case Message::character_actions:
             return selected == Language::spanish ? "ACCIONES DEL PERSONAJE"
-                 : selected == Language::portuguese_brazil ? "ACOES DO PERSONAGEM"
+                 : selected == Language::portuguese_brazil ? "AÇÕES DO PERSONAGEM"
                  : "CHARACTER ACTIONS";
         case Message::close_view_help:
-            return selected == Language::spanish ? "R VISTA RAPIDA"
-                 : selected == Language::portuguese_brazil ? "R VISTA RAPIDA"
+            return selected == Language::spanish ? "R VISTA RÁPIDA"
+                 : selected == Language::portuguese_brazil ? "R VISTA RÁPIDA"
                  : "R FAST CLOSE";
         case Message::ability:
             return selected == Language::spanish ? "HABILIDAD"
@@ -688,7 +688,7 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : "NO COUNTER";
         case Message::clear_ground:
             return selected == Language::spanish ? "TERRENO LIBRE"
-                 : selected == Language::portuguese_brazil ? "AREA LIVRE"
+                 : selected == Language::portuguese_brazil ? "ÁREA LIVRE"
                  : "CLEAR GROUND";
         case Message::target_safe:
             return selected == Language::spanish ? "OBJETIVO SEGURO"
@@ -700,7 +700,7 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : "MEND";
         case Message::cast:
             return selected == Language::spanish ? "LANZAR"
-                 : selected == Language::portuguese_brazil ? "LANCAR"
+                 : selected == Language::portuguese_brazil ? "LANÇAR"
                  : "CAST";
         case Message::result:
             return selected == Language::spanish ? "RESULTADO"
@@ -708,7 +708,7 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : "RESULT";
         case Message::turn_complete:
             return selected == Language::spanish ? "TURNO COMPLETO"
-                 : selected == Language::portuguese_brazil ? "TURNO CONCLUIDO"
+                 : selected == Language::portuguese_brazil ? "TURNO CONCLUÍDO"
                  : "TURN COMPLETE";
         case Message::miss:
             return selected == Language::spanish ? "FALLO"
@@ -719,7 +719,7 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : selected == Language::portuguese_brazil ? "CURADO"
                  : "MENDED";
         case Message::damage:
-            return selected == Language::spanish ? "DANO"
+            return selected == Language::spanish ? "DAÑO"
                  : selected == Language::portuguese_brazil ? "DANO"
                  : "DAMAGE";
         case Message::restored:
@@ -728,11 +728,11 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : "RESTORED";
         case Message::encounter_clear:
             return selected == Language::spanish ? "COMBATE SUPERADO"
-                 : selected == Language::portuguese_brazil ? "BATALHA CONCLUIDA"
+                 : selected == Language::portuguese_brazil ? "BATALHA CONCLUÍDA"
                  : "ENCOUNTER CLEAR";
         case Message::required:
             return selected == Language::spanish ? "OBLIGATORIO"
-                 : selected == Language::portuguese_brazil ? "OBRIGATORIO"
+                 : selected == Language::portuguese_brazil ? "OBRIGATÓRIO"
                  : "REQUIRED";
         case Message::type_name:
             return selected == Language::spanish ? "ESCRIBIR"
@@ -756,7 +756,7 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : "DEPLOY";
         case Message::clear:
             return selected == Language::spanish ? "SUPERADO"
-                 : selected == Language::portuguese_brazil ? "CONCLUIDO"
+                 : selected == Language::portuguese_brazil ? "CONCLUÍDO"
                  : "CLEAR";
         case Message::failed:
             return selected == Language::spanish ? "FALLIDO"
@@ -767,36 +767,36 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : selected == Language::portuguese_brazil ? "PENDENTE"
                  : "PENDING";
         case Message::return_to_title:
-            return selected == Language::spanish ? "VOLVER AL TITULO"
-                 : selected == Language::portuguese_brazil ? "VOLTAR AO TITULO"
+            return selected == Language::spanish ? "VOLVER AL TÍTULO"
+                 : selected == Language::portuguese_brazil ? "VOLTAR AO TÍTULO"
                  : "RETURN TO TITLE";
         case Message::company_regroup:
-            return selected == Language::spanish ? "LA COMPANIA DEBE REAGRUPARSE"
+            return selected == Language::spanish ? "LA COMPAÑÍA DEBE REAGRUPARSE"
                  : selected == Language::portuguese_brazil ? "A COMPANHIA DEVE SE REORGANIZAR"
                  : "THE COMPANY MUST REGROUP";
         case Message::memory_card:
             return selected == Language::spanish ? "TARJETA DE MEMORIA"
-                 : selected == Language::portuguese_brazil ? "CARTAO DE MEMORIA"
+                 : selected == Language::portuguese_brazil ? "CARTÃO DE MEMORIA"
                  : "MEMORY CARD";
         case Message::save_unavailable:
             return selected == Language::spanish ? "PARTIDA NO DISPONIBLE"
-                 : selected == Language::portuguese_brazil ? "SAVE INDISPONIVEL"
+                 : selected == Language::portuguese_brazil ? "SAVE INDISPONÍVEL"
                  : "SAVE DATA IS NOT AVAILABLE";
         case Message::cross_confirm:
             return selected == Language::spanish ? "CRUZ  CONFIRMAR"
                  : selected == Language::portuguese_brazil ? "X  CONFIRMAR"
                  : "CROSS  CONFIRM";
         case Message::circle_back:
-            return selected == Language::spanish ? "CIRCULO  VOLVER"
-                 : selected == Language::portuguese_brazil ? "CIRCULO  VOLTAR"
+            return selected == Language::spanish ? "CÍRCULO  VOLVER"
+                 : selected == Language::portuguese_brazil ? "CÍRCULO  VOLTAR"
                  : "CIRCLE  BACK";
         case Message::start_menu:
-            return selected == Language::spanish ? "START  MENU"
+            return selected == Language::spanish ? "START  MENÚ"
                  : selected == Language::portuguese_brazil ? "START  MENU"
                  : "START  MENU";
         case Message::cross_circle_return:
-            return selected == Language::spanish ? "CRUZ O CIRCULO PARA VOLVER"
-                 : selected == Language::portuguese_brazil ? "X OU CIRCULO PARA VOLTAR"
+            return selected == Language::spanish ? "CRUZ O CÍRCULO PARA VOLVER"
+                 : selected == Language::portuguese_brazil ? "X OU CÍRCULO PARA VOLTAR"
                  : "CROSS OR CIRCLE TO RETURN";
         case Message::ready:
             return selected == Language::spanish ? "LISTO"
@@ -815,7 +815,7 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : selected == Language::portuguese_brazil ? "ESCOLHA UM ALVO"
                  : "CHOOSE A TARGET";
         case Message::target_down:
-            return selected == Language::spanish ? "OBJETIVO CAIDO"
+            return selected == Language::spanish ? "OBJETIVO CAÍDO"
                  : selected == Language::portuguese_brazil ? "ALVO DERROTADO"
                  : "TARGET IS DOWN";
         case Message::ability_spent:
@@ -827,12 +827,12 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
                  : selected == Language::portuguese_brazil ? "TERMINE ESTE TURNO"
                  : "FINISH THIS TURN";
         case Message::action_refused:
-            return selected == Language::spanish ? "ACCION RECHAZADA"
-                 : selected == Language::portuguese_brazil ? "ACAO RECUSADA"
+            return selected == Language::spanish ? "ACCIÓN RECHAZADA"
+                 : selected == Language::portuguese_brazil ? "AÇÃO RECUSADA"
                  : "ACTION REFUSED";
         case Message::presentation_options:
-            return selected == Language::spanish ? "OPCIONES DE PRESENTACION"
-                 : selected == Language::portuguese_brazil ? "OPCOES DE APRESENTACAO"
+            return selected == Language::spanish ? "OPCIONES DE PRESENTACIÓN"
+                 : selected == Language::portuguese_brazil ? "OPÇÕES DE APRESENTAÇÃO"
                  : "PRESENTATION OPTIONS";
     }
     return "";

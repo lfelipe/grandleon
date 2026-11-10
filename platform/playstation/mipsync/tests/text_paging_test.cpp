@@ -28,7 +28,9 @@ static unsigned check(const std::string& source, unsigned columns, unsigned rows
             char line[35];
             const unsigned width = grandleon_text_wrap_line(&cursor, line, columns);
             assert(width <= columns);
-            rendered += glyphs(line);
+            // The wrapper emits Latin-1 glyph codes, not another UTF-8 string.
+            for (const unsigned char value : std::string(line))
+                if (!std::isspace(value)) rendered += static_cast<char>(value);
         }
         assert(cursor == next);
         assert(!*next || (static_cast<unsigned char>(*next) & 0xc0) != 0x80);
@@ -39,6 +41,11 @@ static unsigned check(const std::string& source, unsigned columns, unsigned rows
 }
 
 int main() {
+    const char* accent = "Aço e ação";
+    char first_line[35];
+    assert(grandleon_text_wrap_line(&accent, first_line, 34) == 10);
+    assert(std::string(first_line) == std::string("A\xe7o e a\xe7\xe3o"));
+    assert(!*accent);
     // Real translated-length battle dialogue, accents and punctuation included.
     const std::string translated = "Atenção, companhia! As árvores escondem inimigos. Não avancem sozinhos: protejam os companheiros e mantenham a formação até chegarmos à ponte.";
     assert(check(translated, 34, 3) >= 2);

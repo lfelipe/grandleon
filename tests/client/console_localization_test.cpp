@@ -2,6 +2,7 @@
 // The compact-console language choice and the authored strings it drives.
 
 #include <grandleon/client/console_localization.hpp>
+#include <grandleon/view/console_text.h>
 #include <grandleon/client/turn_client.hpp>
 #include <grandleon/core/content_identity.hpp>
 #include <grandleon/game_content/compiler.hpp>
@@ -26,6 +27,12 @@ namespace turn = grandleon::client::turn;
 namespace {
 
 int failures = 0;
+
+std::size_t glyph_count(const char* text) {
+    std::size_t count = 0;
+    while (*text) { (void)grandleon_text_next(&text); ++count; }
+    return count;
+}
 
 void expect(bool condition, std::string_view message) {
     if (condition) return;
@@ -142,7 +149,7 @@ int main() {
             "2 JOGADORES" &&
         std::string_view(console::text(
             "es", console::Message::choose_how_to_play
-        )) == "ELIGE COMO JUGAR" &&
+        )) == "ELIGE CÓMO JUGAR" &&
         std::string_view(console::text(
             "pt-BR", console::Message::status
         )) == "ESTADO",
@@ -158,46 +165,49 @@ int main() {
                 language, static_cast<console::Message>(raw)
             );
             expect(!value.empty(), "every compact-console label is translated");
-            for (const unsigned char glyph : value) {
+            const char* cursor = value.data();
+            while (*cursor) {
+                const auto glyph = static_cast<unsigned char>(grandleon_text_next(&cursor));
                 expect(
-                    glyph >= 32U && glyph <= 126U,
-                    "compact-console interface copy stays in the shared glyph atlas"
+                    (glyph >= 32U && glyph <= 126U) || glyph == 0xa1U || glyph == 0xbfU ||
+                        (glyph >= 0xc0U && glyph <= 0xdeU && glyph != 0xd7U),
+                    "interface accents fit the shared console glyph repertoire"
                 );
             }
         }
         expect(
-            std::string_view(console::text(
+            glyph_count(console::text(
                 language, console::Message::action_heading
-            )).size() <= 10U &&
-                std::string_view(console::text(
+            )) <= 10U &&
+                glyph_count(console::text(
                     language, console::Message::ability
-                )).size() <= 10U &&
-                std::string_view(console::text(
+                )) <= 10U &&
+                glyph_count(console::text(
                     language, console::Message::hit
-                )).size() <= 7U &&
-                std::string_view(console::text(
+                )) <= 7U &&
+                glyph_count(console::text(
                     language, console::Message::counter
-                )).size() <= 15U &&
-                std::string_view(console::text(
+                )) <= 15U &&
+                glyph_count(console::text(
                     language, console::Message::cross_circle_return
-                )).size() <= 26U &&
-                std::string_view(console::text(
+                )) <= 26U &&
+                glyph_count(console::text(
                     language, console::Message::character_name
-                )).size() <= 32U &&
-                std::string_view(console::text(
+                )) <= 32U &&
+                glyph_count(console::text(
                     language, console::Message::encounter_clear
-                )).size() <= 19U,
+                )) <= 19U,
             "localized tactical and help labels fit the measured PS1 panels"
         );
     }
     for (const std::string_view language : {"en", "es", "pt-BR"}) {
         expect(
-            std::string_view(console::text(
+            glyph_count(console::text(
                 language, console::Message::company_footer
-            )).size() <= static_cast<std::size_t>(turn::footer_columns) &&
-                std::string_view(console::text(
+            )) <= static_cast<std::size_t>(turn::footer_columns) &&
+                glyph_count(console::text(
                     language, console::Message::company_footer_stages
-                )).size() <= static_cast<std::size_t>(turn::footer_columns),
+                )) <= static_cast<std::size_t>(turn::footer_columns),
             "localized company controls stay inside the measured footer"
         );
     }

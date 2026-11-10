@@ -3,8 +3,9 @@
 #define GRANDLEON_VIEW_CONSOLE_TEXT_H
 #include <stdint.h>
 
-/* Decode one character for the consoles' limited built-in fonts. Keep the
- * authored UTF-8 catalog unchanged; only the final display loses accents. */
+/* Decode UTF-8 into the consoles' Latin-1 glyph codes. Treat the returned
+ * char as unsigned when selecting a glyph. Authored accents are preserved;
+ * unsupported scalars use a visible question mark. */
 static inline char grandleon_text_next(const char** cursor) {
     uint32_t code;
     unsigned count, index;
@@ -22,22 +23,13 @@ static inline char grandleon_text_next(const char** cursor) {
         code = (code << 6) | (*text++ & 63);
     }
     *cursor = (const char*)text;
-    if (code >= 0xc0 && code <= 0xc5) return 'A';
-    if (code >= 0xe0 && code <= 0xe5) return 'a';
-    if (code >= 0xc8 && code <= 0xcb) return 'E';
-    if (code >= 0xe8 && code <= 0xeb) return 'e';
-    if (code >= 0xcc && code <= 0xcf) return 'I';
-    if (code >= 0xec && code <= 0xef) return 'i';
-    if (code >= 0xd2 && code <= 0xd6) return 'O';
-    if (code >= 0xf2 && code <= 0xf6) return 'o';
-    if (code >= 0xd9 && code <= 0xdc) return 'U';
-    if (code >= 0xf9 && code <= 0xfc) return 'u';
+    if ((count == 1 && code < 0x80) ||
+        (count == 2 && code < 0x800) ||
+        (count == 3 && code < 0x10000) ||
+        code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff)) return '?';
+    if (code == 0xa0) return ' ';
+    if (code >= 0xa1 && code <= 0xff) return (char)code;
     switch (code) {
-        case 0xc7: return 'C'; case 0xe7: return 'c';
-        case 0xd1: return 'N'; case 0xf1: return 'n';
-        case 0xdd: case 0x178: return 'Y';
-        case 0xfd: case 0xff: return 'y';
-        case 0xa1: return '!'; case 0xbf: return '?';
         case 0xa0: return ' ';
         case 0x2018: case 0x2019: return '\'';
         case 0x201c: case 0x201d: return '"';
