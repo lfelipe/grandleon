@@ -121,11 +121,10 @@ your own audio is planned on the roadmap below.
 
 ## One project, several targets
 
-Portable project source is compiled into the same deterministic rules on each
-target. Rendering and controls differ, but movement, combat, objectives,
-campaign state, and random results remain authoritative in the shared engine.
+Make one project and play it on PC, Nintendo 64 or PlayStation. Each player
+uses the same maps, units and battle rules.
 
-| Nintendo 64 · Pyrite/Tiny3D | PlayStation · Mipsync |
+| Nintendo 64 | PlayStation |
 | --- | --- |
 | ![Bell Orchard movement and close combat in the Nintendo 64 player](docs/screenshots/nintendo64-console-renderer.gif) | ![Bell Orchard movement, attack and counterattack in the PlayStation player](docs/screenshots/playstation-console-renderer.gif) |
 
@@ -144,20 +143,12 @@ The installed Export Center can produce:
 Console builders are separate downloads because their pinned toolchains are
 large. They work offline after installation. The PlayStation image has no Sony
 licence sector and therefore does not boot on an unmodified retail console.
-Each console has one renderer. It uses the curated character artwork as
-hardware-sized cutouts over shaped, textured tactical terrain, with full-frame
-terrain backdrops for close battles. There is no renderer choice in the game
-or in **Finish & Export**.
+Console exports use the curated character artwork shown above, adapted to each
+machine. Both consoles target 30 fps.
 
-The consoles target 30 fps; this is a performance target, not a promise that
-every scene currently meets it. Godot keeps its own display cadence.
-
-The 0.5 work is also the middle of an engine transition: Nintendo 64 is moving
-to Pyrite/Tiny3D and PlayStation is moving to Mipsync. Those are the only
-console paths being developed; removed renderers are not retained as fallbacks.
-The 0.5 release gate is functional parity with the Godot player across the
-campaign, tactical rules, local co-op, saves, settings, and authored
-presentation. Console graphics can continue maturing after that gate.
+Nintendo 64 now uses Pyrite/Tiny3D and PlayStation uses Mipsync. This release
+is part of that transition: the players share Godot’s campaign features while
+console graphics continue to mature.
 
 PS1 camera movement can still judder on larger maps, especially around the
 castle. Smoother frame pacing remains planned after 0.5; it does not block
@@ -185,8 +176,10 @@ rest of the documentation describes the current Godot application.
 | **0.2** | Complete campaign runtime. Added richer campaign play, in-battle dialogue, progression and inventory, weapon relationships, larger scrolling boards, console export work, and cross-target conformance for the shipped campaigns. |
 | **0.3** | Godot player and creator. Moved the supported PC experience to Godot, joined creation and play in one application, and added local co-op, standalone export, authored 3D terrain, and a complete high-resolution sci-fi archetype roster. |
 | **0.4** | Broader art and console campaigns. Completes seven coherent Godot character directions, improves terrain clusters and movement presentation, adds portable one/two/choice campaign launch policy, streamlines the player around a nearly full-screen board, includes distinct solo and local co-op campaigns, and uses one textured renderer for the PlayStation and Nintendo 64 campaigns. It also introduces the first optional terrain-aware Godot combat close-up. |
-| **0.5** | Editor, localization and console parity. Improves campaign creation, previews and project checks, with an automated test that creates, exports, launches and wins a game through the normal Godot screens. Adds manual **Translations**, localized menus, optional player-named characters, orchestral music and distinct combat effects with separate Music and Effects controls. Moves Nintendo 64 to Pyrite/Tiny3D and PlayStation to Mipsync. Both consoles must support Godot's campaign features, including co-op and the castle reveal. This engine transition is in progress, with visual quality and a measured 30 fps target still being improved. |
-| **Prior to 1.0** | Design and playtest a polished demo campaign with a cohesive story, a gentle opening, meaningful solo and co-op tactics, varied maps, and a final boss. Expand terrain-aware backdrops for combat and conversations, with optional ambient motion such as moving water, weather, foliage, light, and particles. Continue improving console character readability, terrain variety, animation, effects, interface clarity, close-up scenes, and performance measured on real hardware. Experiment with Android and, if practical, iOS exports of the Godot player and creator using the same portable games and presentation. Improve music, ambience, battle effects and interface sounds across platforms. Let creators import and preview their own music and effects in the editor, assigning them to maps, story scenes, weapons and spells. Static backdrops remain the dependable fallback. |
+| **0.5** | Editor, translations and console play. Improves campaign creation, previews and project checks, including a test that creates, exports and plays a new game. Adds manual translations, player-named characters, orchestral music and distinct combat sounds. Introduces Steel and Cedar and moves the console players to Pyrite/Tiny3D and Mipsync. |
+| **Prior to 1.0** | Design and playtest a polished campaign with a cohesive story, introductory battles, distinct solo/co-op tactics, varied maps and a final boss. Improve console graphics, animation, UI and performance. Expand combat and conversation backdrops with optional ambient motion. Rework audio and let creators import and assign their own music and effects. Experiment with Android and possibly iOS exports of the Godot player and creator. |
+
+See [TODO](TODO.md) for the detailed work list.
 
 Importing external artwork may be explored later, but it is not part of the
 current roadmap commitment.
