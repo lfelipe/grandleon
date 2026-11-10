@@ -33,7 +33,7 @@ timeout --kill-after=10 180 docker run --rm --user "$(id -u):$(id -g)" "${env_ar
     -memcard1 /out/story.mcd -dofile /probe/story_portrait_probe.lua \
     -iso /disc/game.cue > "$out/emulator.log" 2>&1
 rg -q 'MIPSYNC_PRODUCTION_STORY_PASS lines=3 portraits=3' "$out/emulator.log"
-for capture in title-ptbr story-0 story-1 story-2; do
+for capture in title-ptbr players-ptbr story-0 story-1 story-2; do
     ffmpeg -v error -y -f rawvideo -pixel_format bgr555le -video_size 320x240 \
         -i "$out/$capture.bin" -frames:v 1 "$out/$capture.png"
 done

@@ -19,23 +19,28 @@ local cast = {ffi.new('uint64_t', 9937314275672741875ULL),
               ffi.new('uint64_t', 9937314275672741875ULL)}
 local frame, phase, settings_rows, expected_line, line_ticks = 0, 0, 0, 0, 0
 local observed, capture = {}, nil
+local player_ticks = 0
 local function expected_texture(index)
   for binding = 0, tonumber(count[0]) - 1 do
     if ids[binding] == cast[index + 1] then return tonumber(textures[binding]) end
   end
   error('authored story actor has no portrait registry entry')
 end
-PCSX.addBreakpoint(assert(tonumber(os.getenv('GRANDLEON_TEXTURE_ENSURE_ADDRESS'))),
+grandleon_story_texture = PCSX.addBreakpoint(assert(tonumber(os.getenv('GRANDLEON_TEXTURE_ENSURE_ADDRESS'))),
   'Exec', 4, 'Current story portrait upload', function()
   if mode[0] == 3 and line[0] < 3 then
     observed[tonumber(line[0])] = tonumber(PCSX.getRegisters().GPR.n.a0)
   end
   return true
 end)
-PCSX.addBreakpoint(assert(tonumber(os.getenv('GRANDLEON_UPDATE_ADDRESS'))),
+grandleon_story_update = PCSX.addBreakpoint(assert(tonumber(os.getenv('GRANDLEON_UPDATE_ADDRESS'))),
   'Exec', 4, 'Complete production story and correct actor portraits', function()
   frame = frame + 1
   local held = 0
+  if mode[0] == 1 then
+    player_ticks = player_ticks + 1
+    if player_ticks == 8 then capture = 'players-ptbr' end
+  end
   if mode[0] == 3 then
     assert(line[0] == expected_line, 'story skipped or reordered an authored speaker')
     line_ticks = line_ticks + 1
@@ -78,7 +83,7 @@ PCSX.addBreakpoint(assert(tonumber(os.getenv('GRANDLEON_UPDATE_ADDRESS'))),
   assert(frame < 1000, 'production story did not finish within normal menu flow')
   return true
 end)
-PCSX.Events.createEventListener('GPU::Vsync', function()
+grandleon_story_vsync = PCSX.Events.createEventListener('GPU::Vsync', function()
   if not capture then return end
   local shot = PCSX.GPU.takeScreenShot()
   local output = Support.File.open('/out/' .. capture .. '.bin', 'TRUNCATE')
