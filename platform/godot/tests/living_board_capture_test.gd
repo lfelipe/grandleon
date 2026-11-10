@@ -34,8 +34,15 @@ func _run() -> void:
 	for prop: Dictionary in board._ambient_props:
 		starting_rotations.append(prop.node.rotation)
 	var foliage_changed := false
+	var idle_frames: Dictionary = {}
 	for frame in 150:
 		board._process(1.0 / 30.0)
+		for id: Variant in board._unit_sprites:
+			var sprite: Sprite3D = board._unit_sprites[id]
+			if frame == 0:
+				idle_frames[id] = sprite.frame
+			_expect("idle silhouette does not alternate between drawings", sprite.frame, idle_frames[id])
+			_expect_true("idle breathing stays below one percent", absf(sprite.scale.y - 1.0) < 0.01)
 		for id: Variant in positions:
 			_expect("idle unit keeps its board position", board._unit_nodes[id].position, positions[id])
 		for index in board._ambient_props.size():
@@ -52,6 +59,8 @@ func _run() -> void:
 	for prop: Dictionary in board._ambient_props:
 		frozen.append(prop.node.transform)
 	board._process(2.0)
+	for sprite: Sprite3D in board._unit_sprites.values():
+		_expect("reduced motion restores still characters", sprite.scale, Vector3.ONE)
 	for index in frozen.size():
 		_expect("reduced motion freezes foliage", board._ambient_props[index].node.transform, frozen[index])
 	board.queue_free()

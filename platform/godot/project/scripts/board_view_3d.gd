@@ -1746,6 +1746,11 @@ func _apply_sprite_frame(
 	var state := String(_unit_sprite_states.get(id, "idle"))
 	var started := int(_unit_sprite_started.get(id, now_msec))
 	var elapsed := float(maxi(0, now_msec - started)) / 1000.0
+	if state == "idle":
+		# The generated idle cells are separate illustrations, not registered
+		# in-between frames. Alternating them makes resting limbs snap back
+		# and forth. Hold one silhouette and apply breathing below instead.
+		elapsed = 0.0
 	if state == "move" and stride_distance >= 0.0:
 		var animation_config: Dictionary = profile_config.get("animation", {})
 		elapsed = float(Locomotion.pose(
@@ -1771,7 +1776,7 @@ func _apply_sprite_frame(
 	sprite.pixel_size = world_height / maxf(1.0, float(cell_size.y))
 	var ground_offset := float(sprite_config.get("groundOffset", 0.118))
 	var world_width := float(cell_size.x) * sprite.pixel_size
-	var idle := AmbientMotion.pose(int(_pulse * 30.0), id,
+	var idle := AmbientMotion.pose(_pulse, id,
 		_ambient_motion_enabled and state == "idle")
 	sprite.scale.y = idle.x
 	sprite.position = Vector3(
