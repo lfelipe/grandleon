@@ -2,6 +2,18 @@
 
 ## Closing review, 9 November 2026
 
+The current audio-enabled review ROM completed all five encounters with six
+streamed music themes, combat effects, and saved independent Music/Effects
+volumes. In base 4 MiB ares it completed 290 commands, 170 opposing commands,
+five combat presentations and the 18-cell castle reveal. The final sample
+measured 30.00 fps, 34,165 microseconds maximum, with 1,227,376 bytes of free
+heap. Evidence: `~/.cache/grandleon-pyrite-surface-quality/audio-full-campaign/`.
+
+The distributable production ROM has the review driver disabled. Its SHA-256
+is `631b57aed0e2676466b1535299d281177dc7ede27368ec569dabed2846574d98`.
+Independent volume changes and persistence passed on that ROM; hardware
+listening, full manual play and balance review remain open.
+
 The automated campaign driver is now disabled in normal exports. A separately
 built production ROM logged `review_driver=0` and remained on its title screen
 through an 18-second no-input boot. External controller input then reached

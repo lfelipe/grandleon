@@ -15,9 +15,11 @@
   opt into it explicitly for emulator campaign checks, and preserve physical
   takeover across encounter changes. Verify an idle production boot separately.
 - [ ] Resolve PS1 scrolling and castle frame-budget misses. The corrected
-  graphics fit memory, but the latest 600-tick scrolling window still misses
-  13 retraces during camera movement; the castle correction window misses 55.
-  Keep the existing strict 30 fps tests and fix the rendering cost.
+  graphics and audio fit memory. With foreground haze corrected and cache
+  eviction deferred until space is needed, the 600-tick scrolling window misses
+  one retrace and the castle window misses 46. Bell Orchard now passes its
+  strict combat and audio-timing gates, including the camera return. Keep the
+  strict tests and fix the remaining rendering cost.
 - [x] Keep PS1 units visible through terrain-page changes; remove the
   single-update suppression and inspect a two-axis scrolling capture.
 - [ ] Pass the host suite and exact console memory/performance gates; record
@@ -25,6 +27,9 @@
   proof that its picture is correct.
 - [x] Refresh the private review page with corrected console stills, scrolling
   and doorway clips, and the current performance measurements.
+- [ ] Refresh the matched three-player capture with the current console engines;
+  the README currently shows independent Bell Orchard clips, not an aligned
+  three-way comparison.
 - [ ] Prepare final 0.5 packages and release notes after review, and validate
   the exact console builds on hardware before declaring the milestone done.
 
@@ -32,30 +37,8 @@ This is the short list of active presentation work. These changes may improve
 how a battle looks and moves, but must not change the authoritative grid,
 terrain rules, routes, timing, or combat results.
 
-The checked items below are implemented. Unchecked items in **0.4 release
-acceptance** block the release; unchecked items in later sections are ongoing
-roadmap work.
-
-## 0.4 release acceptance
-
-- [x] Package the Godot 0.4 player/creator with the separate one-player and
-  one-or-two-player campaigns, and pass the native and packaged integration
-  suites.
-- [x] Use the console renderer in the playable Nintendo 64 and PlayStation
-  campaign builds, with campaign, co-op, save, disc, renderer, and packaging
-  checks exercising those same executables. The superseded console renderer,
-  its prototype viewers, and its generated art are no longer in the project.
-- [x] Streamline the first-play path on both consoles. Choosing **1 Player**
-  must lead straight to the save choice, when one is needed, and then the
-  campaign. Do not put a controls page, company screen, roster picker, or
-  deployment prompt in front of a fixed ready-to-play formation. Keep controls
-  as a compact **Help** choice on the start menu and as contextual button hints;
-  preserve management or deployment only when the authored game presents a
-  real player decision. Exercise 1P, 2P, new-save, and continue paths in the
-  final ROM and disc.
-- [x] Build and verify the final ROM, BIN/CUE, and Godot package; publish the
-  review branch; and copy the exact console images to the MiSTer for hardware
-  review. Tag 0.4 only after the branch is approved and merged.
+The checked items below are implemented. The closing review above is the
+release checklist; later sections also contain work planned beyond 0.5.
 
 ## Creator audio customization
 

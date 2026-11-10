@@ -2,7 +2,7 @@
 
 Reviewed on 9 November 2026. Mipsync is the only PlayStation renderer;
 missing dependencies or unsupported exports fail rather than selecting an
-older renderer. Nine runtime patches and a Windows build-helper fix apply to
+older renderer. Ten runtime patches and a Windows build-helper fix apply to
 the pinned upstream revision `866f405a0e34b5925a8d832272fe52c657688430`.
 
 ## Corrected in this review
@@ -15,8 +15,10 @@ the pinned upstream revision `866f405a0e34b5925a8d832272fe52c657688430`.
 - Hidden-room covers use upward-facing geometry. The castle interior is
   visibly covered before entry, then revealed by normal doorway movement.
 - Menus with fewer than five actions no longer underflow their first row.
-- Disabled terrain pages release their static renderer-cache reservations.
-  This is a standalone upstream patch, with no campaign-specific engine code.
+- Disabled terrain pages release their static renderer-cache reservations
+  when a new draw needs space. Idle hidden pages no longer invalidate all
+  active projection, lighting and topology caches every frame. The generic
+  fixes are separate upstream commits, with no campaign-specific engine code.
 - Units remain visible through terrain-page changes, removing a one-update
   blink. The scrolling probe can capture these transitions as a video.
 - Safe projected polygons use native GPU clipping at screen edges, while
@@ -37,8 +39,11 @@ The audio export has six CD music tracks and 21 resident ADPCM effects.
 The audio probe verifies CD initialization and acknowledged title playback,
 changes Music and Effects independently through both title and battle menus,
 then restarts the emulator and checks the saved values. It captures both menus.
-This verifies transport and settings; listening to the final mix on hardware
-remains part of acceptance.
+A raw controller-packet check also verifies that holding a volume button
+changes it once, even across the memory-card write. The combat probe observes
+real cue calls at launch/contact ticks 28/37 and counterattack ticks 68/77.
+These verify transport, settings and presentation timing; listening to the
+final mix on hardware remains part of acceptance.
 
 Focused captures boot the real Deepwood 2P and Twin Gate 1P encounters directly
 and inject controller input at the normal update boundary. Deepwood exercises
@@ -64,32 +69,41 @@ gameplay heap. Music remains on the CD.
 
 | Encounter | Committed RAM / 2,097,152 | Texture VRAM / 720,896 |
 | --- | ---: | ---: |
-| Bell Orchard | 1,790,860 | 211,744 |
-| Cedar Deepwood | 1,842,060 | 167,200 |
-| Cedar Watch | 2,036,636 | 262,976 |
-| Gate Village | 2,057,132 | 281,440 |
-| Twin Gate Keep | 2,007,948 | 242,432 |
+| Bell Orchard | 1,790,884 | 211,744 |
+| Cedar Deepwood | 1,844,116 | 167,200 |
+| Cedar Watch | 2,038,692 | 262,976 |
+| Gate Village | 2,059,204 | 281,440 |
+| Twin Gate Keep | 2,007,972 | 242,432 |
 
-**The corrected graphics do not yet pass the strict 30 fps gates.** Before
-the audio integration, across
-600 rule ticks, Deepwood records 300 renders with 13 missed retraces during
-camera movement; completed work averages 288 HBlanks and peaks at 593.
-Twin Gate records 297 renders, three deferred updates and 55 missed
-retraces; completed work averages 380 HBlanks and peaks at 762.
-Before the clipping/cache fixes these windows missed 57 and 257 retraces.
-Those are the current measurements. Earlier zero-miss results used smaller
-terrain coverage and must not be applied to this build. Keep the strict
-scroll/combat tests and reduce rendering cost before calling performance ready.
+**The corrected graphics do not yet pass the strict 30 fps gates.** With
+music and effects enabled, the 600-tick Deepwood window renders 300 frames
+with one missed retrace. Completed work averages 259 HBlanks and peaks at 537.
+Twin Gate renders 297 frames with three deferred updates and 46 missed
+retraces; completed work averages 326 HBlanks and peaks at 634. Bell Orchard now passes
+its strict zero-miss combat gate, including the camera return and cue timing.
+
+Foreground haze correction and pressure-based cache eviction reduced the
+scrolling and castle misses from 13/55 to 1/46 without removing terrain.
+The cache change alone leaves the settled scroll and both castle captures
+byte-identical. The strict gates remain unchanged. Scrolling still fails; reduce the
+remaining scrolling/castle cost before calling performance ready.
 
 ## Artifacts and remaining gates
 
 The review export and manifests are in
-`~/.cache/grandleon-ps1-indexed-build.mOZON2/review-release05-audio-final/`.
+`~/.cache/grandleon-ps1-indexed-build.mOZON2/review-release05-audio-v3/`.
 The BIN SHA-256 is
-`0978d0d10cf4a5d7416e0d02e8a90500e437228499ab82c4e53f89be8d2ae3c3`.
-The audio menu evidence is in `review-release05-audio-final-controls-v2/`.
-The earlier graphics evidence is in `review-accepted-deep/` and
-`review-accepted-gate/` beside it; repeat performance checks with audio enabled.
+`66112237fcc2260600eda022be7a7ece71be048a332abbabf567856f138bff46`.
+The audio menu evidence is in `review-release05-audio-v3-controls/`.
+Graphics/performance evidence is in
+`review-audio-performance/deep-verified-disc-evidence/` and
+`review-audio-performance/gate-verified-disc-evidence/` beside it.
+`review-audio-combat/verified-motion-evidence/` records the passing combat frame and sound-timing checks.
+Each probe verifies that the disc's PSX.EXE matches its linked build before
+starting the emulator and records the tested BIN hash. Default builds also
+rebuild the disc after executable changes. These direct-battle fixtures use
+the same runtime and authored encounters;
+they are not the distributable campaign disc.
 Campaign/card evidence is in `review-route05-corrected-evidence/`; that disc
 is a separate probe and must not be distributed as the playable release.
 

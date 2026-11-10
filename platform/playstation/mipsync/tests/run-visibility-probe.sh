@@ -50,6 +50,7 @@ timeout --kill-after=10 180 \
     "$docker" run --rm --user "$(id -u):$(id -g)" \
         --env HOME=/tmp \
         --env "GRANDLEON_UPDATE_ADDRESS=$update_address" \
+        --env "GRANDLEON_CAPTURE_MOTION=${GRANDLEON_CAPTURE_MOTION:-0}" \
         --volume "$build:/disc:ro" \
         --volume "$script_dir:/probe:ro" \
         --volume "$output:/out" \
