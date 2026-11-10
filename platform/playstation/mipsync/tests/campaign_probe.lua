@@ -130,11 +130,13 @@ grandleon_campaign_listener = PCSX.Events.createEventListener('GPU::Vsync', func
     local name = pending_capture
     pending_capture = nil
     local shot = PCSX.GPU.takeScreenShot()
+    local bytes = shot.data.size
+    assert(bytes == 320 * 240 * 2, 'campaign capture must contain a complete framebuffer')
     local output = Support.File.open('/out/' .. mode .. '-' .. name .. '.bin', 'TRUNCATE')
     output:writeMoveSlice(shot.data)
     output:close()
     print(string.format('MIPSYNC_CAMPAIGN_CAPTURE name=%s %dx%d bytes=%d',
-                        name, tonumber(shot.width), tonumber(shot.height), shot.data.size))
+                        name, tonumber(shot.width), tonumber(shot.height), bytes))
   end
 end)
 

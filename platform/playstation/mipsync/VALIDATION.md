@@ -39,6 +39,8 @@ The audio export has six CD music tracks and 21 resident ADPCM effects.
 The audio probe verifies CD initialization and acknowledged title playback,
 changes Music and Effects independently through both title and battle menus,
 then restarts the emulator and checks the saved values. It captures both menus.
+The separate routing fixture also crosses every disc executable with audio
+active, exercising CD ownership handoff during stage changes and save/resume.
 A raw controller-packet check also verifies that holding a volume button
 changes it once, even across the memory-card write. The combat probe observes
 real cue calls at launch/contact ticks 28/37 and counterattack ticks 68/77.
@@ -53,7 +55,7 @@ The test requires the 18-cell reveal between the approach and crossing logs.
 Before/after framebuffers and a reveal clip were inspected, including the
 post-move action menu. These probes use no test-only reveal or victory hook.
 
-The current separate campaign/card probe passed all 31 existing assertions
+The audio-enabled separate campaign/card probe passes its existing assertions
 for fresh co-op, resumed co-op and solo routes. All five encounters load in
 both modes, Player 2 retains unit ownership, and the co-op save resumes in a
 new emulator process. Every captured framebuffer has the expected size and
@@ -79,14 +81,15 @@ gameplay heap. Music remains on the CD.
 music and effects enabled, the 600-tick Deepwood window renders 300 frames
 with one missed retrace. Completed work averages 259 HBlanks and peaks at 537.
 Twin Gate renders 297 frames with three deferred updates and 46 missed
-retraces; completed work averages 326 HBlanks and peaks at 634. Bell Orchard now passes
-its strict zero-miss combat gate, including the camera return and cue timing.
+retraces; completed work averages 326 HBlanks and peaks at 634. Bell Orchard
+now passes its strict zero-miss combat gate, including camera return and cue
+timing.
 
 Foreground haze correction and pressure-based cache eviction reduced the
 scrolling and castle misses from 13/55 to 1/46 without removing terrain.
 The cache change alone leaves the settled scroll and both castle captures
-byte-identical. The strict gates remain unchanged. Scrolling still fails; reduce the
-remaining scrolling/castle cost before calling performance ready.
+byte-identical. The strict gates remain unchanged. Scrolling still fails;
+reduce the remaining scrolling/castle cost before calling performance ready.
 
 ## Artifacts and remaining gates
 
@@ -104,7 +107,7 @@ starting the emulator and records the tested BIN hash. Default builds also
 rebuild the disc after executable changes. These direct-battle fixtures use
 the same runtime and authored encounters;
 they are not the distributable campaign disc.
-Campaign/card evidence is in `review-route05-corrected-evidence/`; that disc
+Campaign/card evidence is in `review-audio-route-evidence/`; that disc
 is a separate probe and must not be distributed as the playable release.
 
 Before release: resolve the frame-budget misses, rerun the final campaign and
