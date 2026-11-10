@@ -1,5 +1,18 @@
 # Generic project export validation
 
+## Accented text
+
+Spleen 6×12 glyph banks preserve Latin-1 accents, including Portuguese
+cedillas and tildes. Authored UTF-8 and already-decoded dialogue use separate
+drawing paths, so wrapped text is never decoded twice. Actual production
+captures show `Aço`, `Alguém`, `você` and `CONFIGURAÇÕES` correctly. Five host
+regressions check decoding, wrapping, glyph pixels and controller projection.
+
+The refreshed Bell Orchard recording uses the normal production ROM and
+ordinary controller input. The emulator is clocked to 60 retraces per second;
+the 30 fps recording retains the full move, attack, counterattack and return
+without changing playback speed.
+
 ## Hardware feedback follow-up
 
 The board is north-up, and both the D-pad and analog stick follow screen
@@ -24,7 +37,7 @@ driver disabled. Final hardware acceptance remains open.
 ## Current production artifact
 
 The normal ROM keeps the automated review driver disabled. SHA-256:
-`acc690aa75a1e0e45adbfeeda6b88197e51eafff16d7d47f302d0fafae6a2f35`.
+`b4bfd851032a9c333513035601220919b7f4f05122dbac338a0ee71e34dd0900`.
 The production source and evidence are in
 `~/.cache/grandleon-pyrite-hardware-ux-v8/`. The exact ROM still needs a
 manual hardware playthrough; scripted campaign completion does not establish

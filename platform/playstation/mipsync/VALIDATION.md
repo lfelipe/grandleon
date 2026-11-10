@@ -5,6 +5,18 @@ missing dependencies or unsupported exports fail rather than selecting an
 older renderer. Eleven runtime patches and a Windows build-helper fix apply to
 the pinned upstream revision `866f405a0e34b5925a8d832272fe52c657688430`.
 
+## Accented text
+
+The current font preserves Portuguese and Spanish accents, including `Aço`,
+`ação`, `então`, `é`, `ñ` and inverted punctuation. UTF-8 is decoded once;
+paged text retains its Latin-1 glyph codes. The 64×144 Spleen atlas uses a
+separate 4-bit palette, reducing font storage despite adding accented glyphs.
+The production Portuguese title and all three opening speakers were visually
+checked. Language selection persists across an emulator restart.
+
+All five memory gates pass; the largest stage commits 2,089,428 of 2,097,152
+bytes, leaving 7,724 bytes above the unchanged platform, stack and heap reserves.
+
 ## Hardware feedback follow-up
 
 The current build aligns digital and analog directions with the screen,
@@ -108,11 +120,11 @@ gameplay heap. Music remains on the CD.
 
 | Encounter | Committed RAM / 2,097,152 | Texture VRAM / 720,896 |
 | --- | ---: | ---: |
-| Bell Orchard | 1,829,364 | 214,816 |
+| Bell Orchard | 1,823,220 | 213,312 |
 | Cedar Deepwood | 1,850,316 | 168,224 |
-| Cedar Watch | 2,077,156 | 266,048 |
-| Gate Village | 2,095,572 | 283,488 |
-| Twin Gate Keep | 2,044,404 | 244,480 |
+| Cedar Watch | 2,070,996 | 264,544 |
+| Gate Village | 2,089,428 | 281,984 |
+| Twin Gate Keep | 2,040,292 | 242,976 |
 
 **The corrected graphics do not yet pass the strict 30 fps gates.** With
 music and effects enabled, the 600-tick Deepwood window renders 300 frames
@@ -145,9 +157,9 @@ upstream patch series. Evidence is beside the review export in
 ## Artifacts and remaining gates
 
 The review export and manifests are in
-`~/.cache/grandleon-ps1-indexed-build.mOZON2/review-release05-hardware-ux-v8/`.
+`~/.cache/grandleon-ps1-indexed-build.mOZON2/review-release05-accents-v9/`.
 The BIN SHA-256 is
-`94ea4de937844b52aff8898b09cf7c0759c113c780a36c677f3578e26f2f6e4a`.
+`40323d98a9ae6f35a22e99f3325ae4bd6118bac9b3228220aa93e3068c43eeec`.
 It includes the current effects, font and idle motion. Normal co-op launch,
 CD playback, independent volumes, held-button handling and saved settings
 pass before the final portrait-depth-only correction. The final disc also
