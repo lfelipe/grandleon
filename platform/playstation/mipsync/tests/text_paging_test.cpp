@@ -29,8 +29,8 @@ static unsigned check(const std::string& source, unsigned columns, unsigned rows
             const unsigned width = grandleon_text_wrap_line(&cursor, line, columns);
             assert(width <= columns);
             // The wrapper emits Latin-1 glyph codes, not another UTF-8 string.
-            for (const unsigned char value : std::string(line))
-                if (!std::isspace(value)) rendered += static_cast<char>(value);
+            for (const char value : std::string(line))
+                if (!std::isspace(static_cast<unsigned char>(value))) rendered += value;
         }
         assert(cursor == next);
         assert(!*next || (static_cast<unsigned char>(*next) & 0xc0) != 0x80);
