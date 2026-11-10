@@ -109,6 +109,16 @@ The cache change alone leaves the settled scroll and both castle captures
 byte-identical. The strict gates remain unchanged. Scrolling still fails;
 reduce the remaining scrolling/castle cost before calling performance ready.
 
+Follow-up profiling identifies static scenery drawing as the main CPU cost.
+Isolated prototypes for splitting the unfogged quad path and packing colour
+conversion leave the strict scrolling and castle failures unresolved. Smaller
+hot-loop code worsens the castle misses to 52. Cyclic index normalization for
+native unit/cursor quads gives a small reduction to 45 castle misses, but still
+fails scrolling. None of these prototypes is in the production build or the
+upstream patch series. Evidence is beside the review export in
+`review-closeout-profile/`, `review-unfogged-quad/`, `review-packed-colors/`,
+`review-hot-loop-size/` and `review-native-quad-exports/`.
+
 ## Artifacts and remaining gates
 
 The review export and manifests are in
