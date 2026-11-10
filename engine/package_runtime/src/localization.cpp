@@ -23,8 +23,9 @@ public:
 
     bool u16(std::uint16_t& value) noexcept {
         if (remaining() < 2) return false;
-        value = static_cast<std::uint16_t>(bytes_[at_]) |
-                static_cast<std::uint16_t>(bytes_[at_ + 1]) << 8U;
+        value = static_cast<std::uint16_t>(
+            static_cast<unsigned>(bytes_[at_]) |
+            static_cast<unsigned>(bytes_[at_ + 1]) << 8U);
         at_ += 2;
         return true;
     }

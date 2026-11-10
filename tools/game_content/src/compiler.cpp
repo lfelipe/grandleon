@@ -76,7 +76,7 @@ ResolvedSurroundingTerrain resolve_surrounding_terrain(const Map& map) {
     const std::int32_t width = map.width;
     const std::int32_t height = map.height;
     if (depth <= 0 || width <= 0 || height <= 0 ||
-        map.terrain.size() != static_cast<std::size_t>(width) * height) {
+        map.terrain.size() != static_cast<std::size_t>(width) * static_cast<std::size_t>(height)) {
         return {};
     }
     const std::size_t expected =
@@ -91,7 +91,8 @@ ResolvedSurroundingTerrain resolve_surrounding_terrain(const Map& map) {
             const std::int32_t nearest_x = std::clamp(x, 0, width - 1);
             const std::int32_t nearest_y = std::clamp(y, 0, height - 1);
             const std::size_t nearest =
-                static_cast<std::size_t>(nearest_y) * map.width + nearest_x;
+                static_cast<std::size_t>(nearest_y) * static_cast<std::size_t>(width) +
+                    static_cast<std::size_t>(nearest_x);
             const std::int32_t outside_x =
                 x < 0 ? -x : (x >= width ? x - width + 1 : 0);
             const std::int32_t outside_y =
