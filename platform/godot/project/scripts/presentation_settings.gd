@@ -49,7 +49,11 @@ func save_settings(
 	effects_level: float = 1.0,
 	stick_mode := "deliberate",
 	battle_closeups := true,
-	cinematic_motion := "full"
+	cinematic_motion := "full",
+	show_fps := false,
+	store_battle_closeups := true,
+	game_language := "",
+	music_level: float = 0.45
 ) -> bool:
 	_warning = ""
 	if not available_profiles.has(graphics_profile):
@@ -58,13 +62,19 @@ func save_settings(
 	if text_scale < 1.0 or text_scale > 1.20:
 		_warning = "DISPLAY SETTINGS WERE NOT SAVED"
 		return false
-	if not _valid_effects_level(effects_level):
+	if not _valid_effects_level(effects_level) or not _valid_effects_level(music_level):
 		_warning = "DISPLAY SETTINGS WERE NOT SAVED"
 		return false
 	if stick_mode not in STICK_MODES:
 		_warning = "DISPLAY SETTINGS WERE NOT SAVED"
 		return false
-	if typeof(battle_closeups) != TYPE_BOOL or cinematic_motion not in CINEMATIC_MOTION_MODES:
+	if (
+		typeof(battle_closeups) != TYPE_BOOL
+		or cinematic_motion not in CINEMATIC_MOTION_MODES
+		or typeof(show_fps) != TYPE_BOOL
+		or typeof(store_battle_closeups) != TYPE_BOOL
+		or game_language.length() > 31
+	):
 		_warning = "DISPLAY SETTINGS WERE NOT SAVED"
 		return false
 
@@ -85,10 +95,14 @@ func save_settings(
 		"cameraImpulse": camera_impulse,
 		"textScale": text_scale,
 		"effectsLevel": effects_level,
+		"musicLevel": music_level,
 		"stickMode": stick_mode,
-		"battleCloseups": battle_closeups,
 		"cinematicMotion": cinematic_motion,
+		"showFps": show_fps,
+		"gameLanguage": game_language,
 	}
+	if store_battle_closeups:
+		document["battleCloseups"] = battle_closeups
 	file.store_string(JSON.stringify(document, "  ", true) + "\n")
 	file.flush()
 	file.close()
@@ -157,6 +171,12 @@ func _read(path: String, available_profiles: Array) -> Dictionary:
 	if typeof(effects_value) != TYPE_FLOAT and typeof(effects_value) != TYPE_INT:
 		return {}
 	var effects := float(effects_value)
+	var music_value: Variant = document.get("musicLevel", 0.45)
+	if typeof(music_value) != TYPE_FLOAT and typeof(music_value) != TYPE_INT:
+		return {}
+	var music := float(music_value)
+	if not _valid_effects_level(music):
+		return {}
 	if not _valid_effects_level(effects):
 		return {}
 	var stick_mode := String(document.get("stickMode", "deliberate"))
@@ -168,20 +188,26 @@ func _read(path: String, available_profiles: Array) -> Dictionary:
 	var cinematic_motion := String(document.get("cinematicMotion", "full"))
 	if cinematic_motion not in CINEMATIC_MOTION_MODES:
 		return {}
+	var show_fps_value: Variant = document.get("showFps", false)
+	if typeof(show_fps_value) != TYPE_BOOL:
+		return {}
+	var game_language := String(document.get("gameLanguage", ""))
+	if game_language.length() > 31:
+		return {}
 	return {
 		"graphics_profile": profile,
 		"camera_impulse": bool(document.cameraImpulse),
 		"text_scale": scale,
 		"effects_level": effects,
+		"music_level": music,
 		"stick_mode": stick_mode,
 		"battle_closeups": bool(battle_closeups_value),
+		"battle_closeups_set": document.has("battleCloseups"),
 		"cinematic_motion": cinematic_motion,
+		"show_fps": bool(show_fps_value),
+		"game_language": game_language,
 	}
 
 
 func _valid_effects_level(value: float) -> bool:
-	return (
-		is_equal_approx(value, 0.0)
-		or is_equal_approx(value, 0.45)
-		or is_equal_approx(value, 1.0)
-	)
+	return is_finite(value) and value >= 0.0 and value <= 1.0

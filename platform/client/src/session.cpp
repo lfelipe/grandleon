@@ -403,6 +403,7 @@ SessionError play_battle(
         created.encounter.snapshot(), roster, player_side, loaded.terrain
     );
     presenter.battle_surroundings(loaded.surroundings);
+    presenter.battle_visual_visibility(loaded.visual_visibility);
     presenter.battle_definitions(
         created.encounter.weapons(), created.encounter.abilities(),
         created.encounter.items(), created.encounter.objectives()
@@ -612,6 +613,7 @@ SessionError run_campaign(
             package, node.encounter_id, {options.local_players}
         );
         if (!loaded) return SessionError::encounter_rejected;
+        presenter.battle_route(node.id, node.encounter_id, loaded.map_id);
         BattleReport battle;
         const SessionError status =
             play_battle(loaded, player_side, presenter, battle);

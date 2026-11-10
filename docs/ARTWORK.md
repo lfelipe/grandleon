@@ -16,6 +16,11 @@ For a later correction or redesign, use the
 confirmed authoring model, the preserved prompts, and the rules that keep a new
 sheet consistent with the rest of the game.
 
+Idle characters also have a small breathing motion, with a different rhythm
+for each unit. This reuses their existing artwork on all three players; it
+does not change their position or movement rules. Reduced motion turns it off.
+Trees sway in Godot and Nintendo 64, while PlayStation scenery is still static.
+
 ## Animated mythical roster
 
 | Portable identity | Animated preview |
@@ -206,18 +211,55 @@ the character sources live in
 and the terrain scenes live in
 [`platform/godot/project/art/terrain`](../platform/godot/project/art/terrain).
 
+### Larger map features
+
+The village and deep-forest landmarks use transparent source renders: a
+four-building Medieval family and a 2×2 ancient-tree cluster. They are not
+ordinary one-cell terrain. Steel and Cedar authors exact tactical footprints,
+and Godot groups each footprint into one coherent structure or natural mass.
+Twin Gate Keep is different: its walls, doors, floor, dais and roof are built
+on their actual terrain cells so the interior can be revealed during play.
+
+[Review the source renders and their intended footprints](../platform/godot/project/art/map_features/README.md).
+
+The original `village_house_2x2.png` is a visual reference. Godot now uses four
+dedicated transparent Medieval building cutouts selected deterministically by
+map position: townhouse, thatched cottage, inn, and craftsperson's workshop.
+Each has a stone lower floor, period timber construction, small leaded windows,
+steep period roof materials, and an irregular silhouette while sharing the
+same tactical footprint. Procedural geometry remains only as a missing-asset
+fallback. This is the first scenario-specific family, not a universal house
+that should be recoloured for every setting; Sengoku, pirate,
+science-fiction, and other settings need their own landmark families.
+
+In the Godot map editor, **House 2×2** and **Grove 2×2** place the complete
+blocked footprint with one action, and **Remove** clears the whole landmark
+from any of its four cells. The editor keeps the exact portable source
+identities `mountain_village_house` and `mountain_ancient_grove` and refuses
+partial, overlapping, out-of-bounds, occupied, or deployment-area footprints.
+Nintendo 64 and PlayStation draw recognizable connected house and grove
+silhouettes over the same blocked mountain cells without spending additional
+texture memory.
+
+Twin Gate Keep uses distinct terrain identities for blocked walls, passable
+double doors, the walkable throne-room floor and the boss dais. Godot initially
+draws a grounded pitched roof over the room; once a friendly unit enters a door
+or room cell, that roof fades without moving the board, units, or camera. The
+older matched exterior and cutaway images remain documented as references for
+a future close-up or conversation scene, but they are not placed over the
+tactical board.
+
 ## The full portable library
 
 The portable pixel-art generator contains 672 standing character assets: eight
 archetypes × seven styles × six faction colours × two figures. It also emits
 their map-scale animation poses and the complete thirteen-terrain set for the
-browser-compatible editor's modern profile.
+portable modern profile used by previews and shared interface art.
 
 - [Browse all 56 archetype-and-style combinations](../tools/placeholder_art/ROSTER.md).
 - [Browse terrain, transitions, animation frames, palettes, and output profiles](../tools/placeholder_art/GALLERY.md).
 
-This larger library is deliberately lower resolution and remains useful to the
-browser-compatible editor. Godot and both consoles use the curated
+This larger library is deliberately lower resolution. Godot and both consoles use the curated
 high-resolution sheets and team masks instead; a console build refuses a
 project whose required curated binding is missing.
 

@@ -40,6 +40,12 @@ func _init() -> void:
 
 func _run() -> void:
 	var cinematic = CombatCinematic.new()
+	var audio_beats: Array = []
+	var audio_contexts: Array = []
+	cinematic.combat_sound.connect(func(beat: Dictionary, action: String, content: int, impact: bool):
+		audio_beats.append([int(beat.get("actor_id", 0)), impact])
+		audio_contexts.append([action, content])
+	)
 	var board_camera = FakeBoardCamera.new()
 	get_root().add_child(cinematic)
 	get_root().add_child(board_camera)
@@ -89,16 +95,27 @@ func _run() -> void:
 	)
 	cinematic._process(0.18)
 	_expect("entrance reaches the close stage", cinematic.transition_phase(), "playing")
+	_expect("camera flight does not play attack sounds", audio_beats, [])
 	_expect("close stage becomes opaque", cinematic.transition_opacity(), 1.0)
 	var opening_state: Dictionary = cinematic.stage_render_state()
 	_expect("opening keeps the first actor on the left", opening_state.actor_slot, "left")
 	_expect("opening damage lands on the right", opening_state.impact_slot, "right")
 	_expect("opening left slot is stable", opening_state.left_unit_id, 10)
 	_expect("opening right slot is stable", opening_state.right_unit_id, 20)
+	var gameplay_backdrop: Dictionary = cinematic.capture_backdrop_state()
+	_expect("ordinary sparse terrain keeps its procedural fallback", gameplay_backdrop.layer_count, 0)
 	cinematic.set_fast_forward(true)
 	_expect_true("fast-forward state is explicit", cinematic.is_fast_forwarding())
 	cinematic.set_fast_forward(false)
-	cinematic._process(1.36)
+	cinematic._process(0.20)
+	_expect("windup stays silent before the weapon moves", audio_beats, [])
+	cinematic._process(0.20)
+	_expect("weapon launch precedes contact", audio_beats, [[10, false]])
+	cinematic._process(0.30)
+	_expect("impact follows the launch", audio_beats, [[10, false], [10, true]])
+	_expect("sound keeps the accepted action context", audio_contexts, [["attack", 0], ["attack", 0]])
+	cinematic._process(0.66)
+	_expect("first strike has one launch and one impact", audio_beats, [[10, false], [10, true]])
 	_expect("counterattack remains in the close stage", cinematic.transition_phase(), "playing")
 	var counter_state: Dictionary = cinematic.stage_render_state()
 	_expect("counter actor attacks from the right", counter_state.actor_slot, "right")
@@ -108,6 +125,7 @@ func _run() -> void:
 	_expect("counter does not swap the right unit", counter_state.right_unit_id, 20)
 	cinematic._process(1.36)
 	_expect("final beat dissolves toward the settled board", cinematic.transition_phase(), "exiting")
+	_expect("counter plays after the first strike", audio_beats, [[10, false], [10, true], [20, false], [20, true]])
 	cinematic._process(0.15)
 	_expect_true(
 		"settled board is visible during the exit",
@@ -166,11 +184,170 @@ func _run() -> void:
 	cinematic.skip_exchange()
 	_expect_true("skip during full-motion exit restores the board", not cinematic.is_active())
 	_expect("every camera flight has an exact restore", board_camera.end_count, board_camera.begin_count)
+	_test_rapid_queue(cinematic, plan, terrain, focus_points)
+	_test_restoration(cinematic, terrain, focus_points)
+	_test_multi_target(cinematic, terrain, focus_points)
+	_test_runtime_backdrop(cinematic, plan, focus_points)
 	await _test_real_board_camera(before, terrain)
 
 	if failures == 0:
 		print("combat cinematic controller smoke passed")
 	quit(1 if failures > 0 else 0)
+
+
+func _test_rapid_queue(
+	cinematic, plan: Dictionary, terrain: Array, focus_points: Array[Vector2]
+) -> void:
+	cinematic.configure(
+		GraphicsProfiles.new().profile("voxel-sprites"), 1.0, "full", true
+	)
+	cinematic.enqueue(plan, terrain, 0, focus_points)
+	cinematic.enqueue(plan, terrain, 0, focus_points)
+	cinematic._process(1.11)
+	cinematic._process(4.11)
+	_expect("queued combat reaches its first exit", cinematic.transition_phase(), "exiting")
+	cinematic._process(0.43)
+	_expect_true("queued combat keeps the next exchange active", cinematic.is_active())
+	_expect("queued combat begins its short board handoff", cinematic.transition_phase(), "entering")
+	cinematic._process(0.56)
+	_expect("queued combat returns promptly to the close stage", cinematic.transition_phase(), "playing")
+	cinematic.clear()
+
+
+func _test_restoration(
+	cinematic, terrain: Array, focus_points: Array[Vector2]
+) -> void:
+	var before := _snapshot(3)
+	var after := _snapshot(7)
+	var plan := CombatPresentationPlan.build(
+		before, after,
+		[{
+			"kind": "unit_restored", "unit_id": 20,
+			"related_unit_id": 10, "amount": 4,
+		}],
+		"ability"
+	)
+	cinematic.configure(
+		GraphicsProfiles.new().profile("voxel-sprites"), 1.0, "reduced", false,
+		func(message_id: String, values: Dictionary) -> String:
+			return {
+				"player.cinematic.restore": "RESTAURAR",
+				"player.cinematic.restored": "+{amount}  RESTAURADO",
+			}.get(
+				message_id,
+				String(CombatCinematic.DEFAULT_COPY.get(message_id, message_id))
+			).format(values),
+		{"confirm": "A", "cancel": "B"}
+	)
+	_expect_true(
+		"restoration close view enqueues",
+		cinematic.enqueue(plan, terrain, 0, focus_points)
+	)
+	cinematic._process(0.35)
+	cinematic._process(1.10)
+	var state: Dictionary = cinematic.stage_render_state()
+	_expect_true("restoration close view marks its result", bool(state.restored))
+	_expect("restoration remains between distinct units", state.right_unit_id, 20)
+	_expect("restoration heading is localized", cinematic._headline.text, "RESTAURAR")
+	_expect("restoration result is localized", cinematic._result.text, "+4  RESTAURADO")
+	cinematic.clear()
+
+
+func _test_runtime_backdrop(
+	cinematic, plan: Dictionary, focus_points: Array[Vector2]
+) -> void:
+	var forest_terrain := [2, 2, 12, 9, 2, 2, 12, 9, 2, 2, 9, 9]
+	cinematic.configure(
+		GraphicsProfiles.new().profile("voxel-sprites"), 1.0, "reduced", false
+	)
+	_expect_true(
+		"production combat with a compatible neighbourhood enqueues",
+		cinematic.enqueue(plan, forest_terrain, 0, focus_points)
+	)
+	var selected: Dictionary = cinematic.capture_backdrop_state()
+	_expect("production combat selects the terrain pack", selected.pack_id, "medieval_forest_gate")
+	_expect("production forest combat keeps the reviewed source floor", float(selected.floor_strip_top), 1.0)
+	_expect_true("production combat loads layered terrain art", int(selected.layer_count) >= 3)
+	_expect_true("production combat selection is not a capture override", not bool(selected.forced))
+	var frozen_variant := String(selected.variant)
+	cinematic._process(0.35)
+	cinematic._process(1.36)
+	_expect(
+		"attack and counter keep one frozen terrain variant",
+		cinematic.capture_backdrop_state().variant, frozen_variant
+	)
+	cinematic.clear()
+
+	var keep_terrain: Array = []
+	keep_terrain.resize(12)
+	keep_terrain.fill(12)
+	var keep_features: Array = []
+	keep_features.resize(12)
+	keep_features.fill("castle_wall")
+	keep_features[4] = "castle_floor"
+	keep_features[5] = "castle_dais"
+	_expect_true(
+		"production combat with exact Twin Gate context enqueues",
+		cinematic.enqueue(
+			plan, keep_terrain, 0, focus_points, keep_features, {
+				"stage_id": "e5c0ef3904d2b0a3",
+				"map_id": "e5c0ef3904d2b0a3",
+				"encounter_id": "152f9b70708ceaaa",
+			}
+		)
+	)
+	var keep_selected: Dictionary = cinematic.capture_backdrop_state()
+	_expect("production combat selects the exact castle pack", keep_selected.pack_id, "medieval_castle")
+	_expect("the full-floor castle pack loads every layer", keep_selected.layer_count, 4)
+	_expect("the castle source floor suppresses a live strip", float(keep_selected.floor_strip_top), 1.0)
+	var keep_variant := String(keep_selected.variant)
+	cinematic._process(0.35)
+	cinematic._process(1.36)
+	_expect(
+		"castle attack and counter keep one frozen variant",
+		cinematic.capture_backdrop_state().variant, keep_variant
+	)
+	cinematic.clear()
+
+
+func _test_multi_target(
+	cinematic, terrain: Array, focus_points: Array[Vector2]
+) -> void:
+	var before := _snapshot(7)
+	before.units.append({
+		"id": 30, "name": "Sentinel", "side": "second", "player": 0,
+		"x": 2, "y": 1, "health": 6, "maximum_health": 6,
+		"on_board": true, "archetype": 2, "colour": 1,
+		"style": 2, "figure": 0,
+	})
+	var after := before.duplicate(true)
+	after.units[1].health = 4
+	after.units[2].health = 3
+	var plan := CombatPresentationPlan.build(
+		before, after,
+		[
+			{"kind": "unit_damaged", "unit_id": 20, "related_unit_id": 10, "amount": 3},
+			{"kind": "unit_damaged", "unit_id": 30, "related_unit_id": 10, "amount": 3},
+		],
+		"ability"
+	)
+	cinematic.configure(
+		GraphicsProfiles.new().profile("voxel-sprites"), 1.0, "reduced", false
+	)
+	_expect_true(
+		"multi-target close view enqueues",
+		cinematic.enqueue(plan, terrain, 0, focus_points)
+	)
+	cinematic._process(0.35)
+	var first: Dictionary = cinematic.stage_render_state()
+	_expect("multi-target close view opens on its first target", first.right_unit_id, 20)
+	cinematic._process(1.36)
+	var second: Dictionary = cinematic.stage_render_state()
+	_expect("multi-target close view preserves its actor", second.left_unit_id, 10)
+	_expect("multi-target close view rotates only its target", second.right_unit_id, 30)
+	_expect("multi-target second actor remains on the left", second.actor_slot, "left")
+	_expect("multi-target second impact remains on the right", second.target_slot, "right")
+	cinematic.skip_exchange()
 
 
 func _test_real_board_camera(before: Dictionary, terrain: Array) -> void:
@@ -209,7 +386,165 @@ func _test_real_board_camera(before: Dictionary, terrain: Array) -> void:
 	_expect_true("real board camera becomes inactive after restore", not bool(restored.active))
 	_expect("real board camera restores its exact tactical transform", restored.current_transform, tactical.current_transform)
 	_expect("real board camera restores its exact tactical size", restored.current_size, tactical.current_size)
+	_test_cluster_landmarks(board)
 	board.queue_free()
+
+
+func _test_cluster_landmarks(board) -> void:
+	var empty_board := {"width": 4, "height": 4, "units": []}
+	var blocked_terrain := [
+		3, 3, 9, 9,
+		3, 3, 9, 9,
+		9, 9, 9, 9,
+		9, 9, 9, 9,
+	]
+	board.configure(empty_board, blocked_terrain, 0)
+	_expect("ordinary mountain blocks stay ordinary", board._landmark_anchors.size(), 0)
+	board.configure(empty_board, [
+		3, 3, 9, 9,
+		3, 3, 9, 9,
+		9, 9, 9, 9,
+		9, 9, 9, 9,
+	], 0, {}, [
+		"village_house", "village_house", "", "",
+		"village_house", "village_house", "", "",
+		"", "", "", "",
+		"", "", "", "",
+	])
+	_expect("one blocked 2x2 footprint becomes one landmark", board._landmark_anchors.size(), 1)
+	_expect(
+		"an open-ground footprint becomes a village house",
+		board._landmark_anchors.get(Vector2i(0, 0), ""), "village_house"
+	)
+	_expect("the landmark owns all four tactical cells", board._landmark_cells.size(), 4)
+	_expect(
+		"the current village family follows its Medieval scenario",
+		board._landmark_visual_style("village_house"), "medieval"
+	)
+	var house_variations: Dictionary = {}
+	for house_x in 4:
+		house_variations[board._village_house_variation(Vector2i(house_x, 0))] = true
+	_expect(
+		"a settlement has four stable house variations",
+		house_variations.size(), 4
+	)
+	var cutout_count := 0
+	for child: Node in board._terrain_root.get_children():
+		if child.has_meta("landmark_asset"):
+			cutout_count += 1
+			_expect_true(
+				"the Medieval house uses a dedicated transparent cutout",
+				str(child.get_meta("landmark_asset")).contains("medieval_house_")
+			)
+			_expect_true(
+				"the Medieval house stays inside its blocked footprint",
+				child is Sprite3D and (child as Sprite3D).pixel_size <= 0.00320
+			)
+			_expect_true(
+				"the resized Medieval house remains planted on the board",
+				child is Sprite3D and is_equal_approx(
+					(child as Sprite3D).position.y,
+					board._landmark_centre(Vector2i(0, 0)).y + 0.79
+				)
+			)
+	_expect("one footprint draws one Medieval building", cutout_count, 1)
+	board.configure(empty_board, [
+		2, 2, 2, 9,
+		2, 3, 3, 2,
+		2, 3, 3, 2,
+		9, 2, 2, 9,
+	], 0, {}, [
+		"", "", "", "",
+		"", "ancient_grove", "ancient_grove", "",
+		"", "ancient_grove", "ancient_grove", "",
+		"", "", "", "",
+	])
+	_expect("one forest footprint becomes one landmark", board._landmark_anchors.size(), 1)
+	_expect(
+		"a woodland footprint becomes an ancient grove",
+		board._landmark_anchors.get(Vector2i(1, 1), ""), "ancient_grove"
+	)
+	var grove_cutouts := 0
+	for child: Node in board._terrain_root.get_children():
+		if (
+			child.has_meta("landmark_asset")
+			and str(child.get_meta("landmark_asset")).contains("ancient_tree_cluster")
+		):
+			grove_cutouts += 1
+	_expect("one footprint draws one ancient grove cutout", grove_cutouts, 1)
+	_test_castle_reveal(board)
+
+
+func _test_castle_reveal(board) -> void:
+	var features: Array = []
+	for y in 6:
+		features.append("")
+		features.append("")
+		for x in 6:
+			if y in [0, 5] or x == 5 or (x == 0 and y in [1, 4]):
+				features.append("castle_wall")
+			elif x == 0:
+				features.append("castle_door")
+			elif x == 4 and y in [2, 3]:
+				features.append("castle_dais")
+			else:
+				features.append("castle_floor")
+	var kinds: Array = []
+	for feature: String in features:
+		kinds.append(3 if feature == "castle_wall" else 12)
+	var outside := {
+		"width": 8, "height": 6,
+		"units": [{
+			"id": 31, "name": "Rowan", "side": "first", "player": 1,
+			"x": 1, "y": 2, "health": 10, "maximum_health": 10,
+			"on_board": true, "archetype": 5, "colour": 0,
+			"style": 0, "figure": 0,
+		}],
+	}
+	board.configure(outside, kinds, 0, {}, features)
+	_expect("the castle keeps its exact six-cell footprint", board._castle_bounds, Rect2i(2, 0, 6, 6))
+	_expect_true(
+		"the castle starts under a grounded roof",
+		board._castle_roof != null
+			and board.castle_presentation_state().roof_alpha > 0.99
+			and board._castle_roof.get_meta("grounded_bounds") == Rect2i(2, 0, 6, 6)
+	)
+	_expect_true(
+		"the roof owns one blendable material",
+		board._castle_roof_material is StandardMaterial3D
+			and board._castle_roof_material.transparency
+				== BaseMaterial3D.TRANSPARENCY_ALPHA
+	)
+	var inside := outside.duplicate(true)
+	inside.units[0].x = 2
+	inside.units[0].y = 2
+	board.update_snapshot(inside)
+	_expect("an accepted destination does not reveal before locomotion", board._castle_reveal_target, 0.0)
+	var camera_transform: Transform3D = board._camera.transform
+	var terrain_position: Vector3 = board._terrain_root.position
+	var rowan: Node3D = board._unit_nodes[31]
+	rowan.position = board._cell_position(2, 2)
+	var entered_position: Vector3 = rowan.position
+	board._update_castle_reveal_target()
+	_expect("crossing the rendered doorway arms its reveal", board._castle_reveal_target, 1.0)
+	board._update_castle_reveal(0.35)
+	var reveal_state: Dictionary = board.castle_presentation_state()
+	_expect_true(
+		"the keep roof dissolves smoothly instead of popping",
+		reveal_state.roof_alpha < 1.0 and reveal_state.roof_alpha > 0.0
+			and reveal_state.interior_visibility > 0.0
+	)
+	_expect("the reveal does not move the camera", board._camera.transform, camera_transform)
+	_expect("the reveal does not move the board", board._terrain_root.position, terrain_position)
+	_expect("the reveal does not move the entering unit", rowan.position, entered_position)
+	rowan.position = board._cell_position(1, 2)
+	board._update_castle_reveal_target()
+	_expect("the explored room stays visible", board._castle_reveal_target, 1.0)
+	var malformed: Array = features.duplicate()
+	malformed[2] = ""
+	board.configure(outside, kinds, 0, {}, malformed)
+	_expect("a partial keep receives no misleading roof", board._castle_bounds, Rect2i())
+	_expect_true("a partial keep creates no roof layer", board._castle_roof == null)
 
 
 func _snapshot(target_health: int) -> Dictionary:

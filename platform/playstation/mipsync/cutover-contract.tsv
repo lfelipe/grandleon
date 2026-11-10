@@ -1,0 +1,15 @@
+engine	PlayStation Mipsync renderer
+required-path	platform/playstation/mipsync/runtime/main.c
+required-path	platform/playstation/mipsync/scripts/build-project.sh
+forbidden-path	platform/playstation/CMakeLists.txt
+forbidden-path	platform/playstation/assets/combat_backdrop_ci8.h
+forbidden-path	platform/playstation/assets/terrain_ci4.h
+forbidden-path	platform/playstation/scripts/build-playstation.sh
+forbidden-path	platform/playstation/scripts/build-disc.sh
+forbidden-path	platform/playstation/src/console_renderer.cpp
+forbidden-path	platform/playstation/src/psx_gpu.cpp
+forbidden-path	platform/playstation/src/psx_pad.cpp
+forbidden-path	platform/playstation/src/turn_exe.cpp
+forbidden-path	platform/playstation/tools/generate-terrain-quality.py
+forbidden-path	tests/cmake/playstation_test.cmake.in
+artifact-text	GRANDLEON_PS1_RENDERER=MIPSYNC

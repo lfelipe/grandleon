@@ -8,16 +8,11 @@
   "mounts": [
     "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
   ],
-  "containerEnv": {
-    "PLAYWRIGHT_BROWSERS_PATH": "/workspaces/grandleon/.playwright-browsers"
-  },
   "postCreateCommand": "scripts/setup.sh",
   "customizations": {
     "vscode": {
       "extensions": [
-        "ms-vscode.cpptools",
-        "Vue.volar",
-        "ms-playwright.playwright"
+        "ms-vscode.cpptools"
       ]
     }
   }

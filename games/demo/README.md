@@ -68,7 +68,7 @@ simulation reported into a campaign outcome batch (the death, the level, the
 drop and the recruitment together), writes the campaign through the save
 envelope into a storage slot, reads it back, and asks the second map for a
 board. The rider who fell is not on it. The ferryman, who was nobody when the
-campaign was founded, is. The terminal and the browser play the same road, and
+campaign was founded, is. The terminal and Godot play the same road, and
 `tests/desktop/terminal_campaign_test.cpp` has the recruit finish the second
 battle himself.
 

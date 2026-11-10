@@ -43,6 +43,60 @@ func _init() -> void:
 	_expect("source before snapshot is unchanged", before.units[1].health, 7)
 	_expect("source events are unchanged", events[0].amount, 4)
 
+	var restored_after := before.duplicate(true)
+	restored_after.units[1].health = 7
+	var restored := CombatPresentationPlan.build(
+		_snapshot(9, 3), restored_after,
+		[{
+			"kind": "unit_restored", "unit_id": 20,
+			"related_unit_id": 10, "amount": 4,
+		}],
+		"ability", 44
+	)
+	_expect_true("ally restoration plans", bool(restored.get("valid", false)))
+	_expect_true("restoration beat is explicit", bool(restored.beats[0].restored))
+	_expect("restoration amount is authoritative", restored.beats[0].amount, 4)
+	_expect_true("restoration is not labelled a counter", not restored.beats[0].counter)
+	_expect(
+		"self restoration stays on the board",
+		CombatPresentationPlan.build(
+			before, before,
+			[{
+				"kind": "unit_restored", "unit_id": 10,
+				"related_unit_id": 10, "amount": 2,
+			}],
+			"item"
+		),
+		{}
+	)
+
+	var area_before := before.duplicate(true)
+	area_before.units.append({
+		"id": 30, "name": "Sentinel", "side": "second", "player": 0,
+		"x": 2, "y": 1, "health": 6, "maximum_health": 6,
+		"on_board": true, "archetype": 2, "colour": 1,
+		"style": 2, "figure": 0,
+	})
+	var area_after := area_before.duplicate(true)
+	area_after.units[1].health = 4
+	area_after.units[2].health = 3
+	var area_plan := CombatPresentationPlan.build(
+		area_before, area_after,
+		[
+			{"kind": "unit_damaged", "unit_id": 20, "related_unit_id": 10, "amount": 3},
+			{"kind": "unit_damaged", "unit_id": 30, "related_unit_id": 10, "amount": 3},
+		],
+		"ability"
+	)
+	_expect_true("multi-target ability plans", bool(area_plan.get("valid", false)))
+	_expect("multi-target ability keeps two beats", area_plan.beats.size(), 2)
+	if area_plan.beats.size() == 2:
+		_expect("first area target takes the right slot", area_plan.beats[0].stage_right.id, 20)
+		_expect("area actor remains on the left", area_plan.beats[1].stage_left.id, 10)
+		_expect("second area target rotates into the right slot", area_plan.beats[1].stage_right.id, 30)
+		_expect("second area actor attacks from the left", area_plan.beats[1].actor_slot, "left")
+		_expect("second area impact stays on the right", area_plan.beats[1].target_slot, "right")
+
 	var lethal := CombatPresentationPlan.build(
 		before, _snapshot(9, 0),
 		[
@@ -54,6 +108,8 @@ func _init() -> void:
 	)
 	_expect_true("lethal exchange plans", bool(lethal.get("valid", false)))
 	_expect_true("defeat attaches to its hit", bool(lethal.beats[0].defeated))
+	_expect("drop result attaches to the defeat beat", lethal.beats[0].special_results.size(), 1)
+	_expect("drop result keeps its content identity", lethal.beats[0].special_results[0].content_id, 91)
 	_expect(
 		"non-cinematic events remain available to other presenters",
 		lethal.passthrough_events[0].kind, "item_dropped"

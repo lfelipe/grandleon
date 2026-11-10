@@ -20,6 +20,9 @@ func _run() -> void:
 	if not created.ok:
 		quit(1)
 		return
+	var localization: Node = root.get_node("Localization")
+	var prior_language := str(localization.call("current_language"))
+	localization.call("select_language", "pt-BR", false)
 	var creator_context = root.get_node("CreatorContext")
 	creator_context.open_project(created.id)
 	var packed: PackedScene = load("res://campaign_editor.tscn")
@@ -83,6 +86,26 @@ func _run() -> void:
 
 	_expect("project opens in campaign outline", editor.project_id, created.id)
 	_expect(
+		"Campaign Outline uses the selected editor language",
+		editor.title_label.text,
+		"A CLEAR ROAD  /  FIRST ADVENTURE  /  CAMPANHA"
+	)
+	_expect(
+		"Portuguese Campaign subtitle is visible",
+		_tree_has_text(editor, "Construa a aventura, um capítulo jogável de cada vez."),
+		true
+	)
+	_expect(
+		"Portuguese route search guidance is visible",
+		editor.route_filter.placeholder_text,
+		"Buscar capítulos, batalhas, mapas ou finais…"
+	)
+	_expect(
+		"long Portuguese player guidance wraps",
+		editor.player_mode_help.autowrap_mode,
+		TextServer.AUTOWRAP_WORD_SMART
+	)
+	_expect(
 		"diagnostic summary routes a named role without exposing its id",
 		editor._diagnostic_summary({
 			"diagnostics": [{
@@ -92,7 +115,7 @@ func _run() -> void:
 				"code": "missing_reference",
 			}]
 		}),
-		"FIX IN GROW THE ARMY  /  WAYFARER  /  ROLE  /  MISSING REFERENCE"
+		"CORRIGIR EM EXPANDIR O EXÉRCITO  /  WAYFARER  /  FUNÇÃO  /  MISSING REFERENCE"
 	)
 	_expect("fix action stays hidden until testing finds an issue", editor.fix_button.visible, false)
 	var map_target: Dictionary = editor._map_target_for_diagnostic({
@@ -114,10 +137,146 @@ func _run() -> void:
 				"code": "invalid_placement",
 			}]
 		}),
-		"FIX IN MAP & BATTLE  /  FIRST BATTLE  /  NORTH RAIDER  /  CELL 6, 2  /  STARTING POSITION  /  INVALID PLACEMENT"
+		"CORRIGIR EM MAPA E BATALHA  /  FIRST BATTLE  /  NORTH RAIDER  /  CÉLULA 6, 2  /  POSIÇÃO INICIAL  /  INVALID PLACEMENT"
 	)
 	_expect("starter route has story battle and ending", editor.route.size(), 3)
-	_expect("campaign outline keeps PC target visible", editor.target_budget_label.text.contains("PC READY"), true)
+	_expect("first editable chapter receives controller focus", editor.first_button.has_focus(), true)
+	_expect(
+		"starter lets players choose their local player count",
+		str(editor.player_mode_select.get_item_metadata(editor.player_mode_select.selected)),
+		"choice"
+	)
+	_expect("choice campaign offers a solo preview", editor.test_one_button.disabled, false)
+	_expect("choice campaign offers a two-player preview", editor.test_two_button.disabled, false)
+	_expect("battle row offers its own solo test", editor.battle_test_one_buttons.has("first_battle"), true)
+	_expect("battle row offers its own co-op test", editor.battle_test_two_buttons.has("first_battle"), true)
+	_expect("battle row solo test follows campaign policy", editor.battle_test_one_buttons.first_battle.disabled, false)
+	_expect("battle row co-op test sees its Player 2 hero", editor.battle_test_two_buttons.first_battle.disabled, false)
+	var filter_source: String = editor.source
+	var filter_dirty: bool = editor.dirty
+	editor.route_filter.text = "crossing"
+	editor._filter_route(editor.route_filter.text)
+	_expect("route search finds a battle by human name", editor.node_buttons.has("first_battle"), true)
+	_expect("route search hides nonmatching story", editor.node_buttons.has("first_steps"), false)
+	_expect("route search preserves exact campaign identity", str(editor.campaign.id), "first_adventure")
+	_expect("route search preserves source", editor.source, filter_source)
+	_expect("route search preserves unsaved state", editor.dirty, filter_dirty)
+	editor.route_filter.text = "nothing matches this"
+	editor._filter_route(editor.route_filter.text)
+	_expect("route search can show an empty result", editor.node_buttons.is_empty(), true)
+	editor.route_filter.text = ""
+	editor._filter_route(editor.route_filter.text)
+	_expect("clearing route search restores battle actions", editor.node_buttons.has("first_battle"), true)
+	editor._open_dependency_review("campaign", "first_adventure", editor.campaign_dependency_button)
+	_expect("campaign where-used review names the selected campaign", editor.dependency_heading.text.contains("FIRST ADVENTURE"), true)
+	_expect("only campaign cannot be deleted", editor.dependency_confirm_button.disabled, true)
+	_expect("only campaign deletion is refused", editor._confirm_dependency_delete(), false)
+	editor._close_dependency_review()
+	editor._open_dependency_review(
+		"battle", "first_battle", editor.battle_dependency_buttons.first_battle
+	)
+	_expect("battle where-used review names the battle", editor.dependency_heading.text.contains("HOLD THE CROSSING"), true)
+	_expect("battle where-used review names its real route", editor.dependency_uses.text.contains("First Adventure"), true)
+	_expect("used battle cannot be deleted", editor.dependency_confirm_button.disabled, true)
+	_expect("used battle deletion is refused", editor._confirm_dependency_delete(), false)
+	editor._close_dependency_review()
+	editor.dependency_category = "theme"
+	editor.dependency_id = "woodland"
+	_expect("shared content deletion fails closed", editor._confirm_dependency_delete(), false)
+	editor.dependency_category = "battle"
+	editor.dependency_id = "missing_battle"
+	_expect("missing battle deletion fails closed", editor._confirm_dependency_delete(), false)
+	editor._open_new_campaign()
+	_expect("add-campaign flow opens by name", editor.new_campaign_layer.visible, true)
+	_expect("new campaign name receives focus", editor.new_campaign_name.has_focus(), true)
+	editor.new_campaign_name.text = "Second Adventure"
+	editor._create_new_campaign()
+	_expect("campaign outline lists every campaign", editor.campaign_select.item_count, 2)
+	_expect("new campaign is selected explicitly", str(editor.campaign.id), "campaign_2")
+	_expect("campaign selection is shared with the other editors", creator_context.campaign_id, "campaign_2")
+	_expect("new campaign starts from a working route", str(editor.route[1].name), "Hold the Crossing")
+	editor._select_metadata(editor.player_mode_select, "one")
+	editor._change_player_mode(editor.player_mode_select.selected)
+	var independently_edited: Dictionary = _parse(editor.source)
+	_expect("first campaign is not silently edited", str(independently_edited.campaigns[0].playerMode), "choice")
+	_expect("selected campaign receives its player policy", str(independently_edited.campaigns[1].playerMode), "one")
+	_exercise_unused_battle_delete(editor)
+	var first_campaign_before_delete: Dictionary = _parse(editor.source).campaigns[0].duplicate(true)
+	var campaign_delete_undo_size: int = editor.undo_stack.size()
+	editor._open_dependency_review("campaign", "campaign_2", editor.campaign_dependency_button)
+	_expect("unused campaign can reach explicit confirmation", editor.dependency_confirm_button.disabled, false)
+	_expect("campaign deletion names the next explicit campaign", editor.dependency_summary.text.contains("First Adventure"), true)
+	_expect("unused campaign deletion succeeds", editor._confirm_dependency_delete(), true)
+	_expect("campaign deletion is exactly one undo operation", editor.undo_stack.size(), campaign_delete_undo_size + 1)
+	_expect("campaign deletion preserves the other campaign", _parse(editor.source).campaigns[0], first_campaign_before_delete)
+	_expect("campaign deletion keeps one valid campaign", _parse(editor.source).campaigns.size(), 1)
+	_expect("campaign deletion explicitly selects the named survivor", str(editor.campaign.id), "first_adventure")
+	_expect("campaign deletion updates shared selection explicitly", creator_context.campaign_id, "first_adventure")
+	_expect("campaign deletion candidate compiles", editor.compiler.compile_source_json(editor.source).ok, true)
+	editor._undo()
+	_expect("campaign delete undo restores only the deleted campaign", _parse(editor.source).campaigns.size(), 2)
+	_expect("undo does not silently jump back to the restored campaign", str(editor.campaign.id), "first_adventure")
+	editor._select_metadata(editor.campaign_select, "campaign_2")
+	editor._change_campaign(editor.campaign_select.selected)
+	_expect("author can explicitly return to restored campaign", str(editor.campaign.id), "campaign_2")
+	editor._undo()
+	editor._undo()
+	_expect("new campaign creation is one undoable operation", _parse(editor.source).campaigns.size(), 1)
+	editor._redo()
+	_expect("new campaign creation is redoable", _parse(editor.source).campaigns.size(), 2)
+	editor.source = starter_source
+	editor.saved_source = starter_source
+	editor.undo_stack.clear()
+	editor.redo_stack.clear()
+	editor.dirty = false
+	_expect("single-campaign fixture restores after selector test", editor._read_source(), true)
+	editor._collect_route()
+	editor._refresh_route()
+	_expect(
+		"two-player guidance confirms every battle has an owner",
+		editor.player_mode_help.text.contains("Cada batalha dá um personagem ao Jogador 2"),
+		true
+	)
+	var ready_campaign: Dictionary = editor.campaign
+	var campaign_without_player_two := ready_campaign.duplicate(true)
+	campaign_without_player_two.flow.nodes[1].placements[1].erase("player")
+	editor.campaign = campaign_without_player_two
+	editor._refresh_player_mode()
+	_expect(
+		"missing Player 2 ownership disables the co-op preview",
+		editor.test_two_button.disabled,
+		true
+	)
+	_expect(
+		"missing Player 2 ownership disables that battle's co-op test",
+		editor.battle_test_two_buttons.first_battle.disabled,
+		true
+	)
+	_expect(
+		"missing Player 2 ownership names the affected battle",
+		editor.player_mode_help.text.contains("Hold the Crossing"),
+		true
+	)
+	editor.campaign = ready_campaign
+	editor._refresh_player_mode()
+	_expect(
+		"restoring Player 2 ownership restores that battle's co-op test",
+		editor.battle_test_two_buttons.first_battle.disabled,
+		false
+	)
+	editor._select_metadata(editor.player_mode_select, "two")
+	editor._change_player_mode(editor.player_mode_select.selected)
+	_expect("campaign can require two players", str(_parse(editor.source).campaigns[0].playerMode), "two")
+	_expect("two-player campaign disables solo preview", editor.test_one_button.disabled, true)
+	_expect("two-player campaign keeps co-op preview", editor.test_two_button.disabled, false)
+	editor._undo()
+	_expect("player-count choice is undoable", str(_parse(editor.source).campaigns[0].playerMode), "choice")
+	editor._redo()
+	_expect("player-count choice is redoable", str(_parse(editor.source).campaigns[0].playerMode), "two")
+	editor._select_metadata(editor.player_mode_select, "choice")
+	editor._change_player_mode(editor.player_mode_select.selected)
+	_expect("campaign can restore launch-time choice", str(_parse(editor.source).campaigns[0].playerMode), "choice")
+	_expect("campaign outline keeps PC target visible", editor.target_budget_label.text.contains("PC PRONTO"), true)
 	_expect("campaign outline shows Nintendo 64 fielded impact", editor.target_budget_label.text.contains("N64 5 / 48"), true)
 	_expect("campaign outline shows PlayStation fielded impact", editor.target_budget_label.text.contains("PS1 5 / 48"), true)
 	if editor.route.size() == 3:
@@ -125,20 +284,19 @@ func _run() -> void:
 		_expect("route continues to battle", str(editor.route[1].kind), "encounter")
 		_expect("route finishes at ending", str(editor.route[2].kind), "terminal")
 	_expect("linear starter has no alternate outcomes", editor.other_nodes.size(), 0)
-	_expect("first editable chapter receives controller focus", editor.first_button.has_focus(), true)
 	_expect(
 		"story chapter explains its action",
-		editor._node_text(editor.route[0], 0, false).contains("WRITE CONVERSATION"),
+		editor._node_text(editor.route[0], 0, false).contains("ESCREVER CONVERSA"),
 		true
 	)
 	_expect(
 		"battle chapter explains co-op readiness",
-		editor._node_text(editor.route[1], 1, false).contains("2-PLAYER READY"),
+		editor._node_text(editor.route[1], 1, false).contains("PRONTO PARA 2 JOGADORES"),
 		true
 	)
 	_expect(
 		"ending is visibly terminal",
-		editor._node_text(editor.route[2], 0, false).contains("CAMPAIGN STOPS HERE"),
+		editor._node_text(editor.route[2], 0, false).contains("A CAMPANHA TERMINA AQUI"),
 		true
 	)
 	_expect("ending row opens instead of looking disabled", editor.node_buttons.chapter_complete.disabled, false)
@@ -351,7 +509,13 @@ func _run() -> void:
 		)
 		_expect("chapter-order fixture adds a third chapter", third_chapter.ok, true)
 		if third_chapter.ok:
-			editor.source = str(third_chapter.source)
+			var later_project := _parse(str(third_chapter.source))
+			# Prove direct testing can reach a later battle whose co-op hero
+			# normally joins only after an earlier chapter.
+			later_project.campaigns[0].roster[1]["joinNodeId"] = "chapter_2_story"
+			editor.source = JSON.stringify(
+				editor._integer_numbers(later_project), "  ", true
+			) + "\n"
 			editor._read_source()
 			editor._collect_route()
 			editor._refresh_route()
@@ -381,6 +545,96 @@ func _run() -> void:
 			_expect("whole chapter move is redoable", str(editor._chapter_pairs()[1].story.id), "chapter_3_story")
 			editor._close_chapter_order()
 			_expect("closing chapter order returns to its one outline action", editor.chapter_order_button.has_focus(), true)
+
+			var authored_later_battle: Dictionary = editor._campaign_node(
+				"chapter_3_battle"
+			)
+			var direct_preview: Dictionary = editor._battle_preview_source(
+				"chapter_3_battle"
+			)
+			_expect("later battle produces a direct preview package", direct_preview.ok, true)
+			if direct_preview.ok:
+				var preview_project := _parse(str(direct_preview.source))
+				var preview_campaign: Dictionary = preview_project.campaigns[0]
+				_expect(
+					"direct preview enters the selected later battle",
+					str(preview_campaign.flow.entryNodeId),
+					"chapter_3_battle"
+				)
+				var preview_battle := _node_by_id(
+					preview_campaign.flow.nodes, "chapter_3_battle"
+				)
+				_expect(
+					"direct preview keeps the authored map",
+					str(preview_battle.get("mapId", "")),
+					str(authored_later_battle.get("mapId", ""))
+				)
+				_expect(
+					"direct preview keeps every authored placement",
+					preview_battle.get("placements", []),
+					authored_later_battle.get("placements", [])
+				)
+				_expect(
+					"direct preview keeps the authored objectives",
+					preview_battle.get("objectiveIds", []),
+					authored_later_battle.get("objectiveIds", [])
+				)
+				_expect(
+					"direct preview keeps the authored battle moments",
+					preview_battle.get("moments", []),
+					authored_later_battle.get("moments", [])
+				)
+				_expect(
+					"later recruits become available only in the disposable preview",
+					preview_campaign.roster[1].has("joinNodeId"),
+					false
+				)
+				_expect(
+					"saved campaign still keeps the recruit's authored join point",
+					editor.project.campaigns[0].roster[1].joinNodeId,
+					"chapter_2_story"
+				)
+				_expect(
+					"direct preview stops after the selected battle",
+					str(preview_battle.transitions[0].targetNodeId),
+					str(direct_preview.terminal_id)
+				)
+				_expect(
+					"direct later-battle source compiles",
+					editor.compiler.compile_source_json(str(direct_preview.source)).ok,
+					true
+				)
+
+			editor._play_battle("chapter_3_battle", 2)
+			for frame in 180:
+				await process_frame
+				if (
+					current_scene.name == "PC"
+					and not current_scene.snapshot.is_empty()
+				):
+					break
+			_expect("direct battle opens in the player", current_scene.name, "PC")
+			if current_scene.name == "PC":
+				_expect("player names the selected later battle", current_scene.current_stage_name, "Chapter Three Battle")
+				_expect("direct battle uses requested co-op policy", current_scene.player_count, 2)
+				_expect(
+					"co-op variant includes its extra authored opponent",
+					current_scene.snapshot.get("units", []).size(),
+					5
+				)
+				_expect("direct test cannot write campaign saves", current_scene.campaign_save_root, "")
+				_expect(
+					"session menu names its editor return",
+					current_scene.session_menu_projects.text,
+					"RETURN TO CAMPAIGN EDITOR"
+				)
+				current_scene._open_projects()
+				await process_frame
+				await process_frame
+				_expect("direct test returns to campaign outline", current_scene.name, "CampaignEditor")
+				if current_scene.name == "CampaignEditor":
+					editor = current_scene
+					_expect("returned outline keeps its project", editor.project_id, created.id)
 
 	editor.source = post_flow_source
 	editor._read_source()
@@ -423,9 +677,73 @@ func _run() -> void:
 	_expect("add chapter opens its focused dialog", map_editor.chapter_layer.visible, true)
 	_expect("add chapter dialog receives controller focus", map_editor.chapter_title.has_focus(), true)
 
+	localization.call("select_language", prior_language, false)
 	if failures == 0:
 		print("campaign outline smoke passed")
 	quit(1 if failures > 0 else 0)
+
+
+func _exercise_unused_battle_delete(editor: Control) -> void:
+	var original_source: String = editor.source
+	var original_dirty: bool = editor.dirty
+	var original_campaign_id := str(editor.campaign.get("id", ""))
+	var original_undo: Array[String] = editor.undo_stack.duplicate()
+	var original_redo: Array[String] = editor.redo_stack.duplicate()
+	var fixture := _parse(original_source)
+	var first_campaign: Dictionary = fixture.campaigns[0].duplicate(true)
+	var selected_index := -1
+	for index in fixture.campaigns.size():
+		if str(fixture.campaigns[index].get("id", "")) == original_campaign_id:
+			selected_index = index
+			break
+	_expect("unused battle fixture finds selected campaign", selected_index >= 0, true)
+	if selected_index < 0:
+		return
+	var selected_campaign: Dictionary = fixture.campaigns[selected_index].duplicate(true)
+	var flow: Dictionary = selected_campaign.flow.duplicate(true)
+	var nodes: Array = flow.nodes.duplicate(true)
+	var unused_battle: Dictionary = nodes[1].duplicate(true)
+	unused_battle.id = "unused_skirmish"
+	unused_battle.name = "Unused Skirmish"
+	nodes.append(unused_battle)
+	flow.nodes = nodes
+	selected_campaign.flow = flow
+	fixture.campaigns[selected_index] = selected_campaign
+	editor.source = JSON.stringify(editor._integer_numbers(fixture), "  ", true) + "\n"
+	_expect("unused battle fixture compiles", editor.compiler.compile_source_json(editor.source).ok, true)
+	editor.campaign = {"id": original_campaign_id}
+	editor._read_source()
+	editor._collect_route()
+	editor._refresh_route()
+	var undo_size: int = editor.undo_stack.size()
+	editor._open_dependency_review(
+		"battle", "unused_skirmish", editor.battle_dependency_buttons.unused_skirmish
+	)
+	_expect("unused battle review names exact battle", editor.dependency_heading.text.contains("UNUSED SKIRMISH"), true)
+	_expect("unused battle review reports no incoming route", editor.dependency_uses.text, "Nenhuma rota ou conteúdo do projeto usa esta batalha.")
+	_expect("unused battle can reach explicit confirmation", editor.dependency_confirm_button.disabled, false)
+	_expect("unused battle deletion succeeds", editor._confirm_dependency_delete(), true)
+	_expect("battle deletion is exactly one undo operation", editor.undo_stack.size(), undo_size + 1)
+	var deleted := _parse(editor.source)
+	_expect("battle deletion preserves exact selected campaign", str(editor.campaign.id), original_campaign_id)
+	_expect("battle deletion preserves the other campaign", deleted.campaigns[0], first_campaign)
+	_expect("battle deletion removes only named node", _node_by_id(deleted.campaigns[selected_index].flow.nodes, "unused_skirmish").is_empty(), true)
+	_expect("battle deletion candidate compiles", editor.compiler.compile_source_json(editor.source).ok, true)
+	editor._undo()
+	_expect("battle delete undo restores named node", _node_by_id(_parse(editor.source).campaigns[selected_index].flow.nodes, "unused_skirmish").is_empty(), false)
+	_expect("battle delete undo preserves campaign identity", str(editor.campaign.id), original_campaign_id)
+	editor._redo()
+	_expect("battle delete redo removes named node", _node_by_id(_parse(editor.source).campaigns[selected_index].flow.nodes, "unused_skirmish").is_empty(), true)
+	_expect("battle delete redo preserves campaign identity", str(editor.campaign.id), original_campaign_id)
+	editor.source = original_source
+	editor.dirty = original_dirty
+	editor.undo_stack = original_undo
+	editor.redo_stack = original_redo
+	editor.campaign = {"id": original_campaign_id}
+	editor._read_source()
+	editor._collect_route()
+	editor._refresh_route()
+	editor._update_actions()
 
 
 func _expect(label: String, actual: Variant, expected: Variant) -> void:
@@ -439,6 +757,24 @@ func _argument_path(prefix: String) -> String:
 		if argument.begins_with(prefix):
 			return argument.trim_prefix(prefix)
 	return ""
+
+
+func _node_by_id(nodes: Array, node_id: String) -> Dictionary:
+	for node_value: Variant in nodes:
+		if node_value is Dictionary and str(node_value.get("id", "")) == node_id:
+			return node_value
+	return {}
+
+
+func _tree_has_text(node: Node, expected: String) -> bool:
+	if node is Label and node.text == expected:
+		return true
+	if node is BaseButton and node.text == expected:
+		return true
+	for child: Node in node.get_children():
+		if _tree_has_text(child, expected):
+			return true
+	return false
 
 
 func _parse(value: String) -> Dictionary:

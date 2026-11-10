@@ -18,13 +18,12 @@
 //
 // The same allocator poisons memory as it is freed. That is the second
 // property: a decoded definition may borrow the package's bytes, and a
-// `LoadedPackage` may be copied and may have its bytes appended to. The
-// browser's campaign entry points do the second on every attached record. A
+// `LoadedPackage` may be copied and may have its bytes appended to. A
 // borrow that is a captured pointer is wrong after either, and reading a
 // poisoned byte is a wrong answer every time rather than an occasional one.
 //
 // The sweep itself is the second mechanism: one valid package covering all
-// eighteen section types, and every two- and four-byte field in it in turn
+// twenty section types, and every two- and four-byte field in it in turn
 // replaced by the largest value it can hold, with the checksums repaired so
 // the damaged file still authenticates and reaches the decoders rather than
 // being turned away at the envelope. Every reader is run over every variant.
@@ -40,6 +39,7 @@
 #include <grandleon/package_runtime/progression.hpp>
 #include <grandleon/package_runtime/starting_kit.hpp>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -196,8 +196,9 @@ void repair(std::vector<std::uint8_t>& bytes) {
     write_u32(bytes, 68, fnv1a(bytes, 0, directory_end, true));
 }
 
-// A project that authors something in every one of the eighteen sections the
-// format defines, so the sweep below has a field of every kind to lie about.
+// A project that authors something in every one of the nineteen content
+// sections used by this fixture, plus the manifest, so the sweep below has a
+// field of every kind to lie about.
 gc::GameSource complete_source() {
     gc::GameSource value;
     value.game_id[0] = 0x47U;
@@ -299,6 +300,7 @@ gc::GameSource complete_source() {
     kestrel.specificity.stat_deltas[0] = 2;
     kestrel.specificity.stated[0] = true;
     kestrel.specificity.reach_bonus = 1;
+    kestrel.player_nameable = true;
     gc::Campaign campaign;
     campaign.id = 110;
     campaign.name = "Muster";
@@ -395,11 +397,11 @@ void read_everything(const pf::LoadedPackage& package) {
 // twelve-byte record becomes a sixteen-byte view plus a set node, and a
 // twenty-three-byte campaign node becomes an eighty-eight-byte structure.
 //
-// Measured on this file's fixture, which is 2,012 bytes: a valid load and a full
-// read of every reader peaks at 4,832 bytes, and so does the worst of the
-// 2,759 damaged variants that reach the decoders. That is 2.4 times the input
-// in both cases. The bound is eight times the input over a four-kilobyte
-// floor, so it has room for a section growing a richer decoded form without
+// Measured on this file's fixture, which is 2,168 bytes: a valid load and a full
+// read of every reader peaks at 5,212 bytes, and the worst of the 2,909 damaged
+// variants that reach the decoders peaks at 5,252 bytes. That is less than 2.5
+// times the input in both cases. The bound is eight times the input over a
+// four-kilobyte floor, so it has room for a richer decoded form without
 // having room for a decoder that believes a number. A count believed rather
 // than checked is not near this line: it asks for tens of kilobytes from a
 // hundred and twenty bytes, and megabytes from a few hundred.
@@ -412,8 +414,9 @@ void the_fixture_covers_every_section() {
     const pf::LoadResult loaded = pf::load_mock_package(bytes, options());
     expect(static_cast<bool>(loaded), "the hostile-input fixture loads");
     expect(
-        loaded.package.sections.size() == 18U,
-        "the hostile-input fixture authors all eighteen sections"
+        loaded.package.sections.size() == 20U,
+        "the hostile-input fixture authors all twenty sections (got " +
+            std::to_string(loaded.package.sections.size()) + ")"
     );
     expect(
         pr::project_title(loaded.package) == "Hostile input",
@@ -425,8 +428,17 @@ void the_fixture_covers_every_section() {
     expect(
         campaign.definition.members.size() == 2U &&
             campaign.definition.members.front().name_in(loaded.package) ==
-                "Kestrel",
-        "and holds the company the author wrote"
+                "Kestrel" &&
+            campaign.definition.members.front().player_nameable &&
+            !campaign.definition.members.back().player_nameable,
+        "and holds the company and name choices the author wrote"
+    );
+    const pf::SectionView* name_choices =
+        loaded.package.find(pf::SectionType::player_nameable_members);
+    expect(
+        name_choices != nullptr &&
+            (name_choices->flags & pf::section_flag_required) == 0U,
+        "and keeps name choice optional for older console runtimes"
     );
     const pr::EncounterLoadResult encounter =
         pr::load_encounter(loaded.package, 100);
@@ -616,7 +628,7 @@ void a_missing_target_does_not_move_the_cursor_past_its_nodes() {
 }
 
 // A decoded campaign borrows the package's bytes for its members' names, and
-// the browser's campaign entry points append to those bytes after the decode.
+// callers may append to those bytes after the decode.
 // The name has to still be the author's name afterwards.
 void a_members_name_survives_the_packages_bytes_growing() {
     const std::vector<std::uint8_t> bytes = fixture_bytes();
@@ -649,6 +661,36 @@ void a_members_name_survives_the_packages_bytes_growing() {
     );
 }
 
+void an_absent_nameable_section_keeps_authored_names_fixed() {
+    gc::GameSource source = complete_source();
+    for (gc::CampaignMember& member : source.campaigns.front().roster) {
+        member.player_nameable = false;
+    }
+    const gc::CompileResult compiled = gc::compile(source);
+    expect(static_cast<bool>(compiled), "a fixed-name campaign compiles");
+    const pf::LoadResult loaded =
+        pf::load_mock_package(compiled.package, options());
+    expect(static_cast<bool>(loaded), "the fixed-name package loads");
+    expect(
+        loaded.package.find(pf::SectionType::player_nameable_members) ==
+            nullptr,
+        "fixed-name campaigns emit no optional nameable section"
+    );
+    const pr::CampaignLoadResult campaign =
+        pr::load_campaign(loaded.package, 110);
+    const bool all_fixed = std::all_of(
+        campaign.definition.members.begin(),
+        campaign.definition.members.end(),
+        [](const pr::CampaignMember& member) {
+            return !member.player_nameable;
+        }
+    );
+    expect(
+        campaign && all_fixed,
+        "a package without the section infers every member is fixed-name"
+    );
+}
+
 }  // namespace
 
 int main() {
@@ -658,6 +700,7 @@ int main() {
     every_truncation_is_refused_within_its_allowance();
     a_missing_target_does_not_move_the_cursor_past_its_nodes();
     a_members_name_survives_the_packages_bytes_growing();
+    an_absent_nameable_section_keeps_authored_names_fixed();
     if (failures != 0) {
         std::cerr << failures << " check(s) failed\n";
         return 1;

@@ -448,7 +448,7 @@ const nothrow_t nothrow{};
 // than an implicit instantiation. The whole archive here is compiled
 // `-mabicalls` against glibc and cannot be linked at all, which is why
 // `tree.cc` is compiled from source in
-// `platform/playstation/CMakeLists.txt`.
+// `platform/playstation/mipsync/runtime/CMakeLists.txt`.
 //
 // A second vendored source file would be the consistent answer and is the wrong
 // one: `string-inst.cc` instantiates *every* out-of-line member of two string

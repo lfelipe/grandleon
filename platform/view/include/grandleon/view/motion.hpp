@@ -8,7 +8,7 @@
 // is on a given frame. Same rules as its neighbour: pure integer arithmetic,
 // no libdragon, no SDL, no engine header, no allocation, no clock. The host
 // suite compiles it and pins every number, so the parts of motion that can
-// silently go wrong are verified off the console and out of the browser.
+// silently go wrong are verified off the console and outside a window.
 //
 // Two properties are load-bearing rather than tidy, because every console
 // check in this repository asserts framebuffer pixels at named checkpoints:
@@ -24,9 +24,7 @@
 //     samples at phase zero therefore sees the board it saw before, and no
 //     assertion had to be loosened to admit motion.
 //
-// The numbers themselves are stated here and mirrored in
-// `editor/src/domain/board-motion.ts`, and the two test suites pin them
-// against each other. Change one here and change it there.
+// The numbers themselves are stated here and shared by every native renderer.
 
 #pragma once
 
@@ -34,24 +32,69 @@
 
 namespace grandleon::view {
 
+// The direction of one presentation leg on the board. This is deliberately
+// derived from two positions rather than stored in simulation state: routes
+// remain the engine's authoritative answer, while a renderer gets one shared
+// name for the way the picture is travelling.
+enum class BoardHeading : std::uint8_t {
+    north,
+    east,
+    south,
+    west,
+};
+
+// Routes are orthogonal, but the straight-line presentation fallback can be
+// diagonal when a renderer cannot reconstruct a route. In that fallback the
+// dominant axis decides, with horizontal winning a tie. A zero-length leg
+// preserves its previous heading rather than inventing a turn at rest.
+[[nodiscard]] constexpr BoardHeading board_heading_between(
+    int from_x, int from_y, int to_x, int to_y,
+    BoardHeading previous = BoardHeading::east
+) noexcept {
+    const int dx = to_x - from_x;
+    const int dy = to_y - from_y;
+    if (dx == 0 && dy == 0) return previous;
+    const int horizontal = dx < 0 ? -dx : dx;
+    const int vertical = dy < 0 ? -dy : dy;
+    if (horizontal >= vertical) {
+        return dx < 0 ? BoardHeading::west : BoardHeading::east;
+    }
+    return dy < 0 ? BoardHeading::north : BoardHeading::south;
+}
+
+// The curated board sheets currently have one native right-facing view. East
+// and west are therefore real mirrored views; north and south preserve the
+// last horizontal silhouette until authored compass views exist. Keeping the
+// compact-console fallback here makes their rule explicit and, importantly,
+// keeps a vertical leg from flipping merely because a team changes. Godot's
+// equivalent decision is camera-relative because its board has a 3D camera.
+[[nodiscard]] constexpr bool board_heading_faces_left(
+    BoardHeading heading, bool previous
+) noexcept {
+    if (heading == BoardHeading::west) return true;
+    if (heading == BoardHeading::east) return false;
+    return previous;
+}
+
 // ---------------------------------------------------------------------------
 // The frame counts
 // ---------------------------------------------------------------------------
 //
 // All of them are counted in *drawn frames*, and every client that animates
-// draws at its display's refresh: 60 Hz on an NTSC console, and one browser
-// animation-frame tick in Play. A frame is therefore about 16.7 ms everywhere
-// it matters. This repository does not build for PAL, and a PAL machine would
+// draws at its display's refresh: 60 Hz on an NTSC console and in the Godot
+// player. A frame is therefore about 16.7 ms everywhere it matters. This
+// repository does not build for PAL, and a PAL machine would
 // run the same counts one sixth slower rather than drawing a different picture.
 
-// How long a token spends crossing one tile. Six frames is a tenth of a second
-// per tile: ten tiles a second reads as a walk rather than a slide or a jump.
-// The longest move the demo content allows is four tiles, which takes 24
-// frames: under half a second, and so never something to wait out.
+// How long a token spends crossing one tile. Ten frames is a sixth of a second
+// per tile: six tiles a second leaves enough time for the alternating contact
+// poses, bob and facing change to read as a step rather than a fast slide. The
+// longest ordinary move is four tiles, which takes 40 frames: still under one
+// second rather than a traversal the player waits through.
 //
-// It is also divisible by two and three, so the halfway and third points of a
-// step land on exact frames rather than on rounding.
-inline constexpr int slide_frames_per_tile = 6;
+// It is also divisible by two and five, so its major pose beats land on exact
+// frames rather than on rounding.
+inline constexpr int slide_frames_per_tile = 10;
 
 // A landed hit: six frames, the first three with the struck token knocked away
 // from whoever hit it and the last three with it back where it stands. Three
@@ -71,15 +114,14 @@ inline constexpr int flinch_knocked_frames = 3;
 // is it.
 inline constexpr int miss_frames = flinch_knocked_frames;
 
-// How long a bolt, an arrow or a flare spends crossing one tile: half the six
-// frames a body spends walking one, so a thing that was loosed visibly outruns
-// a thing that walks and the two never read as the same speed.
+// How long a bolt, an arrow or a flare spends crossing one tile: three frames,
+// so a thing that was loosed visibly outruns the now more deliberate ten-frame
+// walk and the two never read as the same speed.
 //
-// Three and not two because three is what `slide_frames_per_tile` halves to
-// without a remainder, and not four because the longest band any shipped weapon
-// authors is three tiles (a Long Bow's two-to-three), and four would put the
-// longest shot at twelve frames, a fifth of a second in the air before anything
-// has happened. At three it is nine, which is shorter than a two-tile walk.
+// Three and not four because the longest band any shipped weapon authors is
+// three tiles (a Long Bow's two-to-three), and four would put the longest shot
+// at twelve frames, a fifth of a second in the air before anything has happened.
+// At three it is nine, shorter than a single walking step.
 inline constexpr int projectile_frames_per_tile = 3;
 
 // How long a caster holds the pose before the spell resolves. The same six a
@@ -88,6 +130,39 @@ inline constexpr int projectile_frames_per_tile = 3;
 // two. It is also what makes a cast read as *deliberate* beside a swing: the
 // swing's six frames contain the answer, the cast's six contain only the wait.
 inline constexpr int cast_hold_frames = flinch_frames;
+
+// A console close-up needs enough time to be seen as a scene rather than a
+// flash between two board frames. The ordinary gesture remains responsive on
+// the map; these two holds belong only to the optional full-frame presentation
+// both compact consoles use. Fourteen frames establish who is attacking, and
+// thirty-six leave the damage or miss visible long enough to read on hardware.
+inline constexpr int close_intro_hold_frames = 14;
+inline constexpr int close_result_hold_frames = 36;
+
+// Board cutouts should read as people standing on terrain, not as portraits
+// covering neighbouring cells. One and a half cells retains the detailed
+// Godot-derived silhouettes while leaving substantially more of the map
+// visible than the old two-cell figures. Bounds keep fitted large maps legible
+// and prevent small maps from turning figures into close-up art.
+[[nodiscard]] constexpr int console_board_unit_size(int cell) noexcept {
+    const int scaled = cell > 0 ? cell + cell / 2 : 0;
+    if (scaled < 24) return 24;
+    return scaled > 48 ? 48 : scaled;
+}
+
+// A console's small, session-local display preferences. Retail images begin
+// with diagnostics hidden; the board menu is the only thing that changes this
+// state. Keeping the default and label here makes it impossible for the two
+// console front ends to quietly ship with opposite defaults.
+struct ConsoleDisplayOptions final {
+    bool show_fps{false};
+
+    void toggle_fps() noexcept { show_fps = !show_fps; }
+
+    [[nodiscard]] const char* fps_menu_label() const noexcept {
+        return show_fps ? "SHOW FPS: ON" : "SHOW FPS: OFF";
+    }
+};
 
 // The cursor's pulse period, in frames, and the part of it the emphasis is
 // drawn for. Thirty-two frames is a little over half a second at 60 Hz; the
@@ -171,10 +246,9 @@ inline constexpr int pan_frames_most = 24;
 inline constexpr int held_repeat_delay_frames = 20;
 
 // And how often it repeats after that: every six frames, ten cells a second.
-// The same six a body spends walking one tile, deliberately - the cursor
-// crossing the board at the pace a character walks it is a speed the player has
-// already been taught, and it is fast enough that twenty cells is two seconds.
-inline constexpr int held_repeat_period_frames = slide_frames_per_tile;
+// Input stays brisk even though unit motion is now more deliberate; slowing a
+// character should not make crossing a large board with the cursor laborious.
+inline constexpr int held_repeat_period_frames = 6;
 
 // Whether a direction held for `frames` should step this frame. False for every
 // frame before the delay, and true on exactly one frame in each period after
@@ -183,6 +257,26 @@ inline constexpr int held_repeat_period_frames = slide_frames_per_tile;
     if (frames < held_repeat_delay_frames) return false;
     return (frames - held_repeat_delay_frames) % held_repeat_period_frames == 0;
 }
+
+// The state a pad keeps across the individual cursor presses it returns. A
+// repeat is one answer from the poll loop, not the end of the player's hold;
+// resetting here after every answer would charge the full initial delay for
+// every tile and make holding barely better than tapping.
+struct HeldDirectionRepeat final {
+    std::uint16_t direction{0};
+    int frames{0};
+
+    [[nodiscard]] bool update(std::uint16_t held) noexcept {
+        if (held != direction) {
+            direction = held;
+            frames = 0;
+            return false;
+        }
+        if (held == 0) return false;
+        ++frames;
+        return repeat_due(frames);
+    }
+};
 
 // ---------------------------------------------------------------------------
 // Sliding
@@ -225,11 +319,8 @@ inline constexpr int held_repeat_period_frames = slide_frames_per_tile;
 // the edge or cutting to the column play begins at. A reveal that cut would be
 // two pictures where the gesture is meant to be one.
 //
-// This is the one gesture in this file with no mirror in
-// `editor/src/domain/board-motion.ts`, and the reason is not an omission. The
-// browser draws every board whole at whatever size the page gives it, so Play
-// has no camera, no edges, and nothing to sweep. The mirror exists where both
-// draw the same motion; here only the consoles draw any.
+// This reveal is used by the console cameras. Godot uses its own board-opening
+// camera because it has a continuous viewport rather than a fixed tile window.
 //
 // It is not interruptible, which is a decision rather than a simplification. A
 // press that skipped it would have to be read inside the sweep and then not
@@ -675,11 +766,8 @@ static_assert(
     "which beside this arithmetic. Do not raise this count alone"
 );
 
-// How long one cell of the walk is held: a whole tile. Two cells and not four
-// is arithmetic rather than taste. At `slide_frames_per_tile` frames a tile, a
-// four-pose cycle holds each pose for a frame and a half, and a pose held for a
-// fraction of a frame is a pose no console draws. One cell a tile also makes
-// the cycle mean what a tile means: one step.
+// How long one cell of the walk is held: a whole tile. One cell a tile makes
+// the two-pose cycle mean what a tile means: one clear step.
 inline constexpr int walk_cells = 2;
 
 // The cell a walking token is drawn as, `frame` frames into a slide counted
@@ -835,13 +923,21 @@ enum class AttackGesture : std::uint8_t {
            (landed ? flinch_frames : miss_frames);
 }
 
+[[nodiscard]] constexpr int close_gesture_frames(
+    AttackGesture gesture, int separation, bool landed
+) noexcept {
+    return close_intro_hold_frames +
+           gesture_frames(gesture, separation, landed) +
+           close_result_hold_frames;
+}
+
 // ---------------------------------------------------------------------------
 // Animated terrain: the water shimmer's phase
 // ---------------------------------------------------------------------------
 //
 // Water moves by **palette cycling**: a few entries of its ramp are rotated in
-// the display palette, by a TLUT override on the Nintendo 64's rdpq path and a
-// lookup substitution in the browser. Which entries is a property of the art
+// the display palette, by a TLUT override on the Nintendo 64's rdpq path and
+// the corresponding renderer-specific lookup elsewhere. Which entries is a property of the art
 // and is published by the generator (`grandleon_water_cycle_*` in `themes.h`).
 // *When* is here, because it is timing.
 //

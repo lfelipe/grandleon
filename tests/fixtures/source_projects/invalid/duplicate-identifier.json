@@ -1,5 +1,6 @@
 {
-  "schemaVersion": "1.3.0",
+  "schemaVersion": "1.4.0",
+  "sourceLanguage": "en",
   "packageId": "3f38d330-5688-4a44-a17a-3369632a4545",
   "gameId": "grandleon.demo",
   "title": "Duplicate Identifier",

@@ -11,7 +11,7 @@ extends RefCounted
 static func has_combat(events: Array) -> bool:
 	for value: Variant in events:
 		if value is Dictionary and String(value.get("kind", "")) in [
-			"unit_damaged", "attack_missed",
+			"unit_damaged", "attack_missed", "unit_restored",
 		]:
 			return true
 	return false
@@ -32,7 +32,7 @@ static func build(
 			continue
 		var event: Dictionary = value
 		var kind := String(event.get("kind", ""))
-		if kind in ["unit_damaged", "attack_missed"]:
+		if kind in ["unit_damaged", "attack_missed", "unit_restored"]:
 			var target_id := int(event.get("unit_id", 0))
 			var actor_id := int(event.get("related_unit_id", 0))
 			if (
@@ -41,10 +41,18 @@ static func build(
 				or not before_units.has(target_id)
 			):
 				return {}
+			# A self-use already has a clear board effect. Duplicating that unit
+			# into both sides of a two-character close stage would be misleading.
+			if kind == "unit_restored" and actor_id == target_id:
+				passthrough.append(event.duplicate(true))
+				continue
 			var counter := false
 			if not beats.is_empty():
 				var previous: Dictionary = beats[-1]
 				counter = (
+					kind != "unit_restored"
+					and String(previous.kind) != "unit_restored"
+					and
 					int(previous.actor_id) == target_id
 					and int(previous.target_id) == actor_id
 				)
@@ -57,11 +65,17 @@ static func build(
 				"target_after": Dictionary(
 					after_units.get(target_id, before_units[target_id])
 				).duplicate(true),
-				"landed": kind == "unit_damaged",
-				"damage": maxi(0, int(event.get("amount", 0))),
+				"landed": kind != "attack_missed",
+				"restored": kind == "unit_restored",
+				"amount": maxi(0, int(event.get("amount", 0))),
+				"damage": (
+					0 if kind == "unit_restored"
+					else maxi(0, int(event.get("amount", 0)))
+				),
 				"counter": counter,
 				"defeated": false,
 				"endured": false,
+				"special_results": [],
 				"event": event.duplicate(true),
 			})
 		elif kind in ["unit_defeated", "unit_endured"]:
@@ -77,20 +91,58 @@ static func build(
 				break
 			if not attached:
 				passthrough.append(event.duplicate(true))
+		elif kind == "item_dropped":
+			# Inventory presenters still receive the event below. The close view
+			# also keeps a compact visual result on the authoritative defeat beat.
+			for index in range(beats.size() - 1, -1, -1):
+				if int(beats[index].target_id) != int(event.get("unit_id", 0)):
+					continue
+				beats[index].special_results.append({
+					"kind": kind,
+					"content_id": int(event.get("content_id", 0)),
+				})
+				break
+			passthrough.append(event.duplicate(true))
 		else:
 			passthrough.append(event.duplicate(true))
 	if beats.is_empty():
 		return {}
-	# The first accepted strike establishes the stage geography for the whole
-	# exchange. A reversed authoritative event is a counterattack, not a cue to
-	# teleport both figures to the opposite side of the close view.
+	# The first accepted strike establishes the stage geography. A reversed
+	# authoritative event is a counterattack, not a cue to teleport both figures
+	# to the opposite side of the close view. An area attack may then name a new
+	# target: keep its initiating actor on the left and replace only the right
+	# stage slot for that beat.
 	var stage := {
 		"left_unit_id": int(beats[0].actor_id),
 		"right_unit_id": int(beats[0].target_id),
 	}
+	var primary_actor_id := int(beats[0].actor_id)
+	var stage_left_id := int(stage.left_unit_id)
+	var stage_right_id := int(stage.right_unit_id)
 	for beat: Dictionary in beats:
-		beat["actor_slot"] = _stage_slot(int(beat.actor_id), stage)
-		beat["target_slot"] = _stage_slot(int(beat.target_id), stage)
+		var actor_id := int(beat.actor_id)
+		var target_id := int(beat.target_id)
+		if not (
+			(actor_id == stage_left_id or actor_id == stage_right_id)
+			and (target_id == stage_left_id or target_id == stage_right_id)
+		):
+			if actor_id == primary_actor_id:
+				stage_left_id = actor_id
+				stage_right_id = target_id
+			elif target_id == primary_actor_id:
+				stage_left_id = target_id
+				stage_right_id = actor_id
+			else:
+				stage_left_id = actor_id
+				stage_right_id = target_id
+		var beat_stage := {
+			"left_unit_id": stage_left_id,
+			"right_unit_id": stage_right_id,
+		}
+		beat["actor_slot"] = _stage_slot(actor_id, beat_stage)
+		beat["target_slot"] = _stage_slot(target_id, beat_stage)
+		beat["stage_left"] = Dictionary(before_units[stage_left_id]).duplicate(true)
+		beat["stage_right"] = Dictionary(before_units[stage_right_id]).duplicate(true)
 	return {
 		"valid": true,
 		"action": action,

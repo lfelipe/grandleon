@@ -108,7 +108,14 @@ public:
         const ::godot::String& mode,
         const ::godot::String& colour,
         std::int64_t depth,
-        const ::godot::PackedStringArray& terrain_ids
+        const ::godot::PackedStringArray& terrain_ids,
+        const ::godot::String& fill_terrain
+    ) const;
+    [[nodiscard]] ::godot::Dictionary set_map_visual_visibility(
+        const ::godot::String& source_json,
+        const ::godot::String& map_id,
+        std::int64_t reveal_radius,
+        const ::godot::PackedInt32Array& cell_indices
     ) const;
     [[nodiscard]] ::godot::Dictionary move_placement(
         const ::godot::String& source_json,
@@ -230,6 +237,12 @@ public:
         const ::godot::String& campaign_id,
         const ::godot::String& member_id,
         const ::godot::String& name
+    ) const;
+    [[nodiscard]] ::godot::Dictionary set_campaign_member_player_nameable(
+        const ::godot::String& source_json,
+        const ::godot::String& campaign_id,
+        const ::godot::String& member_id,
+        bool player_nameable
     ) const;
     [[nodiscard]] ::godot::Dictionary set_campaign_member_modifier(
         const ::godot::String& source_json,

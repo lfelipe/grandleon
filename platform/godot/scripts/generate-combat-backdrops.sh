@@ -5,7 +5,11 @@ set -euo pipefail
 script_dir="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(CDPATH= cd -- "${script_dir}/../../.." && pwd)"
 build_dir="${1:-${repo_root}/build-godot}"
-output_dir="${2:-${repo_root}/platform/godot/project/art/combat_backdrops/medieval_forest_gate}"
+# This captures the deterministic low-detail terrain relay used by renderer
+# diagnostics. It must not overwrite the reviewed production artwork in the
+# project. Pass an explicit second argument when another diagnostic location is
+# useful.
+output_dir="${2:-${build_dir}/generated-combat-backdrops/medieval-forest-gate-diagnostic}"
 godot_binary="${GRANDLEON_GODOT_BINARY:-}"
 
 absolute_path() {
@@ -46,8 +50,8 @@ mkdir -p "${state_dir}/data" "${state_dir}/config" "${state_dir}/cache"
 XDG_DATA_HOME="${state_dir}/data" \
 XDG_CONFIG_HOME="${state_dir}/config" \
 XDG_CACHE_HOME="${state_dir}/cache" \
-    "${godot_binary}" --editor --headless --quiet \
-    --path "${stage_dir}" --quit
+    "${godot_binary}" --headless --quiet --import \
+    --path "${stage_dir}"
 XDG_DATA_HOME="${state_dir}/data" \
 XDG_CONFIG_HOME="${state_dir}/config" \
 XDG_CACHE_HOME="${state_dir}/cache" \
@@ -67,4 +71,4 @@ for variant in 0 1 2; do
     done
 done
 
-printf 'Godot combat backdrop layers: %s\n' "${output_dir}"
+printf 'Godot diagnostic combat backdrop layers: %s\n' "${output_dir}"

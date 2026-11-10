@@ -97,6 +97,10 @@ struct CampaignMember final {
     // what both consoles need of it.
     std::uint32_t name_offset{};
     std::uint16_t name_size{};
+    // Optional author permission to replace the default name. Missing from an
+    // older package, or omitted for this member, means false. Last so existing
+    // positional aggregate initializers retain their meaning.
+    bool player_nameable{false};
 
     // The name, read out of the package it was decoded from. Empty for a
     // member with no name, and empty when the package handed in is not the one

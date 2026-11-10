@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include <grandleon/client/campaign_session.hpp>
+#include <grandleon/client/member_name_tokens.hpp>
 
 #include <grandleon/client/session.hpp>
 #include <grandleon/package_runtime/campaign.hpp>
@@ -65,7 +66,42 @@ campaign::MountedContent mounted_content(
     return mounted;
 }
 
+// In place and in the portable source format's one whitespace character.
+// Besides avoiding a second allocation, this keeps the campaign path within
+// the subset of libstdc++ supplied by the pinned PlayStation toolchain, which
+// has pointer-length construction/assignment but not the hosted string search
+// helpers.
+void trim_player_name(std::string& value) {
+    std::size_t first = 0U;
+    while (first < value.size() && value[first] == ' ') ++first;
+    std::size_t last = value.size();
+    while (last > first && value[last - 1U] == ' ') --last;
+    const std::size_t kept = last - first;
+    const std::string trimmed{value.data() + first, kept};
+    value.assign(trimmed.data(), trimmed.size());
+}
+
 }  // namespace
+
+std::string substitute_campaign_member_names(
+    std::string_view authored_text,
+    const std::vector<RosterEntry>& roster
+) {
+    return substitute_member_name_tokens(
+        authored_text,
+        [&roster](std::string_view key) -> std::string_view {
+            const std::uint64_t source_key = core::stable_content_id_v1(key);
+            const auto found = std::find_if(
+                roster.begin(), roster.end(),
+                [source_key](const RosterEntry& candidate) {
+                    return candidate.placement_source_key == source_key;
+                }
+            );
+            return found != roster.end() ? std::string_view(found->name)
+                                         : std::string_view{};
+        }
+    );
+}
 
 std::string_view campaign_session_error_name(
     CampaignSessionError error
@@ -87,6 +123,9 @@ std::string_view management_error_name(ManagementError error) noexcept {
     switch (error) {
         case ManagementError::none: return "none";
         case ManagementError::not_managing: return "not_managing";
+        case ManagementError::unknown_member: return "unknown_member";
+        case ManagementError::fixed_name: return "fixed_name";
+        case ManagementError::invalid_name: return "invalid_name";
     }
     return "unknown";
 }
@@ -152,6 +191,8 @@ CampaignSessionError CampaignSession::begin(
         };
         member.entry.placement_source_key = authored.id;
         member.entry.name = authored.name_in(*package_);
+        member.entry.authored_name = member.entry.name;
+        member.entry.player_nameable = authored.player_nameable;
         member.entry.unit_type = campaign::DefinitionRef{
             package_->game_id,
             core::ContentCategory::unit_type,
@@ -242,8 +283,34 @@ CampaignSessionError CampaignSession::begin(
                 failure.wrong_campaign = true;
                 refused = true;
             } else {
-                live_ = restored.save;
-                resumed = true;
+                bool names_allowed = true;
+                for (const campaign::PlayerName& name :
+                     restored.save.state.player_names) {
+                    const auto member = std::find_if(
+                        members_.begin(), members_.end(),
+                        [&name](const AuthoredMember& authored_member) {
+                            return authored_member.entry.member == name.member;
+                        }
+                    );
+                    if (member == members_.end()) {
+                        failure.state =
+                            campaign::StateError::orphaned_player_name;
+                        names_allowed = false;
+                        break;
+                    }
+                    if (!member->entry.player_nameable) {
+                        failure.state =
+                            campaign::StateError::unauthorized_player_name;
+                        names_allowed = false;
+                        break;
+                    }
+                }
+                if (!names_allowed) {
+                    refused = true;
+                } else {
+                    live_ = restored.save;
+                    resumed = true;
+                }
             }
         }
     }
@@ -268,6 +335,11 @@ std::vector<RosterEntry> CampaignSession::roster_now() const {
         entry.availability = unit->availability;
         entry.progression = unit->progression;
         entry.carried = unit->carried;
+        if (const campaign::PlayerName* chosen =
+                campaign::find_player_name(live_.state, entry.member)) {
+            entry.name = chosen->value;
+            entry.has_player_name = true;
+        }
         entries.push_back(std::move(entry));
     }
     return entries;
@@ -319,6 +391,11 @@ std::vector<RosterEntry> CampaignSession::recruited_at(
         RosterEntry entry = member.entry;
         entry.availability = unit->availability;
         entry.progression = unit->progression;
+        if (const campaign::PlayerName* chosen =
+                campaign::find_player_name(live_.state, entry.member)) {
+            entry.name = chosen->value;
+            entry.has_player_name = true;
+        }
         joined.push_back(std::move(entry));
     }
     return joined;
@@ -891,6 +968,71 @@ ManagementCommit CampaignSession::set_fielded(
     )});
 }
 
+ManagementCommit CampaignSession::set_player_name(
+    campaign::PersistentEntityId member,
+    std::string_view requested_name
+) {
+    std::string name{requested_name.data(), requested_name.size()};
+    ManagementCommit result;
+    if (!loaded_ || !live_.state.progress.active) {
+        result.error = ManagementError::not_managing;
+        return result;
+    }
+    const auto authored = std::find_if(
+        members_.begin(), members_.end(),
+        [member](const AuthoredMember& candidate) {
+            return candidate.entry.member == member;
+        }
+    );
+    if (authored == members_.end() ||
+        campaign::find_unit(live_.state, member) == nullptr) {
+        result.error = ManagementError::unknown_member;
+        return result;
+    }
+    if (!authored->entry.player_nameable) {
+        result.error = ManagementError::fixed_name;
+        return result;
+    }
+    trim_player_name(name);
+    const bool use_authored_default = name == authored->entry.authored_name;
+    if (!use_authored_default && !campaign::player_name_is_valid(name)) {
+        result.error = ManagementError::invalid_name;
+        return result;
+    }
+    campaign::CampaignState candidate = live_.state;
+    auto position = std::lower_bound(
+        candidate.player_names.begin(), candidate.player_names.end(), member,
+        [](const campaign::PlayerName& current,
+           campaign::PersistentEntityId value) {
+            return current.member < value;
+        }
+    );
+    if (use_authored_default) {
+        if (position != candidate.player_names.end() &&
+            position->member == member) {
+            candidate.player_names.erase(position);
+        }
+    } else if (position != candidate.player_names.end() &&
+               position->member == member) {
+        position->value.assign(name.data(), name.size());
+    } else {
+        candidate.player_names.insert(
+            position,
+            campaign::PlayerName{
+                member, std::string{name.data(), name.size()}
+            }
+        );
+    }
+    if (campaign::validate(candidate) != campaign::StateError::none) {
+        result.error = ManagementError::invalid_name;
+        return result;
+    }
+    live_.state = std::move(candidate);
+    result.save = save();
+    result.saved = true;
+    return result;
+}
+
 std::vector<std::uint8_t> CampaignSession::save_bytes() {
     live_.packages = {requirement_of(*package_)};
     return campaign::save_campaign(live_);
@@ -1020,6 +1162,11 @@ CampaignSessionError run_persistent_campaign(
                             session.set_fielded(intent.member, false)
                         );
                         continue;
+                    case ManagementVerb::rename:
+                        narrator.management_committed(
+                            session.set_player_name(intent.member, intent.name)
+                        );
+                        continue;
                 }
             }
             if (leaving) return CampaignSessionError::none;
@@ -1045,6 +1192,11 @@ CampaignSessionError run_persistent_campaign(
         }
         if (!published) return prepared.error;
         narrator.board_prepared(prepared.board);
+        presenter.battle_route(
+            prepared.board.node.stable_id,
+            prepared.board.encounter_id,
+            prepared.encounter.encounter.map_id
+        );
 
         BattleReport battle;
         if (play_battle(

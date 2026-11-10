@@ -1,5 +1,6 @@
 {
-  "schemaVersion": "1.3.0",
+  "schemaVersion": "1.4.0",
+  "sourceLanguage": "en",
   "packageId": "9b2e5d17-64a8-4c30-8f19-a2c7e0b5613d",
   "gameId": "deployment.capacity",
   "title": "Deployment Capacity",

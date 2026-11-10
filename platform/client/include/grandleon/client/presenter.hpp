@@ -256,6 +256,20 @@ public:
         simulation::Side player_side,
         const std::vector<std::uint64_t>& terrain
     ) = 0;
+    // The authored route that selected this board. These identities are
+    // presentation context rather than simulation state: a client can use
+    // them to select scenery without guessing from translated names or from
+    // terrain shared by several maps. Optional so clients with no route-aware
+    // presentation retain their existing surface.
+    virtual void battle_route(
+        std::uint64_t stage_id,
+        std::uint64_t encounter_id,
+        std::uint64_t map_id
+    ) {
+        (void)stage_id;
+        (void)encounter_id;
+        (void)map_id;
+    }
     // Optional presentation outside the tactical dimensions. A client that
     // has no exposed exterior keeps its historical background and need not
     // override this. No value here is a simulation cell.
@@ -263,6 +277,14 @@ public:
         const package_runtime::MapSurroundings& surroundings
     ) {
         static_cast<void>(surroundings);
+    }
+    // Optional presentation-only cells that begin covered and reveal locally.
+    // Default no-op preserves clients that have no fog surface; simulation and
+    // input never consult this value.
+    virtual void battle_visual_visibility(
+        const package_runtime::MapVisualVisibility& visibility
+    ) {
+        static_cast<void>(visibility);
     }
     // The weapon, ability and item definitions the encounter was created
     // with, handed over once before the first frame. A snapshot names only the

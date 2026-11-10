@@ -16,10 +16,30 @@ func _run() -> void:
 		"res://content/templates/starter_battle.json"
 	)
 	var created: Dictionary = library.create_project("Authored Story", template)
-	_expect("starter project created", created.ok, true)
+	_expect(
+		"starter project created  /  %s  /  %s" % [
+			created.get("message", ""), created.get("diagnostics", [])
+		],
+		created.ok,
+		true
+	)
 	if not created.ok:
 		quit(1)
 		return
+	var seeded: Dictionary = library.load_source(created.id)
+	var seeded_project: Dictionary = seeded.project.duplicate(true)
+	var unused_scene: Dictionary = seeded_project.dialogues[0].duplicate(true)
+	unused_scene["id"] = "unused_safety_scene"
+	unused_scene["name"] = "Unused Safety Scene"
+	seeded_project.dialogues.append(unused_scene)
+	var seeded_source := JSON.stringify(
+		_integer_numbers(seeded_project), "  ", true
+	) + "\n"
+	var seeded_save: Dictionary = library.save_source(created.id, seeded_source)
+	_expect("unused deletion fixture saves as a valid project", seeded_save.ok, true)
+	var localization: Node = root.get_node("Localization")
+	var prior_language := str(localization.call("current_language"))
+	localization.call("select_language", "pt-BR", false)
 	var creator_context = root.get_node("CreatorContext")
 	creator_context.open_project(created.id)
 	var packed: PackedScene = load("res://story_editor.tscn")
@@ -30,23 +50,125 @@ func _run() -> void:
 	await process_frame
 
 	_expect("project opens in story creator", editor.project_id, created.id)
+	_expect(
+		"Story editor uses the selected editor language",
+		editor.title_label.text,
+		"AUTHORED STORY  /  2 ESCREVER A HISTÓRIA  →  3 TESTAR"
+	)
+	_expect(
+		"Portuguese Story subtitle is visible",
+		_tree_has_text(editor, "Escreva as conversas que os jogadores realmente verão."),
+		true
+	)
+	_expect(
+		"Portuguese scene search help is visible",
+		editor.scene_filter.placeholder_text,
+		"Buscar por título, id ou personagem"
+	)
+	_expect(
+		"Portuguese backdrop names are visible",
+		editor.backdrop_select.get_item_text(2),
+		"ACAMPAMENTO NOTURNO"
+	)
+	_expect(
+		"Portuguese ready status is visible",
+		editor.status_label.text,
+		"PRONTO  /  ESCOLHA UMA CENA E UMA FALA, DEPOIS ESCREVA O DIÁLOGO"
+	)
 	_expect("starter dialogues are listed", editor.dialogues.is_empty(), false)
 	_expect("dialogue selector is populated", editor.dialogue_select.item_count > 0, true)
 	_expect("dialogue selector receives controller focus", editor.dialogue_select.has_focus(), true)
 	_expect("story screen previews the portable character art", editor.preview_portrait.texture != null, true)
 	_expect("story screen offers every portable backdrop", editor.backdrop_select.item_count, editor.BACKDROPS.size() + 1)
+	editor.scene_filter.text = "unused safety"
+	editor._filter_dialogues(editor.scene_filter.text)
+	_expect("scene search narrows a large reusable list", editor.dialogue_select.item_count, 1)
+	_expect("scene search finds by title", editor.dialogue_select.get_item_text(0), "Unused Safety Scene")
+	_expect("scene search reports its result count", editor.scene_filter_summary.text, "1 DE %d CENAS" % editor.dialogues.size())
+	editor.scene_filter.text = "no such conversation"
+	editor._filter_dialogues(editor.scene_filter.text)
+	_expect("empty scene search fails visibly", editor.dialogue_select.disabled, true)
+	_expect("empty scene search names no match", editor.dialogue_select.get_item_text(0), "NENHUMA CENA CORRESPONDE À BUSCA")
+	editor.scene_filter.text = ""
+	editor._filter_dialogues("")
+	_expect("clearing scene search restores the library", editor.dialogue_select.item_count, editor.dialogues.size())
+	editor.dialogue_text.text = "An unfinished line stays visible while searching."
+	editor._mark_line_form_dirty()
+	editor.scene_filter.text = "unused"
+	editor._filter_dialogues(editor.scene_filter.text)
+	_expect("scene search preserves unfinished dialogue", editor.dialogue_text.text, "An unfinished line stays visible while searching.")
+	_expect("scene search preserves the unsaved-line state", editor.line_form_dirty, true)
+	editor._refresh_line()
+	editor.scene_filter.text = ""
+	editor._filter_dialogues("")
+
+	var referenced_scene_index := -1
+	for index in editor.dialogues.size():
+		var scene_id := str(editor.dialogues[index].get("id", ""))
+		if _dialogue_attachment_count(_parse(editor.source), scene_id) > 0:
+			referenced_scene_index = index
+			break
+	_expect("fixture has a referenced reusable scene", referenced_scene_index >= 0, true)
+	if referenced_scene_index >= 0:
+		editor._select_dialogue(referenced_scene_index)
+		var protected_source: String = editor.source
+		editor._request_delete_scene()
+		_expect("scene safety check opens", editor.delete_scene_layer.visible, true)
+		_expect("used reusable scene cannot be deleted", editor.confirm_delete_scene_button.disabled, true)
+		_expect("used scene shows named where-used references", editor.delete_scene_uses.text.contains("CAMPANHAS"), true)
+		_expect("shared scene reports more than one named use", editor.delete_scene_uses.text.count("\n") >= 2, true)
+		_expect("where-used view does not expose raw source paths", editor.delete_scene_uses.text.contains("$."), false)
+		editor._confirm_delete_scene()
+		_expect("direct confirmation still fails closed", editor.source, protected_source)
+		editor._close_delete_scene()
+
+	var unused_index := -1
+	for index in editor.dialogues.size():
+		if str(editor.dialogues[index].get("id", "")) == "unused_safety_scene":
+			unused_index = index
+			break
+	_expect("fixture has one project-owned unused scene", unused_index >= 0, true)
+	if unused_index >= 0:
+		editor._select_dialogue(unused_index)
+		editor.scene_filter.text = "unused safety"
+		editor._filter_dialogues(editor.scene_filter.text)
+		var deletion_history_size: int = editor.undo_stack.size()
+		editor._request_delete_scene()
+		_expect("unused scene requires an explicit confirmation", editor.confirm_delete_scene_button.text, "EXCLUIR CENA SEM USO")
+		_expect("unused scene says it is used nowhere else", editor.delete_scene_uses.text.contains("EM NENHUM OUTRO LUGAR"), true)
+		_expect("opening confirmation does not mutate source", _has_dialogue(_parse(editor.source), "unused_safety_scene"), true)
+		editor._confirm_delete_scene()
+		_expect("confirmed unused scene is deleted", _has_dialogue(_parse(editor.source), "unused_safety_scene"), false)
+		_expect("deleting the only match clears the scene filter", editor.scene_filter.text, "")
+		_expect("scene selector realigns with the displayed scene", editor.dialogue_select.disabled, false)
+		_expect("scene deletion is exactly one undoable edit", editor.undo_stack.size(), deletion_history_size + 1)
+		var deletion_compiler = ClassDB.instantiate("GrandleonProjectCompiler")
+		_expect("deleted-scene candidate remains compilable", deletion_compiler.compile_source_json(editor.source).ok, true)
+		editor._undo()
+		_expect("one undo restores the deleted scene", _has_dialogue(_parse(editor.source), "unused_safety_scene"), true)
+		editor._redo()
+		_expect("redo deletes the same unused scene again", _has_dialogue(_parse(editor.source), "unused_safety_scene"), false)
+		editor._undo()
+		_expect("scene can be restored after redo coverage", _has_dialogue(_parse(editor.source), "unused_safety_scene"), true)
+
+	var missing_source: String = editor.source
+	editor._request_delete_scene("missing_scene")
+	_expect("missing scene deletion fails closed", editor.confirm_delete_scene_button.disabled, true)
+	_expect("missing scene does not mutate source", editor.source, missing_source)
+	editor._close_delete_scene()
+
 	creator_context.choose_dialogue(str(editor.dialogues[0].id))
 	editor._load_project()
 	await process_frame
 	_expect("an exact-scene handoff focuses the dialogue line", editor.dialogue_text.has_focus(), true)
-	_expect("an exact-scene handoff explains the immediate action", editor.status_label.text, "READY  /  WRITE THIS CONVERSATION")
+	_expect("an exact-scene handoff explains the immediate action", editor.status_label.text, "PRONTO  /  ESCREVA ESTA CONVERSA")
 	creator_context.choose_dialogue("")
 	editor.dialogue_select.grab_focus()
 	editor._apply_diagnostic_focus({"line_index": 1, "field": "text"})
 	await process_frame
 	_expect("diagnostic recovery opens the exact line", editor.line_index, 1)
 	_expect("diagnostic recovery focuses dialogue text", editor.dialogue_text.has_focus(), true)
-	_expect("diagnostic recovery explains the field", editor.status_label.text, "FIX LINE 2  /  TEXT")
+	_expect("diagnostic recovery explains the field", editor.status_label.text, "CORRIGIR FALA 2  /  TEXTO")
 	editor.line_index = 0
 	editor._refresh_line()
 	var before := _parse(editor.source)
@@ -210,8 +332,74 @@ func _run() -> void:
 	_expect("scene creation undo removes the scene", editor.dialogues.size(), dialogue_count)
 	editor._redo()
 	_expect("scene creation redo restores the scene", editor.dialogues.size(), dialogue_count + 1)
+	for scene_index in editor.dialogues.size():
+		if str(editor.dialogues[scene_index].get("id", "")) == "scene_1":
+			editor._select_dialogue(scene_index)
+			break
 	editor._save()
 	_expect("created scene saves", editor.dirty, false)
+	editor._open_sequence()
+	_expect("story play order opens from the scene screen", editor.sequence_layer.visible, true)
+	_expect("story moment choice receives focus", editor.sequence_story_select.has_focus(), true)
+	_expect("play order shows the newly attached scene", editor.sequence_order_summary.text.contains("The Second Signal"), true)
+	var sequence_target: Dictionary = editor._selected_sequence_target()
+	var target_campaign_id := str(sequence_target.campaign_id)
+	var target_node_id := str(sequence_target.node_id)
+	var initial_sequence: Array = sequence_target.get("dialogue_ids", []).duplicate()
+	_expect("story moment begins with multiple ordered scenes", initial_sequence.size() >= 2, true)
+	var reusable_id := ""
+	for option in editor.sequence_available_select.item_count:
+		var candidate_id := str(editor.sequence_available_select.get_item_metadata(option))
+		if _dialogue_attachment_count(_parse(editor.source), candidate_id) > 0:
+			reusable_id = candidate_id
+			editor.sequence_available_select.select(option)
+			break
+	_expect("another story's scene is offered for reuse", reusable_id.is_empty(), false)
+	if not reusable_id.is_empty():
+		var prior_attachment_count := _dialogue_attachment_count(
+			_parse(editor.source), reusable_id
+		)
+		editor._attach_sequence_scene()
+		var attached_order := _story_node_dialogues(
+			_parse(editor.source), target_campaign_id, target_node_id
+		)
+		_expect("reusable scene attaches at the end", str(attached_order[-1]), reusable_id)
+		_expect("attach marks story source dirty", editor.dirty, true)
+		editor._move_sequence_scene(-1)
+		var moved_order := _story_node_dialogues(
+			_parse(editor.source), target_campaign_id, target_node_id
+		)
+		_expect("attached scene moves earlier in real play order", moved_order.find(reusable_id), attached_order.size() - 2)
+		editor._detach_sequence_scene()
+		var detached_order := _story_node_dialogues(
+			_parse(editor.source), target_campaign_id, target_node_id
+		)
+		_expect("detach removes only this story attachment", reusable_id in detached_order, false)
+		_expect(
+			"detach preserves the reusable scene's other attachment",
+			_dialogue_attachment_count(_parse(editor.source), reusable_id),
+			prior_attachment_count
+		)
+		_expect("detach does not delete the reusable scene", _has_dialogue(_parse(editor.source), reusable_id), true)
+		editor._close_sequence()
+		_expect("closing play order returns focus", editor.sequence_button.has_focus(), true)
+		editor._undo()
+		_expect(
+			"detach is undoable",
+			reusable_id in _story_node_dialogues(
+				_parse(editor.source), target_campaign_id, target_node_id
+			),
+			true
+		)
+		editor._redo()
+		_expect(
+			"detach is redoable",
+			reusable_id in _story_node_dialogues(
+				_parse(editor.source), target_campaign_id, target_node_id
+			),
+			false
+		)
+		editor._save()
 	var stored: Dictionary = library.load_source(created.id)
 	_expect("saved story reopens", stored.ok, true)
 	if stored.ok:
@@ -248,6 +436,7 @@ func _run() -> void:
 		else:
 			image.save_png(screenshot_path)
 			print("story editor capture saved: %s" % screenshot_path)
+	localization.call("select_language", prior_language, false)
 	editor.queue_free()
 	await process_frame
 	if failures == 0:
@@ -273,6 +462,45 @@ func _has_dialogue_attachment(data: Dictionary, dialogue_id: String) -> bool:
 	return false
 
 
+func _dialogue_attachment_count(data: Dictionary, dialogue_id: String) -> int:
+	var count := 0
+	for campaign_value: Variant in data.get("campaigns", []):
+		if not campaign_value is Dictionary:
+			continue
+		var flow_value: Variant = campaign_value.get("flow", {})
+		if not flow_value is Dictionary:
+			continue
+		for node_value: Variant in flow_value.get("nodes", []):
+			if node_value is Dictionary and dialogue_id in node_value.get("dialogueIds", []):
+				count += 1
+	return count
+
+
+func _story_node_dialogues(
+	data: Dictionary, campaign_id: String, node_id: String
+) -> Array:
+	for campaign_value: Variant in data.get("campaigns", []):
+		if (
+			not campaign_value is Dictionary
+			or str(campaign_value.get("id", "")) != campaign_id
+		):
+			continue
+		var flow_value: Variant = campaign_value.get("flow", {})
+		if not flow_value is Dictionary:
+			continue
+		for node_value: Variant in flow_value.get("nodes", []):
+			if node_value is Dictionary and str(node_value.get("id", "")) == node_id:
+				return node_value.get("dialogueIds", []).duplicate()
+	return []
+
+
+func _has_dialogue(data: Dictionary, dialogue_id: String) -> bool:
+	for dialogue_value: Variant in data.get("dialogues", []):
+		if dialogue_value is Dictionary and str(dialogue_value.get("id", "")) == dialogue_id:
+			return true
+	return false
+
+
 func _argument_path(prefix: String) -> String:
 	for argument: String in OS.get_cmdline_user_args():
 		if argument.begins_with(prefix):
@@ -282,6 +510,33 @@ func _argument_path(prefix: String) -> String:
 
 func _has_argument(value: String) -> bool:
 	return value in OS.get_cmdline_user_args()
+
+
+func _integer_numbers(value: Variant) -> Variant:
+	if value is Dictionary:
+		var dictionary: Dictionary = {}
+		for key: Variant in value:
+			dictionary[key] = _integer_numbers(value[key])
+		return dictionary
+	if value is Array:
+		var array: Array = []
+		for entry: Variant in value:
+			array.append(_integer_numbers(entry))
+		return array
+	if typeof(value) == TYPE_FLOAT and value == floor(value):
+		return int(value)
+	return value
+
+
+func _tree_has_text(node: Node, expected: String) -> bool:
+	if node is Label and node.text == expected:
+		return true
+	if node is BaseButton and node.text == expected:
+		return true
+	for child: Node in node.get_children():
+		if _tree_has_text(child, expected):
+			return true
+	return false
 
 
 func _expect(label: String, actual: Variant, expected: Variant) -> void:

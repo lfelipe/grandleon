@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<iso_project>
+    <track type="data">
+        <identifiers
+            system="PLAYSTATION"
+            volume="GRANDLEON_MIPSYNC"
+            volume_set="GRANDLEON_MIPSYNC"
+            publisher="GRANDLEON"
+            data_preparer="GRANDLEON"
+            application="PLAYSTATION"
+            copyright="SYSTEM.CNF;1"
+        />
+        <directory_tree>
+            <file name="SYSTEM.CNF" type="data" source="${PROJECT_SOURCE_DIR}/system.cnf" />
+            <file name="PSX.EXE" type="data" source="grandleon_mipsync.exe" />
+            <file name="SPLEEN.TXT" type="data" source="${GRANDLEON_SOURCE_ROOT}/assets/fonts/spleen/LICENSE" />
+            <dummy sectors="1024" />
+        </directory_tree>
+    </track>
+    <track type="audio" source="${PROJECT_SOURCE_DIR}/music/cedar_overture.wav"><pregap duration="00:02:00" /></track>
+    <track type="audio" source="${PROJECT_SOURCE_DIR}/music/banners_afar.wav"><pregap duration="00:02:00" /></track>
+    <track type="audio" source="${PROJECT_SOURCE_DIR}/music/willow_village.wav"><pregap duration="00:02:00" /></track>
+    <track type="audio" source="${PROJECT_SOURCE_DIR}/music/stone_and_shadow.wav"><pregap duration="00:02:00" /></track>
+    <track type="audio" source="${PROJECT_SOURCE_DIR}/music/drums_at_the_gate.wav"><pregap duration="00:02:00" /></track>
+    <track type="audio" source="${PROJECT_SOURCE_DIR}/music/first_light.wav"><pregap duration="00:02:00" /></track>
+</iso_project>
+

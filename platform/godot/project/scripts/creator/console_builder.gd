@@ -3,6 +3,7 @@ class_name ConsoleBuilder
 extends RefCounted
 
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
+const CampaignReadiness = preload("res://scripts/creator/campaign_readiness.gd")
 const FORMAT := "grandleon-console-builder"
 const INVENTORY_FORMAT := "grandleon-console-builder-inventory"
 const RESULT_FORMAT := "grandleon-console-build-result"
@@ -139,7 +140,7 @@ func active_target() -> String:
 	return str(_active.get("target", ""))
 
 
-func start(target: String, project_id: String) -> Dictionary:
+func start(target: String, project_id: String, campaign_id := "") -> Dictionary:
 	if busy():
 		return _failure("builder_busy", "A console build is already running.")
 	var available := availability(target)
@@ -150,6 +151,32 @@ func start(target: String, project_id: String) -> Dictionary:
 	var loaded: Dictionary = library.load_source(project_id)
 	if not loaded.ok:
 		return loaded
+	var project: Dictionary = loaded.project
+	var campaigns: Array = project.get("campaigns", [])
+	var selected_index := -1
+	if not campaign_id.is_empty():
+		for index in campaigns.size():
+			if campaigns[index] is Dictionary and str(campaigns[index].get("id", "")) == campaign_id:
+				selected_index = index
+				break
+	elif campaigns.size() == 1 and campaigns[0] is Dictionary:
+		selected_index = 0
+	elif campaigns.size() > 1:
+		return _failure(
+			"campaign_selection_required",
+			"Choose which campaign this console game should start."
+		)
+	if selected_index < 0:
+		return _failure(
+			"campaign_not_found" if not campaign_id.is_empty() else "campaign_missing",
+			"The selected campaign is no longer available." if not campaign_id.is_empty() else "Add a playable campaign before building a console game."
+		)
+	campaign_id = str(campaigns[selected_index].get("id", ""))
+	if campaign_id.is_empty():
+		return _failure("campaign_missing", "The selected campaign needs an ID.")
+	var ready := CampaignReadiness.playable_export(project, campaign_id)
+	if not ready.ok:
+		return ready
 	var checked: Dictionary = compiler.compile_source_json(str(loaded.source))
 	if not checked.ok:
 		return {
@@ -166,7 +193,14 @@ func start(target: String, project_id: String) -> Dictionary:
 		return _failure("export_stage_failed", "The console build could not be staged.")
 	var source_path := request_root.path_join("project.json")
 	var request_path := request_root.path_join("request.json")
-	if not _write_text(source_path, str(loaded.source)):
+	var staged_project: Dictionary = project.duplicate(true)
+	var staged_campaigns: Array = staged_project.get("campaigns", []).duplicate(true)
+	if selected_index > 0:
+		var selected: Variant = staged_campaigns.pop_at(selected_index)
+		staged_campaigns.push_front(selected)
+		staged_project["campaigns"] = staged_campaigns
+	var staged_source := JSON.stringify(_integer_numbers(staged_project), "  ", true) + "\n"
+	if not _write_text(source_path, staged_source):
 		_remove_tree(request_root)
 		return _failure("write_failed", "The console project could not be staged.")
 	var request := {
@@ -174,13 +208,13 @@ func start(target: String, project_id: String) -> Dictionary:
 		"contractVersion": CONTRACT_VERSION,
 		"target": target,
 		"builderVersion": str(available.version),
+		"campaign": campaign_id,
 		"source": "project.json",
 		"output": "output",
 	}
 	if not _write_text(request_path, JSON.stringify(request, "  ", true) + "\n"):
 		_remove_tree(request_root)
 		return _failure("write_failed", "The console build request could not be staged.")
-	var project: Dictionary = loaded.project
 	var game_id := str(project.get("gameId", "game"))
 	var arguments: Array[String] = available.arguments.duplicate()
 	arguments.append_array([
@@ -194,6 +228,7 @@ func start(target: String, project_id: String) -> Dictionary:
 		"request_root": request_root,
 		"output_root": output_root,
 		"game_id": game_id,
+		"campaign": campaign_id,
 		"private_markers": [
 			library.root_path,
 			builders_root,
@@ -214,6 +249,22 @@ func start(target: String, project_id: String) -> Dictionary:
 		"target": target,
 		"message": "%s BUILD STARTED" % _target_name(target).to_upper(),
 	}
+
+
+func _integer_numbers(value: Variant) -> Variant:
+	if value is Dictionary:
+		var object: Dictionary = {}
+		for key: Variant in value:
+			object[key] = _integer_numbers(value[key])
+		return object
+	if value is Array:
+		var array: Array = []
+		for entry: Variant in value:
+			array.append(_integer_numbers(entry))
+		return array
+	if value is float and value == floor(value):
+		return int(value)
+	return value
 
 
 func poll() -> Dictionary:

@@ -17,9 +17,8 @@
 
 // Every board the shipped campaign fights, as the compiler builds it.
 //
-// The browser builds the same six from the same `project.json` with no package
-// compiler in between, and `editor/src/domain/tarnholt-conformance.test.ts`
-// asserts these same numbers. Agreement says both roads derive the same
+// Godot builds the same six from the same `project.json`, and its creator smoke
+// tests assert these numbers. Agreement says both roads derive the same
 // identities, stats, placements and terrain; a disagreement says one of them
 // has quietly grown its own idea of what the content means.
 //
@@ -30,8 +29,7 @@
 // who can be talked to, a board won by clearing it, a deployment region with
 // two waves arriving behind it, and the Marshal the last Stage is decided by.
 // Nothing compared the two pipelines on any of that, and the first thing this
-// test found when it was written was that the browser could not build the last
-// Stage at all: it matched an objective's target on the placement's own id
+// original disagreement was an objective target matched on the placement's id
 // where the compiler matches on the member's, so `keep_mirea_alive` on a board
 // that fields Captain Mirea as `dawn_commander_coldgate` resolved to nobody.
 //

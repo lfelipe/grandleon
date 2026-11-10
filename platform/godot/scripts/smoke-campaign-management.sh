@@ -41,13 +41,29 @@ cleanup() {
     cmake -E rm -rf "${state_dir}"
 }
 trap cleanup EXIT
-mkdir -p "${state_dir}/data" "${state_dir}/config" "${state_dir}/cache"
+mkdir -p \
+    "${state_dir}/data" "${state_dir}/config" "${state_dir}/cache" \
+    "${state_dir}/name-substitution/data" \
+    "${state_dir}/name-substitution/config" \
+    "${state_dir}/name-substitution/cache"
 
 XDG_DATA_HOME="${state_dir}/data" \
 XDG_CONFIG_HOME="${state_dir}/config" \
 XDG_CACHE_HOME="${state_dir}/cache" \
-    timeout 60s "${godot_binary}" --editor --headless --quiet \
-    --path "${stage_dir}" --quit
+    timeout 60s "${godot_binary}" --headless --quiet --import \
+    --path "${stage_dir}"
+
+XDG_DATA_HOME="${state_dir}/data" \
+XDG_CONFIG_HOME="${state_dir}/config" \
+XDG_CACHE_HOME="${state_dir}/cache" \
+    timeout 60s "${godot_binary}" --headless --path "${stage_dir}" \
+    --script "${repo_root}/platform/godot/tests/campaign_manager_test.gd"
+
+XDG_DATA_HOME="${state_dir}/name-substitution/data" \
+XDG_CONFIG_HOME="${state_dir}/name-substitution/config" \
+XDG_CACHE_HOME="${state_dir}/name-substitution/cache" \
+    timeout 60s "${godot_binary}" --headless --path "${stage_dir}" \
+    --script "${repo_root}/platform/godot/tests/campaign_name_substitution_test.gd"
 
 set +e
 output="$({
@@ -73,7 +89,7 @@ if ! grep -Fq \
     printf 'company management did not complete every portable gesture\n' >&2
     exit 1
 fi
-mapfile -t saves < <(find "${state_dir}" -type f -name '*.gls' -print)
+mapfile -t saves < <(find "${state_dir}/data" -type f -name '*.gls' -print)
 if [[ "${#saves[@]}" -ne 1 || ! -s "${saves[0]}" ]]; then
     printf 'company management did not persist its gestures\n' >&2
     exit 1

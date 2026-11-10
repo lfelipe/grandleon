@@ -2,7 +2,9 @@
 #include <grandleon/client/turn_client.hpp>
 
 #include <grandleon/client/attack_gesture.hpp>
+#include <grandleon/client/console_localization.hpp>
 #include <grandleon/package_runtime/dialogue.hpp>
+#include <grandleon/package_runtime/localization.hpp>
 #include <grandleon/sheet/unit_sheet.hpp>
 
 #ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
@@ -14,6 +16,7 @@
 
 namespace grandleon::client::turn {
 namespace sheet = grandleon::sheet;
+namespace console = grandleon::client::console_localization;
 
 namespace {
 
@@ -26,6 +29,11 @@ public:
     Text& text(const char* value) noexcept {
         if (value == nullptr) return *this;
         while (*value != '\0') push(*value++);
+        return *this;
+    }
+
+    Text& text(std::string_view value) noexcept {
+        for (const char character : value) push(character);
         return *this;
     }
 
@@ -108,7 +116,97 @@ void copy_line(char* out, std::size_t capacity, const char* text) noexcept {
     out[i] = '\0';
 }
 
+#ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
+// Copy text explicitly so this compact client remains friendly to freestanding
+// C++ libraries without relying on hosted lvalue string-copy symbols.
+void copy_roster_entry(
+    client::RosterEntry& target, const client::RosterEntry& source
+) {
+    target.member = source.member;
+    target.placement_source_key = source.placement_source_key;
+    target.name.assign(source.name.data(), source.name.size());
+    target.unit_type = source.unit_type;
+    target.availability = source.availability;
+    target.progression = source.progression;
+    target.carried = source.carried;
+    target.authored_name.assign(
+        source.authored_name.data(), source.authored_name.size()
+    );
+    target.player_nameable = source.player_nameable;
+    target.has_player_name = source.has_player_name;
+}
+
+void copy_campaign_roster(
+    std::vector<client::RosterEntry>& target,
+    const std::vector<client::RosterEntry>& source
+) {
+    target.clear();
+    target.reserve(source.size());
+    for (const client::RosterEntry& member : source) {
+        target.emplace_back();
+        copy_roster_entry(target.back(), member);
+    }
+}
+
+void merge_campaign_roster(
+    std::vector<client::RosterEntry>& target,
+    const std::vector<client::RosterEntry>& additions
+) {
+    for (const client::RosterEntry& arrival : additions) {
+        client::RosterEntry* destination = nullptr;
+        for (client::RosterEntry& member : target) {
+            if (member.member == arrival.member) destination = &member;
+        }
+        if (destination == nullptr) {
+            target.emplace_back();
+            destination = &target.back();
+        }
+        copy_roster_entry(*destination, arrival);
+    }
+}
+
+void localize_campaign_roster(
+    std::vector<client::RosterEntry>& roster,
+    const grandleon::package_format::LoadedPackage* package,
+    std::string_view language,
+    std::uint64_t campaign_id
+) {
+    if (package == nullptr || language.empty() || campaign_id == 0U) return;
+    for (client::RosterEntry& member : roster) {
+        if (member.has_player_name) continue;
+        const std::string_view source = member.authored_name.empty()
+            ? std::string_view(member.name)
+            : std::string_view(member.authored_name);
+        const std::string_view shown = pr::localized_campaign_member_name(
+            *package, language, campaign_id, member.placement_source_key,
+            source
+        );
+        member.name.assign(shown.data(), shown.size());
+    }
+}
+#endif
+
 }  // namespace
+
+void TurnClient::set_language(std::string_view selected) noexcept {
+    if (selected.empty() && package_ != nullptr) {
+        selected = package_runtime::source_language(*package_);
+    }
+    if (selected.empty()) selected = "en";
+    std::size_t length = 0;
+    while (length + 1U < sizeof language_ && length < selected.size()) {
+        language_[length] = selected[length];
+        ++length;
+    }
+    language_[length] = '\0';
+}
+
+void TurnClient::set_package(
+    const grandleon::package_format::LoadedPackage* package
+) noexcept {
+    package_ = package;
+    set_language({});
+}
 
 const char* reason_name(Reason reason) noexcept {
     switch (reason) {
@@ -343,7 +441,9 @@ void TurnClient::checkpoint(const sim::EncounterSnapshot& snapshot, Reason reaso
             // class for them. Absent rather than blank for a fixture that has
             // none, on the terms every optional line here keeps.
             const sheet::ContentName kind =
-                sheet::class_name(package_, hovered->unit_type_id);
+                sheet::class_name(
+                    package_, hovered->unit_type_id, language(), text_encoding()
+                );
             if (kind.text[0] != '\0') {
                 Text line;
                 line.text("FACT hoverclass ").text(kind.c_str());
@@ -443,7 +543,27 @@ void TurnClient::present_dialogue(const package_runtime::Dialogue& dialogue) {
     //
     // What it costs is presses: a five-line scene is five pages where it was
     // two. What it buys is that every page names and shows exactly one person.
-    for (const package_runtime::DialogueLine& spoken : dialogue.lines) {
+    for (std::size_t line_index = 0; line_index < dialogue.lines.size();
+         ++line_index) {
+        const package_runtime::DialogueLine& spoken = dialogue.lines[line_index];
+        const std::string_view authored_speaker = package_ != nullptr
+            ? package_runtime::localized_dialogue_line(
+                  *package_, language(), dialogue.id, line_index, "speaker",
+                  spoken.speaker
+              )
+            : std::string_view(spoken.speaker);
+        const std::string_view authored_text = package_ != nullptr
+            ? package_runtime::localized_dialogue_line(
+                  *package_, language(), dialogue.id, line_index, "text",
+                  spoken.text
+              )
+            : std::string_view(spoken.text);
+        const std::string speaker = substitute_campaign_member_names(
+            authored_speaker, campaign_roster_
+        );
+        const std::string text = substitute_campaign_member_names(
+            authored_text, campaign_roster_
+        );
         begin_page();
         // Set after the page is begun, because `begin_page` clears both: a
         // backdrop belongs to the scene and a speaker to the saying, and
@@ -461,9 +581,12 @@ void TurnClient::present_dialogue(const package_runtime::Dialogue& dialogue) {
         // `push_wrapped`, which is the one break a page per saying cannot make
         // unnecessary.
         push_wrapped(
-            spoken.speaker.c_str(), spoken.text.c_str(), dialogue.backdrop
+            speaker.c_str(), text.c_str(), dialogue.backdrop
         );
-        hold_page(Screen::story, "A  GO ON");
+        hold_page(
+            Screen::story,
+            console::text(language(), console::Message::go_on)
+        );
     }
 #endif
 }
@@ -801,9 +924,10 @@ void TurnClient::battle_definitions(
     weapons_ = weapons;
     abilities_ = abilities;
     items_ = items;
-    // How many rounds this board is won by surviving, and zero where nothing
-    // on it is. That is every board this client has ever been handed, and is
-    // why the status row it feeds says exactly what it always said.
+    // Console objective presentation is derived from kind and bound targets:
+    // the status row shows this survive count and unit UI uses roster names.
+    // It never draws an authored objective label, so there is no label text to
+    // substitute here.
     rounds_to_survive_ = sheet::rounds_to_survive(objectives);
 }
 
@@ -1033,11 +1157,13 @@ sheet::ContentName TurnClient::character_called(
     // shared with every other client.
     if (board_ != nullptr) {
         member = client::member_name_on_board(
-            board_->binding, board_->roster, unit
+            board_->binding, campaign_roster_, unit
         );
     }
 #endif
-    return sheet::character_name(package_, snapshot, unit, member);
+    return sheet::character_name(
+        package_, snapshot, unit, member, language(), text_encoding()
+    );
 }
 
 view::AttackGesture TurnClient::gesture_for(
@@ -1774,7 +1900,9 @@ void TurnClient::build_overlay(const sim::EncounterSnapshot& snapshot) {
             );
             copy_line(
                 hovered_class_, sizeof hovered_class_,
-                sheet::class_name(package_, hovered->unit_type_id).c_str()
+                sheet::class_name(
+                    package_, hovered->unit_type_id, language(), text_encoding()
+                ).c_str()
             );
         }
     }
@@ -2141,7 +2269,7 @@ void TurnClient::open_menu(
         )) {
         MenuChoice& walk = menu_[menu_rows_++];
         walk = MenuChoice{};
-        walk.label = "WALK";
+        walk.label = console::text(language(), console::Message::walk);
         walk.move = true;
     }
     if (actor.weapon_ids.size() >= 2) {
@@ -2149,21 +2277,35 @@ void TurnClient::open_menu(
              i < actor.weapon_ids.size() && menu_rows_ < offered; ++i) {
             MenuChoice& row = menu_[menu_rows_++];
             row = MenuChoice{};
-            row.label = sheet::weapon_name(actor.weapon_ids[i]);
+            copy_line(
+                content_labels_[menu_rows_ - 1],
+                sizeof content_labels_[menu_rows_ - 1],
+                sheet::weapon_name(
+                    package_, actor.weapon_ids[i], language(), text_encoding()
+                ).c_str()
+            );
+            row.label = content_labels_[menu_rows_ - 1];
             row.attack = true;
         row.content = i == 0 ? 0 : actor.weapon_ids[i];
         }
     } else {
         MenuChoice& row = menu_[menu_rows_++];
         row = MenuChoice{};
-        row.label = "ATTACK";
+        row.label = console::text(language(), console::Message::attack);
         row.attack = true;
     }
     for (std::size_t i = 0;
          i < actor.ability_ids.size() && menu_rows_ < offered; ++i) {
         MenuChoice& row = menu_[menu_rows_++];
         row = MenuChoice{};
-        row.label = sheet::ability_name(actor.ability_ids[i]);
+        copy_line(
+            content_labels_[menu_rows_ - 1],
+            sizeof content_labels_[menu_rows_ - 1],
+            sheet::ability_name(
+                package_, actor.ability_ids[i], language(), text_encoding()
+            ).c_str()
+        );
+        row.label = content_labels_[menu_rows_ - 1];
         row.cast = true;
         row.content = actor.ability_ids[i];
     }
@@ -2179,7 +2321,9 @@ void TurnClient::open_menu(
         row = MenuChoice{};
         char* label = item_labels_[i];
         Text text;
-        text.text(sheet::item_name(actor.item_ids[i]))
+        text.text(sheet::item_name(
+                package_, actor.item_ids[i], language(), text_encoding()
+            ).c_str())
             .text(" x")
             .number(static_cast<std::int32_t>(actor.item_counts[i]));
         std::size_t j = 0;
@@ -2208,7 +2352,7 @@ void TurnClient::open_menu(
     if (menu_rows_ < offered && any_talkable_neighbour(snapshot, actor)) {
         MenuChoice& talk = menu_[menu_rows_++];
         talk = MenuChoice{};
-        talk.label = "TALK";
+        talk.label = console::text(language(), console::Message::talk);
         talk.talk = true;
     }
     // It says END CHARACTER TURN and not WAIT. WAIT is the genre's word and it
@@ -2218,15 +2362,17 @@ void TurnClient::open_menu(
     // row names the scope it ends, and the two differ on exactly that word.
     MenuChoice& wait = menu_[menu_rows_++];
     wait = MenuChoice{};
-    wait.label = "END CHARACTER TURN";
+    wait.label = console::text(
+        language(), console::Message::end_character_turn
+    );
     wait.wait = true;
     MenuChoice& info = menu_[menu_rows_++];
     info = MenuChoice{};
-    info.label = "INFO";
+    info.label = console::text(language(), console::Message::info);
     info.info = true;
     MenuChoice& cancel = menu_[menu_rows_++];
     cancel = MenuChoice{};
-    cancel.label = "CANCEL";
+    cancel.label = console::text(language(), console::Message::cancel);
     cancel.cancel = true;
     menu_open_ = true;
 }
@@ -2274,7 +2420,7 @@ void TurnClient::open_board_menu() {
     menu_row_ = 0;
     MenuChoice& back = menu_[menu_rows_++];
     back = MenuChoice{};
-    back.label = "BACK TO BATTLE";
+    back.label = console::text(language(), console::Message::back_to_battle);
     back.cancel = true;
     // The side, by the name its own status line spells across the top of the
     // screen. A player reading YOUR TURN there is being offered the end of that
@@ -2286,8 +2432,11 @@ void TurnClient::open_board_menu() {
     // ask which side that is: it is theirs either way.
     MenuChoice& side = menu_[menu_rows_++];
     side = MenuChoice{};
-    side.label = active_local_player_ == 0 ? "END PLAYER 1 TURN"
-                                           : "END PLAYER 2 TURN";
+    side.label = console::text(
+        language(), active_local_player_ == 0
+            ? console::Message::end_player_1_turn
+            : console::Message::end_player_2_turn
+    );
     side.wait = true;
     // What leaving costs, in the row rather than behind it. A battle in
     // progress is not written anywhere. A save on these machines holds a
@@ -2298,7 +2447,17 @@ void TurnClient::open_board_menu() {
     // board is not", which is what this row says in the words it has.
     MenuChoice& leave = menu_[menu_rows_++];
     leave = MenuChoice{};
-    leave.label = "LEAVE - THIS BATTLE IS NOT KEPT";
+    leave.label = console::text(language(), console::Message::leave_battle);
+    if (offers_fps_display()) {
+        MenuChoice& fps = menu_[menu_rows_++];
+        fps = MenuChoice{};
+        fps.label = console::text(
+            language(), fps_display_visible()
+                ? console::Message::show_fps_on
+                : console::Message::show_fps_off
+        );
+        fps.fps = true;
+    }
 #ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
     // And the Stage picker, when there is one. The row exists exactly when the
     // session handed this board a list of Stages, which it does only in a build
@@ -2312,7 +2471,9 @@ void TurnClient::open_board_menu() {
     if (board_ != nullptr && !board_->stages.empty()) {
         MenuChoice& jump = menu_[menu_rows_++];
         jump = MenuChoice{};
-        jump.label = "GO TO ANOTHER STAGE - TESTING";
+        jump.label = console::text(
+            language(), console::Message::another_stage_testing
+        );
         jump.stage = true;
     }
 #endif
@@ -2334,6 +2495,10 @@ void TurnClient::commit_board_row(const sim::EncounterSnapshot& snapshot) {
     board_menu_open_ = false;
     menu_rows_ = 0;
     if (row.cancel) return;
+    if (row.fps) {
+        set_fps_display_visible(!fps_display_visible());
+        return;
+    }
     if (row.wait) {
         // Every character on this side that still owes the board an activation
         // is finished, one `wait` at a time, by `drain_side`. Nothing is
@@ -2420,7 +2585,8 @@ void TurnClient::commit_menu_row(const sim::EncounterSnapshot& snapshot) {
         // all: who this is comes from the one resolver every client asks.
         sheet_ = sheet::build(
             snapshot, *actor, character_called(snapshot, selected_).c_str(),
-            weapons_, abilities_, items_, nullptr, package_
+            weapons_, abilities_, items_, nullptr, package_, language(),
+            text_encoding()
         );
         sheet_open_ = true;
         return;
@@ -2451,7 +2617,9 @@ void TurnClient::commit_menu_row(const sim::EncounterSnapshot& snapshot) {
         aim_ = Aim::walk;
         aim_ability_ = 0;
         aim_weapon_ = 0;
-        write_aim_text("WALK WHERE", nullptr);
+        write_aim_text(
+            console::text(language(), console::Message::walk_where), nullptr
+        );
         return;
     }
     if (row.talk) {
@@ -2466,7 +2634,9 @@ void TurnClient::commit_menu_row(const sim::EncounterSnapshot& snapshot) {
         aim_ = Aim::talk;
         aim_ability_ = 0;
         aim_weapon_ = 0;
-        write_aim_text("TALK TO WHOM", nullptr);
+        write_aim_text(
+            console::text(language(), console::Message::talk_to_whom), nullptr
+        );
         return;
     }
     if (row.cast) {
@@ -2485,7 +2655,9 @@ void TurnClient::commit_menu_row(const sim::EncounterSnapshot& snapshot) {
     if (row.content != 0) {
         write_aim_text("STRIKE WITH ", row.label);
     } else {
-        write_aim_text("PICK A TARGET", nullptr);
+        write_aim_text(
+            console::text(language(), console::Message::pick_target), nullptr
+        );
     }
 }
 
@@ -2607,7 +2779,7 @@ const sim::UnitSnapshot* TurnClient::unit_by_id(
 // and every consequence of a battle arrive from the session exactly as
 // `campaign_runtime` derived them, and this arranges them into forty-column
 // lines. That is the same division the board already keeps, and it is why the
-// terminal, the browser, the Nintendo 64 and this machine can never disagree
+// terminal, Godot, the Nintendo 64 and this machine can never disagree
 // about what a campaign holds.
 // ---------------------------------------------------------------------------
 
@@ -2623,12 +2795,18 @@ namespace {
 // reachable only through `record_permanent_death`, which only a campaign playing
 // under the permanent rule ever commits, so this row is never the softer of the
 // two and must never be worded as though it might be.
-[[nodiscard]] const char* availability_word(campaign::Availability where) noexcept {
+[[nodiscard]] const char* availability_word(
+    campaign::Availability where, std::string_view language
+) noexcept {
     switch (where) {
-        case campaign::Availability::unrecruited: return "AWAY";
-        case campaign::Availability::available: return "FIELD";
-        case campaign::Availability::retired: return "BENCH";
-        case campaign::Availability::dead: return "LOST";
+        case campaign::Availability::unrecruited:
+            return console::text(language, console::Message::away);
+        case campaign::Availability::available:
+            return console::text(language, console::Message::field);
+        case campaign::Availability::retired:
+            return console::text(language, console::Message::bench);
+        case campaign::Availability::dead:
+            return console::text(language, console::Message::lost);
     }
     return "?";
 }
@@ -2693,7 +2871,24 @@ namespace {
 // so a company row's fields line up under each other without a format string.
 // `snprintf` would be a second implementation of a line the host and the
 // console have to agree about character for character.
-void push_padded(Text& into, const char* text, int width) noexcept {
+void push_padded(
+    Text& into, const char* text, int width,
+    sheet::TextEncoding encoding = sheet::TextEncoding::ascii_console
+) noexcept {
+    if (encoding == sheet::TextEncoding::latin_utf8) {
+        std::size_t source_bytes = 0U;
+        while (text != nullptr && text[source_bytes] != '\0') ++source_bytes;
+        char folded[page_storage_bytes + 1]{};
+        const sheet::TextCopy copied = sheet::copy_latin_text(
+            folded, sizeof folded, text, source_bytes,
+            static_cast<std::size_t>(width)
+        );
+        into.text(folded);
+        for (int i = static_cast<int>(copied.glyphs); i < width; ++i) {
+            into.space();
+        }
+        return;
+    }
     int written = 0;
     for (; text != nullptr && text[written] != '\0' && written < width;
          ++written) {
@@ -2714,6 +2909,7 @@ const char* screen_name(Screen screen) noexcept {
         case Screen::story: return "story";
         case Screen::company: return "company";
         case Screen::member: return "member";
+        case Screen::name: return "name";
         case Screen::aftermath: return "aftermath";
         case Screen::refusal: return "refusal";
         case Screen::joined: return "joined";
@@ -2755,6 +2951,22 @@ void TurnClient::begin_page() {
 void TurnClient::push_line(const char* text, int limit) {
     if (page_.count >= page_capacity) return;
     char* into = page_.lines[page_.count];
+    if (text_encoding() == sheet::TextEncoding::latin_utf8) {
+        std::size_t source_bytes = 0U;
+        while (text != nullptr && text[source_bytes] != '\0' &&
+               (limit < 0 || source_bytes < static_cast<std::size_t>(limit))) {
+            ++source_bytes;
+        }
+        const sheet::TextCopy copied = sheet::copy_latin_text(
+            into, static_cast<std::size_t>(page_storage_bytes + 1), text,
+            source_bytes, static_cast<std::size_t>(page_columns)
+        );
+        std::size_t length = copied.bytes;
+        while (length > 0U && into[length - 1U] == ' ') --length;
+        into[length] = '\0';
+        ++page_.count;
+        return;
+    }
     int length = 0;
     for (int i = 0; text != nullptr && (limit < 0 || i < limit) &&
                     text[i] != '\0' && length < page_columns;
@@ -2788,7 +3000,10 @@ void TurnClient::push_story_line(
     const char* text, int length, std::uint8_t backdrop
 ) {
     if (page_.count >= page_capacity) {
-        hold_page(Screen::story, "A  GO ON");
+        hold_page(
+            Screen::story,
+            console::text(language(), console::Message::go_on)
+        );
         begin_page();
         // A backdrop belongs to the scene, and `begin_page` cleared it. A
         // continuation page that dropped it would change the picture halfway
@@ -2803,7 +3018,47 @@ void TurnClient::push_story_line(
     push_line(text, length);
 }
 
-int wrapped_rows(const char* text) noexcept {
+int wrapped_rows(const char* text, sheet::TextEncoding encoding) noexcept {
+    if (encoding == sheet::TextEncoding::latin_utf8) {
+        int rows = 0;
+        int column = 0;
+        int word = 0;
+        std::size_t at = 0U;
+        for (;;) {
+            const char value = text != nullptr ? text[at] : '\0';
+            if (value != ' ' && value != '\0') {
+                std::size_t available = 0U;
+                while (available < 4U && text[at + available] != '\0') {
+                    ++available;
+                }
+                const std::size_t bytes =
+                    sheet::utf8_source_glyph_bytes(text + at, available);
+                at += bytes == 0U ? 1U : bytes;
+                ++word;
+                continue;
+            }
+            if (word > 0) {
+                if (column > 0 && column + 1 + word > page_columns) {
+                    ++rows;
+                    column = 0;
+                }
+                if (column == 0) {
+                    while (word > page_columns) {
+                        ++rows;
+                        word -= page_columns;
+                    }
+                    column = word;
+                } else {
+                    column += 1 + word;
+                }
+                word = 0;
+            }
+            if (value == '\0') break;
+            ++at;
+        }
+        if (column > 0) ++rows;
+        return rows == 0 ? 1 : rows;
+    }
     int rows = 0;
     int column = 0;
     int word = 0;
@@ -2862,6 +3117,82 @@ void TurnClient::push_wrapped(
         Text who;
         who.text(speaker).text(":");
         push_story_line(who.c_str(), -1, backdrop);
+    }
+    if (text_encoding() == sheet::TextEncoding::latin_utf8) {
+        char row[page_storage_bytes + 1]{};
+        std::size_t row_bytes = 0U;
+        int row_columns = 0;
+        std::size_t at = 0U;
+        std::size_t word_start = 0U;
+        std::size_t word_bytes = 0U;
+        int word_columns = 0;
+        for (;;) {
+            const char value = text != nullptr ? text[at] : '\0';
+            if (value != ' ' && value != '\0') {
+                if (word_columns == 0) word_start = at;
+                std::size_t available = 0U;
+                while (available < 4U && text[at + available] != '\0') {
+                    ++available;
+                }
+                std::size_t bytes =
+                    sheet::utf8_source_glyph_bytes(text + at, available);
+                if (bytes == 0U) bytes = 1U;
+                word_bytes += bytes;
+                ++word_columns;
+                at += bytes;
+                continue;
+            }
+            if (word_columns > 0) {
+                if (row_columns > 0 &&
+                    row_columns + 1 + word_columns > page_columns) {
+                    row[row_bytes] = '\0';
+                    push_story_line(row, -1, backdrop);
+                    row_bytes = 0U;
+                    row_columns = 0;
+                }
+                if (row_columns == 0) {
+                    while (word_columns > page_columns) {
+                        std::size_t chunk_bytes = 0U;
+                        for (int glyph = 0; glyph < page_columns; ++glyph) {
+                            std::size_t available = word_bytes - chunk_bytes;
+                            if (available > 4U) available = 4U;
+                            std::size_t bytes = sheet::utf8_source_glyph_bytes(
+                                text + word_start + chunk_bytes, available
+                            );
+                            if (bytes == 0U) bytes = 1U;
+                            chunk_bytes += bytes;
+                        }
+                        push_story_line(
+                            text + word_start,
+                            static_cast<int>(chunk_bytes), backdrop
+                        );
+                        word_start += chunk_bytes;
+                        word_bytes -= chunk_bytes;
+                        word_columns -= page_columns;
+                    }
+                } else {
+                    row[row_bytes++] = ' ';
+                    ++row_columns;
+                }
+                const sheet::TextCopy copied = sheet::copy_latin_text(
+                    row + row_bytes,
+                    static_cast<std::size_t>(page_storage_bytes + 1) - row_bytes,
+                    text + word_start, word_bytes,
+                    static_cast<std::size_t>(word_columns)
+                );
+                row_bytes += copied.bytes;
+                row_columns += word_columns;
+                word_bytes = 0U;
+                word_columns = 0;
+            }
+            if (value == '\0') break;
+            ++at;
+        }
+        if (row_bytes > 0U) {
+            row[row_bytes] = '\0';
+            push_story_line(row, -1, backdrop);
+        }
+        return;
     }
     // The row under construction. It never holds more than a row, because
     // nothing is put in it until it is known to fit.
@@ -2984,10 +3315,13 @@ void TurnClient::compose_company(
         const client::RosterEntry& member =
             roster[static_cast<std::size_t>(index)];
         Text row;
-        push_padded(row, member.name.c_str(), 15);
+        push_padded(row, member.name.c_str(), 15, text_encoding());
         row.text("L").number(static_cast<std::int32_t>(member.progression.level));
         row.space();
-        push_padded(row, availability_word(member.availability), 7);
+        push_padded(
+            row, availability_word(member.availability, language()), 7,
+            text_encoding()
+        );
         row.text("KIT ").number(
             static_cast<std::int32_t>(carried_total(member.carried))
         );
@@ -2999,9 +3333,12 @@ void TurnClient::compose_company(
     // rather than one that says NO LIMIT.
     if (company != nullptr && company->capacity != 0U) {
         Text counted;
-        counted.text("FIELDED ")
+        counted.text(console::text(language(), console::Message::fielded))
+            .text(" ")
             .number(static_cast<std::int32_t>(company->fielded.size()))
-            .text(" OF ")
+            .text(" ")
+            .text(console::text(language(), console::Message::of_word))
+            .text(" ")
             .number(static_cast<std::int32_t>(company->capacity));
         push_line(counted.c_str());
     }
@@ -3024,7 +3361,9 @@ void TurnClient::compose_company(
     shelf.top = 0;
     {
         Text line;
-        line.text("THE COMPANY'S STORE");
+        line.text(console::text(
+            language(), console::Message::company_store
+        ));
         char legend[view::scroll_legend_size];
         if (view::scroll_legend(shelf, legend, sizeof legend) > 0) {
             line.text("  ").text(legend);
@@ -3032,14 +3371,22 @@ void TurnClient::compose_company(
         push_line(line.c_str());
     }
     if (store.empty()) {
-        push_line("NOTHING BUT WHAT THEY CARRY");
+        push_line(console::text(
+            language(), console::Message::nothing_but_carry
+        ));
         return;
     }
     for (int index = shelf.top; index < shelf.end(); ++index) {
         const campaign::InventoryStack& stack =
             store[static_cast<std::size_t>(index)];
         Text row;
-        push_padded(row, sheet::item_name(stack.item.stable_id), 20);
+        push_padded(
+            row,
+            sheet::item_name(
+                package_, stack.item.stable_id, language(), text_encoding()
+            ).c_str(),
+            20, text_encoding()
+        );
         row.text("X").number(static_cast<std::int32_t>(stack.quantity));
         push_line(row.c_str());
     }
@@ -3056,8 +3403,15 @@ void TurnClient::compose_company(
 void TurnClient::compose_member_menu(
     const client::CompanyManagement& company, int row
 ) {
-    const client::RosterEntry& member =
+    const client::RosterEntry& source_member =
         company.roster[static_cast<std::size_t>(row)];
+    const client::RosterEntry* effective_member = &source_member;
+    for (const client::RosterEntry& candidate : campaign_roster_) {
+        if (candidate.member == source_member.member) {
+            effective_member = &candidate;
+        }
+    }
+    const client::RosterEntry& member = *effective_member;
     // The page first, because `begin_page` is also what empties the verb list:
     // building the rows and then clearing them would be a menu with nothing in
     // it and a caret that could still be moved.
@@ -3089,22 +3443,37 @@ void TurnClient::compose_member_menu(
         choice.item = item;
     };
 
+    if (member.player_nameable) {
+        add(
+            console::text(
+                language(), member.has_player_name
+                    ? console::Message::change_name
+                    : console::Message::choose_name
+            ),
+            client::ManagementVerb::rename, {}
+        );
+    }
     if (actionable) {
         // The row stays offered when the board is full, because taking it is
         // how a player is told why, and a row that vanished would leave the
         // page saying nothing about the one member it concerns.
         const bool full = !fielded && field_is_full(company);
-        add(fielded ? "SIT THIS ONE OUT"
-            : full  ? "TAKE THE FIELD (FULL)"
-                    : "TAKE THE FIELD",
+        add(console::text(
+                language(), fielded ? console::Message::sit_out
+                    : full ? console::Message::take_field_full
+                           : console::Message::take_field
+            ),
             fielded ? client::ManagementVerb::bench
                     : client::ManagementVerb::field,
             {});
         for (const campaign::InventoryStack& stack : company.store) {
             if (verb_count_ + 1 >= company_menu_capacity) break;
             Text label;
-            label.text("GIVE ")
-                .text(sheet::item_name(stack.item.stable_id))
+            label.text(console::text(language(), console::Message::give))
+                .text(" ")
+                .text(sheet::item_name(
+                    package_, stack.item.stable_id, language(), text_encoding()
+                ).c_str())
                 .text(" X")
                 .number(static_cast<std::int32_t>(stack.quantity));
             add(label.c_str(), client::ManagementVerb::give, stack.item);
@@ -3112,14 +3481,20 @@ void TurnClient::compose_member_menu(
         for (const campaign::InventoryStack& stack : member.carried) {
             if (verb_count_ + 1 >= company_menu_capacity) break;
             Text label;
-            label.text("TAKE ")
-                .text(sheet::item_name(stack.item.stable_id))
+            label.text(console::text(language(), console::Message::take))
+                .text(" ")
+                .text(sheet::item_name(
+                    package_, stack.item.stable_id, language(), text_encoding()
+                ).c_str())
                 .text(" X")
                 .number(static_cast<std::int32_t>(stack.quantity));
             add(label.c_str(), client::ManagementVerb::take, stack.item);
         }
     }
-    add("CANCEL", client::ManagementVerb::none, {});
+    add(
+        console::text(language(), console::Message::cancel),
+        client::ManagementVerb::none, {}
+    );
 
     // The window over the verbs, and then the page. The rows are built before
     // any of the page is written because the legend that says how many there
@@ -3140,7 +3515,7 @@ void TurnClient::compose_member_menu(
             .text("  XP ")
             .number(static_cast<std::int32_t>(member.progression.experience))
             .text("  ")
-            .text(availability_word(member.availability))
+            .text(availability_word(member.availability, language()))
             .text("  KIT ")
             .number(static_cast<std::int32_t>(carried_total(member.carried)));
         char legend[view::scroll_legend_size];
@@ -3157,6 +3532,133 @@ void TurnClient::compose_member_menu(
     // the caret's row is the page's row.
     for (int index = list_.top; index < list_.end(); ++index) {
         push_line(verbs_[index].label);
+    }
+}
+
+// One controller keyboard, composed into the same fixed page both the host
+// tests and compact clients draw. The selected key carries its own brackets, so a
+// two-dimensional caret does not have to masquerade as the vertical list caret
+// used by company and inventory screens.
+void TurnClient::compose_name_editor(
+    const client::RosterEntry& member,
+    const client::ConsoleNameEditor& editor
+) {
+    begin_page();
+    push_line(member.name.c_str());
+    push_line(
+        editor.current_is_editable()
+            ? "EDIT OR USE THE AUTHORED DEFAULT"
+            : "CURRENT NAME IS KEPT UNTIL YOU SAVE"
+    );
+    {
+        Text draft;
+        draft.text("NAME  ").text(
+            editor.name().empty() ? "_" : editor.c_str()
+        );
+        push_line(draft.c_str());
+    }
+    push_line(editor.invalid() ? "ENTER AT LEAST ONE LETTER" : "");
+    push_line("");
+    for (int row = 0; row < client::ConsoleNameEditor::rows; ++row) {
+        char line[page_columns + 1]{};
+        int at = 0;
+        const auto append = [&line, &at](char value) {
+            if (at < page_columns) line[at++] = value;
+        };
+        const auto append_text = [&append](const char* value) {
+            for (int i = 0; value != nullptr && value[i] != '\0'; ++i) {
+                append(value[i]);
+            }
+        };
+        for (int column = 0;
+             column < client::ConsoleNameEditor::columns(row); ++column) {
+            const bool selected = row == editor.row() &&
+                                  column == editor.column();
+            const client::ConsoleNameKey key =
+                client::ConsoleNameEditor::key(row, column);
+            append(selected ? '[' : ' ');
+            append_text(key.label);
+            append(selected ? ']' : ' ');
+            append(' ');
+        }
+        line[at] = '\0';
+        push_line(line);
+    }
+}
+
+client::ConsoleNameAnswer TurnClient::edit_player_name(
+    const client::RosterEntry& member,
+    std::string& chosen_name
+) {
+    client::ConsoleNameEditor editor{member.name, member.authored_name};
+    static constexpr char footer[] =
+        "D-PAD A TYPE B ERASE C KEEP START SAVE";
+    static_assert(
+        sizeof(footer) - 1U <= footer_columns,
+        "the shared name-editor controls must fit every compact console"
+    );
+    bool dirty = true;
+    for (;;) {
+        if (dirty) {
+            compose_name_editor(member, editor);
+            const ScreenView view = view_of(Screen::name, footer);
+            paint_screen(view);
+            hold_for_checkpoint();
+            screen_checkpoint(view);
+            after_screen(view);
+            hold_for_checkpoint();
+            dirty = false;
+        }
+        if (leaving_) return client::ConsoleNameAnswer::cancel;
+        const std::uint16_t buttons = next_press();
+        if ((buttons & pad_end_of_script) != 0U) {
+            leaving_ = true;
+            return client::ConsoleNameAnswer::cancel;
+        }
+        if ((buttons & pad_c) != 0U) {
+            return client::ConsoleNameAnswer::cancel;
+        }
+        const int across = (buttons & pad_left) != 0U
+                               ? -1
+                               : (buttons & pad_right) != 0U ? 1 : 0;
+        const int down = (buttons & pad_up) != 0U
+                             ? -1
+                             : (buttons & pad_down) != 0U ? 1 : 0;
+        if (across != 0 || down != 0) {
+            editor.move(across, down);
+            dirty = true;
+        }
+        if ((buttons & pad_b) != 0U) {
+            editor.erase();
+            dirty = true;
+        }
+        client::ConsoleNameAnswer answer = client::ConsoleNameAnswer::editing;
+        if ((buttons & pad_a) != 0U) answer = editor.activate();
+        if ((buttons & pad_start) != 0U) answer = editor.save();
+        if ((buttons & (pad_a | pad_start)) != 0U) dirty = true;
+        if (answer == client::ConsoleNameAnswer::use_default) {
+            chosen_name.assign(
+                member.authored_name.data(), member.authored_name.size()
+            );
+            return answer;
+        }
+        if (answer == client::ConsoleNameAnswer::save) {
+            chosen_name.assign(editor.name().data(), editor.name().size());
+            return answer;
+        }
+    }
+}
+
+void TurnClient::queue_player_names(
+    const std::vector<client::RosterEntry>& members
+) {
+    for (const client::RosterEntry& member : members) {
+        if (!member.player_nameable || member.has_player_name) continue;
+        bool already_queued = false;
+        for (campaign::PersistentEntityId queued : pending_player_names_) {
+            if (queued == member.member) already_queued = true;
+        }
+        if (!already_queued) pending_player_names_.push_back(member.member);
     }
 }
 
@@ -3186,14 +3688,16 @@ void TurnClient::compose_stages() {
     list_top_ = list_.top;
     {
         Text line;
-        line.text("GO TO ANOTHER STAGE");
+        line.text(console::text(
+            language(), console::Message::another_stage
+        ));
         char legend[view::scroll_legend_size];
         if (view::scroll_legend(list_, legend, sizeof legend) > 0) {
             line.text("   ").text(legend);
         }
         push_line(line.c_str());
     }
-    push_line("A STAGE YOU HAVE NOT SEEN MAY NOT OPEN");
+    push_line(console::text(language(), console::Message::stage_warning));
     push_line("");
     page_first_choice_ = page_.count;
     page_choices_ = list_.shown();
@@ -3205,15 +3709,21 @@ void TurnClient::compose_stages() {
         // The author's name for the board, and the board's number when the
         // package has no name for it. A number is not much, but it is the
         // Stage's place in the flow and it is never nothing.
-        push_padded(
-            row,
-            stage.name.empty() ? "STAGE" : stage.name.c_str(),
-            28
-        );
+        const std::string_view source = stage.name.empty()
+            ? std::string_view("STAGE") : std::string_view(stage.name);
+        const std::string_view shown =
+            package_ != nullptr && campaign_id_ != 0U && !stage.name.empty()
+                ? package_runtime::localized_campaign_node_name(
+                      *package_, language(), campaign_id_, stage.node_id, source
+                  )
+                : source;
+        Text stage_name;
+        stage_name.text(shown);
+        push_padded(row, stage_name.c_str(), 28, text_encoding());
         if (stage.standing) {
-            row.text("HERE");
+            row.text(console::text(language(), console::Message::here));
         } else if (stage.reached) {
-            row.text("SEEN");
+            row.text(console::text(language(), console::Message::seen));
         }
         push_line(row.c_str());
     }
@@ -3228,7 +3738,11 @@ std::uint64_t TurnClient::choose_a_stage() {
     list_caret_ = 0;
     list_top_ = 0;
     compose_stages();
-    const int chosen = choose_on_page(Screen::stages, "A GO  B BACK", pad_b);
+    const int chosen = choose_on_page(
+        Screen::stages,
+        console::text(language(), console::Message::go_back),
+        pad_b
+    );
     if (chosen < 0 || chosen >= static_cast<int>(stages_->size())) return 0U;
     return (*stages_)[static_cast<std::size_t>(chosen)].node_id;
 }
@@ -3242,7 +3756,7 @@ void TurnClient::recompose_page() {
             if (company_ != nullptr) {
                 compose_company(
                     company_heading_ != nullptr ? company_heading_ : "",
-                    company_->roster, company_->store, company_
+                    campaign_roster_, company_->store, company_
                 );
             }
             break;
@@ -3447,15 +3961,21 @@ TurnClient::SlotChoice TurnClient::open_campaign(
     // The name, kept before it is drawn: the title screen says it here and the
     // ending screen says it again, and the campaign in between hands this
     // client no second chance to be told.
-    {
+    const auto remember_title = [&](std::string_view source) {
+        const std::string_view shown = package_ != nullptr
+            ? package_runtime::localized_project_title(
+                  *package_, language(), source
+              )
+            : source;
         std::size_t length = 0;
         while (length < sizeof project_title_ - 1 &&
-               length < project_title.size()) {
-            project_title_[length] = project_title[length];
+               length < shown.size()) {
+            project_title_[length] = shown[length];
             ++length;
         }
         project_title_[length] = '\0';
-    }
+    };
+    remember_title(project_title);
     SlotChoice chosen;
     if (!launch.offer) {
         begin_page();
@@ -3463,18 +3983,29 @@ TurnClient::SlotChoice TurnClient::open_campaign(
         push_line("");
         push_line(project_title_);
         push_line("");
-        push_line("A CAMPAIGN THIS CARTRIDGE KEEPS");
-        hold_page(Screen::title, "PRESS START");
+        push_line(console::text(
+            language(), console::Message::campaign_tagline
+        ));
+        hold_page(
+            Screen::title,
+            console::text(language(), console::Message::press_start)
+        );
     } else {
-        // At most three rows: one player, two players, and optional help. The
+        // At most four rows: one player, two players, help, and authored
+        // language when the package carries more than its source catalog. The
         // modes the campaign forbids do not appear, so a fixed solo game does
         // not advertise co-op it cannot actually start.
-        std::uint8_t row_players[3]{};
+        std::uint8_t row_players[4]{};
         int row_count = 0;
         if (launch.allow_one) row_players[row_count++] = 1U;
         if (launch.allow_two) row_players[row_count++] = 2U;
         const int help_row = row_count;
         row_players[row_count++] = 0U;
+        const std::vector<std::string_view> languages = package_ != nullptr
+            ? package_runtime::available_languages(*package_)
+            : std::vector<std::string_view>{};
+        const int language_row = languages.size() > 1U ? row_count : -1;
+        if (language_row >= 0) row_players[row_count++] = 0xFFU;
         list_caret_ = 0;
 
         bool choosing = true;
@@ -3485,9 +4016,20 @@ TurnClient::SlotChoice TurnClient::open_campaign(
             push_line(project_title_);
             push_line("");
             page_first_choice_ = page_.count;
-            if (launch.allow_one) push_line("1 PLAYER");
-            if (launch.allow_two) push_line("2 PLAYERS");
-            push_line("HELP");
+            if (launch.allow_one) push_line(console::text(
+                language(), console::Message::one_player
+            ));
+            if (launch.allow_two) push_line(console::text(
+                language(), console::Message::two_players
+            ));
+            push_line(console::text(language(), console::Message::help));
+            if (language_row >= 0) {
+                Text row;
+                row.text(console::text(language(), console::Message::language))
+                    .text("  ")
+                    .text(console::language_code(language()));
+                push_line(row.c_str());
+            }
             page_choices_ = row_count;
             list_.rows = row_count;
             list_.total = row_count;
@@ -3497,8 +4039,10 @@ TurnClient::SlotChoice TurnClient::open_campaign(
                 row_players[list_caret_] == 2U &&
                 !launch.second_controller_connected;
             const char* footer = needs_pad
-                ? "CONNECT CONTROLLER 2"
-                : "D-PAD CHOOSE  A CONFIRM";
+                ? console::text(
+                      language(), console::Message::connect_controller_2
+                  )
+                : console::text(language(), console::Message::choose_confirm);
             const ScreenView title = view_of(Screen::title, footer);
             paint_screen(title);
             hold_for_checkpoint();
@@ -3519,16 +4063,41 @@ TurnClient::SlotChoice TurnClient::open_campaign(
             if ((buttons & (pad_a | pad_start)) == 0U) continue;
             if (list_caret_ == help_row) {
                 begin_page();
-                push_line("HOW TO PLAY");
+                push_line(console::text(
+                    language(), console::Message::how_to_play
+                ));
                 push_line("");
-                push_line("D-PAD   MOVE CURSOR");
-                push_line("A       SELECT OR CONFIRM");
-                push_line("B       BACK");
-                push_line("C       ACTION MENU");
-                push_line("START   BOARD MENU");
+                push_line(console::text(
+                    language(), console::Message::move_cursor
+                ));
+                push_line(console::text(
+                    language(), console::Message::select_confirm
+                ));
+                push_line(console::text(language(), console::Message::back));
+                push_line(console::text(
+                    language(), console::Message::action_menu
+                ));
+                push_line(console::text(
+                    language(), console::Message::board_menu
+                ));
                 push_line("");
-                push_line("BUTTON HINTS APPEAR IN PLAY");
-                hold_page(Screen::help, "A OR B  BACK");
+                push_line(console::text(
+                    language(), console::Message::hints_in_play
+                ));
+                hold_page(
+                    Screen::help,
+                    console::text(language(), console::Message::back_footer)
+                );
+                continue;
+            }
+            if (list_caret_ == language_row) {
+                std::size_t selected = 0;
+                for (std::size_t index = 0; index < languages.size(); ++index) {
+                    if (languages[index] == language()) selected = index;
+                }
+                selected = (selected + 1U) % languages.size();
+                set_language(languages[selected]);
+                remember_title(project_title);
                 continue;
             }
             if (needs_pad) continue;
@@ -3604,7 +4173,9 @@ void TurnClient::compose_slot_page() {
         push_line(slots_.row_label(row));
     }
     push_line("");
-    push_line("THE GAME SAVES ITSELF");
+    push_line(console::text(
+        language(), console::Message::game_saves_itself
+    ));
 }
 
 // ---------------------------------------------------------------------------
@@ -3619,6 +4190,12 @@ void TurnClient::campaign_begun(
 ) {
     static_cast<void>(slot);
     resumed_ = resumed;
+    copy_campaign_roster(campaign_roster_, roster);
+    localize_campaign_roster(
+        campaign_roster_, package_, language(), campaign_id_
+    );
+    pending_player_names_.clear();
+    if (!resumed) queue_player_names(roster);
     // Evidence that this campaign has a history, counted where the campaign is
     // handed over rather than reconstructed later. A founding always has an
     // empty store, because the founding batch puts a unit type's starting kit
@@ -3644,15 +4221,9 @@ void TurnClient::campaign_begun(
             .number(history_);
         note(line.c_str());
     }
-    compose_company(
-        resumed ? "THE COMPANY STANDS AS YOU LEFT IT"
-                : "THE COMPANY MUSTERS",
-        roster, store
-    );
-    // Read rather than steered: this is the campaign being handed over, and
-    // there is nothing on it to choose yet.
-    page_choices_ = 0;
-    hold_page(Screen::company, "A  GO ON");
+    // The roster handover is state, not a question. Keep it in the report and
+    // enter the campaign immediately; an actual deployment, shared-store or
+    // refusal decision will still open the management screen before its board.
 }
 
 void TurnClient::slot_refused(const client::SlotFailure& failure) {
@@ -3685,6 +4256,10 @@ void TurnClient::board_prepared(const client::CampaignBoard& board) {
     // the join saying which numbered unit each member is standing in, and this
     // is the only moment a client is handed them together.
     board_ = &board;
+    copy_campaign_roster(campaign_roster_, board.roster);
+    localize_campaign_roster(
+        campaign_roster_, package_, language(), campaign_id_
+    );
     Text line;
     line.text("board roster ")
         .number(static_cast<std::int32_t>(board.roster.size()))
@@ -3703,6 +4278,10 @@ void TurnClient::battle_aftermath(const client::BattleAftermath& aftermath) {
     // left to be replaced by the next `board_prepared`, so that the window it is
     // readable in is the window it is valid in.
     board_ = nullptr;
+    copy_campaign_roster(campaign_roster_, aftermath.roster);
+    localize_campaign_roster(
+        campaign_roster_, package_, language(), campaign_id_
+    );
     {
         Text line;
         line.text("aftermath outcome ")
@@ -3722,7 +4301,7 @@ void TurnClient::battle_aftermath(const client::BattleAftermath& aftermath) {
         note(line.c_str());
     }
     begin_page();
-    push_line("AFTER THE BATTLE");
+    push_line(console::text(language(), console::Message::after_battle));
     push_line("");
     // Who is gone, by name, before anything else on the page. The list has been
     // on `BattleAftermath::fallen` since there was an aftermath and this screen
@@ -3740,67 +4319,94 @@ void TurnClient::battle_aftermath(const client::BattleAftermath& aftermath) {
     if (!aftermath.fallen.empty()) {
         const bool buried =
             aftermath.character_loss == pr::CharacterLoss::permanent;
-        push_line(buried ? "THE COMPANY BURIES" : "CARRIED OFF, AND BACK");
+        push_line(console::text(
+            language(), buried ? console::Message::company_buries
+                               : console::Message::carried_off_back
+        ));
         for (const campaign::PersistentEntityId member : aftermath.fallen) {
             Text row;
-            row.text("  ").text(member_name(aftermath.roster, member));
+            row.text("  ").text(member_name(campaign_roster_, member));
             push_line(row.c_str());
         }
         push_line("");
     }
-    for (const client::RosterEntry& member : aftermath.roster) {
+    for (const client::RosterEntry& member : campaign_roster_) {
         Text row;
-        push_padded(row, member.name.c_str(), 15);
+        push_padded(row, member.name.c_str(), 15, text_encoding());
         row.text("L").number(
             static_cast<std::int32_t>(member.progression.level)
         );
         row.text(" XP ").number(
             static_cast<std::int32_t>(member.progression.experience)
         );
-        row.space().text(availability_word(member.availability));
+        row.space().text(availability_word(member.availability, language()));
         push_line(row.c_str());
     }
     push_line("");
     {
         Text totals;
-        totals.text("LEVELS ")
+        totals.text(console::text(language(), console::Message::levels))
+            .text(" ")
             .number(
                 static_cast<std::int32_t>(aftermath.progression.level_ups.size())
             )
+            .text("  ")
             .text(
                 aftermath.character_loss == pr::CharacterLoss::permanent
-                    ? "  LOST "
-                    : "  FELL "
+                    ? console::text(language(), console::Message::lost)
+                    : console::text(language(), console::Message::fell)
             )
+            .text(" ")
             .number(static_cast<std::int32_t>(aftermath.fallen.size()))
-            .text("  JOINED ")
+            .text("  ")
+            .text(console::text(language(), console::Message::joined))
+            .text(" ")
             .number(static_cast<std::int32_t>(aftermath.recruited.size()));
         push_line(totals.c_str());
     }
-    push_line("THE COMPANY'S STORE");
+    push_line(console::text(language(), console::Message::company_store));
     if (aftermath.store.empty()) {
-        push_line("NOTHING BUT WHAT THEY CARRY");
+        push_line(console::text(
+            language(), console::Message::nothing_but_carry
+        ));
     }
     for (const campaign::InventoryStack& stack : aftermath.store) {
         Text row;
-        push_padded(row, sheet::item_name(stack.item.stable_id), 20);
+        push_padded(
+            row,
+            sheet::item_name(
+                package_, stack.item.stable_id, language(), text_encoding()
+            ).c_str(),
+            20, text_encoding()
+        );
         row.text("X").number(static_cast<std::int32_t>(stack.quantity));
         push_line(row.c_str());
     }
-    hold_page(Screen::aftermath, "A  GO ON");
+    hold_page(
+        Screen::aftermath,
+        console::text(language(), console::Message::go_on)
+    );
 }
 
 void TurnClient::members_joined(
     const std::vector<client::RosterEntry>& joined
 ) {
     if (joined.empty()) return;
+    std::vector<client::RosterEntry> shown;
+    copy_campaign_roster(shown, joined);
+    localize_campaign_roster(shown, package_, language(), campaign_id_);
+    merge_campaign_roster(campaign_roster_, shown);
+    queue_player_names(joined);
     begin_page();
-    push_line("JOINS THE COMPANY");
+    push_line(console::text(language(), console::Message::joins_company));
     push_line("");
-    for (const client::RosterEntry& member : joined) {
+    for (const client::RosterEntry& member : shown) {
         push_line(member.name.c_str());
     }
-    hold_page(Screen::joined, "A  GO ON");
+    hold_page(
+        Screen::joined,
+        console::text(language(), console::Message::go_on)
+    );
 }
 
 void TurnClient::campaign_saved(
@@ -3875,9 +4481,40 @@ void TurnClient::stage_jumped(const client::StageJump& jump) {
 client::ManagementIntent TurnClient::next_management_intent(
     const client::CompanyManagement& company
 ) {
+    // This is the first callback after a rename commit and the last callback
+    // before proceeding, so subsequent story text sees the exact effective
+    // roster the session will use.
+    copy_campaign_roster(campaign_roster_, company.roster);
+    localize_campaign_roster(
+        campaign_roster_, package_, language(), campaign_id_
+    );
+    while (!pending_player_names_.empty()) {
+        const campaign::PersistentEntityId wanted =
+            pending_player_names_.front();
+        pending_player_names_.erase(pending_player_names_.begin());
+        const client::RosterEntry* member = nullptr;
+        for (const client::RosterEntry& candidate : company.roster) {
+            if (candidate.member == wanted) member = &candidate;
+        }
+        if (member == nullptr || !member->player_nameable ||
+            member->has_player_name) {
+            continue;
+        }
+        std::string chosen_name;
+        const client::ConsoleNameAnswer answer =
+            edit_player_name(*member, chosen_name);
+        if (leaving_) return {client::ManagementVerb::quit, {}, {}};
+        if (answer == client::ConsoleNameAnswer::cancel) continue;
+        client::ManagementIntent intent;
+        intent.verb = client::ManagementVerb::rename;
+        intent.member = member->member;
+        intent.name.assign(chosen_name.data(), chosen_name.size());
+        return intent;
+    }
     // This is product behavior, not a platform shortcut: every console and
     // every scripted test takes the same direct path when there is genuinely
-    // nothing to choose before battle.
+    // nothing to choose before battle. Already-equipped items are part of a
+    // ready formation, not a reason to stop the player at an inventory screen.
     if (client::company_can_start_directly(company)) {
         return {client::ManagementVerb::proceed, {}, {}};
     }
@@ -3897,7 +4534,8 @@ client::ManagementIntent TurnClient::next_management_intent(
     list_caret_ = manage_row_;
     list_top_ = roster_top_;
     compose_company(
-        "BEFORE THE BATTLE", company.roster, company.store, &company
+        console::text(language(), console::Message::before_battle),
+        campaign_roster_, company.store, &company
     );
     // The Stage picker is on this screen too, and on a button rather than a row
     // because the caret here walks the company: a row that was not a member
@@ -3918,19 +4556,11 @@ client::ManagementIntent TurnClient::next_management_intent(
     // because those two characters are what the hint needs; `C GO` is the verb
     // beside `A CHOOSE` and `B LEAVE`, and it reads into the title of the
     // screen it opens.
-    static constexpr char company_footer[] =
-        "A CHOOSE  START BATTLE  B LEAVE";
-    static constexpr char company_footer_with_stages[] =
-        "A CHOOSE  START BATTLE  B LEAVE  C GO";
-    static_assert(
-        sizeof(company_footer) - 1U <= footer_columns,
-        "the company screen's footer has to fit on the narrowest display"
+    const char* company_footer = console::text(
+        language(), console::Message::company_footer
     );
-    static_assert(
-        sizeof(company_footer_with_stages) - 1U <= footer_columns,
-        "and so does the one that names the Stage picker's button, which is "
-        "the whole of the point: a hint cut in half is a hint that has taught "
-        "a player nothing"
+    const char* company_footer_with_stages = console::text(
+        language(), console::Message::company_footer_stages
     );
     const bool offers_stages = !company.stages.empty();
     const std::uint16_t leaves = static_cast<std::uint16_t>(
@@ -3979,8 +4609,20 @@ client::ManagementIntent TurnClient::next_management_intent(
     }
     client::ManagementIntent intent;
     intent.verb = verbs_[verb].verb;
-    intent.member = company.roster[static_cast<std::size_t>(manage_row_)].member;
+    const client::RosterEntry& member =
+        company.roster[static_cast<std::size_t>(manage_row_)];
+    intent.member = member.member;
     intent.item = verbs_[verb].item;
+    if (intent.verb == client::ManagementVerb::rename) {
+        std::string chosen_name;
+        const client::ConsoleNameAnswer answer =
+            edit_player_name(member, chosen_name);
+        if (leaving_) return {client::ManagementVerb::quit, {}, {}};
+        if (answer == client::ConsoleNameAnswer::cancel) {
+            return {client::ManagementVerb::none, {}, {}};
+        }
+        intent.name.assign(chosen_name.data(), chosen_name.size());
+    }
     // A board its author capped fields no more than it says, so the press is
     // refused here rather than committed and undone. The sentence is the
     // roster's own name for it, never one written on this console, because it

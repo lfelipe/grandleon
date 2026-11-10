@@ -2,6 +2,7 @@
 extends Node
 
 var project_id := ""
+var campaign_id := ""
 var map_id := ""
 var encounter_id := ""
 var dialogue_id := ""
@@ -11,11 +12,16 @@ var diagnostic_focus: Dictionary = {}
 
 func open_project(value: String) -> void:
 	project_id = value
+	campaign_id = ""
 	map_id = ""
 	encounter_id = ""
 	dialogue_id = ""
 	map_action = ""
 	diagnostic_focus = {}
+
+
+func choose_campaign(value: String) -> void:
+	campaign_id = value
 
 
 func choose_map(value: String, encounter := "") -> void:
@@ -49,6 +55,7 @@ func take_diagnostic_focus() -> Dictionary:
 
 func clear() -> void:
 	project_id = ""
+	campaign_id = ""
 	map_id = ""
 	encounter_id = ""
 	dialogue_id = ""

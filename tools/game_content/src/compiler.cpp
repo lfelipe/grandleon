@@ -57,6 +57,68 @@ void put_ids(Bytes& out, const std::vector<StableId>& ids) {
     }
 }
 
+struct ResolvedSurroundingTerrain final {
+    std::vector<StableId> ids;
+    std::vector<std::uint8_t> kinds;
+};
+
+ResolvedSurroundingTerrain resolve_surrounding_terrain(const Map& map) {
+    const MapSurroundings& outside = map.surroundings;
+    if (outside.mode == MapSurroundingMode::manual) {
+        return {outside.terrain, outside.terrain_kinds};
+    }
+    if (outside.mode != MapSurroundingMode::fill &&
+        outside.mode != MapSurroundingMode::blend) {
+        return {};
+    }
+    ResolvedSurroundingTerrain result;
+    const std::int32_t depth = outside.depth;
+    const std::int32_t width = map.width;
+    const std::int32_t height = map.height;
+    if (depth <= 0 || width <= 0 || height <= 0 ||
+        map.terrain.size() != static_cast<std::size_t>(width) * static_cast<std::size_t>(height)) {
+        return {};
+    }
+    const std::size_t expected =
+        static_cast<std::size_t>(width + depth * 2) *
+            static_cast<std::size_t>(height + depth * 2) -
+        static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
+    result.ids.reserve(expected);
+    result.kinds.reserve(expected);
+    for (std::int32_t y = -depth; y < height + depth; ++y) {
+        for (std::int32_t x = -depth; x < width + depth; ++x) {
+            if (x >= 0 && y >= 0 && x < width && y < height) continue;
+            const std::int32_t nearest_x = std::clamp(x, 0, width - 1);
+            const std::int32_t nearest_y = std::clamp(y, 0, height - 1);
+            const std::size_t nearest =
+                static_cast<std::size_t>(nearest_y) * static_cast<std::size_t>(width) +
+                    static_cast<std::size_t>(nearest_x);
+            const std::int32_t outside_x =
+                x < 0 ? -x : (x >= width ? x - width + 1 : 0);
+            const std::int32_t outside_y =
+                y < 0 ? -y : (y >= height ? y - height + 1 : 0);
+            const std::uint32_t distance = static_cast<std::uint32_t>(
+                std::max(outside_x, outside_y)
+            );
+            const std::uint32_t sample =
+                (static_cast<std::uint32_t>(x + depth) * 1103515245U) ^
+                (static_cast<std::uint32_t>(y + depth) * 12345U);
+            const bool use_fill = outside.mode == MapSurroundingMode::fill ||
+                distance >= outside.depth ||
+                (outside.depth > 0U && sample % outside.depth < distance);
+            result.ids.push_back(
+                use_fill ? outside.fill_terrain : map.terrain[nearest]
+            );
+            result.kinds.push_back(use_fill ? outside.fill_terrain_kind : (
+                nearest < map.terrain_kinds.size()
+                    ? map.terrain_kinds[nearest]
+                    : terrain_kind_unknown
+            ));
+        }
+    }
+    return result;
+}
+
 template <typename Definition>
 bool validate_identity(
     const std::vector<Definition>& definitions,
@@ -671,6 +733,8 @@ std::string_view diagnostic_name(DiagnosticCode code) noexcept {
             return "undecided_encounter";
         case DiagnosticCode::invalid_weapon_type:
             return "invalid_weapon_type";
+        case DiagnosticCode::invalid_localization:
+            return "invalid_localization";
     }
     return "unknown";
 }
@@ -1065,6 +1129,8 @@ CompileResult compile(const GameSource& source) {
             2U * outside.depth;
         const std::uint64_t expected_perimeter =
             outer_width * outer_height - cell_count;
+        const ResolvedSurroundingTerrain resolved_outside =
+            resolve_surrounding_terrain(definition);
         const bool sound =
             outside.mode == MapSurroundingMode::none
                 ? (!outside.states_colour && outside.depth == 0 &&
@@ -1080,6 +1146,13 @@ CompileResult compile(const GameSource& source) {
                    outside.depth <= 8 &&
                    outside.terrain.size() == expected_perimeter &&
                    outside.terrain_kinds.size() == outside.terrain.size())
+            : outside.mode == MapSurroundingMode::fill ||
+                    outside.mode == MapSurroundingMode::blend
+                ? (!outside.states_colour && outside.depth >= 1 &&
+                   outside.depth <= 8 && outside.fill_terrain != 0 &&
+                   outside.terrain.empty() &&
+                   resolved_outside.ids.size() == expected_perimeter &&
+                   resolved_outside.kinds.size() == expected_perimeter)
                 : false;
         if (!sound) {
             result.diagnostics.push_back(
@@ -1108,6 +1181,42 @@ CompileResult compile(const GameSource& source) {
                     }
                 );
             }
+        }
+        if (outside.fill_terrain != 0) {
+            const auto placed = terrain_kinds.emplace(
+                outside.fill_terrain, outside.fill_terrain_kind
+            );
+            if (!placed.second &&
+                placed.first->second != outside.fill_terrain_kind) {
+                result.diagnostics.push_back(
+                    {
+                        DiagnosticCode::invalid_map,
+                        "maps[" + std::to_string(definition.id) +
+                            "].surroundings.terrainId",
+                        definition.id
+                    }
+                );
+            }
+        }
+        const MapVisualVisibility& visibility =
+            definition.visual_visibility;
+        std::set<std::uint32_t> visibility_cells;
+        bool visibility_sound = visibility.reveal_radius <= 8U;
+        for (const std::uint32_t cell : visibility.hidden_cells) {
+            if (cell >= cell_count || !visibility_cells.insert(cell).second) {
+                visibility_sound = false;
+                break;
+            }
+        }
+        if (!visibility_sound) {
+            result.diagnostics.push_back(
+                {
+                    DiagnosticCode::invalid_map,
+                    "maps[" + std::to_string(definition.id) +
+                        "].visual_visibility",
+                    definition.id
+                }
+            );
         }
     }
     std::map<StableId, const Objective*> objectives_by_id;
@@ -1184,7 +1293,8 @@ CompileResult compile(const GameSource& source) {
             path + ".deployment.tiles", definition.id, result.diagnostics
         );
         std::set<StableId> placement_ids;
-        std::set<std::pair<std::int16_t, std::int16_t>> placement_tiles;
+        std::set<std::pair<std::int16_t, std::int16_t>> solo_placement_tiles;
+        std::set<std::pair<std::int16_t, std::int16_t>> two_placement_tiles;
         bool has_unscaled_opponent = false;
         bool has_scaled_placement = false;
         const auto found_map = maps_by_id.find(definition.map_id);
@@ -1226,12 +1336,28 @@ CompileResult compile(const GameSource& source) {
                 has_unscaled_opponent ||
                 (placement.side == EncounterSide::second &&
                  placement.minimum_players == 1);
-            const bool tile_taken =
+            const std::int16_t two_x = placement.states_two_player_position
+                ? placement.two_player_x
+                : placement.x;
+            const std::int16_t two_y = placement.states_two_player_position
+                ? placement.two_player_y
+                : placement.y;
+            const bool two_on_board =
+                found_map != maps_by_id.end() && two_x >= 0 && two_y >= 0 &&
+                two_x < static_cast<std::int16_t>(found_map->second->width) &&
+                two_y < static_cast<std::int16_t>(found_map->second->height);
+            const bool solo_tile_taken =
+                !arrives && placement.minimum_players == 1 &&
+                !solo_placement_tiles.emplace(placement.x, placement.y).second;
+            const bool two_tile_taken =
                 !arrives &&
-                !placement_tiles.emplace(placement.x, placement.y).second;
+                !two_placement_tiles.emplace(two_x, two_y).second;
             if (placement.id == 0 ||
-                !placement_ids.insert(placement.id).second || tile_taken ||
-                (found_map != maps_by_id.end() && !on_board)) {
+                !placement_ids.insert(placement.id).second ||
+                solo_tile_taken || two_tile_taken ||
+                (found_map != maps_by_id.end() &&
+                 (!on_board || !two_on_board)) ||
+                (arrives && placement.states_two_player_position)) {
                 result.diagnostics.push_back(
                     {
                         DiagnosticCode::invalid_placement,
@@ -1244,8 +1370,13 @@ CompileResult compile(const GameSource& source) {
             if (placement.minimum_players < 1 ||
                 placement.minimum_players > 2 ||
                 (placement.minimum_players > 1 &&
-                 (placement.side != EncounterSide::second ||
-                  placement.member_id != 0))) {
+                 !(
+                     (placement.side == EncounterSide::second &&
+                      placement.member_id == 0) ||
+                     (placement.side == EncounterSide::first &&
+                      placement.member_id != 0 &&
+                      placement.local_player == 2)
+                 ))) {
                 result.diagnostics.push_back(
                     {
                         DiagnosticCode::invalid_placement,
@@ -1314,9 +1445,18 @@ CompileResult compile(const GameSource& source) {
                     crossings = found_placed_class->second->crossings;
                 }
             }
-            if (!crossing_admits(
-                    terrain_passability(map.terrain_kinds[cell]), crossings
-                )) {
+            const std::size_t two_cell =
+                static_cast<std::size_t>(two_y) * map.width +
+                static_cast<std::size_t>(two_x);
+            const bool base_admits = crossing_admits(
+                terrain_passability(map.terrain_kinds[cell]), crossings
+            );
+            const bool two_admits =
+                two_cell < map.terrain_kinds.size() &&
+                crossing_admits(
+                    terrain_passability(map.terrain_kinds[two_cell]), crossings
+                );
+            if (!base_admits || !two_admits) {
                 result.diagnostics.push_back(
                     {
                         DiagnosticCode::invalid_placement,
@@ -1330,6 +1470,16 @@ CompileResult compile(const GameSource& source) {
             result.diagnostics.push_back(
                 {DiagnosticCode::invalid_placement, path + ".placements", 0}
             );
+        }
+        for (const Moment& moment : definition.moments) {
+            if (moment.minimum_players < 1 || moment.minimum_players > 2) {
+                result.diagnostics.push_back(
+                    {
+                        DiagnosticCode::invalid_range,
+                        path + ".moments.minimum_players", moment.id
+                    }
+                );
+            }
         }
         if (has_scaled_placement && !has_unscaled_opponent) {
             result.diagnostics.push_back(
@@ -1756,6 +1906,50 @@ CompileResult compile(const GameSource& source) {
         }
     }
 
+    // Localization is optional presentation, but once authored it must remain
+    // wholly portable. Every count and string is checked against the exact
+    // width the package writes, and identities are unique within their natural
+    // language scope. Native callers receive the same refusal as JSON callers
+    // instead of being able to make a package the source schema could not.
+    if (source.source_language.empty() ||
+        source.source_language.size() >
+            std::numeric_limits<std::uint16_t>::max()) {
+        result.diagnostics.push_back(
+            {DiagnosticCode::invalid_localization, "localization.sourceLanguage", 0}
+        );
+    }
+    if (source.translations.size() > count_limit_u16) {
+        result.diagnostics.push_back(
+            {DiagnosticCode::invalid_localization, "localization.languages", 0}
+        );
+    }
+    std::set<std::string> localization_languages;
+    for (const TranslationCatalog& catalog : source.translations) {
+        const std::string path = "localization[" + catalog.language + "]";
+        if (catalog.language.empty() ||
+            catalog.language.size() >
+                std::numeric_limits<std::uint16_t>::max() ||
+            catalog.language == source.source_language ||
+            !localization_languages.insert(catalog.language).second) {
+            result.diagnostics.push_back(
+                {DiagnosticCode::invalid_localization, path + ".language", 0}
+            );
+        }
+        std::set<std::string> message_ids;
+        for (const TranslationEntry& entry : catalog.entries) {
+            if (entry.id.empty() || entry.source.empty() || entry.text.empty() ||
+                entry.id.size() > std::numeric_limits<std::uint16_t>::max() ||
+                entry.source.size() > std::numeric_limits<std::uint16_t>::max() ||
+                entry.text.size() > std::numeric_limits<std::uint16_t>::max() ||
+                !message_ids.insert(entry.id).second) {
+                result.diagnostics.push_back(
+                    {DiagnosticCode::invalid_localization,
+                     path + ".entries[" + entry.id + "]", 0}
+                );
+            }
+        }
+    }
+
     if (!result.diagnostics.empty()) {
         return result;
     }
@@ -2052,6 +2246,8 @@ CompileResult compile(const GameSource& source) {
             );
             for (const Map* map : ordered) {
                 const MapSurroundings& outside = map->surroundings;
+                const ResolvedSurroundingTerrain resolved =
+                    resolve_surrounding_terrain(*map);
                 Bytes bytes;
                 bytes.push_back(static_cast<std::uint8_t>(outside.mode));
                 bytes.push_back(outside.depth);
@@ -2066,10 +2262,43 @@ CompileResult compile(const GameSource& source) {
                 ));
                 put_u32(
                     bytes,
-                    static_cast<std::uint32_t>(outside.terrain.size())
+                    static_cast<std::uint32_t>(resolved.ids.size())
                 );
-                for (StableId terrain : outside.terrain) {
+                for (StableId terrain : resolved.ids) {
                     put_u64(bytes, terrain);
+                }
+                section.records.push_back({map->id, std::move(bytes)});
+            }
+            return section;
+        }(),
+        [&source]() {
+            package_format::SectionSource section;
+            section.type = package_format::SectionType::map_visual_visibility;
+            section.flags = 0;
+            std::vector<const Map*> ordered;
+            for (const Map& map : source.maps) {
+                if (!map.visual_visibility.hidden_cells.empty()) {
+                    ordered.push_back(&map);
+                }
+            }
+            std::sort(
+                ordered.begin(), ordered.end(),
+                [](const Map* lhs, const Map* rhs) {
+                    return lhs->id < rhs->id;
+                }
+            );
+            for (const Map* map : ordered) {
+                Bytes bytes;
+                bytes.push_back(map->visual_visibility.reveal_radius);
+                put_u32(
+                    bytes,
+                    static_cast<std::uint32_t>(
+                        map->visual_visibility.hidden_cells.size()
+                    )
+                );
+                for (const std::uint32_t cell :
+                     map->visual_visibility.hidden_cells) {
+                    put_u32(bytes, cell);
                 }
                 section.records.push_back({map->id, std::move(bytes)});
             }
@@ -2529,9 +2758,18 @@ CompileResult compile(const GameSource& source) {
             // runtime that cannot read this plays the same battle in silence.
             section.flags = 0;
             std::vector<const Encounter*> ordered;
+            bool carries_player_conditions = false;
             for (const Encounter& encounter : source.encounters) {
                 if (!encounter.moments.empty()) ordered.push_back(&encounter);
+                carries_player_conditions = carries_player_conditions ||
+                    std::any_of(
+                        encounter.moments.begin(), encounter.moments.end(),
+                        [](const Moment& moment) {
+                            return moment.minimum_players > 1;
+                        }
+                    );
             }
+            section.schema_minor = carries_player_conditions ? 1U : 0U;
             std::sort(
                 ordered.begin(),
                 ordered.end(),
@@ -2549,6 +2787,9 @@ CompileResult compile(const GameSource& source) {
                     bytes.push_back(static_cast<std::uint8_t>(moment.trigger));
                     put_u64(bytes, moment.placement_id);
                     put_u64(bytes, moment.dialogue_id);
+                    if (carries_player_conditions) {
+                        bytes.push_back(moment.minimum_players);
+                    }
                 }
                 section.records.push_back({encounter->id, std::move(bytes)});
             }
@@ -2680,6 +2921,46 @@ CompileResult compile(const GameSource& source) {
             }
             return section;
         }(),
+        // Two-player opening coordinates, sparse beside the ordinary position
+        // for the same reason ownership and scaling are sparse: projects whose
+        // layouts do not change produce exactly their historical records.
+        [&source]() {
+            package_format::SectionSource section;
+            section.type =
+                package_format::SectionType::placement_two_player_positions;
+            std::vector<const Encounter*> ordered;
+            for (const Encounter& encounter : source.encounters) {
+                const bool any = std::any_of(
+                    encounter.placements.begin(), encounter.placements.end(),
+                    [](const Placement& placement) {
+                        return placement.states_two_player_position;
+                    }
+                );
+                if (any) ordered.push_back(&encounter);
+            }
+            std::sort(
+                ordered.begin(), ordered.end(),
+                [](const Encounter* lhs, const Encounter* rhs) {
+                    return lhs->id < rhs->id;
+                }
+            );
+            for (const Encounter* encounter : ordered) {
+                Bytes bytes;
+                std::uint16_t count = 0;
+                for (const Placement& placement : encounter->placements) {
+                    if (placement.states_two_player_position) ++count;
+                }
+                put_u16(bytes, count);
+                for (const Placement& placement : encounter->placements) {
+                    if (!placement.states_two_player_position) continue;
+                    put_u64(bytes, placement.id);
+                    put_i16(bytes, placement.two_player_x);
+                    put_i16(bytes, placement.two_player_y);
+                }
+                section.records.push_back({encounter->id, std::move(bytes)});
+            }
+            return section;
+        }(),
         // The campaign's local-player launch policy. One record per campaign,
         // including the one-player default, so a package that carries this
         // section never asks a client to infer intent from placement data.
@@ -2704,6 +2985,46 @@ CompileResult compile(const GameSource& source) {
                 bytes.push_back(
                     static_cast<std::uint8_t>(campaign->player_mode)
                 );
+                section.records.push_back({campaign->id, std::move(bytes)});
+            }
+            return section;
+        }(),
+        // Permission to replace an authored character name. The authored name
+        // stays in the ordinary campaign record and remains required; this
+        // optional sparse join only says which defaults a player may replace.
+        // A campaign with none emits no record and a project with none emits
+        // no section, preserving older package bytes and their fixed names.
+        [&source]() {
+            package_format::SectionSource section;
+            section.type =
+                package_format::SectionType::player_nameable_members;
+            section.flags = 0;
+            std::vector<const Campaign*> ordered;
+            for (const Campaign& campaign : source.campaigns) {
+                const bool any = std::any_of(
+                    campaign.roster.begin(), campaign.roster.end(),
+                    [](const CampaignMember& member) {
+                        return member.player_nameable;
+                    }
+                );
+                if (any) ordered.push_back(&campaign);
+            }
+            std::sort(
+                ordered.begin(), ordered.end(),
+                [](const Campaign* lhs, const Campaign* rhs) {
+                    return lhs->id < rhs->id;
+                }
+            );
+            for (const Campaign* campaign : ordered) {
+                Bytes bytes;
+                std::uint16_t count = 0;
+                for (const CampaignMember& member : campaign->roster) {
+                    if (member.player_nameable) ++count;
+                }
+                put_u16(bytes, count);
+                for (const CampaignMember& member : campaign->roster) {
+                    if (member.player_nameable) put_u64(bytes, member.id);
+                }
                 section.records.push_back({campaign->id, std::move(bytes)});
             }
             return section;
@@ -2809,6 +3130,80 @@ CompileResult compile(const GameSource& source) {
             }
             break;
         }
+    }
+    // Portable presentation defaults a player may override locally. Enabled
+    // close-ups are the historical behavior, so that choice writes nothing:
+    // an old package and a current package asking for the old default remain
+    // identical here. A disabled authored default gets its own one-byte record
+    // rather than widening the theme/faction record old readers already know;
+    // those readers skip the new identity and continue using their old default.
+    if (!source.battle_closeups) {
+        for (package_format::SectionSource& section : package.sections) {
+            if (section.type != package_format::SectionType::presentation) {
+                continue;
+            }
+            section.records.push_back(
+                package_format::RecordSource{
+                    package_format::presentation_preferences_record_id,
+                    {0U}
+                }
+            );
+            break;
+        }
+    }
+    // Manual translations travel with every target in one optional record.
+    // A runtime that does not know the section skips it and uses the source
+    // strings already present in normal content records. A runtime that does
+    // know it compares each entry's source snapshot before using its text, so
+    // edited copy never silently displays an obsolete translation.
+    {
+        std::vector<const TranslationCatalog*> catalogs;
+        catalogs.reserve(source.translations.size());
+        for (const TranslationCatalog& catalog : source.translations) {
+            catalogs.push_back(&catalog);
+        }
+        std::sort(
+            catalogs.begin(), catalogs.end(),
+            [](const TranslationCatalog* left,
+               const TranslationCatalog* right) {
+                return left->language < right->language;
+            }
+        );
+        Bytes bytes;
+        put_string(bytes, source.source_language);
+        put_u16(bytes, static_cast<std::uint16_t>(catalogs.size()));
+        for (const TranslationCatalog* catalog : catalogs) {
+            put_string(bytes, catalog->language);
+            std::vector<const TranslationEntry*> entries;
+            entries.reserve(catalog->entries.size());
+            for (const TranslationEntry& entry : catalog->entries) {
+                entries.push_back(&entry);
+            }
+            std::sort(
+                entries.begin(), entries.end(),
+                [](const TranslationEntry* left,
+                   const TranslationEntry* right) {
+                    return left->id < right->id;
+                }
+            );
+            put_u32(bytes, static_cast<std::uint32_t>(entries.size()));
+            for (const TranslationEntry* entry : entries) {
+                put_string(bytes, entry->id);
+                put_string(bytes, entry->source);
+                put_string(bytes, entry->text);
+            }
+        }
+        package.sections.push_back(
+            package_format::SectionSource{
+                package_format::SectionType::localizations,
+                1,
+                0,
+                0,
+                {package_format::RecordSource{
+                    package_format::localization_record_id, std::move(bytes)
+                }}
+            }
+        );
     }
     package.sections.erase(
         std::remove_if(

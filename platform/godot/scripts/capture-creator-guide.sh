@@ -87,8 +87,8 @@ capture() {
     XDG_DATA_HOME="${state_dir}/data" \
     XDG_CONFIG_HOME="${state_dir}/config" \
     XDG_CACHE_HOME="${state_dir}/cache" \
-        timeout 60s "${godot_binary}" --editor --headless --quiet \
-        --path "${stage_dir}" --quit || {
+        timeout 60s "${godot_binary}" --headless --quiet --import \
+        --path "${stage_dir}" || {
             cmake -E rm -rf "${state_dir}"
             return 1
         }

@@ -1,0 +1,12 @@
+0001-Fix-PS1-GTE-visibility-center-alignment.patch
+0002-Make-PS1-renderer-cache-limits-configurable.patch
+0003-Cache-static-PS1-terrain-in-the-flat-mesh-renderer.patch
+0004-Keep-disabled-PS1-entities-available-to-the-renderer.patch
+0005-Honor-per-entity-PS1-seam-filling.patch
+0006-Support-indexed-PS1-palettes-and-shared-texture-slot.patch
+0007-Reclaim-PS1-render-caches-after-entities-are-disable.patch
+0008-Use-GPU-clipping-for-safe-cached-PS1-polygons.patch
+0009-Avoid-duplicate-vertex-searches-in-PS1-visibility-ba.patch
+0010-Select-one-tool-when-resolving-Windows-build-command.patch
+0011-Reclaim-disabled-PS1-cache-entries-only-under-alloca.patch
+0012-Expose-camera-projection-for-PS1-world-overlays.patch

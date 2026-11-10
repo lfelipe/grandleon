@@ -20,7 +20,82 @@ func _run() -> void:
 		return
 	var creator_context = root.get_node("CreatorContext")
 	creator_context.open_project(created.id)
+	var localization = root.get_node("Localization")
+	var prior_language := str(localization.call("current_language"))
+	localization.call("select_language", "pt-BR", false)
 	var packed: PackedScene = load("res://map_editor.tscn")
+	var localized_editor = packed.instantiate()
+	root.add_child(localized_editor)
+	current_scene = localized_editor
+	await process_frame
+	await process_frame
+	_expect(
+		"Map Editor opens in Brazilian Portuguese",
+		localized_editor.title_label.text,
+		"PAINTED CROSSING  /  MAPA E BATALHA"
+	)
+	_expect(
+		"Portuguese workflow guidance is visible",
+		_tree_has_text(localized_editor, "MODELE O MAPA"),
+		true
+	)
+	_expect(
+		"Portuguese ready status is visible",
+		localized_editor.status_label.text,
+		"PRONTO  /  ESCOLHA O TERRENO E PINTE O TABULEIRO"
+	)
+	_expect(
+		"Portuguese solo preview is visible",
+		localized_editor.experience_select.get_item_text(0),
+		"1J  /  CAMPANHA BASE"
+	)
+	_expect(
+		"Portuguese long status copy keeps smart wrapping",
+		localized_editor.status_label.autowrap_mode,
+		TextServer.AUTOWRAP_WORD_SMART
+	)
+	_expect(
+		"localized Map selector receives controller focus",
+		localized_editor.map_select.has_focus(),
+		true
+	)
+	localized_editor._open_surroundings()
+	await process_frame
+	_expect(
+		"Portuguese surroundings help is visible",
+		localized_editor.surroundings_guidance_label.text.contains("borda mais próxima"),
+		true
+	)
+	_expect(
+		"localized surroundings help keeps smart wrapping",
+		localized_editor.surroundings_guidance_label.autowrap_mode,
+		TextServer.AUTOWRAP_WORD_SMART
+	)
+	_expect(
+		"localized surroundings workflow keeps controller focus",
+		localized_editor.surroundings_first_button.has_focus(),
+		true
+	)
+	localized_editor._close_surroundings()
+	localized_editor._open_visibility()
+	await process_frame
+	_expect(
+		"Portuguese interior visibility guidance is visible",
+		localized_editor.visibility_help_label.text.contains("apenas um efeito visual"),
+		true
+	)
+	_expect(
+		"localized visibility guidance keeps smart wrapping",
+		localized_editor.visibility_help_label.autowrap_mode,
+		TextServer.AUTOWRAP_WORD_SMART
+	)
+	_expect(
+		"localized visibility workflow keeps controller focus",
+		localized_editor.visibility_first_button.has_focus(), true
+	)
+	localized_editor.queue_free()
+	await process_frame
+	localization.call("select_language", "en", false)
 	var editor = packed.instantiate()
 	root.add_child(editor)
 	current_scene = editor
@@ -208,6 +283,128 @@ func _run() -> void:
 	_expect("enemy placement shown on board", editor.grid.get_child(8).tooltip_text.contains("SECOND"), true)
 	_expect("board tooltip hides enemy source identity", editor.grid.get_child(8).tooltip_text.contains("river_watch_leader"), false)
 	_expect("map selector receives controller focus", editor.map_select.has_focus(), true)
+	var visibility_original_source: String = editor.source
+	editor._open_visibility()
+	_expect("interior visibility controls open", editor.interior_visibility_layer.visible, true)
+	_expect("new maps use a two-cell reveal radius", editor.visibility_radius, 2)
+	editor._begin_visibility_paint()
+	_expect("visibility paint is a direct map tool", editor.active_tool, "visibility")
+	editor._paint_cell(0)
+	editor._paint_cell(1)
+	var visibility_map: Dictionary = _parse(editor.source).maps[0]
+	_expect("visibility painting authors two covered cells", visibility_map.visualVisibility.hiddenCells.size(), 2)
+	_expect("visibility painting preserves the chosen radius", int(visibility_map.visualVisibility.revealRadius), 2)
+	_expect("covered cells are visibly previewed on the board", editor.grid.get_child(0).tooltip_text.contains("Begins visually covered"), true)
+	var visibility_history: int = editor.undo_stack.size()
+	editor._open_visibility()
+	editor._change_visibility_radius(-1)
+	_expect("reveal radius is authored without repainting", int(_parse(editor.source).maps[0].visualVisibility.revealRadius), 1)
+	_expect("radius editing is undoable", editor.undo_stack.size(), visibility_history + 1)
+	editor._clear_visibility()
+	_expect("clearing visibility removes the optional source object", _parse(editor.source).maps[0].has("visualVisibility"), false)
+	editor.interior_visibility_layer.visible = false
+	editor.setup_layer.visible = false
+	editor._select_tool("brush")
+	editor.source = visibility_original_source
+	editor.undo_stack.clear()
+	editor.redo_stack.clear()
+	editor.dirty = false
+	editor._read_source()
+	editor._refresh_maps()
+	var house_feature: Dictionary = editor._cluster_landmark_for_cell(
+		0, 0, 4, 4, [
+			"mountain_village_house", "mountain_village_house", "grass", "grass",
+			"mountain_village_house", "mountain_village_house", "grass", "grass",
+			"grass", "grass", "grass", "grass",
+			"grass", "grass", "grass", "grass",
+		]
+	)
+	_expect("a four-cell obstacle is recognized as one house", house_feature.kind, "village_house")
+	_expect("the house keeps one stable top-left anchor", house_feature.anchor, Vector2i(0, 0))
+	var grove_feature: Dictionary = editor._cluster_landmark_for_cell(
+		1, 1, 4, 4, [
+			"forest", "forest", "forest", "grass",
+			"forest", "mountain_ancient_grove", "mountain_ancient_grove", "forest",
+			"forest", "mountain_ancient_grove", "mountain_ancient_grove", "forest",
+			"grass", "forest", "forest", "grass",
+		]
+	)
+	_expect("the same footprint follows its forest context", grove_feature.kind, "ancient_grove")
+	_expect("the editor offers a one-action house stamp", editor.tool_buttons.has("landmark_house"), true)
+	_expect("the editor offers a one-action grove stamp", editor.tool_buttons.has("landmark_grove"), true)
+	_expect("the editor offers whole-landmark removal", editor.tool_buttons.has("landmark_remove"), true)
+	_expect(
+		"raw house cells are not offered as a one-cell terrain brush",
+		editor.palette_buttons.has("mountain_village_house"),
+		false
+	)
+	var original_landmark_source: String = editor.source
+	editor._select_tool("landmark_house")
+	editor._paint_cell(16)
+	await process_frame
+	var house_terrain: Array = _parse(editor.source).maps[0].terrain
+	for index: int in [16, 17, 22, 23]:
+		_expect(
+			"house stamp writes its exact source id at cell %d" % index,
+			house_terrain[index],
+			"mountain_village_house"
+		)
+	_expect("house placement is one undo command", editor.undo_stack.size(), 1)
+	_expect("house is labelled from its one top-left anchor", editor.grid.get_child(16).tooltip_text.contains("HOUSE 2×2"), true)
+	var complete_house_source: String = editor.source
+	editor._select_tool("brush")
+	editor._select_terrain("grass")
+	editor._paint_cell(16)
+	_expect("a one-cell brush cannot split a landmark", editor.source, complete_house_source)
+	_expect("partial landmark edit explains the whole-footprint action", editor.status_label.text.contains("REMOVE LANDMARK"), true)
+	editor._select_tool("landmark_grove")
+	editor._paint_cell(23)
+	_expect("a 2x2 stamp cannot extend beyond the map", editor.source, complete_house_source)
+	_expect("edge refusal explains the required bounds", editor.status_label.text.contains("INSIDE THE MAP"), true)
+	editor._paint_cell(15)
+	_expect("a shifted stamp cannot overlap an existing landmark", editor.source, complete_house_source)
+	_expect("overlap refusal is explicit", editor.status_label.text.contains("CANNOT OVERLAP"), true)
+	editor._select_tool("landmark_remove")
+	editor._paint_cell(23)
+	await process_frame
+	var cleared_house: Array = _parse(editor.source).maps[0].terrain
+	for index: int in [16, 17, 22, 23]:
+		_expect("house removal restores paved terrain at cell %d" % index, cleared_house[index], "paved")
+	_expect("whole house removal is one undo command", editor.undo_stack.size(), 2)
+	editor._undo()
+	editor._undo()
+	await process_frame
+	_expect("house placement and removal undo to the original source", editor.source, original_landmark_source)
+
+	editor._select_tool("landmark_grove")
+	editor._paint_cell(4)
+	await process_frame
+	var grove_terrain: Array = _parse(editor.source).maps[0].terrain
+	for index: int in [4, 5, 10, 11]:
+		_expect(
+			"grove stamp writes its exact source id at cell %d" % index,
+			grove_terrain[index],
+			"mountain_ancient_grove"
+		)
+	editor._select_tool("landmark_remove")
+	editor._paint_cell(11)
+	await process_frame
+	var cleared_grove: Array = _parse(editor.source).maps[0].terrain
+	for index: int in [4, 5, 10, 11]:
+		_expect("grove removal restores forest at cell %d" % index, cleared_grove[index], "forest")
+	editor._undo()
+	editor._undo()
+	await process_frame
+	_expect("grove placement and removal undo to the original source", editor.source, original_landmark_source)
+	_expect("landmark round trips leave no undo history", editor.undo_stack.size(), 0)
+	editor._select_tool("landmark_house")
+	editor._paint_cell(0)
+	_expect("a blocked footprint cannot be stamped under a character", editor.source, original_landmark_source)
+	_expect("occupied-footprint refusal tells the creator what to move", editor.status_label.text.contains("MOVE CHARACTERS"), true)
+	editor._select_tool("landmark_grove")
+	editor._paint_cell(13)
+	_expect("a blocked footprint cannot cover another battle's deployment", editor.source, original_landmark_source)
+	_expect("deployment-footprint refusal explains what to change", editor.status_label.text.contains("DEPLOYMENT AREA"), true)
 	editor._apply_diagnostic_focus({
 		"object_id": editor.compiler.stable_source_id(
 			"demo_campaign/bridge_encounter/river_watch_leader"
@@ -424,7 +621,10 @@ func _run() -> void:
 	await process_frame
 	var scaled_placement: Dictionary = _parse(editor.source).campaigns[0].flow.nodes[0].placements[2]
 	_expect("2P tool authors the player minimum", int(scaled_placement.minimumPlayers), 2)
-	_expect("scaled enemy has a visible board badge", editor.grid.get_child(3).tooltip_text.contains("2 PLAYERS"), true)
+	_expect("solo preview hides a 2P-only enemy", editor.grid.get_child(3).tooltip_text.contains("2 PLAYERS"), false)
+	editor._select_experience_preview(1)
+	_expect("co-op preview shows a 2P-only enemy", editor.grid.get_child(3).tooltip_text.contains("2 PLAYERS"), true)
+	editor._select_experience_preview(0)
 	_expect("player scaling is one undo command", editor.undo_stack.size(), 7)
 	editor._undo()
 	await process_frame
@@ -518,6 +718,39 @@ func _run() -> void:
 	_expect("deployment cancel exits draft", editor.deployment_editing, false)
 	_expect("deployment cancel preserves source", editor.source, before_invalid_deployment)
 
+	# The starter has one ally, so give this focused capacity check a second
+	# authored company member and restore the fixture afterwards.
+	var before_capacity_check: String = editor.source
+	var capacity_fixture := _parse(editor.source)
+	var reserve_member: Dictionary = capacity_fixture.campaigns[0].roster[0].duplicate(true)
+	reserve_member.id = "capacity_reserve"
+	reserve_member.name = "Capacity Reserve"
+	capacity_fixture.campaigns[0].roster.append(reserve_member)
+	var reserve_placement: Dictionary = capacity_fixture.campaigns[0].flow.nodes[0].placements[0].duplicate(true)
+	reserve_placement.id = "capacity_reserve"
+	reserve_placement.memberId = "capacity_reserve"
+	reserve_placement.x = 1
+	reserve_placement.y = 0
+	capacity_fixture.campaigns[0].flow.nodes[0].placements.append(reserve_placement)
+	editor.source = JSON.stringify(editor._integer_numbers(capacity_fixture), "  ", true) + "\n"
+	_expect("capacity fixture remains portable", editor.compiler.compile_source_json(editor.source).ok, true)
+	editor._read_source()
+	editor._refresh_maps_after_edit(0)
+	editor._begin_deployment_edit()
+	_expect("deployment explains an unlimited company by default", editor.deployment_capacity_label.text, "NO FIELDING LIMIT")
+	editor._change_deployment_capacity(1)
+	_expect("capacity guidance names the company size", editor.deployment_capacity_label.text, "FIELD UP TO 1 OF 2 ALLIES")
+	_expect("capacity cannot be raised to an unreachable value", editor.deployment_capacity_plus.disabled, true)
+	editor._apply_deployment_edit()
+	await process_frame
+	_expect("deployment authors its fielding limit", int(_parse(editor.source).campaigns[0].flow.nodes[0].deployment.capacity), 1)
+	_expect("capacity edit preserves the authored zone", _parse(editor.source).campaigns[0].flow.nodes[0].deployment.tiles.size(), 2)
+	editor.source = before_capacity_check
+	editor.undo_stack.pop_back()
+	editor.redo_stack.clear()
+	editor._read_source()
+	editor._refresh_maps_after_edit(0)
+
 	var preceding_map: Dictionary = editor._current_map().duplicate(true)
 	editor._open_new_chapter()
 	await process_frame
@@ -570,42 +803,29 @@ func _run() -> void:
 
 	editor._open_surroundings()
 	_expect("outside-area editor opens", editor.surroundings_layer.visible, true)
-	_expect("solid colour is the initial outside mode", editor.surroundings_mode, "solid")
+	_expect("edge continuation is the initial outside mode", editor.surroundings_mode, "continue")
+	_expect("live outside preview surrounds the board before apply", editor.grid.get_child_count(), 90)
 	editor._cycle_surroundings_mode()
-	_expect("outside mode cycles to automatic terrain", editor.surroundings_mode, "automatic")
+	_expect("outside mode cycles to one-terrain fill", editor.surroundings_mode, "fill")
+	editor.surroundings_fill_terrain = "forest"
+	editor._update_surroundings_view()
 	_expect("coverage guidance names the generated cell count", editor.surroundings_guidance_label.text.contains("78"), true)
 	editor._apply_surroundings()
 	await process_frame
-	var automatic_outside: Dictionary = _parse(editor.source).maps[0].surroundings
-	_expect("automatic outside mode is authored", automatic_outside.mode, "automatic")
-	_expect("recommended outside depth is authored", int(automatic_outside.depth), 3)
-	_expect("automatic ring is visible around the board", editor.grid.get_child_count(), 90)
+	var filled_outside: Dictionary = _parse(editor.source).maps[0].surroundings
+	_expect("terrain fill policy is authored", filled_outside.mode, "fill")
+	_expect("chosen outside terrain is portable", filled_outside.terrainId, "forest")
+	_expect("recommended outside depth is authored", int(filled_outside.depth), 3)
+	_expect("filled ring is visible around the board", editor.grid.get_child_count(), 90)
 
 	editor._open_surroundings()
 	editor._cycle_surroundings_mode()
 	editor._apply_surroundings()
 	await process_frame
-	var manual_outside: Dictionary = _parse(editor.source).maps[0].surroundings
-	_expect("manual outside mode is authored", manual_outside.mode, "manual")
-	_expect("manual ring is fully populated before painting", manual_outside.terrain.size(), 78)
-	_expect("manual mode selects the outside paint tool", editor.active_tool, "surroundings")
-	editor._select_terrain("water")
-	editor._paint_surrounding_cell(0)
-	await process_frame
-	_expect("outside ring cells use the terrain palette", _parse(editor.source).maps[0].surroundings.terrain[0], "water")
+	var blended_outside: Dictionary = _parse(editor.source).maps[0].surroundings
+	_expect("natural blend policy is authored", blended_outside.mode, "blend")
+	_expect("natural blend keeps its chosen destination", blended_outside.terrainId, "forest")
 	_expect("outside tooltip states the cell is non-playable", editor.grid.get_child(0).tooltip_text.contains("can never enter"), true)
-
-	editor._open_surroundings()
-	editor._cycle_surroundings_mode()
-	editor._set_surroundings_channel(18, 0)
-	editor._set_surroundings_channel(52, 1)
-	editor._set_surroundings_channel(171, 2)
-	editor._apply_surroundings()
-	await process_frame
-	var solid_outside: Dictionary = _parse(editor.source).maps[0].surroundings
-	_expect("solid outside mode is authored", solid_outside.mode, "solid")
-	_expect("editor-selected outside colour is portable", solid_outside.color, "#1234ab")
-	_expect("solid outside colour does not add tactical cells", editor.grid.get_child_count(), 12)
 	editor._open_setup()
 	_expect("another chapter makes setup reuse available", editor.copy_setup_button.disabled, false)
 	editor._setup_copy()
@@ -671,6 +891,195 @@ func _run() -> void:
 	_expect("rename redo restores map name", str(_parse(editor.source).maps[0].name), "Fordlight Crossing")
 	_expect("rename redo restores battle name", str(_parse(editor.source).campaigns[0].flow.nodes[0].name), "First Stand at Fordlight")
 
+	editor._select_map(0)
+	var used_map_source: String = editor.source
+	editor._open_more()
+	editor._more_delete_map()
+	await process_frame
+	_expect("map where-used review opens from map options", editor.dependency_layer.visible, true)
+	_expect("map where-used review names the selected map", editor.dependency_heading.text.contains("FORDLIGHT CROSSING"), true)
+	_expect("map where-used review names a real battle", editor.dependency_uses.text.contains("First Stand at Fordlight"), true)
+	_expect("used map cannot be deleted", editor.dependency_confirm_button.disabled, true)
+	_expect("used map deletion is refused", editor._confirm_map_delete(), false)
+	_expect("used map refusal preserves source", editor.source, used_map_source)
+	editor._close_dependency_review()
+	await process_frame
+	_expect("map delete review returns to map options", editor.more_layer.visible, true)
+	_expect("map delete review returns focus", editor.delete_map_button.has_focus(), true)
+	editor._close_more()
+
+	editor._create_map()
+	await process_frame
+	_expect("unused map fixture is selected", str(editor._current_map().id), "map_1")
+	editor._open_more()
+	editor._more_delete_map()
+	_expect("unused map receives a confirmation preview", editor.dependency_layer.visible, true)
+	_expect("unused map preview reports no references", editor.dependency_uses.text, "No campaign or battle references this map.")
+	_expect("unused map can be deliberately deleted", editor.dependency_confirm_button.disabled, false)
+	var history_before_map_delete: int = editor.undo_stack.size()
+	_expect("unused map deletion succeeds", editor._confirm_map_delete(), true)
+	_expect("map deletion closes confirmation", editor.dependency_layer.visible, false)
+	_expect("unused map definition is removed", _has_map(_parse(editor.source), "map_1"), false)
+	_expect("map deletion records exactly one undo step", editor.undo_stack.size(), history_before_map_delete + 1)
+	editor._undo()
+	await process_frame
+	_expect("map deletion is undoable", _has_map(_parse(editor.source), "map_1"), true)
+	editor._redo()
+	await process_frame
+	_expect("map deletion is redoable", _has_map(_parse(editor.source), "map_1"), false)
+	var protected_map_source: String = editor.source
+	editor.dependency_category = "theme"
+	editor.dependency_id = "autumn"
+	_expect("shared terrain theme deletion is refused", editor._confirm_map_delete(), false)
+	_expect("shared terrain refusal preserves source", editor.source, protected_map_source)
+	editor.dependency_category = "map"
+	editor.dependency_id = "missing_map"
+	_expect("missing map deletion is refused", editor._confirm_map_delete(), false)
+	_expect("missing map refusal preserves source", editor.source, protected_map_source)
+	editor._select_map(0)
+
+	var before_variant := _parse(editor.source)
+	var baseline_ally: Dictionary = before_variant.campaigns[0].flow.nodes[0].placements[0]
+	var baseline_width := int(before_variant.maps[0].width)
+	var baseline_cell := int(baseline_ally.y) * baseline_width + int(baseline_ally.x)
+	var coop_cell := -1
+	for candidate_cell in baseline_width * int(before_variant.maps[0].height):
+		if candidate_cell == baseline_cell or not editor._placement_at(candidate_cell, baseline_width).is_empty():
+			continue
+		var terrain_name := str(before_variant.maps[0].terrain[candidate_cell])
+		if not terrain_name.contains("water") and not terrain_name.contains("mountain"):
+			coop_cell = candidate_cell
+			break
+	_expect("fixture has room for a distinct co-op start", coop_cell >= 0, true)
+	editor._select_experience_preview(1)
+	_expect("map can preview the co-op variant", editor.preview_players, 2)
+	editor._select_tool("unit")
+	editor._paint_cell(baseline_cell)
+	editor._paint_cell(coop_cell)
+	await process_frame
+	var with_coop_start := _parse(editor.source)
+	var moved_ally: Dictionary = with_coop_start.campaigns[0].flow.nodes[0].placements[0]
+	_expect("co-op move preserves the solo x", int(moved_ally.x), int(baseline_ally.x))
+	_expect("co-op move preserves the solo y", int(moved_ally.y), int(baseline_ally.y))
+	_expect("co-op move authors its own x", int(moved_ally.twoPlayerPosition.x), coop_cell % baseline_width)
+	_expect("co-op move authors its own y", int(moved_ally.twoPlayerPosition.y), coop_cell / baseline_width)
+	_expect(
+		"co-op board explains both starting cells",
+		editor.grid.get_child(editor._map_grid_child(coop_cell)).tooltip_text.contains("1P"),
+		true
+	)
+	editor._select_experience_preview(0)
+	_expect("solo preview returns the ally to its baseline", editor._placement_at(baseline_cell, baseline_width).is_empty(), false)
+
+	editor._open_forces()
+	await process_frame
+	_expect("opening forces and waves opens from battle setup", editor.forces_layer.visible, true)
+	_expect("wave editor lists authored opponents", editor.force_candidates.is_empty(), false)
+	_expect("ordinary opponents start on the board", editor.force_mode, "opening")
+	var wave_placement_id := str(editor._selected_force().get("id", ""))
+	editor.force_mode = "repeating"
+	editor.force_round = 5
+	editor.force_every = 3
+	editor.force_times = 4
+	editor.force_behavior = "pursue"
+	editor._update_forces_view()
+	_expect("repeating mode reveals cadence controls", editor.forces_repeat_row.visible, true)
+	_expect("wave editor explains the total wave count", editor.forces_times_label.text, "4 WAVES TOTAL")
+	editor._apply_force_schedule()
+	await process_frame
+	var with_wave := _parse(editor.source)
+	var authored_wave: Dictionary = {}
+	for placement_value: Variant in with_wave.campaigns[0].flow.nodes[0].placements:
+		if placement_value is Dictionary and str(placement_value.get("id", "")) == wave_placement_id:
+			authored_wave = placement_value
+			break
+	_expect("wave keeps the selected opponent", authored_wave.is_empty(), false)
+	_expect("wave authors its first arrival", int(authored_wave.arrival.round), 5)
+	_expect("wave authors its cadence", int(authored_wave.arrival.every), 3)
+	_expect("wave authors its total arrivals", int(authored_wave.arrival.times), 4)
+	_expect("wave can advance toward the players", str(authored_wave.behavior), "pursue")
+	var wave_cell := int(authored_wave.y) * int(with_wave.maps[0].width) + int(authored_wave.x)
+	_expect(
+		"scheduled arrival remains visible on the board",
+		editor.grid.get_child(editor._map_grid_child(wave_cell)).tooltip_text.contains("ARRIVES ROUND 5"),
+		true
+	)
+	# This fixture has one opponent. Restore it to the opening force so the
+	# existing draft-play handoff below still enters a live battle.
+	editor.force_mode = "opening"
+	editor._apply_force_schedule()
+	await process_frame
+	var restored_opening := _parse(editor.source)
+	for placement_value: Variant in restored_opening.campaigns[0].flow.nodes[0].placements:
+		if placement_value is Dictionary and str(placement_value.get("id", "")) == wave_placement_id:
+			_expect("wave can return to the opening force", placement_value.has("arrival"), false)
+			break
+	editor.force_behavior = "patrol"
+	editor._update_forces_view()
+	_expect("patrol behavior reveals its map workflow", editor.forces_patrol_button.visible, true)
+	_expect("a patrol cannot apply without a route", editor.forces_apply_button.disabled, true)
+	editor._begin_patrol_edit()
+	_expect("patrol route is authored directly on the map", editor.active_tool, "patrol")
+	editor._paint_cell(1)
+	editor._paint_cell(2)
+	_expect("patrol draft keeps waypoint order", editor.patrol_draft, [1, 2])
+	_expect("patrol waypoint is numbered on the board", editor.grid.get_child(editor._map_grid_child(1)).tooltip_text.contains("WAYPOINT 1"), true)
+	editor._apply_patrol_edit()
+	await process_frame
+	var with_patrol := _parse(editor.source)
+	var patrolling_force: Dictionary = {}
+	for placement_value: Variant in with_patrol.campaigns[0].flow.nodes[0].placements:
+		if placement_value is Dictionary and str(placement_value.get("id", "")) == wave_placement_id:
+			patrolling_force = placement_value
+			break
+	_expect("patrol route selects portable patrol behavior", str(patrolling_force.behavior), "patrol")
+	_expect("patrol stores two ordered points", patrolling_force.patrolPoints.size(), 2)
+	_expect("first patrol point preserves its x", int(patrolling_force.patrolPoints[0].x), 1)
+	_expect("second patrol point preserves its x", int(patrolling_force.patrolPoints[1].x), 2)
+	editor._begin_patrol_edit()
+	editor._clear_patrol_points()
+	editor._apply_patrol_edit()
+	await process_frame
+	var cleared_patrol := _parse(editor.source)
+	for placement_value: Variant in cleared_patrol.campaigns[0].flow.nodes[0].placements:
+		if placement_value is Dictionary and str(placement_value.get("id", "")) == wave_placement_id:
+			_expect("clearing a patrol returns the opponent to holding", str(placement_value.behavior), "hold")
+			_expect("clearing a patrol omits stale waypoints", placement_value.has("patrolPoints"), false)
+			break
+	editor._close_forces()
+	await process_frame
+
+	editor._open_moments()
+	_expect("scripted moments have a focused manager", editor.moments_layer.visible, true)
+	_expect("new moments begin available to both variants", editor.moment_two_player_only, false)
+	editor._add_battle_moment("stageOpens")
+	await process_frame
+	_expect("opening moment receives a reusable scene", _parse(editor.source).campaigns[0].flow.nodes[0].moments.size(), 1)
+	editor.moment_target_index = 1
+	editor._toggle_moment_players()
+	editor._add_battle_moment("characterFalls")
+	await process_frame
+	var with_moments := _parse(editor.source)
+	_expect("fall moment follows the opening in authored order", str(with_moments.campaigns[0].flow.nodes[0].moments[1].when.kind), "characterFalls")
+	_expect("fall moment names the selected character", str(with_moments.campaigns[0].flow.nodes[0].moments[1].when.placementId), wave_placement_id)
+	_expect("a moment can belong only to the co-op story", int(with_moments.campaigns[0].flow.nodes[0].moments[1].minimumPlayers), 2)
+	var fall_moment_id := str(with_moments.campaigns[0].flow.nodes[0].moments[1].id)
+	editor._move_battle_moment(-1)
+	await process_frame
+	var reordered_moments: Array = _parse(editor.source).campaigns[0].flow.nodes[0].moments
+	_expect("moment ordering is portable array order", str(reordered_moments[0].id), fall_moment_id)
+	_expect("moving a moment keeps its scene trigger", str(reordered_moments[0].when.kind), "characterFalls")
+	editor._remove_battle_moment()
+	await process_frame
+	_expect("moment removal leaves the other ordered scene", _parse(editor.source).campaigns[0].flow.nodes[0].moments.size(), 1)
+	editor._close_moments()
+	await process_frame
+
+	# Keep one authored mask in the saved draft so the real compiler/session/player
+	# path is exercised rather than only the editor's source mutation.
+	editor.visibility_radius = 1
+	var saved_visibility_cells: Array[int] = [0, 1]
+	editor._apply_visual_visibility(saved_visibility_cells, -1, "visibility fixture")
 	editor._save()
 	_expect("save clears dirty state", editor.dirty, false)
 	var stored: Dictionary = library.load_source(created.id)
@@ -682,9 +1091,19 @@ func _run() -> void:
 	_expect("saved unit removal reopens", stored.project.campaigns[0].flow.nodes[0].placements.size(), 2)
 	_expect("saved deployment reopens", stored.project.campaigns[0].flow.nodes[0].deployment.tiles.size(), 2)
 	_expect("saved objective reopens", stored.project.campaigns[0].flow.nodes[0].objectiveIds.has("survive_rounds"), true)
-	_expect("saved outside presentation reopens", stored.project.maps[0].surroundings.color, "#1234ab")
+	_expect("saved outside presentation reopens", stored.project.maps[0].surroundings.mode, "blend")
+	_expect("saved outside terrain reopens", stored.project.maps[0].surroundings.terrainId, "forest")
+	_expect("saved visibility mask reopens", stored.project.maps[0].visualVisibility.hiddenCells.size(), 2)
 	_expect("saved map name reopens", str(stored.project.maps[0].name), "Fordlight Crossing")
 	_expect("saved battle name reopens", str(stored.project.campaigns[0].flow.nodes[0].name), "First Stand at Fordlight")
+	var stored_force: Dictionary = {}
+	for placement_value: Variant in stored.project.campaigns[0].flow.nodes[0].placements:
+		if placement_value is Dictionary and str(placement_value.get("id", "")) == wave_placement_id:
+			stored_force = placement_value
+			break
+	_expect("saved opening-force restoration reopens", stored_force.has("arrival"), false)
+	_expect("saved force no longer carries a cleared patrol", stored_force.has("patrolPoints"), false)
+	_expect("saved ordered battle opening reopens", str(stored.project.campaigns[0].flow.nodes[0].moments[0].when.kind), "stageOpens")
 	var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 	_expect("saved edit compiles", compiler.compile_source_json(stored.source).ok, true)
 
@@ -694,16 +1113,22 @@ func _run() -> void:
 	# assuming they land within two render frames on every PC.
 	for frame in 120:
 		await process_frame
-		if current_scene.name == "PC" and not current_scene.battle_surroundings.is_empty():
+		if (
+			current_scene.name == "PC"
+			and not current_scene.battle_surroundings.is_empty()
+			and not current_scene.battle_visual_visibility.is_empty()
+		):
 			break
 	_expect("edited draft opens in play scene", current_scene.name, "PC")
 	if current_scene.name == "PC":
 		_expect("edited draft campaign selected", current_scene.campaign_key, "demo_campaign")
 		_expect("edited draft is marked as a preview", current_scene.draft_preview, true)
 		_expect("draft preview cannot alter installed checkpoints", current_scene.campaign_save_root, "")
-		_expect("draft publishes outside presentation", current_scene.battle_surroundings.get("mode", ""), "solid")
-		_expect("draft publishes selected outside colour", int(current_scene.battle_surroundings.get("colour", 0)), 0x1234ab)
+		_expect("draft publishes outside presentation", current_scene.battle_surroundings.get("mode", ""), "blend")
+		_expect("draft publishes every decorative perimeter cell", current_scene.battle_surroundings.get("terrain", []).size(), 78)
 		_expect("active renderer receives outside presentation", current_scene.board.get("surroundings"), current_scene.battle_surroundings)
+		_expect("draft publishes visual visibility", current_scene.battle_visual_visibility.hidden_cells.size(), 2)
+		_expect("active renderer receives visual visibility", current_scene.board.get("visual_visibility"), current_scene.battle_visual_visibility)
 		_expect("draft remembers creator return", creator_context.project_id, created.id)
 		current_scene._open_projects()
 		await process_frame
@@ -729,6 +1154,7 @@ func _run() -> void:
 
 	if failures == 0:
 		print("map editor smoke passed")
+	localization.call("select_language", prior_language, false)
 	quit(1 if failures > 0 else 0)
 
 
@@ -738,6 +1164,23 @@ func _parse(value: String) -> Dictionary:
 		_fail("source was not readable JSON")
 		return {}
 	return parsed
+
+
+func _has_map(project: Dictionary, identity: String) -> bool:
+	for value: Variant in project.get("maps", []):
+		if value is Dictionary and str(value.get("id", "")) == identity:
+			return true
+	return false
+
+
+func _tree_has_text(node: Node, expected: String) -> bool:
+	if node is Label or node is Button:
+		if expected in str(node.text):
+			return true
+	for child: Node in node.get_children():
+		if _tree_has_text(child, expected):
+			return true
+	return false
 
 
 func _capture_guide_frame(directory: String, file_name: String) -> void:

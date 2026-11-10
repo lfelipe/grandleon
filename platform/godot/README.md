@@ -38,17 +38,34 @@ attack, damage or miss, counterattack, and defeat. Hold **Confirm** to speed one
 up or press **Cancel** to return to the board. Turning them off changes only the
 presentation, never the combat result.
 
+Conversations spoken during a battle reuse the same backdrop pools as close
+combat. The speaking character's nearby terrain chooses a stable composition
+for the whole scene. The current pools cover the painted Cedar Deepwood
+forest, Bell Orchard, Cedar Watch, Gate Village, and walkable areas inside
+Twin Gate Keep. Campaign-specific Medieval pools require the exact authored
+map and landmark; a similar terrain mix elsewhere cannot select them. Between
+battles, an authored **Deep Wood** backdrop uses the forest pool directly.
+Other authored backdrops keep their clear colour treatment until a matching
+art pool exists, so missing scenery never hides the portrait or text.
+
 ## Create
 
 Choose **Create / Edit Games**, then **New Campaign**. A starter campaign is
 already playable and can be changed a piece at a time. The creator supports:
 
-- terrain painting, map resizing, surroundings, and unit placement;
+- terrain painting, map resizing, surroundings, interior visibility, and unit placement;
 - deployment, objectives, local co-op ownership, and two-player scaling;
 - story scenes and conversations inside battles;
 - characters, roles, gear, abilities, growth, rewards, and supplies;
 - linear chapters, alternate routes, and endings; and
 - immediate testing in the normal player.
+
+**Interior visibility** in Battle Setup lets an author paint rooms that begin
+covered and choose how far a friendly unit reveals after entering. The map
+preview shows the covered cells before testing. This is deliberately visual:
+it makes building exploration easier to read without silently changing legal
+moves, targets, enemies, objectives, or AI behavior. Gameplay fog of war and
+matching console presentation are still future work.
 
 [Creating a game](../../docs/CREATING_A_GAME.md) is the short visual tour. The
 [artwork roster](../../docs/ARTWORK.md) shows the included themes, characters,

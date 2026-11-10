@@ -70,17 +70,20 @@ cluster cues. FNV-1a over
 `2031659219`, selecting variant 2 of 3. The choice and layer order stay
 frozen through attack and counter.
 
-Each 1280×720 sRGB variant has four modular layers:
+Each 1280×720 sRGB variant keeps the shared four-role contract:
 
 1. opaque panorama;
 2. grass/paved transition;
 3. forest midground;
 4. foreground props.
 
-The reproducible source render uses a 42-degree perspective camera at
-`(0, 2.55, 6.2)`, looking at `(0, 0.34, -1.35)`, with the lighting values
-recorded beside it in `scene.json`. Transition, midground, and prop plates
-retain alpha; only the panorama is opaque.
+The reviewed forest panoramas own their full composition and continuous floor;
+the three companion roles are transparent extension points. Their prompt and
+normalization record is in
+[`MEDIEVAL_FOREST_GATE.md`](project/art/combat_backdrops/MEDIEVAL_FOREST_GATE.md).
+The deterministic diagnostic render still uses a 42-degree perspective camera
+at `(0, 2.55, 6.2)`, looking at `(0, 0.34, -1.35)`, with the lighting values
+recorded beside it in `scene.json`.
 
 The grass/paved source surface continues through the lower edge, so the stage
 has no horizontal join between a backdrop and a separately drawn floor. Godot
@@ -90,7 +93,9 @@ Props never cover units. The generic
 13 terrain kinds and deterministic selection fields. A road beside water uses
 the bridge scene as a conditional transition.
 
-Regenerate the proof variants from the repository root:
+Regenerate those low-detail diagnostic variants from the repository root. The
+script writes below the build directory by default and never replaces the
+reviewed runtime artwork:
 
 ```sh
 platform/godot/scripts/generate-combat-backdrops.sh

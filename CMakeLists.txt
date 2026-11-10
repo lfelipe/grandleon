@@ -36,34 +36,19 @@ option(
     "Treat engine and tool compiler warnings as errors"
     OFF
 )
-# Set by platform/nintendo64/scripts/build-n64.sh together with
-# cmake/toolchains/Nintendo64.cmake. A host build never sets it.
-option(
-    GRANDLEON_N64
-    "Configure the engine libraries and the conformance ROM for the Nintendo 64"
-    OFF
-)
-# Adds the containerised Nintendo 64 conformance run to the test suite. Off by
+# Adds the containerised Nintendo 64 project-export run to the test suite. Off by
 # default because it needs a container runtime and builds a cross toolchain and
 # an emulator from source on first use.
 option(
     GRANDLEON_N64_TESTS
-    "Run the Nintendo 64 conformance ROM as part of ctest"
+    "Build and boot the Nintendo 64 Pyrite projects as part of ctest"
     OFF
 )
-# Set by platform/playstation/scripts/build-playstation.sh together with
-# cmake/toolchains/PlayStation.cmake. A host build never sets it.
-option(
-    GRANDLEON_PLAYSTATION
-    "Configure the engine libraries and the conformance executable for the PlayStation"
-    OFF
-)
-# Adds the containerised PlayStation conformance run to the test suite. Off by
-# default because it needs a container runtime, pulls a cross toolchain image
-# and builds an emulator from source on first use.
+# Adds the Mipsync PlayStation project-export gate to the test suite. Off by
+# default because it needs a container runtime and builds two complete discs.
 option(
     GRANDLEON_PLAYSTATION_TESTS
-    "Run the PlayStation conformance executable as part of ctest"
+    "Build and boot the PlayStation demo and Steel projects as part of ctest"
     OFF
 )
 
@@ -205,6 +190,7 @@ add_library(grandleon_package_runtime
     engine/package_runtime/src/campaign.cpp
     engine/package_runtime/src/dialogue.cpp
     engine/package_runtime/src/encounter_loader.cpp
+    engine/package_runtime/src/localization.cpp
     engine/package_runtime/src/manifest.cpp
     engine/package_runtime/src/names.cpp
     engine/package_runtime/src/presentation.cpp
@@ -417,25 +403,6 @@ target_include_directories(
 
 target_compile_options(grandleon_game_content PRIVATE ${GRANDLEON_WARNING_FLAGS})
 
-# The command-line tools and the installed SDK are host concerns. A cross build
-# compiles the engine libraries, the content compiler, and its own platform
-# adapter only.
-if(EMSCRIPTEN)
-    add_subdirectory(platform/web)
-    return()
-endif()
-
-if(GRANDLEON_N64)
-    add_subdirectory(platform/nintendo64)
-    return()
-endif()
-
-if(GRANDLEON_PLAYSTATION)
-    add_subdirectory(platform/playstation)
-    return()
-endif()
-
-include(cmake/GrandleonWebAssembly.cmake)
 include(cmake/GrandleonNintendo64.cmake)
 include(cmake/GrandleonPlayStation.cmake)
 
@@ -462,6 +429,25 @@ target_link_libraries(
 )
 target_compile_features(grandleon_content_compile PRIVATE cxx_std_17)
 target_compile_options(grandleon_content_compile PRIVATE ${GRANDLEON_WARNING_FLAGS})
+
+# Host side of the experimental Mipsync PlayStation path. It deliberately
+# emits a renderer-neutral scene manifest from a real package and a real
+# simulation snapshot; no Mipsync ABI enters an engine library.
+add_executable(grandleon_ps1_mipsync_scene_export
+    platform/playstation/mipsync/tools/scene_export.cpp
+)
+target_link_libraries(
+    grandleon_ps1_mipsync_scene_export
+    PRIVATE
+        grandleon::core
+        grandleon::package_format
+        grandleon::package_runtime
+        grandleon::simulation
+)
+target_compile_features(grandleon_ps1_mipsync_scene_export PRIVATE cxx_std_17)
+target_compile_options(
+    grandleon_ps1_mipsync_scene_export PRIVATE ${GRANDLEON_WARNING_FLAGS}
+)
 
 # Desktop client. Presentation sits behind a Presenter seam, so the terminal
 # front end and the SDL one share the session and nothing else. SDL is optional:

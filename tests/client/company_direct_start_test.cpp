@@ -63,8 +63,8 @@ int main() {
     client::CompanyManagement carried = fixed_company();
     carried.roster.front().carried.emplace_back();
     expect(
-        !client::company_can_start_directly(carried),
-        "a carried-item choice opens management"
+        client::company_can_start_directly(carried),
+        "an equipped fixed formation starts directly"
     );
 
     client::CompanyManagement refused = fixed_company();

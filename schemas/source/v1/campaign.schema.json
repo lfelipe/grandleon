@@ -326,6 +326,10 @@
           "$ref": "common.schema.json#/$defs/stableId",
           "description": "What this member is. Every placement fielding them must name the same unit type."
         },
+        "playerNameable": {
+          "type": "boolean",
+          "description": "Whether a player may replace this character's authored name. The required name remains the default and fallback. Omitted means the name is fixed, preserving projects authored before this option existed."
+        },
         "specificity": {
           "$ref": "#/$defs/campaignMemberSpecificity"
         },
@@ -384,7 +388,7 @@
           "enum": [
             2
           ],
-          "description": "Assigns this allied placement to player two when two local players participate. Omitted allied placements belong to player one. In a one-player game every allied placement belongs to player one, so the same campaign remains a complete solo game. Opposing placements cannot name a player. This ownership is portable to PC, Nintendo 64, and PlayStation."
+          "description": "Assigns this allied placement to player two when two local players participate. Omitted allied placements belong to player one. In a one-player game an unconditional player-two ally belongs to player one; when the placement also states minimumPlayers: 2 it is absent instead, allowing a distinct co-op army while the baseline remains a complete solo game. Opposing placements cannot name a player. This ownership is portable to PC, Nintendo 64, and PlayStation."
         },
         "x": {
           "type": "integer",
@@ -409,7 +413,17 @@
           "enum": [
             2
           ],
-          "description": "Fields this opposing placement only when two local players are participating. Omitted means the placement is always present. This adds authored enemies or reinforcements for co-op without changing their stats, and is portable to PC, Nintendo 64, and PlayStation. Allied roster placements cannot be conditional, and an objective cannot target a conditional placement."
+          "description": "Fields this placement only when two local players are participating. Omitted means the placement is always present. On the opposing side this adds authored enemies or reinforcements for co-op. On the allied side it is valid only together with player: 2, so a distinct second army can be absent from the solo campaign instead of being handed to Player 1. An objective cannot target a conditional placement."
+        },
+        "twoPlayerPosition": {
+          "type": "object",
+          "description": "Where this same placement starts when two local players participate. Omitted means its ordinary x and y are used in both modes. This changes an opening layout without duplicating a persistent roster member or changing its identity.",
+          "properties": {
+            "x": { "type": "integer", "minimum": 0, "maximum": 4095 },
+            "y": { "type": "integer", "minimum": 0, "maximum": 4095 }
+          },
+          "required": ["x", "y"],
+          "additionalProperties": false
         },
         "talk": {
           "type": "object",
@@ -707,6 +721,11 @@
         "dialogueId": {
           "$ref": "common.schema.json#/$defs/stableId",
           "description": "The scene to play. It is an ordinary dialogue, so it carries a cast and draws faces like any other."
+        },
+        "minimumPlayers": {
+          "type": "integer",
+          "enum": [2],
+          "description": "Plays this scene only when two local players participate. Omitted means the moment belongs to both variants. This keeps one campaign graph while allowing a second army's story beats to appear only in co-op."
         }
       }
     }

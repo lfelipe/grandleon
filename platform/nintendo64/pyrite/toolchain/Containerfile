@@ -1,0 +1,71 @@
+FROM ghcr.io/dragonminded/libdragon@sha256:cf979424d0c2d3e281fda0820e8244def9b2debea2ab140c6513e41c8b66cdd0
+
+ARG LIBDRAGON_REVISION=c79a52b42ac790e06e797aede43914dd8754cd5f
+ARG TINY3D_REVISION=517156d9464aaab95bf9531336d9a57624405ca7
+
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
+        ca-certificates cmake python3-numpy python3-pil xz-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV N64_INST=/n64_toolchain
+
+RUN mkdir -p /tmp/libdragon \
+    && cd /tmp/libdragon \
+    && git init --quiet \
+    && git remote add origin https://github.com/DragonMinded/libdragon.git \
+    && git fetch --quiet --depth 1 origin "${LIBDRAGON_REVISION}" \
+    && git checkout --quiet FETCH_HEAD \
+    && test "$(git rev-parse HEAD)" = "${LIBDRAGON_REVISION}" \
+    && make -j"$(nproc)" install-mk \
+    && make -j"$(nproc)" libdragon tools \
+    && make -j"$(nproc)" install tools-install \
+    && printf '%s\n' "${LIBDRAGON_REVISION}" > "${N64_INST}/LIBDRAGON_COMMIT" \
+    && mkdir -p \
+        /licenses/libdragon/src/fatfs \
+        /licenses/libdragon/tools/audioconv64/libsamplerate \
+        /licenses/libdragon/tools/mkfont/freetype \
+        /licenses/libdragon/tools/mkfont/plutosvg \
+        /licenses/libdragon/tools/mkfont/rect_pack \
+    && install -m 0644 LICENSE.md /licenses/libdragon/LICENSE.md \
+    && install -m 0644 src/fatfs/License.md \
+        /licenses/libdragon/src/fatfs/License.md \
+    && install -m 0644 tools/audioconv64/libsamplerate/COPYING \
+        /licenses/libdragon/tools/audioconv64/libsamplerate/COPYING \
+    && install -m 0644 tools/mkfont/freetype/LICENSE.TXT \
+        /licenses/libdragon/tools/mkfont/freetype/LICENSE.TXT \
+    && install -m 0644 tools/mkfont/freetype/FTL.TXT \
+        /licenses/libdragon/tools/mkfont/freetype/FTL.TXT \
+    && install -m 0644 tools/mkfont/freetype/GPLv2.TXT \
+        /licenses/libdragon/tools/mkfont/freetype/GPLv2.TXT \
+    && install -m 0644 tools/mkfont/plutosvg/FTL.TXT \
+        /licenses/libdragon/tools/mkfont/plutosvg/FTL.TXT \
+    && install -m 0644 tools/mkfont/rect_pack/LICENSE \
+        /licenses/libdragon/tools/mkfont/rect_pack/LICENSE \
+    && cd / \
+    && rm -rf /tmp/libdragon
+
+RUN mkdir -p /tmp/tiny3d \
+    && cd /tmp/tiny3d \
+    && git init --quiet \
+    && git remote add origin https://github.com/HailToDodongo/tiny3d.git \
+    && git fetch --quiet --depth 1 origin "${TINY3D_REVISION}" \
+    && git checkout --quiet FETCH_HEAD \
+    && test "$(git rev-parse HEAD)" = "${TINY3D_REVISION}" \
+    && make -j"$(nproc)" \
+    && make install \
+    && printf '%s\n' "${TINY3D_REVISION}" > "${N64_INST}/TINY3D_COMMIT" \
+    && mkdir -p /licenses/tiny3d \
+    && install -m 0644 LICENSE /licenses/tiny3d/LICENSE \
+    && cd / \
+    && rm -rf /tmp/tiny3d \
+    && tar -C /licenses -cJf /GRANDLEON_PYRITE_TOOLCHAIN_LICENSES.tar.xz . \
+    && printf '%s\t%s\t%s\n' \
+        libdragon "${LIBDRAGON_REVISION}" Unlicense \
+        Tiny3D "${TINY3D_REVISION}" MIT \
+        FatFs "libdragon-${LIBDRAGON_REVISION}" LicenseRef-FatFs \
+        libsamplerate "libdragon-${LIBDRAGON_REVISION}" BSD-2-Clause \
+        FreeType "libdragon-${LIBDRAGON_REVISION}" FTL \
+        PlutoSVG "libdragon-${LIBDRAGON_REVISION}" FTL \
+        rect_pack "libdragon-${LIBDRAGON_REVISION}" Unlicense \
+        > /GRANDLEON_PYRITE_TOOLCHAIN_COMPONENTS.tsv

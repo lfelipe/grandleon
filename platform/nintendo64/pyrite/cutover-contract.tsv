@@ -1,0 +1,12 @@
+engine	Nintendo 64 renderer
+required-path	platform/nintendo64/pyrite/project/src/user/ProjectBoard.cpp
+required-path	platform/nintendo64/scripts/build-n64.sh
+forbidden-path	platform/nintendo64/src
+forbidden-path	platform/nintendo64/assets
+forbidden-path	platform/nintendo64/CMakeLists.txt
+forbidden-path	platform/nintendo64/Containerfile
+forbidden-path	platform/nintendo64/scripts/build-sevenfold-roms.sh
+forbidden-path	games/tarnholt/autopilot
+forbidden-path	tests/nintendo64
+forbidden-text	platform/nintendo64/scripts	grandleon_n64_(play|probe|autopilot|campaign|showcase|sevenfold|production)
+artifact-text	Grandleon Pyrite Gam

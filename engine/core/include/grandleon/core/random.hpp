@@ -26,7 +26,7 @@
 // not anything needing arithmetic a console's compiler cannot lower. Every
 // number here comes from FNV-1a-64 (one XOR and one multiply by 0x100000001B3
 // per byte), which is the single piece of 64-bit arithmetic this repository
-// has already proved bit-for-bit on GCC, Clang, Emscripten, MIPS (Nintendo 64)
+// has already proved bit-for-bit on GCC, Clang, MIPS (Nintendo 64)
 // and the R3000A (PlayStation). Adding dice therefore adds no arithmetic
 // primitive that is not already checked on target: the conformance ROMs that
 // pin the hash pin the generator with it.

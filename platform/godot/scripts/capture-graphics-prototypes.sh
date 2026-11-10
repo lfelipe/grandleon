@@ -46,8 +46,8 @@ mkdir -p "${godot_state}/data" "${godot_state}/config" \
 XDG_DATA_HOME="${godot_state}/data" \
 XDG_CONFIG_HOME="${godot_state}/config" \
 XDG_CACHE_HOME="${godot_state}/cache" \
-    "${godot_binary}" --editor --headless --quiet \
-    --path "${stage_dir}" --quit
+    "${godot_binary}" --headless --quiet --import \
+    --path "${stage_dir}"
 
 runner=("${godot_binary}")
 if [[ -z "${DISPLAY:-}" ]]; then

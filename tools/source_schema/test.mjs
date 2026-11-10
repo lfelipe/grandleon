@@ -26,7 +26,8 @@ import {
   SECOND_CHANGE,
   THIRD_CHANGE,
   FOURTH_CHANGE,
-  FIFTH_CHANGE
+  FIFTH_CHANGE,
+  SIXTH_CHANGE
 } from "./migration-example.mjs";
 import { main as upgradeMain, refusalMessage } from "./upgrade.mjs";
 
@@ -656,6 +657,26 @@ assert.deepEqual(
 const duplicateDiagnostics = validateProject(
   path.join(fixtures, "invalid/duplicate-identifier.json")
 );
+
+assert.deepEqual(
+  validateProject(path.join(fixtures, "invalid/localization-semantics.json"))
+    .map(({ code, instancePath }) => ({ code, instancePath })),
+  [
+    {
+      code: "SOURCE_TRANSLATION_REPEATS_SOURCE_LANGUAGE",
+      instancePath: "/translations/0/language"
+    },
+    {
+      code: "SOURCE_TRANSLATION_MESSAGE_DUPLICATE",
+      instancePath: "/translations/1/entries/1/id"
+    },
+    {
+      code: "SOURCE_TRANSLATION_LANGUAGE_DUPLICATE",
+      instancePath: "/translations/2/language"
+    }
+  ],
+  "language catalogs and message identities are unique in their natural scopes"
+);
 assert.deepEqual(
   duplicateDiagnostics.map(({ code, instancePath }) => ({ code, instancePath })),
   [{ code: "SOURCE_ID_DUPLICATE", instancePath: "/classes/1/id" }]
@@ -1109,6 +1130,15 @@ assert.deepEqual(
 
 const roundTripSource = {
   zeta: 2,
+  sourceLanguage: "en",
+  translations: [
+    {
+      language: "pt-BR",
+      entries: [
+        { id: "characters.rowan.name", source: "Rowan", text: "Rowan" }
+      ]
+    }
+  ],
   extensions: {
     "example:future": {
       retained: true,
@@ -1124,6 +1154,11 @@ assert.deepEqual(
   JSON.parse(firstSerialization).extensions,
   roundTripSource.extensions,
   "allowed unknown extension content must survive a no-edit round trip"
+);
+assert.deepEqual(
+  JSON.parse(firstSerialization).translations,
+  roundTripSource.translations,
+  "manual translations and their reviewed source snapshots survive round trip"
 );
 assert.ok(
   firstSerialization.indexOf("\"alpha\"") < firstSerialization.indexOf("\"zeta\""),
@@ -1190,23 +1225,8 @@ assert.ok(
     );
   }
 
-  // The editor is not on that list because it does not restate the version at
-  // all: it imports this registry. That is the better answer wherever a site
-  // can reach a module, and it is checked where it can be run rather than
-  // read: `editor/src/domain/source-migration.test.ts` asserts that the project
-  // a new game starts from declares exactly `CURRENT_SOURCE_VERSION`. What is
-  // pinned here is only what cannot import: a JSON schema, a C++ constant, and
-  // two authored files.
-  for (const editorFile of [
-    "../../editor/src/domain/source-project-document.ts",
-    "../../editor/src/analysis/source-analysis.ts"
-  ]) {
-    assert.ok(
-      read(editorFile).includes("CURRENT_SOURCE_VERSION"),
-      `${editorFile} must ask the registry for the version rather than write `
-        + "it again; a literal here is a site this check cannot see drift in"
-    );
-  }
+  // These are the sites that cannot import the registry directly: a JSON
+  // schema, a C++ constant, and the authored sample projects.
 }
 
 {
@@ -1220,13 +1240,13 @@ assert.ok(
   // says it does.
   assert.equal(
     sourceMigrations().size,
-    3,
-    "three steps ship: the ones that reach 1.1.0, 1.2.0, and 1.3.0"
+    4,
+    "four steps ship: the ones that reach 1.1.0 through 1.4.0"
   );
   assert.deepEqual(
     sourceMigrations().versions(),
-    [FIRST_SOURCE_VERSION, "1.1.0", "1.2.0", "1.3.0"],
-    "and therefore four versions a project may have been written at"
+    [FIRST_SOURCE_VERSION, "1.1.0", "1.2.0", "1.3.0", "1.4.0"],
+    "and therefore five versions a project may have been written at"
   );
 
   // A project written before moments existed walks all the way up and is left
@@ -1243,14 +1263,20 @@ assert.ok(
     assert.equal(walked.ok, true, "the shipped chain is walkable");
     assert.deepEqual(
       walked.applied.map((step) => `${step.from}->${step.to}`),
-      ["1.0.0->1.1.0", "1.1.0->1.2.0", "1.2.0->1.3.0"],
+      [
+        "1.0.0->1.1.0",
+        "1.1.0->1.2.0",
+        "1.2.0->1.3.0",
+        "1.3.0->1.4.0"
+      ],
       "all steps, in the order the chain holds them"
     );
-    assert.equal(walked.project.schemaVersion, "1.3.0", "arriving at the version");
+    assert.equal(walked.project.schemaVersion, "1.4.0", "arriving at the version");
+    assert.equal(walked.project.sourceLanguage, "en", "with historical English made explicit");
     assert.equal(walked.project.title, "An Old Game", "with the game untouched");
     assert.equal(
       walked.changed.length,
-      3,
+      4,
       "and one sentence for each step, which is what the author is shown"
     );
     assert.equal(
@@ -1306,7 +1332,8 @@ assert.ok(
       "0.9.0->1.0.0",
       "1.0.0->1.1.0",
       "1.1.0->1.2.0",
-      "1.2.0->1.3.0"
+      "1.2.0->1.3.0",
+      "1.3.0->1.4.0"
     ],
     "one version at a time, in order, and never in a leap"
   );
@@ -1323,23 +1350,38 @@ assert.ok(
     "and the second ran after it, on what the first step left"
   );
   assert.equal(walked.project.title, "An Old Game", "and neither touched the rest");
+  assert.equal(walked.project.sourceLanguage, "en", "and source language became explicit");
 
   // The sentences an author reads, in the order the steps run. This is the list
   // the editor's dialog shows, so its order is the order things happened in.
   assert.deepEqual(
     walked.changed,
-    [FIRST_CHANGE, SECOND_CHANGE, THIRD_CHANGE, FOURTH_CHANGE, FIFTH_CHANGE],
+    [
+      FIRST_CHANGE,
+      SECOND_CHANGE,
+      THIRD_CHANGE,
+      FOURTH_CHANGE,
+      FIFTH_CHANGE,
+      SIXTH_CHANGE
+    ],
     "what changed, in the order it changed, in words an author can read"
   );
   assert.deepEqual(
     planChanges(planUpgrade(exampleMigrations(), EXAMPLE_OLDEST)),
-    [FIRST_CHANGE, SECOND_CHANGE, THIRD_CHANGE, FOURTH_CHANGE, FIFTH_CHANGE],
+    [
+      FIRST_CHANGE,
+      SECOND_CHANGE,
+      THIRD_CHANGE,
+      FOURTH_CHANGE,
+      FIFTH_CHANGE,
+      SIXTH_CHANGE
+    ],
     "and the same list before anything has run, which is what the dialog asks "
       + "the author to agree to"
   );
   assert.deepEqual(
     planChanges(planUpgrade(exampleMigrations(), "0.9.0")),
-    [SECOND_CHANGE, THIRD_CHANGE, FOURTH_CHANGE, FIFTH_CHANGE],
+    [SECOND_CHANGE, THIRD_CHANGE, FOURTH_CHANGE, FIFTH_CHANGE, SIXTH_CHANGE],
     "a project part of the way up is told only what is left to do to it"
   );
 

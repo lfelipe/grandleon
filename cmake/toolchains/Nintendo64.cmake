@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
-# Nintendo 64 cross toolchain, for the libdragon container built by
-# platform/nintendo64/Containerfile.
+# Nintendo 64 cross toolchain, for the pinned Pyrite/libdragon container built
+# by platform/nintendo64/pyrite/toolchain/Containerfile.
 #
 # The compiler, ABI, and codegen flags below are transcribed from libdragon's
 # own n64.mk at the pinned commit, so objects produced here link against the

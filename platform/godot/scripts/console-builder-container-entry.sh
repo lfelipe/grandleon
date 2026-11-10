@@ -22,13 +22,14 @@ install -m 0644 "${source}" "${work}/project.json"
 if [ "${target}" = nintendo64 ]; then
     export N64_INST=/n64_toolchain
     export PATH="${N64_INST}/bin:${PATH}"
+    export GRANDLEON_PYRITE_N64_INST="${N64_INST}"
+    export GRANDLEON_PYRITE_CLI=/opt/pyrite64/usr/bin/pyrite64
 else
     export NUGGET=/nugget
     export LIBSTDCXX_SOURCE=/libstdcxx
+    export PSN00BSDK_ROOT=/psn
+    export MIPSYNC_SOURCE=/opt/mipsync
 fi
-
-parallel="$(nproc)"
-if [ "${parallel}" -gt 16 ]; then parallel=16; fi
 
 write_result() {
     first=1
@@ -51,68 +52,22 @@ write_result() {
 }
 
 build_nintendo64() {
-    cmake -S /src -B "${work}/target" \
-        -DCMAKE_TOOLCHAIN_FILE=/src/cmake/toolchains/Nintendo64.cmake \
-        -DCMAKE_BUILD_TYPE= \
-        -DGRANDLEON_N64=ON \
-        -DGRANDLEON_BUILD_TESTS=OFF \
-        -DGRANDLEON_WERROR=ON \
-        -DGRANDLEON_STAGE_PICKER=OFF \
-        -DGRANDLEON_N64_PROJECT="${work}/project.json"
-    cmake --build "${work}/target" --parallel "${parallel}" \
-        --target grandleon_n64_campaign
-    install -m 0644 \
-        "${work}/target/platform/nintendo64/grandleon_n64_campaign.z64" \
-        "${output}/game.z64"
+    /src/platform/nintendo64/pyrite/scripts/build.sh \
+        /src "${work}/pyrite" "${work}/project.json"
+    source_rom="${work}/pyrite/project/grandleon_pyrite_game.z64"
+    identity="$(dd if="${source_rom}" bs=1 skip=32 count=20 status=none | tr -d '\000')"
+    [ "${identity}" = 'Grandleon Pyrite Gam' ] || {
+        echo "Nintendo 64 builder produced the wrong renderer: ${identity}" >&2
+        exit 65
+    }
+    install -m 0644 "${source_rom}" "${output}/game.z64"
     write_result "${output}/game.z64"
 }
 
 build_playstation() {
-    cmake -S /src -B "${work}/host" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DGRANDLEON_BUILD_TESTS=OFF
-    cmake --build "${work}/host" --parallel "${parallel}" \
-        --target grandleon_content_compile
-    "${work}/host/grandleon_content_compile" \
-        /src/games/demo/source/project.json "${work}/demo.gpk"
-    "${work}/host/grandleon_content_compile" \
-        "${work}/project.json" "${work}/board.gpk"
-    cmake -S /src -B "${work}/target" \
-        -DCMAKE_TOOLCHAIN_FILE=/src/cmake/toolchains/PlayStation.cmake \
-        -DCMAKE_BUILD_TYPE= \
-        -DGRANDLEON_PLAYSTATION=ON \
-        -DGRANDLEON_BUILD_TESTS=OFF \
-        -DGRANDLEON_WERROR=ON \
-        -DGRANDLEON_STAGE_PICKER=OFF \
-        -DGRANDLEON_PLAYSTATION_PROJECT="${work}/project.json" \
-        -DPLAYSTATION_DEMO_PACKAGE="${work}/demo.gpk" \
-        -DPLAYSTATION_BOARD_PACKAGE="${work}/board.gpk"
-    cmake --build "${work}/target" --parallel "${parallel}" \
-        --target grandleon_playstation_campaign
-
-    disc="${work}/disc"
-    mkdir -p "${disc}/root"
-    install -m 0644 /src/platform/playstation/disc/SYSTEM.CNF \
-        "${disc}/root/SYSTEM.CNF"
-    install -m 0644 \
-        "${work}/target/platform/playstation/grandleon_psx_campaign.ps-exe" \
-        "${disc}/root/MAIN.EXE"
-    cat > "${disc}/disc.xml" <<'XML'
-<?xml version="1.0" encoding="UTF-8"?>
-<iso_project image_name="game.bin" cue_sheet="game.cue">
-  <track type="data" cdvd_style="false">
-    <identifiers system="PLAYSTATION" application="PLAYSTATION"
-      volume="GRANDLEON" volume_set="GRANDLEON" publisher="GRANDLEON"
-      data_preparer="MKPSXISO"/>
-    <directory_tree>
-      <file name="SYSTEM.CNF" type="data" source="root/SYSTEM.CNF"/>
-      <file name="MAIN.EXE" type="data" source="root/MAIN.EXE"/>
-      <dummy sectors="1024" type="0"/>
-    </directory_tree>
-  </track>
-</iso_project>
-XML
-    (cd "${disc}" && mkpsxiso -y disc.xml)
+    /src/platform/playstation/mipsync/scripts/build-project.sh \
+        "${work}/project.json" "${work}/mipsync"
+    disc="${work}/mipsync"
     sector=0
     nonzero=0
     while [ "${sector}" -lt 16 ]; do

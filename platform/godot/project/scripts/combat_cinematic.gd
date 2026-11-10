@@ -3,6 +3,7 @@ class_name GrandleonCombatCinematic
 extends Control
 
 const ArtLibrary = preload("res://scripts/art_library.gd")
+const BackdropPackResolver = preload("res://scripts/conversation_backdrop_resolver.gd")
 const TERRAIN_COLOURS := [
 	Color("287da3"), Color("a8845b"), Color("3f8151"), Color("75838a"),
 	Color("b89a62"), Color("d6e4e6"), Color("486f5b"), Color("789568"),
@@ -17,21 +18,43 @@ const FULL_ENTER_SECONDS := 1.10
 const FULL_EXIT_SECONDS := 0.95
 const REDUCED_ENTER_SECONDS := 0.34
 const REDUCED_EXIT_SECONDS := 0.30
+const QUEUED_ENTER_SECONDS := 0.55
+const QUEUED_EXIT_SECONDS := 0.42
+const DEFAULT_COPY := {
+	"player.cinematic.attack": "ATTACK",
+	"player.cinematic.counterattack": "COUNTERATTACK",
+	"player.cinematic.ability": "ABILITY",
+	"player.cinematic.restore": "RESTORE",
+	"player.cinematic.damage": "−{amount}",
+	"player.cinematic.restored": "+{amount}  RESTORED",
+	"player.cinematic.defeated": "DEFEATED",
+	"player.cinematic.held_on": "HELD ON",
+	"player.cinematic.item_found": "ITEM FOUND",
+	"player.cinematic.miss": "MISS",
+	"player.cinematic.fast_forward": "FAST-FORWARDING  ·  RELEASE {confirm} FOR NORMAL SPEED  ·  {cancel} SKIPS",
+	"player.cinematic.controls": "HOLD {confirm} TO FAST-FORWARD  ·  {cancel} SKIPS",
+}
 
 signal exchange_finished
 signal queue_drained
+signal combat_sound(beat: Dictionary, action: String, content_id: int, impact: bool)
 
 var art = ArtLibrary.new()
+var backdrop_resolver = BackdropPackResolver.new()
 var motion_mode := "full"
 var camera_impulse_enabled := true
 var text_scale := 1.0
 var capture_hud_mode := false
+var _translate: Callable
+var _control_labels := {"confirm": "CONFIRM", "cancel": "CANCEL"}
 var _queue: Array[Dictionary] = []
 var _current: Dictionary = {}
 var _terrain: Array = []
 var _theme := 0
 var _beat_index := 0
 var _elapsed := 0.0
+var _sound_launched := false
+var _sound_impacted := false
 var _fast_forward := false
 var _playback_paused := false
 var _phase := PHASE_IDLE
@@ -41,9 +64,12 @@ var _stage_left_unit: Dictionary = {}
 var _stage_right_unit: Dictionary = {}
 var _board_camera_host: Node
 var _board_camera_engaged := false
+var _queued_handoff := false
 var _capture_backdrop_layers: Array[Texture2D] = []
 var _capture_backdrop_variant := ""
 var _capture_floor_strip_top := 0.66
+var _backdrop_selection: Dictionary = {}
+var _capture_backdrop_forced := false
 var _headline: Label
 var _result: Label
 var _actor_name: Label
@@ -61,13 +87,20 @@ func _ready() -> void:
 
 func configure(
 	profile: Dictionary, new_text_scale: float, new_motion_mode: String,
-	new_camera_impulse_enabled: bool
+	new_camera_impulse_enabled: bool, new_translate := Callable(),
+	new_control_labels: Dictionary = {}
 ) -> void:
 	art.configure_profile(profile)
 	text_scale = clampf(new_text_scale, 1.0, 1.20)
 	motion_mode = new_motion_mode if new_motion_mode in ["full", "reduced"] else "full"
 	camera_impulse_enabled = new_camera_impulse_enabled
+	_translate = new_translate
+	_control_labels = {
+		"confirm": String(new_control_labels.get("confirm", "CONFIRM")),
+		"cancel": String(new_control_labels.get("cancel", "CANCEL")),
+	}
 	_update_font_sizes()
+	_update_labels()
 
 
 func set_capture_hud_mode(value: bool) -> void:
@@ -89,23 +122,15 @@ func capture_hud_state() -> Dictionary:
 func set_capture_backdrop(
 	layer_paths: Array, variant_id: String, floor_strip_top: float
 ) -> bool:
-	_capture_backdrop_layers.clear()
-	_capture_backdrop_variant = variant_id
-	_capture_floor_strip_top = clampf(floor_strip_top, 0.60, 1.0)
-	for value: Variant in layer_paths:
-		var path := String(value)
-		if path.is_empty() or not ResourceLoader.exists(path):
-			_capture_backdrop_layers.clear()
-			push_error("combat backdrop layer is unavailable: " + path)
-			return false
-		var resource: Resource = load(path)
-		if not resource is Texture2D:
-			_capture_backdrop_layers.clear()
-			push_error("combat backdrop layer is not a texture: " + path)
-			return false
-		_capture_backdrop_layers.append(resource as Texture2D)
-	queue_redraw()
-	return not _capture_backdrop_layers.is_empty()
+	_capture_backdrop_forced = true
+	return _apply_backdrop_selection({
+		"mode": "layers",
+		"source": "capture",
+		"pack_id": "capture",
+		"variant_id": variant_id,
+		"layer_paths": layer_paths.duplicate(),
+		"floor_strip_top": floor_strip_top,
+	})
 
 
 func capture_backdrop_state() -> Dictionary:
@@ -113,11 +138,15 @@ func capture_backdrop_state() -> Dictionary:
 		"variant": _capture_backdrop_variant,
 		"layer_count": _capture_backdrop_layers.size(),
 		"floor_strip_top": _capture_floor_strip_top,
+		"source": String(_backdrop_selection.get("source", "fallback")),
+		"pack_id": String(_backdrop_selection.get("pack_id", "")),
+		"forced": _capture_backdrop_forced,
 	}
 
 
 func enqueue(
-	plan: Dictionary, terrain: Array, theme: int, focus_points: Array = []
+	plan: Dictionary, terrain: Array, theme: int, focus_points: Array = [],
+	terrain_features: Array = [], route_identity: Dictionary = {}
 ) -> bool:
 	if not bool(plan.get("valid", false)) or plan.get("beats", []).is_empty():
 		return false
@@ -126,6 +155,9 @@ func enqueue(
 		"terrain": terrain.duplicate(),
 		"theme": theme,
 		"focus_points": focus_points.duplicate(),
+		"backdrop": _resolve_backdrop(
+			plan, terrain, terrain_features, route_identity
+		),
 	})
 	if _current.is_empty():
 		_start_next()
@@ -165,6 +197,7 @@ func stage_render_state() -> Dictionary:
 		"actor_slot": actor_slot,
 		"target_slot": target_slot,
 		"impact_slot": target_slot,
+		"restored": bool(beat.get("restored", false)),
 	}
 
 
@@ -207,6 +240,9 @@ func clear() -> void:
 	_focus_points.clear()
 	_stage_left_unit.clear()
 	_stage_right_unit.clear()
+	_queued_handoff = false
+	if not _capture_backdrop_forced:
+		_apply_backdrop_selection({})
 	modulate.a = 0.0
 	scale = Vector2.ONE
 	visible = false
@@ -241,14 +277,29 @@ func _process(delta: float) -> void:
 	_elapsed += presentation_delta
 	var duration := _beat_duration()
 	while _elapsed >= duration and not _current.is_empty():
+		_emit_combat_audio(1.0)
 		_elapsed -= duration
 		_beat_index += 1
+		_sound_launched = false
+		_sound_impacted = false
 		if _beat_index >= _beats().size():
 			_begin_exit()
 			return
+		_set_stage_for_beat(_beat())
 		duration = _beat_duration()
+	_emit_combat_audio(_elapsed / duration)
 	_update_labels()
 	queue_redraw()
+
+
+func _emit_combat_audio(progress: float) -> void:
+	var plan: Dictionary = _current.get("plan", {})
+	if not _sound_launched and progress >= 0.22:
+		_sound_launched = true
+		combat_sound.emit(_beat(), String(plan.get("action", "")), int(plan.get("content_id", 0)), false)
+	if not _sound_impacted and progress >= 0.48:
+		_sound_impacted = true
+		combat_sound.emit(_beat(), String(plan.get("action", "")), int(plan.get("content_id", 0)), true)
 
 
 func _start_next() -> void:
@@ -260,16 +311,19 @@ func _start_next() -> void:
 	_current = _queue.pop_front()
 	_terrain = Array(_current.get("terrain", [])).duplicate()
 	_theme = int(_current.get("theme", 0))
+	if not _capture_backdrop_forced:
+		_apply_backdrop_selection(_current.get("backdrop", {}))
 	_focus_points.clear()
 	for value: Variant in _current.get("focus_points", []):
 		if value is Vector2:
 			_focus_points.append(value)
 	var first_beat: Dictionary = _beats()[0]
-	_stage_left_unit = Dictionary(first_beat.get("actor", {})).duplicate(true)
-	_stage_right_unit = Dictionary(first_beat.get("target", {})).duplicate(true)
+	_set_stage_for_beat(first_beat)
 	_begin_board_camera_focus()
 	_beat_index = 0
 	_elapsed = 0.0
+	_sound_launched = false
+	_sound_impacted = false
 	_phase = PHASE_ENTERING
 	_transition_elapsed = 0.0
 	modulate.a = 0.0
@@ -292,6 +346,7 @@ func _begin_exit() -> void:
 
 
 func _complete_exchange() -> void:
+	var continue_queue := not _queue.is_empty()
 	_restore_board_camera()
 	exchange_finished.emit()
 	_current.clear()
@@ -305,14 +360,19 @@ func _complete_exchange() -> void:
 	_stage_right_unit.clear()
 	modulate.a = 0.0
 	scale = Vector2.ONE
+	_queued_handoff = continue_queue
 	_start_next()
 
 
 func _entrance_duration() -> float:
+	if _queued_handoff and motion_mode != "reduced":
+		return QUEUED_ENTER_SECONDS
 	return REDUCED_ENTER_SECONDS if motion_mode == "reduced" else FULL_ENTER_SECONDS
 
 
 func _exit_duration() -> float:
+	if not _queue.is_empty() and motion_mode != "reduced":
+		return QUEUED_EXIT_SECONDS
 	return REDUCED_EXIT_SECONDS if motion_mode == "reduced" else FULL_EXIT_SECONDS
 
 
@@ -394,6 +454,77 @@ func _beat() -> Dictionary:
 	return values[_beat_index]
 
 
+func _set_stage_for_beat(beat: Dictionary) -> void:
+	# Older/manual plans may not carry per-beat stage entries, so retain the
+	# actor/target fallback used before multi-target presentations were added.
+	_stage_left_unit = Dictionary(
+		beat.get("stage_left", beat.get("actor", {}))
+	).duplicate(true)
+	_stage_right_unit = Dictionary(
+		beat.get("stage_right", beat.get("target", {}))
+	).duplicate(true)
+
+
+func _resolve_backdrop(
+	plan: Dictionary, terrain: Array, terrain_features: Array = [],
+	route_identity: Dictionary = {}
+) -> Dictionary:
+	var focus_cells: Array[Vector2i] = []
+	var seen: Dictionary = {}
+	for value: Variant in plan.get("beats", []):
+		if not value is Dictionary:
+			continue
+		var beat: Dictionary = value
+		for role: String in ["actor", "target"]:
+			var unit: Dictionary = beat.get(role, {})
+			if unit.is_empty():
+				continue
+			var cell := Vector2i(int(unit.get("x", 0)), int(unit.get("y", 0)))
+			if seen.has(cell):
+				continue
+			seen[cell] = true
+			focus_cells.append(cell)
+	var first: Dictionary = plan.get("beats", [])[0]
+	var exchange_key := "%s:%d:%d:%d" % [
+		String(plan.get("action", "attack")), int(plan.get("content_id", 0)),
+		int(first.get("actor_id", 0)), int(first.get("target_id", 0)),
+	]
+	return backdrop_resolver.resolve_for_exchange(
+		exchange_key, plan.get("before_snapshot", {}), terrain, focus_cells,
+		terrain_features, route_identity
+	)
+
+
+func _apply_backdrop_selection(selection: Dictionary) -> bool:
+	_capture_backdrop_layers.clear()
+	_backdrop_selection = selection.duplicate(true)
+	_capture_backdrop_variant = String(selection.get("variant_id", ""))
+	_capture_floor_strip_top = clampf(
+		float(selection.get("floor_strip_top", 1.0)), 0.60, 1.0
+	)
+	if String(selection.get("mode", "fallback")) != "layers":
+		queue_redraw()
+		return false
+	for value: Variant in selection.get("layer_paths", []):
+		var path := String(value)
+		if path.is_empty() or not ResourceLoader.exists(path):
+			_capture_backdrop_layers.clear()
+			_backdrop_selection["mode"] = "fallback"
+			push_error("combat backdrop layer is unavailable: " + path)
+			queue_redraw()
+			return false
+		var resource: Resource = load(path)
+		if not resource is Texture2D:
+			_capture_backdrop_layers.clear()
+			_backdrop_selection["mode"] = "fallback"
+			push_error("combat backdrop layer is not a texture: " + path)
+			queue_redraw()
+			return false
+		_capture_backdrop_layers.append(resource as Texture2D)
+	queue_redraw()
+	return not _capture_backdrop_layers.is_empty()
+
+
 func _stage_slot(unit_id: int) -> String:
 	if unit_id == int(_stage_left_unit.get("id", 0)):
 		return "left"
@@ -458,9 +589,10 @@ func _update_labels() -> void:
 	_headline.position = Vector2(viewport_size.x * 0.25, 35)
 	_headline.size = Vector2(viewport_size.x * 0.5, 58)
 	_headline.text = (
-		"COUNTERATTACK" if bool(beat.get("counter", false))
-		else "ABILITY" if String(_current.plan.get("action", "")) == "ability"
-		else "ATTACK"
+		_text("player.cinematic.counterattack") if bool(beat.get("counter", false))
+		else _text("player.cinematic.restore") if bool(beat.get("restored", false))
+		else _text("player.cinematic.ability") if String(_current.plan.get("action", "")) == "ability"
+		else _text("player.cinematic.attack")
 	)
 	_actor_name.position = Vector2(viewport_size.x * 0.12, viewport_size.y - 150)
 	_actor_name.size = Vector2(viewport_size.x * 0.30, 44)
@@ -474,15 +606,24 @@ func _update_labels() -> void:
 	_result.size = Vector2(viewport_size.x * 0.30, 80)
 	var progress := _progress()
 	_result.visible = progress >= 0.52
-	if bool(beat.get("landed", false)):
-		_result.text = "−%d" % int(beat.get("damage", 0))
+	if bool(beat.get("restored", false)):
+		_result.text = _text("player.cinematic.restored", {
+			"amount": int(beat.get("amount", 0)),
+		})
+		_result.add_theme_color_override("font_color", Color("7ff0a6"))
+	elif bool(beat.get("landed", false)):
+		_result.text = _text("player.cinematic.damage", {
+			"amount": int(beat.get("damage", 0)),
+		})
 		if bool(beat.get("defeated", false)) and progress >= 0.78:
-			_result.text += "  DEFEATED"
+			_result.text += "  " + _text("player.cinematic.defeated")
 		elif bool(beat.get("endured", false)) and progress >= 0.78:
-			_result.text += "  HELD ON"
+			_result.text += "  " + _text("player.cinematic.held_on")
+		if not beat.get("special_results", []).is_empty() and progress >= 0.88:
+			_result.text += "  ·  " + _text("player.cinematic.item_found")
 		_result.add_theme_color_override("font_color", Color("ffcf72"))
 	else:
-		_result.text = "MISS"
+		_result.text = _text("player.cinematic.miss")
 		_result.add_theme_color_override("font_color", Color("d8edf2"))
 	_hint.position = Vector2(viewport_size.x * 0.25, viewport_size.y - 72)
 	_hint.size = Vector2(viewport_size.x * 0.5, 40)
@@ -501,10 +642,18 @@ func _update_hint() -> void:
 	if _hint == null:
 		return
 	_hint.text = (
-		"FAST-FORWARDING  ·  RELEASE CONFIRM FOR NORMAL SPEED  ·  CANCEL SKIPS"
+		_text("player.cinematic.fast_forward", _control_labels)
 		if _fast_forward
-		else "HOLD CONFIRM TO FAST-FORWARD  ·  CANCEL SKIPS"
+		else _text("player.cinematic.controls", _control_labels)
 	)
+
+
+func _text(message_id: String, values: Dictionary = {}) -> String:
+	if _translate.is_valid():
+		var translated: Variant = _translate.call(message_id, values)
+		if translated is String and not String(translated).is_empty():
+			return String(translated)
+	return String(DEFAULT_COPY.get(message_id, "[%s]" % message_id)).format(values)
 
 
 func _apply_capture_hud_visibility() -> void:
@@ -689,7 +838,12 @@ func _draw_actor(
 ) -> void:
 	var state := "idle"
 	if is_actor and progress >= 0.12 and progress < 0.66:
-		state = "ability" if String(_current.plan.get("action", "")) == "ability" else "attack"
+		state = (
+			"ability"
+			if bool(_beat().get("restored", false))
+				or String(_current.plan.get("action", "")) == "ability"
+			else "attack"
+		)
 	elif struck and progress >= 0.52:
 		state = "defeat" if defeated and progress >= 0.76 else "hurt"
 	var info := art.character_frame(unit, state, progress * _beat_duration())
@@ -748,10 +902,24 @@ func _draw_impact(
 		return
 	var phase := clampf((progress - 0.48) / 0.28, 0.0, 1.0)
 	var at := target_ground + Vector2(0.0, -size.y * 0.14 * view_scale)
-	var colour := Color("fff0b0") if bool(beat.get("landed", false)) else Color("d8edf2")
+	var restored := bool(beat.get("restored", false))
+	var colour := (
+		Color("7ff0a6") if restored
+		else Color("fff0b0") if bool(beat.get("landed", false))
+		else Color("d8edf2")
+	)
 	colour.a = 1.0 - phase
 	var radius := lerpf(28.0, 135.0, phase) * view_scale
-	if bool(beat.get("landed", false)):
+	if restored:
+		draw_arc(at, radius * 0.72, 0.0, TAU, 30, colour, 9.0)
+		for ray in 6:
+			var direction := Vector2.from_angle(float(ray) * TAU / 6.0)
+			draw_line(
+				at + direction * radius * 0.30,
+				at + direction * radius * 0.72,
+				colour, 7.0
+			)
+	elif bool(beat.get("landed", false)):
 		draw_arc(at, radius, -1.5, 1.2, 28, colour, 14.0)
 		draw_line(at + Vector2(-radius * 0.6, radius * 0.5), at + Vector2(radius * 0.65, -radius * 0.55), colour, 10.0)
 	else:

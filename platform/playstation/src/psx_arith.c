@@ -188,6 +188,16 @@ u64 __udivdi3(u64 numerator, u64 denominator) {
     return divide(numerator, denominator, 0);
 }
 
+long long __divdi3(long long numerator, long long denominator) {
+    const int negative = (numerator < 0) != (denominator < 0);
+    const u64 unsigned_numerator = numerator < 0
+        ? 0U - (u64)numerator : (u64)numerator;
+    const u64 unsigned_denominator = denominator < 0
+        ? 0U - (u64)denominator : (u64)denominator;
+    const u64 quotient = divide(unsigned_numerator, unsigned_denominator, 0);
+    return negative ? (long long)(0U - quotient) : (long long)quotient;
+}
+
 u64 __umoddi3(u64 numerator, u64 denominator) {
     u64 remainder = 0U;
     divide(numerator, denominator, &remainder);

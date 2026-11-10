@@ -22,6 +22,12 @@ enum class PresentationError : std::uint8_t {
 //: it did before the section existed.
 inline constexpr std::uint8_t default_theme = 0;
 
+//: The closer combat presentation starts enabled when a package carries no
+//: authored preference, exactly as it did before that preference existed.
+//: This is only the game's recommendation: a client applies a player's local
+//: display choice over it when one exists.
+inline constexpr bool default_battle_closeups = true;
+
 //: No faction claims this unit type, so the client falls back to the side the
 //: unit fights on. Also what every unit type resolves to when the package
 //: carries no presentation section.
@@ -112,6 +118,7 @@ struct UnitTypeCharacterFigure final {
 // move a canonical hash.
 struct Presentation final {
     std::uint8_t theme{default_theme};
+    bool battle_closeups{default_battle_closeups};
     // Sorted by faction identity.
     std::vector<FactionColour> factions;
     // Sorted by unit type identity. The join a client actually wants: a unit

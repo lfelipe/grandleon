@@ -60,8 +60,8 @@ mkdir -p "${state_dir}/data" "${state_dir}/config" "${state_dir}/cache"
 XDG_DATA_HOME="${state_dir}/data" \
 XDG_CONFIG_HOME="${state_dir}/config" \
 XDG_CACHE_HOME="${state_dir}/cache" \
-    "${godot_binary}" --editor --headless --quiet \
-    --path "${stage_dir}" --quit
+    "${godot_binary}" --headless --quiet --import \
+    --path "${stage_dir}"
 
 XDG_DATA_HOME="${state_dir}/data" \
 XDG_CONFIG_HOME="${state_dir}/config" \

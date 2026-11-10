@@ -35,6 +35,7 @@ struct FrontendEvent final {
         dialogue,
         battle_begins,
         battle_surroundings,
+        battle_visual_visibility,
         definitions,
         deployment_begins,
         presentation,
@@ -55,6 +56,7 @@ struct FrontendEvent final {
     simulation::EncounterSnapshot snapshot;
     std::vector<std::uint64_t> terrain;
     package_runtime::MapSurroundings surroundings;
+    package_runtime::MapVisualVisibility visual_visibility;
     std::vector<simulation::Position> zone;
     std::vector<simulation::WeaponDefinition> weapons;
     std::vector<simulation::AbilityDefinition> abilities;
@@ -65,12 +67,25 @@ struct FrontendEvent final {
     std::string action;
     simulation::ContentId action_content_id{};
     package_runtime::Dialogue dialogue;
+    // Encounter-scoped placement instance this scene is about. Zero for
+    // between-map scenes and board-wide opening moments.
+    simulation::UnitId dialogue_subject_id{};
     client::CompanyManagement company;
+    // Campaign presentation context captured when the event is queued. A
+    // dialogue/objective token can therefore resolve against the exact roster
+    // at that point, and a board unit can use the campaign's published join
+    // rather than guessing from its class or display text.
+    std::vector<client::RosterEntry> campaign_roster;
+    std::optional<client::CampaignBoard> campaign_board;
+    std::uint64_t stage_id{};
+    std::uint64_t encounter_id{};
+    std::uint64_t map_id{};
     simulation::Side player_side{simulation::Side::first};
     std::uint64_t canonical_hash{};
     std::int64_t request_id{};
     bool resumed{false};
     bool successful{false};
+    bool over_board{false};
     std::string message;
 };
 
@@ -87,14 +102,26 @@ public:
         simulation::Side player_side,
         const std::vector<std::uint64_t>& terrain
     ) override;
+    void battle_route(
+        std::uint64_t stage_id,
+        std::uint64_t encounter_id,
+        std::uint64_t map_id
+    ) override;
     void battle_surroundings(
         const package_runtime::MapSurroundings& surroundings
+    ) override;
+    void battle_visual_visibility(
+        const package_runtime::MapVisualVisibility& visibility
     ) override;
     void battle_definitions(
         const std::vector<simulation::WeaponDefinition>& weapons,
         const std::vector<simulation::AbilityDefinition>& abilities,
         const std::vector<simulation::ItemDefinition>& items,
         const std::vector<simulation::ObjectiveDefinition>& objectives
+    ) override;
+    void battle_moments(
+        const std::vector<package_runtime::EncounterMoment>& moments,
+        const std::vector<package_runtime::PlacementIdentity>& placements
     ) override;
     void deployment_begins(
         const simulation::EncounterSnapshot& snapshot,
@@ -155,6 +182,7 @@ public:
     void submit(client::Intent intent, std::int64_t request_id);
     [[nodiscard]] bool submit_management(client::ManagementIntent intent);
     [[nodiscard]] bool awaiting_management() const;
+    void use_package(const package_format::LoadedPackage* package);
     void stop();
     void push(FrontendEvent event);
     [[nodiscard]] std::deque<FrontendEvent> take_events();
@@ -168,6 +196,10 @@ private:
     [[nodiscard]] client::Intent wait_for_intent(
         const simulation::EncounterSnapshot& snapshot
     );
+    void play_moments(
+        package_runtime::MomentTrigger trigger,
+        simulation::UnitId unit_id = 0
+    );
 
     mutable std::mutex mutex_;
     std::condition_variable condition_;
@@ -178,6 +210,16 @@ private:
     simulation::ContentId active_action_content_id_{};
     std::optional<MotionPresentation> active_motion_;
     std::optional<client::ManagementIntent> management_intent_;
+    std::vector<client::RosterEntry> campaign_roster_;
+    std::optional<client::CampaignBoard> campaign_board_;
+    std::uint64_t active_stage_id_{};
+    std::uint64_t active_encounter_id_{};
+    std::uint64_t active_map_id_{};
+    const package_format::LoadedPackage* package_{nullptr};
+    std::vector<package_runtime::EncounterMoment> moments_;
+    std::vector<package_runtime::PlacementIdentity> moment_placements_;
+    bool battle_active_{false};
+    bool opening_moments_played_{false};
     bool awaiting_management_{false};
     bool stopping_{false};
 };
@@ -193,14 +235,28 @@ public:
         const ::godot::String& package_path,
         const ::godot::String& campaign_key,
         std::int64_t local_players = 1,
-        const ::godot::String& save_root = {}
+        const ::godot::String& save_root = {},
+        const ::godot::String& language = {}
     );
     [[nodiscard]] bool start_package(
         const ::godot::PackedByteArray& package_bytes,
         const ::godot::String& campaign_key,
         std::int64_t local_players = 1,
-        const ::godot::String& save_root = {}
+        const ::godot::String& save_root = {},
+        const ::godot::String& language = {}
     );
+    [[nodiscard]] ::godot::Dictionary package_languages(
+        const ::godot::PackedByteArray& package_bytes
+    ) const;
+    [[nodiscard]] ::godot::Dictionary package_presentation(
+        const ::godot::PackedByteArray& package_bytes
+    ) const;
+    [[nodiscard]] bool set_language(const ::godot::String& language);
+    [[nodiscard]] ::godot::String language() const;
+    [[nodiscard]] ::godot::Dictionary localized_state() const;
+    [[nodiscard]] ::godot::Dictionary localized_dialogue(
+        std::int64_t dialogue_id
+    ) const;
     [[nodiscard]] bool has_progress() const;
     [[nodiscard]] ::godot::Array checkpoint_slots() const;
     [[nodiscard]] bool checkpoint_save_ready() const;
@@ -215,6 +271,9 @@ public:
         const ::godot::String& kind,
         std::int64_t unit_id,
         std::int64_t content_id = 0
+    ) const;
+    [[nodiscard]] ::godot::Dictionary forecast_attack(
+        std::int64_t unit_id, std::int64_t target_id
     ) const;
     void submit_intent(
         const ::godot::String& kind,
@@ -231,6 +290,10 @@ public:
         std::int64_t item_id = 0,
         std::int64_t stage_id = 0
     );
+    [[nodiscard]] bool submit_player_name(
+        std::int64_t member_id,
+        const ::godot::String& name
+    );
 
 protected:
     static void _bind_methods();
@@ -240,7 +303,12 @@ private:
         const FrontendEvent& event
     ) const;
     [[nodiscard]] ::godot::Dictionary snapshot_dictionary(
-        const simulation::EncounterSnapshot& snapshot
+        const simulation::EncounterSnapshot& snapshot,
+        const std::vector<client::RosterEntry>& roster,
+        const std::optional<client::CampaignBoard>& board
+    ) const;
+    [[nodiscard]] std::vector<client::RosterEntry> localized_roster(
+        const std::vector<client::RosterEntry>& roster
     ) const;
     [[nodiscard]] ::godot::Dictionary management_dictionary(
         const client::CompanyManagement& company
@@ -250,7 +318,8 @@ private:
         const std::vector<std::uint8_t>& package_bytes,
         const ::godot::String& campaign_key,
         std::int64_t local_players,
-        const ::godot::String& save_root
+        const ::godot::String& save_root,
+        const ::godot::String& language
     );
     [[nodiscard]] bool launch_worker();
     [[nodiscard]] std::string manual_slot_name(std::int64_t slot) const;
@@ -264,10 +333,16 @@ private:
     mutable std::mutex state_mutex_;
     std::string last_error_;
     std::string save_slot_;
+    std::string language_;
     std::uint64_t campaign_id_{};
     simulation::EncounterSnapshot latest_snapshot_;
     std::vector<simulation::WeaponDefinition> latest_weapons_;
     std::vector<simulation::AbilityDefinition> latest_abilities_;
+    std::optional<FrontendEvent> latest_snapshot_event_;
+    std::optional<FrontendEvent> latest_definitions_event_;
+    std::optional<FrontendEvent> latest_campaign_event_;
+    std::optional<FrontendEvent> latest_management_event_;
+    std::vector<FrontendEvent> latest_dialogue_events_;
     bool has_snapshot_{false};
     std::uint8_t local_players_{1};
     bool progress_available_{false};

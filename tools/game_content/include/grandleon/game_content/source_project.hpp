@@ -13,14 +13,12 @@ namespace grandleon::game_content {
 //
 // It refuses every other version rather than migrating between them, and that
 // is deliberate. Bringing an out-of-date project up is a thing an author does
-// once, to a file they then keep. It belongs where the author is, which is the
-// editor, and the editor's load path is pure TypeScript that reaches no
-// WebAssembly. A migration living here would be unavailable at the moment it is
-// needed and duplicated at the moment it is not. So this end names the version
+// once, to a file they then keep. It belongs in the authoring workflow rather
+// than a compiler that deliberately accepts only the current contract. So this end names the version
 // it found, the version it wants, and the command that closes the gap;
 // `tools/source_schema/migration.mjs` is the other end, and
 // `tools/source_schema/test.mjs` pins this string to it.
-inline constexpr std::string_view supported_source_schema = "1.3.0";
+inline constexpr std::string_view supported_source_schema = "1.4.0";
 
 enum class SourceDiagnosticCode : std::uint8_t {
     invalid_json,
@@ -195,7 +193,18 @@ struct SourceMapCell final {
     std::string_view mode,
     std::string_view colour,
     std::int64_t depth,
-    const std::vector<std::string>& terrain_ids
+    const std::vector<std::string>& terrain_ids,
+    std::string_view fill_terrain = {}
+);
+
+// Replaces one map's presentation-only visibility mask. Empty `cell_indices`
+// removes the optional record; otherwise every index is row-major within the
+// current map and the reveal radius is zero through eight.
+[[nodiscard]] SourceTextResult set_source_map_visual_visibility_json(
+    std::string_view source_json,
+    std::string_view map_id,
+    std::int64_t reveal_radius,
+    const std::vector<std::int64_t>& cell_indices
 );
 
 // Moves one encounter placement within the map used by its node. The nested
@@ -406,6 +415,16 @@ struct SourceMapCell final {
     std::string_view campaign_id,
     std::string_view member_id,
     std::string_view name
+);
+
+// Allows or disallows replacing one member's required authored default name.
+// Disallowing removes the optional field, preserving the source shape and the
+// false default used by projects authored before this option existed.
+[[nodiscard]] SourceTextResult set_source_campaign_member_player_nameable_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view member_id,
+    bool player_nameable
 );
 
 // Changes one portable character modifier. Stat names use the source schema's

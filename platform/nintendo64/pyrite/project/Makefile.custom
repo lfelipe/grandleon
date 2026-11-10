@@ -1,0 +1,93 @@
+# Inputs are provided by scripts/build.sh. Pyrite owns the generated Makefile;
+# this is its supported extension point and is kept path-independent.
+ifndef GRANDLEON_REPO
+$(error GRANDLEON_REPO must point at the Grandleon source checkout)
+endif
+ifndef GRANDLEON_N64_BUILD
+$(error GRANDLEON_N64_BUILD must point at the cross-compiled Grandleon build)
+endif
+
+N64_CXXFLAGS += -std=gnu++20 -fno-exceptions -O3 -Isrc -Isrc/user \
+	-I$(GRANDLEON_REPO)/engine/core/include \
+	-I$(GRANDLEON_REPO)/engine/campaign/include \
+	-I$(GRANDLEON_REPO)/engine/campaign_runtime/include \
+	-I$(GRANDLEON_REPO)/engine/package_format/include \
+	-I$(GRANDLEON_REPO)/engine/package_runtime/include \
+	-I$(GRANDLEON_REPO)/engine/simulation/include \
+	-I$(GRANDLEON_REPO)/engine/tactics/include \
+	-I$(GRANDLEON_REPO)/platform/client/include \
+	-I$(GRANDLEON_REPO)/platform/storage/include \
+	-I$(GRANDLEON_REPO)/platform/view/include
+
+GRANDLEON_LIBS := \
+	$(GRANDLEON_N64_BUILD)/libgrandleon_client_campaign.a \
+	$(GRANDLEON_N64_BUILD)/libgrandleon_client.a \
+	$(GRANDLEON_N64_BUILD)/libgrandleon_campaign_runtime.a \
+	$(GRANDLEON_N64_BUILD)/libgrandleon_campaign.a \
+	$(GRANDLEON_N64_BUILD)/libgrandleon_storage.a \
+	$(GRANDLEON_N64_BUILD)/libgrandleon_package_runtime.a \
+	$(GRANDLEON_N64_BUILD)/libgrandleon_tactics.a \
+	$(GRANDLEON_N64_BUILD)/libgrandleon_package_format.a \
+	$(GRANDLEON_N64_BUILD)/libgrandleon_simulation.a \
+	$(GRANDLEON_N64_BUILD)/libgrandleon_core.a
+
+# Keep the libraries out of the generated target's automatic archive ordering,
+# then link them as one group after all Pyrite objects and engine archives.
+$(BUILD_DIR)/grandleon-libs-ready: $(GRANDLEON_LIBS)
+	@mkdir -p $(dir $@)
+	@touch $@
+$(BUILD_DIR)/$(ROM_NAME).elf: $(BUILD_DIR)/grandleon-libs-ready
+LDFLAGS += --start-group $(GRANDLEON_LIBS) --end-group
+
+filesystem/game.gpk: assets/game.gpk
+	@mkdir -p $(dir $@)
+	$(N64_BINDIR)/mkasset -c 1 -w 256 -o $(dir $@) "$<"
+
+filesystem/material_atlas.sprite: assets/material_atlas.png
+	@mkdir -p $(dir $@)
+	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
+filesystem/soft_shadow.sprite: assets/soft_shadow.png
+	@mkdir -p $(dir $@)
+	$(N64_MKSPRITE) -f I8 -c 0 -o $(dir $@) "$<"
+filesystem/combat_backdrop.sprite: assets/combat_backdrop.png
+	@mkdir -p $(dir $@)
+	$(N64_MKSPRITE) -f CI8 -c 0 -o $(dir $@) "$<"
+
+filesystem/ambience.wav64: assets/ambience.wav
+	@mkdir -p $(dir $@)
+	$(N64_AUDIOCONV) --wav-mono --wav-resample 22050 --wav-compress 1 \
+		--wav-loop true -o $(dir $@) "$<"
+filesystem/music_%.wav64: assets/music_%.wav
+	@mkdir -p $(dir $@)
+	$(N64_AUDIOCONV) --wav-mono --wav-resample 22050 --wav-compress 1 \
+		--wav-loop true -o $(dir $@) "$<"
+filesystem/%_cue.wav64: assets/%_cue.wav
+	@mkdir -p $(dir $@)
+	$(N64_AUDIOCONV) --wav-mono --wav-resample 22050 --wav-compress 1 \
+		--wav-loop false -o $(dir $@) "$<"
+
+include generated/ProjectAssets.mk
+filesystem/unit_%.sprite: assets/unit_%.png
+	@mkdir -p $(dir $@)
+	$(N64_MKSPRITE) -f CI4 -c 0 -o $(dir $@) "$<"
+
+GRANDLEON_DFS_INPUTS := \
+	filesystem/game.gpk \
+	filesystem/material_atlas.sprite \
+	filesystem/soft_shadow.sprite \
+	filesystem/combat_backdrop.sprite \
+	filesystem/ambience.wav64 \
+	filesystem/ui_cue.wav64 \
+	filesystem/impact_cue.wav64 \
+	filesystem/victory_cue.wav64 \
+	$(foreach n,1 2 3 4 5,filesystem/music_$(n).wav64) \
+	$(foreach cue,blade bow heavy arcane healing miss,filesystem/$(cue)_cue.wav64) \
+	$(GRANDLEON_PROJECT_SPRITES)
+# Pyrite's editor-side asset pass can leave same-named compressed placeholders
+# in `filesystem/` before GNU make evaluates these cartridge-specific rules.
+# They are not libdragon sprites (and can be as small as nine bytes), so always
+# rebuild the bounded generated input set with the pinned N64 converters.
+.PHONY: grandleon-assets-force
+grandleon-assets-force:
+$(GRANDLEON_DFS_INPUTS): grandleon-assets-force
+$(BUILD_DIR)/$(ROM_NAME).dfs: $(GRANDLEON_DFS_INPUTS)

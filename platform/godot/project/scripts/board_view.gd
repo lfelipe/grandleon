@@ -6,6 +6,7 @@ const ArtLibrary = preload("res://scripts/art_library.gd")
 const Locomotion = preload("res://scripts/locomotion.gd")
 const MotionPath = preload("res://scripts/motion_path.gd")
 const PresentationFacing = preload("res://scripts/presentation_facing.gd")
+const VisualVisibility = preload("res://scripts/visual_visibility.gd")
 const TILE_SOURCE := 32
 const BLOB_COLUMNS := 8
 const CURSOR_COLOURS := [Color("69d9ff"), Color("ffca63")]
@@ -14,7 +15,9 @@ const ATTACK_TINT := Color(1.0, 0.25, 0.31, 0.38)
 var art = ArtLibrary.new()
 var snapshot: Dictionary = {}
 var terrain: Array = []
+var terrain_features: Array = []
 var surroundings: Dictionary = {}
+var visual_visibility: Dictionary = {}
 var theme := 0
 var profile_config: Dictionary = {}
 var seats: Array = []
@@ -35,8 +38,10 @@ var _unit_animation_states: Dictionary = {}
 var _unit_animation_started: Dictionary = {}
 var _unit_animation_until: Dictionary = {}
 var _unit_facing_right: Dictionary = {}
+var _unit_headings: Dictionary = {}
 var _combat_effects: Array[Dictionary] = []
 var _pulse := 0.0
+var _visibility = VisualVisibility.new()
 
 
 func _ready() -> void:
@@ -47,6 +52,7 @@ func set_profile(_name: String, value: Dictionary) -> void:
 	profile_config = value
 	art.configure_profile(profile_config)
 	_unit_facing_right.clear()
+	_unit_headings.clear()
 
 
 func set_camera_impulse_enabled(value: bool) -> void:
@@ -55,16 +61,25 @@ func set_camera_impulse_enabled(value: bool) -> void:
 
 func configure(
 	new_snapshot: Dictionary, new_terrain: Array, new_theme: int,
-	new_surroundings: Dictionary = {}
+	new_surroundings: Dictionary = {}, new_terrain_features: Array = [],
+	_new_route_identity: Dictionary = {}
 ) -> void:
 	terrain = new_terrain
+	terrain_features = new_terrain_features.duplicate()
 	theme = new_theme
 	surroundings = new_surroundings.duplicate(true)
 	update_snapshot(new_snapshot)
+	_configure_visual_visibility()
 
 
 func set_surroundings(value: Dictionary) -> void:
 	surroundings = value.duplicate(true)
+	queue_redraw()
+
+
+func set_visual_visibility(value: Dictionary) -> void:
+	visual_visibility = value.duplicate(true)
+	_configure_visual_visibility()
 	queue_redraw()
 
 
@@ -97,6 +112,7 @@ func update_snapshot(value: Dictionary) -> void:
 			_pending_motion_records.erase(id)
 			_unit_stride_distances.erase(id)
 			_unit_facing_right.erase(id)
+			_unit_headings.erase(id)
 	queue_redraw()
 
 
@@ -195,6 +211,9 @@ func _face_unit_toward(actor_id: int, target_id: int) -> void:
 func _face_unit_in_direction(id: int, direction: Vector2) -> void:
 	if not _last_units.has(id):
 		return
+	_unit_headings[id] = PresentationFacing.cardinal_canvas(
+		direction, String(_unit_headings.get(id, ""))
+	)
 	var unit: Dictionary = _last_units[id]
 	var info := art.character_frame(unit)
 	if not bool(info.get("directional_flip", true)):
@@ -236,6 +255,15 @@ func _process(delta: float) -> void:
 	for index in range(_combat_effects.size() - 1, -1, -1):
 		if now >= int(_combat_effects[index].end):
 			_combat_effects.remove_at(index)
+	var positions: Array = []
+	for id: Variant in _last_units:
+		var unit: Dictionary = _last_units[id].duplicate()
+		var visual := _animated_position(int(id), now)
+		unit["x"] = visual.x
+		unit["y"] = visual.y
+		positions.append(unit)
+	_visibility.reveal_from_positions(positions)
+	_visibility.advance(delta)
 	queue_redraw()
 
 
@@ -247,6 +275,9 @@ func _draw() -> void:
 	_draw_board_shadow()
 	_draw_surrounding_terrain()
 	_draw_terrain()
+	_draw_cluster_landmarks()
+	_draw_castle_landmark()
+	_draw_visual_visibility()
 	_draw_selected_tiles()
 	_draw_units()
 	_draw_combat_effects()
@@ -425,6 +456,122 @@ func _draw_terrain() -> void:
 			_draw_terrain_cell(x, y, kind, mask)
 
 
+func _draw_visual_visibility() -> void:
+	var width := int(snapshot.get("width", 0))
+	for index: int in _visibility.hidden_cells():
+		var alpha := 0.82 * (1.0 - _visibility.visibility_at(index))
+		if alpha <= 0.001:
+			continue
+		var x := index % width
+		var y := index / width
+		draw_rect(
+			Rect2(origin + Vector2(x, y) * tile_size, Vector2.ONE * tile_size),
+			Color(0.025, 0.045, 0.065, alpha), true
+		)
+
+
+func _configure_visual_visibility() -> void:
+	_visibility.configure(
+		visual_visibility, terrain_features,
+		int(snapshot.get("width", 0)), int(snapshot.get("height", 0)), false
+	)
+
+
+func visibility_presentation_state() -> Dictionary:
+	return _visibility.presentation_state()
+
+
+func _draw_cluster_landmarks() -> void:
+	var width := int(snapshot.width)
+	var height := int(snapshot.height)
+	var occupied: Dictionary = {}
+	for y in range(maxi(0, height - 1)):
+		for x in range(maxi(0, width - 1)):
+			var cells := [
+				Vector2i(x, y), Vector2i(x + 1, y),
+				Vector2i(x, y + 1), Vector2i(x + 1, y + 1),
+			]
+			var complete := true
+			var anchor_index := y * width + x
+			var landmark_kind := (
+				str(terrain_features[anchor_index])
+				if anchor_index < terrain_features.size() else ""
+			)
+			if landmark_kind not in ["village_house", "ancient_grove"]:
+				continue
+			for cell: Vector2i in cells:
+				var index := cell.y * width + cell.x
+				if (
+					occupied.has(cell) or index >= terrain_features.size()
+					or int(terrain[index]) != 3
+					or str(terrain_features[index]) != landmark_kind
+				):
+					complete = false
+					break
+			if not complete:
+				continue
+			for cell: Vector2i in cells:
+				occupied[cell] = true
+			var bounds := Rect2(
+				origin + Vector2(x, y) * tile_size,
+				Vector2(tile_size * 2.0, tile_size * 2.0)
+			).grow(-tile_size * 0.08)
+			if landmark_kind == "ancient_grove":
+				var trunk := bounds.get_center() + Vector2(0, tile_size * 0.18)
+				draw_rect(Rect2(trunk - Vector2(tile_size * 0.15, tile_size * 0.55), Vector2(tile_size * 0.30, tile_size * 0.90)), Color("654733"), true)
+				draw_circle(bounds.get_center() + Vector2(0, -tile_size * 0.22), tile_size * 0.72, Color("28583c"))
+				draw_circle(bounds.get_center() + Vector2(-tile_size * 0.35, -tile_size * 0.08), tile_size * 0.46, Color("3f8151"))
+				draw_circle(bounds.get_center() + Vector2(tile_size * 0.38, -tile_size * 0.04), tile_size * 0.42, Color("5a9b5d"))
+			else:
+				draw_rect(bounds.grow(-tile_size * 0.16), Color("d6bd8e"), true)
+				var roof := PackedVector2Array([
+					bounds.position + Vector2(tile_size * 0.08, tile_size * 0.64),
+					bounds.position + Vector2(tile_size, tile_size * 0.08),
+					bounds.position + Vector2(tile_size * 1.92, tile_size * 0.64),
+					bounds.position + Vector2(tile_size * 1.70, tile_size),
+					bounds.position + Vector2(tile_size * 0.30, tile_size),
+				])
+				draw_colored_polygon(roof, Color("7f342d"))
+				draw_rect(Rect2(bounds.get_center() + Vector2(tile_size * 0.26, tile_size * 0.12), Vector2(tile_size * 0.34, tile_size * 0.58)), Color("251c1a"), true)
+
+
+func _draw_castle_landmark() -> void:
+	var width := int(snapshot.width)
+	var height := int(snapshot.height)
+	var minimum := Vector2i(width, height)
+	var maximum := Vector2i(-1, -1)
+	for index in mini(terrain.size(), terrain_features.size()):
+		if not str(terrain_features[index]).begins_with("castle_"):
+			continue
+		var cell := Vector2i(index % width, index / width)
+		minimum.x = mini(minimum.x, cell.x)
+		minimum.y = mini(minimum.y, cell.y)
+		maximum.x = maxi(maximum.x, cell.x)
+		maximum.y = maxi(maximum.y, cell.y)
+	if maximum.x < minimum.x:
+		return
+	var bounds := Rect2(
+		origin + Vector2(minimum) * tile_size,
+		Vector2(maximum - minimum + Vector2i.ONE) * tile_size
+	).grow(-tile_size * 0.06)
+	# The 2D fallback keeps the same authored footprint visibly connected. The
+	# 3D player supplies the full exterior-to-interior cutaway transition.
+	draw_rect(bounds, Color("61584c"), true)
+	draw_rect(bounds.grow(-tile_size * 0.16), Color("a59a84"), true)
+	var door_height := tile_size * 1.75
+	draw_rect(Rect2(
+		Vector2(bounds.position.x, bounds.get_center().y - door_height * 0.5),
+		Vector2(tile_size * 0.34, door_height)
+	), Color("422c22"), true)
+	var chamber := Rect2(
+		bounds.position + Vector2(tile_size * 1.05, tile_size * 1.0),
+		bounds.size - Vector2(tile_size * 2.0, tile_size * 2.0)
+	)
+	draw_rect(chamber, Color("81766a"), true)
+	for column_x in [chamber.position.x + tile_size * 0.45, chamber.end.x - tile_size * 0.45]:
+		draw_circle(Vector2(column_x, chamber.position.y + tile_size * 0.45), tile_size * 0.16, Color("c4b69a"))
+
+
 func _draw_terrain_cell(x: int, y: int, kind: int, mask: int) -> void:
 	var variant := art.terrain_variant(mask)
 	var source := Rect2(
@@ -452,13 +599,13 @@ func _draw_terrain_cell(x: int, y: int, kind: int, mask: int) -> void:
 
 func _surrounding_depth() -> int:
 	var mode := String(surroundings.get("mode", "none"))
-	if mode not in ["automatic", "manual"]:
+	if mode not in ["automatic", "continue", "manual", "fill", "blend"]:
 		return 0
 	return clampi(int(surroundings.get("depth", 0)), 0, 8)
 
 
 func _surrounding_kind(x: int, y: int, ring_index: int) -> int:
-	if String(surroundings.get("mode", "none")) == "manual":
+	if String(surroundings.get("mode", "none")) in ["manual", "fill", "blend"]:
 		var outside: Array = surroundings.get("terrain", [])
 		if ring_index < outside.size():
 			var authored := int(outside[ring_index])
@@ -523,6 +670,9 @@ func _draw_units() -> void:
 			continue
 		var id := int(unit.id)
 		var board_position := _animated_position(id, now)
+		var unit_cell := roundi(board_position.y) * int(snapshot.width) + roundi(board_position.x)
+		if _visibility.visibility_at(unit_cell) < 0.5:
+			continue
 		var centre := origin + (board_position + Vector2(0.5, 0.5)) * tile_size
 		var state := _unit_animation_state(id, now)
 		var elapsed := _unit_animation_elapsed(id, state, now)
@@ -535,7 +685,9 @@ func _draw_units() -> void:
 			if state == "move"
 			else sin(_pulse * 3.0 + float(id % 11)) * tile_size * 0.025
 		)
-		var frame_info := art.character_frame(unit, state, elapsed)
+		var frame_info := art.character_frame(
+			unit, state, elapsed, String(_unit_headings.get(id, ""))
+		)
 		var cell_size: Vector2i = frame_info.cell_size
 		var flip_h := _character_flip_h(id, frame_info)
 		var pivot := PresentationFacing.pivot_for_flip(
@@ -547,6 +699,20 @@ func _draw_units() -> void:
 		)
 		var sprite_dimensions := Vector2(cell_size) * scale
 		var sprite_size := maxf(sprite_dimensions.x, sprite_dimensions.y)
+		if int(unit.get("archetype", -1)) == 5:
+			# Keep the faction colour on the character itself. A gold command ring
+			# makes leaders immediately findable without making them look like a
+			# third team.
+			draw_arc(
+				centre + Vector2(0, tile_size * 0.28), tile_size * 0.31,
+				0.0, TAU, 32, Color("f4cc62"), maxf(2.0, tile_size * 0.045), true
+			)
+			var pennant := PackedVector2Array([
+				centre + Vector2(-tile_size * 0.10, -tile_size * 0.42),
+				centre + Vector2(tile_size * 0.10, -tile_size * 0.42),
+				centre + Vector2(0, -tile_size * 0.27),
+			])
+			draw_colored_polygon(pennant, Color("f4cc62"))
 		# Soft layered shadows make units sit on the board without changing art.
 		draw_circle(centre + Vector2(0, tile_size * 0.31), tile_size * 0.27, Color(0.01, 0.02, 0.025, 0.24))
 		draw_circle(centre + Vector2(0, tile_size * 0.30), tile_size * 0.18, Color(0.01, 0.02, 0.025, 0.32))

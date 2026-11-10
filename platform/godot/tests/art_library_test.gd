@@ -96,6 +96,25 @@ func _init() -> void:
 					"pivot": [0.5, 0.94],
 					"facesRight": false,
 					"directionalFlip": true,
+					"directionalSheet": {
+						"path": "res://art/characters/medieval_knight_male_directions_hd.png",
+						"teamMaskPath": "res://art/characters/medieval_knight_male_directions_hd_team_mask.png",
+						"columns": 4,
+						"rows": 2,
+						"tile_width": 443,
+						"tile_height": 443,
+						"pivot": [0.5, 0.94],
+						"headings": {
+							"north": {
+								"idle": {"frames": [0, 1], "frames_per_second": 2.0, "loop": true},
+								"move": {"frames": [2, 3], "frames_per_second": 7.0, "loop": true},
+							},
+							"south": {
+								"idle": {"frames": [4, 5], "frames_per_second": 2.0, "loop": true},
+								"move": {"frames": [6, 7], "frames_per_second": 7.0, "loop": true},
+							},
+						},
+					},
 					"sequences": {
 						"idle": {
 							"frames": [0, 1],
@@ -131,6 +150,31 @@ func _init() -> void:
 	_expect("profile pivot", replacement_idle.pivot, Vector2(0.5, 0.94))
 	_expect("profile native facing", replacement_idle.faces_right, false)
 	_expect("profile directional mirroring", replacement_idle.directional_flip, true)
+	var north_move := art.character_frame(unit, "move", 0.15, "north")
+	_expect(
+		"north route uses authored directional sheet",
+		north_move.path,
+		"res://art/characters/medieval_knight_male_directions_hd.png"
+	)
+	_expect("north route uses north walk phase", north_move.frame, 3)
+	_expect("north route never mirrors front/back art", north_move.directional_flip, false)
+	_expect(
+		"north route keeps its matching team mask",
+		north_move.team_mask_path,
+		"res://art/characters/medieval_knight_male_directions_hd_team_mask.png"
+	)
+	var south_idle := art.character_frame(unit, "idle", 0.6, "south")
+	_expect("south route uses south idle phase", south_idle.frame, 5)
+	_expect(
+		"combat pose stays on the original action sheet",
+		art.character_frame(unit, "attack", 0.0, "north").path,
+		"res://art/characters/rook_commander_hd.png"
+	)
+	_expect(
+		"east route stays on the original action sheet",
+		art.character_frame(unit, "move", 0.0, "east").path,
+		"res://art/characters/rook_commander_hd.png"
+	)
 
 	art.configure_profile({
 		"assets": {
@@ -399,6 +443,122 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 		"hurt": {"frames": [7.0]},
 		"defeat": {"frames": [7.0]},
 	}
+	var expected_directional := {
+		"archer|*|medieval|first": "medieval_archer_male",
+		"archer|*|medieval|second": "medieval_archer_female",
+		"archer|*|mythical|first": "mythical_archer_male",
+		"archer|*|mythical|second": "mythical_archer",
+		"archer|*|nature|first": "nature_archer_male",
+		"archer|*|nature|second": "nature_archer_female",
+		"archer|*|pirates|first": "pirates_archer_male",
+		"archer|*|pirates|second": "pirates_archer_female",
+		"archer|*|scifi|first": "relay_archer",
+		"archer|*|scifi|second": "scifi_archer_female",
+		"archer|*|sengoku|first": "sengoku_archer_male",
+		"archer|*|undead|first": "undead_archer_male",
+		"archer|*|undead|second": "undead_archer_female",
+		"beast|*|medieval|first": "medieval_beast_male",
+		"beast|*|mythical|first": "mythical_beast_male",
+		"beast|*|mythical|second": "mythical_beast_female",
+		"beast|*|nature|second": "nature_beast_female",
+		"beast|*|pirates|first": "pirates_beast_male",
+		"beast|*|pirates|second": "pirates_beast_female",
+		"beast|*|scifi|first": "relay_beast",
+		"beast|*|scifi|second": "scifi_beast_female",
+		"beast|*|sengoku|first": "sengoku_beast_male",
+		"beast|*|sengoku|second": "sengoku_beast_female",
+		"beast|*|undead|first": "undead_beast_male",
+		"beast|*|undead|second": "undead_beast_female",
+		"beast|*|medieval|second": "medieval_beast_female",
+		"commander|*|medieval|second": "medieval_commander_female",
+		"commander|*|medieval|first": "medieval_commander_male",
+		"commander|*|mythical|first": "mythical_commander_male",
+		"commander|*|mythical|second": "mythical_commander_female",
+		"commander|*|scifi|first": "rook_commander",
+		"commander|*|scifi|second": "scifi_commander_female",
+		"commander|*|nature|first": "nature_commander_male",
+		"commander|*|nature|second": "nature_commander_female",
+		"commander|*|pirates|first": "pirates_commander_male",
+		"commander|*|pirates|second": "pirates_commander_female",
+		"commander|*|sengoku|first": "sengoku_commander_male",
+		"commander|*|sengoku|second": "sengoku_commander_female",
+		"commander|*|undead|first": "undead_commander_male",
+		"commander|*|undead|second": "undead_commander_female",
+		"healer|*|medieval|second": "medieval_healer_female",
+		"healer|*|medieval|first": "medieval_healer_male",
+		"healer|*|mythical|first": "mythical_healer_male",
+		"healer|*|mythical|second": "mythical_healer_female",
+		"healer|*|nature|first": "nature_healer_male",
+		"healer|*|nature|second": "nature_healer_female",
+		"healer|*|pirates|first": "pirates_healer_male",
+		"healer|*|pirates|second": "pirates_healer_female",
+		"healer|*|scifi|first": "relay_healer",
+		"healer|*|scifi|second": "scifi_healer_female",
+		"healer|*|sengoku|first": "sengoku_healer_male",
+		"healer|*|sengoku|second": "sengoku_healer_female",
+		"healer|*|undead|second": "undead_healer_female",
+		"knight|*|medieval|first": "medieval_knight_male",
+		"knight|*|medieval|second": "medieval_knight_female",
+		"knight|*|mythical|first": "mythical_knight",
+		"knight|*|mythical|second": "mythical_knight_female",
+		"knight|*|nature|first": "nature_knight_male",
+		"knight|*|nature|second": "nature_knight_female",
+		"knight|*|pirates|first": "pirates_knight_male",
+		"knight|*|pirates|second": "pirates_knight_female",
+		"knight|*|scifi|first": "relay_knight",
+		"knight|*|scifi|second": "scifi_knight_female",
+		"knight|*|sengoku|first": "sengoku_knight_male",
+		"knight|*|sengoku|second": "sengoku_knight_female",
+		"knight|*|undead|first": "undead_knight_male",
+		"knight|*|undead|second": "undead_knight_female",
+		"mage|*|medieval|first": "medieval_mage_male",
+		"mage|*|medieval|second": "medieval_mage_female",
+		"mage|*|mythical|first": "mythical_mage_male",
+		"mage|*|mythical|second": "mythical_mage_female",
+		"mage|*|nature|first": "nature_mage_male",
+		"mage|*|nature|second": "nature_mage_female",
+		"mage|*|pirates|first": "pirates_mage_male",
+		"mage|*|pirates|second": "pirates_mage_female",
+		"mage|*|scifi|first": "relay_mage",
+		"mage|*|scifi|second": "scifi_mage_female",
+		"mage|*|sengoku|first": "sengoku_mage_male",
+		"mage|*|sengoku|second": "sengoku_mage_female",
+		"mage|*|undead|first": "undead_mage_male",
+		"mage|*|undead|second": "undead_mage_female",
+		"beast|*|nature|first": "nature_beast_male",
+		"archer|*|sengoku|second": "sengoku_archer_female",
+		"healer|*|undead|first": "undead_healer_male",
+		"rogue|*|medieval|first": "medieval_rogue_male",
+		"rogue|*|medieval|second": "medieval_rogue_female",
+		"rogue|*|mythical|first": "mythical_rogue_male",
+		"rogue|*|mythical|second": "mythical_rogue_female",
+		"rogue|*|nature|first": "nature_rogue_male",
+		"rogue|*|scifi|first": "kestrel_rogue",
+		"rogue|*|scifi|second": "scifi_rogue_female",
+		"rogue|*|nature|second": "nature_rogue_female",
+		"rogue|*|pirates|first": "pirates_rogue_male",
+		"rogue|*|pirates|second": "pirates_rogue_female",
+		"rogue|*|sengoku|first": "sengoku_rogue_male",
+		"rogue|*|sengoku|second": "sengoku_rogue_female",
+		"rogue|*|undead|first": "undead_rogue_male",
+		"rogue|*|undead|second": "undead_rogue_female",
+		"stormcaller|*|medieval|first": "medieval_stormcaller_male",
+		"stormcaller|*|medieval|second": "medieval_stormcaller_female",
+		"stormcaller|*|mythical|first": "mythical_stormcaller_male",
+		"stormcaller|*|mythical|second": "mythical_stormcaller_female",
+		"stormcaller|*|nature|first": "nature_stormcaller_male",
+		"stormcaller|*|nature|second": "nature_stormcaller_female",
+		"stormcaller|*|pirates|first": "pirates_stormcaller_male",
+		"stormcaller|*|pirates|second": "pirates_stormcaller_female",
+		"stormcaller|*|scifi|first": "morrow_stormcaller",
+		"stormcaller|*|scifi|second": "scifi_stormcaller_female",
+		"stormcaller|*|sengoku|first": "sengoku_stormcaller_male",
+		"stormcaller|*|sengoku|second": "sengoku_stormcaller_female",
+		"stormcaller|*|undead|first": "undead_stormcaller_male",
+		"stormcaller|*|undead|second": "undead_stormcaller_female",
+	}
+	_expect("all curated bodies declare directional art", expected_directional.size(), 112)
+	_expect("directional coverage matches the curated roster", expected_directional.size(), expected.size())
 	for key: String in expected:
 		_expect("%s sprite is bound" % key, bindings.has(key), true)
 		if not bindings.has(key):
@@ -421,6 +581,35 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 			"%s uses the production action timing" % key,
 			binding.get("sequences", {}), expected_sequences
 		)
+		var directional_value: Variant = binding.get("directionalSheet", {})
+		_expect(
+			"%s directional coverage is explicit" % key,
+			directional_value is Dictionary and not directional_value.is_empty(),
+			expected_directional.has(key)
+		)
+		if expected_directional.has(key) and directional_value is Dictionary:
+			var directional: Dictionary = directional_value
+			var stem := String(expected_directional[key])
+			_expect(
+				"%s directional source" % key,
+				String(directional.get("path", "")),
+				"res://art/characters/%s_directions_hd.png" % stem
+			)
+			_expect(
+				"%s directional team mask" % key,
+				String(directional.get("teamMaskPath", "")),
+				"res://art/characters/%s_directions_hd_team_mask.png" % stem
+			)
+			_expect(
+				"%s north walk cells" % key,
+				directional.get("headings", {}).get("north", {}).get("move", {}).get("frames", []),
+				[2.0, 3.0]
+			)
+			_expect(
+				"%s south walk cells" % key,
+				directional.get("headings", {}).get("south", {}).get("move", {}).get("frames", []),
+				[6.0, 7.0]
+			)
 		_expect("%s sprite exists" % key, ResourceLoader.exists(path, "Texture2D"), true)
 		if ResourceLoader.exists(path, "Texture2D"):
 			var texture := ResourceLoader.load(path, "Texture2D") as Texture2D
@@ -449,12 +638,13 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 		var style_index := ArtLibrary.STYLE_NAMES.find(style_name)
 		var figure_index := 0 if fields[3] == "first" else 1
 		for colour_index in ArtLibrary.COLOUR_NAMES.size():
-			var frame: Dictionary = art.character_frame({
+			var unit := {
 				"archetype": archetype_index,
 				"colour": colour_index,
 				"style": style_index,
 				"figure": figure_index,
-			}, "idle")
+			}
+			var frame: Dictionary = art.character_frame(unit, "idle")
 			var identity := "%s %s %s %s" % [
 				style_name, fields[0], fields[3], ArtLibrary.COLOUR_NAMES[colour_index],
 			]
@@ -466,6 +656,25 @@ func _test_production_sprite_pack(profile: Dictionary) -> void:
 				"%s keeps its requested team colour" % identity,
 				frame.team_colour, ArtLibrary.COLOUR_NAMES[colour_index]
 			)
+			if expected_directional.has(key):
+				var north := art.character_frame(unit, "move", 0.0, "north")
+				var south := art.character_frame(unit, "move", 0.0, "south")
+				_expect(
+					"%s resolves authored north" % identity,
+					north.path.ends_with("_directions_hd.png"), true
+				)
+				_expect("%s north starts at cell 2" % identity, north.frame, 2)
+				_expect("%s south starts at cell 6" % identity, south.frame, 6)
+				_expect(
+					"%s compass art cannot be mirrored" % identity,
+					north.directional_flip, false
+				)
+			else:
+				_expect(
+					"%s north falls back to its side sheet" % identity,
+					art.character_frame(unit, "move", 0.0, "north").path,
+					expected[key]
+				)
 			resolution_counts[style_name] += 1
 	_expect(
 		"all mythical body and faction identities resolve",

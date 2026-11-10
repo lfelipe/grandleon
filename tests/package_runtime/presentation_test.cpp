@@ -7,7 +7,7 @@
 // resolves to what it drew then, and that a section which is present but
 // damaged is refused rather than half-believed.
 //
-// The same three, one record at a time. The section carries up to five records
+// The same three, one record at a time. The section carries up to six records
 // now: the project's theme and faction colours, the terrain join, the
 // archetype join, and the two drawing joins that say whose hand drew each
 // archetype and at what build. And "written before this existed" is a real
@@ -46,6 +46,10 @@ void expect(bool condition, std::string_view message) {
 static_assert(
     pr::default_theme == gc::default_theme,
     "the reader and the compiler disagree about the default theme"
+);
+static_assert(
+    pr::default_battle_closeups == gc::default_battle_closeups,
+    "the reader and compiler disagree about the close-up default"
 );
 static_assert(
     pr::colour_unresolved == gc::faction_colour_unchosen,
@@ -418,6 +422,45 @@ void an_unthemed_project_is_the_default() {
     );
 }
 
+void carries_the_authored_closeup_default() {
+    const auto ordinary = load(gc::compile(source()).package);
+    const auto ordinary_presentation =
+        pr::load_presentation(ordinary.package);
+    expect(
+        ordinary_presentation &&
+            ordinary_presentation.presentation.battle_closeups,
+        "a project that says nothing begins with the historical close-up "
+        "presentation enabled"
+    );
+    expect(
+        ordinary.package.find(
+            pf::SectionType::presentation,
+            pf::presentation_preferences_record_id
+        ) == nullptr,
+        "the historical default writes no preference record"
+    );
+
+    auto quiet = source();
+    quiet.battle_closeups = false;
+    const auto quiet_loaded = load(gc::compile(quiet).package);
+    const auto quiet_presentation =
+        pr::load_presentation(quiet_loaded.package);
+    expect(
+        quiet_presentation &&
+            !quiet_presentation.presentation.battle_closeups,
+        "an authored disabled default survives the portable package"
+    );
+    const pf::RecordView* preference = quiet_loaded.package.find(
+        pf::SectionType::presentation,
+        pf::presentation_preferences_record_id
+    );
+    expect(
+        preference != nullptr && preference->payload_size == 1U &&
+            quiet_loaded.package.bytes[preference->payload_offset] == 0U,
+        "the optional preference record is exactly its one declared boolean"
+    );
+}
+
 // A package with no presentation section at all: what every package written
 // before this section existed looks like. It must load and resolve to what a
 // client drew then, not to an error.
@@ -448,6 +491,11 @@ void an_absent_section_is_not_an_error() {
     expect(
         presentation.presentation.theme == pr::default_theme,
         "an absent section resolves to the default theme"
+    );
+    expect(
+        presentation.presentation.battle_closeups ==
+            pr::default_battle_closeups,
+        "an absent section keeps the historical close-up default"
     );
     expect(
         presentation.presentation.factions.empty() &&
@@ -557,7 +605,8 @@ void a_package_written_before_the_joins() {
     expect(
         result.presentation.theme == pr::default_theme &&
             result.presentation.colour_of_faction(80) ==
-                gc::faction_colour_index("amber"),
+                gc::faction_colour_index("amber") &&
+            result.presentation.battle_closeups,
         "the choices such a package did carry are still read"
     );
     expect(
@@ -633,6 +682,28 @@ void a_damaged_section_is_refused() {
         duplicated_result.error == pr::PresentationError::malformed_payload,
         "two entries for one faction are refused"
     );
+
+    for (const std::vector<std::uint8_t>& preference : {
+             std::vector<std::uint8_t>{},
+             std::vector<std::uint8_t>{2},
+             std::vector<std::uint8_t>{0, 0},
+         }) {
+        const auto loaded = package_with_records(
+            {
+                pf::RecordSource{
+                    pf::presentation_record_id, empty_project
+                },
+                pf::RecordSource{
+                    pf::presentation_preferences_record_id, preference
+                }
+            }
+        );
+        expect(
+            pr::load_presentation(loaded.package).error ==
+                pr::PresentationError::malformed_payload,
+            "an empty, non-boolean, or trailing close-up preference is refused"
+        );
+    }
 }
 
 // The same four failures, for each content join. They share a decoder, so this
@@ -788,6 +859,7 @@ void presentation_does_not_touch_gameplay_sections() {
     auto decorated = source();
     decorated.theme = gc::theme_index("ashland");
     decorated.factions[1].colour = gc::faction_colour_index("bone");
+    decorated.battle_closeups = false;
 
     const auto plain_package = load(gc::compile(plain).package);
     const auto decorated_package = load(gc::compile(decorated).package);
@@ -832,6 +904,7 @@ int main() {
     carries_the_content_joins();
     carries_a_characters_own_style();
     an_unthemed_project_is_the_default();
+    carries_the_authored_closeup_default();
     an_absent_section_is_not_an_error();
     a_package_written_before_the_joins();
     a_damaged_section_is_refused();

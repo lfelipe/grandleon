@@ -1,5 +1,6 @@
 {
-  "schemaVersion": "1.3.0",
+  "schemaVersion": "1.4.0",
+  "sourceLanguage": "en",
   "gameId": "grandleon.demo",
   "title": "Malformed",
   "classes": [

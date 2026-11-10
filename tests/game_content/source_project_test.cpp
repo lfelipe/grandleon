@@ -32,11 +32,20 @@ void expect(bool condition, std::string_view message) {
 }
 
 constexpr std::string_view source = R"json({
-  "schemaVersion": "1.3.0",
+  "schemaVersion": "1.4.0",
+  "sourceLanguage": "en",
   "packageId": "d05f4dc5-592f-4c6a-9093-f4090a722ffc",
   "gameId": "vertical.demo",
   "title": "Vertical Demo",
   "contentRevision": "1.2.3",
+  "translations": [{
+    "language":"pt-BR",
+    "entries":[{
+      "id":"campaigns.demo.members.blue_one.name",
+      "source":"Blue One",
+      "text":"Azul Um"
+    }]
+  }],
   "weaponTypes": [{"id":"blade","name":"Blade"}],
   "itemTypes": [{"id":"healing","name":"Healing"}],
   "classes": [{
@@ -106,6 +115,13 @@ void compiles_canonical_vertical_project() {
     const auto parsed = gc::parse_source_project_json(source);
     expect(static_cast<bool>(parsed), "canonical vertical project parses");
     expect(parsed.source.maps.size() == 1, "map is mapped");
+    expect(parsed.source.source_language == "en", "source language is mapped");
+    expect(
+        parsed.source.translations.size() == 1 &&
+            parsed.source.translations.front().language == "pt-BR" &&
+            parsed.source.translations.front().entries.front().text == "Azul Um",
+        "manual translation catalogs are mapped without replacing source copy"
+    );
     expect(parsed.source.factions.size() == 2, "factions are mapped");
     expect(parsed.source.encounters.size() == 1, "encounter node is mapped");
     expect(
@@ -128,6 +144,13 @@ void compiles_canonical_vertical_project() {
         {{0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 1024}
     );
     expect(static_cast<bool>(loaded), "vertical package loads");
+    expect(
+        loaded.package.find(
+            pf::SectionType::localizations,
+            pf::localization_record_id
+        ) != nullptr,
+        "source language and translations travel in the portable package"
+    );
     expect(
         loaded.package.find(pf::SectionType::encounters) != nullptr,
         "vertical package contains encounters"
@@ -336,6 +359,36 @@ void updates_one_map_cell_without_retyping_the_project() {
             automatic_parsed.source.maps.front().surroundings.depth == 3,
         "a map can ask the renderer to continue its edge automatically"
     );
+    const auto continued_outside = gc::set_source_map_surroundings_json(
+        automatic_outside.json, "field", "continue", "", 2, {}
+    );
+    expect(
+        continued_outside.json.find(R"json("mode": "continue")json") !=
+            std::string::npos &&
+            gc::parse_source_project_json(continued_outside.json)
+                    .source.maps.front().surroundings.mode ==
+                gc::MapSurroundingMode::automatic,
+        "continue is the friendly spelling of the legacy automatic policy"
+    );
+    const auto blended_outside = gc::set_source_map_surroundings_json(
+        continued_outside.json, "field", "blend", "", 3, {}, "forest"
+    );
+    const auto blended_parsed = gc::parse_source_project_json(
+        blended_outside.json
+    );
+    expect(
+        blended_parsed &&
+            blended_parsed.source.maps.front().surroundings.mode ==
+                gc::MapSurroundingMode::blend &&
+            blended_parsed.source.maps.front().surroundings.fill_terrain != 0,
+        "a natural blend retains its chosen outside terrain"
+    );
+    expect(
+        !gc::set_source_map_surroundings_json(
+            source, "field", "fill", "", 2, {}, ""
+        ),
+        "a terrain fill without a terrain choice is refused"
+    );
     const std::vector<std::string> manual_cells{
         "water", "water", "mountain", "mountain", "water",
         "mountain", "water", "mountain", "mountain", "water",
@@ -358,6 +411,52 @@ void updates_one_map_cell_without_retyping_the_project() {
             source, "field", "manual", "", 1, {"water"}
         ),
         "a partially populated manual ring is refused"
+    );
+    const auto visibility = gc::set_source_map_visual_visibility_json(
+        source, "field", 1, {0, 1}
+    );
+    const auto visibility_parsed = gc::parse_source_project_json(
+        visibility.json
+    );
+    expect(
+        visibility_parsed &&
+            visibility_parsed.source.maps.front()
+                    .visual_visibility.reveal_radius == 1 &&
+            visibility_parsed.source.maps.front()
+                    .visual_visibility.hidden_cells ==
+                std::vector<std::uint32_t>({0, 1}),
+        "a map can author presentation-only covered cells and reveal radius"
+    );
+    expect(
+        !gc::set_source_map_visual_visibility_json(
+            source, "field", 2, {0, 0}
+        ) &&
+            !gc::set_source_map_visual_visibility_json(
+                source, "field", 2, {2}
+            ),
+        "duplicate and out-of-map covered cells are refused"
+    );
+    const auto clipped_visibility = gc::resize_source_map_json(
+        visibility.json, "field", 1, 1, "forest"
+    );
+    const auto clipped_visibility_parsed = gc::parse_source_project_json(
+        clipped_visibility.json
+    );
+    expect(
+        clipped_visibility_parsed &&
+            clipped_visibility_parsed.source.maps.front()
+                    .visual_visibility.hidden_cells ==
+                std::vector<std::uint32_t>({0}),
+        "shrinking a map clips covered cells outside its new bounds"
+    );
+    const auto cleared_visibility = gc::set_source_map_visual_visibility_json(
+        visibility.json, "field", 2, {}
+    );
+    expect(
+        cleared_visibility &&
+            cleared_visibility.json.find("visualVisibility") ==
+                std::string::npos,
+        "clearing the mask restores the backward-compatible omitted shape"
     );
     const auto resized_manual = gc::resize_source_map_json(
         manual_outside.json, "field", 3, 2, "forest"
@@ -716,6 +815,29 @@ void updates_one_map_cell_without_retyping_the_project() {
             gc::compile(player_two_parsed.source),
         "an allied placement can be assigned to player two portably"
     );
+    const auto conditional_player_two =
+        gc::set_source_placement_minimum_players_json(
+            player_two.json, "demo", "battle", "blue_1", 2
+        );
+    const auto conditional_player_two_parsed =
+        gc::parse_source_project_json(conditional_player_two.json);
+    expect(
+        conditional_player_two && conditional_player_two_parsed &&
+            conditional_player_two_parsed.source.encounters.front()
+                    .placements.front().local_player == 2 &&
+            conditional_player_two_parsed.source.encounters.front()
+                    .placements.front().minimum_players == 2,
+        "a Player 2 ally can belong only to the distinct co-op variant"
+    );
+    const auto conditional_back_to_one = gc::set_source_placement_player_json(
+        conditional_player_two.json, "demo", "battle", "blue_1", 1
+    );
+    expect(
+        conditional_back_to_one &&
+            conditional_back_to_one.json.find("minimumPlayers") ==
+                std::string::npos,
+        "returning that ally to Player 1 also returns it to the solo baseline"
+    );
     const auto player_one = gc::set_source_placement_player_json(
         player_two.json, "demo", "battle", "blue_1", 1
     );
@@ -734,7 +856,7 @@ void updates_one_map_cell_without_retyping_the_project() {
         !gc::set_source_placement_minimum_players_json(
             enlarged.json, "demo", "battle", "blue_1", 2
         ),
-        "an allied roster placement cannot be made conditional"
+        "a Player 1 ally cannot be removed from the solo baseline"
     );
     const auto talkable_enemy = gc::set_source_placement_talkable_json(
         enlarged.json, "demo", "battle", "red_1", true
@@ -1440,6 +1562,54 @@ void maps_authored_theme() {
     expect(
         has_source_diagnostic(refused, gc::SourceDiagnosticCode::invalid_value),
         "the refusal names the value, not the syntax"
+    );
+}
+
+// The game's recommendation for the optional close combat view. It is
+// portable presentation rather than a rule: omission keeps the historical
+// enabled default, an explicit recommendation survives compilation, and a
+// player's local display choice remains outside this source entirely.
+void maps_the_battle_closeup_default() {
+    const std::string needle = R"json("contentRevision":)json";
+    const auto with_flag = [&needle](const char* value) {
+        std::string project{source};
+        const auto at = project.find(needle);
+        project.insert(
+            at, std::string(R"json("battleCloseups":)json") + value + ","
+        );
+        return project;
+    };
+
+    const auto silent = gc::parse_source_project_json(source);
+    const auto enabled = gc::parse_source_project_json(with_flag("true"));
+    const auto disabled = gc::parse_source_project_json(with_flag("false"));
+    expect(
+        silent && enabled && disabled &&
+            silent.source.battle_closeups == gc::default_battle_closeups &&
+            enabled.source.battle_closeups &&
+            !disabled.source.battle_closeups,
+        "an authored close-up recommendation maps with the historical enabled "
+        "default"
+    );
+
+    const auto silent_package = gc::compile(silent.source);
+    const auto enabled_package = gc::compile(enabled.source);
+    const auto disabled_package = gc::compile(disabled.source);
+    expect(
+        silent_package && enabled_package && disabled_package &&
+            silent_package.package == enabled_package.package &&
+            silent_package.package != disabled_package.package,
+        "stating the old close-up default costs no package byte, while opting "
+        "out reaches portable presentation"
+    );
+
+    const auto refused = gc::parse_source_project_json(with_flag("\"off\""));
+    expect(
+        !refused && has_source_diagnostic(
+            refused, gc::SourceDiagnosticCode::invalid_value
+        ),
+        "a close-up recommendation must be a boolean rather than a private "
+        "client vocabulary"
     );
 }
 
@@ -2642,8 +2812,9 @@ void adds_and_renames_campaign_members_without_retyping_the_project() {
             parsed_added.source.campaigns.front().roster[1].name ==
                 "Blue Two" &&
             parsed_added.source.campaigns.front().roster[1].join_node_id == 0 &&
+            !parsed_added.source.campaigns.front().roster[1].player_nameable &&
             gc::compile(parsed_added.source),
-        "a character can join the starting company and remain playable"
+        "a character can join fixed-name by default and remain playable"
     );
     const auto renamed = gc::rename_source_campaign_member_json(
         added.json, "demo", "blue_two", "Cobalt"
@@ -2657,8 +2828,36 @@ void adds_and_renames_campaign_members_without_retyping_the_project() {
                 parsed_added.source.campaigns.front().roster[1].id,
         "renaming a character preserves persistent identity"
     );
+    const auto nameable =
+        gc::set_source_campaign_member_player_nameable_json(
+            renamed.json, "demo", "blue_two", true
+        );
+    const auto parsed_nameable =
+        gc::parse_source_project_json(nameable.json);
+    expect(
+        nameable && parsed_nameable &&
+            parsed_nameable.source.campaigns.front()
+                .roster[1]
+                .player_nameable &&
+            parsed_nameable.source.campaigns.front().roster[1].name ==
+                "Cobalt" &&
+            gc::compile(parsed_nameable.source),
+        "name choice permission keeps a required playable authored default"
+    );
+    const auto fixed = gc::set_source_campaign_member_player_nameable_json(
+        nameable.json, "demo", "blue_two", false
+    );
+    const auto parsed_fixed = gc::parse_source_project_json(fixed.json);
+    expect(
+        fixed && parsed_fixed &&
+            !parsed_fixed.source.campaigns.front()
+                 .roster[1]
+                 .player_nameable &&
+            fixed.json.find("playerNameable") == std::string::npos,
+        "fixing a name removes the optional field and restores the old shape"
+    );
     const auto recruited = gc::add_source_campaign_member_json(
-        renamed.json, "demo", "battle", "blue_three", "Blue Three",
+        nameable.json, "demo", "battle", "blue_three", "Blue Three",
         "blue_unit"
     );
     const auto parsed_recruited =
@@ -2693,8 +2892,11 @@ void adds_and_renames_campaign_members_without_retyping_the_project() {
         ) &&
             !gc::rename_source_campaign_member_json(
                 source, "demo", "missing", "Nobody"
+            ) &&
+            !gc::set_source_campaign_member_player_nameable_json(
+                source, "demo", "missing", true
             ),
-        "a character rename needs a real character and a visible name"
+        "character name options need a real character and a visible default"
     );
 
     const auto tougher = gc::set_source_campaign_member_modifier_json(
@@ -3378,7 +3580,7 @@ void names_both_versions_when_it_refuses_one() {
              Case{"nonsense", "", "upgrade.mjs"},
          }) {
         const auto parsed = gc::parse_source_project_json(
-            source_with(R"json("schemaVersion": "1.3.0")json",
+            source_with(R"json("schemaVersion": "1.4.0")json",
                         std::string(R"json("schemaVersion": ")json") +
                             std::string(item.declared) + "\"")
         );
@@ -3404,7 +3606,7 @@ void names_both_versions_when_it_refuses_one() {
         );
     }
     expect(
-        gc::supported_source_schema == "1.3.0",
+        gc::supported_source_schema == "1.4.0",
         "the version this compiler reads; tools/source_schema/test.mjs holds "
         "it level with the schema and the migration registry"
     );
@@ -3445,6 +3647,7 @@ int main() {
     maps_authored_growth();
     maps_authored_faction_colour();
     maps_authored_theme();
+    maps_the_battle_closeup_default();
     maps_authored_character_style();
     maps_a_characters_own_style();
     maps_a_scene_backdrop();

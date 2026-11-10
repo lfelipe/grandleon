@@ -9,13 +9,11 @@
 # Works the same in the primary checkout and in a `git worktree`. It is safe to
 # re-run: every step reports what is already in place instead of redoing it.
 #
-# In a worktree the two expensive artefacts, the pinned Chromium and the
-# placeholder-art virtual environment, are borrowed from the primary checkout
-# rather than fetched again. That is the same reasoning scripts/local-ci.sh
-# already applies: their versions are pinned by lockfiles, not by the checkout
-# they happen to sit in, so one copy per machine is the honest number. Both
-# paths are gitignored, and both are borrowed by symlink, so the borrowing is
-# visible rather than magic.
+# In a worktree the placeholder-art virtual environment is borrowed from the
+# primary checkout rather than built again. Its version is pinned by the
+# requirements file, not by the checkout it happens to sit in. The path is
+# gitignored and borrowed by symlink, so the borrowing is visible rather than
+# magic.
 
 set -euo pipefail
 
@@ -57,9 +55,8 @@ fi
 
 # --- Node dependencies -------------------------------------------------------
 #
-# Both trees are needed. tools/source_schema is the easy one to forget, because
-# nothing in the editor references it and the ctest entry that needs it,
-# grandleon.source_schema, lives in a different directory again.
+# The source-schema dependency is easy to forget because the ctest entry that
+# needs it, grandleon.source_schema, lives in a different directory.
 
 node_dependencies() {
     local directory="${repository_root}/$1"
@@ -90,44 +87,6 @@ node_dependencies() {
 
 step "Node dependencies"
 node_dependencies tools/source_schema
-node_dependencies editor
-
-# --- Chromium ----------------------------------------------------------------
-
-browsers="${repository_root}/.playwright-browsers"
-donor_browsers="${primary_checkout}/.playwright-browsers"
-
-chromium_installed() {
-    local candidate
-    for candidate in "$1"/chromium-*/INSTALLATION_COMPLETE; do
-        [ -e "${candidate}" ] && return 0
-    done
-    return 1
-}
-
-step "Chromium for the browser suite"
-if chromium_installed "${browsers}"; then
-    note ".playwright-browsers already holds an installed Chromium"
-elif [ "${is_worktree}" -eq 1 ] && chromium_installed "${donor_browsers}"; then
-    if [ "${check_only}" -eq 1 ]; then
-        absent ".playwright-browsers (borrow from the primary checkout)"
-    else
-        # A directory tree left behind without the binary is the usual state of
-        # a fresh worktree, and it is what makes the browser suite fail in a way
-        # that looks like a Playwright bug. Discarding it is safe: the branch
-        # above already established that it holds no installed Chromium, and
-        # whatever else it holds is a download cache the donor also has.
-        rm -rf "${browsers}"
-        note "borrowing .playwright-browsers from the primary checkout"
-        ln -s "${donor_browsers}" "${browsers}"
-    fi
-elif [ "${check_only}" -eq 1 ]; then
-    absent ".playwright-browsers (playwright install chromium)"
-else
-    note "installing Chromium into .playwright-browsers (about 650 MB)"
-    PLAYWRIGHT_BROWSERS_PATH="${browsers}" \
-        npx --prefix "${repository_root}/editor" playwright install chromium
-fi
 
 # --- Placeholder-art virtual environment -------------------------------------
 
@@ -173,8 +132,8 @@ fi
 
 # --- What this deliberately does not do --------------------------------------
 #
-# The container toolchains are not prepared here: Emscripten for WebAssembly,
-# libdragon for the Nintendo 64, and the PlayStation's own.
+# The container toolchains are not prepared here: libdragon for the Nintendo
+# 64 and the PlayStation's own.
 # They are pulled or built by their own CMake targets on first use, they are
 # pinned by digest, and they cost minutes rather than seconds. Preparing them
 # eagerly would make this script slow for the majority of changes that never
@@ -189,5 +148,5 @@ if [ "${check_only}" -eq 1 ]; then
     exit 1
 fi
 
-printf '\nReady to gate. The whole gate, on a port nobody else is using:\n'
-printf '  scripts/local-ci.sh --preview-port <port>\n'
+printf '\nReady to gate:\n'
+printf '  scripts/local-ci.sh\n'

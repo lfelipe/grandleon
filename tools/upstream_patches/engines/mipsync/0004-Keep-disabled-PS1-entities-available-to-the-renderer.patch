@@ -1,0 +1,25 @@
+From d11cf278149eebf3ca64604bc454965fc474ff99 Mon Sep 17 00:00:00 2001
+From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
+Date: Mon, 9 Nov 2026 11:43:40 -0800
+Subject: [PATCH 04/10] Keep disabled PS1 entities available to the renderer
+
+
+diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c
+index 4f8e7bbc26a9f1464b5bda4a01afdcaf815835e6..1f99ad579f0d9e2e4fa57e18ab0d6b6a4f3c4128 100644
+--- a/templates/ps1/starter/runtime/render.c
++++ b/templates/ps1/starter/runtime/render.c
+@@ -504,7 +504,10 @@ static void rebuild_render_entity_lists(void) {
+ 
+     for (i = 0; i < count && i < PS1_RENDER_ENTITY_LIST_MAX; ++i) {
+         const ps1_entity* ent = ps1_scene_entity(i);
+-        if (!ent || ent->has_camera || !ent->mesh_enabled)
++        /* Keep disabled entities indexed: a runtime may page or reveal them
++         * later without changing the scene's entity count. Draw submission
++         * still checks mesh_enabled before doing any geometry work. */
++        if (!ent || ent->has_camera)
+             continue;
+         if (ent->prerender_occluder) {
+             s_occluder_entities[s_occluder_count++] = (uint16_t)i;
+-- 
+2.53.0
+

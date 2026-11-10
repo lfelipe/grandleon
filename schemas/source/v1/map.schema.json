@@ -14,10 +14,10 @@
     },
     "surroundings": {
       "type": "object",
-      "description": "How the non-playable area outside this map is drawn on clients that expose it. It never enlarges the tactical board and never changes movement or canonical state. Solid fills the exterior with one RGB colour. Automatic continues the nearest authored edge terrain without making it visitable. Manual stores a row-major perimeter, scanning the outer rectangle and omitting the playable interior. Three cells of depth cover the current PC camera at every scroll position; smaller depths are valid but the editor warns that background may remain visible.",
+      "description": "How the decorative, non-playable area outside this map is drawn. It never enlarges the tactical board or changes movement/canonical state. Continue extends the nearest authored edge, fill uses one chosen terrain, and blend deterministically mixes that terrain into the continued edge. Automatic is the legacy spelling of continue; solid and manual remain readable for older projects.",
       "properties": {
         "mode": {
-          "enum": ["solid", "automatic", "manual"]
+          "enum": ["continue", "fill", "blend", "solid", "automatic", "manual"]
         },
         "color": {
           "type": "string",
@@ -35,9 +35,42 @@
           "items": { "$ref": "common.schema.json#/$defs/stableId" },
           "maxItems": 8704,
           "description": "Manual perimeter terrain in row-major outer-rectangle order, omitting cells inside the playable map. Its exact required length is (width + 2*depth) * (height + 2*depth) - width * height. These cells are never visitable because they remain outside the tactical dimensions."
+        },
+        "terrainId": {
+          "$ref": "common.schema.json#/$defs/stableId",
+          "description": "Terrain used by fill, or introduced gradually by deterministic natural blend."
         }
       },
       "required": ["mode"],
+      "additionalProperties": false
+    },
+    "visualVisibility": {
+      "type": "object",
+      "description": "Presentation-only cells that begin visually covered and uncover around friendly units that enter them. This never changes movement, targeting, AI, line of sight, objectives, or canonical battle state. It can describe rooms in one or several buildings today and leaves room for broader exploration looks later.",
+      "properties": {
+        "revealRadius": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8,
+          "description": "Manhattan distance, in map cells, uncovered around a friendly unit standing in a covered cell. Revealed cells stay visible for the rest of that battle."
+        },
+        "hiddenCells": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 65536,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "properties": {
+              "x": { "type": "integer", "minimum": 0, "maximum": 255 },
+              "y": { "type": "integer", "minimum": 0, "maximum": 255 }
+            },
+            "required": ["x", "y"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["revealRadius", "hiddenCells"],
       "additionalProperties": false
     },
     "notes": { "$ref": "common.schema.json#/$defs/notes" },

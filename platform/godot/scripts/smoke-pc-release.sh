@@ -85,12 +85,15 @@ godot_smokes=(
     smoke-campaign-persistence.sh
     smoke-checkpoint-slots.sh
     smoke-combat-cinematic.sh
+    smoke-conversation-backdrops.sh
     smoke-control-profile.sh
     smoke-console-builder.sh
     smoke-controller-seats.sh
     smoke-creator-screen.sh
+    smoke-editor-acceptance.sh
     smoke-fixed-formation.sh
     smoke-frame-timing.sh
+    smoke-game-settings.sh
     smoke-gear-editor.sh
     smoke-home-menu.sh
     smoke-map-editor.sh
@@ -100,7 +103,9 @@ godot_smokes=(
     smoke-project-compiler.sh
     smoke-project-library.sh
     smoke-standalone-exporter.sh
+    smoke-steel-cedar-editor.sh
     smoke-story-editor.sh
+    smoke-twin-gate-keep.sh
 )
 
 for smoke in "${godot_smokes[@]}"; do

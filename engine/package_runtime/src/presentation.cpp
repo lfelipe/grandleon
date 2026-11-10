@@ -405,6 +405,26 @@ PresentationLoadResult load_presentation(const LoadedPackage& package) {
         }
     }
 
+    // A player's local display choice remains final. This package record is
+    // only the authored starting point used when no local choice exists. Its
+    // absence means enabled, preserving packages written before the preference
+    // was carried and avoiding a record for the historical default.
+    const RecordView* preferences = package.find(
+        SectionType::presentation,
+        package_format::presentation_preferences_record_id
+    );
+    if (preferences != nullptr) {
+        Reader reader(package, *preferences);
+        std::uint8_t battle_closeups = 0;
+        if (
+            !reader.u8(battle_closeups) || battle_closeups > 1U ||
+            !reader.finished()
+        ) {
+            return fail();
+        }
+        presentation.battle_closeups = battle_closeups != 0U;
+    }
+
     result.presentation = std::move(presentation);
     return result;
 }

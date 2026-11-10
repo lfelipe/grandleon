@@ -5,6 +5,7 @@
 #include <grandleon/game_content/source_project.hpp>
 #include <grandleon/package_format/package.hpp>
 #include <grandleon/storage/memory_storage.hpp>
+#include <grandleon/view/motion.hpp>
 
 #include <cstdint>
 #include <fstream>
@@ -97,6 +98,9 @@ struct Seen final {
     // whether one ever reported a refusal above its roster.
     bool company_footer_offers_a_stage{false};
     bool company_page_said_refused{false};
+    bool saw_fps_off{false};
+    bool saw_fps_on{false};
+    int fps_toggles{0};
     int stage_jumps{0};
     int battles_opened{0};
 };
@@ -124,7 +128,26 @@ public:
             seen_.board_menu.emplace_back(
                 overlay.menu[row].label != nullptr ? overlay.menu[row].label : ""
             );
+            if (seen_.board_menu.back() == "SHOW FPS: OFF") {
+                seen_.saw_fps_off = true;
+            }
+            if (seen_.board_menu.back() == "SHOW FPS: ON") {
+                seen_.saw_fps_on = true;
+            }
         }
+    }
+
+    [[nodiscard]] bool offers_fps_display() const noexcept override {
+        return true;
+    }
+
+    [[nodiscard]] bool fps_display_visible() const noexcept override {
+        return display_.show_fps;
+    }
+
+    void set_fps_display_visible(bool visible) noexcept override {
+        display_.show_fps = visible;
+        ++seen_.fps_toggles;
     }
 
     void paint_screen(const turn::ScreenView& view) override {
@@ -195,6 +218,7 @@ private:
     int picker_frames_{0};
     Seen seen_{};
     campaign::DefinitionRef landed_{};
+    grandleon::view::ConsoleDisplayOptions display_{};
 };
 
 // Presses, in the order a thumb makes them. Named rather than written as bare
@@ -216,21 +240,30 @@ void a_thumb_reaches_a_stage_and_comes_back() {
     QuietSink sink;
 
     std::vector<std::uint16_t> script;
-    // The handover screen and the opening cutscenes, then the company screen,
-    // then the board.
+    // The opening cutscenes, then the board. The fixed formation itself does
+    // not add a roster-summary handover screen.
     push(script, a, 13);
+    // Finish Tarnholt's authored pre-board flow. These are campaign choices,
+    // not the removed roster-summary page.
     script.push_back(start);
-    // START opens the board menu. The picker is its last row, under the way
-    // out, so three presses down reach it from BACK TO BATTLE.
+    script.push_back(start);
+    // On the live board, START opens the board menu. First exercise the console
+    // diagnostic: it is visibly off, one press turns it on, and the menu closes
+    // back to battle.
     script.push_back(start);
     push(script, down, 3);
+    script.push_back(a);
+    // The picker is now the last row, under the FPS preference, so four
+    // presses down reach it from BACK TO BATTLE.
+    script.push_back(start);
+    push(script, down, 4);
     script.push_back(a);
     // Backing out of the picker is backing out of nothing: the battle is still
     // there, with whatever was in hand still in hand, exactly as backing out of
     // the menu itself is. Only a Stage actually chosen leaves.
     script.push_back(b);
     script.push_back(start);
-    push(script, down, 3);
+    push(script, down, 4);
     script.push_back(a);
     // The picker opens on the first Stage. Five down is the sixth and last,
     // which is the one no amount of playing this session would have reached.
@@ -270,25 +303,30 @@ void a_thumb_reaches_a_stage_and_comes_back() {
 
     // The row, on the menu START opens, under the way out and saying what it is.
     expect(
-        pilot.seen().board_menu.size() == 4U,
-        "the board menu has a fourth row in a build that carries the picker"
+        pilot.seen().board_menu.size() == 5U,
+        "the console board menu carries the FPS toggle and Stage picker"
     );
     expect(
-        pilot.seen().board_menu.size() == 4U &&
+        pilot.seen().board_menu.size() == 5U &&
             pilot.seen().board_menu[0] == "BACK TO BATTLE" &&
             pilot.seen().board_menu[1] == "END PLAYER 1 TURN" &&
             pilot.seen().board_menu[2] == "LEAVE - THIS BATTLE IS NOT KEPT" &&
-            pilot.seen().board_menu[3] == "GO TO ANOTHER STAGE - TESTING",
-        "and it is last, under the way out, because it is an aid and not one of "
-        "the questions this menu exists to answer"
+            pilot.seen().board_menu[3] == "SHOW FPS: ON" &&
+            pilot.seen().board_menu[4] == "GO TO ANOTHER STAGE - TESTING",
+        "and the optional rows follow the battle commands"
     );
-
-    // The picker itself, opened twice: once out of the battle and once off the
-    // company screen the refused board sent the player to.
+    expect(
+        pilot.seen().saw_fps_off && pilot.seen().saw_fps_on &&
+            pilot.seen().fps_toggles == 1,
+        "FPS begins off and the board-menu row turns it on exactly once"
+    );
+    // The picker is visibly opened three times: cancel once, choose once, and
+    // then recover from the refused late-stage jump through the company
+    // screen. That exercises both surfaces that offer it.
     expect(
         pilot.seen().picker_openings == 3,
-        "the picker was opened three times: twice out of the battle, once off "
-        "the company screen, which is both surfaces that offer it"
+        "the picker opened twice from battle and once from the refused "
+        "company screen"
     );
     expect(
         pilot.seen().picker_choices == 6,
@@ -339,7 +377,7 @@ void a_thumb_reaches_a_stage_and_comes_back() {
         "to"
     );
     expect(
-        pilot.pressed() == 39U,
+        pilot.pressed() == 47U,
         "and every press of the script was used, so nothing above happened for "
         "want of a button rather than because it was asked for"
     );

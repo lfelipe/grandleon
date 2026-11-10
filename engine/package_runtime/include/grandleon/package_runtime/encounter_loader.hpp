@@ -87,11 +87,14 @@ enum class MapSurroundingMode : std::uint8_t {
     solid = 1,
     automatic = 2,
     manual = 3,
+    fill = 4,
+    blend = 5,
 };
 
 // Presentation outside the tactical dimensions. These cells never enter the
 // simulation definition, so a renderer may draw them and can never make them
-// reachable. Empty is the historical/default client background.
+// reachable. Fill and blend carry a fully materialized perimeter so clients
+// never need to reproduce the authoring algorithm.
 struct MapSurroundings final {
     MapSurroundingMode mode{MapSurroundingMode::none};
     std::uint32_t colour{0x07131dU};
@@ -99,8 +102,21 @@ struct MapSurroundings final {
     std::vector<std::uint64_t> terrain;
 };
 
+// Presentation-only local exploration. The indices address the playable map;
+// they never enter the simulation definition and therefore cannot affect a
+// legal move, target, objective, AI choice, or replay hash.
+struct MapVisualVisibility final {
+    std::uint8_t reveal_radius{2};
+    std::vector<std::uint32_t> hidden_cells;
+};
+
 struct EncounterLoadResult final {
     EncounterLoadError error{EncounterLoadError::none};
+    // Authored map identity read from the encounter record. This remains
+    // presentation metadata: the simulation consumes the decoded definition,
+    // while clients can distinguish two stages whose local terrain happens to
+    // have the same shape and material histogram.
+    std::uint64_t map_id{};
     simulation::EncounterDefinition definition;
     std::vector<UnitBehaviorBinding> behaviors;
     // One entry per unit in `definition.units`, in the same order.
@@ -116,6 +132,7 @@ struct EncounterLoadResult final {
     // `definition.terrain`, because that is a rule.
     std::vector<std::uint64_t> terrain;
     MapSurroundings surroundings;
+    MapVisualVisibility visual_visibility;
     // The identity of the deployment region this encounter authors, or zero
     // for one that authors none. The region's *tiles* travel inside the
     // definition, as `definition.deployment_tiles`, because they are a rule;

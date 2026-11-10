@@ -1,5 +1,6 @@
 {
-  "schemaVersion": "1.3.0",
+  "schemaVersion": "1.4.0",
+  "sourceLanguage": "en",
   "packageId": "8f2c5d61-7a04-4e93-b1c8-5d2e9a70f314",
   "gameId": "grandleon.traversal",
   "title": "Grandleon Character Traversal",

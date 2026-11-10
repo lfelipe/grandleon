@@ -3,20 +3,8 @@
 //
 // Everything a player expresses with a controller, and everything the client
 // believes is on the board because of it, lives here. None of it draws a
-// pixel or reads a port. Every build derives from it: the PlayStation's
-// executable, which paints with the GPU and polls SIO0; and the host tools
-// that paint nothing and read a scripted sequence of presses.
-//
-// That split is the whole verification argument. The host build derives what
-// every step of a scripted session should look like *from the rules*, and
-// writes it out before the ROM or the executable is built or run. The rules
-// are the engine's own `reachable_tiles`, `danger_tiles` and
-// `forecast_attack`, applied to the state `client::run_campaign` actually
-// reaches. The console then reports the same transcript from its own CPU, and
-// the harness requires the two to agree line for line. Neither side can
-// quietly agree with itself: the expectations are produced by a different
-// compiler on a different architecture, ahead of the run that is checked
-// against them.
+// pixel or reads a port. Focused host tests give it scripted presses and check
+// the resulting interaction transcript against the real engine rules.
 //
 // It lives here rather than beside one console because nothing in it is any
 // one console's, and a second copy on a second machine would be a second
@@ -42,10 +30,8 @@
 // touches on a board is identical, and a second copy of it would be a second
 // chance for two ROMs to disagree about what a turn is.
 //
-// The PlayStation defines it: `grandleon_psx_campaign` and its sibling are this
-// file with the macro on, beside a turn executable that is this file with the
-// macro off. Two host tests compile it as well, so the campaign composer is
-// checked whether or not a console links it:
+// Host tests compile both forms, so the campaign composer is checked without a
+// renderer:
 // `tests/client/company_scroll_test.cpp` walks a company longer than the
 // screen, and `tests/client/story_paging_test.cpp` a speech taller than a page.
 //
@@ -67,6 +53,7 @@
 
 #ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
 #include <grandleon/client/campaign_session.hpp>
+#include <grandleon/client/console_name_editor.hpp>
 #include <grandleon/view/slot_menu.hpp>
 #endif
 
@@ -93,20 +80,13 @@ namespace pr = grandleon::package_runtime;
 // derivation made against a taller window would put the camera somewhere the
 // console never puts it, and every coordinate downstream would differ.
 //
-// At the native cell it is ten columns by six rows, and a console arrives at
-// that from its own hardware rather than from this line. The PlayStation is
-// 320x240 with a 32-pixel cell, less the four eight-pixel rows the message bar
-// takes, which leaves 208 lines: six whole rows and sixteen lines over. The
-// sixteen become the headroom a raised cell lifts into rather than a seventh
-// row a shorter screen could not match.
-// `platform/playstation/src/turn_exe.cpp` derives the two numbers and asserts
-// they match these, so this is one definition rather than a copy per machine.
+// At the reference cell it is ten columns by six rows. Keeping the reference
+// dimensions here makes the camera tests independent of a renderer.
 // ---------------------------------------------------------------------------
 inline constexpr int viewport_cols = 10;
 inline constexpr int viewport_rows = 6;
 
-// What the PlayStation actually gives a board, once the cell is allowed to
-// shrink.
+// What the compact reference layout gives a board once the cell may shrink.
 //
 // The window above is what ten by six of the *native* cell buys, and every map
 // this repository ships is larger than it in at least one direction. So the
@@ -139,19 +119,9 @@ inline constexpr view::FitRule board_fit{320, 208, 32, 16, 16};
 // session this repository checks was written against and a rename would move
 // every one of them.
 //
-// A console keeps the names and maps its own face buttons onto them, which is
-// cheaper than a vocabulary per machine. The PlayStation's mapping, decided in
-// `platform/playstation/src/psx_pad.h` and stated here so a reader of a script
-// can follow it:
-//
-//     pad_a      cross     confirm: pick a character up, put it down, take a
-//                          menu row, aim a strike at the tile under the cursor
-//     pad_b      circle    back out: drop a selection, close the menu, put the
-//                          sheet down, abandon an aim
-//     pad_c      triangle  open the unit action menu, and on the company
-//                          screen open the Stage picker where a game has one
-//     pad_start  start     "I am done": open the battle from the arranging
-//                          stage, end an activation
+// A platform may map its own face buttons onto these names. In this model A
+// confirms, B cancels, C opens the unit action menu, and Start opens the board
+// menu or completes a setup screen.
 //
 // The company screen's use of C is the one place a button does something a row
 // does not also do, and the footer names it there whenever it does anything at
@@ -159,10 +129,6 @@ inline constexpr view::FitRule board_fit{320, 208, 32, 16, 16};
 // company, and a row that was not a member would be a row the member menu below
 // has nothing to open for.
 //
-// Cross confirms and circle cancels, which is the Western PlayStation
-// convention and the one a player who has used this console will already have
-// in their thumbs. Triangle is the menu because it is the button neither of the
-// other two idioms claims, and because it is the third one.
 // ---------------------------------------------------------------------------
 inline constexpr std::uint16_t pad_up = 1U << 0;
 inline constexpr std::uint16_t pad_down = 1U << 1;
@@ -271,6 +237,9 @@ struct MenuChoice final {
     // consulting the label, or the two menus that share this array come to
     // disagree about what a row means.
     bool stage{false};
+    // Toggles the platform's live frame-rate readout. A board-menu row only,
+    // and only on a platform that says it has that display.
+    bool fps{false};
     bool cancel{false};
 };
 
@@ -298,7 +267,8 @@ inline constexpr int menu_capacity = 8;
 // longest shipped item name plus " x99". Item rows are the only menu text that
 // is not a constant, because a row says how many are left.
 inline constexpr int menu_item_labels = 4;
-inline constexpr int menu_item_label_size = 24;
+inline constexpr int menu_item_label_size =
+    static_cast<int>(grandleon::sheet::content_name_storage_capacity) + 6;
 
 // What the player picked out of the menu and has not yet pointed at anything.
 //
@@ -472,6 +442,7 @@ enum class Reason : std::uint8_t {
 // number is the one that says whether the *content* path fits.
 // ---------------------------------------------------------------------------
 inline constexpr int page_columns = 38;
+inline constexpr int page_storage_bytes = page_columns * 2;
 
 // Sixteen rows. The tallest page the shipped content produces is a member's
 // verbs, at a name, a stat line, a blank and one row per verb; the aftermath is
@@ -518,10 +489,14 @@ inline constexpr int footer_columns = 39;
 // Free rather than a member because it reads nothing but its argument, and
 // because a test has to be able to ask the property that matters about it:
 // that it counts exactly the rows `push_wrapped` lays down.
-[[nodiscard]] int wrapped_rows(const char* text) noexcept;
+[[nodiscard]] int wrapped_rows(
+    const char* text,
+    grandleon::sheet::TextEncoding encoding =
+        grandleon::sheet::TextEncoding::ascii_console
+) noexcept;
 
 struct TextPage final {
-    char lines[page_capacity][page_columns + 1]{};
+    char lines[page_capacity][page_storage_bytes + 1]{};
     int count{0};
 
     [[nodiscard]] const char* line(int index) const noexcept {
@@ -549,6 +524,9 @@ enum class Screen : std::uint8_t {
     company,
     // One member's verbs, over the company.
     member,
+    // The compact consoles' shared controller-driven character-name editor.
+    // It is offered only for a campaign member the author marked nameable.
+    name,
     // What a battle did to the campaign, as the campaign committed it.
     aftermath,
     // A slot the session could not honour, in the vocabulary of whichever layer
@@ -612,10 +590,10 @@ inline constexpr int company_scroll_margin = 1;
 // Twenty rather than ten because a menu that dropped rows was the other half of
 // the truncation this screen's window exists to end: the rows past the tenth
 // were the store's and the member's own kit, which is to say the items a
-// deferral recorded as unreachable. Twenty covers the availability row, nine
-// store stacks, nine carried stacks and CANCEL, and the window shows eight of
-// them at a time. What it costs is `.bss`, which on a console is heap.
-inline constexpr int company_menu_capacity = 20;
+// deferral recorded as unreachable. Twenty-one covers RENAME, the availability
+// row, nine store stacks, nine carried stacks and CANCEL, and the window shows
+// eight of them at a time. What it costs is `.bss`, which on a console is heap.
+inline constexpr int company_menu_capacity = 21;
 inline constexpr int company_menu_label_size = 28;
 
 struct CompanyChoice final {
@@ -708,6 +686,28 @@ public:
     // not two board cursors.
     virtual ControllerPress next_controller_press() {
         return ControllerPress{0, next_press()};
+    }
+
+    // Optional board diagnostic. Host clients inherit no row; console clients
+    // that can paint a live counter expose it and own the session-local state.
+    // Every implementation must begin false so shipped games never open with
+    // a diagnostic on top of the board.
+    [[nodiscard]] virtual bool offers_fps_display() const noexcept {
+        return false;
+    }
+    [[nodiscard]] virtual bool fps_display_visible() const noexcept {
+        return false;
+    }
+    virtual void set_fps_display_visible(bool visible) noexcept {
+        static_cast<void>(visible);
+    }
+
+    // The shared console vocabulary remains the original compact ASCII fold.
+    // A platform with an owned Latin atlas opts in explicitly so authored
+    // UTF-8 survives the shared page and sheet composers on its way there.
+    [[nodiscard]] virtual grandleon::sheet::TextEncoding text_encoding()
+        const noexcept {
+        return grandleon::sheet::TextEncoding::ascii_console;
     }
 
     // Called once per settled checkpoint, before and after the facts, so a
@@ -915,9 +915,8 @@ public:
         const sim::EncounterSnapshot& snapshot, const client::Roster& roster
     ) override;
 
-    // A compact console launch menu. Kept available to both forms of the
-    // client because the PlayStation builds its campaign and single-battle
-    // executable from the same source file.
+    // A compact launch menu, available to both the single-board and campaign
+    // forms so their authored player policy behaves identically.
     struct LaunchMenu final {
         bool offer{false};
         bool allow_one{true};
@@ -1057,8 +1056,18 @@ public:
     // draws is asked of it first.
     void set_package(
         const grandleon::package_format::LoadedPackage* package
-    ) noexcept {
-        package_ = package;
+    ) noexcept;
+
+    // The authored language selected at launch. It drives both the game's
+    // package-backed strings and the compact interface vocabulary around
+    // them. A package starts in its source language; launch menus may switch
+    // among the catalogs it actually carries.
+    void set_language(std::string_view language) noexcept;
+    [[nodiscard]] std::string_view language() const noexcept {
+        return language_;
+    }
+    void set_campaign_id(std::uint64_t campaign_id) noexcept {
+        campaign_id_ = campaign_id;
     }
 
     // How wide the viewport is, in cells. Set by the platform before the first
@@ -1271,6 +1280,17 @@ private:
         const client::CompanyManagement* company = nullptr
     );
     void compose_member_menu(const client::CompanyManagement& company, int row);
+    void compose_name_editor(
+        const client::RosterEntry& member,
+        const client::ConsoleNameEditor& editor
+    );
+    [[nodiscard]] client::ConsoleNameAnswer edit_player_name(
+        const client::RosterEntry& member,
+        std::string& chosen_name
+    );
+    void queue_player_names(
+        const std::vector<client::RosterEntry>& members
+    );
     // The campaign's Stages as a page, one row each, marked with where the
     // campaign is and where it has been. `stages_` is what it reads and is
     // borrowed from whichever surface opened the picker.
@@ -1310,7 +1330,7 @@ private:
     // is the honest reading of "no game said its name" and, since
     // `open_campaign` cannot be called without one, is a state only a build
     // that reached an ending without a beginning can be in.
-    char project_title_[page_columns + 1]{};
+    char project_title_[page_storage_bytes + 1]{};
 #endif
     // What the scene composed onto this page is set against, or 0 for every
     // page that is not a scene. Cleared by `begin_page`, so a screen has to
@@ -1394,6 +1414,17 @@ private:
     // then and this client offers the row only when the list it was handed is
     // not. Nothing here reads a setting.
     const std::vector<client::CampaignStage>* stages_{nullptr};
+    // One compact prompt per author-explicit nameable founder or recruit.
+    // Founders are queued only on a new game, never on resume; an ordinary
+    // fixed formation leaves this empty and takes the byte-for-byte direct
+    // start path it had before names existed.
+    std::vector<campaign::PersistentEntityId> pending_player_names_;
+    // The campaign roster as the session most recently published it. Story
+    // text can be presented between boards, so the borrowed `board_` alone is
+    // not enough to resolve an authored `{{member:id}}` token. This copy keeps
+    // the effective authored-or-player name and is refreshed at every session
+    // boundary that can change the company.
+    std::vector<client::RosterEntry> campaign_roster_;
     bool resumed_{false};
     bool leaving_{false};
     int saves_{0};
@@ -1421,8 +1452,8 @@ private:
     // at, on the same terms and for the same reason. One more than
     // `sheet::content_name_capacity`, which is the whole of what either can
     // hold, plus the terminator.
-    char hovered_name_[grandleon::sheet::content_name_capacity + 1]{};
-    char hovered_class_[grandleon::sheet::content_name_capacity + 1]{};
+    char hovered_name_[grandleon::sheet::content_name_storage_capacity + 1]{};
+    char hovered_class_[grandleon::sheet::content_name_storage_capacity + 1]{};
 
     view::Camera camera_{};
     int viewport_w_{10};
@@ -1441,6 +1472,8 @@ private:
 
     MenuChoice menu_[menu_capacity]{};
     char item_labels_[menu_item_labels][menu_item_label_size]{};
+    char content_labels_[menu_capacity]
+                        [grandleon::sheet::content_name_storage_capacity + 1]{};
     int menu_rows_{0};
     int menu_row_{0};
     bool menu_open_{false};
@@ -1472,6 +1505,8 @@ private:
     // is true on every platform here, where the package is opened once in main
     // and the client is built beside it.
     const grandleon::package_format::LoadedPackage* package_{nullptr};
+    char language_[16]{'e', 'n', '\0'};
+    std::uint64_t campaign_id_{0};
 
     // The information sheet, composed by `grandleon::sheet` when the INFO row
     // is taken and held while it is on screen. The menu stays open underneath:

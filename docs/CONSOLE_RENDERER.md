@@ -5,10 +5,79 @@ and PlayStation. Console builds adapt the controls, graphics, saves, and file
 format to each machine; authors do not maintain a separate console version of
 their game.
 
-## Sevenfold Gate
+## Current 0.5 transition
 
-The 0.4 console showcase is **Sevenfold Gate**, a short campaign built to make
-the current range easy to inspect. Its seven stages include:
+The console players are in the middle of an engine transition. Nintendo 64 is
+moving to Pyrite/Tiny3D and PlayStation is moving to Mipsync. Grandleon keeps
+one path per console: these engines are not optional experiments selected at
+export time, and the removed renderers are not kept as fallbacks.
+
+The transition is complete for a feature only when the exported ROM or disc
+can perform the same player-facing behavior as Godot. For 0.5 that includes
+the full campaign flow, saves, one- and two-player ownership, tactical actions,
+objectives and reinforcements, scrolling, help and settings, authored
+deployment, close combat, localization and player names, and the castle's
+hidden-area reveal. Visual polish may differ by machine and will continue to
+improve after functional parity.
+
+## Controls and battle planning
+
+Use the D-pad or left analog stick to move the cursor. Directions follow the
+screen on both consoles. Nintendo 64 uses **A** to confirm and **B** to go
+back; PlayStation uses **Cross** and **Circle**. **Start** opens the game menu.
+
+Selecting a unit shows where it can move. After moving, choose an action.
+**Attack** appears only when a legal enemy is in reach and focuses a viable
+target automatically. The forecast shows the target's health, damage, hit
+chance and possible counterattack before you confirm. Menus choose a corner
+that leaves the selected unit and target visible.
+
+Close-ups work for both armies. Attackers and defenders keep their sides
+during counterattacks, and defeated characters remain visible until their
+combat animation ends. Story panels show the speaking character; long lines
+continue on another page before advancing to the next speaker.
+
+The title and in-game **Settings** have separate saved **Music** and
+**Sound Effects** sliders. There is no master-volume control.
+
+## Language during play
+
+A translated game adds **Language** to the live Settings menu on both consoles.
+Changing it immediately updates the compact interface and package-authored
+title, stage, objective, dialogue, company, and content names; missing or
+outdated translations continue to use the current source copy. The selected
+language is stored with presentation settings, while an older settings save
+still loads safely. The Nintendo 64 reads the catalog directly from the GPK;
+the PlayStation exporter writes the same reviewed strings into each campaign
+executable. No retired renderer or separate console translation file is used.
+
+The Steel and Cedar demo includes English, Spanish and Brazilian Portuguese.
+Games with only one authored language hide the language selector. Authored accents are preserved on all three players, including Portuguese
+cedillas and tildes and Spanish accented letters and inverted punctuation.
+
+Title, launch, help, pause, Settings, naming, tactical actions and results,
+deployment, aftermath, and error copy is available in English, Spanish, and
+Brazilian Portuguese. Automated checks keep those labels inside the shared
+console glyph set and the measured PlayStation panels.
+
+## Choosing a character name
+
+If an author marks a character as player-nameable, the consoles show a small
+controller keyboard when that character first joins. A console name can use up
+to 18 visible characters. **Start** saves, the on-screen **Default** key restores
+the authored translated name, and **C-Up** on Nintendo 64 or **Triangle** on
+PlayStation keeps the current name without writing. Fixed-name characters skip
+the screen, and loading an existing campaign never repeats the founding prompt.
+The choice is part of the normal portable campaign save, not console-specific
+renderer data. Explicit `{{member:character_id}}` references in authored
+dialogue and objectives show the chosen literal after the surrounding text is
+localized. A malformed or unknown reference stays visible for the author to
+fix.
+
+## Showcase campaigns
+
+**Sevenfold Gate** is the compact 0.4 showcase built to make the art range easy
+to inspect. Its seven stages include:
 
 - all seven character themes and all eight unit roles;
 - male and female characters on both sides;
@@ -16,27 +85,46 @@ the current range easy to inspect. Its seven stages include:
 - one-player and local two-player play; and
 - movement, conversation, attacks, counterattacks, misses, damage, and defeat.
 
-Review builds show live FPS and include a Stage picker. The picker lets a
-reviewer jump between gates without replaying the entire campaign; it does not
-change the content of the stages.
+Review builds include a Stage picker. The picker lets a reviewer jump between
+gates without replaying the entire campaign; it does not change the content of
+the stages. Both console battle menus can show live FPS. The counter begins off
+in every ROM or disc image and stays a session-local testing preference.
 
 Choosing **1 Player** leads to the save choice and then the first playable
-stage. A fixed ready-to-play company does not stop at a roster or deployment
-screen. **Help** is available from the title screen instead of appearing as a
-mandatory page. Choosing **2 Players** retains each unit's authored local
-owner, with one independent cursor and menu state per controller.
+stage. Founding or resuming a campaign no longer pauses on a separate roster
+summary. A fixed ready-to-play company, including characters carrying their
+normal equipment, does not stop at a roster or deployment screen; management
+appears only for a real shared-store, deployment, or recovery decision.
+**Help** is available from the title screen instead of appearing as a mandatory
+page. Choosing **2 Players** retains each unit's authored local owner, with one
+independent cursor and menu state per controller.
 
 ## Graphics
 
 Each console has one renderer. It uses smaller versions of the curated Godot
 character sheets, applies the authored faction colour through the same team
-masks, and draws those characters over textured tactical terrain. Movement and
-attack poses come from the same animation sheets rather than a separate pixel
-roster.
+masks, and draws those characters over shaped, textured tactical terrain.
+Movement and attack poses come from the same animation sheets rather than a
+separate pixel roster. Tactical figures use about one and a half cells of
+height, keeping the silhouettes readable without hiding as much of the
+neighbouring terrain.
+Steel and Cedar's authored 2×2 village houses and ancient groves have their
+own connected silhouettes on both consoles rather than appearing as ordinary
+mountains. They remain impassable mountain terrain in the game rules. The
+console drawing is made from a few primitives over the existing terrain cell,
+so these landmarks add no texture upload or VRAM allocation. On PlayStation,
+the terrain textures follow a continuous low-poly surface and units, trees,
+and the cursor follow its height rather than floating over a flat board.
+
+The title features the Grandleon sword mark. Framed menus, focus rows, health
+meters and the platform's own button prompts keep the interface readable.
+Battle panels move away from the units involved in the current action.
 
 During combat, the renderer can show the attacker and defender against a
 terrain backdrop before returning to the unchanged tactical board. Characters
-keep the same left/right positions for an attack and its counterattack.
+keep the same left/right positions for an attack and its counterattack. The
+close view now establishes the matchup before impact and holds the damage or
+miss afterward, so an exchange remains readable on hardware.
 
 Console exports contain this renderer and its project-selected artwork only.
 There is no renderer selector or alternate character-art path in an exported

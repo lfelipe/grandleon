@@ -1,5 +1,6 @@
 {
-  "schemaVersion": "1.3.0",
+  "schemaVersion": "1.4.0",
+  "sourceLanguage": "en",
   "packageId": "0c4a9f31-8e2d-4b06-9f5a-7d1c3b6e0a92",
   "gameId": "grandleon.unknown.unit.style",
   "title": "Grandleon Unknown Unit Character Style",

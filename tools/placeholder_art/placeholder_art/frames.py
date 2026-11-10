@@ -328,9 +328,7 @@ def _cast(body: Canvas) -> Canvas:
 #: Nintendo 64's 4 KiB TMEM (the palette bank takes the other half), so a strip
 #: that a client can upload whole stops at 2,048 / 512 = 4 cells.
 #: ``grandleon::view::sequence_cell_count`` states that arithmetic as a
-#: ``static_assert`` rather than as advice, and
-#: ``editor/src/domain/board-motion.ts`` mirrors it as
-#: ``SEQUENCE_CELL_CEILING``. Every renderer blits one cell at a time, so a
+#: ``static_assert`` rather than as advice. Every renderer blits one cell at a time, so a
 #: fifth cell would compile and run and break only the property that the strip
 #: uploads whole. A fifth pose costs a narrower cell, a second upload or a
 #: different texture format, and whichever is chosen is priced before it is

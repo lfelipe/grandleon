@@ -1,0 +1,4996 @@
+{
+  "schemaVersion": "1.4.0",
+  "sourceLanguage": "en",
+  "packageId": "751d322d-dc60-4c6d-a1e1-821e4dd7c617",
+  "gameId": "grandleon.steel_and_cedar",
+  "title": "Steel and Cedar",
+  "contentRevision": "0.1.0",
+  "themeId": "temperate",
+  "characterStyleId": "medieval",
+  "characterFigureId": "first",
+  "defaultTurnOrder": "sideBlocks",
+  "characterLoss": "recoverable",
+  "weaponTypes": [
+    {
+      "id": "blade",
+      "name": "Blade"
+    },
+    {
+      "id": "bow",
+      "name": "Bow"
+    },
+    {
+      "id": "focus",
+      "name": "Focus"
+    }
+  ],
+  "itemTypes": [],
+  "classes": [
+    {
+      "id": "knight",
+      "name": "Knight",
+      "baseStats": {
+        "health": 15,
+        "movement": 4,
+        "strength": 5,
+        "defense": 4,
+        "resistance": 2,
+        "skill": 5,
+        "luck": 2,
+        "evasion": 2,
+        "actionPoints": 2,
+        "speed": 4
+      },
+      "allowedWeaponTypeIds": [
+        "blade"
+      ]
+    },
+    {
+      "id": "field_commander",
+      "name": "Commander",
+      "baseStats": {
+        "health": 24,
+        "movement": 5,
+        "strength": 7,
+        "defense": 6,
+        "resistance": 5,
+        "skill": 8,
+        "luck": 2,
+        "evasion": 2,
+        "actionPoints": 2,
+        "speed": 6
+      },
+      "allowedWeaponTypeIds": [
+        "blade"
+      ]
+    },
+    {
+      "id": "archer",
+      "name": "Archer",
+      "baseStats": {
+        "health": 11,
+        "movement": 4,
+        "strength": 4,
+        "defense": 2,
+        "resistance": 2,
+        "skill": 8,
+        "luck": 2,
+        "evasion": 2,
+        "actionPoints": 2,
+        "speed": 7
+      },
+      "allowedWeaponTypeIds": [
+        "bow"
+      ]
+    },
+    {
+      "id": "vanguard_archer",
+      "name": "Archer",
+      "baseStats": {
+        "health": 17,
+        "movement": 5,
+        "strength": 6,
+        "defense": 4,
+        "resistance": 4,
+        "skill": 10,
+        "luck": 2,
+        "evasion": 2,
+        "actionPoints": 2,
+        "speed": 8
+      },
+      "allowedWeaponTypeIds": [
+        "bow"
+      ]
+    },
+    {
+      "id": "healer",
+      "name": "Healer",
+      "baseStats": {
+        "health": 18,
+        "movement": 5,
+        "strength": 3,
+        "defense": 4,
+        "resistance": 8,
+        "skill": 7,
+        "luck": 2,
+        "evasion": 2,
+        "actionPoints": 2,
+        "speed": 6,
+        "magic": 8
+      },
+      "allowedWeaponTypeIds": [
+        "focus"
+      ]
+    },
+    {
+      "id": "rogue",
+      "name": "Rogue",
+      "baseStats": {
+        "health": 11,
+        "movement": 5,
+        "strength": 4,
+        "defense": 2,
+        "resistance": 2,
+        "skill": 8,
+        "luck": 2,
+        "evasion": 2,
+        "actionPoints": 2,
+        "speed": 8
+      },
+      "allowedWeaponTypeIds": [
+        "blade"
+      ]
+    },
+    {
+      "id": "vanguard_rogue",
+      "name": "Rogue",
+      "baseStats": {
+        "health": 18,
+        "movement": 6,
+        "strength": 6,
+        "defense": 4,
+        "resistance": 4,
+        "skill": 10,
+        "luck": 2,
+        "evasion": 2,
+        "actionPoints": 2,
+        "speed": 9
+      },
+      "allowedWeaponTypeIds": [
+        "blade"
+      ]
+    },
+    {
+      "id": "mage",
+      "name": "Mage",
+      "baseStats": {
+        "health": 11,
+        "movement": 4,
+        "strength": 2,
+        "defense": 2,
+        "resistance": 5,
+        "skill": 6,
+        "luck": 2,
+        "evasion": 2,
+        "actionPoints": 2,
+        "speed": 6,
+        "magic": 6
+      },
+      "allowedWeaponTypeIds": [
+        "focus"
+      ]
+    },
+    {
+      "id": "castellan",
+      "name": "Commander",
+      "baseStats": {
+        "health": 19,
+        "movement": 4,
+        "strength": 6,
+        "defense": 5,
+        "resistance": 3,
+        "skill": 6,
+        "luck": 2,
+        "evasion": 2,
+        "actionPoints": 2,
+        "speed": 5
+      },
+      "allowedWeaponTypeIds": [
+        "blade"
+      ]
+    },
+    {
+      "id": "warlord",
+      "name": "Commander",
+      "baseStats": {
+        "health": 27,
+        "movement": 4,
+        "strength": 7,
+        "defense": 6,
+        "resistance": 5,
+        "skill": 7,
+        "luck": 2,
+        "evasion": 2,
+        "actionPoints": 2,
+        "speed": 6,
+        "magic": 4
+      },
+      "allowedWeaponTypeIds": [
+        "blade"
+      ]
+    }
+  ],
+  "weapons": [
+    {
+      "id": "march_blade",
+      "name": "March Sword",
+      "weaponTypeId": "blade",
+      "power": 2,
+      "minimumRange": 1,
+      "maximumRange": 1,
+      "accuracy": 95
+    },
+    {
+      "id": "concord_blade",
+      "name": "Concord Sword",
+      "weaponTypeId": "blade",
+      "power": 3,
+      "minimumRange": 1,
+      "maximumRange": 1,
+      "accuracy": 100
+    },
+    {
+      "id": "scout_blade",
+      "name": "Scout Knife",
+      "weaponTypeId": "blade",
+      "power": 2,
+      "minimumRange": 1,
+      "maximumRange": 1,
+      "accuracy": 100
+    },
+    {
+      "id": "cedar_scout_blade",
+      "name": "Cedar Scout Knife",
+      "weaponTypeId": "blade",
+      "power": 3,
+      "minimumRange": 1,
+      "maximumRange": 1,
+      "accuracy": 100
+    },
+    {
+      "id": "war_spear",
+      "name": "War Spear",
+      "weaponTypeId": "blade",
+      "power": 3,
+      "minimumRange": 1,
+      "maximumRange": 1,
+      "accuracy": 90
+    },
+    {
+      "id": "gate_glaive",
+      "name": "Gate Glaive",
+      "weaponTypeId": "blade",
+      "power": 4,
+      "minimumRange": 1,
+      "maximumRange": 2,
+      "accuracy": 95
+    },
+    {
+      "id": "cedar_bow",
+      "name": "Cedar Bow",
+      "weaponTypeId": "bow",
+      "power": 2,
+      "minimumRange": 2,
+      "maximumRange": 3,
+      "accuracy": 95
+    },
+    {
+      "id": "cedar_officer_bow",
+      "name": "Cedar Officer Bow",
+      "weaponTypeId": "bow",
+      "power": 3,
+      "minimumRange": 2,
+      "maximumRange": 3,
+      "accuracy": 100
+    },
+    {
+      "id": "march_bow",
+      "name": "March Longbow",
+      "weaponTypeId": "bow",
+      "power": 2,
+      "minimumRange": 2,
+      "maximumRange": 3,
+      "accuracy": 90
+    },
+    {
+      "id": "pilgrim_focus",
+      "name": "Pilgrim Bell",
+      "weaponTypeId": "focus",
+      "power": 1,
+      "minimumRange": 1,
+      "maximumRange": 2,
+      "accuracy": 100
+    },
+    {
+      "id": "war_focus",
+      "name": "War Fan",
+      "weaponTypeId": "focus",
+      "power": 2,
+      "minimumRange": 1,
+      "maximumRange": 2,
+      "accuracy": 95
+    }
+  ],
+  "items": [],
+  "factions": [
+    {
+      "id": "concord",
+      "name": "The Concord",
+      "color": "blue"
+    },
+    {
+      "id": "war_host",
+      "name": "The War Host",
+      "color": "red"
+    }
+  ],
+  "abilities": [
+    {
+      "id": "field_mend",
+      "name": "Field Mend",
+      "kind": "restore",
+      "damageType": "physical",
+      "areaShape": "single",
+      "power": 8,
+      "minimumRange": 1,
+      "maximumRange": 2
+    },
+    {
+      "id": "wind_lance",
+      "name": "Wind Lance",
+      "kind": "damage",
+      "damageType": "magical",
+      "areaShape": "single",
+      "power": 4,
+      "minimumRange": 1,
+      "maximumRange": 3,
+      "accuracy": 95
+    },
+    {
+      "id": "gatefall",
+      "name": "Gatefall",
+      "kind": "damage",
+      "damageType": "magical",
+      "areaShape": "cross",
+      "power": 4,
+      "minimumRange": 1,
+      "maximumRange": 3,
+      "radius": 1,
+      "accuracy": 90
+    }
+  ],
+  "unitTypes": [
+    {
+      "id": "rowan_vale",
+      "name": "Commander Rowan Vale",
+      "classId": "field_commander",
+      "factionId": "concord",
+      "startingWeaponIds": [
+        "concord_blade"
+      ],
+      "characterStyleId": "medieval",
+      "characterFigureId": "first",
+      "notes": "ALLIED COMMANDER: persistent protect target and visual anchor for the shared commander treatment.",
+      "experiencePerLevel": 80
+    },
+    {
+      "id": "akari_mori",
+      "name": "Akari Mori",
+      "classId": "vanguard_archer",
+      "factionId": "concord",
+      "startingWeaponIds": [
+        "cedar_officer_bow"
+      ],
+      "characterStyleId": "sengoku",
+      "characterFigureId": "second",
+      "experiencePerLevel": 80
+    },
+    {
+      "id": "tomas_reed",
+      "name": "Tomas Reed",
+      "classId": "healer",
+      "factionId": "concord",
+      "startingWeaponIds": [
+        "pilgrim_focus"
+      ],
+      "characterStyleId": "medieval",
+      "characterFigureId": "second",
+      "abilityIds": [
+        "field_mend"
+      ],
+      "experiencePerLevel": 80
+    },
+    {
+      "id": "ren_sato",
+      "name": "Ren Sato",
+      "classId": "vanguard_rogue",
+      "factionId": "concord",
+      "startingWeaponIds": [
+        "cedar_scout_blade"
+      ],
+      "characterStyleId": "sengoku",
+      "characterFigureId": "first",
+      "experiencePerLevel": 80
+    },
+    {
+      "id": "red_retainer",
+      "name": "Red Retainer",
+      "classId": "knight",
+      "factionId": "war_host",
+      "startingWeaponIds": [
+        "war_spear"
+      ],
+      "characterStyleId": "sengoku",
+      "characterFigureId": "first",
+      "experienceAward": 45
+    },
+    {
+      "id": "march_sword",
+      "name": "March Sword",
+      "classId": "knight",
+      "factionId": "war_host",
+      "startingWeaponIds": [
+        "march_blade"
+      ],
+      "characterStyleId": "medieval",
+      "characterFigureId": "second",
+      "experienceAward": 45
+    },
+    {
+      "id": "cedar_archer",
+      "name": "Cedar Archer",
+      "classId": "archer",
+      "factionId": "war_host",
+      "startingWeaponIds": [
+        "cedar_bow"
+      ],
+      "characterStyleId": "sengoku",
+      "characterFigureId": "second",
+      "experienceAward": 40
+    },
+    {
+      "id": "march_archer",
+      "name": "March Archer",
+      "classId": "archer",
+      "factionId": "war_host",
+      "startingWeaponIds": [
+        "march_bow"
+      ],
+      "characterStyleId": "medieval",
+      "characterFigureId": "first",
+      "experienceAward": 40
+    },
+    {
+      "id": "gate_mystic",
+      "name": "Gate Mystic",
+      "classId": "mage",
+      "factionId": "war_host",
+      "startingWeaponIds": [
+        "war_focus"
+      ],
+      "characterStyleId": "sengoku",
+      "characterFigureId": "second",
+      "abilityIds": [
+        "wind_lance"
+      ],
+      "experienceAward": 60
+    },
+    {
+      "id": "court_knife",
+      "name": "Court Knife",
+      "classId": "rogue",
+      "factionId": "war_host",
+      "startingWeaponIds": [
+        "scout_blade"
+      ],
+      "characterStyleId": "medieval",
+      "characterFigureId": "first",
+      "experienceAward": 50
+    },
+    {
+      "id": "castellan_vere_unit",
+      "name": "Castellan Vere",
+      "classId": "castellan",
+      "factionId": "war_host",
+      "startingWeaponIds": [
+        "war_spear"
+      ],
+      "characterStyleId": "medieval",
+      "characterFigureId": "second",
+      "experienceAward": 120
+    },
+    {
+      "id": "lord_masatora_unit",
+      "name": "Lord Masatora",
+      "classId": "warlord",
+      "factionId": "war_host",
+      "startingWeaponIds": [
+        "gate_glaive"
+      ],
+      "characterStyleId": "sengoku",
+      "characterFigureId": "first",
+      "abilityIds": [
+        "gatefall"
+      ],
+      "notes": "FINAL BOSS COMMANDER: named visual anchor for the shared boss treatment.",
+      "experienceAward": 300
+    }
+  ],
+  "maps": [
+    {
+      "id": "bell_orchard",
+      "name": "The Bell Orchard",
+      "width": 8,
+      "height": 6,
+      "terrain": [
+        "forest_orchard_tree",
+        "farmland_orchard_tree",
+        "farmland_orchard_tree",
+        "road",
+        "grass",
+        "forest_orchard_tree",
+        "forest_orchard_tree",
+        "hills",
+        "grass",
+        "road",
+        "farmland_orchard_tree",
+        "road",
+        "grass",
+        "grass",
+        "road",
+        "hills",
+        "forest_orchard_tree",
+        "road",
+        "paved_orchard_bell",
+        "paved_orchard_bell",
+        "road",
+        "grass",
+        "road",
+        "forest_orchard_tree",
+        "forest_orchard_tree",
+        "road",
+        "grass",
+        "road",
+        "paved",
+        "paved",
+        "road",
+        "forest_orchard_tree",
+        "grass",
+        "road",
+        "grass",
+        "road",
+        "farmland_orchard_tree",
+        "road",
+        "grass",
+        "hills",
+        "forest_orchard_tree",
+        "farmland_orchard_tree",
+        "farmland_orchard_tree",
+        "road",
+        "grass",
+        "forest_orchard_tree",
+        "forest_orchard_tree",
+        "hills"
+      ],
+      "surroundings": {
+        "mode": "automatic",
+        "depth": 5
+      }
+    },
+    {
+      "id": "cedar_deepwood",
+      "name": "Cedar Deepwood",
+      "width": 14,
+      "height": 9,
+      "terrain": [
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "hills",
+        "bridge",
+        "bridge",
+        "bridge",
+        "bridge",
+        "bridge",
+        "bridge",
+        "forest",
+        "road",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "forest",
+        "forest",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "bamboo",
+        "bridge",
+        "forest",
+        "road",
+        "forest",
+        "forest",
+        "grass",
+        "grass",
+        "mountain_ancient_grove",
+        "mountain_ancient_grove",
+        "grass",
+        "forest",
+        "forest",
+        "road",
+        "bamboo",
+        "bridge",
+        "forest",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "mountain_ancient_grove",
+        "mountain_ancient_grove",
+        "grass",
+        "forest",
+        "road",
+        "road",
+        "bamboo",
+        "bridge",
+        "forest",
+        "forest",
+        "forest",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "grass",
+        "forest",
+        "forest",
+        "road",
+        "forest",
+        "bridge",
+        "bridge",
+        "forest",
+        "forest",
+        "road",
+        "forest",
+        "forest",
+        "grass",
+        "forest",
+        "forest",
+        "grass",
+        "mountain_ancient_grove",
+        "mountain_ancient_grove",
+        "road",
+        "bamboo",
+        "bridge",
+        "forest",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "forest",
+        "forest",
+        "grass",
+        "mountain_ancient_grove",
+        "mountain_ancient_grove",
+        "road",
+        "bamboo",
+        "bridge",
+        "forest",
+        "road",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "road",
+        "bamboo",
+        "bridge",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "forest",
+        "hills",
+        "hills",
+        "hills",
+        "bridge",
+        "bridge",
+        "bridge",
+        "bridge",
+        "bridge",
+        "bridge"
+      ],
+      "surroundings": {
+        "mode": "automatic",
+        "depth": 5
+      }
+    },
+    {
+      "id": "cedar_watch",
+      "name": "Cedar Watch",
+      "width": 16,
+      "height": 12,
+      "terrain": [
+        "bamboo",
+        "bamboo",
+        "bamboo",
+        "hills",
+        "hills",
+        "road",
+        "road",
+        "road",
+        "road_signal_beacon",
+        "road",
+        "hills",
+        "hills",
+        "bamboo",
+        "bamboo",
+        "bamboo",
+        "forest",
+        "bamboo",
+        "bamboo",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "paved_signal_beacon",
+        "paved",
+        "grass",
+        "road",
+        "road",
+        "grass",
+        "bamboo",
+        "forest",
+        "forest",
+        "hills",
+        "grass",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "hills",
+        "forest",
+        "forest",
+        "road",
+        "road",
+        "road_signal_beacon",
+        "grass",
+        "paved",
+        "paved",
+        "ruins_watch_ruin",
+        "ruins_watch_ruin",
+        "ruins_watch_ruin",
+        "paved",
+        "paved",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "hills",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "ruins_watch_ruin",
+        "paved",
+        "paved",
+        "paved",
+        "ruins_watch_ruin",
+        "paved",
+        "paved",
+        "grass",
+        "road",
+        "road",
+        "hills",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "hills",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "hills",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "ruins_watch_ruin",
+        "paved",
+        "paved",
+        "paved",
+        "ruins_watch_ruin",
+        "paved",
+        "paved",
+        "grass",
+        "road",
+        "road",
+        "hills",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "ruins_watch_ruin",
+        "ruins_watch_ruin",
+        "ruins_watch_ruin",
+        "paved",
+        "paved",
+        "grass",
+        "road",
+        "road_signal_beacon",
+        "road",
+        "hills",
+        "hills",
+        "grass",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "hills",
+        "forest",
+        "forest",
+        "bamboo",
+        "bamboo",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved_signal_beacon",
+        "grass",
+        "road",
+        "road",
+        "grass",
+        "bamboo",
+        "forest",
+        "forest",
+        "bamboo",
+        "bamboo",
+        "bamboo",
+        "hills",
+        "hills",
+        "road",
+        "road",
+        "road_signal_beacon",
+        "road",
+        "road",
+        "hills",
+        "hills",
+        "bamboo",
+        "bamboo",
+        "bamboo",
+        "forest"
+      ],
+      "surroundings": {
+        "mode": "automatic",
+        "depth": 5
+      }
+    },
+    {
+      "id": "gate_village",
+      "name": "Gate Village",
+      "width": 18,
+      "height": 12,
+      "terrain": [
+        "hills",
+        "hills",
+        "road",
+        "hills",
+        "hills",
+        "hills",
+        "hills",
+        "hills",
+        "road",
+        "hills",
+        "hills",
+        "hills",
+        "hills",
+        "hills",
+        "ruins",
+        "hills",
+        "hills",
+        "hills",
+        "farmland",
+        "farmland",
+        "road",
+        "grass",
+        "mountain_village_house",
+        "mountain_village_house",
+        "grass",
+        "grass",
+        "road",
+        "mountain_village_house",
+        "mountain_village_house",
+        "grass",
+        "grass",
+        "grass",
+        "ruins",
+        "grass",
+        "bamboo",
+        "bamboo",
+        "farmland",
+        "farmland",
+        "road",
+        "grass",
+        "mountain_village_house",
+        "mountain_village_house",
+        "grass",
+        "grass",
+        "road",
+        "mountain_village_house",
+        "mountain_village_house",
+        "grass",
+        "grass",
+        "grass",
+        "ruins",
+        "grass",
+        "bamboo",
+        "bamboo",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "road",
+        "grass",
+        "grass",
+        "mountain_village_house",
+        "mountain_village_house",
+        "grass",
+        "paved",
+        "paved",
+        "paved",
+        "mountain_village_house",
+        "mountain_village_house",
+        "grass",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "grass",
+        "grass",
+        "road",
+        "grass",
+        "grass",
+        "mountain_village_house",
+        "mountain_village_house",
+        "grass",
+        "paved",
+        "paved",
+        "paved",
+        "mountain_village_house",
+        "mountain_village_house",
+        "grass",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "paved",
+        "paved",
+        "paved",
+        "grass",
+        "grass",
+        "road",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "paved",
+        "paved",
+        "paved",
+        "grass",
+        "grass",
+        "grass",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "road",
+        "farmland",
+        "farmland",
+        "road",
+        "grass",
+        "mountain_village_house",
+        "mountain_village_house",
+        "grass",
+        "grass",
+        "road",
+        "mountain_village_house",
+        "mountain_village_house",
+        "grass",
+        "grass",
+        "grass",
+        "ruins",
+        "grass",
+        "bamboo",
+        "bamboo",
+        "farmland",
+        "farmland",
+        "road",
+        "grass",
+        "mountain_village_house",
+        "mountain_village_house",
+        "grass",
+        "grass",
+        "road",
+        "mountain_village_house",
+        "mountain_village_house",
+        "grass",
+        "grass",
+        "grass",
+        "ruins",
+        "grass",
+        "bamboo",
+        "bamboo",
+        "hills",
+        "hills",
+        "road",
+        "hills",
+        "hills",
+        "hills",
+        "hills",
+        "hills",
+        "road",
+        "hills",
+        "hills",
+        "hills",
+        "hills",
+        "hills",
+        "ruins",
+        "hills",
+        "hills",
+        "hills"
+      ],
+      "surroundings": {
+        "mode": "automatic",
+        "depth": 5
+      }
+    },
+    {
+      "id": "twin_gate",
+      "name": "Twin Gate Keep",
+      "width": 20,
+      "height": 14,
+      "terrain": [
+        "mountain",
+        "mountain",
+        "mountain",
+        "ruins",
+        "ruins",
+        "road",
+        "road",
+        "road",
+        "road",
+        "paved",
+        "paved",
+        "paved",
+        "road",
+        "road",
+        "road",
+        "road",
+        "ruins",
+        "ruins",
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain",
+        "ruins",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "grass",
+        "road",
+        "paved",
+        "paved",
+        "paved",
+        "road",
+        "grass",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "ruins",
+        "mountain",
+        "mountain",
+        "ruins",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "ruins",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "grass",
+        "road",
+        "road",
+        "ruins",
+        "ruins",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "ruins",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "ruins",
+        "paved",
+        "paved",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "ruins",
+        "ruins",
+        "paved",
+        "mountain_castle_wall",
+        "mountain_castle_wall",
+        "mountain_castle_wall",
+        "mountain_castle_wall",
+        "mountain_castle_wall",
+        "mountain_castle_wall",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "mountain_castle_wall",
+        "paved_castle_floor",
+        "paved_castle_floor",
+        "paved_castle_floor",
+        "paved_castle_floor",
+        "mountain_castle_wall",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "ruins",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "paved_castle_door",
+        "paved_castle_floor",
+        "paved_castle_floor",
+        "paved_castle_floor",
+        "paved_castle_dais",
+        "mountain_castle_wall",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "ruins",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "paved_castle_door",
+        "paved_castle_floor",
+        "paved_castle_floor",
+        "paved_castle_floor",
+        "paved_castle_dais",
+        "mountain_castle_wall",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "mountain_castle_wall",
+        "paved_castle_floor",
+        "paved_castle_floor",
+        "paved_castle_floor",
+        "paved_castle_floor",
+        "mountain_castle_wall",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "ruins",
+        "ruins",
+        "paved",
+        "mountain_castle_wall",
+        "mountain_castle_wall",
+        "mountain_castle_wall",
+        "mountain_castle_wall",
+        "mountain_castle_wall",
+        "mountain_castle_wall",
+        "road",
+        "ruins",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "ruins",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "ruins",
+        "paved",
+        "paved",
+        "grass",
+        "road",
+        "road",
+        "mountain",
+        "ruins",
+        "road",
+        "road",
+        "grass",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "ruins",
+        "ruins",
+        "ruins",
+        "paved",
+        "paved",
+        "paved",
+        "paved",
+        "grass",
+        "road",
+        "road",
+        "ruins",
+        "mountain",
+        "mountain",
+        "ruins",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "grass",
+        "road",
+        "paved",
+        "paved",
+        "paved",
+        "road",
+        "grass",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "ruins",
+        "mountain",
+        "mountain",
+        "mountain",
+        "mountain",
+        "ruins",
+        "ruins",
+        "road",
+        "road",
+        "road",
+        "road",
+        "paved",
+        "paved",
+        "paved",
+        "road",
+        "road",
+        "road",
+        "road",
+        "ruins",
+        "ruins",
+        "mountain",
+        "mountain"
+      ],
+      "surroundings": {
+        "mode": "automatic",
+        "depth": 5
+      },
+      "visualVisibility": {
+        "revealRadius": 8,
+        "hiddenCells": [
+          {
+            "x": 14,
+            "y": 5
+          },
+          {
+            "x": 15,
+            "y": 5
+          },
+          {
+            "x": 16,
+            "y": 5
+          },
+          {
+            "x": 17,
+            "y": 5
+          },
+          {
+            "x": 13,
+            "y": 6
+          },
+          {
+            "x": 14,
+            "y": 6
+          },
+          {
+            "x": 15,
+            "y": 6
+          },
+          {
+            "x": 16,
+            "y": 6
+          },
+          {
+            "x": 17,
+            "y": 6
+          },
+          {
+            "x": 13,
+            "y": 7
+          },
+          {
+            "x": 14,
+            "y": 7
+          },
+          {
+            "x": 15,
+            "y": 7
+          },
+          {
+            "x": 16,
+            "y": 7
+          },
+          {
+            "x": 17,
+            "y": 7
+          },
+          {
+            "x": 14,
+            "y": 8
+          },
+          {
+            "x": 15,
+            "y": 8
+          },
+          {
+            "x": 16,
+            "y": 8
+          },
+          {
+            "x": 17,
+            "y": 8
+          }
+        ]
+      }
+    }
+  ],
+  "objectives": [
+    {
+      "id": "defeat_all",
+      "name": "Defeat every opponent",
+      "kind": "defeatAllOpponents",
+      "side": "first"
+    },
+    {
+      "id": "hold_watch",
+      "name": "Hold Cedar Watch for twenty rounds",
+      "kind": "surviveRounds",
+      "side": "first",
+      "rounds": 20
+    },
+    {
+      "id": "protect_rowan",
+      "name": "Keep Commander Rowan standing",
+      "kind": "protectTarget",
+      "side": "first",
+      "targetPlacementId": "rowan"
+    },
+    {
+      "id": "fell_castellan",
+      "name": "Defeat Castellan Vere",
+      "kind": "defeatTarget",
+      "side": "first",
+      "targetPlacementId": "castellan_vere"
+    },
+    {
+      "id": "fell_masatora",
+      "name": "Defeat Lord Masatora",
+      "kind": "defeatTarget",
+      "side": "first",
+      "targetPlacementId": "lord_masatora"
+    }
+  ],
+  "dialogues": [
+    {
+      "id": "opening",
+      "name": "The Orchard Bell",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Tomas",
+          "unitTypeId": "tomas_reed"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Rowan",
+          "text": "The treaty bell rang from an abandoned orchard. Someone wants the March to answer with steel."
+        },
+        {
+          "speaker": "Tomas",
+          "text": "Then we reach the bell before a frightened patrol becomes a war."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "Stay close. We learn who gave the order, and we leave witnesses alive to refute it."
+        }
+      ],
+      "backgroundId": "deep_wood"
+    },
+    {
+      "id": "orchard_orders",
+      "name": "The First Exchange",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Tomas",
+          "unitTypeId": "tomas_reed"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Tomas",
+          "text": "Use the road to close the distance. I can mend you, but only if I can reach you."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "We focus one threat at a time, then end the turn together."
+        }
+      ]
+    },
+    {
+      "id": "orchard_coop",
+      "name": "The Cedar Answer",
+      "cast": [
+        {
+          "speaker": "Akari",
+          "unitTypeId": "akari_mori"
+        },
+        {
+          "speaker": "Ren",
+          "unitTypeId": "ren_sato"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Akari",
+          "text": "Cedar heard the same false signal. Ren and I will hold the lower road while you take the bell."
+        },
+        {
+          "speaker": "Ren",
+          "text": "Two armies, two approaches. If either route folds, the other one gets surrounded."
+        }
+      ]
+    },
+    {
+      "id": "orchard_won",
+      "name": "A Paid Lie",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Tomas",
+          "unitTypeId": "tomas_reed"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Tomas",
+          "text": "Their purses carry coins from both courts."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "Then this is not a border mistake. The courier trail enters Cedar Deepwood."
+        }
+      ],
+      "backgroundId": "night_camp"
+    },
+    {
+      "id": "deepwood_orders",
+      "name": "Under the Cedar",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Tomas",
+          "unitTypeId": "tomas_reed"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Tomas",
+          "text": "The old track is narrow. The archers can watch a clearing without standing inside it."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "We clear the near ambush, use the rock line as cover, and reach the eastern courier."
+        }
+      ]
+    },
+    {
+      "id": "deepwood_coop",
+      "name": "Separate Trails",
+      "cast": [
+        {
+          "speaker": "Akari",
+          "unitTypeId": "akari_mori"
+        },
+        {
+          "speaker": "Ren",
+          "unitTypeId": "ren_sato"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Akari",
+          "text": "My company begins on the southern trail. We can cut the courier off beyond the cedar wall."
+        },
+        {
+          "speaker": "Ren",
+          "text": "Do not hurry to meet us. Win your route first; we rendezvous at the watch road."
+        }
+      ]
+    },
+    {
+      "id": "deepwood_won",
+      "name": "The False Order",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Tomas",
+          "unitTypeId": "tomas_reed"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Rowan",
+          "text": "Vere's seal orders the March to burn Cedar villages."
+        },
+        {
+          "speaker": "Tomas",
+          "text": "And the captured courier carried Masatora's matching order. Each court is feeding the other's fear."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "Cedar Watch can show both capitals the same signal. We hold it long enough for both to answer."
+        }
+      ],
+      "backgroundId": "open_sea"
+    },
+    {
+      "id": "watch_orders",
+      "name": "Twenty Rounds",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Tomas",
+          "unitTypeId": "tomas_reed"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Tomas",
+          "text": "The relay needs twenty rounds to reach both capitals."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "I stay with the signal. Watch each marked approach and never chase a wave past the next entry path."
+        }
+      ]
+    },
+    {
+      "id": "watch_coop",
+      "name": "Two Fronts",
+      "cast": [
+        {
+          "speaker": "Akari",
+          "unitTypeId": "akari_mori"
+        },
+        {
+          "speaker": "Ren",
+          "unitTypeId": "ren_sato"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Akari",
+          "text": "Cedar holds the eastern steps. Rowan, keep the western court and the commander line intact."
+        },
+        {
+          "speaker": "Ren",
+          "text": "We will trade warnings across the courtyard. Neither front is a reserve for the other."
+        }
+      ]
+    },
+    {
+      "id": "watch_won",
+      "name": "Answering Fires",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Tomas",
+          "unitTypeId": "tomas_reed"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Tomas",
+          "text": "Both capitals answered. The lie is exposed."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "Vere is barricading Gate Village with the treaty record. We take the streets before he burns it."
+        }
+      ],
+      "backgroundId": "mountain_dusk"
+    },
+    {
+      "id": "village_orders",
+      "name": "The Village Gate",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Tomas",
+          "unitTypeId": "tomas_reed"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Rowan",
+          "text": "The north gate reaches the square quickly, but the alleys leave no room to turn."
+        },
+        {
+          "speaker": "Tomas",
+          "text": "The south lane is longer and safer. Keep the houses between us and their archers."
+        }
+      ]
+    },
+    {
+      "id": "village_coop",
+      "name": "Streets Apart",
+      "cast": [
+        {
+          "speaker": "Akari",
+          "unitTypeId": "akari_mori"
+        },
+        {
+          "speaker": "Ren",
+          "unitTypeId": "ren_sato"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Akari",
+          "text": "Cedar enters by the south lane and cuts off Vere's escape."
+        },
+        {
+          "speaker": "Ren",
+          "text": "The square is our rendezvous. Until then, each army owns its own street fight."
+        }
+      ]
+    },
+    {
+      "id": "village_won",
+      "name": "The Last Banner",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Vere",
+          "unitTypeId": "castellan_vere_unit"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Vere",
+          "text": "Masatora never wanted a partner. He has sealed himself inside Twin Gate Keep."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "The record survives you. I will carry it through those doors and end this before either realm can deny it."
+        }
+      ],
+      "backgroundId": "throne_hall"
+    },
+    {
+      "id": "gate_parley",
+      "name": "What Peace Costs",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Masatora",
+          "unitTypeId": "lord_masatora_unit"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Masatora",
+          "text": "One gate, one law, one hand on the sword. That is peace that lasts."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "That is fear made permanent. The gate opens for both realms, or for neither."
+        }
+      ],
+      "backgroundId": "throne_hall"
+    },
+    {
+      "id": "gate_orders",
+      "name": "The Twin Gate",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Tomas",
+          "unitTypeId": "tomas_reed"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Tomas",
+          "text": "The outer routes avoid the glaive, but his reserves can close them before we reach the keep."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "Break each guard post, open the double doors, then advance together when the throne room is revealed."
+        }
+      ]
+    },
+    {
+      "id": "gate_coop",
+      "name": "Steel and Cedar",
+      "cast": [
+        {
+          "speaker": "Akari",
+          "unitTypeId": "akari_mori"
+        },
+        {
+          "speaker": "Ren",
+          "unitTypeId": "ren_sato"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Akari",
+          "text": "Rowan takes the high approach. I take the lower court. We meet at the keep doors with both armies intact."
+        },
+        {
+          "speaker": "Ren",
+          "text": "Separate openings, one throne room. Neither route can wait for the other to do the work."
+        }
+      ]
+    },
+    {
+      "id": "gate_coop_victory",
+      "name": "Both Banners",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Akari",
+          "unitTypeId": "akari_mori"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Akari",
+          "text": "Cedar heard the truth from its own soldiers, not from a foreign court."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "And the March heard it from mine. That is how this peace begins."
+        }
+      ]
+    },
+    {
+      "id": "ending",
+      "name": "An Open Gate",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Tomas",
+          "unitTypeId": "tomas_reed"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Tomas",
+          "text": "The March sent a new bell for the gate tower."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "Hang it beside Cedar's drum. One signal should never command two realms in secret again."
+        }
+      ],
+      "backgroundId": "star_field"
+    },
+    {
+      "id": "defeat",
+      "name": "The Signal Fades",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Tomas",
+          "unitTypeId": "tomas_reed"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Tomas",
+          "text": "The road is still here, even if we lost it today."
+        },
+        {
+          "speaker": "Rowan",
+          "text": "Then we remember where the line broke and take it again."
+        }
+      ],
+      "backgroundId": "mountain_dusk"
+    }
+  ],
+  "campaigns": [
+    {
+      "id": "steel_and_cedar",
+      "name": "Steel and Cedar",
+      "playerMode": "choice",
+      "roster": [
+        {
+          "id": "rowan",
+          "name": "Ser Rowan Vale",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "id": "tomas",
+          "name": "Tomas Reed",
+          "unitTypeId": "tomas_reed"
+        },
+        {
+          "id": "akari",
+          "name": "Akari Mori",
+          "unitTypeId": "akari_mori"
+        },
+        {
+          "id": "ren",
+          "name": "Ren Sato",
+          "unitTypeId": "ren_sato"
+        }
+      ],
+      "objectiveIds": [
+        "defeat_all",
+        "hold_watch",
+        "protect_rowan",
+        "fell_castellan",
+        "fell_masatora"
+      ],
+      "dialogueIds": [
+        "opening",
+        "orchard_orders",
+        "orchard_coop",
+        "orchard_won",
+        "deepwood_orders",
+        "deepwood_coop",
+        "deepwood_won",
+        "watch_orders",
+        "watch_coop",
+        "watch_won",
+        "village_orders",
+        "village_coop",
+        "village_won",
+        "gate_parley",
+        "gate_orders",
+        "gate_coop",
+        "gate_coop_victory",
+        "ending",
+        "defeat"
+      ],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "prologue",
+        "nodes": [
+          {
+            "id": "prologue",
+            "name": "The Orchard Bell",
+            "kind": "story",
+            "dialogueIds": [
+              "opening"
+            ],
+            "transitions": [
+              {
+                "id": "prologue_next",
+                "targetNodeId": "bell_orchard",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "bell_orchard",
+            "name": "I \u2014 The Bell Orchard",
+            "kind": "encounter",
+            "mapId": "bell_orchard",
+            "turnOrder": "sideBlocks",
+            "placements": [
+              {
+                "id": "rowan_orchard",
+                "unitTypeId": "rowan_vale",
+                "side": "first",
+                "x": 1,
+                "y": 2,
+                "memberId": "rowan",
+                "twoPlayerPosition": {
+                  "x": 1,
+                  "y": 1
+                }
+              },
+              {
+                "id": "tomas_orchard",
+                "unitTypeId": "tomas_reed",
+                "side": "first",
+                "x": 1,
+                "y": 3,
+                "memberId": "tomas",
+                "twoPlayerPosition": {
+                  "x": 2,
+                  "y": 1
+                }
+              },
+              {
+                "id": "akari_orchard",
+                "unitTypeId": "akari_mori",
+                "side": "first",
+                "x": 1,
+                "y": 4,
+                "memberId": "akari",
+                "player": 2,
+                "minimumPlayers": 2
+              },
+              {
+                "id": "ren_orchard",
+                "unitTypeId": "ren_sato",
+                "side": "first",
+                "x": 2,
+                "y": 4,
+                "memberId": "ren",
+                "player": 2,
+                "minimumPlayers": 2
+              },
+              {
+                "id": "orchard_sword",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 5,
+                "y": 1,
+                "behavior": "pursue"
+              },
+              {
+                "id": "orchard_retainer",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 6,
+                "y": 4,
+                "behavior": "pursue"
+              },
+              {
+                "id": "orchard_archer",
+                "unitTypeId": "cedar_archer",
+                "side": "second",
+                "x": 5,
+                "y": 4,
+                "behavior": "hold"
+              },
+              {
+                "id": "orchard_coop",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 7,
+                "y": 2,
+                "behavior": "pursue",
+                "minimumPlayers": 2
+              }
+            ],
+            "objectiveIds": [
+              "defeat_all"
+            ],
+            "moments": [
+              {
+                "id": "orchard_begins",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "orchard_orders"
+              },
+              {
+                "id": "orchard_cedar_arrives",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "orchard_coop",
+                "minimumPlayers": 2
+              }
+            ],
+            "transitions": [
+              {
+                "id": "orchard_won",
+                "targetNodeId": "orchard_camp",
+                "priority": 0,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "defeat_all",
+                  "result": "victory"
+                }
+              },
+              {
+                "id": "orchard_lost",
+                "targetNodeId": "campaign_defeat",
+                "priority": 1,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "defeat_all",
+                  "result": "defeat"
+                }
+              }
+            ]
+          },
+          {
+            "id": "orchard_camp",
+            "name": "A Paid Lie",
+            "kind": "story",
+            "dialogueIds": [
+              "orchard_won"
+            ],
+            "transitions": [
+              {
+                "id": "orchard_camp_next",
+                "targetNodeId": "cedar_deepwood",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "cedar_deepwood",
+            "name": "II \u2014 Cedar Deepwood",
+            "kind": "encounter",
+            "mapId": "cedar_deepwood",
+            "turnOrder": "sideBlocks",
+            "placements": [
+              {
+                "id": "rowan_deepwood",
+                "unitTypeId": "rowan_vale",
+                "side": "first",
+                "x": 5,
+                "y": 3,
+                "memberId": "rowan",
+                "twoPlayerPosition": {
+                  "x": 3,
+                  "y": 1
+                }
+              },
+              {
+                "id": "tomas_deepwood",
+                "unitTypeId": "tomas_reed",
+                "side": "first",
+                "x": 5,
+                "y": 5,
+                "memberId": "tomas",
+                "twoPlayerPosition": {
+                  "x": 3,
+                  "y": 2
+                }
+              },
+              {
+                "id": "akari_deepwood",
+                "unitTypeId": "akari_mori",
+                "side": "first",
+                "x": 3,
+                "y": 7,
+                "memberId": "akari",
+                "player": 2,
+                "minimumPlayers": 2
+              },
+              {
+                "id": "ren_deepwood",
+                "unitTypeId": "ren_sato",
+                "side": "first",
+                "x": 3,
+                "y": 6,
+                "memberId": "ren",
+                "player": 2,
+                "minimumPlayers": 2
+              },
+              {
+                "id": "deepwood_north_blade",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 5,
+                "y": 1,
+                "behavior": "pursue"
+              },
+              {
+                "id": "deepwood_north_bow",
+                "unitTypeId": "cedar_archer",
+                "side": "second",
+                "x": 10,
+                "y": 1,
+                "behavior": "hold"
+              },
+              {
+                "id": "deepwood_courier_guard",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 9,
+                "y": 4,
+                "behavior": "pursue"
+              },
+              {
+                "id": "deepwood_south_knife",
+                "unitTypeId": "court_knife",
+                "side": "second",
+                "x": 5,
+                "y": 7,
+                "behavior": "pursue"
+              },
+              {
+                "id": "deepwood_east_guard",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 12,
+                "y": 4,
+                "behavior": "hold"
+              },
+              {
+                "id": "deepwood_coop_north",
+                "unitTypeId": "march_archer",
+                "side": "second",
+                "x": 11,
+                "y": 2,
+                "behavior": "hold",
+                "minimumPlayers": 2
+              },
+              {
+                "id": "deepwood_coop_south",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 11,
+                "y": 6,
+                "behavior": "pursue",
+                "minimumPlayers": 2
+              }
+            ],
+            "objectiveIds": [
+              "defeat_all"
+            ],
+            "moments": [
+              {
+                "id": "deepwood_begins",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "deepwood_orders"
+              },
+              {
+                "id": "deepwood_cedar_front",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "deepwood_coop",
+                "minimumPlayers": 2
+              }
+            ],
+            "transitions": [
+              {
+                "id": "deepwood_won",
+                "targetNodeId": "deepwood_camp",
+                "priority": 0,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "defeat_all",
+                  "result": "victory"
+                }
+              },
+              {
+                "id": "deepwood_lost",
+                "targetNodeId": "campaign_defeat",
+                "priority": 1,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "defeat_all",
+                  "result": "defeat"
+                }
+              }
+            ]
+          },
+          {
+            "id": "deepwood_camp",
+            "name": "The False Order",
+            "kind": "story",
+            "dialogueIds": [
+              "deepwood_won"
+            ],
+            "transitions": [
+              {
+                "id": "deepwood_camp_next",
+                "targetNodeId": "cedar_watch",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "cedar_watch",
+            "name": "III \u2014 Cedar Watch",
+            "kind": "encounter",
+            "mapId": "cedar_watch",
+            "turnOrder": "sideBlocks",
+            "placements": [
+              {
+                "id": "rowan_watch",
+                "unitTypeId": "rowan_vale",
+                "side": "first",
+                "x": 7,
+                "y": 6,
+                "memberId": "rowan",
+                "twoPlayerPosition": {
+                  "x": 4,
+                  "y": 5
+                }
+              },
+              {
+                "id": "tomas_watch",
+                "unitTypeId": "tomas_reed",
+                "side": "first",
+                "x": 6,
+                "y": 6,
+                "memberId": "tomas",
+                "twoPlayerPosition": {
+                  "x": 4,
+                  "y": 6
+                }
+              },
+              {
+                "id": "akari_watch",
+                "unitTypeId": "akari_mori",
+                "side": "first",
+                "x": 11,
+                "y": 5,
+                "memberId": "akari",
+                "player": 2,
+                "minimumPlayers": 2
+              },
+              {
+                "id": "ren_watch",
+                "unitTypeId": "ren_sato",
+                "side": "first",
+                "x": 11,
+                "y": 6,
+                "memberId": "ren",
+                "player": 2,
+                "minimumPlayers": 2
+              },
+              {
+                "id": "watch_open_west",
+                "unitTypeId": "court_knife",
+                "side": "second",
+                "x": 1,
+                "y": 3,
+                "behavior": "pursue"
+              },
+              {
+                "id": "watch_open_east",
+                "unitTypeId": "march_archer",
+                "side": "second",
+                "x": 14,
+                "y": 8,
+                "behavior": "pursue"
+              },
+              {
+                "id": "watch_wave_west_3",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 0,
+                "y": 5,
+                "behavior": "pursue",
+                "arrival": {
+                  "round": 3
+                }
+              },
+              {
+                "id": "watch_wave_west_11",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 0,
+                "y": 5,
+                "behavior": "pursue",
+                "arrival": {
+                  "round": 11
+                }
+              },
+              {
+                "id": "watch_wave_west_7",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 0,
+                "y": 5,
+                "behavior": "hold",
+                "arrival": {
+                  "round": 7
+                }
+              },
+              {
+                "id": "watch_wave_west_15",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 0,
+                "y": 5,
+                "behavior": "hold",
+                "arrival": {
+                  "round": 15
+                }
+              },
+              {
+                "id": "watch_wave_west_19",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 0,
+                "y": 5,
+                "behavior": "hold",
+                "arrival": {
+                  "round": 19
+                }
+              },
+              {
+                "id": "watch_wave_east_5",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 15,
+                "y": 6,
+                "behavior": "pursue",
+                "arrival": {
+                  "round": 5
+                }
+              },
+              {
+                "id": "watch_wave_east_9",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 15,
+                "y": 6,
+                "behavior": "hold",
+                "arrival": {
+                  "round": 9
+                }
+              },
+              {
+                "id": "watch_wave_east_13",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 15,
+                "y": 6,
+                "behavior": "hold",
+                "arrival": {
+                  "round": 13
+                }
+              },
+              {
+                "id": "watch_wave_east_17",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 15,
+                "y": 6,
+                "behavior": "hold",
+                "arrival": {
+                  "round": 17
+                }
+              },
+              {
+                "id": "watch_wave_north_6",
+                "unitTypeId": "cedar_archer",
+                "side": "second",
+                "x": 8,
+                "y": 0,
+                "behavior": "pursue",
+                "arrival": {
+                  "round": 6
+                }
+              },
+              {
+                "id": "watch_wave_north_12",
+                "unitTypeId": "cedar_archer",
+                "side": "second",
+                "x": 8,
+                "y": 0,
+                "behavior": "hold",
+                "arrival": {
+                  "round": 12
+                }
+              },
+              {
+                "id": "watch_wave_north_18",
+                "unitTypeId": "cedar_archer",
+                "side": "second",
+                "x": 8,
+                "y": 0,
+                "behavior": "hold",
+                "arrival": {
+                  "round": 18
+                }
+              },
+              {
+                "id": "watch_wave_south_10",
+                "unitTypeId": "gate_mystic",
+                "side": "second",
+                "x": 7,
+                "y": 11,
+                "behavior": "pursue",
+                "minimumPlayers": 2,
+                "arrival": {
+                  "round": 10
+                }
+              },
+              {
+                "id": "watch_wave_south_16",
+                "unitTypeId": "gate_mystic",
+                "side": "second",
+                "x": 7,
+                "y": 11,
+                "behavior": "hold",
+                "minimumPlayers": 2,
+                "arrival": {
+                  "round": 16
+                }
+              },
+              {
+                "id": "watch_coop_east_4",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 15,
+                "y": 3,
+                "behavior": "pursue",
+                "minimumPlayers": 2,
+                "arrival": {
+                  "round": 4
+                }
+              },
+              {
+                "id": "watch_coop_east_9",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 15,
+                "y": 3,
+                "behavior": "hold",
+                "minimumPlayers": 2,
+                "arrival": {
+                  "round": 9
+                }
+              },
+              {
+                "id": "watch_coop_east_14",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 15,
+                "y": 3,
+                "behavior": "hold",
+                "minimumPlayers": 2,
+                "arrival": {
+                  "round": 14
+                }
+              },
+              {
+                "id": "watch_coop_east_19",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 15,
+                "y": 3,
+                "behavior": "hold",
+                "minimumPlayers": 2,
+                "arrival": {
+                  "round": 19
+                }
+              },
+              {
+                "id": "watch_coop_west_8",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 0,
+                "y": 8,
+                "behavior": "pursue",
+                "minimumPlayers": 2,
+                "arrival": {
+                  "round": 8
+                }
+              },
+              {
+                "id": "watch_coop_west_13",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 0,
+                "y": 8,
+                "behavior": "hold",
+                "minimumPlayers": 2,
+                "arrival": {
+                  "round": 13
+                }
+              },
+              {
+                "id": "watch_coop_west_18",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 0,
+                "y": 8,
+                "behavior": "hold",
+                "minimumPlayers": 2,
+                "arrival": {
+                  "round": 18
+                }
+              },
+              {
+                "id": "watch_coop_south_12",
+                "unitTypeId": "march_archer",
+                "side": "second",
+                "x": 8,
+                "y": 11,
+                "behavior": "hold",
+                "minimumPlayers": 2,
+                "arrival": {
+                  "round": 12
+                }
+              },
+              {
+                "id": "watch_coop_south_18",
+                "unitTypeId": "march_archer",
+                "side": "second",
+                "x": 8,
+                "y": 11,
+                "behavior": "hold",
+                "minimumPlayers": 2,
+                "arrival": {
+                  "round": 18
+                }
+              }
+            ],
+            "objectiveIds": [
+              "hold_watch",
+              "protect_rowan"
+            ],
+            "moments": [
+              {
+                "id": "watch_begins",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "watch_orders"
+              },
+              {
+                "id": "watch_cedar_front",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "watch_coop",
+                "minimumPlayers": 2
+              }
+            ],
+            "transitions": [
+              {
+                "id": "watch_won",
+                "targetNodeId": "watch_camp",
+                "priority": 0,
+                "when": {
+                  "kind": "all",
+                  "conditions": [
+                    {
+                      "kind": "objectiveResult",
+                      "objectiveId": "hold_watch",
+                      "result": "victory"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "watch_lost",
+                "targetNodeId": "campaign_defeat",
+                "priority": 1,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "protect_rowan",
+                  "result": "defeat"
+                }
+              }
+            ]
+          },
+          {
+            "id": "watch_camp",
+            "name": "Answering Fires",
+            "kind": "story",
+            "dialogueIds": [
+              "watch_won"
+            ],
+            "transitions": [
+              {
+                "id": "watch_camp_next",
+                "targetNodeId": "gate_village",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "gate_village",
+            "name": "IV \u2014 Gate Village",
+            "kind": "encounter",
+            "mapId": "gate_village",
+            "turnOrder": "sideBlocks",
+            "placements": [
+              {
+                "id": "rowan_village",
+                "unitTypeId": "rowan_vale",
+                "side": "first",
+                "x": 7,
+                "y": 5,
+                "memberId": "rowan",
+                "twoPlayerPosition": {
+                  "x": 2,
+                  "y": 3
+                }
+              },
+              {
+                "id": "tomas_village",
+                "unitTypeId": "tomas_reed",
+                "side": "first",
+                "x": 7,
+                "y": 6,
+                "memberId": "tomas",
+                "twoPlayerPosition": {
+                  "x": 2,
+                  "y": 4
+                }
+              },
+              {
+                "id": "akari_village",
+                "unitTypeId": "akari_mori",
+                "side": "first",
+                "x": 2,
+                "y": 8,
+                "memberId": "akari",
+                "player": 2,
+                "minimumPlayers": 2
+              },
+              {
+                "id": "ren_village",
+                "unitTypeId": "ren_sato",
+                "side": "first",
+                "x": 3,
+                "y": 9,
+                "memberId": "ren",
+                "player": 2,
+                "minimumPlayers": 2
+              },
+              {
+                "id": "castellan_vere",
+                "unitTypeId": "castellan_vere_unit",
+                "side": "second",
+                "x": 15,
+                "y": 5,
+                "behavior": "hold",
+                "name": "Castellan Vere"
+              },
+              {
+                "id": "village_north_flank",
+                "unitTypeId": "court_knife",
+                "side": "second",
+                "x": 6,
+                "y": 2,
+                "behavior": "pursue"
+              },
+              {
+                "id": "village_south_flank",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 6,
+                "y": 9,
+                "behavior": "pursue"
+              },
+              {
+                "id": "village_square_guard",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 10,
+                "y": 5,
+                "behavior": "pursue"
+              },
+              {
+                "id": "village_north_bow",
+                "unitTypeId": "cedar_archer",
+                "side": "second",
+                "x": 13,
+                "y": 1,
+                "behavior": "hold"
+              },
+              {
+                "id": "village_south_bow",
+                "unitTypeId": "march_archer",
+                "side": "second",
+                "x": 13,
+                "y": 10,
+                "behavior": "hold"
+              },
+              {
+                "id": "village_coop_north",
+                "unitTypeId": "gate_mystic",
+                "side": "second",
+                "x": 14,
+                "y": 3,
+                "behavior": "hold",
+                "minimumPlayers": 2
+              },
+              {
+                "id": "village_coop_south",
+                "unitTypeId": "court_knife",
+                "side": "second",
+                "x": 14,
+                "y": 8,
+                "behavior": "pursue",
+                "minimumPlayers": 2
+              },
+              {
+                "id": "village_coop_gate",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 16,
+                "y": 6,
+                "behavior": "pursue",
+                "minimumPlayers": 2,
+                "arrival": {
+                  "round": 5
+                }
+              }
+            ],
+            "objectiveIds": [
+              "fell_castellan",
+              "protect_rowan"
+            ],
+            "moments": [
+              {
+                "id": "village_begins",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "village_orders"
+              },
+              {
+                "id": "village_cedar_front",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "village_coop",
+                "minimumPlayers": 2
+              }
+            ],
+            "transitions": [
+              {
+                "id": "village_won",
+                "targetNodeId": "village_camp",
+                "priority": 0,
+                "when": {
+                  "kind": "all",
+                  "conditions": [
+                    {
+                      "kind": "objectiveResult",
+                      "objectiveId": "fell_castellan",
+                      "result": "victory"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "village_lost",
+                "targetNodeId": "campaign_defeat",
+                "priority": 1,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "protect_rowan",
+                  "result": "defeat"
+                }
+              }
+            ]
+          },
+          {
+            "id": "village_camp",
+            "name": "The Last Banner",
+            "kind": "story",
+            "dialogueIds": [
+              "village_won"
+            ],
+            "transitions": [
+              {
+                "id": "village_camp_next",
+                "targetNodeId": "gate_parley",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "gate_parley",
+            "name": "What Peace Costs",
+            "kind": "story",
+            "dialogueIds": [
+              "gate_parley"
+            ],
+            "transitions": [
+              {
+                "id": "gate_parley_next",
+                "targetNodeId": "twin_gate",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "twin_gate",
+            "name": "V \u2014 Twin Gate Keep",
+            "kind": "encounter",
+            "mapId": "twin_gate",
+            "turnOrder": "sideBlocks",
+            "placements": [
+              {
+                "id": "rowan_gate",
+                "unitTypeId": "rowan_vale",
+                "side": "first",
+                "x": 6,
+                "y": 6,
+                "memberId": "rowan",
+                "twoPlayerPosition": {
+                  "x": 3,
+                  "y": 4
+                }
+              },
+              {
+                "id": "tomas_gate",
+                "unitTypeId": "tomas_reed",
+                "side": "first",
+                "x": 5,
+                "y": 6,
+                "memberId": "tomas",
+                "twoPlayerPosition": {
+                  "x": 3,
+                  "y": 5
+                }
+              },
+              {
+                "id": "akari_gate",
+                "unitTypeId": "akari_mori",
+                "side": "first",
+                "x": 3,
+                "y": 9,
+                "memberId": "akari",
+                "player": 2,
+                "minimumPlayers": 2
+              },
+              {
+                "id": "ren_gate",
+                "unitTypeId": "ren_sato",
+                "side": "first",
+                "x": 3,
+                "y": 10,
+                "memberId": "ren",
+                "player": 2,
+                "minimumPlayers": 2
+              },
+              {
+                "id": "lord_masatora",
+                "unitTypeId": "lord_masatora_unit",
+                "side": "second",
+                "x": 16,
+                "y": 6,
+                "behavior": "hold",
+                "name": "Lord Masatora"
+              },
+              {
+                "id": "gate_north_guard",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 12,
+                "y": 3,
+                "behavior": "pursue"
+              },
+              {
+                "id": "gate_south_guard",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 12,
+                "y": 10,
+                "behavior": "pursue",
+                "minimumPlayers": 2
+              },
+              {
+                "id": "gate_center_mystic",
+                "unitTypeId": "gate_mystic",
+                "side": "second",
+                "x": 13,
+                "y": 7,
+                "behavior": "hold"
+              },
+              {
+                "id": "gate_west_knife",
+                "unitTypeId": "court_knife",
+                "side": "second",
+                "x": 8,
+                "y": 2,
+                "behavior": "pursue"
+              },
+              {
+                "id": "gate_wave_high",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 10,
+                "y": 0,
+                "behavior": "pursue",
+                "minimumPlayers": 2,
+                "arrival": {
+                  "round": 4
+                }
+              },
+              {
+                "id": "gate_wave_low",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 10,
+                "y": 13,
+                "behavior": "pursue",
+                "minimumPlayers": 2,
+                "arrival": {
+                  "round": 6
+                }
+              }
+            ],
+            "objectiveIds": [
+              "fell_masatora",
+              "protect_rowan"
+            ],
+            "moments": [
+              {
+                "id": "gate_begins",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "gate_orders"
+              },
+              {
+                "id": "gate_cedar_front",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "gate_coop",
+                "minimumPlayers": 2
+              },
+              {
+                "id": "gate_two_armies_win",
+                "when": {
+                  "kind": "characterFalls",
+                  "placementId": "lord_masatora"
+                },
+                "dialogueId": "gate_coop_victory",
+                "minimumPlayers": 2
+              }
+            ],
+            "transitions": [
+              {
+                "id": "gate_won",
+                "targetNodeId": "epilogue",
+                "priority": 0,
+                "when": {
+                  "kind": "all",
+                  "conditions": [
+                    {
+                      "kind": "objectiveResult",
+                      "objectiveId": "fell_masatora",
+                      "result": "victory"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "gate_lost",
+                "targetNodeId": "campaign_defeat",
+                "priority": 1,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "protect_rowan",
+                  "result": "defeat"
+                }
+              }
+            ]
+          },
+          {
+            "id": "epilogue",
+            "name": "An Open Gate",
+            "kind": "story",
+            "dialogueIds": [
+              "ending"
+            ],
+            "transitions": [
+              {
+                "id": "epilogue_next",
+                "targetNodeId": "campaign_complete",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "campaign_complete",
+            "name": "Both Banners Fly",
+            "kind": "terminal",
+            "transitions": []
+          },
+          {
+            "id": "campaign_defeat",
+            "name": "The Signal Fades",
+            "kind": "story",
+            "dialogueIds": [
+              "defeat"
+            ],
+            "transitions": [
+              {
+                "id": "campaign_defeat_next",
+                "targetNodeId": "campaign_failed",
+                "priority": 0
+              }
+            ]
+          },
+          {
+            "id": "campaign_failed",
+            "name": "Try the Road Again",
+            "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    }
+  ],
+  "notes": "A five-battle Medieval-and-Sengoku campaign designed as the future common demo. One player follows Commander Rowan and Tomas through a complete story. With two local players, Akari and Ren arrive as a separate Cedar army with their own dialogue, deployment fronts, route responsibilities and additional opposition. The compact opening teaches the rules; four larger boards exercise scrolling, split routes, rendezvous decisions, a twenty-round commander defense, a village assault and a final boss while staying within console encounter budgets.",
+  "translations": [
+    {
+      "language": "pt-BR",
+      "entries": [
+        {
+          "id": "abilities.field_mend.name",
+          "source": "Field Mend",
+          "text": "Cura de Campo"
+        },
+        {
+          "id": "abilities.gatefall.name",
+          "source": "Gatefall",
+          "text": "Queda do Portão"
+        },
+        {
+          "id": "abilities.wind_lance.name",
+          "source": "Wind Lance",
+          "text": "Lança de Vento"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.members.akari.name",
+          "source": "Akari Mori",
+          "text": "Akari Mori"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.members.ren.name",
+          "source": "Ren Sato",
+          "text": "Ren Sato"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.members.rowan.name",
+          "source": "Ser Rowan Vale",
+          "text": "Sir Rowan Vale"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.members.tomas.name",
+          "source": "Tomas Reed",
+          "text": "Tomas Reed"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.name",
+          "source": "Steel and Cedar",
+          "text": "Aço e Cedro"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.bell_orchard.name",
+          "source": "I — The Bell Orchard",
+          "text": "I — O Pomar do Sino"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.campaign_complete.name",
+          "source": "Both Banners Fly",
+          "text": "Ambos os Estandartes Tremulam"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.campaign_defeat.name",
+          "source": "The Signal Fades",
+          "text": "O Sinal se Apaga"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.campaign_failed.name",
+          "source": "Try the Road Again",
+          "text": "Tente a Estrada Outra Vez"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.cedar_deepwood.name",
+          "source": "II — Cedar Deepwood",
+          "text": "II — Bosque Profundo de Cedro"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.cedar_watch.name",
+          "source": "III — Cedar Watch",
+          "text": "III — Vigia de Cedro"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.deepwood_camp.name",
+          "source": "The False Order",
+          "text": "A Ordem Falsa"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.epilogue.name",
+          "source": "An Open Gate",
+          "text": "Um Portão Aberto"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.gate_parley.name",
+          "source": "What Peace Costs",
+          "text": "O Preço da Paz"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.gate_village.name",
+          "source": "IV — Gate Village",
+          "text": "IV — Vila do Portão"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.gate_village.placements.castellan_vere.name",
+          "source": "Castellan Vere",
+          "text": "Castelão Vere"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.orchard_camp.name",
+          "source": "A Paid Lie",
+          "text": "Uma Mentira Paga"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.prologue.name",
+          "source": "The Orchard Bell",
+          "text": "O Sino do Pomar"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.twin_gate.name",
+          "source": "V — Twin Gate Keep",
+          "text": "V — Fortaleza dos Portões Gêmeos"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.twin_gate.placements.lord_masatora.name",
+          "source": "Lord Masatora",
+          "text": "Lorde Masatora"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.village_camp.name",
+          "source": "The Last Banner",
+          "text": "O Último Estandarte"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.watch_camp.name",
+          "source": "Answering Fires",
+          "text": "Fogos de Resposta"
+        },
+        {
+          "id": "classes.archer.name",
+          "source": "Archer",
+          "text": "Arqueiro"
+        },
+        {
+          "id": "classes.castellan.name",
+          "source": "Commander",
+          "text": "Comandante"
+        },
+        {
+          "id": "classes.field_commander.name",
+          "source": "Commander",
+          "text": "Comandante"
+        },
+        {
+          "id": "classes.healer.name",
+          "source": "Healer",
+          "text": "Curandeiro"
+        },
+        {
+          "id": "classes.knight.name",
+          "source": "Knight",
+          "text": "Cavaleiro"
+        },
+        {
+          "id": "classes.mage.name",
+          "source": "Mage",
+          "text": "Mago"
+        },
+        {
+          "id": "classes.rogue.name",
+          "source": "Rogue",
+          "text": "Ladino"
+        },
+        {
+          "id": "classes.vanguard_archer.name",
+          "source": "Archer",
+          "text": "Arqueiro"
+        },
+        {
+          "id": "classes.vanguard_rogue.name",
+          "source": "Rogue",
+          "text": "Ladino"
+        },
+        {
+          "id": "classes.warlord.name",
+          "source": "Commander",
+          "text": "Comandante"
+        },
+        {
+          "id": "dialogues.deepwood_coop.lines.0.speaker",
+          "source": "Akari",
+          "text": "Akari"
+        },
+        {
+          "id": "dialogues.deepwood_coop.lines.0.text",
+          "source": "My company begins on the southern trail. We can cut the courier off beyond the cedar wall.",
+          "text": "Minha companhia começa na trilha sul. Podemos interceptar o mensageiro além da muralha de cedros."
+        },
+        {
+          "id": "dialogues.deepwood_coop.lines.1.speaker",
+          "source": "Ren",
+          "text": "Ren"
+        },
+        {
+          "id": "dialogues.deepwood_coop.lines.1.text",
+          "source": "Do not hurry to meet us. Win your route first; we rendezvous at the watch road.",
+          "text": "Não tenham pressa de nos encontrar. Vençam sua rota primeiro; nos reuniremos na estrada da vigia."
+        },
+        {
+          "id": "dialogues.deepwood_coop.name",
+          "source": "Separate Trails",
+          "text": "Trilhas Separadas"
+        },
+        {
+          "id": "dialogues.deepwood_orders.lines.0.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.deepwood_orders.lines.0.text",
+          "source": "The old track is narrow. The archers can watch a clearing without standing inside it.",
+          "text": "A trilha antiga é estreita. Os arqueiros podem vigiar uma clareira sem entrar nela."
+        },
+        {
+          "id": "dialogues.deepwood_orders.lines.1.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.deepwood_orders.lines.1.text",
+          "source": "We clear the near ambush, use the rock line as cover, and reach the eastern courier.",
+          "text": "Vamos eliminar a emboscada mais próxima, usar as rochas como cobertura e alcançar o mensageiro a leste."
+        },
+        {
+          "id": "dialogues.deepwood_orders.name",
+          "source": "Under the Cedar",
+          "text": "Sob os Cedros"
+        },
+        {
+          "id": "dialogues.deepwood_won.lines.0.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.deepwood_won.lines.0.text",
+          "source": "Vere's seal orders the March to burn Cedar villages.",
+          "text": "O selo de Vere ordena que a Marca queime as vilas de Cedro."
+        },
+        {
+          "id": "dialogues.deepwood_won.lines.1.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.deepwood_won.lines.1.text",
+          "source": "And the captured courier carried Masatora's matching order. Each court is feeding the other's fear.",
+          "text": "E o mensageiro capturado levava uma ordem equivalente de Masatora. Cada corte alimenta o medo da outra."
+        },
+        {
+          "id": "dialogues.deepwood_won.lines.2.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.deepwood_won.lines.2.text",
+          "source": "Cedar Watch can show both capitals the same signal. We hold it long enough for both to answer.",
+          "text": "A Vigia de Cedro pode transmitir o mesmo sinal às duas capitais. Vamos defendê-la até ambas responderem."
+        },
+        {
+          "id": "dialogues.deepwood_won.name",
+          "source": "The False Order",
+          "text": "A Ordem Falsa"
+        },
+        {
+          "id": "dialogues.defeat.lines.0.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.defeat.lines.0.text",
+          "source": "The road is still here, even if we lost it today.",
+          "text": "A estrada continua aqui, mesmo que a tenhamos perdido hoje."
+        },
+        {
+          "id": "dialogues.defeat.lines.1.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.defeat.lines.1.text",
+          "source": "Then we remember where the line broke and take it again.",
+          "text": "Então lembramos onde a linha se rompeu e a retomamos."
+        },
+        {
+          "id": "dialogues.defeat.name",
+          "source": "The Signal Fades",
+          "text": "O Sinal se Apaga"
+        },
+        {
+          "id": "dialogues.ending.lines.0.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.ending.lines.0.text",
+          "source": "The March sent a new bell for the gate tower.",
+          "text": "A Marca enviou um sino novo para a torre do portão."
+        },
+        {
+          "id": "dialogues.ending.lines.1.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.ending.lines.1.text",
+          "source": "Hang it beside Cedar's drum. One signal should never command two realms in secret again.",
+          "text": "Pendurem-no ao lado do tambor de Cedro. Um único sinal nunca mais deverá comandar dois reinos em segredo."
+        },
+        {
+          "id": "dialogues.ending.name",
+          "source": "An Open Gate",
+          "text": "Um Portão Aberto"
+        },
+        {
+          "id": "dialogues.gate_coop.lines.0.speaker",
+          "source": "Akari",
+          "text": "Akari"
+        },
+        {
+          "id": "dialogues.gate_coop.lines.0.text",
+          "source": "Rowan takes the high approach. I take the lower court. We meet at the keep doors with both armies intact.",
+          "text": "Rowan segue pelo acesso de cima. Eu tomo o pátio inferior. Nos encontraremos nas portas da fortaleza com os dois exércitos intactos."
+        },
+        {
+          "id": "dialogues.gate_coop.lines.1.speaker",
+          "source": "Ren",
+          "text": "Ren"
+        },
+        {
+          "id": "dialogues.gate_coop.lines.1.text",
+          "source": "Separate openings, one throne room. Neither route can wait for the other to do the work.",
+          "text": "Entradas separadas, uma sala do trono. Nenhuma rota pode esperar que a outra faça o trabalho."
+        },
+        {
+          "id": "dialogues.gate_coop.name",
+          "source": "Steel and Cedar",
+          "text": "Aço e Cedro"
+        },
+        {
+          "id": "dialogues.gate_coop_victory.lines.0.speaker",
+          "source": "Akari",
+          "text": "Akari"
+        },
+        {
+          "id": "dialogues.gate_coop_victory.lines.0.text",
+          "source": "Cedar heard the truth from its own soldiers, not from a foreign court.",
+          "text": "Cedro ouviu a verdade de seus próprios soldados, não de uma corte estrangeira."
+        },
+        {
+          "id": "dialogues.gate_coop_victory.lines.1.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.gate_coop_victory.lines.1.text",
+          "source": "And the March heard it from mine. That is how this peace begins.",
+          "text": "E a Marca a ouviu dos meus. É assim que esta paz começa."
+        },
+        {
+          "id": "dialogues.gate_coop_victory.name",
+          "source": "Both Banners",
+          "text": "Ambos os Estandartes"
+        },
+        {
+          "id": "dialogues.gate_orders.lines.0.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.gate_orders.lines.0.text",
+          "source": "The outer routes avoid the glaive, but his reserves can close them before we reach the keep.",
+          "text": "As rotas externas evitam o glaive, mas as reservas dele podem fechá-las antes de chegarmos à fortaleza."
+        },
+        {
+          "id": "dialogues.gate_orders.lines.1.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.gate_orders.lines.1.text",
+          "source": "Break each guard post, open the double doors, then advance together when the throne room is revealed.",
+          "text": "Derrubem cada posto de guarda, abram as portas duplas e avancem juntos quando a sala do trono for revelada."
+        },
+        {
+          "id": "dialogues.gate_orders.name",
+          "source": "The Twin Gate",
+          "text": "Os Portões Gêmeos"
+        },
+        {
+          "id": "dialogues.gate_parley.lines.0.speaker",
+          "source": "Masatora",
+          "text": "Masatora"
+        },
+        {
+          "id": "dialogues.gate_parley.lines.0.text",
+          "source": "One gate, one law, one hand on the sword. That is peace that lasts.",
+          "text": "Um portão, uma lei, uma mão na espada. Essa é a paz que dura."
+        },
+        {
+          "id": "dialogues.gate_parley.lines.1.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.gate_parley.lines.1.text",
+          "source": "That is fear made permanent. The gate opens for both realms, or for neither.",
+          "text": "Isso é o medo feito permanente. O portão se abre para os dois reinos, ou para nenhum."
+        },
+        {
+          "id": "dialogues.gate_parley.name",
+          "source": "What Peace Costs",
+          "text": "O Preço da Paz"
+        },
+        {
+          "id": "dialogues.opening.lines.0.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.opening.lines.0.text",
+          "source": "The treaty bell rang from an abandoned orchard. Someone wants the March to answer with steel.",
+          "text": "O sino do tratado soou num pomar abandonado. Alguém quer que a Marca responda com aço."
+        },
+        {
+          "id": "dialogues.opening.lines.1.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.opening.lines.1.text",
+          "source": "Then we reach the bell before a frightened patrol becomes a war.",
+          "text": "Então chegamos ao sino antes que uma patrulha assustada vire uma guerra."
+        },
+        {
+          "id": "dialogues.opening.lines.2.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.opening.lines.2.text",
+          "source": "Stay close. We learn who gave the order, and we leave witnesses alive to refute it.",
+          "text": "Fiquem perto. Vamos descobrir quem deu a ordem e deixar testemunhas vivas para desmenti-la."
+        },
+        {
+          "id": "dialogues.opening.name",
+          "source": "The Orchard Bell",
+          "text": "O Sino do Pomar"
+        },
+        {
+          "id": "dialogues.orchard_coop.lines.0.speaker",
+          "source": "Akari",
+          "text": "Akari"
+        },
+        {
+          "id": "dialogues.orchard_coop.lines.0.text",
+          "source": "Cedar heard the same false signal. Ren and I will hold the lower road while you take the bell.",
+          "text": "Cedro ouviu o mesmo sinal falso. Ren e eu defenderemos a estrada de baixo enquanto vocês tomam o sino."
+        },
+        {
+          "id": "dialogues.orchard_coop.lines.1.speaker",
+          "source": "Ren",
+          "text": "Ren"
+        },
+        {
+          "id": "dialogues.orchard_coop.lines.1.text",
+          "source": "Two armies, two approaches. If either route folds, the other one gets surrounded.",
+          "text": "Dois exércitos, duas rotas. Se uma delas cair, a outra ficará cercada."
+        },
+        {
+          "id": "dialogues.orchard_coop.name",
+          "source": "The Cedar Answer",
+          "text": "A Resposta de Cedro"
+        },
+        {
+          "id": "dialogues.orchard_orders.lines.0.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.orchard_orders.lines.0.text",
+          "source": "Use the road to close the distance. I can mend you, but only if I can reach you.",
+          "text": "Use a estrada para se aproximar. Posso curar você, mas só se estiver ao meu alcance."
+        },
+        {
+          "id": "dialogues.orchard_orders.lines.1.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.orchard_orders.lines.1.text",
+          "source": "We focus one threat at a time, then end the turn together.",
+          "text": "Vamos enfrentar uma ameaça por vez e encerrar o turno juntos."
+        },
+        {
+          "id": "dialogues.orchard_orders.name",
+          "source": "The First Exchange",
+          "text": "O Primeiro Confronto"
+        },
+        {
+          "id": "dialogues.orchard_won.lines.0.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.orchard_won.lines.0.text",
+          "source": "Their purses carry coins from both courts.",
+          "text": "As bolsas deles têm moedas das duas cortes."
+        },
+        {
+          "id": "dialogues.orchard_won.lines.1.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.orchard_won.lines.1.text",
+          "source": "Then this is not a border mistake. The courier trail enters Cedar Deepwood.",
+          "text": "Então isto não é um engano na fronteira. O rastro dos mensageiros entra no Bosque Profundo de Cedro."
+        },
+        {
+          "id": "dialogues.orchard_won.name",
+          "source": "A Paid Lie",
+          "text": "Uma Mentira Paga"
+        },
+        {
+          "id": "dialogues.village_coop.lines.0.speaker",
+          "source": "Akari",
+          "text": "Akari"
+        },
+        {
+          "id": "dialogues.village_coop.lines.0.text",
+          "source": "Cedar enters by the south lane and cuts off Vere's escape.",
+          "text": "Cedro entrará pela viela sul e cortará a fuga de Vere."
+        },
+        {
+          "id": "dialogues.village_coop.lines.1.speaker",
+          "source": "Ren",
+          "text": "Ren"
+        },
+        {
+          "id": "dialogues.village_coop.lines.1.text",
+          "source": "The square is our rendezvous. Until then, each army owns its own street fight.",
+          "text": "A praça é nosso ponto de encontro. Até lá, cada exército cuida de sua própria luta nas ruas."
+        },
+        {
+          "id": "dialogues.village_coop.name",
+          "source": "Streets Apart",
+          "text": "Ruas Separadas"
+        },
+        {
+          "id": "dialogues.village_orders.lines.0.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.village_orders.lines.0.text",
+          "source": "The north gate reaches the square quickly, but the alleys leave no room to turn.",
+          "text": "O portão norte leva à praça rapidamente, mas os becos não dão espaço para manobrar."
+        },
+        {
+          "id": "dialogues.village_orders.lines.1.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.village_orders.lines.1.text",
+          "source": "The south lane is longer and safer. Keep the houses between us and their archers.",
+          "text": "A viela sul é mais longa e segura. Mantenham as casas entre nós e os arqueiros deles."
+        },
+        {
+          "id": "dialogues.village_orders.name",
+          "source": "The Village Gate",
+          "text": "O Portão da Vila"
+        },
+        {
+          "id": "dialogues.village_won.lines.0.speaker",
+          "source": "Vere",
+          "text": "Vere"
+        },
+        {
+          "id": "dialogues.village_won.lines.0.text",
+          "source": "Masatora never wanted a partner. He has sealed himself inside Twin Gate Keep.",
+          "text": "Masatora nunca quis um parceiro. Ele se trancou na Fortaleza dos Portões Gêmeos."
+        },
+        {
+          "id": "dialogues.village_won.lines.1.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.village_won.lines.1.text",
+          "source": "The record survives you. I will carry it through those doors and end this before either realm can deny it.",
+          "text": "O registro sobreviverá a você. Vou levá-lo por aquelas portas e acabar com isto antes que qualquer um dos reinos possa negar a verdade."
+        },
+        {
+          "id": "dialogues.village_won.name",
+          "source": "The Last Banner",
+          "text": "O Último Estandarte"
+        },
+        {
+          "id": "dialogues.watch_coop.lines.0.speaker",
+          "source": "Akari",
+          "text": "Akari"
+        },
+        {
+          "id": "dialogues.watch_coop.lines.0.text",
+          "source": "Cedar holds the eastern steps. Rowan, keep the western court and the commander line intact.",
+          "text": "Cedro defenderá as escadas a leste. Rowan, mantenha o pátio oeste e a linha do comandante intactos."
+        },
+        {
+          "id": "dialogues.watch_coop.lines.1.speaker",
+          "source": "Ren",
+          "text": "Ren"
+        },
+        {
+          "id": "dialogues.watch_coop.lines.1.text",
+          "source": "We will trade warnings across the courtyard. Neither front is a reserve for the other.",
+          "text": "Trocaremos avisos pelo pátio. Nenhuma frente serve de reserva para a outra."
+        },
+        {
+          "id": "dialogues.watch_coop.name",
+          "source": "Two Fronts",
+          "text": "Duas Frentes"
+        },
+        {
+          "id": "dialogues.watch_orders.lines.0.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.watch_orders.lines.0.text",
+          "source": "The relay needs twenty rounds to reach both capitals.",
+          "text": "O sinal precisa de vinte rodadas para chegar às duas capitais."
+        },
+        {
+          "id": "dialogues.watch_orders.lines.1.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.watch_orders.lines.1.text",
+          "source": "I stay with the signal. Watch each marked approach and never chase a wave past the next entry path.",
+          "text": "Eu fico com o sinal. Vigiem cada acesso marcado e nunca persigam uma leva além da próxima rota de entrada."
+        },
+        {
+          "id": "dialogues.watch_orders.name",
+          "source": "Twenty Rounds",
+          "text": "Vinte Rodadas"
+        },
+        {
+          "id": "dialogues.watch_won.lines.0.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.watch_won.lines.0.text",
+          "source": "Both capitals answered. The lie is exposed.",
+          "text": "As duas capitais responderam. A mentira foi revelada."
+        },
+        {
+          "id": "dialogues.watch_won.lines.1.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.watch_won.lines.1.text",
+          "source": "Vere is barricading Gate Village with the treaty record. We take the streets before he burns it.",
+          "text": "Vere está erguendo barricadas na Vila do Portão com o registro do tratado em mãos. Vamos tomar as ruas antes que ele o queime."
+        },
+        {
+          "id": "dialogues.watch_won.name",
+          "source": "Answering Fires",
+          "text": "Fogos de Resposta"
+        },
+        {
+          "id": "factions.concord.name",
+          "source": "The Concord",
+          "text": "A Concórdia"
+        },
+        {
+          "id": "factions.war_host.name",
+          "source": "The War Host",
+          "text": "A Hoste de Guerra"
+        },
+        {
+          "id": "maps.bell_orchard.name",
+          "source": "The Bell Orchard",
+          "text": "O Pomar do Sino"
+        },
+        {
+          "id": "maps.cedar_deepwood.name",
+          "source": "Cedar Deepwood",
+          "text": "Bosque Profundo de Cedro"
+        },
+        {
+          "id": "maps.cedar_watch.name",
+          "source": "Cedar Watch",
+          "text": "Vigia de Cedro"
+        },
+        {
+          "id": "maps.gate_village.name",
+          "source": "Gate Village",
+          "text": "Vila do Portão"
+        },
+        {
+          "id": "maps.twin_gate.name",
+          "source": "Twin Gate Keep",
+          "text": "Fortaleza dos Portões Gêmeos"
+        },
+        {
+          "id": "objectives.defeat_all.name",
+          "source": "Defeat every opponent",
+          "text": "Derrote todos os oponentes"
+        },
+        {
+          "id": "objectives.fell_castellan.name",
+          "source": "Defeat Castellan Vere",
+          "text": "Derrote o castelão Vere"
+        },
+        {
+          "id": "objectives.fell_masatora.name",
+          "source": "Defeat Lord Masatora",
+          "text": "Derrote o lorde Masatora"
+        },
+        {
+          "id": "objectives.hold_watch.name",
+          "source": "Hold Cedar Watch for twenty rounds",
+          "text": "Defenda a Vigia de Cedro por vinte rodadas"
+        },
+        {
+          "id": "objectives.protect_rowan.name",
+          "source": "Keep Commander Rowan standing",
+          "text": "Mantenha o comandante Rowan de pé"
+        },
+        {
+          "id": "project.title",
+          "source": "Steel and Cedar",
+          "text": "Aço e Cedro"
+        },
+        {
+          "id": "unit_types.akari_mori.name",
+          "source": "Akari Mori",
+          "text": "Akari Mori"
+        },
+        {
+          "id": "unit_types.castellan_vere_unit.name",
+          "source": "Castellan Vere",
+          "text": "Castelão Vere"
+        },
+        {
+          "id": "unit_types.cedar_archer.name",
+          "source": "Cedar Archer",
+          "text": "Arqueiro de Cedro"
+        },
+        {
+          "id": "unit_types.court_knife.name",
+          "source": "Court Knife",
+          "text": "Lâmina da Corte"
+        },
+        {
+          "id": "unit_types.gate_mystic.name",
+          "source": "Gate Mystic",
+          "text": "Místico do Portão"
+        },
+        {
+          "id": "unit_types.lord_masatora_unit.name",
+          "source": "Lord Masatora",
+          "text": "Lorde Masatora"
+        },
+        {
+          "id": "unit_types.march_archer.name",
+          "source": "March Archer",
+          "text": "Arqueiro da Marca"
+        },
+        {
+          "id": "unit_types.march_sword.name",
+          "source": "March Sword",
+          "text": "Espada da Marca"
+        },
+        {
+          "id": "unit_types.red_retainer.name",
+          "source": "Red Retainer",
+          "text": "Vassalo Vermelho"
+        },
+        {
+          "id": "unit_types.ren_sato.name",
+          "source": "Ren Sato",
+          "text": "Ren Sato"
+        },
+        {
+          "id": "unit_types.rowan_vale.name",
+          "source": "Commander Rowan Vale",
+          "text": "Comandante Rowan Vale"
+        },
+        {
+          "id": "unit_types.tomas_reed.name",
+          "source": "Tomas Reed",
+          "text": "Tomas Reed"
+        },
+        {
+          "id": "weapon_types.blade.name",
+          "source": "Blade",
+          "text": "Lâmina"
+        },
+        {
+          "id": "weapon_types.bow.name",
+          "source": "Bow",
+          "text": "Arco"
+        },
+        {
+          "id": "weapon_types.focus.name",
+          "source": "Focus",
+          "text": "Foco"
+        },
+        {
+          "id": "weapons.cedar_bow.name",
+          "source": "Cedar Bow",
+          "text": "Arco de Cedro"
+        },
+        {
+          "id": "weapons.cedar_officer_bow.name",
+          "source": "Cedar Officer Bow",
+          "text": "Arco de Oficial de Cedro"
+        },
+        {
+          "id": "weapons.cedar_scout_blade.name",
+          "source": "Cedar Scout Knife",
+          "text": "Faca de Batedor de Cedro"
+        },
+        {
+          "id": "weapons.concord_blade.name",
+          "source": "Concord Sword",
+          "text": "Espada da Concórdia"
+        },
+        {
+          "id": "weapons.gate_glaive.name",
+          "source": "Gate Glaive",
+          "text": "Glaive do Portão"
+        },
+        {
+          "id": "weapons.march_blade.name",
+          "source": "March Sword",
+          "text": "Espada da Marca"
+        },
+        {
+          "id": "weapons.march_bow.name",
+          "source": "March Longbow",
+          "text": "Arco Longo da Marca"
+        },
+        {
+          "id": "weapons.pilgrim_focus.name",
+          "source": "Pilgrim Bell",
+          "text": "Sino do Peregrino"
+        },
+        {
+          "id": "weapons.scout_blade.name",
+          "source": "Scout Knife",
+          "text": "Faca de Batedor"
+        },
+        {
+          "id": "weapons.war_focus.name",
+          "source": "War Fan",
+          "text": "Leque de Guerra"
+        },
+        {
+          "id": "weapons.war_spear.name",
+          "source": "War Spear",
+          "text": "Lança de Guerra"
+        }
+      ]
+    },
+    {
+      "language": "es",
+      "entries": [
+        {
+          "id": "abilities.field_mend.name",
+          "source": "Field Mend",
+          "text": "Cura de campo"
+        },
+        {
+          "id": "abilities.gatefall.name",
+          "source": "Gatefall",
+          "text": "Caída de la Puerta"
+        },
+        {
+          "id": "abilities.wind_lance.name",
+          "source": "Wind Lance",
+          "text": "Lanza de viento"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.members.akari.name",
+          "source": "Akari Mori",
+          "text": "Akari Mori"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.members.ren.name",
+          "source": "Ren Sato",
+          "text": "Ren Sato"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.members.rowan.name",
+          "source": "Ser Rowan Vale",
+          "text": "Sir Rowan Vale"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.members.tomas.name",
+          "source": "Tomas Reed",
+          "text": "Tomas Reed"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.name",
+          "source": "Steel and Cedar",
+          "text": "Acero y Cedro"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.bell_orchard.name",
+          "source": "I — The Bell Orchard",
+          "text": "I — El Huerto de la Campana"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.campaign_complete.name",
+          "source": "Both Banners Fly",
+          "text": "Ambos Estandartes Ondean"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.campaign_defeat.name",
+          "source": "The Signal Fades",
+          "text": "La Señal se Apaga"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.campaign_failed.name",
+          "source": "Try the Road Again",
+          "text": "Vuelve a Intentar el Camino"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.cedar_deepwood.name",
+          "source": "II — Cedar Deepwood",
+          "text": "II — Bosque Profundo de Cedro"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.cedar_watch.name",
+          "source": "III — Cedar Watch",
+          "text": "III — Atalaya de Cedro"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.deepwood_camp.name",
+          "source": "The False Order",
+          "text": "La Orden Falsa"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.epilogue.name",
+          "source": "An Open Gate",
+          "text": "Una Puerta Abierta"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.gate_parley.name",
+          "source": "What Peace Costs",
+          "text": "El Precio de la Paz"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.gate_village.name",
+          "source": "IV — Gate Village",
+          "text": "IV — Aldea de la Puerta"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.gate_village.placements.castellan_vere.name",
+          "source": "Castellan Vere",
+          "text": "Alcaide Vere"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.orchard_camp.name",
+          "source": "A Paid Lie",
+          "text": "Una Mentira Pagada"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.prologue.name",
+          "source": "The Orchard Bell",
+          "text": "La Campana del Huerto"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.twin_gate.name",
+          "source": "V — Twin Gate Keep",
+          "text": "V — Fortaleza de las Puertas Gemelas"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.twin_gate.placements.lord_masatora.name",
+          "source": "Lord Masatora",
+          "text": "Señor Masatora"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.village_camp.name",
+          "source": "The Last Banner",
+          "text": "El Último Estandarte"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.watch_camp.name",
+          "source": "Answering Fires",
+          "text": "Fuegos de Respuesta"
+        },
+        {
+          "id": "classes.archer.name",
+          "source": "Archer",
+          "text": "Arquero"
+        },
+        {
+          "id": "classes.castellan.name",
+          "source": "Commander",
+          "text": "Comandante"
+        },
+        {
+          "id": "classes.field_commander.name",
+          "source": "Commander",
+          "text": "Comandante"
+        },
+        {
+          "id": "classes.healer.name",
+          "source": "Healer",
+          "text": "Sanador"
+        },
+        {
+          "id": "classes.knight.name",
+          "source": "Knight",
+          "text": "Caballero"
+        },
+        {
+          "id": "classes.mage.name",
+          "source": "Mage",
+          "text": "Mago"
+        },
+        {
+          "id": "classes.rogue.name",
+          "source": "Rogue",
+          "text": "Pícaro"
+        },
+        {
+          "id": "classes.vanguard_archer.name",
+          "source": "Archer",
+          "text": "Arquero"
+        },
+        {
+          "id": "classes.vanguard_rogue.name",
+          "source": "Rogue",
+          "text": "Pícaro"
+        },
+        {
+          "id": "classes.warlord.name",
+          "source": "Commander",
+          "text": "Comandante"
+        },
+        {
+          "id": "dialogues.deepwood_coop.lines.0.speaker",
+          "source": "Akari",
+          "text": "Akari"
+        },
+        {
+          "id": "dialogues.deepwood_coop.lines.0.text",
+          "source": "My company begins on the southern trail. We can cut the courier off beyond the cedar wall.",
+          "text": "Mi compañía empieza en el sendero sur. Podemos interceptar al mensajero más allá del muro de cedros."
+        },
+        {
+          "id": "dialogues.deepwood_coop.lines.1.speaker",
+          "source": "Ren",
+          "text": "Ren"
+        },
+        {
+          "id": "dialogues.deepwood_coop.lines.1.text",
+          "source": "Do not hurry to meet us. Win your route first; we rendezvous at the watch road.",
+          "text": "No os apresuréis a reuniros con nosotros. Ganad primero vuestra ruta; nos encontraremos en el camino de la atalaya."
+        },
+        {
+          "id": "dialogues.deepwood_coop.name",
+          "source": "Separate Trails",
+          "text": "Senderos Separados"
+        },
+        {
+          "id": "dialogues.deepwood_orders.lines.0.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.deepwood_orders.lines.0.text",
+          "source": "The old track is narrow. The archers can watch a clearing without standing inside it.",
+          "text": "La vieja senda es estrecha. Los arqueros pueden vigilar un claro sin entrar en él."
+        },
+        {
+          "id": "dialogues.deepwood_orders.lines.1.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.deepwood_orders.lines.1.text",
+          "source": "We clear the near ambush, use the rock line as cover, and reach the eastern courier.",
+          "text": "Eliminaremos la emboscada cercana, usaremos las rocas como cobertura y alcanzaremos al mensajero del este."
+        },
+        {
+          "id": "dialogues.deepwood_orders.name",
+          "source": "Under the Cedar",
+          "text": "Bajo los Cedros"
+        },
+        {
+          "id": "dialogues.deepwood_won.lines.0.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.deepwood_won.lines.0.text",
+          "source": "Vere's seal orders the March to burn Cedar villages.",
+          "text": "El sello de Vere ordena a la Marca quemar las aldeas de Cedro."
+        },
+        {
+          "id": "dialogues.deepwood_won.lines.1.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.deepwood_won.lines.1.text",
+          "source": "And the captured courier carried Masatora's matching order. Each court is feeding the other's fear.",
+          "text": "Y el mensajero capturado llevaba una orden equivalente de Masatora. Cada corte alimenta el miedo de la otra."
+        },
+        {
+          "id": "dialogues.deepwood_won.lines.2.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.deepwood_won.lines.2.text",
+          "source": "Cedar Watch can show both capitals the same signal. We hold it long enough for both to answer.",
+          "text": "La Atalaya de Cedro puede enviar la misma señal a ambas capitales. La defenderemos hasta que las dos respondan."
+        },
+        {
+          "id": "dialogues.deepwood_won.name",
+          "source": "The False Order",
+          "text": "La Orden Falsa"
+        },
+        {
+          "id": "dialogues.defeat.lines.0.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.defeat.lines.0.text",
+          "source": "The road is still here, even if we lost it today.",
+          "text": "El camino sigue aquí, aunque hoy lo hayamos perdido."
+        },
+        {
+          "id": "dialogues.defeat.lines.1.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.defeat.lines.1.text",
+          "source": "Then we remember where the line broke and take it again.",
+          "text": "Entonces recordaremos dónde se rompió la línea y la recuperaremos."
+        },
+        {
+          "id": "dialogues.defeat.name",
+          "source": "The Signal Fades",
+          "text": "La Señal se Apaga"
+        },
+        {
+          "id": "dialogues.ending.lines.0.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.ending.lines.0.text",
+          "source": "The March sent a new bell for the gate tower.",
+          "text": "La Marca ha enviado una campana nueva para la torre de la puerta."
+        },
+        {
+          "id": "dialogues.ending.lines.1.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.ending.lines.1.text",
+          "source": "Hang it beside Cedar's drum. One signal should never command two realms in secret again.",
+          "text": "Colgadla junto al tambor de Cedro. Una sola señal nunca volverá a dar órdenes a dos reinos en secreto."
+        },
+        {
+          "id": "dialogues.ending.name",
+          "source": "An Open Gate",
+          "text": "Una Puerta Abierta"
+        },
+        {
+          "id": "dialogues.gate_coop.lines.0.speaker",
+          "source": "Akari",
+          "text": "Akari"
+        },
+        {
+          "id": "dialogues.gate_coop.lines.0.text",
+          "source": "Rowan takes the high approach. I take the lower court. We meet at the keep doors with both armies intact.",
+          "text": "Rowan tomará el acceso superior. Yo tomaré el patio inferior. Nos reuniremos ante las puertas de la fortaleza con ambos ejércitos intactos."
+        },
+        {
+          "id": "dialogues.gate_coop.lines.1.speaker",
+          "source": "Ren",
+          "text": "Ren"
+        },
+        {
+          "id": "dialogues.gate_coop.lines.1.text",
+          "source": "Separate openings, one throne room. Neither route can wait for the other to do the work.",
+          "text": "Entradas separadas, una sala del trono. Ninguna ruta puede esperar a que la otra haga el trabajo."
+        },
+        {
+          "id": "dialogues.gate_coop.name",
+          "source": "Steel and Cedar",
+          "text": "Acero y Cedro"
+        },
+        {
+          "id": "dialogues.gate_coop_victory.lines.0.speaker",
+          "source": "Akari",
+          "text": "Akari"
+        },
+        {
+          "id": "dialogues.gate_coop_victory.lines.0.text",
+          "source": "Cedar heard the truth from its own soldiers, not from a foreign court.",
+          "text": "Cedro oyó la verdad de sus propios soldados, no de una corte extranjera."
+        },
+        {
+          "id": "dialogues.gate_coop_victory.lines.1.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.gate_coop_victory.lines.1.text",
+          "source": "And the March heard it from mine. That is how this peace begins.",
+          "text": "Y la Marca la oyó de los míos. Así empieza esta paz."
+        },
+        {
+          "id": "dialogues.gate_coop_victory.name",
+          "source": "Both Banners",
+          "text": "Ambos Estandartes"
+        },
+        {
+          "id": "dialogues.gate_orders.lines.0.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.gate_orders.lines.0.text",
+          "source": "The outer routes avoid the glaive, but his reserves can close them before we reach the keep.",
+          "text": "Las rutas exteriores evitan la guja, pero sus reservas pueden cerrarlas antes de que lleguemos a la fortaleza."
+        },
+        {
+          "id": "dialogues.gate_orders.lines.1.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.gate_orders.lines.1.text",
+          "source": "Break each guard post, open the double doors, then advance together when the throne room is revealed.",
+          "text": "Destruid cada puesto de guardia, abrid las puertas dobles y avanzad juntos cuando quede al descubierto la sala del trono."
+        },
+        {
+          "id": "dialogues.gate_orders.name",
+          "source": "The Twin Gate",
+          "text": "Las Puertas Gemelas"
+        },
+        {
+          "id": "dialogues.gate_parley.lines.0.speaker",
+          "source": "Masatora",
+          "text": "Masatora"
+        },
+        {
+          "id": "dialogues.gate_parley.lines.0.text",
+          "source": "One gate, one law, one hand on the sword. That is peace that lasts.",
+          "text": "Una puerta, una ley, una mano en la espada. Esa es la paz que perdura."
+        },
+        {
+          "id": "dialogues.gate_parley.lines.1.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.gate_parley.lines.1.text",
+          "source": "That is fear made permanent. The gate opens for both realms, or for neither.",
+          "text": "Eso es el miedo hecho permanente. La puerta se abre para ambos reinos, o para ninguno."
+        },
+        {
+          "id": "dialogues.gate_parley.name",
+          "source": "What Peace Costs",
+          "text": "El Precio de la Paz"
+        },
+        {
+          "id": "dialogues.opening.lines.0.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.opening.lines.0.text",
+          "source": "The treaty bell rang from an abandoned orchard. Someone wants the March to answer with steel.",
+          "text": "La campana del tratado sonó en un huerto abandonado. Alguien quiere que la Marca responda con acero."
+        },
+        {
+          "id": "dialogues.opening.lines.1.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.opening.lines.1.text",
+          "source": "Then we reach the bell before a frightened patrol becomes a war.",
+          "text": "Entonces llegaremos a la campana antes de que una patrulla asustada se convierta en una guerra."
+        },
+        {
+          "id": "dialogues.opening.lines.2.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.opening.lines.2.text",
+          "source": "Stay close. We learn who gave the order, and we leave witnesses alive to refute it.",
+          "text": "Manteneos cerca. Averiguaremos quién dio la orden y dejaremos testigos vivos para desmentirla."
+        },
+        {
+          "id": "dialogues.opening.name",
+          "source": "The Orchard Bell",
+          "text": "La Campana del Huerto"
+        },
+        {
+          "id": "dialogues.orchard_coop.lines.0.speaker",
+          "source": "Akari",
+          "text": "Akari"
+        },
+        {
+          "id": "dialogues.orchard_coop.lines.0.text",
+          "source": "Cedar heard the same false signal. Ren and I will hold the lower road while you take the bell.",
+          "text": "Cedro oyó la misma señal falsa. Ren y yo defenderemos el camino inferior mientras vosotros tomáis la campana."
+        },
+        {
+          "id": "dialogues.orchard_coop.lines.1.speaker",
+          "source": "Ren",
+          "text": "Ren"
+        },
+        {
+          "id": "dialogues.orchard_coop.lines.1.text",
+          "source": "Two armies, two approaches. If either route folds, the other one gets surrounded.",
+          "text": "Dos ejércitos, dos rutas. Si una cede, la otra quedará rodeada."
+        },
+        {
+          "id": "dialogues.orchard_coop.name",
+          "source": "The Cedar Answer",
+          "text": "La Respuesta de Cedro"
+        },
+        {
+          "id": "dialogues.orchard_orders.lines.0.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.orchard_orders.lines.0.text",
+          "source": "Use the road to close the distance. I can mend you, but only if I can reach you.",
+          "text": "Usa el camino para acercarte. Puedo curarte, pero solo si estás a mi alcance."
+        },
+        {
+          "id": "dialogues.orchard_orders.lines.1.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.orchard_orders.lines.1.text",
+          "source": "We focus one threat at a time, then end the turn together.",
+          "text": "Nos centraremos en una amenaza a la vez y terminaremos el turno juntos."
+        },
+        {
+          "id": "dialogues.orchard_orders.name",
+          "source": "The First Exchange",
+          "text": "El Primer Enfrentamiento"
+        },
+        {
+          "id": "dialogues.orchard_won.lines.0.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.orchard_won.lines.0.text",
+          "source": "Their purses carry coins from both courts.",
+          "text": "Sus bolsas llevan monedas de ambas cortes."
+        },
+        {
+          "id": "dialogues.orchard_won.lines.1.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.orchard_won.lines.1.text",
+          "source": "Then this is not a border mistake. The courier trail enters Cedar Deepwood.",
+          "text": "Entonces esto no es un error fronterizo. El rastro de los mensajeros entra en el Bosque Profundo de Cedro."
+        },
+        {
+          "id": "dialogues.orchard_won.name",
+          "source": "A Paid Lie",
+          "text": "Una Mentira Pagada"
+        },
+        {
+          "id": "dialogues.village_coop.lines.0.speaker",
+          "source": "Akari",
+          "text": "Akari"
+        },
+        {
+          "id": "dialogues.village_coop.lines.0.text",
+          "source": "Cedar enters by the south lane and cuts off Vere's escape.",
+          "text": "Cedro entrará por la calle sur y cortará la huida de Vere."
+        },
+        {
+          "id": "dialogues.village_coop.lines.1.speaker",
+          "source": "Ren",
+          "text": "Ren"
+        },
+        {
+          "id": "dialogues.village_coop.lines.1.text",
+          "source": "The square is our rendezvous. Until then, each army owns its own street fight.",
+          "text": "La plaza es nuestro punto de encuentro. Hasta entonces, cada ejército se encarga de su propia lucha callejera."
+        },
+        {
+          "id": "dialogues.village_coop.name",
+          "source": "Streets Apart",
+          "text": "Calles Separadas"
+        },
+        {
+          "id": "dialogues.village_orders.lines.0.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.village_orders.lines.0.text",
+          "source": "The north gate reaches the square quickly, but the alleys leave no room to turn.",
+          "text": "La puerta norte lleva a la plaza rápidamente, pero los callejones no dejan espacio para maniobrar."
+        },
+        {
+          "id": "dialogues.village_orders.lines.1.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.village_orders.lines.1.text",
+          "source": "The south lane is longer and safer. Keep the houses between us and their archers.",
+          "text": "La calle sur es más larga y segura. Mantened las casas entre nosotros y sus arqueros."
+        },
+        {
+          "id": "dialogues.village_orders.name",
+          "source": "The Village Gate",
+          "text": "La Puerta de la Aldea"
+        },
+        {
+          "id": "dialogues.village_won.lines.0.speaker",
+          "source": "Vere",
+          "text": "Vere"
+        },
+        {
+          "id": "dialogues.village_won.lines.0.text",
+          "source": "Masatora never wanted a partner. He has sealed himself inside Twin Gate Keep.",
+          "text": "Masatora nunca quiso un socio. Se ha encerrado en la Fortaleza de las Puertas Gemelas."
+        },
+        {
+          "id": "dialogues.village_won.lines.1.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.village_won.lines.1.text",
+          "source": "The record survives you. I will carry it through those doors and end this before either realm can deny it.",
+          "text": "El registro te sobrevivirá. Lo llevaré a través de esas puertas y pondré fin a esto antes de que cualquiera de los reinos pueda negar la verdad."
+        },
+        {
+          "id": "dialogues.village_won.name",
+          "source": "The Last Banner",
+          "text": "El Último Estandarte"
+        },
+        {
+          "id": "dialogues.watch_coop.lines.0.speaker",
+          "source": "Akari",
+          "text": "Akari"
+        },
+        {
+          "id": "dialogues.watch_coop.lines.0.text",
+          "source": "Cedar holds the eastern steps. Rowan, keep the western court and the commander line intact.",
+          "text": "Cedro defenderá las escaleras del este. Rowan, mantén intactos el patio oeste y la línea del comandante."
+        },
+        {
+          "id": "dialogues.watch_coop.lines.1.speaker",
+          "source": "Ren",
+          "text": "Ren"
+        },
+        {
+          "id": "dialogues.watch_coop.lines.1.text",
+          "source": "We will trade warnings across the courtyard. Neither front is a reserve for the other.",
+          "text": "Intercambiaremos avisos a través del patio. Ningún frente sirve de reserva para el otro."
+        },
+        {
+          "id": "dialogues.watch_coop.name",
+          "source": "Two Fronts",
+          "text": "Dos Frentes"
+        },
+        {
+          "id": "dialogues.watch_orders.lines.0.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.watch_orders.lines.0.text",
+          "source": "The relay needs twenty rounds to reach both capitals.",
+          "text": "La señal necesita veinte rondas para llegar a ambas capitales."
+        },
+        {
+          "id": "dialogues.watch_orders.lines.1.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.watch_orders.lines.1.text",
+          "source": "I stay with the signal. Watch each marked approach and never chase a wave past the next entry path.",
+          "text": "Me quedaré junto a la señal. Vigilad cada acceso marcado y nunca persigáis una oleada más allá de la siguiente ruta de entrada."
+        },
+        {
+          "id": "dialogues.watch_orders.name",
+          "source": "Twenty Rounds",
+          "text": "Veinte Rondas"
+        },
+        {
+          "id": "dialogues.watch_won.lines.0.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.watch_won.lines.0.text",
+          "source": "Both capitals answered. The lie is exposed.",
+          "text": "Ambas capitales han respondido. La mentira ha quedado al descubierto."
+        },
+        {
+          "id": "dialogues.watch_won.lines.1.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.watch_won.lines.1.text",
+          "source": "Vere is barricading Gate Village with the treaty record. We take the streets before he burns it.",
+          "text": "Vere está levantando barricadas en la Aldea de la Puerta con el registro del tratado en su poder. Tomaremos las calles antes de que lo queme."
+        },
+        {
+          "id": "dialogues.watch_won.name",
+          "source": "Answering Fires",
+          "text": "Fuegos de Respuesta"
+        },
+        {
+          "id": "factions.concord.name",
+          "source": "The Concord",
+          "text": "La Concordia"
+        },
+        {
+          "id": "factions.war_host.name",
+          "source": "The War Host",
+          "text": "La Hueste de Guerra"
+        },
+        {
+          "id": "maps.bell_orchard.name",
+          "source": "The Bell Orchard",
+          "text": "El Huerto de la Campana"
+        },
+        {
+          "id": "maps.cedar_deepwood.name",
+          "source": "Cedar Deepwood",
+          "text": "Bosque Profundo de Cedro"
+        },
+        {
+          "id": "maps.cedar_watch.name",
+          "source": "Cedar Watch",
+          "text": "Atalaya de Cedro"
+        },
+        {
+          "id": "maps.gate_village.name",
+          "source": "Gate Village",
+          "text": "Aldea de la Puerta"
+        },
+        {
+          "id": "maps.twin_gate.name",
+          "source": "Twin Gate Keep",
+          "text": "Fortaleza de las Puertas Gemelas"
+        },
+        {
+          "id": "objectives.defeat_all.name",
+          "source": "Defeat every opponent",
+          "text": "Derrota a todos los adversarios"
+        },
+        {
+          "id": "objectives.fell_castellan.name",
+          "source": "Defeat Castellan Vere",
+          "text": "Derrota al alcaide Vere"
+        },
+        {
+          "id": "objectives.fell_masatora.name",
+          "source": "Defeat Lord Masatora",
+          "text": "Derrota al señor Masatora"
+        },
+        {
+          "id": "objectives.hold_watch.name",
+          "source": "Hold Cedar Watch for twenty rounds",
+          "text": "Defiende la Atalaya de Cedro durante veinte rondas"
+        },
+        {
+          "id": "objectives.protect_rowan.name",
+          "source": "Keep Commander Rowan standing",
+          "text": "Mantén en pie al comandante Rowan"
+        },
+        {
+          "id": "project.title",
+          "source": "Steel and Cedar",
+          "text": "Acero y Cedro"
+        },
+        {
+          "id": "unit_types.akari_mori.name",
+          "source": "Akari Mori",
+          "text": "Akari Mori"
+        },
+        {
+          "id": "unit_types.castellan_vere_unit.name",
+          "source": "Castellan Vere",
+          "text": "Alcaide Vere"
+        },
+        {
+          "id": "unit_types.cedar_archer.name",
+          "source": "Cedar Archer",
+          "text": "Arquero de Cedro"
+        },
+        {
+          "id": "unit_types.court_knife.name",
+          "source": "Court Knife",
+          "text": "Hoja de la corte"
+        },
+        {
+          "id": "unit_types.gate_mystic.name",
+          "source": "Gate Mystic",
+          "text": "Místico de la Puerta"
+        },
+        {
+          "id": "unit_types.lord_masatora_unit.name",
+          "source": "Lord Masatora",
+          "text": "Señor Masatora"
+        },
+        {
+          "id": "unit_types.march_archer.name",
+          "source": "March Archer",
+          "text": "Arquero de la Marca"
+        },
+        {
+          "id": "unit_types.march_sword.name",
+          "source": "March Sword",
+          "text": "Espada de la Marca"
+        },
+        {
+          "id": "unit_types.red_retainer.name",
+          "source": "Red Retainer",
+          "text": "Vasallo rojo"
+        },
+        {
+          "id": "unit_types.ren_sato.name",
+          "source": "Ren Sato",
+          "text": "Ren Sato"
+        },
+        {
+          "id": "unit_types.rowan_vale.name",
+          "source": "Commander Rowan Vale",
+          "text": "Comandante Rowan Vale"
+        },
+        {
+          "id": "unit_types.tomas_reed.name",
+          "source": "Tomas Reed",
+          "text": "Tomas Reed"
+        },
+        {
+          "id": "weapon_types.blade.name",
+          "source": "Blade",
+          "text": "Hoja"
+        },
+        {
+          "id": "weapon_types.bow.name",
+          "source": "Bow",
+          "text": "Arco"
+        },
+        {
+          "id": "weapon_types.focus.name",
+          "source": "Focus",
+          "text": "Foco"
+        },
+        {
+          "id": "weapons.cedar_bow.name",
+          "source": "Cedar Bow",
+          "text": "Arco de Cedro"
+        },
+        {
+          "id": "weapons.cedar_officer_bow.name",
+          "source": "Cedar Officer Bow",
+          "text": "Arco de oficial de Cedro"
+        },
+        {
+          "id": "weapons.cedar_scout_blade.name",
+          "source": "Cedar Scout Knife",
+          "text": "Cuchillo de explorador de Cedro"
+        },
+        {
+          "id": "weapons.concord_blade.name",
+          "source": "Concord Sword",
+          "text": "Espada de la Concordia"
+        },
+        {
+          "id": "weapons.gate_glaive.name",
+          "source": "Gate Glaive",
+          "text": "Guja de la Puerta"
+        },
+        {
+          "id": "weapons.march_blade.name",
+          "source": "March Sword",
+          "text": "Espada de la Marca"
+        },
+        {
+          "id": "weapons.march_bow.name",
+          "source": "March Longbow",
+          "text": "Arco largo de la Marca"
+        },
+        {
+          "id": "weapons.pilgrim_focus.name",
+          "source": "Pilgrim Bell",
+          "text": "Campana del peregrino"
+        },
+        {
+          "id": "weapons.scout_blade.name",
+          "source": "Scout Knife",
+          "text": "Cuchillo de explorador"
+        },
+        {
+          "id": "weapons.war_focus.name",
+          "source": "War Fan",
+          "text": "Abanico de guerra"
+        },
+        {
+          "id": "weapons.war_spear.name",
+          "source": "War Spear",
+          "text": "Lanza de guerra"
+        }
+      ]
+    }
+  ]
+}

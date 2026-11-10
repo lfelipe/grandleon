@@ -348,38 +348,9 @@ add_test(
     COMMAND grandleon_tarnholt_branch_tests
 )
 
-# What the Nintendo 64 campaign ROM is allowed to believe about the Tarnholt
-# company, derived on the host from the real session and the real save layer
-# before the ROM is built. The ROM includes the same expectations header this
-# test pins, so a console assertion is evidence rather than a recording: the
-# only way to change what the console checks is to change what the host derives.
-add_executable(grandleon_n64_campaign_expectation_tests
-    nintendo64/campaign_expectations_test.cpp
-)
-target_link_libraries(
-    grandleon_n64_campaign_expectation_tests
-    PRIVATE
-        grandleon::client_campaign
-        grandleon::game_content
-        grandleon::storage
-)
-target_include_directories(
-    grandleon_n64_campaign_expectation_tests
-    PRIVATE "${PROJECT_SOURCE_DIR}/games/tarnholt/autopilot"
-)
-target_compile_definitions(
-    grandleon_n64_campaign_expectation_tests
-    PRIVATE GRANDLEON_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
-)
-add_test(
-    NAME grandleon.n64_campaign_expectations
-    COMMAND grandleon_n64_campaign_expectation_tests
-)
-
-# Every board the shipped campaign fights, as the compiler builds it, so that
-# the browser's own build of the same six can be held to it. The four that were
-# never pinned are the ones carrying what the engine has grown since; the first
-# thing this caught was that the browser could not build the last Stage at all.
+# Every board the shipped campaign fights, as the compiler builds it, so every
+# authoring path can be held to the same six. The four that were never pinned
+# are the ones carrying what the engine has grown since.
 add_executable(grandleon_tarnholt_boards_tests
     game_content/tarnholt_boards_test.cpp
 )
@@ -422,6 +393,31 @@ add_test(
     COMMAND grandleon_emberbound_campaign_tests
 )
 
+# The candidate unified demo: a deliberately paced Medieval-versus-Sengoku
+# campaign whose same five battles are complete in solo and split evenly in
+# local co-op. It remains beside the shipped campaigns until playtesting says
+# it is ready to replace them.
+add_executable(grandleon_steel_and_cedar_campaign_tests
+    game_content/steel_and_cedar_campaign_test.cpp
+)
+target_link_libraries(
+    grandleon_steel_and_cedar_campaign_tests
+    PRIVATE
+        grandleon::game_content
+        grandleon::package_runtime
+        grandleon::simulation
+        grandleon::tactics
+        grandleon::view
+)
+target_compile_definitions(
+    grandleon_steel_and_cedar_campaign_tests
+    PRIVATE GRANDLEON_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
+)
+add_test(
+    NAME grandleon.steel_and_cedar_campaign
+    COMMAND grandleon_steel_and_cedar_campaign_tests
+)
+
 # The compact portal showcase used to review every art direction on one ROM:
 # seven distinct maps, all roles, both bodies, and one package that is a small
 # solo battle or a two-owner co-op battle depending on the main-menu choice.
@@ -442,88 +438,6 @@ target_compile_definitions(
 add_test(
     NAME grandleon.sevenfold_campaign
     COMMAND grandleon_sevenfold_campaign_tests
-)
-
-# What the Fordlight autopilot is allowed to believe about a blow, derived on
-# the host from the real engine and the real board before the ROM is built. The
-# ROM includes the same header this test pins, so a rule that moves a number
-# fails here -- in the ordinary gate, in a fraction of a second -- rather than in
-# a console run that nobody is required to make.
-add_executable(grandleon_n64_fordlight_expectation_tests
-    nintendo64/fordlight_expectations_test.cpp
-)
-target_link_libraries(
-    grandleon_n64_fordlight_expectation_tests
-    PRIVATE
-        grandleon::campaign_runtime
-        grandleon::game_content
-        grandleon::package_runtime
-        grandleon::simulation
-)
-target_include_directories(
-    grandleon_n64_fordlight_expectation_tests
-    PRIVATE "${PROJECT_SOURCE_DIR}/games/tarnholt/autopilot"
-)
-target_compile_definitions(
-    grandleon_n64_fordlight_expectation_tests
-    PRIVATE GRANDLEON_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
-)
-add_test(
-    NAME grandleon.n64_fordlight_expectations
-    COMMAND grandleon_n64_fordlight_expectation_tests
-)
-
-# Where the Nintendo 64's rows of text are allowed to land.
-#
-# libdragon does not clip: `graphics_draw_character` computes
-# `buffer + y * stride + x` and stores, comparing nothing against the surface.
-# A screen that walks a list of authored strings with no cap therefore writes
-# into the memory after the framebuffer, and the console cannot report it. So
-# the bands live in a header with no libdragon in it and are held to the frame
-# here, on a host, before a ROM is built.
-add_executable(grandleon_n64_screen_text_tests
-    nintendo64/screen_text_test.cpp
-)
-target_include_directories(
-    grandleon_n64_screen_text_tests
-    PRIVATE "${PROJECT_SOURCE_DIR}/platform/nintendo64/src"
-)
-target_compile_features(grandleon_n64_screen_text_tests PRIVATE cxx_std_17)
-add_test(
-    NAME grandleon.n64_screen_text
-    COMMAND grandleon_n64_screen_text_tests
-)
-
-# The words the two consoles refuse a command in, compared row by row.
-#
-# The shared client's header says its table "is the Nintendo 64's table because
-# a player who has seen one console's refusal should recognise the other's".
-# This is what makes that a checked claim rather than a hope: it compiles the
-# console's table and links the shared one, walks every refusal the engine
-# names, and fails on any disagreement that is not in its own written ledger,
-# and on any ledger row that has quietly been reconciled.
-add_executable(grandleon_n64_console_words_tests
-    nintendo64/console_words_test.cpp
-    "${PROJECT_SOURCE_DIR}/platform/client/src/turn_client.cpp"
-)
-target_link_libraries(
-    grandleon_n64_console_words_tests
-    PRIVATE
-        grandleon::client
-        grandleon::client_campaign
-        grandleon::package_format
-        grandleon::sheet
-        grandleon::simulation
-        grandleon::view
-)
-target_include_directories(
-    grandleon_n64_console_words_tests
-    PRIVATE "${PROJECT_SOURCE_DIR}/platform/nintendo64/src"
-)
-target_compile_features(grandleon_n64_console_words_tests PRIVATE cxx_std_17)
-add_test(
-    NAME grandleon.n64_console_words
-    COMMAND grandleon_n64_console_words_tests
 )
 
 # A company larger than the screen, walked to its last row.
@@ -561,7 +475,8 @@ add_test(
 )
 
 # A fixed formation should not be hidden behind a company screen that offers
-# no choice, while deployment, inventory and repair still need that screen.
+# no choice, including one already carrying its normal equipment; deployment,
+# shared inventory and repair still need that screen.
 # Both compact consoles call the helper this pins.
 add_executable(grandleon_client_company_direct_start_tests
     client/company_direct_start_test.cpp
@@ -576,6 +491,50 @@ target_compile_features(
 add_test(
     NAME grandleon.client_company_direct_start
     COMMAND grandleon_client_company_direct_start_tests
+)
+
+# The fixed-storage keyboard shared by Nintendo 64 and PlayStation, and the
+# real shared campaign presenter carrying its result into the portable rename
+# intent. The second target compiles the same TurnClient translation unit the
+# PlayStation executable does; the N64 consumes the same editor model directly.
+add_executable(grandleon_client_console_name_editor_tests
+    client/console_name_editor_test.cpp
+)
+target_link_libraries(
+    grandleon_client_console_name_editor_tests PRIVATE grandleon::client
+)
+target_compile_features(
+    grandleon_client_console_name_editor_tests PRIVATE cxx_std_17
+)
+add_test(
+    NAME grandleon.client_console_name_editor
+    COMMAND grandleon_client_console_name_editor_tests
+)
+
+add_executable(grandleon_client_console_name_entry_tests
+    client/console_name_entry_test.cpp
+    "${PROJECT_SOURCE_DIR}/platform/client/src/turn_client.cpp"
+)
+target_link_libraries(
+    grandleon_client_console_name_entry_tests
+    PRIVATE
+        grandleon::client
+        grandleon::client_campaign
+        grandleon::package_format
+        grandleon::sheet
+        grandleon::storage
+        grandleon::view
+)
+target_compile_definitions(
+    grandleon_client_console_name_entry_tests
+    PRIVATE GRANDLEON_TURN_CLIENT_CAMPAIGN
+)
+target_compile_features(
+    grandleon_client_console_name_entry_tests PRIVATE cxx_std_17
+)
+add_test(
+    NAME grandleon.client_console_name_entry
+    COMMAND grandleon_client_console_name_entry_tests
 )
 
 # The Stage picker as a console offers it, driven by a thumb.
@@ -829,6 +788,38 @@ add_test(
     COMMAND grandleon_client_story_paging_tests
 )
 
+# The language row shared by the compact console client, driven all the way
+# through a package-backed Portuguese title, story and content names. This
+# compiles the same campaign TurnClient translation unit the PlayStation uses;
+# the Nintendo 64 consumes the same interface vocabulary and portable lookups.
+add_executable(grandleon_client_console_localization_tests
+    client/console_localization_test.cpp
+    "${PROJECT_SOURCE_DIR}/platform/client/src/turn_client.cpp"
+)
+target_link_libraries(
+    grandleon_client_console_localization_tests
+    PRIVATE
+        grandleon::client
+        grandleon::client_campaign
+        grandleon::game_content
+        grandleon::package_format
+        grandleon::package_runtime
+        grandleon::sheet
+        grandleon::storage
+        grandleon::view
+)
+target_compile_definitions(
+    grandleon_client_console_localization_tests
+    PRIVATE GRANDLEON_TURN_CLIENT_CAMPAIGN
+)
+target_compile_features(
+    grandleon_client_console_localization_tests PRIVATE cxx_std_17
+)
+add_test(
+    NAME grandleon.client_console_localization
+    COMMAND grandleon_client_console_localization_tests
+)
+
 # Named slots of opaque bytes. One contract, run against the in-memory device,
 # the desktop directory and the cartridge directory, because a promise only one
 # adapter keeps is not a contract. The third is the one a console supplies bytes
@@ -888,8 +879,7 @@ add_test(
 # The board's presentation model: the camera, the elevation-offset
 # projection, the autotile lookup and the depth-ordered draw list every
 # renderer shares. Pure arithmetic, so the whole of it is checked here rather
-# than three times over inside three renderers that need a console, a window
-# or a browser to say anything.
+# inside renderers that need a console or window to say anything.
 add_executable(grandleon_view_camera_tests
     view/camera_test.cpp
 )
@@ -931,6 +921,36 @@ target_include_directories(
 )
 add_test(NAME grandleon.view COMMAND grandleon_view_tests)
 
+# Exact authored 2x2 landmarks remain presentation-only mountain overlays on
+# the compact consoles. The primitive geometry is shared and pure, so its
+# identity selection, quadrants and cell bounds are pinned on the host.
+add_executable(grandleon_view_landmark_tests
+    view/landmark_test.cpp
+)
+target_link_libraries(grandleon_view_landmark_tests PRIVATE grandleon::view)
+add_test(NAME grandleon.view_landmark COMMAND grandleon_view_landmark_tests)
+
+# Compact-console terrain composition is shared arithmetic: material seams,
+# cluster details, elevation lips and terrain-specific close scenery. The
+# renderers consume this exact paint list, so bounds and the clear cell centre
+# are pinned before either console turns the rectangles into GPU primitives.
+add_executable(grandleon_view_terrain_composition_tests
+    view/terrain_composition_test.cpp
+)
+target_link_libraries(
+    grandleon_view_terrain_composition_tests PRIVATE grandleon::view
+)
+add_test(
+    NAME grandleon.view_terrain_composition
+    COMMAND grandleon_view_terrain_composition_tests
+)
+
+add_executable(grandleon_view_console_ui_tests
+    view/console_ui_test.cpp
+)
+target_link_libraries(grandleon_view_console_ui_tests PRIVATE grandleon::view)
+add_test(NAME grandleon.view_console_ui COMMAND grandleon_view_console_ui_tests)
+
 # The same model in time: frames per tile, the route a slide is drawn along,
 # the cursor's pulse phase and the flinch. Pinned here for the same reason the
 # projection is: four renderers animate, and a slide that ends a pixel short
@@ -951,6 +971,10 @@ add_executable(grandleon_view_glyph_tests
 )
 target_link_libraries(grandleon_view_glyph_tests PRIVATE grandleon::view)
 add_test(NAME grandleon.view_glyphs COMMAND grandleon_view_glyph_tests)
+
+add_executable(grandleon_console_text_tests view/console_text_test.cpp)
+target_link_libraries(grandleon_console_text_tests PRIVATE grandleon::view)
+add_test(NAME grandleon.console_text COMMAND grandleon_console_text_tests)
 
 # The full information sheet every client draws and none of them composes.
 # Pinned line for line here, against a snapshot built by hand, because a sheet
@@ -1018,25 +1042,6 @@ target_link_libraries(
 )
 add_test(NAME grandleon.tactics COMMAND grandleon_tactics_tests)
 
-# The WebAssembly binding surface, compiled for the host and driven through
-# the same exported functions the browser calls.
-add_executable(grandleon_abi_tests
-    abi/simulation_abi_test.cpp
-    "${PROJECT_SOURCE_DIR}/platform/web/src/simulation_abi.cpp"
-)
-target_link_libraries(
-    grandleon_abi_tests
-    PRIVATE
-        grandleon::simulation
-        grandleon::tactics
-        grandleon::core
-        grandleon::package_runtime
-        grandleon::client_campaign
-        grandleon::storage
-        grandleon::game_content
-)
-add_test(NAME grandleon.abi COMMAND grandleon_abi_tests)
-
 add_executable(grandleon_package_format_tests
     package_format/package_test.cpp
 )
@@ -1090,6 +1095,18 @@ target_link_libraries(
 add_test(
     NAME grandleon.manifest
     COMMAND grandleon_manifest_tests
+)
+
+add_executable(grandleon_localization_tests
+    package_runtime/localization_test.cpp
+)
+target_link_libraries(
+    grandleon_localization_tests
+    PRIVATE grandleon::package_runtime grandleon::game_content
+)
+add_test(
+    NAME grandleon.localization
+    COMMAND grandleon_localization_tests
 )
 
 # The package's presentation section: written by the compiler, read back by the
@@ -1246,20 +1263,9 @@ add_test(
         -P "${CMAKE_CURRENT_BINARY_DIR}/game_demo_test.cmake"
 )
 
-# The Nintendo 64 conformance run needs a container runtime and builds a
-# libdragon toolchain and ares from source on first use, which takes
-# tens of minutes. It is therefore opt-in rather than part of the default gate;
-# `cmake --build build --target grandleon_n64_check` does the same thing without
-# reconfiguring.
-#
-# Opt-in is the right default and stays: a contributor with no container runtime
-# would otherwise get failures that say nothing about their change, and an hour
-# of emulator compilation before they got them. What was wrong was that it was
-# silent. A default `ctest -R nintendo64` printed "No tests were found!!!" and
-# exited 0, which reads exactly like a console gate that ran and passed. Two
-# things fix that: `scripts/local-ci.sh` passes `--no-tests=error`, so a filter
-# matching nothing is a failure, and the configure says out loud which lanes it
-# left out.
+# The accurate-emulator Nintendo 64 gate is opt-in because its pinned
+# toolchain and ares image are substantial. One lane builds and boots both the
+# demo and Steel and Cedar through the same generic export used by creators.
 if(GRANDLEON_N64_TESTS)
     configure_file(
         cmake/nintendo64_test.cmake.in
@@ -1273,260 +1279,30 @@ if(GRANDLEON_N64_TESTS)
             -P "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_test.cmake"
     )
     set_tests_properties(grandleon.nintendo64 PROPERTIES TIMEOUT 3600)
-
-    configure_file(
-        cmake/nintendo64_probe_test.cmake.in
-        "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_probe_test.cmake"
-        @ONLY
-    )
-    add_test(
-        NAME grandleon.nintendo64_play
-        COMMAND
-            "${CMAKE_COMMAND}"
-            -P "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_probe_test.cmake"
-    )
-    set_tests_properties(
-        grandleon.nintendo64_play PROPERTIES TIMEOUT 3600
-    )
-
-    configure_file(
-        cmake/nintendo64_autopilot_test.cmake.in
-        "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_autopilot_test.cmake"
-        @ONLY
-    )
-    add_test(
-        NAME grandleon.nintendo64_autopilot
-        COMMAND
-            "${CMAKE_COMMAND}"
-            -P "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_autopilot_test.cmake"
-    )
-    set_tests_properties(
-        grandleon.nintendo64_autopilot PROPERTIES TIMEOUT 3600
-    )
-
-    configure_file(
-        cmake/nintendo64_coop_test.cmake.in
-        "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_coop_test.cmake"
-        @ONLY
-    )
-    add_test(
-        NAME grandleon.nintendo64_coop
-        COMMAND
-            "${CMAKE_COMMAND}"
-            -P "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_coop_test.cmake"
-    )
-    set_tests_properties(
-        grandleon.nintendo64_coop PROPERTIES TIMEOUT 3600
-    )
-
-    configure_file(
-        cmake/nintendo64_campaign_test.cmake.in
-        "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_campaign_test.cmake"
-        @ONLY
-    )
-    add_test(
-        NAME grandleon.nintendo64_campaign
-        COMMAND
-            "${CMAKE_COMMAND}"
-            -P "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_campaign_test.cmake"
-    )
-    set_tests_properties(
-        grandleon.nintendo64_campaign PROPERTIES TIMEOUT 3600
-    )
-
-    # The two lanes the editor's export path owes.
-    #
-    # The first says the ROM an author downloads is the ROM this repository
-    # checks. On this route that is nearly a tautology, because the export
-    # path runs the same build script the gate runs. So the lane is deliberately
-    # shaped to check the parts that are not: that the path really reaches the
-    # toolchain, and that the toolchain is deterministic. It builds a different
-    # game through the export path first, so a stale tree or a cached answer
-    # fails on the bytes rather than passing by accident.
-    #
-    # A shell script rather than a `cmake -P` one, because the reference build
-    # runs beside the export path's two rather than before them and CMake's
-    # script mode runs one process at a time. The lane's header says which of
-    # its builds are ordered against each other and why the third is not.
-    configure_file(
-        cmake/nintendo64_editor_rom_test.sh.in
-        "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_editor_rom_test.sh"
-        @ONLY
-    )
-    add_test(
-        NAME grandleon.nintendo64_editor_rom
-        COMMAND
-            bash "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_editor_rom_test.sh"
-    )
-    set_tests_properties(
-        grandleon.nintendo64_editor_rom PROPERTIES TIMEOUT 3600
-    )
-
-    # The second boots a ROM built for a *different* game and requires the
-    # machine to say which game it is running. Host checks structurally cannot
-    # make that claim: a template that patches cleanly and runs the wrong game
-    # satisfies every one of them, byte identity included, so this lane is a
-    # boot rather than a comparison.
-    configure_file(
-        cmake/nintendo64_other_game_test.cmake.in
-        "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_other_game_test.cmake"
-        @ONLY
-    )
-    add_test(
-        NAME grandleon.nintendo64_other_game
-        COMMAND
-            "${CMAKE_COMMAND}"
-            -P "${CMAKE_CURRENT_BINARY_DIR}/nintendo64_other_game_test.cmake"
-    )
-    set_tests_properties(
-        grandleon.nintendo64_other_game PROPERTIES TIMEOUT 3600
-    )
 else()
     message(
         STATUS
-        "ctest holds no Nintendo 64 lane: -DGRANDLEON_N64_TESTS=ON adds seven, "
-        "or scripts/local-ci.sh --n64 runs every check without reconfiguring"
+        "ctest holds no Nintendo 64 lane: -DGRANDLEON_N64_TESTS=ON adds the "
+        "generic demo + Steel Pyrite export gate"
     )
 endif()
 
-# The PlayStation entry gate, gated separately for the same reasons: its own
-# toolchain image, its own emulator, and no reason to make a contributor
-# working on one console build another's container.
+# The PlayStation lane builds two ordinary projects through the same Mipsync
+# source-to-disc path as the installed creator and boots both generated discs.
 if(GRANDLEON_PLAYSTATION_TESTS)
-    configure_file(
-        cmake/playstation_test.cmake.in
-        "${CMAKE_CURRENT_BINARY_DIR}/playstation_test.cmake"
-        @ONLY
-    )
     add_test(
         NAME grandleon.playstation
         COMMAND
-            "${CMAKE_COMMAND}"
-            -P "${CMAKE_CURRENT_BINARY_DIR}/playstation_test.cmake"
+            "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/scripts/check-projects.sh"
     )
-    set_tests_properties(grandleon.playstation PROPERTIES TIMEOUT 3600)
-
-    # The same board, played. A third test rather than a flag on the second
-    # because its subject is not one picture but a session: the transcript the
-    # rules say a controller script adds up to, and the pixels the console drew
-    # at every point it settled. Its expectations are derived on the host before
-    # the executable is built, which is why it has a step the other two do not.
-    configure_file(
-        cmake/playstation_turn_test.cmake.in
-        "${CMAKE_CURRENT_BINARY_DIR}/playstation_turn_test.cmake"
-        @ONLY
-    )
-    add_test(
-        NAME grandleon.playstation_turn
-        COMMAND
-            "${CMAKE_COMMAND}"
-            -P "${CMAKE_CURRENT_BINARY_DIR}/playstation_turn_test.cmake"
-    )
-    set_tests_properties(grandleon.playstation_turn PROPERTIES TIMEOUT 3600)
-
-    # The save path, against a memory card, across three emulator processes.
-    # A fourth test rather than a flag on any of the others because it is the
-    # only one whose subject outlives a run: what it proves is that bytes on a
-    # card were still there when a different process came looking.
-    configure_file(
-        cmake/playstation_card_test.cmake.in
-        "${CMAKE_CURRENT_BINARY_DIR}/playstation_card_test.cmake"
-        @ONLY
-    )
-    add_test(
-        NAME grandleon.playstation_card
-        COMMAND
-            "${CMAKE_COMMAND}"
-            -P "${CMAKE_CURRENT_BINARY_DIR}/playstation_card_test.cmake"
-    )
-    set_tests_properties(grandleon.playstation_card PROPERTIES TIMEOUT 3600)
-
-    # Both shipped campaigns, played end to end and then picked up again in a
-    # second process over the same card. A fifth test because its subject is
-    # neither one picture nor one battle but a whole game: every screen the
-    # campaign half composes, placed on this display, against a transcript
-    # derived on the host before the executable existed.
-    configure_file(
-        cmake/playstation_campaign_test.cmake.in
-        "${CMAKE_CURRENT_BINARY_DIR}/playstation_campaign_test.cmake"
-        @ONLY
-    )
-    add_test(
-        NAME grandleon.playstation_campaign
-        COMMAND
-            "${CMAKE_COMMAND}"
-            -P "${CMAKE_CURRENT_BINARY_DIR}/playstation_campaign_test.cmake"
-    )
-    set_tests_properties(
-        grandleon.playstation_campaign PROPERTIES TIMEOUT 7200
-    )
-
-    # The disc, booted the way a console boots one. A sixth test because it is
-    # the only one whose subject is the path in front of the executable: every
-    # other run here injects the image straight into RAM with `-loadexe`, and
-    # this one makes the BIOS shell read SYSTEM.CNF off an ISO 9660 filesystem
-    # and load MAIN.EXE sector by sector. What comes out is compared against the
-    # same host derivation the injected campaign is compared against.
-    configure_file(
-        cmake/playstation_disc_test.cmake.in
-        "${CMAKE_CURRENT_BINARY_DIR}/playstation_disc_test.cmake"
-        @ONLY
-    )
-    add_test(
-        NAME grandleon.playstation_disc
-        COMMAND
-            "${CMAKE_COMMAND}"
-            -P "${CMAKE_CURRENT_BINARY_DIR}/playstation_disc_test.cmake"
-    )
-    set_tests_properties(grandleon.playstation_disc PROPERTIES TIMEOUT 7200)
-
-    # A disc of a game this repository does not ship, built through the path an
-    # author's project actually takes and booted the way a console boots one.
-    #
-    # A seventh test because it is the only one whose subject is *whose game*
-    # the image is. Every other run here is one of the two shipped campaigns,
-    # and every decision that makes an image a particular game — the package it
-    # carries, the campaign it asks that package for, the slot the card keeps
-    # it in — is made at build time, so a build that quietly kept naming
-    # Tarnholt would pass all six.
-    configure_file(
-        cmake/playstation_other_game_test.cmake.in
-        "${CMAKE_CURRENT_BINARY_DIR}/playstation_other_game_test.cmake"
-        @ONLY
-    )
-    add_test(
-        NAME grandleon.playstation_other_game
-        COMMAND
-            "${CMAKE_COMMAND}"
-            -P "${CMAKE_CURRENT_BINARY_DIR}/playstation_other_game_test.cmake"
-    )
-    set_tests_properties(
-        grandleon.playstation_other_game PROPERTIES TIMEOUT 7200
-    )
+    set_tests_properties(grandleon.playstation PROPERTIES TIMEOUT 7200)
 else()
     message(
         STATUS
         "ctest holds no PlayStation lane: -DGRANDLEON_PLAYSTATION_TESTS=ON "
-        "adds seven, or scripts/local-ci.sh --playstation runs the checks "
-        "without reconfiguring"
+        "adds the demo + Steel Mipsync export gate"
     )
 endif()
-
-# The PlayStation turn probe's own memory safety.
-#
-# It sits here rather than in the PlayStation lane below on purpose: the probe
-# is a single host translation unit that links nothing from this repository, so
-# checking it needs a C compiler and nothing else: no container, no emulator,
-# no ROM. Behind the console flag it would be checked only by whoever
-# remembered to raise the flag, and the input it parses is an emulator's stdout.
-find_program(GRANDLEON_BASH_EXECUTABLE bash REQUIRED)
-add_test(
-    NAME grandleon.playstation_turn_probe
-    COMMAND
-        "${GRANDLEON_BASH_EXECUTABLE}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/playstation/turn_probe_test.sh"
-        "${PROJECT_SOURCE_DIR}/platform/playstation/harness/playstation_turn_probe.c"
-)
 
 find_program(GRANDLEON_NODE_EXECUTABLE node REQUIRED)
 add_test(
@@ -1536,24 +1312,46 @@ add_test(
         "${PROJECT_SOURCE_DIR}/tools/source_schema/test.mjs"
 )
 
-find_program(GRANDLEON_NPM_EXECUTABLE npm REQUIRED)
-add_test(
-    NAME grandleon.editor
-    COMMAND
-        "${GRANDLEON_NPM_EXECUTABLE}"
-        run --prefix "${PROJECT_SOURCE_DIR}/editor" build
+# The directional bank is a file format shared by two consoles but decoded
+# before either renderer is involved.  Its focused host check proves the
+# byte-level contract, including corruption refusal and exact missing-record
+# fallback, without requiring either cross compiler.
+find_program(GRANDLEON_PYTHON_EXECUTABLE python3 REQUIRED)
+add_executable(grandleon_ps1_text_paging_tests
+    "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/tests/text_paging_test.cpp"
+)
+target_link_libraries(grandleon_ps1_text_paging_tests PRIVATE grandleon::view)
+target_include_directories(grandleon_ps1_text_paging_tests PRIVATE
+    "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/runtime"
+)
+add_test(NAME grandleon.ps1_text_paging
+    COMMAND "${GRANDLEON_PYTHON_EXECUTABLE}"
+        "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/tests/text_paging_test.py"
+        --binary "$<TARGET_FILE:grandleon_ps1_text_paging_tests>"
+)
+add_executable(grandleon_ps1_font_tests
+    "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/tests/ps1_font_test.cpp"
+)
+target_link_libraries(grandleon_ps1_font_tests PRIVATE grandleon::view)
+target_include_directories(grandleon_ps1_font_tests PRIVATE
+    "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/runtime"
+)
+add_test(NAME grandleon.ps1_font COMMAND grandleon_ps1_font_tests)
+add_test(NAME grandleon.ps1_structured_dialogue
+    COMMAND "${GRANDLEON_PYTHON_EXECUTABLE}"
+        "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/tests/structured_dialogue_test.py"
+        --compiler "${CMAKE_CXX_COMPILER}"
 )
 add_test(
-    NAME grandleon.editor_deployment
-    COMMAND
-        "${GRANDLEON_NPM_EXECUTABLE}"
-        run --prefix "${PROJECT_SOURCE_DIR}/editor" test:deployment
+    NAME grandleon.console_audio
+    COMMAND "${GRANDLEON_PYTHON_EXECUTABLE}"
+        "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/tests/audio_encoder_test.py"
 )
 add_test(
-    NAME grandleon.editor_offline
+    NAME grandleon.console_directional_bank
     COMMAND
-        "${GRANDLEON_NPM_EXECUTABLE}"
-        run --prefix "${PROJECT_SOURCE_DIR}/editor" test:offline
+        "${GRANDLEON_PYTHON_EXECUTABLE}"
+        "${PROJECT_SOURCE_DIR}/platform/console_art/check-directional-bank.py"
 )
 
 # The warning standard, applied to every test executable this file defines.

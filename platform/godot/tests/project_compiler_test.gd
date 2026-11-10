@@ -10,7 +10,7 @@ func _init() -> void:
 		_fail("GrandleonProjectCompiler is not registered")
 		quit(1)
 		return
-	_expect("canonical schema", compiler.supported_schema(), "1.3.0")
+	_expect("canonical schema", compiler.supported_schema(), "1.4.0")
 
 	var malformed: Dictionary = compiler.compile_source_json("{")
 	_expect("malformed source refused", malformed.ok, false)
@@ -444,6 +444,14 @@ func _init() -> void:
 					var renamed_data: Dictionary = JSON.parse_string(renamed_member.source)
 					_expect("campaign character name changes", renamed_data.campaigns[0].roster[-1].name, "Editor Captain")
 					_expect("campaign character edit remains playable", compiler.compile_source_json(renamed_member.source).ok, true)
+					var nameable_member: Dictionary = compiler.set_campaign_member_player_nameable(
+						renamed_member.source, campaign_id, "editor_hero", true
+					)
+					_expect("campaign character name choice succeeds", nameable_member.ok, true)
+					if nameable_member.ok:
+						var nameable_data: Dictionary = JSON.parse_string(nameable_member.source)
+						_expect("name choice is portable campaign data", bool(nameable_data.campaigns[0].roster[-1].playerNameable), true)
+						_expect("name choice keeps the authored default", nameable_data.campaigns[0].roster[-1].name, "Editor Captain")
 					var modified_member: Dictionary = compiler.set_campaign_member_modifier(
 						renamed_member.source, campaign_id, "editor_hero", "health", 2
 					)

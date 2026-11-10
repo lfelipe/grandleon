@@ -21,7 +21,7 @@
 // whole `SlotStorage` contract against an abstract region of bytes: the names,
 // the budget, the ordering, the refusals. A platform supplies the region.
 // What the Nintendo 64 adds is forty lines that move bytes between RDRAM and
-// the cartridge bus (`platform/nintendo64/src/sram_window.h`), and it adds
+// the cartridge bus (the Nintendo 64 player's `CartridgeStorage.hpp`), and it adds
 // nothing about what a slot is.
 //
 // The split is what lets the console device be tested on a host. The contract

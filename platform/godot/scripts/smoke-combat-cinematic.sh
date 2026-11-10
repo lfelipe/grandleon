@@ -50,11 +50,17 @@ run_godot() {
         "$@"
 }
 
-run_godot timeout 60s "${godot_binary}" --editor --headless --quiet \
-    --path "${stage_dir}" --quit
+run_godot timeout 60s "${godot_binary}" --headless --quiet --import \
+    --path "${stage_dir}"
 run_godot timeout 60s "${godot_binary}" --headless --path "${stage_dir}" \
     --script "${repo_root}/platform/godot/tests/combat_presentation_plan_test.gd"
 run_godot timeout 60s "${godot_binary}" --headless --path "${stage_dir}" \
+    --script "${repo_root}/platform/godot/tests/attack_targeting_test.gd"
+# Loading the production layered backdrop pack and the real 3D board is the
+# expensive part of this visual test under software rendering. Keep a strict
+# bound, but leave enough headroom for a cold import of the reviewed 1280x720
+# panorama packs on slower CI workers.
+run_godot timeout 180s "${godot_binary}" --headless --path "${stage_dir}" \
     --script "${repo_root}/platform/godot/tests/combat_cinematic_test.gd"
 
 runner=("${godot_binary}")
@@ -68,7 +74,7 @@ fi
 
 set +e
 output="$({
-    run_godot timeout 90s "${runner[@]}" --path "${stage_dir}" -- \
+    run_godot timeout 180s "${runner[@]}" --path "${stage_dir}" -- \
         --package=res://game.gpk \
         --campaign=emberbound \
         --players=2 \

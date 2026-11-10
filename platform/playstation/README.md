@@ -1,83 +1,66 @@
 # PlayStation
 
-Grandleon can turn a portable campaign into a PlayStation BIN/CUE image. It
-runs the same campaign and combat rules as Godot and Nintendo 64, with pad
-input, memory-card saves, and a 320×240 console presentation.
+Grandleon can export a game as a PlayStation BIN/CUE image. It uses the same
+campaign, combat rules, localization, and saves as the Godot player and the
+Nintendo 64 version. The PlayStation presentation runs at 320×240 through the
+project's single Mipsync-based renderer.
 
-## Build a playable disc
+The disc targets a stable 30 fps presentation while polling controllers and
+updating tactical rules at 60 Hz. The larger render budget is used for shaped
+terrain, native scenery, clearer characters, and the close-combat view.
 
-```sh
-cmake -S . -B build -DGRANDLEON_BUILD_TESTS=ON
-cmake --build build --target grandleon_playstation_disc
-```
+## Export and play
 
-Keep `build-playstation/disc/grandleon.bin` and `grandleon.cue` together, then
-open the `.cue` in PCSX-Redux, another compatible emulator, or a compatible
-FPGA system.
+Open **Finish & Export** in the Grandleon creator and choose **PlayStation**.
+The optional PlayStation builder must be installed first; once installed, it
+works offline. Export creates `game.bin` and `game.cue`.
 
-The image deliberately contains no Sony licence sector. It therefore does not
-boot on an unmodified retail PlayStation.
+Keep both files in the same directory and open `game.cue` in a compatible
+emulator or FPGA system. The image intentionally has no Sony licence sector,
+so it does not boot on an unmodified retail PlayStation.
 
-The title screen offers only the player counts supported by the campaign, plus
-**Help**. A new one-player campaign goes straight to its save choice and first
-playable stage; fixed formations do not open a roster or deployment screen.
-Two-player mode waits for a second pad rather than silently changing the choice.
+The campaign decides whether **New Game** starts one player, two players, or
+offers a choice. A fixed one-player or two-player campaign starts directly;
+only a campaign authored with a choice shows the player-count screen. Ready
+formations go straight to the battle, while an authored deployment area opens
+the board deployment step.
 
 ## Controls
 
-- D-pad: move the active cursor or menu selection.
-- X: confirm, select a unit, or choose a destination.
-- O: cancel or go back.
-- Triangle: open the selected unit's action menu.
-- Start: open the battle menu.
+- D-pad: move the cursor or menu selection.
+- Cross: confirm, select a character, or choose a destination.
+- Circle: cancel or go back.
+- Triangle: open the selected character's action menu.
+- Start: open the battle menu or begin an authored deployment.
 
-In two-player mode, each pad has its own cursor and menu state. Authored unit
-ownership decides which characters each player commands.
+Each controller has its own cursor in two-player play, and each character can
+only be commanded by its authored owner. **Settings** can change language,
+close combat, reduced motion, and the FPS display while the game is running.
+FPS begins off.
 
-## Graphics
+If an author lets players name a character, the game shows a controller
+keyboard when that character joins. Use the D-pad and Cross to type, Circle to
+erase, Start to save, or Triangle to keep the current name.
 
-There is one PlayStation renderer. It draws project-specific, team-coloured
-character cutouts generated from the curated Godot roster over textured
-tactical terrain. Attacks can switch to a closer terrain backdrop, then return
-to the same board state. The campaign contains no alternate graphics mode.
+## What is included
 
-The playable campaign executable is what release testing and disc boot testing
-exercise. It is not paired with a separate renderer demo.
+Every exported disc contains project-specific stages, team-coloured character
+art, textured tactical terrain, campaign flow, memory-card saves, localized
+text, conversations, deployment, reinforcements, objectives, tactical actions,
+and the optional close-combat view. Large maps scroll in both directions, and
+authored hidden areas reveal when a character enters them.
 
-## Build another campaign
+There is no alternate or fallback PlayStation renderer. An export fails with a
+clear error if the Mipsync build cannot be produced or exceeds the PlayStation
+memory budgets.
 
-```sh
-cmake --build build --target grandleon_playstation_sevenfold_disc
-```
+## Contributor checks
 
-That review build is written to
-`build-playstation-sevenfold/disc/sevenfold-ps1.bin` and `.cue`, with the Stage
-picker enabled. For another project, pass its source to
-`platform/playstation/scripts/build-playstation.sh` and run `build-disc.sh`
-against the same `GRANDLEON_PLAYSTATION_BUILD_DIR`.
+The exact project exporter and emulator launch checks live in
+[`mipsync`](mipsync/README.md). They build both a direct-entry one-player game
+and the full five-stage one/two-player Steel and Cedar campaign, then boot the
+generated discs through the pinned emulator.
 
-The project is compiled and embedded during the build. Its authored art style,
-body, archetype, and faction colours select drawings from the same curated art
-source used by Godot.
-
-## Verify the target
-
-The PlayStation checks exercise the playable executable rather than a separate
-graphics harness:
-
-```sh
-cmake --build build --target grandleon_playstation_check
-cmake --build build --target grandleon_playstation_turn_check
-cmake --build build --target grandleon_playstation_card_check
-cmake --build build --target grandleon_playstation_campaign_check
-cmake --build build --target grandleon_playstation_disc_check
-```
-
-Together they cover engine conformance, controller play and framebuffer output,
-memory cards, complete campaign routes, and BIOS disc loading. The first run
-also builds the pinned toolchain and emulator images, so it takes several
-minutes.
-
-See [Playing on Nintendo 64 and PlayStation](../../docs/CONSOLE_RENDERER.md) for
-export limits and release expectations. Contributor setup is in
-[Setting up](../../docs/SETUP.md).
+For the portable console limits and current 0.5 parity work, see
+[Playing on Nintendo 64 and PlayStation](../../docs/CONSOLE_RENDERER.md).
+Contributor setup is in [Setting up](../../docs/SETUP.md).

@@ -38,5 +38,17 @@ static func faces_canvas_right(direction: Vector2, current: bool) -> bool:
 	return horizontal > 0.0
 
 
+static func cardinal_canvas(direction: Vector2, current := "") -> String:
+	if direction.length_squared() <= DIRECTION_EPSILON:
+		return current
+	if absf(direction.x) >= absf(direction.y):
+		return "east" if direction.x >= 0.0 else "west"
+	return "south" if direction.y >= 0.0 else "north"
+
+
+static func cardinal_world(direction: Vector3, current := "") -> String:
+	return cardinal_canvas(Vector2(direction.x, direction.z), current)
+
+
 static func pivot_for_flip(pivot: Vector2, flipped: bool) -> Vector2:
 	return Vector2(1.0 - pivot.x, pivot.y) if flipped else pivot

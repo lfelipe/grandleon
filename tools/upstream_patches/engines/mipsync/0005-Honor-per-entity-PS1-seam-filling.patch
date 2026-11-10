@@ -1,0 +1,52 @@
+From 16a924d0568944843333392f5d10077a99547893 Mon Sep 17 00:00:00 2001
+From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
+Date: Mon, 9 Nov 2026 11:43:40 -0800
+Subject: [PATCH 05/10] Honor per-entity PS1 seam filling
+
+
+diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c
+index 1f99ad579f0d9e2e4fa57e18ab0d6b6a4f3c4128..cf417be142c3c98602eb0f8715e793be55de44c3 100644
+--- a/templates/ps1/starter/runtime/render.c
++++ b/templates/ps1/starter/runtime/render.c
+@@ -2291,7 +2291,8 @@ static int __attribute__((noinline)) draw_cached_flat_quad(
+         opaque_fog_solid = 1;
+     }
+ 
+-    if (!authored_floor_face(ctx->ent, &ctx->mesh->tris[triangle_index]))
++    if (ctx->ent->seam_fill ||
++        !authored_floor_face(ctx->ent, &ctx->mesh->tris[triangle_index]))
+         SEAM_FILL_EXPAND4(x[0], y[0], x[1], y[1], x[2], y[2], x[3], y[3]);
+     avsz = (z[0] + z[1] + z[2] + z[3]) / 16;
+     otz = mesh_triangle_otz_fine(avsz);
+@@ -2596,7 +2597,8 @@ static int draw_cached_flat_mesh(char** pri, const char* packet_end, uint32_t* o
+             triangle_outside_screen(x0, y0, x1, y1, x2, y2))
+             continue;
+ 
+-        if (ent->vertex_anim_frame_count == 0 && !authored_floor_face(ent, face))
++        if (ent->vertex_anim_frame_count == 0 &&
++            (ent->seam_fill || !authored_floor_face(ent, face)))
+             SEAM_FILL_EXPAND(x0, y0, x1, y1, x2, y2);
+ 
+         avsz = (z0 + z1 + z2) / 12;
+@@ -4652,7 +4654,7 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p
+                                 continue;
+                             /* Floor boundaries use shared projection and
+                              * clipping, not per-triangle geometry inflation. */
+-                            if (!authored_floor)
++                            if (ent->seam_fill || !authored_floor)
+                                 SEAM_FILL_EXPAND(x0, y0, x1, y1, x2, y2);
+ 
+                             /* Large front AND rear surfaces use the same
+@@ -4872,7 +4874,8 @@ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const p
+                         continue;
+                 }
+                 if (!is_viewmodel && !rigid_frame &&
+-                    ent->vertex_anim_frame_count == 0 && !authored_floor_face(ent, t)) {
++                    ent->vertex_anim_frame_count == 0 &&
++                    (ent->seam_fill || !authored_floor_face(ent, t))) {
+                     /* UV-repeat subdivision can leave adjacent exported
+                      * vertices one fixed-point unit apart. At PS1 projection
+                      * precision that becomes a dotted one-pixel background
+-- 
+2.53.0
+

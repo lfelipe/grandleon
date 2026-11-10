@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 // The session that plays a campaign the player keeps.
@@ -134,8 +135,8 @@ struct RosterEntry final {
     // placement fielding them carries. The same key on every board they appear
     // on, which is precisely why the roster is joined to a board through it.
     std::uint64_t placement_source_key{};
-    // What the author called them. A narrator says this and never derives a
-    // name from a unit type.
+    // The effective name a narrator says: the authored name unless an eligible
+    // member has a saved player name.
     std::string name;
     campaign::DefinitionRef unit_type{};
     campaign::Availability availability{campaign::Availability::unrecruited};
@@ -146,6 +147,11 @@ struct RosterEntry final {
     // narrator showing it is showing what a player is about to fight with. Read
     // out of the state and never derived.
     std::vector<campaign::InventoryStack> carried;
+    // The immutable authored default, kept separately so a localized front end
+    // can present/reset it without translating a player-supplied literal.
+    std::string authored_name;
+    bool player_nameable{false};
+    bool has_player_name{false};
 };
 
 // Why a named slot did not become a campaign.
@@ -199,6 +205,23 @@ struct SlotFailure final {
     }
     return nullptr;
 }
+
+// Replaces explicit campaign-member tokens in player-facing authored text.
+//
+// The portable spelling is `{{member:source_member_id}}`, where the id is the
+// same source key the campaign roster authors. The key is hashed through the
+// normal stable-content identity and matched to `placement_source_key`; no
+// display-name comparison or unit-type guess is made. An unknown member, an
+// empty key, a malformed/unclosed token, or an empty effective name remains
+// byte-for-byte visible so a content mistake cannot silently eat prose.
+//
+// Callers localize authored text and authored default names before calling
+// this. Player-supplied names already in `RosterEntry::name` are literals and
+// must never be sent through a translation lookup.
+[[nodiscard]] std::string substitute_campaign_member_names(
+    std::string_view authored_text,
+    const std::vector<RosterEntry>& roster
+);
 
 // One Stage of a campaign, as a picker offers it.
 //
@@ -456,10 +479,11 @@ struct CompanyManagement final {
 
 // Whether a fixed formation is genuinely ready to enter its board without a
 // management screen. This is a presentation decision, but it must be the same
-// decision on every compact console: an empty store alone is not enough when a
-// member still carries something they could return to it, and an empty or
-// refused company must never be waved through merely because it has no
-// deployment rule.
+// decision on every compact console: an equipped fixed formation is already
+// playable, while a shared store, deployment choice, empty company or refusal
+// still needs the screen that can answer it. A carried weapon is not itself a
+// pre-battle decision; making players unequip it merely to prove that would put
+// inventory bookkeeping between the launch menu and the first board.
 [[nodiscard]] inline bool company_can_start_directly(
     const CompanyManagement& company
 ) noexcept {
@@ -468,9 +492,6 @@ struct CompanyManagement final {
         !company.store.empty() ||
         company.refused != campaign_runtime::RosterError::none) {
         return false;
-    }
-    for (const RosterEntry& member : company.roster) {
-        if (!member.carried.empty()) return false;
     }
     return true;
 }
@@ -501,6 +522,9 @@ enum class ManagementVerb : std::uint8_t {
     // this screen is where a board the roster refuses sends the player, and it
     // is the only way off a Stage a jump landed on and cannot open.
     jump,
+    // Replace an eligible member's authored default with `name`. The authored
+    // name remains content and this writes only optional campaign state.
+    rename,
     // Leave. Nothing is lost: every gesture was committed and saved when it was
     // made.
     quit,
@@ -513,6 +537,60 @@ struct ManagementIntent final {
     // Which Stage a `jump` is for, as the campaign node identity the session
     // published. Zero for every other verb.
     std::uint64_t stage{};
+    std::string name;
+
+    ManagementIntent() = default;
+    ManagementIntent(const ManagementIntent& other)
+        : verb(other.verb),
+          member(other.member),
+          item(other.item),
+          stage(other.stage),
+          name(other.name.data(), other.name.size()) {}
+
+    ManagementIntent& operator=(const ManagementIntent& other) {
+        if (this == &other) return *this;
+        verb = other.verb;
+        member = other.member;
+        item = other.item;
+        stage = other.stage;
+        name.assign(other.name.data(), other.name.size());
+        return *this;
+    }
+
+    // The pinned PlayStation runtime carries pointer-length string operations,
+    // but not libstdc++'s out-of-line string copy/move constructors. A
+    // management intent is tiny and crosses one UI boundary at a time, so
+    // reconstructing its optional name here keeps the portable API usable on
+    // that target without changing the state or save contract.
+    ManagementIntent(ManagementIntent&& other)
+        : verb(other.verb),
+          member(other.member),
+          item(other.item),
+          stage(other.stage),
+          name(other.name.data(), other.name.size()) {}
+
+    ManagementIntent& operator=(ManagementIntent&& other) {
+        if (this == &other) return *this;
+        verb = other.verb;
+        member = other.member;
+        item = other.item;
+        stage = other.stage;
+        name.assign(other.name.data(), other.name.size());
+        return *this;
+    }
+
+    ManagementIntent(
+        ManagementVerb requested_verb,
+        campaign::PersistentEntityId requested_member = {},
+        campaign::DefinitionRef requested_item = {},
+        std::uint64_t requested_stage = 0U,
+        std::string_view requested_name = {}
+    )
+        : verb(requested_verb),
+          member(requested_member),
+          item(requested_item),
+          stage(requested_stage),
+          name(requested_name.data(), requested_name.size()) {}
 };
 
 // Why a management gesture did not become a campaign fact.
@@ -536,6 +614,9 @@ enum class ManagementError : std::uint8_t {
     // The campaign is not standing anywhere a company can be managed: it was
     // never begun, or its flow has stalled.
     not_managing,
+    unknown_member,
+    fixed_name,
+    invalid_name,
 };
 
 [[nodiscard]] std::string_view management_error_name(
@@ -750,10 +831,9 @@ private:
 // so that whoever owns the loop can be somebody else: found or resume, stand on
 // a node, prepare a board through the roster, play, derive, commit, save, walk
 // the edge. A terminal front end owns its own loop and calls
-// `run_persistent_campaign`, which is a thin driver over this. A browser cannot
-// own a blocking loop at all: its battle is a sequence of clicks arriving over
-// many event-loop turns, and it must be able to leave a battle and come back to
-// an authoring surface. Both drive the identical steps, which is the point: a
+// `run_persistent_campaign`, which is a thin driver over this. A graphical
+// client advances the session over many input and drawing frames and may leave
+// a battle for an authoring surface. Both drive identical steps, which is the point: a
 // campaign fact is derived once, in C++, and read by every client.
 //
 // The session derives nothing itself. Every number it hands out came from
@@ -917,6 +997,13 @@ public:
     [[nodiscard]] ManagementCommit set_fielded(
         campaign::PersistentEntityId member,
         bool fielded
+    );
+
+    // Saves a bounded visible UTF-8 name for an author-eligible member. Fixed
+    // members and invalid input are refused without changing state or disk.
+    [[nodiscard]] ManagementCommit set_player_name(
+        campaign::PersistentEntityId member,
+        std::string_view requested_name
     );
 
     // Turns a finished battle into campaign facts and commits them atomically:

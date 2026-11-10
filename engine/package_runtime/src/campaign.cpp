@@ -535,6 +535,46 @@ CampaignLoadResult load_campaign(
     }
     if (!reader.finished()) return fail(CampaignError::malformed_payload);
 
+    // Optional sparse permission to replace an authored default name. The
+    // campaign record above remains the source of every actual name; absence
+    // of this section, or of this campaign's record, therefore means every
+    // name is fixed exactly as it was in packages compiled before the option
+    // existed. Decode without another container so both console runtimes pay
+    // no allocation for the join.
+    if (const auto* nameable_record = package.find(
+            package_format::SectionType::player_nameable_members,
+            campaign_id
+        )) {
+        Reader nameable_reader(package, *nameable_record);
+        std::uint16_t count = 0;
+        if (!nameable_reader.u16(count) || count == 0U ||
+            static_cast<std::size_t>(count) >
+                nameable_reader.remaining() / sizeof(std::uint64_t)) {
+            return fail(CampaignError::malformed_payload);
+        }
+        for (std::uint16_t index = 0; index < count; ++index) {
+            std::uint64_t member_id = 0;
+            if (!nameable_reader.u64(member_id)) {
+                return fail(CampaignError::malformed_payload);
+            }
+            const auto found = std::find_if(
+                result.definition.members.begin(),
+                result.definition.members.end(),
+                [member_id](const CampaignMember& member) {
+                    return member.id == member_id;
+                }
+            );
+            if (found == result.definition.members.end() ||
+                found->player_nameable) {
+                return fail(CampaignError::malformed_payload);
+            }
+            found->player_nameable = true;
+        }
+        if (!nameable_reader.finished()) {
+            return fail(CampaignError::malformed_payload);
+        }
+    }
+
     const auto find_node = [&result](std::uint64_t id) {
         return std::find_if(
             result.definition.nodes.begin(),

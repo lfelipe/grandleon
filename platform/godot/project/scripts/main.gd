@@ -7,6 +7,8 @@ const BoardView3D = preload("res://scripts/board_view_3d.gd")
 const CampaignManager = preload("res://scripts/campaign_manager.gd")
 const CombatCinematic = preload("res://scripts/combat_cinematic.gd")
 const CombatPresentationPlan = preload("res://scripts/combat_presentation_plan.gd")
+const BackdropPackResolver = preload("res://scripts/conversation_backdrop_resolver.gd")
+const ConversationBackdrop = preload("res://scripts/conversation_backdrop.gd")
 const ControlProfile = preload("res://scripts/control_profile.gd")
 const ControllerSeats = preload("res://scripts/controller_seats.gd")
 const FrameTiming = preload("res://scripts/frame_timing.gd")
@@ -24,6 +26,8 @@ var board: Node
 var player_count := 2
 var package_path := "res://game.gpk"
 var campaign_key := "emberbound"
+var game_language := ""
+var game_languages: Array[String] = []
 var creator_enabled := true
 var graphics_profile := ""
 var graphics_argument_explicit := false
@@ -33,9 +37,14 @@ var controls_path := ""
 var camera_impulse_enabled := true
 var text_scale := 1.0
 var effects_level := 1.0
+var music_level := 0.45
 var stick_mode := "deliberate"
 var battle_closeups_enabled := true
+var battle_closeups_argument_explicit := false
+var battle_closeups_local_override := false
+var persistent_battle_closeups_enabled := true
 var cinematic_motion := "full"
+var show_fps_enabled := false
 var screenshot_path := ""
 var screenshot_frames := -1
 var smoke_auto := false
@@ -75,11 +84,15 @@ var fixed_formation_skipped := false
 var combat_cinematic_smoke := false
 var combat_cinematic_preview := false
 var included_campaign_smoke := false
+var player_localization_preview := false
 var draft_preview := false
-var campaign_save_state := "AUTO-SAVE / NO CHECKPOINT"
+var preview_return_scene := ""
+var preview_label := ""
+var campaign_save_state := ""
 var campaign_complete := false
 var final_outcome := "ongoing"
 var current_stage_name := ""
+var current_campaign_name := ""
 var progress_reset_armed := false
 var seats: Array = []
 var device_to_seat: Dictionary = {}
@@ -89,8 +102,11 @@ var action_modes: Array[String] = ["move", "move"]
 var hud_seat := 0
 var snapshot: Dictionary = {}
 var battle_terrain: Array = []
+var battle_terrain_features: Array = []
+var battle_route_identity: Dictionary = {}
 var battle_theme := 0
 var battle_surroundings: Dictionary = {}
+var battle_visual_visibility: Dictionary = {}
 var definitions: Dictionary = {"weapons": [], "abilities": [], "items": []}
 var dialogue_lines: Array = []
 var dialogue_index := -1
@@ -115,6 +131,7 @@ var unit_stats: RichTextLabel
 var controller_label: RichTextLabel
 var help_label: RichTextLabel
 var toast_label: Label
+var fps_overlay: Label
 var toast_tween: Tween
 var dialogue_layer: Control
 var dialogue_shade: ColorRect
@@ -122,8 +139,10 @@ var dialogue_speaker: Label
 var dialogue_text: RichTextLabel
 var dialogue_portrait: TextureRect
 var dialogue_hint: Label
+var conversation_backdrop: Control
 var campaign_manager: Control
 var session_menu_layer: Control
+var session_menu_header: Label
 var session_menu_title: Label
 var session_menu_subtitle: Label
 var session_menu_hint: Label
@@ -139,14 +158,22 @@ var session_menu_settings_button: Button
 var session_menu_camera: Button
 var session_menu_text: Button
 var session_menu_stick: Button
-var session_menu_audio: Button
+var session_menu_audio: HSlider
+var session_menu_music: HSlider
+var session_menu_audio_label: Label
+var session_menu_music_label: Label
 var session_menu_closeups: Button
 var session_menu_cinematic_motion: Button
+var session_menu_fps: Button
+var session_menu_language: Button
 var session_menu_new_campaign: Button
 var session_menu_quit: Button
 var session_menu_checkpoint_buttons: Array[Button] = []
 var session_menu_checkpoint_save: Button
 var session_menu_checkpoint_load: Button
+var session_menu_saves_back: Button
+var session_menu_slot_back: Button
+var session_menu_settings_back: Button
 var session_menu_page := "root"
 var selected_checkpoint_slot := 1
 var art = ArtLibrary.new()
@@ -154,18 +181,28 @@ var graphics_profiles
 var presentation_settings
 var controls
 var frame_timing = FrameTiming.new()
+var backdrop_pack_resolver = BackdropPackResolver.new()
 var frame_timing_next_update_msec := 0
+var fps_overlay_next_update_msec := 0
 var combat_cinematic: Control
+var game_language_picker_layer: CanvasLayer
+var pending_language_launch: Dictionary = {}
 
 
 func _ready() -> void:
 	PCNavigation.set_ui_button_bridge(false)
 	_parse_arguments()
+	campaign_save_state = _ui("player.save.auto_no_checkpoint")
 	var staged: Dictionary = LaunchContext.take_package()
 	draft_preview = bool(staged.get("draft_preview", false))
 	if not staged.is_empty():
 		campaign_key = str(staged.get("campaign", campaign_key))
 		player_count = clampi(int(staged.get("players", player_count)), 1, 2)
+		game_language = str(staged.get("language", game_language))
+		preview_return_scene = str(staged.get("preview_return_scene", ""))
+		preview_label = str(staged.get("preview_label", ""))
+		if not preview_label.is_empty():
+			current_stage_name = preview_label
 	# A creator preview must neither resume nor replace the installed game's
 	# campaign checkpoints. It still enters battle through the native company
 	# command below, preserving portable roster and deployment validation.
@@ -176,6 +213,10 @@ func _ready() -> void:
 	var stored_settings: Dictionary = {}
 	if _use_presentation_settings():
 		stored_settings = presentation_settings.load_settings(PUBLIC_GRAPHICS_PROFILES)
+	# The package is inspected after the native bridge and launch bytes are
+	# available. Until then, apply local/CLI precedence over the historical
+	# default so settings-only and controls smokes observe the same local choice.
+	_apply_battle_closeup_precedence(stored_settings, true)
 	stick_mode = String(stored_settings.get("stick_mode", "deliberate"))
 	PCNavigation.configure(
 		controls.stick_press_threshold(),
@@ -203,49 +244,84 @@ func _ready() -> void:
 		1.20
 	)
 	effects_level = float(stored_settings.get("effects_level", 1.0))
-	battle_closeups_enabled = bool(stored_settings.get("battle_closeups", true))
+	music_level = float(stored_settings.get("music_level", 0.45))
 	cinematic_motion = String(stored_settings.get("cinematic_motion", "full"))
+	show_fps_enabled = bool(stored_settings.get("show_fps", false))
 	PCAudio.set_effects_level(effects_level)
+	PCAudio.set_music_level(music_level)
+	PCAudio.play_music()
 	_create_background()
 	_create_board(graphics_profile)
 	_create_interface()
 	_create_combat_cinematic(initial_profile)
 	_update_session_labels()
+	if player_localization_preview:
+		return
 	if frame_timing_smoke:
 		_run_frame_timing_smoke()
 		return
 	if not controls.warning().is_empty():
-		_show_toast(controls.warning())
+		_show_toast(_localized_runtime_warning(controls.warning()))
 	if not graphics_profiles.warning().is_empty():
-		_show_toast(graphics_profiles.warning())
+		_show_toast(_localized_runtime_warning(graphics_profiles.warning()))
 	if not presentation_settings.warning().is_empty():
-		_show_toast(presentation_settings.warning())
+		_show_toast(_localized_runtime_warning(presentation_settings.warning()))
 	if not presentation_settings_smoke.is_empty():
 		_run_presentation_settings_smoke()
 		return
 	if controls_smoke:
 		_run_controls_smoke()
 		return
-	_configure_seats()
-	Input.joy_connection_changed.connect(_on_joy_connection_changed)
 	session = ClassDB.instantiate("GrandleonSession")
 	if session == null:
-		_show_fatal("The native Grandleon bridge did not load")
+		_show_fatal(_ui("player.error.native_bridge"))
 		return
+	var launch_package := PackedByteArray()
+	if staged.is_empty():
+		launch_package = FileAccess.get_file_as_bytes(
+			ProjectSettings.globalize_path(package_path)
+		)
+	else:
+		launch_package = staged.package
+	var presentation_info: Dictionary = session.package_presentation(launch_package)
+	_apply_battle_closeup_precedence(
+		stored_settings,
+		bool(presentation_info.get("battle_closeups", true))
+	)
+	_update_session_labels()
+	var language_info: Dictionary = session.package_languages(launch_package)
+	var authored_languages: Array = language_info.get("languages", [])
+	game_languages.clear()
+	for value: Variant in authored_languages:
+		game_languages.append(str(value))
+	var remembered_language := str(stored_settings.get("game_language", ""))
+	if game_language.is_empty() and remembered_language in game_languages:
+		game_language = remembered_language
+	if game_language.is_empty() and authored_languages.size() > 1:
+		_show_game_language_picker(staged, launch_package, language_info)
+		return
+	if game_language.is_empty():
+		game_language = str(language_info.get("source", ""))
+	_select_matching_interface_language(game_language)
+	_configure_seats()
+	Input.joy_connection_changed.connect(_on_joy_connection_changed)
 	var started := false
 	if staged.is_empty():
 		var absolute_package := ProjectSettings.globalize_path(package_path)
 		started = session.start(
-			absolute_package, campaign_key, player_count, campaign_save_root
+			absolute_package, campaign_key, player_count, campaign_save_root,
+			game_language
 		)
 	else:
 		started = session.start_package(
-			staged.package, campaign_key, player_count, campaign_save_root
+			staged.package, campaign_key, player_count, campaign_save_root,
+			game_language
 		)
 	if not started:
 		_show_fatal(session.last_error())
 	else:
-		status_label.text = "LOADING CAMPAIGN"
+		status_label.text = _ui("player.status.loading_campaign")
+		_persist_presentation_settings()
 		if included_campaign_smoke:
 			print(
 				"included campaign integration smoke passed: %s (%d players)" % [
@@ -264,6 +340,8 @@ func _exit_tree() -> void:
 
 func _process(delta: float) -> void:
 	frame_timing.sample(delta)
+	if show_fps_enabled:
+		_update_fps_overlay()
 	if _session_menu_visible():
 		_update_session_diagnostics()
 	if not session:
@@ -327,6 +405,8 @@ func _process(delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if game_language_picker_layer != null:
+		return
 	if combat_cinematic != null and combat_cinematic.is_active():
 		if event is InputEventKey and not event.echo:
 			if event.keycode in [KEY_ENTER, KEY_SPACE]:
@@ -378,6 +458,103 @@ func _input(event: InputEvent) -> void:
 		return
 
 
+func _show_game_language_picker(
+	staged: Dictionary, launch_package: PackedByteArray, language_info: Dictionary
+) -> void:
+	pending_language_launch = {
+		"package": launch_package.duplicate(),
+		"campaign": campaign_key,
+		"players": player_count,
+		"draft_preview": bool(staged.get("draft_preview", false)),
+		"preview_return_scene": str(staged.get("preview_return_scene", "")),
+		"preview_label": str(staged.get("preview_label", "")),
+	}
+	game_language_picker_layer = CanvasLayer.new()
+	game_language_picker_layer.layer = 100
+	add_child(game_language_picker_layer)
+
+	var shade := ColorRect.new()
+	shade.color = Color("e90b1320")
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	game_language_picker_layer.add_child(shade)
+
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(520, 0)
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.position = Vector2(-260, -180)
+	game_language_picker_layer.add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 38)
+	margin.add_theme_constant_override("margin_right", 38)
+	margin.add_theme_constant_override("margin_top", 32)
+	margin.add_theme_constant_override("margin_bottom", 32)
+	panel.add_child(margin)
+	var choices := VBoxContainer.new()
+	choices.add_theme_constant_override("separation", 12)
+	margin.add_child(choices)
+
+	var heading := Label.new()
+	heading.text = _shell_text("player.language.heading")
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	heading.add_theme_font_size_override("font_size", 28)
+	choices.add_child(heading)
+	var explanation := Label.new()
+	explanation.text = _shell_text("player.language.explanation")
+	explanation.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	choices.add_child(explanation)
+
+	var source_language := str(language_info.get("source", ""))
+	var first_button: Button = null
+	for value: Variant in language_info.get("languages", []):
+		var language := str(value)
+		var button := Button.new()
+		button.text = _game_language_name(language)
+		if language == source_language:
+			button.text += "  /  " + _shell_text("player.language.original")
+		button.custom_minimum_size = Vector2(0, 48)
+		button.pressed.connect(_select_game_language.bind(language))
+		choices.add_child(button)
+		if first_button == null:
+			first_button = button
+	if first_button != null:
+		first_button.grab_focus.call_deferred()
+
+
+func _game_language_name(language: String) -> String:
+	for available: Dictionary in Localization.available_languages():
+		if str(available.get("code", "")) == language:
+			return "%s  (%s)" % [str(available.get("native_name", language)), language]
+	return language
+
+
+func _select_game_language(language: String) -> void:
+	if pending_language_launch.is_empty():
+		return
+	LaunchContext.stage_package(
+		pending_language_launch.package,
+		str(pending_language_launch.campaign),
+		bool(pending_language_launch.draft_preview),
+		int(pending_language_launch.players),
+		str(pending_language_launch.preview_return_scene),
+		str(pending_language_launch.preview_label),
+		language
+	)
+	get_tree().reload_current_scene()
+
+
+func _select_matching_interface_language(language: String) -> void:
+	# Grandleon's shell currently ships English, Spanish, and Brazilian
+	# Portuguese. An authored language outside that set still changes all game
+	# copy, while the shell predictably falls back to English.
+	Localization.select_language(language)
+
+
+func _shell_text(message_id: String) -> String:
+	return Localization.text(message_id)
+
+
 func _parse_arguments() -> void:
 	for argument: String in OS.get_cmdline_user_args():
 		if argument.begins_with("--package="):
@@ -395,6 +572,16 @@ func _parse_arguments() -> void:
 			controls_path = argument.trim_prefix("--controls=")
 		elif argument.begins_with("--players="):
 			player_count = clampi(int(argument.trim_prefix("--players=")), 1, 2)
+		elif argument.begins_with("--game-language="):
+			game_language = argument.trim_prefix("--game-language=")
+		elif argument == "--battle-closeups":
+			_set_battle_closeups_argument("on")
+		elif argument == "--no-battle-closeups":
+			_set_battle_closeups_argument("off")
+		elif argument.begins_with("--battle-closeups="):
+			_set_battle_closeups_argument(
+				argument.trim_prefix("--battle-closeups=")
+			)
 		elif argument == "--fullscreen":
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 		elif argument.begins_with("--screenshot="):
@@ -448,6 +635,34 @@ func _parse_arguments() -> void:
 			included_campaign_smoke = true
 
 
+func _set_battle_closeups_argument(value: String) -> void:
+	var normalized := value.strip_edges().to_lower()
+	if normalized in ["on", "true", "1"]:
+		battle_closeups_enabled = true
+		battle_closeups_argument_explicit = true
+	elif normalized in ["off", "false", "0"]:
+		battle_closeups_enabled = false
+		battle_closeups_argument_explicit = true
+
+
+func _apply_battle_closeup_precedence(
+	stored_settings: Dictionary, authored_default: bool
+) -> void:
+	battle_closeups_local_override = bool(stored_settings.get(
+		"battle_closeups_set", stored_settings.has("battle_closeups")
+	))
+	persistent_battle_closeups_enabled = bool(
+		stored_settings.get("battle_closeups", authored_default)
+	)
+	if battle_closeups_argument_explicit:
+		return
+	battle_closeups_enabled = (
+		persistent_battle_closeups_enabled
+		if battle_closeups_local_override
+		else authored_default
+	)
+
+
 func _resolve_campaign_save_root() -> String:
 	if not campaign_progress_enabled:
 		return ""
@@ -496,8 +711,9 @@ func _run_presentation_settings_smoke() -> void:
 		and is_equal_approx(text_scale, 1.15)
 		and is_equal_approx(effects_level, 0.45)
 		and stick_mode == "extra_firm"
-		and not battle_closeups_enabled
+		and battle_closeups_enabled == (presentation_settings_smoke == "cli")
 		and cinematic_motion == "reduced"
+		and show_fps_enabled
 		and is_equal_approx(PCNavigation.press_threshold(), 0.88)
 		and PCAudio.level_name() == "LOW"
 	)
@@ -520,6 +736,7 @@ func _run_presentation_settings_smoke() -> void:
 			and String(saved.get("stick_mode", "")) == "extra_firm"
 			and not bool(saved.get("battle_closeups", true))
 			and String(saved.get("cinematic_motion", "")) == "reduced"
+			and bool(saved.get("show_fps", false))
 		)
 		if not valid:
 			push_error("a launch override replaced the stored graphics choice")
@@ -545,9 +762,11 @@ func _run_controls_smoke() -> void:
 		"battle HUD omits menu": not help_label.text.contains("SESSION MENU"),
 		"resume label": session_menu_resume.text == "RESUME",
 		"save label": session_menu_save_load.text == "SAVE / LOAD",
-		"audio label": session_menu_audio.text == "SOUND EFFECTS  /  FULL",
+		"audio label": session_menu_audio_label.text == "SOUND EFFECTS  /  100%",
 		"close-up label": session_menu_closeups.text == "BATTLE CLOSE-UPS  /  ON",
-		"cinematic motion label": session_menu_cinematic_motion.text == "CINEMATIC MOTION  /  FULL",
+		"motion setting is absent": session_menu_cinematic_motion == null,
+		"FPS label defaults off": session_menu_fps.text == "SHOW FPS  /  OFF",
+		"FPS overlay defaults hidden": not fps_overlay.visible,
 		"stick label": session_menu_stick.text == "STICK INPUT  /  DELIBERATE",
 		"filtered stick UI": PCNavigation.raw_stick_ui_event_count() == 0,
 		"exit label": session_menu_quit.text == "EXIT GAME",
@@ -584,13 +803,13 @@ func _run_controls_smoke() -> void:
 	if battle_closeups_enabled or session_menu_closeups.text != "BATTLE CLOSE-UPS  /  OFF":
 		failed.append("battle close-up setting")
 	session_menu_closeups.pressed.emit()
-	session_menu_cinematic_motion.pressed.emit()
+	_toggle_cinematic_motion()
 	if (
 		cinematic_motion != "reduced"
-		or session_menu_cinematic_motion.text != "CINEMATIC MOTION  /  REDUCED"
+		or session_menu_cinematic_motion != null
 	):
 		failed.append("reduced cinematic motion setting")
-	session_menu_cinematic_motion.pressed.emit()
+	_toggle_cinematic_motion()
 	session_menu_stick.pressed.emit()
 	if (
 		stick_mode != "extra_firm"
@@ -604,6 +823,16 @@ func _run_controls_smoke() -> void:
 		or not is_equal_approx(PCNavigation.press_threshold(), 0.90)
 	):
 		failed.append("deliberate stick setting")
+	session_menu_fps.pressed.emit()
+	if (
+		not show_fps_enabled
+		or session_menu_fps.text != "SHOW FPS  /  ON"
+		or not fps_overlay.visible
+	):
+		failed.append("FPS display setting")
+	session_menu_fps.pressed.emit()
+	if show_fps_enabled or fps_overlay.visible:
+		failed.append("FPS display turns off")
 	_show_root_page()
 	final_outcome = "second_side_won"
 	campaign_complete = true
@@ -1049,7 +1278,10 @@ func _verify_coop_motion(events: Array) -> void:
 		if previous != destination:
 			_fail_coop_motion("accepted route does not end at its event destination")
 			return
-		if int(event.get("duration_msec", 0)) != route.size() * 100:
+		# The portable presentation now recommends ten 60 Hz ticks per cell.
+		# Rendering profiles may pace that recommendation separately.
+		var portable_duration := floori(float(route.size() * 10 * 1000) / 60.0)
+		if int(event.get("duration_msec", 0)) != portable_duration:
 			_fail_coop_motion("accepted route duration does not match portable timing")
 			return
 		coop_smoke_routes += 1
@@ -1099,24 +1331,40 @@ func _create_board(profile: String) -> void:
 
 
 func _create_combat_cinematic(profile: Dictionary) -> void:
+	if board != null and board.has_method("set_ambient_motion_enabled"):
+		board.set_ambient_motion_enabled(cinematic_motion != "reduced")
 	var layer := CanvasLayer.new()
 	layer.layer = 40
 	add_child(layer)
 	combat_cinematic = CombatCinematic.new()
+	combat_cinematic.combat_sound.connect(_on_combat_sound)
 	layer.add_child(combat_cinematic)
 	combat_cinematic.set_board_camera_host(board)
 	combat_cinematic.set_playback_paused(combat_cinematic_smoke)
 	combat_cinematic.configure(
-		profile, text_scale, cinematic_motion, camera_impulse_enabled
+		profile, text_scale, cinematic_motion, camera_impulse_enabled,
+		Callable(self, "_ui"), {
+			"confirm": controls.label("confirm"),
+			"cancel": controls.label("cancel"),
+		}
 	)
 
 
+func _on_combat_sound(beat: Dictionary, action: String, content_id: int, impact: bool) -> void:
+	PCAudio.present_combat_beat(beat, action, content_id, impact, definitions)
+
+
 func _configure_combat_cinematic() -> void:
+	if board != null and board.has_method("set_ambient_motion_enabled"):
+		board.set_ambient_motion_enabled(cinematic_motion != "reduced")
 	if combat_cinematic == null or graphics_profiles == null:
 		return
 	combat_cinematic.configure(
 		graphics_profiles.profile(graphics_profile), text_scale,
-		cinematic_motion, camera_impulse_enabled
+		cinematic_motion, camera_impulse_enabled, Callable(self, "_ui"), {
+			"confirm": controls.label("confirm"),
+			"cancel": controls.label("cancel"),
+		}
 	)
 
 
@@ -1135,7 +1383,11 @@ func _set_graphics_profile(requested: String) -> void:
 	_configure_combat_cinematic()
 	_create_board(graphics_profile)
 	if not snapshot.is_empty() and not battle_terrain.is_empty():
-		board.configure(snapshot, battle_terrain, battle_theme, battle_surroundings)
+		board.configure(
+			snapshot, battle_terrain, battle_theme, battle_surroundings,
+			battle_terrain_features, battle_route_identity
+		)
+		board.set_visual_visibility(battle_visual_visibility)
 	board.set_seats(seats)
 	for seat in min(2, seats.size()):
 		board.set_selected(seat, selected_units[seat], action_modes[seat])
@@ -1176,18 +1428,16 @@ func _set_text_scale(value: float) -> void:
 	_persist_presentation_settings()
 
 
-func _cycle_effects_level() -> void:
-	if effects_level > 0.75:
-		_set_effects_level(0.45)
-	elif effects_level > 0.0:
-		_set_effects_level(0.0)
-	else:
-		_set_effects_level(1.0)
-
-
 func _set_effects_level(value: float) -> void:
 	effects_level = value
 	PCAudio.set_effects_level(effects_level)
+	_update_session_labels()
+	_persist_presentation_settings()
+
+
+func _set_music_level(value: float) -> void:
+	music_level = clampf(value, 0.0, 1.0)
+	PCAudio.set_music_level(music_level)
 	_update_session_labels()
 	_persist_presentation_settings()
 
@@ -1211,6 +1461,8 @@ func _set_stick_mode(value: String) -> void:
 
 func _toggle_battle_closeups() -> void:
 	battle_closeups_enabled = not battle_closeups_enabled
+	battle_closeups_local_override = true
+	persistent_battle_closeups_enabled = battle_closeups_enabled
 	if not battle_closeups_enabled:
 		pending_combat_presentation.clear()
 		if combat_cinematic != null:
@@ -1226,6 +1478,123 @@ func _toggle_cinematic_motion() -> void:
 	_persist_presentation_settings()
 
 
+func _toggle_show_fps() -> void:
+	show_fps_enabled = not show_fps_enabled
+	if fps_overlay != null:
+		fps_overlay.visible = show_fps_enabled
+	if show_fps_enabled:
+		_update_fps_overlay(true)
+	_update_session_labels()
+	_persist_presentation_settings()
+
+
+func _cycle_game_language() -> void:
+	if session == null or game_languages.size() < 2:
+		return
+	var at := game_languages.find(game_language)
+	var selected := game_languages[wrapi(at + 1, 0, game_languages.size())]
+	if not session.set_language(selected):
+		_show_toast(session.last_error())
+		return
+	game_language = selected
+	_select_matching_interface_language(game_language)
+	_apply_localized_runtime_state(session.localized_state())
+	_refresh_queued_dialogue_language()
+	_refresh_live_interface_language()
+	_persist_presentation_settings()
+
+
+func _apply_localized_runtime_state(state: Dictionary) -> void:
+	var definitions_event: Dictionary = state.get("definitions", {})
+	if not definitions_event.is_empty():
+		definitions = definitions_event
+	var snapshot_event: Dictionary = state.get("snapshot", {})
+	if not snapshot_event.is_empty() and snapshot_event.has("snapshot"):
+		snapshot = snapshot_event.snapshot
+		if board != null:
+			board.update_snapshot(snapshot)
+	var campaign_event: Dictionary = state.get("campaign", {})
+	if not campaign_event.is_empty():
+		current_campaign_name = str(campaign_event.get("campaign_name", current_campaign_name))
+	var management_event: Dictionary = state.get("management", {})
+	if not management_event.is_empty():
+		var company: Dictionary = management_event.get("company", {})
+		if not company.is_empty():
+			current_stage_name = str(company.get("stage_name", current_stage_name))
+			if management_menu_suspended:
+				pending_company = company.duplicate(true)
+			elif _management_visible():
+				campaign_manager.present(company)
+
+
+func _refresh_queued_dialogue_language() -> void:
+	if session == null or dialogue_lines.is_empty():
+		return
+	var localized_by_id: Dictionary = {}
+	for index in dialogue_lines.size():
+		var current: Dictionary = dialogue_lines[index]
+		var dialogue_id := int(current.get("dialogue_id", 0))
+		if dialogue_id == 0:
+			continue
+		if not localized_by_id.has(dialogue_id):
+			localized_by_id[dialogue_id] = session.localized_dialogue(dialogue_id)
+		var event: Dictionary = localized_by_id[dialogue_id]
+		var lines: Array = event.get("lines", [])
+		var line_index := int(current.get("dialogue_line_index", -1))
+		if line_index < 0 or line_index >= lines.size():
+			continue
+		var localized: Dictionary = lines[line_index]
+		current["speaker"] = localized.get("speaker", current.get("speaker", ""))
+		current["text"] = localized.get("text", current.get("text", ""))
+		dialogue_lines[index] = current
+	if _dialogue_visible():
+		_show_dialogue_line()
+
+
+func _refresh_live_interface_language() -> void:
+	if session_menu_header != null:
+		session_menu_header.text = _ui("player.session.header")
+	if session_menu_resume != null:
+		session_menu_resume.text = _ui("player.session.resume")
+	if session_menu_save_load != null:
+		session_menu_save_load.text = _ui("player.session.save_load")
+	if session_menu_settings_button != null:
+		session_menu_settings_button.text = _ui("player.session.settings")
+	if session_menu_projects != null:
+		session_menu_projects.text = (
+			_ui("player.session.return_editor")
+			if not preview_return_scene.is_empty()
+			else _ui("player.session.main_menu")
+		)
+	if session_menu_quit != null:
+		session_menu_quit.text = _ui("player.session.exit_game")
+	for button: Button in [
+		session_menu_saves_back, session_menu_slot_back, session_menu_settings_back
+	]:
+		if button != null:
+			button.text = _ui("player.session.back")
+	if session_menu_checkpoint_save != null:
+		session_menu_checkpoint_save.text = _ui("player.session.save_here")
+	if session_menu_checkpoint_load != null:
+		session_menu_checkpoint_load.text = _ui("player.session.load_checkpoint")
+	for heading: Label in action_popup_titles:
+		heading.text = _ui("player.hud.action")
+	for seat in action_popups.size():
+		if bool(action_popups[seat].get("open", false)):
+			_close_action_popup(seat)
+	if dialogue_hint != null:
+		dialogue_hint.text = _ui(
+			"player.dialogue.continue", {"confirm": controls.label("confirm")}
+		)
+	_configure_combat_cinematic()
+	_update_session_labels()
+	_update_status()
+	_refresh_selected_panel()
+	_update_controller_label()
+	if session_menu_layer != null and session_menu_layer.visible:
+		_show_session_menu_page(session_menu_page)
+
+
 func _persist_presentation_settings() -> void:
 	if presentation_settings == null or not _use_presentation_settings():
 		return
@@ -1236,55 +1605,82 @@ func _persist_presentation_settings() -> void:
 		PUBLIC_GRAPHICS_PROFILES,
 		effects_level,
 		stick_mode,
-		battle_closeups_enabled,
-		cinematic_motion
+		persistent_battle_closeups_enabled,
+		cinematic_motion,
+		show_fps_enabled,
+		battle_closeups_local_override,
+		game_language,
+		music_level
 	):
-		_show_toast(presentation_settings.warning())
+		_show_toast(_localized_runtime_warning(presentation_settings.warning()))
 
 
 func _graphics_profile_name() -> String:
 	return {
-		"pixel": "PIXEL 2D",
-		"diorama": "3D DIORAMA + SPRITES",
-		"voxel-sprites": "VOXEL TERRAIN + SPRITES",
-		"voxel": "FULL VOXEL",
-	}.get(graphics_profile, "PC")
+		"pixel": _ui("player.graphics.pixel"),
+		"diorama": _ui("player.graphics.diorama"),
+		"voxel-sprites": _ui("player.graphics.voxel_sprites"),
+		"voxel": _ui("player.graphics.voxel"),
+	}.get(graphics_profile, _ui("player.graphics.pc"))
 
 
 func _update_session_labels() -> void:
 	var name := _graphics_profile_name()
 	if title_label != null:
 		title_label.text = (
-			current_stage_name.to_upper() if not current_stage_name.is_empty() else name
+			current_stage_name.to_upper()
+			if not current_stage_name.is_empty()
+			else current_campaign_name.to_upper()
+			if not current_campaign_name.is_empty()
+			else name
 		)
 	if session_menu_camera != null:
-		session_menu_camera.text = "CAMERA IMPULSE  /  %s" % (
-			"ON" if camera_impulse_enabled else "OFF"
-		)
+		session_menu_camera.text = _ui("player.settings.camera_impulse", {
+			"value": _state_text("on" if camera_impulse_enabled else "off"),
+		})
 	if session_menu_text != null:
-		session_menu_text.text = "TEXT SIZE  /  %s" % (
-			"LARGE" if text_scale > 1.05 else "NORMAL"
-		)
+		session_menu_text.text = _ui("player.settings.text_size", {
+			"value": _state_text("large" if text_scale > 1.05 else "normal"),
+		})
 	if session_menu_stick != null:
-		session_menu_stick.text = "STICK INPUT  /  %s" % (
-			"EXTRA FIRM" if stick_mode == "extra_firm" else "DELIBERATE"
-		)
+		session_menu_stick.text = _ui("player.settings.stick_input", {
+			"value": _state_text("extra_firm" if stick_mode == "extra_firm" else "deliberate"),
+		})
 	if session_menu_audio != null:
-		session_menu_audio.text = "SOUND EFFECTS  /  %s" % PCAudio.level_name()
+		session_menu_audio_label.text = _ui("player.settings.sound_effects", {
+			"value": "%d%%" % roundi(effects_level * 100.0),
+		})
+		session_menu_audio.set_value_no_signal(effects_level)
+	if session_menu_music != null:
+		session_menu_music_label.text = _ui("player.settings.music", {
+			"value": "%d%%" % roundi(music_level * 100.0),
+		})
+		session_menu_music.set_value_no_signal(music_level)
 	if session_menu_closeups != null:
-		session_menu_closeups.text = "BATTLE CLOSE-UPS  /  %s" % (
-			"ON" if battle_closeups_enabled else "OFF"
-		)
+		session_menu_closeups.text = _ui("player.settings.battle_closeups", {
+			"value": _state_text("on" if battle_closeups_enabled else "off"),
+		})
 	if session_menu_cinematic_motion != null:
-		session_menu_cinematic_motion.text = "CINEMATIC MOTION  /  %s" % (
-			"REDUCED" if cinematic_motion == "reduced" else "FULL"
-		)
+		session_menu_cinematic_motion.text = _ui("player.settings.cinematic_motion", {
+			"value": _state_text("reduced" if cinematic_motion == "reduced" else "full"),
+		})
+	if session_menu_fps != null:
+		session_menu_fps.text = _ui("player.settings.show_fps", {
+			"value": _state_text("on" if show_fps_enabled else "off"),
+		})
+	if session_menu_language != null:
+		session_menu_language.visible = game_languages.size() > 1
+		session_menu_language.text = _ui("player.settings.game_language", {
+			"value": _game_language_name(game_language),
+		})
 
 
 func _board_matches_current_state() -> bool:
 	if board == null:
 		return false
 	if board.get("snapshot") != snapshot or board.get("terrain") != battle_terrain:
+		return false
+	if board.get("terrain_features") != battle_terrain_features:
 		return false
 	if board.get("surroundings") != battle_surroundings:
 		return false
@@ -1338,9 +1734,9 @@ func _create_interface() -> void:
 	title_label = _label("PC", 19, Color("e9f7ff"))
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_row.add_child(title_label)
-	turn_label = _label("WAITING", 17, Color("69d9ff"))
+	turn_label = _label(_ui("player.hud.waiting"), 17, Color("69d9ff"))
 	top_row.add_child(turn_label)
-	status_label = _label("STARTING", 16, Color("9db6c5"))
+	status_label = _label(_ui("player.hud.starting"), 16, Color("9db6c5"))
 	# Kept as the internal status sink for loading and automation, but routine
 	# play communicates state through the compact turn chip and transient toast.
 	status_label.visible = false
@@ -1407,6 +1803,20 @@ func _create_interface() -> void:
 	toast_label.add_theme_stylebox_override("normal", _panel(Color(0.08, 0.02, 0.03, 0.94), 12, Color(1.0, 0.30, 0.38, 0.6)))
 	toast_label.modulate.a = 0.0
 	layer.add_child(toast_label)
+	fps_overlay = _label("FPS --", 18, Color("dcebf0"))
+	fps_overlay.position = Vector2(1744, 18)
+	fps_overlay.size = Vector2(150, 46)
+	fps_overlay.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	fps_overlay.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	fps_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fps_overlay.add_theme_stylebox_override(
+		"normal", _panel(
+			Color(0.012, 0.027, 0.043, 0.90), 10,
+			Color(0.30, 0.76, 0.92, 0.46), 8
+		)
+	)
+	fps_overlay.visible = show_fps_enabled
+	layer.add_child(fps_overlay)
 
 	_create_action_popups(layer)
 	_create_dialogue(layer)
@@ -1432,7 +1842,7 @@ func _create_action_popups(layer: CanvasLayer) -> void:
 		var column := VBoxContainer.new()
 		column.add_theme_constant_override("separation", 2)
 		panel.add_child(column)
-		var heading := _label("ACTION", 15, PLAYER_COLOURS[seat])
+		var heading := _label(_ui("player.hud.action"), 15, PLAYER_COLOURS[seat])
 		heading.visible = false
 		column.add_child(heading)
 		action_popup_titles.append(heading)
@@ -1454,6 +1864,7 @@ func _create_campaign_manager(layer: CanvasLayer) -> void:
 		text_scale
 	)
 	campaign_manager.intent_requested.connect(_on_management_intent)
+	campaign_manager.player_name_requested.connect(_on_player_name_requested)
 	campaign_manager.session_menu_requested.connect(_open_management_session_menu)
 	layer.add_child(campaign_manager)
 
@@ -1464,6 +1875,8 @@ func _create_dialogue(layer: CanvasLayer) -> void:
 	dialogue_layer.visible = false
 	dialogue_layer.mouse_filter = Control.MOUSE_FILTER_STOP
 	layer.add_child(dialogue_layer)
+	conversation_backdrop = ConversationBackdrop.new()
+	dialogue_layer.add_child(conversation_backdrop)
 	dialogue_shade = ColorRect.new()
 	dialogue_shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	dialogue_shade.color = Color(0.005, 0.009, 0.016, 0.68)
@@ -1494,7 +1907,7 @@ func _create_dialogue(layer: CanvasLayer) -> void:
 	dialogue_text.add_theme_color_override("default_color", Color("e9f0f4"))
 	words.add_child(dialogue_text)
 	dialogue_hint = _label(
-		"%s / ENTER  CONTINUE" % controls.label("confirm"),
+		_ui("player.dialogue.continue", {"confirm": controls.label("confirm")}),
 		15, Color("89a8b8")
 	)
 	dialogue_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -1513,8 +1926,8 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	session_menu_layer.add_child(shade)
 	var panel := PanelContainer.new()
-	panel.position = Vector2(590, 115)
-	panel.size = Vector2(740, 850)
+	panel.position = Vector2(590, 75)
+	panel.size = Vector2(740, 930)
 	panel.add_theme_stylebox_override(
 		"panel", _panel(
 			Color(0.018, 0.032, 0.052, 0.99), 24,
@@ -1525,30 +1938,35 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 14)
 	panel.add_child(column)
-	column.add_child(_label("GRANDLEON  /  SESSION MENU", 16, Color("69d9ff")))
-	session_menu_title = _label("PAUSED", 38, Color("f2f7f9"))
+	session_menu_header = _label(_ui("player.session.header"), 16, Color("69d9ff"))
+	column.add_child(session_menu_header)
+	session_menu_title = _label(_ui("player.session.paused"), 38, Color("f2f7f9"))
 	column.add_child(session_menu_title)
-	session_menu_subtitle = _label("Choose one option.", 18, Color("a9bdc9"))
+	session_menu_subtitle = _label(_ui("player.session.choose_option"), 18, Color("a9bdc9"))
 	session_menu_subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	session_menu_subtitle.custom_minimum_size.y = 54
 	column.add_child(session_menu_subtitle)
 
 	session_menu_root = _session_menu_page()
 	column.add_child(session_menu_root)
-	session_menu_resume = _menu_button("RESUME")
+	session_menu_resume = _menu_button(_ui("player.session.resume"))
 	session_menu_resume.pressed.connect(_close_session_menu)
 	session_menu_root.add_child(session_menu_resume)
-	session_menu_save_load = _menu_button("SAVE / LOAD")
+	session_menu_save_load = _menu_button(_ui("player.session.save_load"))
 	session_menu_save_load.pressed.connect(_show_save_page)
 	session_menu_save_load.disabled = campaign_save_root.is_empty()
 	session_menu_root.add_child(session_menu_save_load)
-	session_menu_settings_button = _menu_button("SETTINGS")
+	session_menu_settings_button = _menu_button(_ui("player.session.settings"))
 	session_menu_settings_button.pressed.connect(_show_settings_page)
 	session_menu_root.add_child(session_menu_settings_button)
-	session_menu_projects = _menu_button("MAIN MENU")
-	session_menu_projects.pressed.connect(_return_home)
+	session_menu_projects = _menu_button(
+		_ui("player.session.return_editor")
+		if not preview_return_scene.is_empty()
+		else _ui("player.session.main_menu")
+	)
+	session_menu_projects.pressed.connect(_leave_play_session)
 	session_menu_root.add_child(session_menu_projects)
-	session_menu_quit = _menu_button("EXIT GAME")
+	session_menu_quit = _menu_button(_ui("player.session.exit_game"))
 	session_menu_quit.pressed.connect(_quit_to_launcher)
 	session_menu_root.add_child(session_menu_quit)
 
@@ -1563,21 +1981,21 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 		session_menu_new_campaign = _menu_button("")
 		session_menu_new_campaign.pressed.connect(_request_progress_reset)
 		session_menu_saves.add_child(session_menu_new_campaign)
-	var saves_back := _menu_button("BACK")
-	saves_back.pressed.connect(_show_root_page)
-	session_menu_saves.add_child(saves_back)
+	session_menu_saves_back = _menu_button(_ui("player.session.back"))
+	session_menu_saves_back.pressed.connect(_show_root_page)
+	session_menu_saves.add_child(session_menu_saves_back)
 
 	session_menu_slot_actions = _session_menu_page()
 	column.add_child(session_menu_slot_actions)
-	session_menu_checkpoint_save = _menu_button("SAVE HERE")
+	session_menu_checkpoint_save = _menu_button(_ui("player.session.save_here"))
 	session_menu_checkpoint_save.pressed.connect(_save_selected_checkpoint)
 	session_menu_slot_actions.add_child(session_menu_checkpoint_save)
-	session_menu_checkpoint_load = _menu_button("LOAD CHECKPOINT")
+	session_menu_checkpoint_load = _menu_button(_ui("player.session.load_checkpoint"))
 	session_menu_checkpoint_load.pressed.connect(_load_selected_checkpoint)
 	session_menu_slot_actions.add_child(session_menu_checkpoint_load)
-	var slot_back := _menu_button("BACK")
-	slot_back.pressed.connect(_show_save_page)
-	session_menu_slot_actions.add_child(slot_back)
+	session_menu_slot_back = _menu_button(_ui("player.session.back"))
+	session_menu_slot_back.pressed.connect(_show_save_page)
+	session_menu_slot_actions.add_child(session_menu_slot_back)
 
 	session_menu_settings = _session_menu_page()
 	column.add_child(session_menu_settings)
@@ -1590,22 +2008,38 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	session_menu_stick = _settings_button("")
 	session_menu_stick.pressed.connect(_toggle_stick_mode)
 	session_menu_settings.add_child(session_menu_stick)
-	session_menu_audio = _settings_button("")
-	session_menu_audio.pressed.connect(_cycle_effects_level)
+	session_menu_music_label = Label.new()
+	session_menu_settings.add_child(session_menu_music_label)
+	session_menu_music = HSlider.new()
+	session_menu_music.max_value = 1.0
+	session_menu_music.step = 0.05
+	session_menu_music.custom_minimum_size = Vector2(280, 32)
+	session_menu_music.value_changed.connect(_set_music_level)
+	session_menu_settings.add_child(session_menu_music)
+	session_menu_audio_label = Label.new()
+	session_menu_settings.add_child(session_menu_audio_label)
+	session_menu_audio = HSlider.new()
+	session_menu_audio.max_value = 1.0
+	session_menu_audio.step = 0.05
+	session_menu_audio.custom_minimum_size = Vector2(280, 32)
+	session_menu_audio.value_changed.connect(_set_effects_level)
 	session_menu_settings.add_child(session_menu_audio)
 	session_menu_closeups = _settings_button("")
 	session_menu_closeups.pressed.connect(_toggle_battle_closeups)
 	session_menu_settings.add_child(session_menu_closeups)
-	session_menu_cinematic_motion = _settings_button("")
-	session_menu_cinematic_motion.pressed.connect(_toggle_cinematic_motion)
-	session_menu_settings.add_child(session_menu_cinematic_motion)
+	session_menu_fps = _settings_button("")
+	session_menu_fps.pressed.connect(_toggle_show_fps)
+	session_menu_settings.add_child(session_menu_fps)
+	session_menu_language = _settings_button("")
+	session_menu_language.pressed.connect(_cycle_game_language)
+	session_menu_settings.add_child(session_menu_language)
 	session_menu_diagnostics = _label("", 16, Color("718896"))
 	session_menu_diagnostics.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	session_menu_diagnostics.custom_minimum_size.y = 86
 	session_menu_settings.add_child(session_menu_diagnostics)
-	var settings_back := _settings_button("BACK")
-	settings_back.pressed.connect(_show_root_page)
-	session_menu_settings.add_child(settings_back)
+	session_menu_settings_back = _settings_button(_ui("player.session.back"))
+	session_menu_settings_back.pressed.connect(_show_root_page)
+	session_menu_settings.add_child(session_menu_settings_back)
 
 	session_menu_hint = _label("", 16, Color("718896"))
 	session_menu_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1643,7 +2077,7 @@ func _menu_button(value: String) -> Button:
 
 func _settings_button(value: String) -> Button:
 	var button := _menu_button(value)
-	button.custom_minimum_size.y = 64
+	button.custom_minimum_size.y = 58
 	return button
 
 
@@ -1655,39 +2089,54 @@ func _show_session_menu_page(page: String) -> void:
 	session_menu_settings.visible = page == "settings"
 	match page:
 		"saves":
-			session_menu_title.text = "SAVE / LOAD"
-			session_menu_subtitle.text = "Choose one of three manual checkpoints."
+			session_menu_title.text = _ui("player.session.save_load")
+			session_menu_subtitle.text = _ui("player.session.saves_help")
 			_refresh_checkpoint_slots()
 		"slot":
 			_refresh_checkpoint_action()
 		"settings":
-			session_menu_title.text = "SETTINGS"
-			session_menu_subtitle.text = "Choose an option to change it."
+			session_menu_title.text = _ui("player.session.settings")
+			session_menu_subtitle.text = _ui("player.session.settings_help")
 			_update_session_diagnostics(true)
 		_:
 			session_menu_page = "root"
-			if campaign_complete:
+			if not preview_return_scene.is_empty():
 				session_menu_title.text = (
-					"COMPANY DEFEATED"
-					if final_outcome == "second_side_won"
-					else "CAMPAIGN COMPLETE"
+					_ui("player.session.test_complete")
+					if campaign_complete else _ui("player.session.testing_battle")
 				)
 				session_menu_subtitle.text = (
-					"The battle is over. Load a checkpoint, start a new campaign, "
-					+ "return to the main menu, or exit."
+					("%s  /  " % preview_label.to_upper())
+					if not preview_label.is_empty()
+					else ""
+				) + _ui("player.session.test_no_saves")
+			elif campaign_complete:
+				session_menu_title.text = (
+					_ui("player.session.company_defeated")
+					if final_outcome == "second_side_won"
+					else _ui("player.session.campaign_complete")
 				)
+				session_menu_subtitle.text = _ui("player.session.battle_over")
 			else:
-				session_menu_title.text = "PAUSED"
-				session_menu_subtitle.text = "Choose one option.  " + campaign_save_state
+				session_menu_title.text = _ui("player.session.paused")
+				session_menu_subtitle.text = _ui(
+					"player.session.paused_save", {"save": campaign_save_state}
+				)
 	session_menu_resume.visible = not campaign_complete
 	session_menu_settings_button.visible = not campaign_complete
 	session_menu_save_load.text = (
-		"LOAD / NEW CAMPAIGN" if campaign_complete else "SAVE / LOAD"
+		_ui("player.session.load_new_campaign")
+		if campaign_complete else _ui("player.session.save_load")
 	)
-	var back_text := "RESUME" if session_menu_page == "root" else "BACK"
-	session_menu_hint.text = "STICK / D-PAD  MOVE   ·   %s / ENTER  SELECT   ·   %s / ESC  %s" % [
-		controls.label("confirm"), controls.label("cancel"), back_text
-	]
+	var back_text := (
+		_ui("player.session.resume")
+		if session_menu_page == "root" else _ui("player.session.back")
+	)
+	session_menu_hint.text = _ui("player.session.hint", {
+		"confirm": controls.label("confirm"),
+		"cancel": controls.label("cancel"),
+		"back": back_text,
+	})
 	_grab_first_session_menu_focus()
 
 
@@ -1742,12 +2191,15 @@ func _refresh_checkpoint_slots() -> void:
 		return
 	for index in session_menu_checkpoint_buttons.size():
 		var entry := _checkpoint_entry(index + 1)
-		var state := "SAVED" if bool(entry.get("exists", false)) else "EMPTY"
+		var state := (
+			_ui("player.checkpoint.saved")
+			if bool(entry.get("exists", false)) else _ui("player.checkpoint.empty")
+		)
 		if bool(entry.get("active", false)):
-			state += " / CURRENT"
-		session_menu_checkpoint_buttons[index].text = "CHECKPOINT %d  /  %s" % [
-			index + 1, state
-		]
+			state += " / " + _ui("player.checkpoint.current")
+		session_menu_checkpoint_buttons[index].text = _ui(
+			"player.checkpoint.entry", {"slot": index + 1, "state": state}
+		)
 
 
 func _select_checkpoint_slot(slot: int) -> void:
@@ -1759,29 +2211,42 @@ func _refresh_checkpoint_action() -> void:
 	var entry := _checkpoint_entry(selected_checkpoint_slot)
 	var exists := bool(entry.get("exists", false))
 	var ready: bool = session != null and session.checkpoint_save_ready()
-	session_menu_title.text = "CHECKPOINT %d" % selected_checkpoint_slot
+	session_menu_title.text = _ui(
+		"player.checkpoint.title", {"slot": selected_checkpoint_slot}
+	)
 	if ready:
-		session_menu_subtitle.text = "Save current progress here, or load the stored checkpoint."
+		session_menu_subtitle.text = _ui("player.checkpoint.ready_help")
 	else:
-		session_menu_subtitle.text = "Saving is available between battles. Stored checkpoints can still be loaded."
+		session_menu_subtitle.text = _ui("player.checkpoint.between_help")
 	session_menu_checkpoint_save.disabled = not ready
 	session_menu_checkpoint_load.disabled = not exists
-	session_menu_checkpoint_save.text = "SAVE HERE" if not exists else "REPLACE CHECKPOINT"
-	session_menu_checkpoint_load.text = "LOAD CHECKPOINT"
+	session_menu_checkpoint_save.text = (
+		_ui("player.session.save_here")
+		if not exists else _ui("player.checkpoint.replace")
+	)
+	session_menu_checkpoint_load.text = _ui("player.session.load_checkpoint")
 
 
 func _save_selected_checkpoint() -> void:
 	if session == null or not session.save_checkpoint(selected_checkpoint_slot):
-		_show_toast(session.last_error() if session != null else "CHECKPOINT IS UNAVAILABLE")
+		_show_toast(
+			session.last_error()
+			if session != null else _ui("player.checkpoint.unavailable")
+		)
 		_refresh_checkpoint_action()
 		return
-	_show_toast("CHECKPOINT %d SAVED" % selected_checkpoint_slot)
+	_show_toast(_ui(
+		"player.checkpoint.saved_toast", {"slot": selected_checkpoint_slot}
+	))
 	_show_save_page()
 
 
 func _load_selected_checkpoint() -> void:
 	if session == null or not session.load_checkpoint(selected_checkpoint_slot):
-		_show_toast(session.last_error() if session != null else "CHECKPOINT IS UNAVAILABLE")
+		_show_toast(
+			session.last_error()
+			if session != null else _ui("player.checkpoint.unavailable")
+		)
 		_refresh_checkpoint_action()
 		return
 	management_menu_suspended = false
@@ -1789,8 +2254,13 @@ func _load_selected_checkpoint() -> void:
 		campaign_manager.dismiss()
 	_clear_session_presentation()
 	_close_session_menu()
-	status_label.text = "LOADING CHECKPOINT %d" % selected_checkpoint_slot
-	campaign_save_state = "CHECKPOINT %d / LOADING" % selected_checkpoint_slot
+	status_label.text = _ui(
+		"player.checkpoint.loading", {"slot": selected_checkpoint_slot}
+	)
+	campaign_save_state = _ui("player.save.manual_state", {
+		"slot": selected_checkpoint_slot,
+		"state": _ui("player.checkpoint.loading_state"),
+	})
 	_update_session_diagnostics(true)
 
 
@@ -1803,7 +2273,7 @@ func _session_menu_back() -> void:
 			_show_root_page()
 		_:
 			if campaign_complete:
-				_show_toast("CHOOSE LOAD, NEW CAMPAIGN, MAIN MENU, OR EXIT")
+				_show_toast(_ui("player.checkpoint.choose_after_end"))
 			else:
 				_close_session_menu()
 
@@ -1824,7 +2294,7 @@ func _update_session_diagnostics(force := false) -> void:
 		return
 	frame_timing_next_update_msec = now + 500
 	var values: Dictionary = frame_timing.metrics()
-	var timing := "WARMING UP"
+	var timing := _ui("player.session.warming_up")
 	if bool(values.ready):
 		timing = "%d FPS · P95 %.1f MS · PEAK %.1f MS" % [
 			roundi(float(values.fps)),
@@ -1834,14 +2304,34 @@ func _update_session_diagnostics(force := false) -> void:
 	var window := DisplayServer.window_get_size()
 	var canvas := Vector2i(get_viewport().get_visible_rect().size)
 	var save_summary := (
-		campaign_save_state if not campaign_save_root.is_empty() else "NOT SAVED"
+		campaign_save_state
+		if not campaign_save_root.is_empty() else _ui("player.session.not_saved")
 	)
 	session_menu_diagnostics.text = (
-		"Commands pause here; deterministic actions already in flight may finish.\n"
-		+ "LIVE PERFORMANCE / %s\n" % timing
-		+ "WINDOW %d×%d · CANVAS %d×%d · %s" % [
-			window.x, window.y, canvas.x, canvas.y, save_summary
-		]
+		_ui("player.session.diagnostics_paused") + "\n"
+		+ _ui("player.session.live_performance", {"timing": timing}) + "\n"
+		+ _ui("player.session.window", {
+			"width": window.x,
+			"height": window.y,
+			"canvas_width": canvas.x,
+			"canvas_height": canvas.y,
+			"save": save_summary,
+		})
+	)
+
+
+func _update_fps_overlay(force := false) -> void:
+	if fps_overlay == null or not show_fps_enabled:
+		return
+	var now := Time.get_ticks_msec()
+	if not force and now < fps_overlay_next_update_msec:
+		return
+	fps_overlay_next_update_msec = now + 500
+	var values: Dictionary = frame_timing.metrics()
+	fps_overlay.text = (
+		"FPS %d" % roundi(float(values.fps))
+		if bool(values.get("ready", false))
+		else "FPS --"
 	)
 
 
@@ -1859,7 +2349,7 @@ func _close_session_menu() -> void:
 
 
 func _quit_to_launcher() -> void:
-	status_label.text = "EXITING"
+	status_label.text = _ui("player.status.exiting")
 	get_tree().quit()
 
 
@@ -1869,7 +2359,7 @@ func _request_progress_reset() -> void:
 	if not progress_reset_armed:
 		progress_reset_armed = true
 		_update_progress_reset_label()
-		_show_toast("PRESS AGAIN TO START A NEW AUTO-SAVE CAMPAIGN")
+		_show_toast(_ui("player.progress.press_again"))
 		return
 	_restart_without_progress()
 
@@ -1878,9 +2368,9 @@ func _update_progress_reset_label() -> void:
 	if session_menu_new_campaign == null:
 		return
 	if progress_reset_armed:
-		session_menu_new_campaign.text = "CONFIRM NEW CAMPAIGN"
+		session_menu_new_campaign.text = _ui("player.progress.confirm_new")
 	else:
-		session_menu_new_campaign.text = "NEW CAMPAIGN"
+		session_menu_new_campaign.text = _ui("player.progress.new")
 
 
 func _restart_without_progress() -> void:
@@ -1891,8 +2381,8 @@ func _restart_without_progress() -> void:
 		campaign_manager.dismiss()
 	_clear_session_presentation()
 	_close_session_menu()
-	status_label.text = "STARTING NEW CAMPAIGN"
-	campaign_save_state = "AUTO-SAVE / NO CHECKPOINT"
+	status_label.text = _ui("player.progress.starting")
+	campaign_save_state = _ui("player.save.auto_no_checkpoint")
 	if not session.reset_progress():
 		_show_fatal(session.last_error())
 		return
@@ -1906,6 +2396,8 @@ func _clear_session_presentation() -> void:
 	dialogue_index = -1
 	if dialogue_layer != null:
 		dialogue_layer.visible = false
+	if conversation_backdrop != null:
+		conversation_backdrop.clear()
 	pending_requests.clear()
 	pending_combat_presentation.clear()
 	if combat_cinematic != null:
@@ -1931,17 +2423,26 @@ func _exercise_progress_reset_smoke() -> void:
 func _open_projects() -> void:
 	if not creator_enabled:
 		return
-	status_label.text = "OPENING CREATOR"
+	status_label.text = _ui("player.status.opening_creator")
 	if session:
 		session.stop()
-	if CreatorContext.project_id.is_empty():
+	if not preview_return_scene.is_empty():
+		get_tree().change_scene_to_file(preview_return_scene)
+	elif CreatorContext.project_id.is_empty():
 		get_tree().change_scene_to_file("res://creator.tscn")
 	else:
 		get_tree().change_scene_to_file("res://map_editor.tscn")
 
 
+func _leave_play_session() -> void:
+	if draft_preview and not CreatorContext.project_id.is_empty():
+		_open_projects()
+	else:
+		_return_home()
+
+
 func _return_home() -> void:
-	status_label.text = "OPENING MAIN MENU"
+	status_label.text = _ui("player.status.opening_main_menu")
 	if session:
 		session.stop()
 	get_tree().change_scene_to_file("res://home.tscn")
@@ -2041,7 +2542,9 @@ func _ensure_keyboard_seat() -> int:
 			_update_controller_label()
 			if board:
 				board.set_seats(seats)
-			_show_toast("%s CONTROL READY  /  KEYBOARD" % _control_colour_name(index))
+			_show_toast(_ui("player.controller.keyboard_ready", {
+				"army": _control_colour_name(index),
+			}))
 			return index
 	return -1
 
@@ -2060,17 +2563,23 @@ func _on_joy_connection_changed(device: int, connected: bool) -> void:
 	var seat := int(notice.get("seat", -1))
 	match String(notice.get("kind", "none")):
 		"ready":
-			_show_toast("%s CONTROL READY" % _control_colour_name(seat))
+			_show_toast(_ui("player.controller.connected", {
+				"army": _control_colour_name(seat),
+			}))
 		"ignored":
-			_show_toast("EXTRA CONTROLLER IGNORED")
+			_show_toast(_ui("player.controller.extra_ignored"))
 		"replacement":
-			_show_toast("%s REPLACEMENT CONTROL READY" % _control_colour_name(seat))
+			_show_toast(_ui("player.controller.replacement_ready", {
+				"army": _control_colour_name(seat),
+			}))
 		"keyboard":
-			_show_toast(
-				"%s CONTROL DISCONNECTED  /  KEYBOARD READY" % _control_colour_name(seat)
-			)
+			_show_toast(_ui("player.controller.disconnected_keyboard", {
+				"army": _control_colour_name(seat),
+			}))
 		"waiting":
-			_show_toast("%s CONTROL DISCONNECTED  /  WAITING" % _control_colour_name(seat))
+			_show_toast(_ui("player.controller.disconnected_waiting", {
+				"army": _control_colour_name(seat),
+			}))
 
 
 func _update_controller_label() -> void:
@@ -2080,34 +2589,49 @@ func _update_controller_label() -> void:
 	for index in min(player_count, seats.size()):
 		var seat: Dictionary = seats[index]
 		var colour: String = Color(PLAYER_COLOURS[index]).to_html()
-		var state := "READY" if seat.get("active", false) else "WAITING"
-		lines.append("[color=#%s][b]%s[/b][/color]  %s CONTROL  /  %s" % [
-			colour, _control_colour_name(index), "FIRST" if index == 0 else "SECOND", state
+		var state := _ui(
+			"player.controller.ready"
+			if seat.get("active", false) else "player.controller.waiting"
+		)
+		lines.append("[color=#%s][b]%s[/b][/color]  %s %s  /  %s" % [
+			colour,
+			_control_colour_name(index),
+			_ui("player.controller.first" if index == 0 else "player.controller.second"),
+			_ui("player.controller.control"),
+			state,
 		])
-	lines.append("[color=#ff5267][b]RED[/b][/color]  ENEMY")
+	lines.append("[color=#ff5267][b]%s[/b][/color]  %s" % [
+		_ui("player.controller.red"), _ui("player.controller.enemy")
+	])
 	controller_label.text = "\n".join(lines)
 
 
 func _control_colour_name(seat: int) -> String:
-	return "AMBER" if seat == 1 else "CYAN"
+	return _ui("player.controller.amber" if seat == 1 else "player.controller.cyan")
 
 
 func _handle_event(event: Dictionary) -> void:
 	match String(event.get("type", "")):
 		"campaign_begun":
+			current_campaign_name = str(event.get("campaign_name", "")).strip_edges()
+			_update_session_labels()
 			var resumed := bool(event.get("resumed", false))
 			var manual_slot := _active_checkpoint_slot()
 			if manual_slot > 0:
-				campaign_save_state = "CHECKPOINT %d / %s" % [
-					manual_slot, "RESUMED" if resumed else "NEW"
-				]
+				campaign_save_state = _ui("player.save.manual_state", {
+					"slot": manual_slot,
+					"state": _ui(
+						"player.checkpoint.resumed"
+						if resumed else "player.checkpoint.new"
+					),
+				})
 			else:
 				campaign_save_state = (
-					"AUTO-SAVE / CHECKPOINT RESUMED"
-					if resumed else "AUTO-SAVE / NO CHECKPOINT"
+					_ui("player.save.auto_resumed")
+					if resumed else _ui("player.save.auto_no_checkpoint")
 				)
 			if resumed:
-				status_label.text = "CAMPAIGN RESUMED"
+				status_label.text = _ui("player.save.campaign_resumed")
 			if campaign_persistence_smoke and resumed and not campaign_persistence_resetting:
 				campaign_persistence_resetting = true
 				call_deferred("_exercise_progress_reset_smoke")
@@ -2118,22 +2642,25 @@ func _handle_event(event: Dictionary) -> void:
 			if bool(event.get("successful", false)):
 				var manual_slot := _active_checkpoint_slot()
 				campaign_save_state = (
-					"CHECKPOINT %d / CURRENT" % manual_slot
-					if manual_slot > 0 else "AUTO-SAVE / CHECKPOINT CURRENT"
+					_ui("player.save.manual_state", {
+						"slot": manual_slot,
+						"state": _ui("player.checkpoint.current"),
+					})
+					if manual_slot > 0 else _ui("player.save.auto_current")
 				)
-				_show_toast("CAMPAIGN CHECKPOINT SAVED")
+				_show_toast(_ui("player.save.campaign_saved"))
 				if campaign_persistence_smoke and not campaign_persistence_resetting:
 					print("campaign persistence wrote a checkpoint")
 					get_tree().quit()
 			else:
-				campaign_save_state = "AUTO-SAVE / WRITE FAILED"
-				_show_toast("CAMPAIGN CHECKPOINT COULD NOT BE SAVED")
+				campaign_save_state = _ui("player.save.auto_failed")
+				_show_toast(_ui("player.save.campaign_failed"))
 				if campaign_persistence_smoke:
 					push_error("campaign persistence smoke could not save")
 					get_tree().quit(2)
 		"checkpoint_refused":
-			campaign_save_state = "AUTO-SAVE / CHECKPOINT REJECTED"
-			_show_toast("OLD CHECKPOINT REJECTED / STARTED NEW CAMPAIGN")
+			campaign_save_state = _ui("player.save.auto_rejected")
+			_show_toast(_ui("player.save.old_rejected"))
 		"management":
 			var company: Dictionary = event.get("company", {})
 			_remember_campaign_stage(company)
@@ -2141,16 +2668,35 @@ func _handle_event(event: Dictionary) -> void:
 		"management_committed":
 			if not bool(event.get("successful", false)):
 				var reason := String(event.get("message", "change refused"))
-				_show_toast("COMPANY CHANGE REFUSED  /  " + reason.to_upper().replace("_", " "))
+				_show_toast(_ui("player.company.change_refused", {
+					"reason": reason.to_upper().replace("_", " "),
+				}))
 		"dialogue":
-			for source_line: Dictionary in event.get("lines", []):
+			if not bool(event.get("over_board", false)):
+				PCAudio.play_music("willow_village")
+			var scene_cast: Array[int] = []
+			for cast_line_value: Variant in event.get("lines", []):
+				if not cast_line_value is Dictionary:
+					continue
+				var cast_unit_type := int(cast_line_value.get("unit_type_id", 0))
+				if cast_unit_type != 0 and cast_unit_type not in scene_cast:
+					scene_cast.append(cast_unit_type)
+			var event_lines: Array = event.get("lines", [])
+			for line_index in event_lines.size():
+				var source_line: Dictionary = event_lines[line_index]
 				var line := source_line.duplicate()
 				line["backdrop"] = int(event.get("backdrop", 0))
+				line["dialogue_id"] = event.get("id", 0)
+				line["dialogue_line_index"] = line_index
+				line["over_board"] = bool(event.get("over_board", false))
+				line["subject_unit_id"] = event.get("subject_unit_id", 0)
+				line["scene_cast"] = scene_cast.duplicate()
 				dialogue_lines.append(line)
 			if not _dialogue_visible():
 				dialogue_index = dialogue_lines.size() - event.get("lines", []).size()
 				_show_dialogue_line()
 		"battle_begins":
+			PCAudio.play_music("banners_afar")
 			pending_combat_presentation.clear()
 			if combat_cinematic != null:
 				combat_cinematic.clear()
@@ -2170,9 +2716,19 @@ func _handle_event(event: Dictionary) -> void:
 			board.visible = true
 			snapshot = event.snapshot
 			battle_terrain = event.get("terrain", []).duplicate()
+			battle_terrain_features = event.get("terrain_features", []).duplicate()
+			battle_route_identity = {
+				"stage_id": String(event.get("stage_id", "")),
+				"map_id": String(event.get("map_id", "")),
+				"encounter_id": String(event.get("encounter_id", "")),
+			}
 			battle_theme = int(event.get("theme", 0))
 			battle_surroundings = {}
-			board.configure(snapshot, battle_terrain, battle_theme, battle_surroundings)
+			battle_visual_visibility = {}
+			board.configure(
+				snapshot, battle_terrain, battle_theme, battle_surroundings,
+				battle_terrain_features, battle_route_identity
+			)
 			selected_units = [0, 0]
 			action_modes = ["move", "move"]
 			for seat in 2:
@@ -2195,19 +2751,29 @@ func _handle_event(event: Dictionary) -> void:
 				"terrain": event.get("terrain", []).duplicate(),
 			}
 			board.set_surroundings(battle_surroundings)
+		"battle_visual_visibility":
+			battle_visual_visibility = {
+				"reveal_radius": int(event.get("reveal_radius", 2)),
+				"hidden_cells": event.get("hidden_cells", []).duplicate(),
+			}
+			board.set_visual_visibility(battle_visual_visibility)
 		"definitions":
 			definitions = event
 		"deployment_begins":
 			snapshot = event.snapshot
 			board.update_snapshot(snapshot)
-			status_label.text = "DEPLOYMENT  /  START TO BEGIN"
+			status_label.text = _ui("player.deployment.start")
 		"presentation":
 			var presentation_events: Array = event.get("events", [])
 			var presentation_action := String(event.get("action", ""))
 			if coop_smoke:
 				_verify_coop_motion(presentation_events)
+			var audio_events: Array = presentation_events
+			if battle_closeups_enabled and combat_cinematic != null and not snapshot.is_empty() and CombatPresentationPlan.has_combat(presentation_events):
+				audio_events = []
 			PCAudio.present_events(
-				presentation_events, presentation_action
+				audio_events, presentation_action,
+				int(event.get("action_content_id", 0)), definitions, snapshot
 			)
 			if board.has_method("present_events"):
 				board.present_events(
@@ -2241,7 +2807,9 @@ func _handle_event(event: Dictionary) -> void:
 				get_tree().quit(2)
 			_complete_request(event)
 			PCAudio.play_cue("refuse")
-			_show_toast("COMMAND REFUSED  /  " + String(event.get("message", "unknown")))
+			_show_toast(_ui("player.command.refused", {
+				"reason": String(event.get("message", "unknown")),
+			}))
 		"battle_ended":
 			for seat in action_popups.size():
 				_close_action_popup(seat)
@@ -2249,26 +2817,37 @@ func _handle_event(event: Dictionary) -> void:
 			final_outcome = String(snapshot.get("outcome", "ongoing"))
 			board.update_snapshot(snapshot)
 			_finalize_pending_combat_presentation(snapshot)
-			status_label.text = (
-				"BATTLE WON" if final_outcome == "first_side_won" else "BATTLE LOST"
+			status_label.text = _ui(
+				"player.result.battle_won"
+				if final_outcome == "first_side_won"
+				else "player.result.battle_lost"
 			)
 		"campaign_ended":
+			PCAudio.play_music("stone_and_shadow" if final_outcome == "second_side_won" else "first_light")
 			campaign_complete = true
 			_show_toast(
-				"COMPANY DEFEATED"
+				_ui("player.session.company_defeated")
 				if final_outcome == "second_side_won"
-				else "CAMPAIGN COMPLETE"
+				else _ui("player.session.campaign_complete")
 			)
 			_maybe_show_campaign_result()
 		"session_failed":
 			_show_fatal(String(event.get("message", "session failed")))
 		"session_finished":
 			status_label.text = (
-				"COMPANY DEFEATED"
+				_ui("player.session.company_defeated")
 				if final_outcome == "second_side_won"
-				else "SESSION COMPLETE"
+				else _ui("player.result.session_complete")
 			)
 			_maybe_show_campaign_result()
+
+
+func _present_pending_combat_audio(pending: Dictionary) -> void:
+	PCAudio.present_events(
+		pending.get("events", []), String(pending.get("action", "")),
+		int(pending.get("content_id", 0)), definitions,
+		pending.get("before_snapshot", {})
+	)
 
 
 func _finalize_pending_combat_presentation(after_snapshot: Dictionary) -> void:
@@ -2277,6 +2856,7 @@ func _finalize_pending_combat_presentation(after_snapshot: Dictionary) -> void:
 	var pending := pending_combat_presentation.duplicate(true)
 	pending_combat_presentation.clear()
 	if not battle_closeups_enabled or combat_cinematic == null:
+		_present_pending_combat_audio(pending)
 		return
 	var plan := CombatPresentationPlan.build(
 		pending.get("before_snapshot", {}), after_snapshot,
@@ -2284,10 +2864,17 @@ func _finalize_pending_combat_presentation(after_snapshot: Dictionary) -> void:
 		int(pending.get("content_id", 0))
 	)
 	if plan.is_empty():
+		_present_pending_combat_audio(pending)
 		return
 	if combat_cinematic.enqueue(
-		plan, battle_terrain, battle_theme, _combat_cinematic_focus_points(plan)
+		plan, battle_terrain, battle_theme, _combat_cinematic_focus_points(plan),
+		battle_terrain_features, battle_route_identity
 	):
+		PCAudio.present_events(
+			plan.get("passthrough_events", []), String(pending.get("action", "")),
+			int(pending.get("content_id", 0)), definitions,
+			pending.get("before_snapshot", {})
+		)
 		for seat in action_popups.size():
 			_close_action_popup(seat)
 		unit_panel.visible = false
@@ -2314,6 +2901,8 @@ func _finalize_pending_combat_presentation(after_snapshot: Dictionary) -> void:
 			combat_cinematic_smoke = false
 			print("combat cinematic native event, snapshot, fast-forward, and skip smoke passed")
 			get_tree().quit()
+	else:
+		_present_pending_combat_audio(pending)
 
 
 func _combat_cinematic_focus_points(plan: Dictionary) -> Array[Vector2]:
@@ -2344,7 +2933,7 @@ func _maybe_show_campaign_result() -> void:
 
 func _handle_management(company: Dictionary) -> void:
 	if company.is_empty():
-		_show_fatal("The campaign did not publish a company")
+		_show_fatal(_ui("player.error.company_missing"))
 		return
 	if campaign_management_smoke:
 		campaign_manager.present(company)
@@ -2365,19 +2954,23 @@ func _handle_management(company: Dictionary) -> void:
 	if not campaign_management_preview and not _company_has_management_options(company):
 		fixed_formation_skipped = true
 		pending_company.clear()
-		status_label.text = "STARTING  /  " + (
+		status_label.text = _ui("player.status.starting_stage", {"stage": (
 			current_stage_name.to_upper()
-			if not current_stage_name.is_empty() else "FIXED FORMATION"
-		)
+			if not current_stage_name.is_empty() else _ui("player.company.fixed_formation")
+		)})
 		if not session.submit_management("proceed"):
-			_show_fatal("The fixed formation could not start")
+			_show_fatal(_ui("player.error.fixed_formation"))
 		return
 	_present_company(company)
 
 
 func _remember_campaign_stage(company: Dictionary) -> void:
 	var encounter_id := int(company.get("encounter_id", 0))
-	current_stage_name = ""
+	current_stage_name = (
+		preview_label
+		if not preview_label.is_empty()
+		else str(company.get("stage_name", "")).strip_edges()
+	)
 	for stage_value: Variant in company.get("stages", []):
 		if not stage_value is Dictionary:
 			continue
@@ -2396,7 +2989,7 @@ func _present_company(company: Dictionary) -> void:
 	var presented_company := company.duplicate(true)
 	pending_company.clear()
 	board.visible = false
-	status_label.text = "PREPARING COMPANY"
+	status_label.text = _ui("player.status.preparing_company")
 	campaign_manager.present(presented_company)
 
 
@@ -2405,6 +2998,9 @@ func _company_has_management_options(company: Dictionary) -> bool:
 		return true
 	if not company.get("stages", []).is_empty():
 		return true
+	for member: Dictionary in company.get("roster", []):
+		if bool(member.get("player_nameable", false)):
+			return true
 	return String(company.get("refused", "none")) not in ["", "none"]
 
 
@@ -2437,7 +3033,14 @@ func _on_management_intent(kind: String, member_id: int, item_id: int, stage_id:
 	if session != null and session.submit_management(kind, member_id, item_id, stage_id):
 		return
 	campaign_manager.submission_refused()
-	_show_toast("COMPANY COMMAND WAS NOT ACCEPTED")
+	_show_toast(_ui("player.company.command_rejected"))
+
+
+func _on_player_name_requested(member_id: int, chosen_name: String) -> void:
+	if session != null and session.submit_player_name(member_id, chosen_name):
+		return
+	campaign_manager.submission_refused()
+	_show_toast(_ui("player.company.name_rejected"))
 
 
 func _open_management_session_menu() -> void:
@@ -2692,20 +3295,21 @@ func _accept_at(seat: int) -> void:
 	var selected := selected_units[seat]
 	if not occupant.is_empty() and String(occupant.side) == "first":
 		if not _unit_owned_by_seat(occupant, seat):
-			_show_toast(
-				"%s ARMY  /  OTHER CONTROL"
-				% _control_colour_name(clampi(int(occupant.get("player", 1)) - 1, 0, 1))
-			)
+			_show_toast(_ui("player.toast.other_army", {
+				"army": _control_colour_name(
+					clampi(int(occupant.get("player", 1)) - 1, 0, 1)
+				),
+			}))
 			return
 		var owner := _selected_by_other_seat(seat, int(occupant.id))
 		if owner >= 0:
-			_show_toast("OTHER CONTROL IS COMMANDING THAT CHARACTER")
+			_show_toast(_ui("player.toast.other_commanding"))
 			return
 		if _unit_is_pending(int(occupant.id)):
-			_show_toast("THAT CHARACTER IS ALREADY MOVING")
+			_show_toast(_ui("player.toast.already_moving"))
 			return
 		if occupant.get("has_acted", false):
-			_show_toast("THAT CHARACTER HAS FINISHED THIS ROUND")
+			_show_toast(_ui("player.toast.finished_round"))
 			return
 		_close_action_popup(seat)
 		selected_units[seat] = int(occupant.id)
@@ -2714,13 +3318,12 @@ func _accept_at(seat: int) -> void:
 		_show_unit(occupant, seat)
 		return
 	if selected == 0:
-		_show_toast(
-			"CHOOSE A FRIENDLY CHARACTER  /  %s FINISHES THE READY TEAM"
-			% controls.label("end_turn")
-		)
+		_show_toast(_ui("player.toast.choose_friendly", {
+			"finish": controls.label("end_turn"),
+		}))
 		return
 	if _unit_is_pending(selected):
-		_show_toast("THAT CHARACTER IS ALREADY MOVING")
+		_show_toast(_ui("player.toast.already_moving"))
 		return
 	if snapshot.get("deploying", false):
 		_submit("deploy", selected, 0, cursor)
@@ -2730,7 +3333,7 @@ func _accept_at(seat: int) -> void:
 		var actor := _unit_by_id(selected)
 		var abilities: Array = actor.get("abilities", [])
 		if abilities.is_empty():
-			_show_toast("THIS CHARACTER KNOWS NO ABILITY")
+			_show_toast(_ui("player.toast.no_ability"))
 			return
 		_submit("ability", selected, 0, cursor, int(abilities[0]))
 		return
@@ -2741,7 +3344,7 @@ func _accept_at(seat: int) -> void:
 			_submit("attack", selected, int(occupant.id), cursor)
 		return
 	if mode == "talk":
-		_show_toast("TALK NEEDS A CHARACTER BESIDE YOU")
+		_show_toast(_ui("player.toast.talk_adjacent"))
 	else:
 		_submit("move", selected, 0, cursor)
 
@@ -2820,17 +3423,17 @@ func _open_action_popup(seat: int, unit_id: int) -> void:
 	):
 		return
 	var options: Array[Dictionary] = []
-	if not session.query_tiles("attack", unit_id, 0).is_empty():
-		options.append({"mode": "attack", "label": "ATTACK"})
+	if not _legal_attack_targets(unit_id).is_empty():
+		options.append({"mode": "attack", "label": _action_text("attack")})
 	var abilities: Array = unit.get("abilities", [])
 	if (
 		not abilities.is_empty()
 		and not session.query_tiles("ability", unit_id, int(abilities[0])).is_empty()
 	):
-		options.append({"mode": "ability", "label": "ABILITY"})
+		options.append({"mode": "ability", "label": _action_text("ability")})
 	if not session.query_tiles("talk", unit_id, 0).is_empty():
-		options.append({"mode": "talk", "label": "TALK"})
-	options.append({"mode": "wait", "label": "WAIT"})
+		options.append({"mode": "talk", "label": _action_text("talk")})
+	options.append({"mode": "wait", "label": _action_text("wait")})
 	action_popups[seat] = {
 		"open": true,
 		"unit_id": unit_id,
@@ -2856,7 +3459,7 @@ func _render_action_popup(seat: int) -> void:
 	var row := int(popup.get("row", 0))
 	var options: Array = popup.get("options", [])
 	for index in options.size():
-		var label := String(options[index].get("label", "ACTION"))
+		var label := String(options[index].get("label", _ui("player.hud.action")))
 		if index == row:
 			lines.append("[color=#%s][b]▶ %s[/b][/color]" % [PLAYER_COLOURS[seat].to_html(), label])
 		else:
@@ -3036,9 +3639,33 @@ func _activate_action_popup(seat: int) -> bool:
 	selected_units[seat] = unit_id
 	board.set_selected(seat, unit_id, mode)
 	_update_highlights(seat)
+	_focus_attack_target(seat)
 	_refresh_selected_panel(seat)
-	_show_toast("CHOOSE %s TARGET" % mode.to_upper())
+	_show_toast(_ui("player.toast.choose_target", {
+		"action": _action_text(mode),
+	}))
 	return true
+
+
+func _focus_attack_target(seat: int) -> void:
+	if action_modes[seat] != "attack" or selected_units[seat] == 0:
+		return
+	var targets := _legal_attack_targets(selected_units[seat])
+	if not targets.is_empty():
+		seats[seat].cursor = Vector2i(int(targets[0].x), int(targets[0].y))
+		board.set_seats(seats)
+
+
+# The native forecast includes every actor/target gate, so an Attack option
+# always has a command the engine can accept rather than merely a reach tile.
+func _legal_attack_targets(unit_id: int) -> Array[Dictionary]:
+	var targets: Array[Dictionary] = []
+	for unit: Dictionary in snapshot.get("units", []):
+		if not unit.get("on_board", false):
+			continue
+		if bool(session.forecast_attack(unit_id, int(unit.id)).get("available", false)):
+			targets.append(unit)
+	return targets
 
 
 func _selected_by_other_seat(seat: int, unit_id: int) -> int:
@@ -3072,6 +3699,7 @@ func _cycle_mode(seat: int, direction: int) -> void:
 	hud_seat = seat
 	var at := MODES.find(action_modes[seat])
 	action_modes[seat] = MODES[wrapi(at + direction, 0, MODES.size())]
+	_focus_attack_target(seat)
 	board.set_selected(seat, selected_units[seat], action_modes[seat])
 	_update_highlights(seat)
 	_refresh_selected_panel(seat)
@@ -3125,7 +3753,7 @@ func _wait_selected(seat: int) -> void:
 	var selected := selected_units[seat]
 	if selected != 0:
 		if _unit_is_pending(selected):
-			_show_toast("THAT CHARACTER IS STILL MOVING")
+			_show_toast(_ui("player.toast.still_moving"))
 			_update_context_help(seat)
 			return
 		var unit := _unit_by_id(selected)
@@ -3150,14 +3778,16 @@ func _wait_selected(seat: int) -> void:
 		_submit("wait", unit_id)
 		submitted += 1
 	if submitted == 0:
-		_show_toast("%s HAS NO READY CHARACTERS" % _control_colour_name(seat))
+		_show_toast(_ui("player.toast.no_ready", {
+			"army": _control_colour_name(seat),
+		}))
 		_update_context_help(seat)
 	else:
-		_show_toast(
-			"FINISHING %d READY CHARACTER%s" % [
-				submitted, "" if submitted == 1 else "S"
-			]
-		)
+		_show_toast(_ui(
+			"player.toast.finishing_one"
+			if submitted == 1 else "player.toast.finishing_many",
+			{"count": submitted}
+		))
 
 
 func _seed_cursors() -> void:
@@ -3172,20 +3802,43 @@ func _seed_cursors() -> void:
 func _show_unit(unit: Dictionary, seat := 0) -> void:
 	hud_seat = seat
 	unit_panel.visible = true
-	unit_name.text = String(unit.get("name", "Unit"))
+	unit_name.text = String(unit.get("name", _ui("player.unit.unnamed")))
 	var heading_colour := "#ff8a9a"
 	if String(unit.get("side", "")) == "first":
 		var player := clampi(int(unit.get("player", 1)), 1, 2)
 		heading_colour = PLAYER_COLOURS[player - 1].to_html()
 	unit_stats.text = (
-		"[color=%s][b]HP %d/%d[/b][/color]   " % [
-			heading_colour, unit.health, unit.maximum_health
+		"[color=%s][b]%s %d/%d[/b][/color]   " % [
+			heading_colour, _ui("player.hud.hp"), unit.health, unit.maximum_health
 		]
-		+ "MOVE %d   RANGE %d–%d   " % [
-			unit.movement, unit.minimum_reach, unit.maximum_reach
+		+ "%s %d   %s %d–%d   " % [
+			_ui("player.hud.move"), unit.movement,
+			_ui("player.hud.range"), unit.minimum_reach, unit.maximum_reach
 		]
-		+ ("[color=#718896]DONE[/color]" if unit.get("has_acted", false) else "[color=#72e08f]READY[/color]")
+		+ (
+			"[color=#718896]%s[/color]" % _ui("player.hud.done")
+			if unit.get("has_acted", false)
+			else "[color=#72e08f]%s[/color]" % _ui("player.hud.ready")
+		)
 	)
+	if action_modes[seat] == "attack" and selected_units[seat] != 0:
+		var target: Dictionary = board.unit_at(Vector2i(seats[seat].cursor))
+		if not target.is_empty():
+			var forecast: Dictionary = session.forecast_attack(selected_units[seat], int(target.id))
+			if bool(forecast.get("available", false)):
+				unit_name.text = String(target.get("name", _ui("player.unit.unnamed")))
+				unit_stats.text = "%s %d → %d   %s %d%%" % [
+					_ui("player.hud.hp"), int(target.health), int(forecast.target_health_after),
+					_ui("player.hud.hit"), int(forecast.hit_chance)
+				]
+				if int(forecast.hit_chance) < 100:
+					unit_stats.text += "  " + _ui("player.hud.on_hit")
+				if bool(forecast.counter):
+					var actor := _unit_by_id(selected_units[seat])
+					unit_stats.text += "\n%s  %s %d → %d  (%d%%)" % [
+						_ui("player.hud.counter"), _ui("player.hud.hp"), int(actor.health),
+						int(forecast.attacker_health_after), int(forecast.counter_chance)
+					]
 	_position_unit_panel(unit, seat)
 	_update_context_help(seat)
 
@@ -3235,39 +3888,42 @@ func _context_help_text(seat: int) -> String:
 	var finish: String = controls.label("end_turn")
 	var menu: String = controls.label("menu")
 	if String(snapshot.get("active_side", "")) != "first":
-		return "[color=#ff5267][b]ENEMY TURN[/b][/color]"
+		return "[color=#ff5267][b]%s[/b][/color]" % _ui("player.hud.enemy_turn")
 	if bool(action_popups[seat].get("open", false)):
 		return ""
 	var selected := selected_units[seat]
 	if selected == 0:
-		var final_hint := "[b]%s[/b]  FINISH" % finish
+		var final_hint := "[b]%s[/b]  %s" % [finish, _ui("player.hud.finish")]
 		if snapshot.get("deploying", false):
-			final_hint = "[b]%s[/b]  BEGIN" % menu
+			final_hint = "[b]%s[/b]  %s" % [menu, _ui("player.hud.begin")]
 		return (
-			"[color=#%s][b]%s[/b][/color]  SELECT     %s" % [
-				PLAYER_COLOURS[seat].to_html(), confirm, final_hint
+			"[color=#%s][b]%s[/b][/color]  %s     %s" % [
+				PLAYER_COLOURS[seat].to_html(), confirm,
+				_ui("player.hud.select"), final_hint,
 			]
 		)
 	var unit := _unit_by_id(selected)
 	if _unit_is_pending(selected):
-		return "[color=#69d9ff][b]MOVING…[/b][/color]"
+		return "[color=#69d9ff][b]%s[/b][/color]" % _ui("player.hud.moving")
 	if not unit.is_empty() and unit.get("has_acted", false):
-		return "[color=#718896][b]DONE[/b][/color]"
+		return "[color=#718896][b]%s[/b][/color]" % _ui("player.hud.done")
 	if snapshot.get("deploying", false):
-		return "[b]%s[/b]  PLACE     [b]%s[/b]  BACK     [b]%s[/b]  BEGIN" % [
-			confirm, cancel, menu
+		return "[b]%s[/b]  %s     [b]%s[/b]  %s     [b]%s[/b]  %s" % [
+			confirm, _ui("player.hud.place"),
+			cancel, _ui("player.hud.back"),
+			menu, _ui("player.hud.begin"),
 		]
 	var mode := action_modes[seat]
-	var action: String = {
-		"move": "MOVE",
-		"attack": "ATTACK",
-		"ability": "ABILITY",
-		"talk": "TALK",
-	}.get(mode, "CONFIRM")
+	var action := (
+		_action_text(mode)
+		if mode in MODES else _ui("player.hud.confirm")
+	)
 	return (
 		"[color=#69d9ff][b]%s[/b][/color]  %s     " % [confirm, action]
-		+ "[b]%s[/b]  ACTION     [b]%s[/b]  BACK     [b]%s[/b]  FINISH" % [
-			next_action, cancel, finish
+		+ "[b]%s[/b]  %s     [b]%s[/b]  %s     [b]%s[/b]  %s" % [
+			next_action, _ui("player.hud.action_button"),
+			cancel, _ui("player.hud.back"),
+			finish, _ui("player.hud.finish"),
 		]
 	)
 
@@ -3282,10 +3938,14 @@ func _unit_by_id(id: int) -> Dictionary:
 func _update_status() -> void:
 	if snapshot.is_empty():
 		return
-	var phase := "DEPLOY" if snapshot.get("deploying", false) else (
-		"TEAM" if String(snapshot.active_side) == "first" else "ENEMY"
+	var phase := _ui("player.hud.phase.deploy") if snapshot.get("deploying", false) else (
+		_ui("player.hud.phase.team")
+		if String(snapshot.active_side) == "first" else _ui("player.hud.phase.enemy")
 	)
-	turn_label.text = "ROUND %d  •  %s" % [int(snapshot.round) + 1, phase]
+	turn_label.text = _ui("player.hud.round", {
+		"round": int(snapshot.round) + 1,
+		"phase": phase,
+	})
 	turn_label.add_theme_color_override(
 		"font_color",
 		Color("69d9ff") if String(snapshot.active_side) == "first" else Color("ff7182")
@@ -3297,6 +3957,8 @@ func _update_status() -> void:
 func _show_dialogue_line() -> void:
 	if dialogue_index < 0 or dialogue_index >= dialogue_lines.size():
 		dialogue_layer.visible = false
+		if conversation_backdrop != null:
+			conversation_backdrop.clear()
 		_update_context_help()
 		return
 	var line: Dictionary = dialogue_lines[dialogue_index]
@@ -3307,8 +3969,18 @@ func _show_dialogue_line() -> void:
 	dialogue_speaker.text = String(line.get("speaker", ""))
 	dialogue_text.text = String(line.get("text", ""))
 	var confirm_label: String = controls.label("confirm")
-	dialogue_hint.text = "%s / ENTER  CONTINUE" % confirm_label
-	_set_dialogue_backdrop(int(line.get("backdrop", 0)))
+	dialogue_hint.text = _ui("player.dialogue.continue", {"confirm": confirm_label})
+	var backdrop_selection := backdrop_pack_resolver.resolve_for_conversation(
+		line.get("dialogue_id", 0), int(line.get("backdrop", 0)),
+		bool(line.get("over_board", false)), snapshot, battle_terrain,
+		line.get("scene_cast", []), int(line.get("subject_unit_id", 0)),
+		battle_terrain_features, battle_route_identity
+	)
+	var layered: bool = (
+		conversation_backdrop != null
+		and conversation_backdrop.present(backdrop_selection)
+	)
+	_set_dialogue_backdrop(int(line.get("backdrop", 0)), layered)
 	if line.has("archetype"):
 		var portrait_frame := art.character_frame(line, "idle")
 		var portrait := AtlasTexture.new()
@@ -3320,7 +3992,7 @@ func _show_dialogue_line() -> void:
 		dialogue_portrait.texture = null
 
 
-func _set_dialogue_backdrop(index: int) -> void:
+func _set_dialogue_backdrop(index: int, layered := false) -> void:
 	var washes := [
 		Color(0.005, 0.009, 0.016, 0.68),
 		Color(0.10, 0.045, 0.03, 0.72),
@@ -3331,7 +4003,10 @@ func _set_dialogue_backdrop(index: int) -> void:
 		Color(0.018, 0.012, 0.075, 0.72),
 		Color(0.055, 0.025, 0.075, 0.72),
 	]
-	dialogue_shade.color = washes[clampi(index, 0, washes.size() - 1)]
+	dialogue_shade.color = (
+		Color(0.004, 0.008, 0.014, 0.16)
+		if layered else washes[clampi(index, 0, washes.size() - 1)]
+	)
 
 
 func _advance_dialogue() -> void:
@@ -3342,6 +4017,8 @@ func _advance_dialogue() -> void:
 		dialogue_lines.clear()
 		dialogue_index = -1
 		dialogue_layer.visible = false
+		if conversation_backdrop != null:
+			conversation_backdrop.clear()
 		_show_pending_management()
 		_maybe_show_campaign_result()
 		_update_context_help()
@@ -3381,15 +4058,46 @@ func _position_toast() -> void:
 
 
 func _show_fatal(message: String) -> void:
-	status_label.text = "CANNOT START"
+	status_label.text = _ui("player.error.cannot_start")
 	unit_panel.visible = true
-	unit_name.text = "PC client error"
+	unit_name.text = _ui("player.error.client")
 	unit_stats.text = "[color=#ff7182]%s[/color]" % message
 	_show_toast(message)
 
 
 func _help_text() -> String:
-	return "[color=#69d9ff][b]%s[/b][/color]  SELECT" % controls.label("confirm")
+	return "[color=#69d9ff][b]%s[/b][/color]  %s" % [
+		controls.label("confirm"), _ui("player.hud.select")
+	]
+
+
+func _ui(message_id: String, values: Dictionary = {}) -> String:
+	return Localization.text(message_id, values)
+
+
+func _state_text(state: String) -> String:
+	return _ui("player.state.%s" % state)
+
+
+func _action_text(action: String) -> String:
+	return _ui("player.action.%s" % action)
+
+
+func _localized_runtime_warning(message: String) -> String:
+	var message_id: String = {
+		"CONTROL PROFILE / UNAVAILABLE / DEFAULTS ACTIVE": "player.warning.controls_unavailable",
+		"CONTROL PROFILE / INVALID / DEFAULTS ACTIVE": "player.warning.controls_invalid",
+		"BUILT-IN GRAPHICS PROFILE IS INVALID": "player.warning.graphics_builtin",
+		"GRAPHICS OVERRIDE COULD NOT BE READ": "player.warning.graphics_unreadable",
+		"GRAPHICS OVERRIDE CONTRACT IS INCOMPATIBLE": "player.warning.graphics_incompatible",
+		"DISPLAY SETTINGS COULD NOT BE RECOVERED": "player.warning.display_recovery_failed",
+		"PREVIOUS DISPLAY SETTINGS RESTORED": "player.warning.display_restored",
+		"PREVIOUS DISPLAY SETTINGS IN USE": "player.warning.display_previous",
+		"DISPLAY SETTINGS WERE IGNORED": "player.warning.display_ignored",
+		"DISPLAY SETTINGS WERE NOT SAVED": "player.warning.display_not_saved",
+		"DISPLAY SETTINGS COULD NOT BE RESET": "player.warning.display_not_reset",
+	}.get(message, "")
+	return _ui(message_id) if not message_id.is_empty() else message
 
 
 func _bind_font_size(control: Control, key: String, base: int) -> void:

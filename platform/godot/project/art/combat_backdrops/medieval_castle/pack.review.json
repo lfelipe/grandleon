@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "status": "reviewed_asset_only",
+  "runtime_registered": false,
+  "id": "medieval_castle",
+  "campaign": "steel_and_cedar",
+  "source_resolution": [1280, 720],
+  "colour_space": "sRGB",
+  "variant_count": 3,
+  "layer_roles": ["panorama", "transition", "midground", "props"],
+  "filename_patterns": {
+    "panorama": "panorama_{variant}.png",
+    "transition": "transition_paved_castle_{variant}.png",
+    "midground": "midground_castle_{variant}.png",
+    "props": "props_{variant}.png"
+  },
+  "floor_strip_top": 1.0,
+  "compatibility": {
+    "map_ids": ["twin_gate"],
+    "terrain_features": [
+      "castle_door",
+      "castle_floor",
+      "castle_dais"
+    ],
+    "terrain_kinds": ["paved", "mountain"],
+    "conversation_scene_ids": [
+      "gate_parley",
+      "gate_orders",
+      "gate_coop",
+      "gate_coop_victory",
+      "ending"
+    ],
+    "authored_backdrops": ["throne_hall"]
+  }
+}

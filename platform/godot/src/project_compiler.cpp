@@ -440,9 +440,16 @@ void GrandleonProjectCompiler::_bind_methods() {
     gd::ClassDB::bind_method(
         gd::D_METHOD(
             "set_map_surroundings", "source_json", "map_id", "mode",
-            "colour", "depth", "terrain_ids"
+            "colour", "depth", "terrain_ids", "fill_terrain"
         ),
         &GrandleonProjectCompiler::set_map_surroundings
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD(
+            "set_map_visual_visibility", "source_json", "map_id",
+            "reveal_radius", "cell_indices"
+        ),
+        &GrandleonProjectCompiler::set_map_visual_visibility
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD(
@@ -562,6 +569,13 @@ void GrandleonProjectCompiler::_bind_methods() {
             "member_id", "name"
         ),
         &GrandleonProjectCompiler::rename_campaign_member
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD(
+            "set_campaign_member_player_nameable", "source_json",
+            "campaign_id", "member_id", "player_nameable"
+        ),
+        &GrandleonProjectCompiler::set_campaign_member_player_nameable
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD(
@@ -996,7 +1010,8 @@ gd::Dictionary GrandleonProjectCompiler::set_map_surroundings(
     const gd::String& mode,
     const gd::String& colour,
     std::int64_t depth,
-    const gd::PackedStringArray& terrain_ids
+    const gd::PackedStringArray& terrain_ids,
+    const gd::String& fill_terrain
 ) const {
     std::vector<std::string> ids;
     ids.reserve(static_cast<std::size_t>(terrain_ids.size()));
@@ -1010,7 +1025,39 @@ gd::Dictionary GrandleonProjectCompiler::set_map_surroundings(
     const gc::SourceTextResult updated =
         gc::set_source_map_surroundings_json(
             narrow(source_json), narrow(map_id), narrow(mode), narrow(colour),
-            depth, ids
+            depth, ids, narrow(fill_terrain)
+        );
+    if (!updated) {
+        for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {
+            diagnostics.push_back(source_diagnostic(diagnostic));
+        }
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    result["ok"] = true;
+    result["source"] = text(updated.json);
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::set_map_visual_visibility(
+    const gd::String& source_json,
+    const gd::String& map_id,
+    std::int64_t reveal_radius,
+    const gd::PackedInt32Array& cell_indices
+) const {
+    std::vector<std::int64_t> cells;
+    cells.reserve(static_cast<std::size_t>(cell_indices.size()));
+    for (std::int64_t index = 0; index < cell_indices.size(); ++index) {
+        cells.push_back(cell_indices[index]);
+    }
+    gd::Dictionary result;
+    result["ok"] = false;
+    result["source"] = "";
+    gd::Array diagnostics;
+    const gc::SourceTextResult updated =
+        gc::set_source_map_visual_visibility_json(
+            narrow(source_json), narrow(map_id), reveal_radius, cells
         );
     if (!updated) {
         for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {
@@ -1517,6 +1564,34 @@ gd::Dictionary GrandleonProjectCompiler::rename_campaign_member(
         gc::rename_source_campaign_member_json(
             narrow(source_json), narrow(campaign_id), narrow(member_id),
             narrow(name)
+        );
+    if (!updated) {
+        for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {
+            diagnostics.push_back(source_diagnostic(diagnostic));
+        }
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    result["ok"] = true;
+    result["source"] = text(updated.json);
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::set_campaign_member_player_nameable(
+    const gd::String& source_json,
+    const gd::String& campaign_id,
+    const gd::String& member_id,
+    bool player_nameable
+) const {
+    gd::Dictionary result;
+    result["ok"] = false;
+    result["source"] = "";
+    gd::Array diagnostics;
+    const gc::SourceTextResult updated =
+        gc::set_source_campaign_member_player_nameable_json(
+            narrow(source_json), narrow(campaign_id), narrow(member_id),
+            player_nameable
         );
     if (!updated) {
         for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {

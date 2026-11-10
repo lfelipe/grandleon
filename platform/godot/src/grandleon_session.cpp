@@ -3,6 +3,8 @@
 
 #include <grandleon/client/session.hpp>
 #include <grandleon/core/content_identity.hpp>
+#include <grandleon/package_runtime/encounter_loader.hpp>
+#include <grandleon/package_runtime/localization.hpp>
 #include <grandleon/package_runtime/names.hpp>
 #include <grandleon/view/motion.hpp>
 
@@ -36,6 +38,46 @@ std::string narrow(const gd::String& value) {
 
 std::int64_t signed_id(std::uint64_t value) {
     return static_cast<std::int64_t>(value);
+}
+
+const char* terrain_feature_name(std::uint64_t terrain_id) {
+    static const std::uint64_t village_house =
+        core::stable_content_id_v1("mountain_village_house");
+    static const std::uint64_t ancient_grove =
+        core::stable_content_id_v1("mountain_ancient_grove");
+    static const std::uint64_t castle_wall =
+        core::stable_content_id_v1("mountain_castle_wall");
+    static const std::uint64_t castle_door =
+        core::stable_content_id_v1("paved_castle_door");
+    static const std::uint64_t castle_floor =
+        core::stable_content_id_v1("paved_castle_floor");
+    static const std::uint64_t castle_dais =
+        core::stable_content_id_v1("paved_castle_dais");
+    static const std::uint64_t farmland_orchard_tree =
+        core::stable_content_id_v1("farmland_orchard_tree");
+    static const std::uint64_t forest_orchard_tree =
+        core::stable_content_id_v1("forest_orchard_tree");
+    static const std::uint64_t orchard_bell =
+        core::stable_content_id_v1("paved_orchard_bell");
+    static const std::uint64_t watch_ruin =
+        core::stable_content_id_v1("ruins_watch_ruin");
+    static const std::uint64_t paved_signal_beacon =
+        core::stable_content_id_v1("paved_signal_beacon");
+    static const std::uint64_t road_signal_beacon =
+        core::stable_content_id_v1("road_signal_beacon");
+    if (terrain_id == village_house) return "village_house";
+    if (terrain_id == ancient_grove) return "ancient_grove";
+    if (terrain_id == castle_wall) return "castle_wall";
+    if (terrain_id == castle_door) return "castle_door";
+    if (terrain_id == castle_floor) return "castle_floor";
+    if (terrain_id == castle_dais) return "castle_dais";
+    if (terrain_id == farmland_orchard_tree ||
+        terrain_id == forest_orchard_tree) return "orchard_tree";
+    if (terrain_id == orchard_bell) return "orchard_bell";
+    if (terrain_id == watch_ruin) return "watch_ruin";
+    if (terrain_id == paved_signal_beacon ||
+        terrain_id == road_signal_beacon) return "signal_beacon";
+    return "";
 }
 
 gd::Dictionary position_dictionary(sim::Position position) {
@@ -75,6 +117,17 @@ const char* outcome_name(sim::Outcome outcome) {
     return "unknown";
 }
 
+const char* objective_kind_name(sim::ObjectiveKind kind) {
+    switch (kind) {
+        case sim::ObjectiveKind::defeat_all_opponents:
+            return "defeat_all_opponents";
+        case sim::ObjectiveKind::defeat_target: return "defeat_target";
+        case sim::ObjectiveKind::protect_target: return "protect_target";
+        case sim::ObjectiveKind::survive_rounds: return "survive_rounds";
+    }
+    return "unknown";
+}
+
 const char* turn_order_name(sim::TurnOrder order) {
     switch (order) {
         case sim::TurnOrder::alternating: return "alternating";
@@ -90,6 +143,8 @@ const char* event_name(FrontendEvent::Kind kind) {
         case FrontendEvent::Kind::battle_begins: return "battle_begins";
         case FrontendEvent::Kind::battle_surroundings:
             return "battle_surroundings";
+        case FrontendEvent::Kind::battle_visual_visibility:
+            return "battle_visual_visibility";
         case FrontendEvent::Kind::definitions: return "definitions";
         case FrontendEvent::Kind::deployment_begins:
             return "deployment_begins";
@@ -289,6 +344,13 @@ void AsyncPresenter::battle_begins(
     const std::vector<std::uint64_t>& terrain
 ) {
     static_cast<void>(roster);
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        battle_active_ = true;
+        moments_.clear();
+        moment_placements_.clear();
+        opening_moments_played_ = false;
+    }
     FrontendEvent event;
     event.kind = FrontendEvent::Kind::battle_begins;
     event.snapshot = snapshot;
@@ -297,12 +359,32 @@ void AsyncPresenter::battle_begins(
     push(std::move(event));
 }
 
+void AsyncPresenter::battle_route(
+    std::uint64_t stage_id,
+    std::uint64_t encounter_id,
+    std::uint64_t map_id
+) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    active_stage_id_ = stage_id;
+    active_encounter_id_ = encounter_id;
+    active_map_id_ = map_id;
+}
+
 void AsyncPresenter::battle_surroundings(
     const pr::MapSurroundings& surroundings
 ) {
     FrontendEvent event;
     event.kind = FrontendEvent::Kind::battle_surroundings;
     event.surroundings = surroundings;
+    push(std::move(event));
+}
+
+void AsyncPresenter::battle_visual_visibility(
+    const pr::MapVisualVisibility& visibility
+) {
+    FrontendEvent event;
+    event.kind = FrontendEvent::Kind::battle_visual_visibility;
+    event.visual_visibility = visibility;
     push(std::move(event));
 }
 
@@ -319,6 +401,16 @@ void AsyncPresenter::battle_definitions(
     event.items = items;
     event.objectives = objectives;
     push(std::move(event));
+}
+
+void AsyncPresenter::battle_moments(
+    const std::vector<pr::EncounterMoment>& moments,
+    const std::vector<pr::PlacementIdentity>& placements
+) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    moments_ = moments;
+    moment_placements_ = placements;
+    opening_moments_played_ = false;
 }
 
 void AsyncPresenter::deployment_begins(
@@ -348,6 +440,7 @@ void AsyncPresenter::draw(
         active_request_id_ = 0;
     }
     push(std::move(event));
+    play_moments(pr::MomentTrigger::stage_opens);
 }
 
 void AsyncPresenter::report(
@@ -369,6 +462,17 @@ void AsyncPresenter::report(
     event.kind = FrontendEvent::Kind::presentation;
     event.presentation_events = result.events;
     push(std::move(event));
+    for (const sim::Event& presented : result.events) {
+        if (presented.type == sim::EventType::unit_defeated) {
+            play_moments(
+                pr::MomentTrigger::character_falls, presented.unit_id
+            );
+        } else if (presented.type == sim::EventType::unit_talked) {
+            play_moments(
+                pr::MomentTrigger::character_talked, presented.unit_id
+            );
+        }
+    }
 }
 
 void AsyncPresenter::refused(sim::CommandError error) {
@@ -408,6 +512,13 @@ void AsyncPresenter::battle_ended(
     event.snapshot = snapshot;
     event.canonical_hash = canonical_hash;
     push(std::move(event));
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        battle_active_ = false;
+        moments_.clear();
+        moment_placements_.clear();
+        opening_moments_played_ = false;
+    }
 }
 
 void AsyncPresenter::campaign_ended() {
@@ -422,9 +533,13 @@ void AsyncPresenter::campaign_begun(
     std::string_view slot,
     bool resumed
 ) {
-    static_cast<void>(roster);
     static_cast<void>(store);
     static_cast<void>(slot);
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        campaign_roster_ = roster;
+        campaign_board_.reset();
+    }
     FrontendEvent event;
     event.kind = FrontendEvent::Kind::campaign_begun;
     event.resumed = resumed;
@@ -439,19 +554,36 @@ void AsyncPresenter::slot_refused(const client::SlotFailure& failure) {
 }
 
 void AsyncPresenter::board_prepared(const client::CampaignBoard& board) {
-    static_cast<void>(board);
+    std::lock_guard<std::mutex> lock(mutex_);
+    campaign_board_ = board;
+    campaign_roster_ = board.roster;
 }
 
 void AsyncPresenter::battle_aftermath(
     const client::BattleAftermath& aftermath
 ) {
-    static_cast<void>(aftermath);
+    std::lock_guard<std::mutex> lock(mutex_);
+    campaign_roster_ = aftermath.roster;
+    campaign_board_.reset();
 }
 
 void AsyncPresenter::members_joined(
     const std::vector<client::RosterEntry>& joined
 ) {
-    static_cast<void>(joined);
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (const client::RosterEntry& member : joined) {
+        const auto present = std::find_if(
+            campaign_roster_.begin(), campaign_roster_.end(),
+            [&member](const client::RosterEntry& candidate) {
+                return candidate.member == member.member;
+            }
+        );
+        if (present == campaign_roster_.end()) {
+            campaign_roster_.push_back(member);
+        } else {
+            *present = member;
+        }
+    }
 }
 
 void AsyncPresenter::campaign_saved(
@@ -504,6 +636,7 @@ client::ManagementIntent AsyncPresenter::next_management_intent(
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (stopping_) return {client::ManagementVerb::quit};
+        campaign_roster_ = company.roster;
         management_intent_.reset();
         awaiting_management_ = true;
     }
@@ -595,12 +728,72 @@ bool AsyncPresenter::awaiting_management() const {
     return awaiting_management_ && !stopping_;
 }
 
+void AsyncPresenter::use_package(const pf::LoadedPackage* package) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    package_ = package;
+}
+
+void AsyncPresenter::play_moments(
+    pr::MomentTrigger trigger,
+    sim::UnitId unit_id
+) {
+    std::vector<std::uint64_t> dialogues;
+    const pf::LoadedPackage* package = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (trigger == pr::MomentTrigger::stage_opens) {
+            if (opening_moments_played_) return;
+            opening_moments_played_ = true;
+        }
+        std::uint64_t placement_id = 0;
+        if (unit_id != 0) {
+            const auto placement = std::find_if(
+                moment_placements_.begin(), moment_placements_.end(),
+                [unit_id](const pr::PlacementIdentity& candidate) {
+                    return candidate.unit_id == unit_id;
+                }
+            );
+            if (placement == moment_placements_.end()) return;
+            placement_id = placement->unit_id;
+        }
+        for (const pr::EncounterMoment& moment : moments_) {
+            if (moment.trigger != trigger) continue;
+            if (trigger != pr::MomentTrigger::stage_opens &&
+                moment.placement_id != placement_id) {
+                continue;
+            }
+            dialogues.push_back(moment.dialogue_id);
+        }
+        package = package_;
+    }
+    if (package == nullptr) return;
+    for (const std::uint64_t dialogue_id : dialogues) {
+        const pr::DialogueLoadResult loaded =
+            pr::load_dialogue(*package, dialogue_id);
+        if (!loaded) continue;
+        FrontendEvent event;
+        event.kind = FrontendEvent::Kind::dialogue;
+        event.dialogue = loaded.dialogue;
+        event.dialogue_subject_id = unit_id;
+        push(std::move(event));
+    }
+}
+
 void AsyncPresenter::stop() {
     {
         std::lock_guard<std::mutex> lock(mutex_);
         stopping_ = true;
         intents_.clear();
         management_intent_.reset();
+        campaign_roster_.clear();
+        campaign_board_.reset();
+        active_stage_id_ = 0;
+        active_encounter_id_ = 0;
+        active_map_id_ = 0;
+        moments_.clear();
+        moment_placements_.clear();
+        battle_active_ = false;
+        opening_moments_played_ = false;
         awaiting_management_ = false;
         active_motion_.reset();
     }
@@ -609,7 +802,16 @@ void AsyncPresenter::stop() {
 
 void AsyncPresenter::push(FrontendEvent event) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (!stopping_) events_.push_back(std::move(event));
+    if (stopping_) return;
+    if (event.kind == FrontendEvent::Kind::dialogue) {
+        event.over_board = battle_active_;
+    }
+    event.campaign_roster = campaign_roster_;
+    event.campaign_board = campaign_board_;
+    event.stage_id = active_stage_id_;
+    event.encounter_id = active_encounter_id_;
+    event.map_id = active_map_id_;
+    events_.push_back(std::move(event));
 }
 
 std::deque<FrontendEvent> AsyncPresenter::take_events() {
@@ -629,18 +831,41 @@ void GrandleonSession::_bind_methods() {
     gd::ClassDB::bind_method(
         gd::D_METHOD(
             "start", "package_path", "campaign_key", "local_players",
-            "save_root"
+            "save_root", "language"
         ),
         &GrandleonSession::start,
-        DEFVAL(1), DEFVAL(gd::String())
+        DEFVAL(1), DEFVAL(gd::String()), DEFVAL(gd::String())
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD(
             "start_package", "package_bytes", "campaign_key", "local_players",
-            "save_root"
+            "save_root", "language"
         ),
         &GrandleonSession::start_package,
-        DEFVAL(1), DEFVAL(gd::String())
+        DEFVAL(1), DEFVAL(gd::String()), DEFVAL(gd::String())
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD("package_languages", "package_bytes"),
+        &GrandleonSession::package_languages
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD("package_presentation", "package_bytes"),
+        &GrandleonSession::package_presentation
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD("set_language", "language"),
+        &GrandleonSession::set_language
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD("language"), &GrandleonSession::language
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD("localized_state"),
+        &GrandleonSession::localized_state
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD("localized_dialogue", "dialogue_id"),
+        &GrandleonSession::localized_dialogue
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD("has_progress"), &GrandleonSession::has_progress
@@ -677,6 +902,10 @@ void GrandleonSession::_bind_methods() {
         DEFVAL(0)
     );
     gd::ClassDB::bind_method(
+        gd::D_METHOD("forecast_attack", "unit_id", "target_id"),
+        &GrandleonSession::forecast_attack
+    );
+    gd::ClassDB::bind_method(
         gd::D_METHOD(
             "submit_intent", "kind", "unit_id", "target_id", "x", "y",
             "content_id", "request_id"
@@ -691,13 +920,18 @@ void GrandleonSession::_bind_methods() {
         &GrandleonSession::submit_management,
         DEFVAL(0), DEFVAL(0), DEFVAL(0)
     );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD("submit_player_name", "member_id", "name"),
+        &GrandleonSession::submit_player_name
+    );
 }
 
 bool GrandleonSession::start(
     const gd::String& package_path,
     const gd::String& campaign_key,
     std::int64_t local_players,
-    const gd::String& save_root
+    const gd::String& save_root,
+    const gd::String& language
 ) {
     reset_for_start();
 
@@ -712,14 +946,15 @@ bool GrandleonSession::start(
         std::istreambuf_iterator<char>(input),
         std::istreambuf_iterator<char>()
     };
-    return start_bytes(bytes, campaign_key, local_players, save_root);
+    return start_bytes(bytes, campaign_key, local_players, save_root, language);
 }
 
 bool GrandleonSession::start_package(
     const gd::PackedByteArray& package_bytes,
     const gd::String& campaign_key,
     std::int64_t local_players,
-    const gd::String& save_root
+    const gd::String& save_root,
+    const gd::String& language
 ) {
     reset_for_start();
     std::vector<std::uint8_t> bytes(
@@ -729,7 +964,78 @@ bool GrandleonSession::start_package(
     for (std::size_t index = 0; index < bytes.size(); ++index) {
         bytes[index] = input[index];
     }
-    return start_bytes(bytes, campaign_key, local_players, save_root);
+    return start_bytes(bytes, campaign_key, local_players, save_root, language);
+}
+
+gd::Dictionary GrandleonSession::package_languages(
+    const gd::PackedByteArray& package_bytes
+) const {
+    gd::Dictionary result;
+    result["ok"] = false;
+    std::vector<std::uint8_t> bytes(
+        static_cast<std::size_t>(package_bytes.size())
+    );
+    const std::uint8_t* const input = package_bytes.ptr();
+    for (std::size_t index = 0; index < bytes.size(); ++index) {
+        bytes[index] = input[index];
+    }
+    auto loaded = pf::load_mock_package(
+        bytes, {{0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 10'000}
+    );
+    if (!loaded) {
+        result["error"] = text(pf::error_name(loaded.error));
+        return result;
+    }
+    const std::vector<std::string_view> languages =
+        pr::available_languages(loaded.package);
+    gd::Array values;
+    gd::Dictionary titles;
+    const std::string_view source_title = pr::content_name(
+        loaded.package, pf::SectionType::manifest,
+        pf::manifest_title_record_id
+    );
+    for (const std::string_view language : languages) {
+        values.push_back(text(language));
+        titles[text(language)] = text(pr::localized_project_title(
+            loaded.package, language, source_title
+        ));
+    }
+    result["ok"] = true;
+    result["source"] = text(pr::source_language(loaded.package));
+    result["title"] = text(source_title);
+    result["titles"] = titles;
+    result["languages"] = values;
+    return result;
+}
+
+gd::Dictionary GrandleonSession::package_presentation(
+    const gd::PackedByteArray& package_bytes
+) const {
+    gd::Dictionary result;
+    result["ok"] = false;
+    std::vector<std::uint8_t> bytes(
+        static_cast<std::size_t>(package_bytes.size())
+    );
+    const std::uint8_t* const input = package_bytes.ptr();
+    for (std::size_t index = 0; index < bytes.size(); ++index) {
+        bytes[index] = input[index];
+    }
+    auto loaded = pf::load_mock_package(
+        bytes, {{0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 10'000}
+    );
+    if (!loaded) {
+        result["error"] = text(pf::error_name(loaded.error));
+        return result;
+    }
+    const pr::PresentationLoadResult presentation =
+        pr::load_presentation(loaded.package);
+    if (!presentation) {
+        result["error"] = text(pr::error_name(presentation.error));
+        return result;
+    }
+    result["ok"] = true;
+    result["battle_closeups"] = presentation.presentation.battle_closeups;
+    return result;
 }
 
 void GrandleonSession::reset_for_start() {
@@ -740,15 +1046,92 @@ void GrandleonSession::reset_for_start() {
     has_snapshot_ = false;
     latest_weapons_.clear();
     latest_abilities_.clear();
+    latest_snapshot_event_.reset();
+    latest_definitions_event_.reset();
+    latest_campaign_event_.reset();
+    latest_management_event_.reset();
+    latest_dialogue_events_.clear();
     progress_available_ = false;
     save_slot_.clear();
+}
+
+bool GrandleonSession::set_language(const gd::String& requested) {
+    const std::string selected = narrow(requested);
+    const std::vector<std::string_view> available =
+        pr::available_languages(package_);
+    const bool supported = std::find(
+        available.begin(), available.end(), selected
+    ) != available.end();
+    if (!supported) {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        last_error_ = "game language is not available in this package";
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    language_ = selected;
+    last_error_.clear();
+    return true;
+}
+
+gd::String GrandleonSession::language() const {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    return text(language_);
+}
+
+gd::Dictionary GrandleonSession::localized_state() const {
+    std::optional<FrontendEvent> definitions;
+    std::optional<FrontendEvent> snapshot;
+    std::optional<FrontendEvent> campaign;
+    std::optional<FrontendEvent> management;
+    {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        definitions = latest_definitions_event_;
+        snapshot = latest_snapshot_event_;
+        campaign = latest_campaign_event_;
+        management = latest_management_event_;
+    }
+    gd::Dictionary result;
+    result["ok"] = true;
+    result["language"] = language();
+    if (definitions.has_value()) {
+        result["definitions"] = event_dictionary(*definitions);
+    }
+    if (snapshot.has_value()) {
+        result["snapshot"] = event_dictionary(*snapshot);
+    }
+    if (campaign.has_value()) {
+        result["campaign"] = event_dictionary(*campaign);
+    }
+    if (management.has_value()) {
+        result["management"] = event_dictionary(*management);
+    }
+    return result;
+}
+
+gd::Dictionary GrandleonSession::localized_dialogue(
+    std::int64_t dialogue_id
+) const {
+    std::optional<FrontendEvent> dialogue;
+    {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        for (auto current = latest_dialogue_events_.rbegin();
+             current != latest_dialogue_events_.rend(); ++current) {
+            if (signed_id(current->dialogue.id) == dialogue_id) {
+                dialogue = *current;
+                break;
+            }
+        }
+    }
+    if (!dialogue.has_value()) return {};
+    return event_dictionary(*dialogue);
 }
 
 bool GrandleonSession::start_bytes(
     const std::vector<std::uint8_t>& package_bytes,
     const gd::String& campaign_key,
     std::int64_t local_players,
-    const gd::String& save_root
+    const gd::String& save_root,
+    const gd::String& language
 ) {
     auto loaded = pf::load_mock_package(
         package_bytes,
@@ -771,6 +1154,10 @@ bool GrandleonSession::start_bytes(
     package_ = std::move(loaded.package);
     presentation_ = std::move(presentation.presentation);
     campaign_id_ = core::stable_content_id_v1(narrow(campaign_key));
+    language_ = narrow(language);
+    if (language_.empty()) {
+        language_ = std::string(pr::source_language(package_));
+    }
     local_players_ = static_cast<std::uint8_t>(
         std::clamp<std::int64_t>(local_players, 1, 2)
     );
@@ -794,6 +1181,7 @@ bool GrandleonSession::start_bytes(
 
 bool GrandleonSession::launch_worker() {
     presenter_ = std::make_shared<AsyncPresenter>();
+    presenter_->use_package(&package_);
     const bool resume = storage_ && storage_->contains(save_slot_);
     {
         std::lock_guard<std::mutex> lock(state_mutex_);
@@ -931,6 +1319,11 @@ bool GrandleonSession::load_checkpoint(std::int64_t slot) {
         has_snapshot_ = false;
         latest_weapons_.clear();
         latest_abilities_.clear();
+        latest_snapshot_event_.reset();
+        latest_definitions_event_.reset();
+        latest_campaign_event_.reset();
+        latest_management_event_.reset();
+        latest_dialogue_events_.clear();
         progress_available_ = true;
     }
     return launch_worker();
@@ -957,6 +1350,11 @@ bool GrandleonSession::reset_progress() {
         has_snapshot_ = false;
         latest_weapons_.clear();
         latest_abilities_.clear();
+        latest_snapshot_event_.reset();
+        latest_definitions_event_.reset();
+        latest_campaign_event_.reset();
+        latest_management_event_.reset();
+        latest_dialogue_events_.clear();
         progress_available_ = false;
     }
     return launch_worker();
@@ -998,11 +1396,33 @@ gd::Array GrandleonSession::poll() {
                 event.kind == FrontendEvent::Kind::snapshot ||
                 event.kind == FrontendEvent::Kind::battle_ended) {
                 latest_snapshot_ = event.snapshot;
+                latest_snapshot_event_ = event;
                 has_snapshot_ = true;
             }
             if (event.kind == FrontendEvent::Kind::definitions) {
                 latest_weapons_ = event.weapons;
                 latest_abilities_ = event.abilities;
+                latest_definitions_event_ = event;
+            }
+            if (event.kind == FrontendEvent::Kind::dialogue) {
+                latest_dialogue_events_.erase(
+                    std::remove_if(
+                        latest_dialogue_events_.begin(),
+                        latest_dialogue_events_.end(),
+                        [&event](const FrontendEvent& previous) {
+                            return previous.dialogue.id == event.dialogue.id;
+                        }
+                    ),
+                    latest_dialogue_events_.end()
+                );
+                latest_dialogue_events_.push_back(event);
+            }
+            if (event.kind == FrontendEvent::Kind::campaign_begun) {
+                latest_campaign_event_ = event;
+            }
+            if (event.kind == FrontendEvent::Kind::management ||
+                event.kind == FrontendEvent::Kind::management_committed) {
+                latest_management_event_ = event;
             }
             if (event.kind == FrontendEvent::Kind::campaign_begun) {
                 progress_available_ = event.resumed;
@@ -1059,6 +1479,29 @@ gd::Array GrandleonSession::query_tiles(
         );
     }
     return positions_array(positions);
+}
+
+gd::Dictionary GrandleonSession::forecast_attack(
+    std::int64_t unit_id, std::int64_t target_id
+) const {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    gd::Dictionary result;
+    result["available"] = false;
+    if (!has_snapshot_) return result;
+    const auto forecast = sim::forecast_attack(
+        latest_snapshot_, static_cast<sim::UnitId>(unit_id),
+        static_cast<sim::UnitId>(target_id), latest_weapons_, 0
+    );
+    result["available"] = static_cast<bool>(forecast);
+    if (!forecast) return result;
+    result["hit_chance"] = forecast.hit_chance;
+    result["damage"] = forecast.damage;
+    result["target_health_after"] = forecast.target_health_after;
+    result["counter"] = forecast.counter;
+    result["counter_chance"] = forecast.counter_chance;
+    result["counter_damage"] = forecast.counter_damage;
+    result["attacker_health_after"] = forecast.attacker_health_after;
+    return result;
 }
 
 void GrandleonSession::submit_intent(
@@ -1141,9 +1584,46 @@ bool GrandleonSession::submit_management(
     return presenter_->submit_management(std::move(intent));
 }
 
-gd::Dictionary GrandleonSession::snapshot_dictionary(
-    const sim::EncounterSnapshot& snapshot
+bool GrandleonSession::submit_player_name(
+    std::int64_t member_id,
+    const gd::String& name
+) {
+    if (!presenter_) return false;
+    client::ManagementIntent intent;
+    intent.verb = client::ManagementVerb::rename;
+    intent.member = campaign::PersistentEntityId{
+        static_cast<std::uint64_t>(member_id)
+    };
+    intent.name = narrow(name);
+    return presenter_->submit_management(std::move(intent));
+}
+
+std::vector<client::RosterEntry> GrandleonSession::localized_roster(
+    const std::vector<client::RosterEntry>& roster
 ) const {
+    std::vector<client::RosterEntry> result = roster;
+    for (client::RosterEntry& member : result) {
+        if (member.has_player_name) continue;
+        const std::string_view authored = member.authored_name.empty()
+                                              ? std::string_view{member.name}
+                                              : std::string_view{
+                                                    member.authored_name
+                                                };
+        member.name = pr::localized_campaign_member_name(
+            package_, language_, campaign_id_, member.placement_source_key,
+            authored
+        );
+    }
+    return result;
+}
+
+gd::Dictionary GrandleonSession::snapshot_dictionary(
+    const sim::EncounterSnapshot& snapshot,
+    const std::vector<client::RosterEntry>& roster,
+    const std::optional<client::CampaignBoard>& board
+) const {
+    const std::vector<client::RosterEntry> display_roster =
+        localized_roster(roster);
     gd::Dictionary result;
     result["width"] = snapshot.width;
     result["height"] = snapshot.height;
@@ -1179,10 +1659,40 @@ gd::Dictionary GrandleonSession::snapshot_dictionary(
         row["on_board"] = sim::on_board(unit);
         row["minimum_reach"] = unit.minimum_reach;
         row["maximum_reach"] = unit.maximum_reach;
-        const std::string_view name = pr::content_name(
-            package_, pf::SectionType::unit_types, unit.unit_type_id
-        );
-        row["name"] = name.empty() ? gd::String("Unit") : text(name);
+        const char* member_name =
+            board.has_value()
+                ? client::member_name_on_board(
+                      board->binding, display_roster, unit.id
+                  )
+                : nullptr;
+        if (member_name != nullptr) {
+            row["name"] = text(member_name);
+            const campaign::PersistentEntityId persistent =
+                board->binding.persistent_of(
+                    campaign::BattleEntityId{unit.id}
+                );
+            row["member_id"] = signed_id(persistent.value);
+        } else {
+            const std::string_view placement_name = pr::content_name(
+                package_, pf::SectionType::placement_names, unit.id
+            );
+            if (!placement_name.empty()) {
+                row["name"] = text(pr::localized_placement_name(
+                    package_, language_, unit.id, placement_name
+                ));
+            } else {
+                const std::string_view name = pr::content_name(
+                    package_, pf::SectionType::unit_types, unit.unit_type_id
+                );
+                row["name"] = name.empty()
+                                  ? gd::String("Unit")
+                                  : text(pr::localized_content_name(
+                                        package_, language_,
+                                        pf::SectionType::unit_types,
+                                        unit.unit_type_id, name
+                                    ));
+            }
+        }
         row["colour"] = presentation_.colour_of_unit_type(unit.unit_type_id);
         row["archetype"] =
             presentation_.archetype_of_unit_type(unit.unit_type_id);
@@ -1231,7 +1741,13 @@ gd::Dictionary GrandleonSession::management_dictionary(
             const std::string_view name = pr::content_name(
                 package_, pf::SectionType::items, stack.item.stable_id
             );
-            value["name"] = name.empty() ? gd::String("Item") : text(name);
+            value["name"] = name.empty()
+                                ? gd::String("Item")
+                                : text(pr::localized_content_name(
+                                      package_, language_,
+                                      pf::SectionType::items,
+                                      stack.item.stable_id, name
+                                  ));
             value["count"] = static_cast<std::int64_t>(stack.quantity);
             result.push_back(value);
         }
@@ -1239,7 +1755,15 @@ gd::Dictionary GrandleonSession::management_dictionary(
     };
 
     gd::Dictionary result;
+    result["node_id"] = signed_id(company.node.stable_id);
     result["encounter_id"] = signed_id(company.encounter_id);
+    const std::string_view stage_name = pr::content_name(
+        package_, pf::SectionType::encounters, company.encounter_id
+    );
+    result["stage_name"] = text(pr::localized_campaign_node_name(
+        package_, language_, campaign_id_, company.node.stable_id,
+        stage_name
+    ));
     result["capacity"] = company.capacity;
     result["has_deployment_options"] = company.has_deployment_options;
     result["fielded_count"] = static_cast<std::int64_t>(
@@ -1255,7 +1779,9 @@ gd::Dictionary GrandleonSession::management_dictionary(
         gd::Dictionary value;
         value["node_id"] = signed_id(stage.node_id);
         value["encounter_id"] = signed_id(stage.encounter_id);
-        value["name"] = text(stage.name);
+        value["name"] = text(pr::localized_campaign_node_name(
+            package_, language_, campaign_id_, stage.node_id, stage.name
+        ));
         value["reached"] = stage.reached;
         value["standing"] = stage.standing;
         stages.push_back(value);
@@ -1266,7 +1792,23 @@ gd::Dictionary GrandleonSession::management_dictionary(
     for (const client::RosterEntry& member : company.roster) {
         gd::Dictionary value;
         value["member_id"] = signed_id(member.member.value);
-        value["name"] = text(member.name);
+        const std::string_view authored = member.authored_name.empty()
+                                              ? std::string_view{member.name}
+                                              : std::string_view{
+                                                    member.authored_name
+                                                };
+        const std::string_view localized_default =
+            pr::localized_campaign_member_name(
+                package_, language_, campaign_id_,
+                member.placement_source_key, authored
+            );
+        value["authored_name"] = text(authored);
+        value["default_name"] = text(localized_default);
+        value["name"] = member.has_player_name
+                            ? text(member.name)
+                            : text(localized_default);
+        value["player_nameable"] = member.player_nameable;
+        value["has_player_name"] = member.has_player_name;
         value["availability"] = text(
             campaign::availability_name(member.availability)
         );
@@ -1293,14 +1835,45 @@ gd::Dictionary GrandleonSession::event_dictionary(
 
     switch (event.kind) {
         case FrontendEvent::Kind::dialogue: {
+            const std::vector<client::RosterEntry> display_roster =
+                localized_roster(event.campaign_roster);
             result["id"] = signed_id(event.dialogue.id);
-            result["name"] = text(event.dialogue.name);
+            result["name"] = text(pr::localized_dialogue_name(
+                package_, language_, event.dialogue.id, event.dialogue.name
+            ));
             result["backdrop"] = event.dialogue.backdrop;
+            // Captured when the presenter queues the dialogue, so a creator
+            // preview without persistent campaign state gets the same exact
+            // on-map answer as an ordinary saved campaign.
+            result["over_board"] = event.over_board;
+            result["subject_unit_id"] = signed_id(
+                event.dialogue_subject_id
+            );
             gd::Array lines;
-            for (const pr::DialogueLine& line : event.dialogue.lines) {
+            for (std::size_t line_index = 0;
+                 line_index < event.dialogue.lines.size(); ++line_index) {
+                const pr::DialogueLine& line = event.dialogue.lines[line_index];
                 gd::Dictionary value;
-                value["speaker"] = text(line.speaker);
-                value["text"] = text(line.text);
+                const std::string_view localized_speaker =
+                    pr::localized_dialogue_line(
+                        package_, language_, event.dialogue.id, line_index,
+                        "speaker", line.speaker
+                    );
+                const std::string_view localized_line =
+                    pr::localized_dialogue_line(
+                        package_, language_, event.dialogue.id, line_index,
+                        "text", line.text
+                    );
+                value["speaker"] = text(
+                    client::substitute_campaign_member_names(
+                        localized_speaker, display_roster
+                    )
+                );
+                value["text"] = text(
+                    client::substitute_campaign_member_names(
+                        localized_line, display_roster
+                    )
+                );
                 value["cast_entry"] = line.cast_entry;
                 if (const std::uint64_t* unit_type =
                         event.dialogue.speaker_unit_type(line)) {
@@ -1320,16 +1893,31 @@ gd::Dictionary GrandleonSession::event_dictionary(
             break;
         }
         case FrontendEvent::Kind::battle_begins: {
-            result["snapshot"] = snapshot_dictionary(event.snapshot);
+            result["snapshot"] = snapshot_dictionary(
+                event.snapshot, event.campaign_roster, event.campaign_board
+            );
             result["player_side"] = side_name(event.player_side);
             result["theme"] = presentation_.theme;
             gd::Array terrain;
+            gd::Array terrain_features;
             for (const std::uint64_t id : event.terrain) {
                 terrain.push_back(
                     presentation_.kind_of_terrain(id)
                 );
+                terrain_features.push_back(terrain_feature_name(id));
             }
             result["terrain"] = terrain;
+            result["terrain_features"] = terrain_features;
+            if (event.stage_id != 0) {
+                result["stage_id"] = text(hexadecimal(event.stage_id));
+            }
+            if (event.encounter_id != 0) {
+                result["encounter_id"] =
+                    text(hexadecimal(event.encounter_id));
+            }
+            if (event.map_id != 0) {
+                result["map_id"] = text(hexadecimal(event.map_id));
+            }
             break;
         }
         case FrontendEvent::Kind::battle_surroundings: {
@@ -1342,6 +1930,12 @@ gd::Dictionary GrandleonSession::event_dictionary(
                              : event.surroundings.mode ==
                                        pr::MapSurroundingMode::manual
                                  ? "manual"
+                             : event.surroundings.mode ==
+                                       pr::MapSurroundingMode::fill
+                                 ? "fill"
+                             : event.surroundings.mode ==
+                                       pr::MapSurroundingMode::blend
+                                 ? "blend"
                                  : "none";
             result["colour"] = static_cast<std::int64_t>(
                 event.surroundings.colour
@@ -1354,13 +1948,27 @@ gd::Dictionary GrandleonSession::event_dictionary(
             result["terrain"] = terrain;
             break;
         }
+        case FrontendEvent::Kind::battle_visual_visibility: {
+            result["reveal_radius"] = event.visual_visibility.reveal_radius;
+            gd::Array cells;
+            for (const std::uint32_t cell :
+                 event.visual_visibility.hidden_cells) {
+                cells.push_back(static_cast<std::int64_t>(cell));
+            }
+            result["hidden_cells"] = cells;
+            break;
+        }
         case FrontendEvent::Kind::definitions: {
             gd::Array weapons;
             for (const sim::WeaponDefinition& weapon : event.weapons) {
                 gd::Dictionary value;
                 value["id"] = signed_id(weapon.id);
-                value["name"] = text(pr::content_name(
+                const std::string_view name = pr::content_name(
                     package_, pf::SectionType::weapons, weapon.id
+                );
+                value["name"] = text(pr::localized_content_name(
+                    package_, language_, pf::SectionType::weapons,
+                    weapon.id, name
                 ));
                 value["power"] = weapon.power;
                 value["minimum_reach"] = weapon.minimum_reach;
@@ -1373,12 +1981,18 @@ gd::Dictionary GrandleonSession::event_dictionary(
             for (const sim::AbilityDefinition& ability : event.abilities) {
                 gd::Dictionary value;
                 value["id"] = signed_id(ability.id);
-                value["name"] = text(pr::content_name(
+                const std::string_view name = pr::content_name(
                     package_, pf::SectionType::abilities, ability.id
+                );
+                value["name"] = text(pr::localized_content_name(
+                    package_, language_, pf::SectionType::abilities,
+                    ability.id, name
                 ));
                 value["kind"] = ability.kind == sim::AbilityKind::damage
                                       ? "damage"
                                       : "restore";
+                value["damage_type"] = ability.damage_type == sim::DamageType::magical
+                                           ? "magical" : "physical";
                 value["power"] = ability.power;
                 value["minimum_reach"] = ability.minimum_reach;
                 value["maximum_reach"] = ability.maximum_reach;
@@ -1391,8 +2005,12 @@ gd::Dictionary GrandleonSession::event_dictionary(
             for (const sim::ItemDefinition& item : event.items) {
                 gd::Dictionary value;
                 value["id"] = signed_id(item.id);
-                value["name"] = text(pr::content_name(
+                const std::string_view name = pr::content_name(
                     package_, pf::SectionType::items, item.id
+                );
+                value["name"] = text(pr::localized_content_name(
+                    package_, language_, pf::SectionType::items,
+                    item.id, name
                 ));
                 value["kind"] = item.kind == sim::ItemKind::restore
                                       ? "restore"
@@ -1401,10 +2019,70 @@ gd::Dictionary GrandleonSession::event_dictionary(
                 items.push_back(value);
             }
             result["items"] = items;
+            const std::vector<client::RosterEntry> display_roster =
+                localized_roster(event.campaign_roster);
+            gd::Array objectives;
+            for (const sim::ObjectiveDefinition& objective : event.objectives) {
+                gd::Dictionary value;
+                value["id"] = signed_id(objective.id);
+                value["kind"] = objective_kind_name(objective.kind);
+                value["side"] = side_name(objective.side);
+                value["target_unit_id"] = signed_id(objective.target_unit_id);
+                value["round_count"] = static_cast<std::int64_t>(
+                    objective.round_count
+                );
+                const std::string_view source_name = pr::content_name(
+                    package_, pf::SectionType::objectives, objective.id
+                );
+                const std::string_view localized_name =
+                    pr::localized_objective_name(
+                        package_, language_, objective.id, source_name
+                    );
+                value["name"] = text(
+                    client::substitute_campaign_member_names(
+                        localized_name, display_roster
+                    )
+                );
+                if (objective.target_unit_id != 0U &&
+                    event.campaign_board.has_value()) {
+                    const char* target_name = client::member_name_on_board(
+                        event.campaign_board->binding, display_roster,
+                        objective.target_unit_id
+                    );
+                    if (target_name != nullptr) {
+                        value["target_name"] = text(target_name);
+                        const campaign::PersistentEntityId persistent =
+                            event.campaign_board->binding.persistent_of(
+                                campaign::BattleEntityId{
+                                    objective.target_unit_id
+                                }
+                            );
+                        value["target_member_id"] = signed_id(persistent.value);
+                    } else {
+                        const std::string_view placement_name =
+                            pr::content_name(
+                                package_, pf::SectionType::placement_names,
+                                objective.target_unit_id
+                            );
+                        if (!placement_name.empty()) {
+                            value["target_name"] = text(
+                                pr::localized_placement_name(
+                                    package_, language_,
+                                    objective.target_unit_id, placement_name
+                                )
+                            );
+                        }
+                    }
+                }
+                objectives.push_back(value);
+            }
+            result["objectives"] = objectives;
             break;
         }
         case FrontendEvent::Kind::deployment_begins:
-            result["snapshot"] = snapshot_dictionary(event.snapshot);
+            result["snapshot"] = snapshot_dictionary(
+                event.snapshot, event.campaign_roster, event.campaign_board
+            );
             result["zone"] = positions_array(event.zone);
             break;
         case FrontendEvent::Kind::presentation: {
@@ -1438,7 +2116,9 @@ gd::Dictionary GrandleonSession::event_dictionary(
         }
         case FrontendEvent::Kind::snapshot:
         case FrontendEvent::Kind::battle_ended:
-            result["snapshot"] = snapshot_dictionary(event.snapshot);
+            result["snapshot"] = snapshot_dictionary(
+                event.snapshot, event.campaign_roster, event.campaign_board
+            );
             if (event.canonical_hash != 0) {
                 result["canonical_hash"] = signed_id(event.canonical_hash);
             }
@@ -1447,9 +2127,16 @@ gd::Dictionary GrandleonSession::event_dictionary(
         case FrontendEvent::Kind::campaign_ended: {
             break;
         }
-        case FrontendEvent::Kind::campaign_begun:
+        case FrontendEvent::Kind::campaign_begun: {
             result["resumed"] = event.resumed;
+            const std::string_view name = pr::content_name(
+                package_, pf::SectionType::campaigns, campaign_id_
+            );
+            result["campaign_name"] = text(pr::localized_campaign_name(
+                package_, language_, campaign_id_, name
+            ));
             break;
+        }
         case FrontendEvent::Kind::checkpoint_saved:
             result["successful"] = event.successful;
             break;

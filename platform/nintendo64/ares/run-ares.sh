@@ -11,7 +11,7 @@
 # ROM's video output, so a ROM that draws through the RDP is checked on what it
 # drew rather than only on what it said.
 # `platform/nintendo64/scripts/check-n64.sh` builds the ROMs and drives this
-# script once per check.
+# script once per exported project.
 #
 #   platform/nintendo64/ares/run-ares.sh [rom.z64]
 #   platform/nintendo64/ares/run-ares.sh --rebuild-image [rom.z64]
@@ -19,7 +19,7 @@
 # GRANDLEON_N64_ARES_SAVES points ares' cartridge saves at a host directory
 # instead of a throwaway inside the container, and GRANDLEON_N64_ARES_LOG,
 # _TRAIL and _SHOT name this run's artifacts. Together they are what lets
-# run-ares-persistence.sh boot one ROM twice over one cartridge and compare
+# a persistence check can boot one ROM twice over one cartridge and compare
 # what the second process found with what the first one wrote.
 #
 # Unset, those three are named after the ROM rather than fixed, so two runs of
@@ -28,15 +28,13 @@
 # something each caller passes because the collision is a property of the
 # artifact names, not of the callers: a check added tomorrow would inherit the
 # collision the day it was written. One ROM booted twice on purpose is the case
-# the default cannot cover, and run-ares-persistence.sh is exactly the caller
-# that names its own.
+# the default cannot cover, so such a caller must name its own.
 #
 # GRANDLEON_N64_ARES_FILM_AFTER names a checkpoint to start filming from,
 # _FILM_SECONDS how long for and _FILM where the frames land. Unset, which is
 # the default, is no film at all and is what every check wants; the showcase
-# arm of scripts/readme-screenshots.sh is the only caller that sets them, and
-# it names its own log, trail, shot and film so that a film run cannot
-# overwrite the evidence of a check run.
+# capture tools set them and name their own log, trail, shot and film so a film
+# run cannot overwrite the evidence of a check run.
 #
 # GRANDLEON_N64_ARES_MIN_CHECKS is the number of assertions the ROM must have
 # reached for the run to count, and it is what stops `RESULT PASS 0/0` being
@@ -82,7 +80,8 @@ seconds="${GRANDLEON_N64_ARES_SECONDS:-300}"
 # a persistence check can exist.
 saves_dir="${GRANDLEON_N64_ARES_SAVES:-}"
 
-image="grandleon/n64-ares:${ares_commit}"
+# An optional CaptureContainerfile layer adds ffmpeg without rebuilding ares.
+image="${GRANDLEON_N64_ARES_IMAGE:-grandleon/n64-ares:${ares_commit}}"
 
 rebuild_image=0
 if [ "${1:-}" = "--rebuild-image" ]; then
@@ -197,9 +196,12 @@ set +e
     --env "ARES_FILM_GRABBERS=${GRANDLEON_N64_ARES_FILM_GRABBERS:-6}" \
     --env "ARES_FILM_NAME=${GRANDLEON_N64_ARES_FILM:-film}" \
     --env "ARES_POLL_SECONDS=${GRANDLEON_N64_ARES_POLL_SECONDS:-1}" \
+    --env "ARES_INPUT_SEQUENCE=${GRANDLEON_N64_ARES_INPUT_SEQUENCE:-}" \
+    --env "ARES_AUDIO_DRIVER=${GRANDLEON_N64_ARES_AUDIO_DRIVER:-None}" \
     "${save_mount[@]}" \
     --volume "${rom_dir}:/rom:ro" \
     --volume "${repository_root}/platform/nintendo64/ares/headless.sh:/headless.sh:ro" \
+    --volume "${repository_root}/platform/nintendo64/ares/send-x11-input.py:/send-x11-input.py:ro" \
     --volume "${out_dir}:/out" \
     --workdir /tmp \
     "${image}" \

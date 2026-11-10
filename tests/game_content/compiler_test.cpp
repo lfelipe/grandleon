@@ -97,8 +97,8 @@ void compiles_semantic_sections() {
     const auto loaded = load(compiled.package);
     expect(static_cast<bool>(loaded), "compiled semantic package loads");
     expect(
-        loaded.package.sections.size() == 8,
-        "manifest, presentation, and six definition sections load"
+        loaded.package.sections.size() == 9,
+        "manifest, presentation, source language, and six definition sections load"
     );
     expect(
         loaded.package.find(pf::SectionType::classes, 31) != nullptr,
@@ -630,6 +630,17 @@ void writes_map_surroundings_only_when_authored() {
         "authored surroundings are a sparse presentation section keyed by map"
     );
 
+    auto filled = campaign_source();
+    auto& fill = filled.maps.front().surroundings;
+    fill.mode = gc::MapSurroundingMode::fill;
+    fill.depth = 2;
+    fill.fill_terrain = 99;
+    fill.fill_terrain_kind = gc::terrain_kind_index("forest");
+    expect(
+        static_cast<bool>(gc::compile(filled)),
+        "a portable terrain fill is materialized by the compiler"
+    );
+
     framed.maps.front().surroundings.terrain.pop_back();
     expect(
         has_diagnostic(
@@ -637,6 +648,38 @@ void writes_map_surroundings_only_when_authored() {
             "maps[75].surroundings"
         ),
         "a manual frame that cannot cover its outer rectangle is refused"
+    );
+}
+
+void writes_map_visual_visibility_only_when_authored() {
+    const auto plain = gc::compile(campaign_source());
+    const auto plain_loaded = load(plain.package);
+    expect(
+        plain_loaded.package.find(pf::SectionType::map_visual_visibility) ==
+            nullptr,
+        "a fully visible map keeps the historical package section set"
+    );
+
+    auto authored = campaign_source();
+    authored.maps.front().visual_visibility.reveal_radius = 2;
+    authored.maps.front().visual_visibility.hidden_cells = {3, 4, 7};
+    const auto compiled = gc::compile(authored);
+    expect(static_cast<bool>(compiled), "a visual visibility mask compiles");
+    const auto loaded = load(compiled.package);
+    expect(
+        loaded.package.find(
+            pf::SectionType::map_visual_visibility, 75
+        ) != nullptr,
+        "covered cells are a sparse presentation section keyed by map"
+    );
+
+    authored.maps.front().visual_visibility.hidden_cells = {3, 3};
+    expect(
+        has_diagnostic(
+            gc::compile(authored), gc::DiagnosticCode::invalid_map,
+            "maps[75].visual_visibility"
+        ),
+        "a duplicate covered cell is refused before package output"
     );
 }
 
@@ -2167,6 +2210,7 @@ void a_weapon_or_item_may_name_no_type() {
 int main() {
     compiles_semantic_sections();
     writes_map_surroundings_only_when_authored();
+    writes_map_visual_visibility_only_when_authored();
     validates_dialogue_identity();
     bounds_every_width_the_package_writes();
     validates_node_dialogue_references();

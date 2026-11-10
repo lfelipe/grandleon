@@ -85,17 +85,67 @@ func _run() -> void:
 	_expect("creator reports creation", screen.status_label.text, "CREATED  /  Signal Road  /  READY TO EDIT")
 	if projects.size() == 1:
 		var original_id := str(projects[0].id)
+		screen.project_filter.text = "no such project"
+		screen._filter_projects(screen.project_filter.text)
+		await process_frame
+		_expect("project search hides non-matches", screen.project_buttons.has(original_id), false)
+		screen.project_filter.text = "signal"
+		screen._filter_projects(screen.project_filter.text)
+		await process_frame
+		_expect("project search finds a campaign", screen.project_buttons.has(original_id), true)
+		screen.project_filter.text = ""
+		screen._filter_projects(screen.project_filter.text)
+		await process_frame
 		_expect(
 			"project card shows the next action",
 			screen.project_buttons[original_id].text.begins_with("CONTINUE CREATING"),
 			true
 		)
-		screen._open_project_actions(original_id, "Signal Road")
+		var single_source: Dictionary = screen.library.load_source(original_id)
+		var multi_project: Dictionary = single_source.project.duplicate(true)
+		var alternate: Dictionary = multi_project.campaigns[0].duplicate(true)
+		alternate.id = "alternate_adventure"
+		alternate.name = "Alternate Adventure"
+		multi_project.campaigns.append(alternate)
+		_expect(
+			"multiple-campaign fixture saves",
+			screen.library.save_source(
+				original_id, JSON.stringify(_integer_numbers(multi_project), "  ", true) + "\n"
+			).ok,
+			true
+		)
+		screen._refresh_projects()
+		_expect(
+			"multiple campaigns get an explicit test selector",
+			screen.project_campaign_selects.has(original_id),
+			true
+		)
+		if screen.project_campaign_selects.has(original_id):
+			_expect(
+				"campaign test selector lists every campaign",
+				screen.project_campaign_selects[original_id].item_count,
+				2
+			)
+		screen._play_project(original_id)
+		_expect("ambiguous campaign launch is refused", screen.status_label.text, "CHOOSE WHICH CAMPAIGN TO TEST")
+		_expect(
+			"single-campaign fixture restores",
+			screen.library.save_source(original_id, single_source.source).ok,
+			true
+		)
+		screen._refresh_projects()
+		_exercise_migration_cards(screen, original_id, single_source.source)
 		_expect("project options open", screen.project_actions_layer.visible, true)
 		_expect("project options focus story", screen.project_actions_first_button.has_focus(), true)
 		screen._export_selected_project()
 		_expect("finish action opens export center", screen.export_layer.visible, true)
 		_expect("export center focuses portable project", screen.export_first_button.has_focus(), true)
+		_expect("export center names the starting campaign", screen.export_campaign_select.item_count, 1)
+		_expect(
+			"export center carries the explicit campaign identity",
+			str(screen.export_campaign_select.get_item_metadata(0)),
+			"first_adventure"
+		)
 		_expect(
 			"Linux target follows installed player shell availability",
 			screen.export_linux_button.disabled,
@@ -221,10 +271,121 @@ func _run() -> void:
 	quit(1 if failures > 0 else 0)
 
 
+func _exercise_migration_cards(screen: Control, project_id: String, source: String) -> void:
+	var legacy_source := _to_legacy_source(source)
+	var project_directory: String = screen.library.root_path.path_join(project_id)
+	var project_file := project_directory.path_join("project.json")
+	_expect("legacy card fixture writes", _write_file(project_file, legacy_source), true)
+	screen._refresh_projects()
+	_expect(
+		"legacy project card shows migration notice",
+		screen.project_notice_labels.has(project_id),
+		true
+	)
+	if screen.project_notice_labels.has(project_id):
+		_expect(
+			"legacy project card explains recovery copy",
+			screen.project_notice_labels[project_id].text.contains("1.3 → 1.4"),
+			true
+		)
+	_expect(
+		"refreshing creator does not migrate legacy source",
+		FileAccess.get_file_as_string(project_file),
+		legacy_source
+	)
+	_expect(
+		"refreshing creator creates no migration backup",
+		DirAccess.dir_exists_absolute(project_directory.path_join("recovered")),
+		false
+	)
+	var unreadable_id := "00000000-0000-4000-8000-000000000099"
+	var unreadable_directory: String = screen.library.root_path.path_join(unreadable_id)
+	_expect(
+		"unreadable card fixture directory writes",
+		DirAccess.make_dir_recursive_absolute(unreadable_directory),
+		OK
+	)
+	var unreadable_file := unreadable_directory.path_join("project.json")
+	_expect("unreadable card fixture writes", _write_file(unreadable_file, "not json\n"), true)
+	screen._refresh_projects()
+	_expect(
+		"unreadable project gets a human notice",
+		screen.project_notice_labels.has(unreadable_id),
+		true
+	)
+	if screen.project_notice_labels.has(unreadable_id):
+		var unreadable_notice := str(screen.project_notice_labels[unreadable_id].text)
+		_expect(
+			"unreadable notice explains preservation",
+			unreadable_notice.contains("left untouched"),
+			true
+		)
+		_expect(
+			"unreadable notice omits machine path",
+			unreadable_notice.contains(screen.library.root_path),
+			false
+		)
+	_expect("unreadable card is disabled", screen.project_buttons[unreadable_id].disabled, true)
+	_expect("unreadable fixture source removes", DirAccess.remove_absolute(unreadable_file), OK)
+	_expect("unreadable fixture directory removes", DirAccess.remove_absolute(unreadable_directory), OK)
+	screen._refresh_projects()
+	screen._open_project_actions(project_id, "Signal Road")
+	_expect(
+		"opening legacy project reports completed migration",
+		screen.status_label.text,
+		"UPDATED 1.3 → 1.4  /  ORIGINAL RECOVERY COPY KEPT"
+	)
+	_expect(
+		"opened legacy source reaches current schema",
+		str(screen.library.inspect_source(project_id).project.schemaVersion),
+		"1.4.0"
+	)
+	_expect(
+		"completed migration stays visible on project card",
+		screen.project_notice_labels[project_id].text.contains("RECOVERY COPY AVAILABLE"),
+		true
+	)
+
+
 func _expect(label: String, actual: Variant, expected: Variant) -> void:
 	if actual != expected:
 		failures += 1
 		push_error("%s: expected %s, got %s" % [label, expected, actual])
+
+
+func _integer_numbers(value: Variant) -> Variant:
+	if value is Dictionary:
+		var dictionary: Dictionary = {}
+		for key: Variant in value:
+			dictionary[key] = _integer_numbers(value[key])
+		return dictionary
+	if value is Array:
+		var array: Array = []
+		for entry: Variant in value:
+			array.append(_integer_numbers(entry))
+		return array
+	if value is float and value == floor(value):
+		return int(value)
+	return value
+
+
+func _to_legacy_source(source: String) -> String:
+	var parsed := JSON.new()
+	if parsed.parse(source) != OK or not parsed.data is Dictionary:
+		return source
+	var project: Dictionary = parsed.data
+	project["schemaVersion"] = "1.3.0"
+	project.erase("sourceLanguage")
+	return JSON.stringify(_integer_numbers(project), "  ", true) + "\n"
+
+
+func _write_file(path: String, value: String) -> bool:
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		return false
+	file.store_string(value)
+	file.close()
+	return true
 
 
 func _argument_path(prefix: String) -> String:

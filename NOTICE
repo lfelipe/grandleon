@@ -9,26 +9,21 @@ Godot Engine third-party copyright inventory in its `licenses` directory.
     https://godotengine.org/license/
     https://github.com/godotengine/godot-cpp
 
-Two generated files carry third-party code.
-
-`editor/src/generated/simulation-module.ts` is the engine compiled to
-WebAssembly by the pinned Emscripten SDK, and the module it embeds links parts
-of the LLVM runtime that Emscripten ships (libc++, libc++abi and compiler-rt),
-licensed under the Apache License 2.0 with the LLVM exception:
-
-    https://llvm.org/LICENSE.txt
-
-`editor/src/generated/source-v1-validator.ts` is this project's schema compiled
-by Ajv, and carries Ajv's runtime helpers with it. Ajv is MIT, Copyright (c)
-2015-2021 Evgeny Poberezkin:
-
-    https://github.com/ajv-validator/ajv/blob/master/LICENSE
-
 Nintendo 64 ROMs link libdragon. The pinned libdragon revision is released
 into the public domain under the Unlicense. Its full licence is packaged by the
 pinned toolchain used to build review ROMs.
 
     https://github.com/DragonMinded/libdragon/blob/trunk/LICENSE.md
+
+The Nintendo 64 renderer includes Pyrite64 and Tiny3D under the MIT License.
+The PlayStation renderer includes Mipsync under the MIT License and links the
+MPL-2.0 PSn00bSDK core libraries. Console bundles retain the renderer notices,
+SDK license and corresponding-source information with their toolchain notices.
+
+    https://github.com/HailToDodongo/pyrite64
+    https://github.com/HailToDodongo/tiny3d
+    https://github.com/KasaBranca/Mipsync
+    https://github.com/Lameguy64/PSn00bSDK
 
 PlayStation executables use Nugget's startup and C++ support under the MIT
 License and the GNU libstdc++ runtime under GPLv3 with the GCC Runtime Library
@@ -38,5 +33,18 @@ release packaging copies them beside distributed console artifacts.
     https://github.com/pcsx-redux/nugget
     https://www.gnu.org/licenses/gcc-exception-3.1.html
 
-Everything else in this repository is the project's own work, generated art and
-the console font included.
+The orchestral music and sound effects use instrument recordings from VSCO 2
+Community Edition, dedicated to the public domain under CC0 1.0 by Sam Gossner
+and Simon Dalzell. Sample editing includes work by Elan Hickler / Soundemote.
+The original Grandleon compositions and rendering scripts use the project's
+MIT License. Sample provenance and the CC0 text are in assets/audio.
+
+    https://github.com/sgossner/VSCO-2-CE
+
+The Nintendo 64 and PlayStation interfaces use Spleen 6x12 by Frederic Cambus under the
+BSD 2-Clause license. The font source, bitmap atlas and complete license are
+in assets/fonts/spleen. Distributed console packages retain that license.
+
+    https://github.com/fcambus/spleen
+
+Grandleon's original source and generated artwork use the project's MIT License.

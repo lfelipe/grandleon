@@ -20,6 +20,9 @@ func _run() -> void:
 	if not created.ok:
 		quit(1)
 		return
+	var localization: Node = root.get_node("Localization")
+	var prior_language := str(localization.call("current_language"))
+	localization.call("select_language", "pt-BR", false)
 	var creator_context = root.get_node("CreatorContext")
 	creator_context.open_project(created.id)
 	var packed: PackedScene = load("res://gear_editor.tscn")
@@ -30,8 +33,44 @@ func _run() -> void:
 	await process_frame
 
 	_expect("project opens in gear library", editor.project_id, created.id)
+	_expect(
+		"Gear editor uses the selected editor language",
+		editor.title_label.text,
+		"PORTABLE CHOICES  /  EQUIPAMENTOS E HABILIDADES"
+	)
+	_expect(
+		"Portuguese Gear subtitle is visible",
+		_tree_has_text(editor, "Crie o que seus personagens podem carregar e aprender."),
+		true
+	)
+	_expect("Portuguese category is visible", editor.category_select.get_item_text(0), "ARMAS")
+	_expect(
+		"Portuguese search help is visible",
+		editor.asset_filter.placeholder_text,
+		"NOME, ID, EFEITO OU DANO"
+	)
+	_expect(
+		"long Portuguese guidance remains wrapped",
+		_tree_has_wrapped_text(
+			editor,
+			"Comece pelo básico e ajuste apenas o que importa. A Configuração do exército define quais funções carregam ou aprendem cada opção."
+		),
+		true
+	)
+	_expect(
+		"Portuguese ready status is visible",
+		editor.status_label.text,
+		"PRONTO  /  ESCOLHA ALGO PARA AJUSTAR OU CRIE UMA OPÇÃO"
+	)
 	_expect("weapons are the first simple category", editor.active_kind, "weapon")
 	_expect("starter weapons are available", editor.asset_select.item_count, 3)
+	editor.asset_filter.text = "apprentice"
+	editor._filter_assets(editor.asset_filter.text)
+	_expect("gear search narrows a large content list", editor.asset_select.item_count, 1)
+	_expect("gear search preserves the real asset identity", str(editor.asset_select.get_item_metadata(0)), "apprentice_focus")
+	editor.asset_filter.text = ""
+	editor._filter_assets(editor.asset_filter.text)
+	_expect("clearing gear search restores all choices", editor.asset_select.item_count, 3)
 	_expect("category receives controller focus", editor.category_select.has_focus(), true)
 	_expect("weapon editor shows family", editor.type_row.visible, true)
 	_expect("weapon editor hides area", editor.area_row.visible, false)
@@ -44,7 +83,17 @@ func _run() -> void:
 	await process_frame
 	_expect("diagnostic recovery selects the exact gear", editor.active_asset_id, "apprentice_focus")
 	_expect("diagnostic recovery keeps the asset picker focused", editor.asset_select.has_focus(), true)
-	_expect("diagnostic recovery names the exact field", editor.status_label.text, "FIX APPRENTICE FOCUS  /  POWER")
+	_expect("diagnostic recovery names the exact field", editor.status_label.text, "CORRIGIR APPRENTICE FOCUS  /  POTÊNCIA")
+	var used_weapon_source: String = editor.source
+	editor._open_dependency_review()
+	_expect("where-used review opens for the selected weapon", editor.dependency_layer.visible, true)
+	_expect("where-used review names the selected weapon", editor.dependency_heading.text.contains("APPRENTICE FOCUS"), true)
+	_expect("where-used review names the character carrying it", editor.dependency_uses.text.contains("Second Hero"), true)
+	_expect("used weapon cannot be deleted", editor.dependency_delete_button.disabled, true)
+	_expect("used weapon deletion is refused", editor._confirm_delete(), false)
+	_expect("refused deletion preserves source", editor.source, used_weapon_source)
+	editor._close_dependency_review()
+	_expect("where-used review returns focus to its action", editor.dependency_button.has_focus(), true)
 	editor._refresh_categories("weapon")
 	editor.category_select.grab_focus()
 
@@ -89,6 +138,31 @@ func _run() -> void:
 	editor._redo()
 	_expect("gear changes are redoable", str(editor.project.abilities[0].kind), "restore")
 
+	editor._open_combat_design()
+	_expect("combat design has a focused human-facing workspace", editor.combat_layer.visible, true)
+	_expect("weapon families begin without invented strengths", editor._candidate_has_advantage_edges(editor.project), false)
+	editor._toggle_weapon_advantage()
+	_expect("one action authors a readable family strength", editor.project.weaponTypes[0].strongAgainst, ["focus"])
+	_expect("the first strength adds a useful damage bonus", int(editor.project.weaponAdvantage.damage), 1)
+	_expect("the first strength adds a useful accuracy bonus", int(editor.project.weaponAdvantage.accuracy), 15)
+	editor._change_advantage_value("damage", 1)
+	editor._change_advantage_value("accuracy", 5)
+	_expect("damage advantage is directly tunable", int(editor.project.weaponAdvantage.damage), 2)
+	_expect("accuracy advantage is directly tunable", int(editor.project.weaponAdvantage.accuracy), 20)
+	var favourable: Dictionary = editor._forecast("first_hero", "second_hero")
+	var unfavourable: Dictionary = editor._forecast("second_hero", "first_hero")
+	_expect("matchup preview uses real advantage damage", int(favourable.damage), 6)
+	_expect("matchup preview clamps a favourable certain hit", int(favourable.accuracy), 100)
+	_expect("reverse matchup uses the disadvantage", int(unfavourable.lean), -1)
+	_expect("reverse matchup shows its reduced hit chance", int(unfavourable.accuracy), 80)
+	_select_metadata(editor.shape_choice_select, "ability:ability_1")
+	editor._update_shape_preview()
+	_expect("shape preview names the authored diamond", editor.shape_summary_label.text.contains("LOSANGO  /  RAIO 2"), true)
+	_expect("range preview shows the four distance-one targets", editor._preview_cell_indices(9, 1, 1, "range", 0).size(), 4)
+	_expect("area preview shows all thirteen radius-two cells", editor._preview_cell_indices(7, 0, 0, "diamond", 2).size(), 13)
+	editor._close_combat_design()
+	_expect("combat design returns to the gear workflow", editor.combat_layer.visible, false)
+
 	_select_category(editor, "weapon")
 	editor._open_family()
 	_expect("new weapon family opens from the relevant field", editor.family_layer.visible, true)
@@ -113,6 +187,32 @@ func _run() -> void:
 	editor._create_family()
 	_expect("item family is added from the same focused flow", editor.project.itemTypes.size(), 1)
 	_expect("new item family is used by the current item", str(editor.project.items[0].itemTypeId), "item_family_1")
+	editor._open_new()
+	editor.new_name.text = "Spare Token"
+	editor._create_asset()
+	_expect("unused deletion fixture is created", _has_asset(editor.project, "items", "item_2"), true)
+	editor._open_dependency_review()
+	_expect("unused item receives a confirmation preview", editor.dependency_layer.visible, true)
+	_expect("unused item preview reports no references", editor.dependency_uses.text.contains("Nenhuma referência de campanha, batalha, exército"), true)
+	_expect("unused item can be deliberately deleted", editor.dependency_delete_button.disabled, false)
+	var history_before_delete: int = editor.undo_stack.size()
+	_expect("unused item deletion succeeds", editor._confirm_delete(), true)
+	_expect("delete closes its confirmation preview", editor.dependency_layer.visible, false)
+	_expect("unused item definition is removed", _has_asset(editor.project, "items", "item_2"), false)
+	_expect("delete records exactly one undo step", editor.undo_stack.size(), history_before_delete + 1)
+	editor._undo()
+	_expect("safe deletion is undoable", _has_asset(editor.project, "items", "item_2"), true)
+	editor._redo()
+	_expect("safe deletion is redoable", _has_asset(editor.project, "items", "item_2"), false)
+	var protected_source: String = editor.source
+	editor.dependency_kind = "backdrop"
+	editor.dependency_asset_id = "night_camp"
+	_expect("shared library content deletion is refused", editor._confirm_delete(), false)
+	_expect("shared content refusal preserves source", editor.source, protected_source)
+	editor.dependency_kind = "item"
+	editor.dependency_asset_id = "missing_item"
+	_expect("missing content deletion is refused", editor._confirm_delete(), false)
+	_expect("missing content refusal preserves source", editor.source, protected_source)
 	_expect("new content enables save", editor.save_button.disabled, false)
 	_expect("gear library saves", editor._save(), true)
 	_expect("save clears dirty state", editor.dirty, false)
@@ -146,6 +246,7 @@ func _run() -> void:
 			image.save_png(screenshot_path)
 			print("gear editor capture saved: %s" % screenshot_path)
 
+	localization.call("select_language", prior_language, false)
 	editor._back_to_army()
 	await process_frame
 	await process_frame
@@ -167,6 +268,13 @@ func _select_metadata(option: OptionButton, identity: String) -> void:
 			return
 
 
+func _has_asset(project: Dictionary, collection: String, identity: String) -> bool:
+	for value: Variant in project.get(collection, []):
+		if value is Dictionary and str(value.get("id", "")) == identity:
+			return true
+	return false
+
+
 func _argument_path(prefix: String) -> String:
 	for argument: String in OS.get_cmdline_user_args():
 		if argument.begins_with(prefix):
@@ -176,6 +284,30 @@ func _argument_path(prefix: String) -> String:
 
 func _has_argument(value: String) -> bool:
 	return value in OS.get_cmdline_user_args()
+
+
+func _tree_has_text(node: Node, expected: String) -> bool:
+	if node is Label and node.text == expected:
+		return true
+	if node is BaseButton and node.text == expected:
+		return true
+	for child: Node in node.get_children():
+		if _tree_has_text(child, expected):
+			return true
+	return false
+
+
+func _tree_has_wrapped_text(node: Node, expected: String) -> bool:
+	if (
+		node is Label
+		and node.text == expected
+		and node.autowrap_mode == TextServer.AUTOWRAP_WORD_SMART
+	):
+		return true
+	for child: Node in node.get_children():
+		if _tree_has_wrapped_text(child, expected):
+			return true
+	return false
 
 
 func _expect(label: String, actual: Variant, expected: Variant) -> void:

@@ -323,6 +323,8 @@ enum class MapSurroundingMode : std::uint8_t {
     solid = 1,
     automatic = 2,
     manual = 3,
+    fill = 4,
+    blend = 5,
 };
 
 struct MapSurroundings final {
@@ -330,10 +332,24 @@ struct MapSurroundings final {
     std::uint32_t colour{0x07131dU};
     bool states_colour{false};
     std::uint8_t depth{};
+    // Fill/blend retain the authored choice while the compiler materializes a
+    // complete portable perimeter for every renderer.
+    StableId fill_terrain{};
+    std::uint8_t fill_terrain_kind{terrain_kind_unknown};
     // Manual perimeter cells in row-major outer-rectangle order, omitting the
     // playable rectangle. They are presentation identities, never map cells.
     std::vector<StableId> terrain;
     std::vector<std::uint8_t> terrain_kinds;
+};
+
+// Presentation-only local exploration authored on a tactical map. A listed
+// cell begins covered; a renderer may reveal cells within `reveal_radius` of a
+// friendly unit that enters the covered area and remember them for that
+// battle. Rules deliberately receive none of this data.
+struct MapVisualVisibility final {
+    std::uint8_t reveal_radius{2};
+    // Row-major indices into the map's playable width x height rectangle.
+    std::vector<std::uint32_t> hidden_cells;
 };
 
 struct Map final {
@@ -347,6 +363,7 @@ struct Map final {
     //: no rule reads this.
     std::vector<std::uint8_t> terrain_kinds;
     MapSurroundings surroundings;
+    MapVisualVisibility visual_visibility;
 };
 
 //: How many colours the art library's faction colour menu holds. The source
@@ -531,8 +548,8 @@ struct Placement final {
     // authored before waves says.
     //
     // `every` and `times` are authored together or not at all. The recurrence
-    // is not expanded here: the simulation expands it, so the browser and the
-    // consoles cannot disagree about what a wave means, and the package carries
+    // is not expanded here: the simulation expands it, so content paths cannot
+    // disagree about what a wave means, and the package carries
     // what the author wrote.
     //
     // Zero costs nothing anywhere downstream, on the talk record's terms: an
@@ -551,18 +568,25 @@ struct Placement final {
     // section, so a package where nobody is named is byte-identical to the
     // package it always was.
     std::string name;
-    // How many local players must be participating for this opposing
-    // placement to be fielded. One is the default and writes no scaling
-    // record; two adds difficulty through authored characters rather than an
-    // opaque stat multiplier. Allied roster placements may not be conditional.
+    // How many local players must be participating for this placement to be
+    // fielded. One is the default and writes no scaling record. Two either
+    // adds an opposing character for co-op difficulty or, on a player-two
+    // roster placement, adds that distinct allied army to the co-op variant.
     // Appended to preserve aggregate initializers written before the rule.
     std::uint8_t minimum_players{1};
     // Which local person commands this allied placement in a two-player game.
-    // One is the default and writes no ownership record. A one-player runtime
-    // deliberately normalises every ally back to one, so this is one complete
-    // army in solo and two allied armies in co-op rather than two campaigns.
-    // Opposing placements may not name a local player.
+    // One is the default and writes no ownership record. An unconditional
+    // player-two ally is normalised back to one in solo; a player-two ally
+    // whose minimum is two is absent there instead. Opposing placements may
+    // not name a local player.
     std::uint8_t local_player{1};
+    // Optional opening coordinate for a two-player session. Keeping this on
+    // the placement preserves the persistent member and placement identities;
+    // only the layout changes when the second army is present. Appended so
+    // aggregate initializers authored before it keep their meaning.
+    std::int16_t two_player_x{};
+    std::int16_t two_player_y{};
+    bool states_two_player_position{false};
 };
 
 // What an encounter says about the player's own troops before the first
@@ -612,6 +636,9 @@ struct Moment final {
     // Zero for a moment about the board rather than about anybody.
     StableId placement_id{};
     StableId dialogue_id{};
+    // One is the historical default. Two makes this a co-op-only story beat
+    // without splitting or duplicating the campaign graph.
+    std::uint8_t minimum_players{1};
 };
 
 struct Encounter final {
@@ -782,6 +809,12 @@ struct CampaignMember final {
     //: it is a claim that a character is specific without saying how, and that
     //: is refused rather than read as omission.
     bool states_specificity{false};
+    //: Whether a player may replace this character's authored name. The name
+    //: above remains required: it is the default shown before a choice and the
+    //: fallback when no custom name was saved. Omitted is false, which is what
+    //: every project authored before this option means. Last so positional
+    //: aggregate initializers do not change meaning.
+    bool player_nameable{false};
 };
 
 // A quantity of one item the campaign puts into its shared store, and where in
@@ -877,6 +910,13 @@ inline constexpr std::uint8_t theme_count = 4;
 //: which substitutes nothing and is therefore the art as it always was.
 inline constexpr std::uint8_t default_theme = 0;
 
+//: The closer combat presentation a game requests when the player has made no
+//: local display choice. Presentation only: a player's local preference may
+//: override it without changing the game, its saves, or canonical state.
+//: Enabled is the historical behavior and therefore the meaning of an omitted
+//: source field and of a package written before the preference record existed.
+inline constexpr bool default_battle_closeups = true;
+
 //: The menu index of a theme name, or `theme_count` for a name the menu does
 //: not hold.
 [[nodiscard]] std::uint8_t theme_index(std::string_view name) noexcept;
@@ -917,13 +957,34 @@ inline constexpr std::uint8_t archetype_default = 0;
 //: published beside the resolved rule rather than hidden inside it.
 [[nodiscard]] std::uint8_t archetype_index(std::string_view name) noexcept;
 
+struct TranslationEntry final {
+    std::string id;
+    std::string source;
+    std::string text;
+};
+
+struct TranslationCatalog final {
+    std::string language;
+    std::vector<TranslationEntry> entries;
+};
+
 struct GameSource final {
     std::array<std::uint8_t, 16> game_id{};
     std::string title;
+    // The language of every author-facing source string, plus manual catalogs
+    // that retain the exact source copy they were reviewed against. A runtime
+    // uses an entry only while that snapshot still matches the current source;
+    // changed or missing copy therefore falls back visibly instead of showing
+    // a stale translation.
+    std::string source_language{"en"};
+    std::vector<TranslationCatalog> translations;
     std::uint32_t content_revision{};
     //: The season this game's ground is drawn in. Presentation only: no rule
     //: reads it, so it never enters canonical state.
     std::uint8_t theme{default_theme};
+    //: Whether close combat presentation starts enabled for a player who has
+    //: made no local choice. A local choice remains the final authority.
+    bool battle_closeups{default_battle_closeups};
     //: The style this game's characters are drawn in. Presentation only, for
     //: the same reason as the theme above: no rule reads it, so it never
     //: enters canonical state. A console build resolves it once, at build
@@ -1112,6 +1173,7 @@ enum class DiagnosticCode : std::uint8_t {
     // mirror match twice, once up and once down. An author who wrote one meant
     // a different type.
     invalid_weapon_type,
+    invalid_localization,
 };
 
 [[nodiscard]] std::string_view diagnostic_name(

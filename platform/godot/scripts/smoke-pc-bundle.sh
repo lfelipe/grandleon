@@ -106,13 +106,12 @@ if [[ "${require_clean}" == 1 && "${source_state}" != clean ]]; then
     exit 65
 fi
 if [[ "${require_examples}" == 1 ]]; then
-    if [[ "${included_campaigns}" != "tarnholt:1,emberbound:2" ]]; then
-        printf 'PC bundle does not identify both 0.4 example campaigns\n' >&2
+    if [[ "${included_campaigns}" != "steel_and_cedar:choice" ]]; then
+        printf 'PC bundle does not identify the Steel and Cedar demo\n' >&2
         exit 65
     fi
     for example in \
-        project/content/included/tarnholt.gpk \
-        project/content/included/emberbound.gpk; do
+        project/content/included/steel_and_cedar.gpk; do
         if [[ ! -s "${bundle_dir}/${example}" ]]; then
             printf 'PC bundle example is missing or empty: %s\n' "${example}" >&2
             exit 66
@@ -167,17 +166,20 @@ XDG_CACHE_HOME="${state_dir}/cache" \
 
 capture_path="${state_dir}/concurrent-coop.png"
 coop_package="res://game.gpk"
+coop_campaign="$(sed -n 's/^defaultCampaign=//p' "${bundle_dir}/BUILD-INFO.txt")"
 if [[ "${require_examples}" == 1 ]]; then
-    coop_package="res://content/included/emberbound.gpk"
+    coop_package="res://content/included/steel_and_cedar.gpk"
+    coop_campaign="steel_and_cedar"
 fi
 XDG_DATA_HOME="${state_dir}/data" \
 XDG_CONFIG_HOME="${state_dir}/config" \
 XDG_CACHE_HOME="${state_dir}/cache" \
     timeout 60s "${renderer[@]}" --path "${bundle_dir}/project" -- \
     "--package=${coop_package}" \
-    --campaign=emberbound \
+    "--campaign=${coop_campaign}" \
     --players=2 \
     --graphics=voxel-sprites \
+    --game-language=en \
     --coop-smoke \
     "--screenshot=${capture_path}" \
     --screenshot-frames=5
@@ -193,16 +195,17 @@ if [[ "${require_examples}" == 1 ]]; then
         XDG_CACHE_HOME="${state_dir}/cache" \
             timeout 60s "${bundle_dir}/godot" --headless \
             --path "${bundle_dir}/project" -- \
-            --package=res://content/included/tarnholt.gpk \
-            --campaign=tarnholt_line \
+            --package=res://content/included/steel_and_cedar.gpk \
+            --campaign=steel_and_cedar \
             --players=1 \
+            --game-language=en \
             --included-campaign-smoke
     } 2>&1)"
     printf '%s\n' "${solo_output}"
     if ! grep -Fq \
-            'included campaign integration smoke passed: tarnholt_line (1 players)' \
+            'included campaign integration smoke passed: steel_and_cedar (1 players)' \
             <<<"${solo_output}" || grep -Fq 'SCRIPT ERROR' <<<"${solo_output}"; then
-        printf 'Packaged Tarnholt did not open in one-player mode\n' >&2
+        printf 'Packaged Steel and Cedar did not open in one-player mode\n' >&2
         exit 1
     fi
 fi

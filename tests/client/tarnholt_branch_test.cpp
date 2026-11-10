@@ -35,7 +35,7 @@
 // it cannot do is follow the branch: it drives
 // `package_runtime::CampaignCursor`, which holds no campaign state and
 // therefore no world flag. This does, because `client::CampaignSession` is the
-// real thing: the same session the Nintendo 64, the terminal and the browser
+// real thing: the same session Nintendo 64, the terminal and Godot
 // all drive.
 //
 // Both threads are played from the same founding, differing in one gesture, and
@@ -629,7 +629,7 @@ int main() {
     // **by name** rather than being quietly replaced by a fresh campaign: the
     // migration registry's content axis is built and deliberately empty, so it
     // plans one step, finds none registered, and says `missing_step`. Every
-    // client shows that word; the browser offers to start fresh rather than
+    // client shows that word; Godot offers to start fresh rather than
     // doing it unasked.
     {
         // A package identical to the shipped one except that it declares an

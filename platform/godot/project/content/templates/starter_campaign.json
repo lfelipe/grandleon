@@ -1,5 +1,6 @@
 {
-  "schemaVersion": "1.3.0",
+  "schemaVersion": "1.4.0",
+  "sourceLanguage": "en",
   "packageId": "00000000-0000-4000-8000-000000000001",
   "gameId": "new_adventure",
   "title": "New Adventure",
@@ -130,7 +131,7 @@
         "grass", "grass", "grass", "road", "road", "grass", "grass", "grass",
         "forest", "grass", "grass", "road", "road", "grass", "grass", "forest"
       ],
-      "surroundings": { "mode": "automatic", "depth": 3 }
+      "surroundings": { "mode": "continue", "depth": 3 }
     }
   ],
   "objectives": [

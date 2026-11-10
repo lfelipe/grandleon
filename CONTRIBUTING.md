@@ -3,6 +3,10 @@
 Contributions are welcome: engine and tooling changes, editor work, sample
 games, and corrections to the documentation.
 
+For a menu translation, use the short [translation contribution
+guide](TRANSLATING.md). You do not need a full development setup to open a
+translation pull request.
+
 ## Licence terms
 
 **Everything contributed to this repository is accepted under the
@@ -25,7 +29,7 @@ from, or built against another game's content can be accepted here.
 2. **Work on a branch and open a pull request.** Describe what the change does
    and how you know it works. One change per pull request.
 3. **Read the module's README before changing it.** Every module under
-   `engine/`, `platform/`, `tools/`, `games/` and `editor/` carries one, and it
+   `engine/`, `platform/`, `tools/` and `games/` carries one, and it
    states the contract that module holds and the reasoning behind it. A change
    that contradicts a README needs to change the README in the same commit.
 

@@ -1,5 +1,6 @@
 {
-  "schemaVersion": "1.3.0",
+  "schemaVersion": "1.4.0",
+  "sourceLanguage": "en",
   "packageId": "1d9f47ae-3c02-4b58-8e61-5a7c93d02f4b",
   "gameId": "grandleon.stats.range",
   "title": "Grandleon Stat Line Range",

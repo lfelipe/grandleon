@@ -5,13 +5,14 @@
 // that ends a pixel short, a route that cuts a corner through a river, a pulse
 // whose phase drifts, all look approximately right on a console and none of
 // them can be reviewed from a screenshot. So the arithmetic is pinned here, on
-// the host, with no console and no browser in the loop, and the renderers own
+// the host, with no console or window in the loop, and the renderers own
 // only the blitting.
 //
 // Two properties are asserted rather than assumed, because every console check
 // in this repository asserts framebuffer pixels: every animation ends exactly
-// on its resting position, and every periodic function is at rest at phase
-// zero.
+// on its resting position, and route/combat cues start at rest. Ambient idle
+// poses deliberately use independent phases so a whole army never pulses
+// together.
 //
 // The route is checked against the simulation's own rule the only way this
 // file may check it: by construction. It is handed a membership predicate
@@ -21,6 +22,7 @@
 // set is the caller's rule, and this file only holds the route to it.
 
 #include "grandleon/view/motion.hpp"
+#include "grandleon/view/ambient_motion.hpp"
 
 // For one assertion only: that a flinch's nudge stays smaller than the step a
 // cell rises per level of elevation, so a blow taken never reads as a climb.
@@ -64,6 +66,78 @@ struct Board final {
 int main() {
     using namespace grandleon::view;
 
+    {
+        bool varied = false;
+        for (std::uint32_t tick = 0; tick < 256U; ++tick) {
+            const auto pose = idle_pose(tick, 0x4c0800efeb4ef2bdULL);
+            const auto next = idle_pose(tick + 1U, 0x4c0800efeb4ef2bdULL);
+            const auto quiet = idle_pose(tick, 0x4c0800efeb4ef2bdULL, false);
+            expect(pose.stretch_q12 >= 4000 && pose.stretch_q12 <= 4192,
+                   "idle breathing stays within a small upright stretch");
+            expect(pose.lean_q12 >= -72 && pose.lean_q12 <= 72,
+                   "idle weight shifts stay small");
+            const auto difference = next.stretch_q12 - pose.stretch_q12;
+            expect(difference >= -6 && difference <= 6,
+                   "breathing changes smoothly across the full cycle");
+            expect(quiet.stretch_q12 == 4096 && quiet.lean_q12 == 0,
+                   "reduced motion returns a neutral pose");
+            const auto neighbour = idle_pose(tick, 0x5108cdb8d261fe8aULL);
+            varied = varied || pose.stretch_q12 != neighbour.stretch_q12;
+        }
+        expect(varied, "different units do not breathe in synchrony");
+    }
+
+    // ---------------------------------------------------------------
+    // Board direction is presentation, never route authority
+    // ---------------------------------------------------------------
+    {
+        expect(
+            board_heading_between(2, 2, 3, 2) == BoardHeading::east,
+            "an east route leg selects the native right-facing view"
+        );
+        expect(
+            board_heading_between(2, 2, 1, 2) == BoardHeading::west,
+            "a west route leg selects its mirrored view"
+        );
+        expect(
+            board_heading_between(2, 2, 2, 1) == BoardHeading::north,
+            "a north route leg remains distinct in presentation metadata"
+        );
+        expect(
+            board_heading_between(2, 2, 2, 3) == BoardHeading::south,
+            "a south route leg remains distinct in presentation metadata"
+        );
+        expect(
+            board_heading_between(2, 2, 2, 2, BoardHeading::west) ==
+                BoardHeading::west,
+            "a zero-length leg preserves the heading at rest"
+        );
+        expect(
+            board_heading_between(0, 0, 3, 2) == BoardHeading::east,
+            "a route-less diagonal fallback follows its dominant axis"
+        );
+        expect(
+            board_heading_between(0, 0, -2, 2) == BoardHeading::west,
+            "a diagonal tie resolves horizontally and deterministically"
+        );
+        expect(
+            !board_heading_faces_left(BoardHeading::east, true),
+            "east always uses the native right-facing silhouette"
+        );
+        expect(
+            board_heading_faces_left(BoardHeading::west, false),
+            "west always mirrors the native silhouette"
+        );
+        expect(
+            board_heading_faces_left(BoardHeading::north, true),
+            "north preserves a previous left-facing fallback"
+        );
+        expect(
+            !board_heading_faces_left(BoardHeading::south, false),
+            "south preserves a previous right-facing fallback"
+        );
+    }
+
     // ---------------------------------------------------------------
     // The frame counts themselves
     // ---------------------------------------------------------------
@@ -72,7 +146,7 @@ int main() {
     // an author reads them and this is what holds it to them. Changing one is
     // a decision, not a refactor, and this is where the decision is recorded.
     {
-        expect(slide_frames_per_tile == 6, "a tile takes six frames to cross");
+        expect(slide_frames_per_tile == 10, "a tile takes ten frames to cross");
         expect(flinch_frames == 6, "a flinch is six frames");
         expect(
             flinch_knocked_frames == 3,
@@ -104,7 +178,22 @@ int main() {
             "the period is a power of two, so the phase is a mask"
         );
         expect(slide_frames_per_tile % 2 == 0, "half a tile lands on a frame");
-        expect(slide_frames_per_tile % 3 == 0, "a third of a tile does too");
+        expect(slide_frames_per_tile % 5 == 0, "a fifth of a tile does too");
+
+        ConsoleDisplayOptions display;
+        expect(!display.show_fps, "a shipped console starts with FPS hidden");
+        expect(
+            std::string_view{display.fps_menu_label()} == "SHOW FPS: OFF",
+            "the board menu says that the hidden display is off"
+        );
+        display.toggle_fps();
+        expect(display.show_fps, "the board-menu gesture shows FPS");
+        expect(
+            std::string_view{display.fps_menu_label()} == "SHOW FPS: ON",
+            "the board menu reports the enabled display"
+        );
+        display.toggle_fps();
+        expect(!display.show_fps, "the same gesture hides FPS again");
     }
 
     // ---------------------------------------------------------------
@@ -112,8 +201,8 @@ int main() {
     // ---------------------------------------------------------------
     {
         expect(slide_frames_for(0) == 0, "a route of no tiles takes no frames");
-        expect(slide_frames_for(1) == 6, "one tile takes six frames");
-        expect(slide_frames_for(4) == 24, "four tiles take 24 frames");
+        expect(slide_frames_for(1) == 10, "one tile takes ten frames");
+        expect(slide_frames_for(4) == 40, "four tiles take 40 frames");
         expect(slide_frames_for(-3) == 0, "a negative route takes no frames");
 
         // The property every pixel assertion downstream depends on: the last
@@ -512,16 +601,16 @@ int main() {
 
         // One step a tile, alternating: the cell changes exactly at a tile
         // boundary and never inside one.
-        expect(walk_cell(1, 24) == sequence_cell_walk_contact, "tile 1 contacts");
-        expect(walk_cell(6, 24) == sequence_cell_walk_contact, "…for all six frames");
-        expect(walk_cell(7, 24) == sequence_cell_walk_pass, "tile 2 passes");
-        expect(walk_cell(12, 24) == sequence_cell_walk_pass, "…for all six frames");
-        expect(walk_cell(13, 24) == sequence_cell_walk_contact, "tile 3 contacts again");
-        expect(walk_cell(19, 24) == sequence_cell_walk_pass, "tile 4 passes");
+        expect(walk_cell(1, 40) == sequence_cell_walk_contact, "tile 1 contacts");
+        expect(walk_cell(10, 40) == sequence_cell_walk_contact, "…for all ten frames");
+        expect(walk_cell(11, 40) == sequence_cell_walk_pass, "tile 2 passes");
+        expect(walk_cell(20, 40) == sequence_cell_walk_pass, "…for all ten frames");
+        expect(walk_cell(21, 40) == sequence_cell_walk_contact, "tile 3 contacts again");
+        expect(walk_cell(31, 40) == sequence_cell_walk_pass, "tile 4 passes");
         {
             int changes = 0;
-            for (int frame = 2; frame < 24; ++frame) {
-                if (walk_cell(frame, 24) != walk_cell(frame - 1, 24)) ++changes;
+            for (int frame = 2; frame < 40; ++frame) {
+                if (walk_cell(frame, 40) != walk_cell(frame - 1, 40)) ++changes;
             }
             expect(changes == 3, "a four-tile walk changes cell three times");
         }
@@ -699,6 +788,21 @@ int main() {
             gesture_frames(AttackGesture::cast, 2, false) == 9,
             "and a missed cast is held just as long, then takes nothing"
         );
+        expect(
+            console_board_unit_size(16) == 24 &&
+                console_board_unit_size(24) == 36 &&
+                console_board_unit_size(32) == 48 &&
+                console_board_unit_size(64) == 48,
+            "console board figures occupy one and a half cells within readable bounds"
+        );
+        expect(
+            close_gesture_frames(AttackGesture::swing, 1, true) == 56,
+            "a close landed swing stays visible for nearly a second"
+        );
+        expect(
+            close_gesture_frames(AttackGesture::cast, 2, false) == 59,
+            "a close missed cast keeps its gesture between the same readable holds"
+        );
     }
 
     // ---------------------------------------------------------------
@@ -707,8 +811,8 @@ int main() {
     {
         expect(projectile_frames_per_tile == 3, "a bolt crosses a tile in three");
         expect(
-            projectile_frames_per_tile * 2 == slide_frames_per_tile,
-            "which is half a walk, so a loosed thing outruns a walking one"
+            projectile_frames_per_tile < slide_frames_per_tile,
+            "which is faster than a walk, so a loosed thing outruns a walking one"
         );
         expect(projectile_frames_for(0) == 0, "no distance, no flight");
         expect(projectile_frames_for(-1) == 0, "and no negative one either");
@@ -936,9 +1040,8 @@ int main() {
             "the numbers themselves, so a change to either is a change here"
         );
         expect(
-            held_repeat_period_frames == slide_frames_per_tile,
-            "the cursor crosses a tile at the pace a character walks one, which "
-            "is a speed the player has already been taught"
+            held_repeat_period_frames < slide_frames_per_tile,
+            "cursor navigation remains faster than the deliberately paced walk"
         );
 
         for (int frame = 0; frame < held_repeat_delay_frames; ++frame) {
@@ -980,6 +1083,32 @@ int main() {
         expect(
             60 / held_repeat_period_frames == 10,
             "a held direction crosses ten cells a second at 60 Hz"
+        );
+
+        // The PlayStation poll returns after each repeated step, but the pad
+        // remains held. Its state therefore survives that return: the second
+        // step pays one period, not another initial delay.
+        HeldDirectionRepeat held;
+        constexpr std::uint16_t right = 0x20;
+        expect(!held.update(right), "a new lean moves only its initial press");
+        bool first = false;
+        for (int frame = 1; frame <= held_repeat_delay_frames; ++frame) {
+            first = held.update(right);
+        }
+        expect(first, "the persisted hold repeats after the initial delay");
+        bool too_early = false;
+        for (int frame = 1; frame < held_repeat_period_frames; ++frame) {
+            too_early = too_early || held.update(right);
+        }
+        expect(!too_early, "it does not repeat early after returning a step");
+        expect(
+            held.update(right),
+            "and the next returned step costs one repeat period"
+        );
+        expect(!held.update(0), "releasing the pad clears the held direction");
+        expect(
+            !held.update(right),
+            "a new lean after release begins a fresh initial delay"
         );
     }
 

@@ -1,8 +1,7 @@
 # Contributor environment for Grandleon.
 #
-# This pins the *host* toolchain only. The WebAssembly build deliberately runs
-# in its own pinned Emscripten container and is not baked in here; see
-# .devcontainer/README.md for how that works from inside this image.
+# This pins the host toolchain. Console cross-builds use their own pinned
+# containers; see .devcontainer/README.md.
 
 FROM ubuntu:26.04
 
@@ -30,7 +29,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         sudo \
     && rm -rf /var/lib/apt/lists/*
 
-# The container runtime CLI, so the pinned Emscripten and console builds can be
+# The container runtime CLI, so the pinned console builds can be
 # driven from inside this container against the host daemon's mounted socket.
 # The distribution's own `docker.io` would bring a daemon this image never runs,
 # so the CLI-only package comes from Docker's repository, with the codename
@@ -44,13 +43,6 @@ RUN install -m 0755 -d /etc/apt/keyrings \
     && apt-get update \
     && apt-get install -y --no-install-recommends docker-ce-cli \
     && rm -rf /var/lib/apt/lists/*
-
-# Chromium's shared libraries, so `playwright install chromium` needs no root
-# later. The browser itself is installed per-checkout into .playwright-browsers/
-# so that its version is governed by editor/package-lock.json rather than by
-# this image.
-RUN npx --yes playwright@latest install-deps chromium \
-    && rm -rf /var/lib/apt/lists/* /root/.npm
 
 ARG USERNAME=grandleon
 ARG USER_UID=1001

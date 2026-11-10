@@ -403,7 +403,7 @@ public:
                 if (sim::on_board(unit) && unit.position == at) occupant = &unit;
             }
 
-            // Same gesture rule as the browser's Play mode: a marked enemy is
+            // Same gesture rule as Godot Play mode: a marked enemy is
             // an attack, an empty tile is a move, one of yours is a selection.
             if (selected_ != 0 && occupant != nullptr &&
                 occupant->side != player_side_) {

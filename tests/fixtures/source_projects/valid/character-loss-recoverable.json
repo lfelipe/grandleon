@@ -1,5 +1,6 @@
 {
-  "schemaVersion": "1.3.0",
+  "schemaVersion": "1.4.0",
+  "sourceLanguage": "en",
   "packageId": "3b90c7d2-4e15-4a68-9c03-51f7b28ad64e",
   "gameId": "character.loss.recoverable",
   "title": "Character Loss Recoverable",

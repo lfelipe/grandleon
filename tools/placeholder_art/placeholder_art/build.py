@@ -344,8 +344,8 @@ def _backdrops_manifest() -> Dict[str, object]:
     Colours rather than pixels, because that is what a backdrop is: see
     :mod:`.backdrops` for the measurement that decided it. Each entry carries
     the bands top to bottom as ``(top row, row count, master palette index)``
-    and the RGB beside the index, so a client with no palette (the browser
-    holds RGBA sheets) reads the same table as one that has.
+    and the RGB beside the index, so a client with no palette (Godot holds RGBA
+    sheets) reads the same table as one that has.
     """
     return {
         "rows": backdrops.BACKDROP_ROWS,

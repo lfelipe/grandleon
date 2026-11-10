@@ -238,24 +238,20 @@ consequence of a battle rather than a second kind of thing.
 - `platform/desktop`: the terminal client and the SDL window, and the terminal
   again as the first front end to run a persistent campaign.
 - `platform/nintendo64`: the play ROM's `N64Presenter`.
-- `platform/playstation`: through `src/turn_client.cpp` below, which is *one*
-  presenter a console compiles, and the host tool that derives that console's
-  expected behaviour by replaying the same intents against the real engine.
-- `platform/web`: the editor's Play mode, which links
-  `grandleon_client_campaign` and drives `CampaignSession` step by step across
-  the WebAssembly ABI.
+- focused host tests: through `src/turn_client.cpp`, which exercises the compact
+  controller-driven interaction model without a renderer.
+- `platform/godot`: the creator's Play mode and the main PC player.
 
-The browser is the reason `CampaignSession` exists as an object: a terminal
-owns its loop and calls `run_persistent_campaign`, a browser's battle is
-clicks over many event-loop turns, so the sequence is a re-entrant object
-and `run_persistent_campaign` is a thin driver over it. One thing genuinely
-differs: where boards come from. A compiled game loads them out of a
-package; an authoring session plays content that was never compiled.
+`CampaignSession` is re-entrant so a graphical front end can advance it over
+many input and drawing frames; `run_persistent_campaign` is a thin synchronous
+driver over the same sequence. One thing genuinely differs between clients:
+where boards come from. A compiled game loads them out of a package; an
+authoring session may play content before a player-only export exists.
 `CampaignBoards` is that one seam, `PackageBoards` the answer every client
 with a package uses, and everything above it (founding, exclusion, growth,
 drops, the commit, the envelope) is one implementation.
 
-## `turn_client.cpp`, the console presenter a console is
+## `turn_client.cpp`, the compact controller interaction model
 
 `src/turn_client.cpp` and `include/grandleon/client/turn_client.hpp` are the
 interactive half of a console client: the cursor, the selection, the engine
@@ -263,13 +259,11 @@ queries a selection asks for, the unit action menu, the information sheet, the
 aiming state, the route a slide is drawn along, and the transcript a checked run
 reports. It draws no pixel, reads no port and names no machine.
 
-**It is a source of each target, not a member of this archive**, and it has to
-be: its campaign half is behind `GRANDLEON_TURN_CLIENT_CAMPAIGN`, which only
-some targets set, and each console compiles it under its own cross toolchain.
-One file, a compiler per machine, no archive that could hold only one of them.
-The PlayStation compiles it twice, once with the macro and once without, which
-is the clearest statement of why: the two builds are the same source and
-different programs.
+Its campaign half is behind `GRANDLEON_TURN_CLIENT_CAMPAIGN`, so focused tests
+can exercise either a single board or the surrounding campaign screens. The
+current console renderers use their own native interaction layers over the same
+campaign and simulation libraries; this file remains the small, renderer-free
+reference for those controller behaviours.
 
 **The Stage picker is one screen and two ways in.** START over a battle opens
 the board menu, which grows a fourth row — `GO TO ANOTHER STAGE - TESTING`,
@@ -313,8 +307,5 @@ what a console is checked against is derived from the rules by a different
 compiler for a different architecture, ahead of the run. Adding an animation to
 a console changes no expectation, because the host build overrides none of them.
 
-The button names are the client's rather than any machine's (`pad_a`, `pad_b`,
-`pad_c`, `pad_start`), and each console documents which of its own it maps onto
-each. `platform/client/autopilot/fordlight_pad.h` is the controller script both
-consoles play, and their two independent host derivations produce byte-identical
-transcripts.
+The button names are deliberately abstract (`pad_a`, `pad_b`, `pad_c`,
+`pad_start`) so tests describe actions without depending on a platform's labels.

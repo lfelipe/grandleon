@@ -20,6 +20,9 @@ func _run() -> void:
 	if not created.ok:
 		quit(1)
 		return
+	var localization: Node = root.get_node("Localization")
+	var prior_language := str(localization.call("current_language"))
+	localization.call("select_language", "pt-BR", false)
 	var creator_context = root.get_node("CreatorContext")
 	creator_context.open_project(created.id)
 	var packed: PackedScene = load("res://army_editor.tscn")
@@ -30,10 +33,43 @@ func _run() -> void:
 	await process_frame
 
 	_expect("project opens in army creator", editor.project_id, created.id)
+	_expect(
+		"Army editor uses the selected editor language",
+		editor.title_label.text,
+		"GROWING COMPANY  /  EXPANDIR O EXÉRCITO"
+	)
+	_expect(
+		"Portuguese Army subtitle is visible",
+		_tree_has_text(
+			editor,
+			"Escolha quem entra e o que cada capítulo concede à companhia."
+		),
+		true
+	)
+	_expect(
+		"Portuguese roster search guidance is visible",
+		editor.member_filter.placeholder_text,
+		"BUSCAR POR NOME, FUNÇÃO OU MOMENTO DE ENTRADA"
+	)
+	_expect(
+		"Portuguese ready status is visible",
+		editor.status_label.text,
+		"PRONTO  /  ESCOLHA UM PERSONAGEM OU ADICIONE ALGUÉM"
+	)
 	_expect("starter campaign is selectable", editor.campaign_select.item_count, 1)
 	_expect("starter company has two heroes", editor.members.size(), 2)
 	_expect("campaign selector receives controller focus", editor.campaign_select.has_focus(), true)
 	_expect("character portrait uses portable art", editor.portrait.texture != null, true)
+	editor.member_filter.text = "mira"
+	editor._filter_members("mira")
+	_expect("large rosters can be searched by character name", editor.member_select.item_count, 1)
+	_expect("filtered choice keeps the real character", str(editor._current_member().name), "Mira")
+	editor.member_filter.text = "young adept"
+	editor._filter_members("young adept")
+	_expect("large rosters can be searched by role", editor.member_select.item_count, 1)
+	editor.member_filter.text = ""
+	editor._filter_members("")
+	_expect("clearing search restores the whole company", editor.member_select.item_count, 2)
 	editor._apply_diagnostic_focus({
 		"category": "classes",
 		"owner_id": editor.compiler.stable_source_id("young_adept"),
@@ -43,12 +79,12 @@ func _run() -> void:
 	await process_frame
 	_expect("diagnostic recovery selects a character with the role", str(editor._current_member().name), "Mira")
 	_expect("diagnostic recovery focuses role tuning", editor.role_button.has_focus(), true)
-	_expect("diagnostic recovery names the role field", editor.status_label.text, "FIX YOUNG ADEPT  /  BASE STATS")
+	_expect("diagnostic recovery names the role field", editor.status_label.text, "CORRIGIR YOUNG ADEPT  /  ATRIBUTOS BASE")
 	editor.member_index = 0
 	editor._refresh_members()
 	editor.campaign_select.grab_focus()
 	editor._open_more()
-	_expect("reusable choices stay behind less-used army options", editor.more_gear_button.text, "GEAR & ABILITIES")
+	_expect("reusable choices stay behind less-used army options", editor.more_gear_button.text, "EQUIPAMENTOS E HABILIDADES")
 	_expect("gear library is controller reachable", editor.more_gear_button.has_focus(), true)
 	editor._close_more()
 	editor._open_supplies()
@@ -111,15 +147,48 @@ func _run() -> void:
 	editor._open_role()
 	_expect("role tuning opens on demand", editor.role_layer.visible, true)
 	_expect("role tuning starts with its named side", editor.role_side.has_focus(), true)
-	_expect("starter role owns an independent baseline", editor.role_scope_label.text.contains("INDEPENDENT"), true)
+	_expect("starter role owns an independent baseline", editor.role_scope_label.text.contains("INDEPENDENTE"), true)
 	_expect("role tuning shows its health baseline", editor.role_stat_labels.health.text, "13")
-	_expect("carried weapon family is visibly allowed", editor.role_family_toggle_button.text, "DISALLOW FOR ROLE")
+	var used_source: String = editor.source
+	var current_role_name := str(editor._role_class().get("name", "Role")).to_upper()
+	var current_character_name := str(editor._role_unit_type().get("name", "Character"))
+	editor._open_role_dependency_review()
+	_expect(
+		"long Portuguese dependency guidance wraps",
+		editor.dependency_summary.autowrap_mode,
+		TextServer.AUTOWRAP_WORD_SMART
+	)
+	_expect("role where-used review names selected role", editor.dependency_heading.text.contains(current_role_name), true)
+	_expect("role where-used review names a real character", editor.dependency_uses.text.contains(current_character_name), true)
+	_expect("used role cannot be deleted", editor.dependency_delete_button.disabled, true)
+	_expect("used role deletion is refused", editor._confirm_dependency_delete(), false)
+	_expect("refused role deletion leaves source untouched", editor.source, used_source)
+	editor._close_dependency_review()
+	editor._open_faction_dependency_review()
+	_expect("side where-used review names selected side", editor.dependency_heading.text.contains("TRAVELLERS"), true)
+	_expect("side where-used review names a real character", editor.dependency_uses.text.contains(current_character_name), true)
+	_expect("used side cannot be deleted", editor.dependency_delete_button.disabled, true)
+	_expect("used side deletion is refused", editor._confirm_dependency_delete(), false)
+	_expect("refused side deletion leaves source untouched", editor.source, used_source)
+	editor._close_dependency_review()
+	editor.dependency_category = "character_style"
+	editor.dependency_id = "medieval"
+	_expect("shared artwork deletion fails closed", editor._confirm_dependency_delete(), false)
+	_expect("shared artwork remains untouched", editor.source, used_source)
+	editor.dependency_category = "class"
+	editor.dependency_id = "missing_role"
+	_expect("missing role deletion fails closed", editor._confirm_dependency_delete(), false)
+	editor.dependency_category = "faction"
+	editor.dependency_id = "missing_side"
+	_expect("missing side deletion fails closed", editor._confirm_dependency_delete(), false)
+	_exercise_unused_definition_deletes(editor)
+	_expect("carried weapon family is visibly allowed", editor.role_family_toggle_button.text, "NÃO PERMITIR PARA A FUNÇÃO")
 	editor._toggle_role_family()
 	_expect("carried weapon family cannot be made incompatible", _parse(editor.source).classes[0].allowedWeaponTypeIds.has("blade"), true)
 	editor._select_metadata(editor.role_family, "focus")
 	editor._refresh_role_family()
 	_expect("role tuning names weapon families", editor.role_family.get_item_text(editor.role_family.selected), "Focus")
-	_expect("incompatible family is clearly addable", editor.role_family_toggle_button.text, "ALLOW FOR ROLE")
+	_expect("incompatible family is clearly addable", editor.role_family_toggle_button.text, "PERMITIR PARA A FUNÇÃO")
 	editor._toggle_role_family()
 	_expect("weapon family allowance reaches portable class data", _parse(editor.source).classes[0].allowedWeaponTypeIds.has("focus"), true)
 	editor._toggle_role_family()
@@ -156,7 +225,7 @@ func _run() -> void:
 	editor.role_side.select(1)
 	editor._change_role_side(1)
 	editor._open_growth()
-	_expect("role without items offers an explicit no-drop choice", editor.growth_drop.get_item_text(0), "NO ITEM DROP")
+	_expect("role without items offers an explicit no-drop choice", editor.growth_drop.get_item_text(0), "NENHUM ITEM DERRUBADO")
 	_expect("drop chance stays unavailable without an item", editor.growth_drop_buttons[0].disabled, true)
 	editor._close_growth()
 	var reward_fixture := _parse(editor.source)
@@ -221,6 +290,14 @@ func _run() -> void:
 	_expect("redo restores the role default", editor._current_member().has("specificity"), false)
 	editor._close_modifiers()
 	_expect("closing hero tuning returns to its single entry action", editor.customize_button.has_focus(), true)
+	_expect("older characters begin with fixed authored names", editor.player_nameable_toggle.button_pressed, false)
+	editor._set_player_nameable(true)
+	_expect("author can allow a player-selected name", bool(editor._current_member().playerNameable), true)
+	_expect("name choice permission is portable source data", bool(_parse(editor.source).campaigns[0].roster[0].playerNameable), true)
+	editor._undo()
+	_expect("name choice permission is undoable", editor._current_member().has("playerNameable"), false)
+	editor._redo()
+	_expect("name choice permission is redoable", bool(editor._current_member().playerNameable), true)
 
 	var first_id := str(editor.members[0].id)
 	editor.name_input.text = "Aren of the Vale"
@@ -231,10 +308,46 @@ func _run() -> void:
 	_expect("army save clears dirty state", editor.dirty, false)
 
 	editor._open_add()
+	editor._open_guided_character()
+	_expect("guided character opens from the normal add flow", editor.guide_layer.visible, true)
+	_expect("guided character begins with the name", editor.guide_name.has_focus(), true)
+	_expect("guided character offers working role templates", editor.guide_template.item_count, 3)
+	_expect("guided character offers the project's weapons", editor.guide_weapon.item_count, 3)
+	editor.guide_rng.seed = 17
+	editor._randomize_guided_character()
+	_expect("random start always suggests a visible name", editor.guide_name.text.is_empty(), false)
+	_expect("random start always selects a valid style", editor.guide_style.selected >= 0, true)
+	editor.guide_name.text = "Niko"
+	editor.guide_role_name.text = "Duelist"
+	editor._select_metadata(editor.guide_template, "first_hero")
+	editor._select_metadata(editor.guide_style, "sengoku")
+	editor._select_metadata(editor.guide_figure, "second")
+	editor._select_metadata(editor.guide_side, "raiders")
+	editor._select_metadata(editor.guide_weapon, "apprentice_focus")
+	editor.guide_join.select(0)
+	editor._create_guided_character()
+	var guided := _parse(editor.source)
+	_expect("guided creation adds the character and role together", editor.members.size(), 3)
+	_expect("guided creation adds one independent portable role", guided.unitTypes.size(), 4)
+	_expect("guided role keeps its chosen name", str(guided.unitTypes[-1].name), "Duelist")
+	_expect("guided role keeps its chosen style", str(guided.unitTypes[-1].characterStyleId), "sengoku")
+	_expect("guided role keeps its chosen body", str(guided.unitTypes[-1].characterFigureId), "second")
+	_expect("guided role keeps its chosen side", str(guided.unitTypes[-1].factionId), "raiders")
+	_expect("guided role begins with the chosen weapon", str(guided.unitTypes[-1].startingWeaponIds[0]), "apprentice_focus")
+	_expect("guided baseline allows the chosen weapon family", guided.classes[-1].allowedWeaponTypeIds.has("focus"), true)
+	_expect("guided creation leaves the new character selected", str(editor._current_member().name), "Niko")
+	editor._undo()
+	_expect("guided character and role undo as one change", editor.members.size(), 2)
+	_expect("guided undo removes its independent role", _parse(editor.source).unitTypes.size(), 3)
+	editor._redo()
+	_expect("guided creation redoes as one complete change", editor.members.size(), 3)
+	editor._undo()
+
+	editor._open_add()
 	_expect("add character overlay opens", editor.add_layer.visible, true)
 	_expect("new character name receives focus", editor.add_name.has_focus(), true)
 	_expect("roles are named choices", editor.add_role.item_count > 0, true)
-	_expect("join timing includes campaign start", editor.add_join.get_item_text(0), "STARTING COMPANY")
+	_expect("join timing includes campaign start", editor.add_join.get_item_text(0), "COMPANHIA INICIAL")
 	editor._open_new_role()
 	_expect("new role overlay opens from character creation", editor.new_role_layer.visible, true)
 	_expect("new role name receives focus", editor.new_role_name.has_focus(), true)
@@ -264,7 +377,7 @@ func _run() -> void:
 	editor._create_member()
 	_expect("later recruit is added", editor.members.size(), 4)
 	_expect("later recruit records join timing", str(editor._current_member().join_node_id).is_empty(), false)
-	_expect("later recruit explains chapter", str(editor._current_member().join_label).begins_with("AFTER "), true)
+	_expect("later recruit explains chapter", str(editor._current_member().join_label).begins_with("APÓS "), true)
 	editor._save()
 	var stored: Dictionary = library.load_source(created.id)
 	_expect("saved army reopens", stored.ok, true)
@@ -290,7 +403,7 @@ func _run() -> void:
 		editor._read_source()
 		editor.role_unit_type_id = "first_hero"
 		editor._refresh_role_layer()
-		_expect("shared baseline is called out before tuning", editor.role_scope_label.text.contains("SHARED"), true)
+		_expect("shared baseline is called out before tuning", editor.role_scope_label.text.contains("COMPARTILHADA"), true)
 		_expect("shared baseline disables stat tuning", editor.role_stat_buttons[0].disabled, true)
 		editor._detach_role_baseline()
 		var detached: Dictionary = _parse(editor.source)
@@ -323,11 +436,100 @@ func _run() -> void:
 		else:
 			image.save_png(screenshot_path)
 			print("army editor capture saved: %s" % screenshot_path)
+	localization.call("select_language", prior_language, false)
 	editor.queue_free()
 	await process_frame
 	if failures == 0:
 		print("army editor smoke passed")
 	quit(1 if failures > 0 else 0)
+
+
+func _exercise_unused_definition_deletes(editor: Control) -> void:
+	var original_source: String = editor.source
+	var original_dirty: bool = editor.dirty
+	var original_campaign_id := str(editor._current_campaign().get("id", ""))
+	var original_member_id := str(editor._current_member().get("id", ""))
+	var original_unit_type_id := str(editor._current_member().get("unitTypeId", ""))
+	var original_undo: Array[String] = editor.undo_stack.duplicate()
+	var original_redo: Array[String] = editor.redo_stack.duplicate()
+	var fixture := _parse(original_source)
+	var selected_campaign_id := "safe_delete_selection"
+	var selected_campaign: Dictionary = fixture.campaigns[0].duplicate(true)
+	selected_campaign.id = selected_campaign_id
+	selected_campaign.name = "Safe Delete Selection"
+	fixture.campaigns.append(selected_campaign)
+	var unused_role: Dictionary = editor._role_class().duplicate(true)
+	unused_role.id = "unused_role"
+	unused_role.name = "Unused Role"
+	fixture.classes.append(unused_role)
+	fixture.factions.append({
+		"id": "unused_side",
+		"name": "Unused Side",
+		"color": "green",
+	})
+	editor.source = JSON.stringify(editor._integer_numbers(fixture), "  ", true) + "\n"
+	_expect("unused definition fixture compiles", editor.compiler.compile_source_json(editor.source).ok, true)
+	editor._read_source()
+	root.get_node("CreatorContext").choose_campaign(selected_campaign_id)
+	editor._refresh_campaigns(original_member_id)
+	editor.role_unit_type_id = original_unit_type_id
+	editor._refresh_role_layer()
+	var role_undo_size: int = editor.undo_stack.size()
+	editor._open_dependency_review("class", "unused_role", editor.role_dependency_button)
+	_expect("unused role can be selected without assigning it", editor._selected_metadata(editor.dependency_kind_select), "unused_role")
+	_expect("unused role review names exact role", editor.dependency_heading.text.contains("UNUSED ROLE"), true)
+	_expect("unused role review reports no references", editor.dependency_uses.text.contains("Nenhuma configuração de personagem"), true)
+	_expect("unused role reaches explicit confirmation", editor.dependency_delete_button.disabled, false)
+	_expect("unused role deletion succeeds", editor._confirm_dependency_delete(), true)
+	_expect("role deletion is exactly one undo operation", editor.undo_stack.size(), role_undo_size + 1)
+	_expect("role deletion removes only selected definition", _definition_exists(_parse(editor.source).classes, "unused_role"), false)
+	_expect("role deletion candidate compiles", editor.compiler.compile_source_json(editor.source).ok, true)
+	_expect("role deletion preserves exact alternate campaign", str(editor._current_campaign().get("id", "")), selected_campaign_id)
+	_expect("role deletion preserves member selection", str(editor._current_member().get("id", "")), original_member_id)
+	editor._undo()
+	_expect("role delete undo restores definition", _definition_exists(_parse(editor.source).classes, "unused_role"), true)
+	_expect("role delete undo preserves exact alternate campaign", str(editor._current_campaign().get("id", "")), selected_campaign_id)
+	_expect("role delete undo preserves member selection", str(editor._current_member().get("id", "")), original_member_id)
+	editor._redo()
+	_expect("role delete redo removes definition", _definition_exists(_parse(editor.source).classes, "unused_role"), false)
+	_expect("role delete redo preserves exact alternate campaign", str(editor._current_campaign().get("id", "")), selected_campaign_id)
+	_expect("role delete redo preserves member selection", str(editor._current_member().get("id", "")), original_member_id)
+	var side_undo_size: int = editor.undo_stack.size()
+	editor._open_dependency_review("faction", "unused_side", editor.faction_dependency_button)
+	_expect("unused side can be selected without assigning it", editor._selected_metadata(editor.dependency_kind_select), "unused_side")
+	_expect("unused side review names exact side", editor.dependency_heading.text.contains("UNUSED SIDE"), true)
+	_expect("unused side reaches explicit confirmation", editor.dependency_delete_button.disabled, false)
+	_expect("unused side deletion succeeds", editor._confirm_dependency_delete(), true)
+	_expect("side deletion is exactly one undo operation", editor.undo_stack.size(), side_undo_size + 1)
+	_expect("side deletion removes only selected definition", _definition_exists(_parse(editor.source).factions, "unused_side"), false)
+	_expect("side deletion candidate compiles", editor.compiler.compile_source_json(editor.source).ok, true)
+	_expect("side deletion preserves exact alternate campaign", str(editor._current_campaign().get("id", "")), selected_campaign_id)
+	_expect("side deletion preserves member selection", str(editor._current_member().get("id", "")), original_member_id)
+	editor._undo()
+	_expect("side delete undo restores definition", _definition_exists(_parse(editor.source).factions, "unused_side"), true)
+	_expect("side delete undo preserves exact alternate campaign", str(editor._current_campaign().get("id", "")), selected_campaign_id)
+	_expect("side delete undo preserves member selection", str(editor._current_member().get("id", "")), original_member_id)
+	editor._redo()
+	_expect("side delete redo removes definition", _definition_exists(_parse(editor.source).factions, "unused_side"), false)
+	_expect("side delete redo preserves exact alternate campaign", str(editor._current_campaign().get("id", "")), selected_campaign_id)
+	_expect("side delete redo preserves member selection", str(editor._current_member().get("id", "")), original_member_id)
+	editor.source = original_source
+	editor.dirty = original_dirty
+	editor.undo_stack = original_undo
+	editor.redo_stack = original_redo
+	editor._read_source()
+	root.get_node("CreatorContext").choose_campaign(original_campaign_id)
+	editor._refresh_campaigns(original_member_id)
+	editor.role_unit_type_id = original_unit_type_id
+	editor._refresh_role_layer()
+	editor._update_actions()
+
+
+func _definition_exists(collection: Array, content_id: String) -> bool:
+	for value: Variant in collection:
+		if value is Dictionary and str(value.get("id", "")) == content_id:
+			return true
+	return false
 
 
 func _argument_path(prefix: String) -> String:
@@ -339,6 +541,17 @@ func _argument_path(prefix: String) -> String:
 
 func _has_argument(value: String) -> bool:
 	return value in OS.get_cmdline_user_args()
+
+
+func _tree_has_text(node: Node, expected: String) -> bool:
+	if node is Label and node.text == expected:
+		return true
+	if node is BaseButton and node.text == expected:
+		return true
+	for child: Node in node.get_children():
+		if _tree_has_text(child, expected):
+			return true
+	return false
 
 
 func _parse(value: String) -> Dictionary:

@@ -7,7 +7,7 @@ rows in one master palette entry, and that is the whole of it: no pixels, no
 sheet, no tile, no texture.
 
 That shape was chosen by measurement rather than taste. A full-screen picture
-behind a scene is cheap in a browser and unaffordable on the consoles this
+behind a scene is cheap on a desktop GPU and unaffordable on the consoles this
 repository targets:
 
 * **Nintendo 64.** A CI4 texture may hold 2,048 bytes of TMEM, which is one
@@ -56,7 +56,7 @@ MAX_BANDS = 6
 
 #: The colour a client draws a scene's words in, and the one every band is
 #: measured against. This is the Nintendo 64 body-text cream at
-#: `platform/nintendo64/src/play_rom.cpp`; every other client's ink is lighter
+#: the Nintendo 64 close-combat player; every other client's ink is lighter
 #: still, so a band legible under this is legible under all of them.
 TEXT_COLOUR = (245, 234, 210)
 

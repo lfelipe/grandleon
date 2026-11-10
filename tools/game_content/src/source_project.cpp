@@ -847,6 +847,20 @@ CampaignMember read_member(
     if (name) member.name = *name;
     member.unit_type_id = mapper.reference(*object, "unitTypeId", path);
     member.join_node_id = join_node_id;
+    const Json* player_nameable =
+        mapper.member(*object, "playerNameable", path, false);
+    if (player_nameable != nullptr) {
+        const auto* flag = std::get_if<bool>(&player_nameable->value);
+        if (flag == nullptr) {
+            mapper.error(
+                SourceDiagnosticCode::invalid_value,
+                path + ".playerNameable",
+                "expected a boolean"
+            );
+        } else {
+            member.player_nameable = *flag;
+        }
+    }
 
     // What makes this character more than their class, if the author said
     // anything. Read as written and not checked here: whether a delta is
@@ -1010,6 +1024,77 @@ SourceParseResult parse_source_project_json(std::string_view json) {
     }
     const auto title = mapper.string(*root, "title", "$");
     if (title) mapper.result.source.title = *title;
+    const auto source_language = mapper.string(*root, "sourceLanguage", "$");
+    if (source_language) {
+        mapper.result.source.source_language = *source_language;
+    }
+    const Array* translations = mapper.array(*root, "translations", "$", false);
+    if (translations != nullptr) {
+        std::set<std::string> languages;
+        mapper.result.source.translations.reserve(translations->size());
+        for (std::size_t catalog_index = 0;
+             catalog_index < translations->size(); ++catalog_index) {
+            const std::string catalog_path =
+                "$.translations[" + std::to_string(catalog_index) + "]";
+            const Object* catalog_object =
+                mapper.object((*translations)[catalog_index], catalog_path);
+            if (catalog_object == nullptr) continue;
+            TranslationCatalog catalog;
+            const auto language =
+                mapper.string(*catalog_object, "language", catalog_path);
+            if (language) {
+                catalog.language = *language;
+                if (*language == mapper.result.source.source_language) {
+                    mapper.error(
+                        SourceDiagnosticCode::invalid_value,
+                        catalog_path + ".language",
+                        "a translation catalog cannot repeat the source language"
+                    );
+                } else if (!languages.insert(*language).second) {
+                    mapper.error(
+                        SourceDiagnosticCode::invalid_value,
+                        catalog_path + ".language",
+                        "translation language is named more than once"
+                    );
+                }
+            }
+            const Array* entries =
+                mapper.array(*catalog_object, "entries", catalog_path);
+            if (entries != nullptr) {
+                std::set<std::string> entry_ids;
+                catalog.entries.reserve(entries->size());
+                for (std::size_t entry_index = 0;
+                     entry_index < entries->size(); ++entry_index) {
+                    const std::string entry_path =
+                        catalog_path + ".entries[" +
+                        std::to_string(entry_index) + "]";
+                    const Object* entry_object =
+                        mapper.object((*entries)[entry_index], entry_path);
+                    if (entry_object == nullptr) continue;
+                    TranslationEntry entry;
+                    const auto id = mapper.string(*entry_object, "id", entry_path);
+                    const auto source =
+                        mapper.string(*entry_object, "source", entry_path);
+                    const auto text =
+                        mapper.string(*entry_object, "text", entry_path);
+                    if (id) {
+                        entry.id = *id;
+                        if (!entry_ids.insert(*id).second) {
+                            mapper.error(
+                                SourceDiagnosticCode::invalid_value,
+                                entry_path + ".id",
+                                "translation message is named more than once"
+                            );
+                        }
+                    }
+                    if (source) entry.source = *source;
+                    if (text) entry.text = *text;
+                    catalog.entries.push_back(std::move(entry));
+                }
+            }
+            mapper.result.source.translations.push_back(std::move(catalog));
+        }
+    }
     const auto revision = mapper.string(*root, "contentRevision", "$");
     if (revision) {
         const auto packed = parse_revision(*revision);
@@ -1035,6 +1120,25 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                 "$.themeId",
                 "not a season the art library offers"
             );
+        }
+    }
+    // A game's recommendation for the optional close combat view. The player
+    // still owns the final display choice on their machine; this portable bit
+    // is what a runtime uses only when no such local choice exists. Omitted is
+    // enabled, preserving every project written before the recommendation was
+    // authorable.
+    const Json* battle_closeups =
+        mapper.member(*root, "battleCloseups", "$", false);
+    if (battle_closeups != nullptr) {
+        const auto* flag = std::get_if<bool>(&battle_closeups->value);
+        if (flag == nullptr) {
+            mapper.error(
+                SourceDiagnosticCode::invalid_value,
+                "$.battleCloseups",
+                "expected a boolean"
+            );
+        } else {
+            mapper.result.source.battle_closeups = *flag;
         }
     }
     const auto character_style =
@@ -1561,17 +1665,26 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                         if (mode && *mode == "solid") {
                             result.surroundings.mode =
                                 MapSurroundingMode::solid;
-                        } else if (mode && *mode == "automatic") {
+                        } else if (mode &&
+                                   (*mode == "automatic" ||
+                                    *mode == "continue")) {
                             result.surroundings.mode =
                                 MapSurroundingMode::automatic;
                         } else if (mode && *mode == "manual") {
                             result.surroundings.mode =
                                 MapSurroundingMode::manual;
+                        } else if (mode && *mode == "fill") {
+                            result.surroundings.mode =
+                                MapSurroundingMode::fill;
+                        } else if (mode && *mode == "blend") {
+                            result.surroundings.mode =
+                                MapSurroundingMode::blend;
                         } else if (mode) {
                             mapper.error(
                                 SourceDiagnosticCode::invalid_value,
                                 surroundings_path + ".mode",
-                                "expected 'solid', 'automatic', or 'manual'"
+                                "expected 'continue', 'fill', 'blend', "
+                                "'solid', 'automatic', or 'manual'"
                             );
                         }
                         const auto depth = mapper.integer(
@@ -1610,6 +1723,94 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                             mapper.terrain_kinds(
                                 *outside, "terrain", surroundings_path
                             );
+                        if (result.surroundings.mode ==
+                                MapSurroundingMode::fill ||
+                            result.surroundings.mode ==
+                                MapSurroundingMode::blend) {
+                            const auto fill_terrain = mapper.string(
+                                *outside, "terrainId", surroundings_path
+                            );
+                            if (fill_terrain) {
+                                result.surroundings.fill_terrain =
+                                    core::stable_content_id_v1(*fill_terrain);
+                                result.surroundings.fill_terrain_kind =
+                                    terrain_kind_index(*fill_terrain);
+                            }
+                        }
+                    }
+                }
+                const Json* visual_visibility = mapper.member(
+                    value, "visualVisibility", path, false
+                );
+                if (visual_visibility != nullptr) {
+                    const std::string visibility_path =
+                        path + ".visualVisibility";
+                    const Object* visibility =
+                        mapper.object(*visual_visibility, visibility_path);
+                    if (visibility != nullptr) {
+                        const auto radius = mapper.integer(
+                            *visibility, "revealRadius", visibility_path,
+                            0, 8
+                        );
+                        if (radius) {
+                            result.visual_visibility.reveal_radius =
+                                static_cast<std::uint8_t>(*radius);
+                        }
+                        const Array* cells = mapper.array(
+                            *visibility, "hiddenCells", visibility_path
+                        );
+                        if (cells != nullptr) {
+                            if (cells->empty()) {
+                                mapper.error(
+                                    SourceDiagnosticCode::invalid_value,
+                                    visibility_path + ".hiddenCells",
+                                    "at least one covered cell is required"
+                                );
+                            }
+                            std::set<std::uint32_t> seen;
+                            for (std::size_t index = 0;
+                                 index < cells->size(); ++index) {
+                                const std::string cell_path =
+                                    visibility_path + ".hiddenCells[" +
+                                    std::to_string(index) + "]";
+                                const Object* cell =
+                                    mapper.object((*cells)[index], cell_path);
+                                if (cell == nullptr) continue;
+                                const auto x = mapper.integer(
+                                    *cell, "x", cell_path, 0,
+                                    maximum_map_side - 1
+                                );
+                                const auto y = mapper.integer(
+                                    *cell, "y", cell_path, 0,
+                                    maximum_map_side - 1
+                                );
+                                if (!x || !y) continue;
+                                if (*x >= result.width ||
+                                    *y >= result.height) {
+                                    mapper.error(
+                                        SourceDiagnosticCode::invalid_value,
+                                        cell_path,
+                                        "covered cell is outside this map"
+                                    );
+                                    continue;
+                                }
+                                const auto cell_index =
+                                    static_cast<std::uint32_t>(
+                                        *y * result.width + *x
+                                    );
+                                if (!seen.insert(cell_index).second) {
+                                    mapper.error(
+                                        SourceDiagnosticCode::invalid_value,
+                                        cell_path,
+                                        "covered cell is listed twice"
+                                    );
+                                    continue;
+                                }
+                                result.visual_visibility.hidden_cells.push_back(
+                                    cell_index
+                                );
+                            }
+                        }
                     }
                 }
                 return result;
@@ -2266,6 +2467,38 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                                 output_placement.y =
                                     static_cast<std::int16_t>(*y);
                             }
+                            const Json* two_player_position = mapper.member(
+                                *placement, "twoPlayerPosition", placement_path,
+                                false
+                            );
+                            if (two_player_position != nullptr) {
+                                const Object* position = mapper.object(
+                                    *two_player_position,
+                                    placement_path + ".twoPlayerPosition"
+                                );
+                                if (position != nullptr) {
+                                    const auto two_x = mapper.integer(
+                                        *position, "x",
+                                        placement_path + ".twoPlayerPosition",
+                                        std::numeric_limits<std::int16_t>::min(),
+                                        std::numeric_limits<std::int16_t>::max()
+                                    );
+                                    const auto two_y = mapper.integer(
+                                        *position, "y",
+                                        placement_path + ".twoPlayerPosition",
+                                        std::numeric_limits<std::int16_t>::min(),
+                                        std::numeric_limits<std::int16_t>::max()
+                                    );
+                                    if (two_x && two_y) {
+                                        output_placement.two_player_x =
+                                            static_cast<std::int16_t>(*two_x);
+                                        output_placement.two_player_y =
+                                            static_cast<std::int16_t>(*two_y);
+                                        output_placement.states_two_player_position =
+                                            true;
+                                    }
+                                }
+                            }
                             const auto minimum_players = mapper.integer(
                                 *placement, "minimumPlayers", placement_path,
                                 2, 2, false
@@ -2306,8 +2539,8 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                 // nothing: no field is materialised and no section is written.
                 //
                 // The recurrence is carried as authored rather than expanded
-                // here. The simulation expands it, so the browser (which never
-                // sees a package) and the consoles cannot disagree about what
+                // here. The simulation expands it, so authoring and packaged
+                // content cannot disagree about what
                 // "every three rounds, four times" means.
                 const Json* arrival = mapper.member(
                     *placement, "arrival", placement_path, false
@@ -2376,6 +2609,16 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                                 output_moment.dialogue_id = mapper.reference(
                                     *moment, "dialogueId", moment_path
                                 );
+                                const auto minimum_players = mapper.integer(
+                                    *moment, "minimumPlayers", moment_path,
+                                    2, 2, false
+                                );
+                                if (minimum_players) {
+                                    output_moment.minimum_players =
+                                        static_cast<std::uint8_t>(
+                                            *minimum_players
+                                        );
+                                }
                                 const Json* when = mapper.member(
                                     *moment, "when", moment_path, true
                                 );
@@ -3679,6 +3922,38 @@ SourceTextResult resize_source_map_json(
     if (manual_surroundings != nullptr) {
         *manual_surroundings = std::move(resized_surroundings);
     }
+    // Covered cells keep their coordinates when the top-left anchored map
+    // grows, and cells clipped by a shrink disappear. If none remain, omit the
+    // optional object rather than leave an invalid empty mask.
+    if (Object* visibility =
+            mutable_object(*editable.map, "visualVisibility")) {
+        Array* hidden = mutable_array(*visibility, "hiddenCells");
+        if (hidden == nullptr) {
+            refuse_edit(
+                result, SourceDiagnosticCode::invalid_value,
+                path + ".visualVisibility.hiddenCells",
+                "visual visibility must state its covered cells"
+            );
+            return result;
+        }
+        Array retained;
+        for (const Json& value : *hidden) {
+            const auto* cell = std::get_if<Object>(&value.value);
+            const std::int64_t* x =
+                cell == nullptr ? nullptr : integer_member(*cell, "x");
+            const std::int64_t* y =
+                cell == nullptr ? nullptr : integer_member(*cell, "y");
+            if (x != nullptr && y != nullptr && *x >= 0 && *y >= 0 &&
+                *x < width && *y < height) {
+                retained.push_back(value);
+            }
+        }
+        if (retained.empty()) {
+            editable.map->erase("visualVisibility");
+        } else {
+            *hidden = std::move(retained);
+        }
+    }
     finish_map_edit(editable, result);
     return result;
 }
@@ -4038,7 +4313,7 @@ SourceTextResult add_source_campaign_chapter_json(
         terrain.push_back(Json{std::string(fill_terrain)});
     }
     Object surroundings;
-    surroundings.emplace("mode", Json{std::string{"automatic"}});
+    surroundings.emplace("mode", Json{std::string{"continue"}});
     surroundings.emplace("depth", Json{std::int64_t{3}});
     Object added_map;
     added_map.emplace("id", Json{std::string(map_id)});
@@ -4656,7 +4931,7 @@ SourceTextResult add_source_campaign_branch_json(
         terrain.push_back(Json{std::string(fill_terrain)});
     }
     Object surroundings;
-    surroundings.emplace("mode", Json{std::string{"automatic"}});
+    surroundings.emplace("mode", Json{std::string{"continue"}});
     surroundings.emplace("depth", Json{std::int64_t{3}});
     Object added_map;
     added_map.emplace("id", Json{std::string(map_id)});
@@ -4743,7 +5018,8 @@ SourceTextResult set_source_map_surroundings_json(
     std::string_view mode,
     std::string_view colour,
     std::int64_t depth,
-    const std::vector<std::string>& terrain_ids
+    const std::vector<std::string>& terrain_ids,
+    std::string_view fill_terrain
 ) {
     SourceTextResult result;
     EditableMapDocument editable;
@@ -4755,10 +5031,12 @@ SourceTextResult set_source_map_surroundings_json(
         finish_map_edit(editable, result);
         return result;
     }
-    if (mode != "solid" && mode != "automatic" && mode != "manual") {
+    if (mode != "solid" && mode != "automatic" && mode != "continue" &&
+        mode != "fill" && mode != "blend" && mode != "manual") {
         refuse_edit(
             result, SourceDiagnosticCode::invalid_value, path,
-            "surroundings mode must be solid, automatic, manual, or none"
+            "surroundings mode must be continue, fill, blend, solid, "
+            "automatic, manual, or none"
         );
         return result;
     }
@@ -4769,7 +5047,7 @@ SourceTextResult set_source_map_surroundings_json(
             [](unsigned char character) { return std::isxdigit(character); }
         );
     if ((mode == "solid" && (!colour_shaped || depth != 0 ||
-                              !terrain_ids.empty())) ||
+                              !terrain_ids.empty() || !fill_terrain.empty())) ||
         (mode != "solid" && !colour.empty())) {
         refuse_edit(
             result, SourceDiagnosticCode::invalid_value, path,
@@ -4791,7 +5069,8 @@ SourceTextResult set_source_map_surroundings_json(
     const auto expected = outer_width * outer_height -
                           static_cast<std::uint64_t>(editable.width) *
                               static_cast<std::uint64_t>(editable.height);
-    if ((mode == "automatic" && !terrain_ids.empty()) ||
+    if (((mode == "automatic" || mode == "continue" || mode == "fill" ||
+          mode == "blend") && !terrain_ids.empty()) ||
         (mode == "manual" && terrain_ids.size() != expected)) {
         refuse_edit(
             result, SourceDiagnosticCode::invalid_value, path + ".terrain",
@@ -4805,6 +5084,16 @@ SourceTextResult set_source_map_surroundings_json(
         refuse_edit(
             result, SourceDiagnosticCode::invalid_value, path + ".terrain",
             "surrounding terrain ids must be stable source-key strings"
+        );
+        return result;
+    }
+    const bool chooses_terrain = mode == "fill" || mode == "blend";
+    if ((chooses_terrain && !valid_source_key(fill_terrain)) ||
+        (!chooses_terrain && !fill_terrain.empty())) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            path + ".terrainId",
+            "fill and blend surroundings require one stable terrain id"
         );
         return result;
     }
@@ -4823,8 +5112,62 @@ SourceTextResult set_source_map_surroundings_json(
             terrain.push_back(Json{id});
         }
         outside.emplace("terrain", Json{std::move(terrain)});
+    } else if (chooses_terrain) {
+        outside.emplace("terrainId", Json{std::string(fill_terrain)});
     }
     (*editable.map)["surroundings"] = Json{std::move(outside)};
+    finish_map_edit(editable, result);
+    return result;
+}
+
+SourceTextResult set_source_map_visual_visibility_json(
+    std::string_view source_json,
+    std::string_view map_id,
+    std::int64_t reveal_radius,
+    const std::vector<std::int64_t>& cell_indices
+) {
+    SourceTextResult result;
+    EditableMapDocument editable;
+    if (!open_editable_map(source_json, map_id, editable, result)) return result;
+    const std::string path = "$.maps[" + std::to_string(editable.index) +
+                             "].visualVisibility";
+    if (cell_indices.empty()) {
+        editable.map->erase("visualVisibility");
+        finish_map_edit(editable, result);
+        return result;
+    }
+    if (reveal_radius < 0 || reveal_radius > 8) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value,
+            path + ".revealRadius",
+            "visual reveal radius must be between 0 and 8"
+        );
+        return result;
+    }
+    const auto area = editable.width * editable.height;
+    std::set<std::int64_t> seen;
+    Array cells;
+    cells.reserve(cell_indices.size());
+    for (const std::int64_t index : cell_indices) {
+        if (index < 0 || index >= area || !seen.insert(index).second) {
+            refuse_edit(
+                result, SourceDiagnosticCode::invalid_value,
+                path + ".hiddenCells",
+                index < 0 || index >= area
+                    ? "covered cell is outside this map"
+                    : "covered cell is listed twice"
+            );
+            return result;
+        }
+        Object cell;
+        cell.emplace("x", Json{index % editable.width});
+        cell.emplace("y", Json{index / editable.width});
+        cells.push_back(Json{std::move(cell)});
+    }
+    Object visibility;
+    visibility.emplace("revealRadius", Json{reveal_radius});
+    visibility.emplace("hiddenCells", Json{std::move(cells)});
+    (*editable.map)["visualVisibility"] = Json{std::move(visibility)};
     finish_map_edit(editable, result);
     return result;
 }
@@ -5010,12 +5353,17 @@ SourceTextResult set_source_placement_minimum_players_json(
     const std::string placement_path = placements_path + "[" +
                                        std::to_string(placement_index) + "]";
     const std::string* side = string_member(*placement, "side");
-    if (minimum_players == 2 && (side == nullptr || *side != "second")) {
+    const std::int64_t* player = integer_member(*placement, "player");
+    const bool player_two = player != nullptr && *player == 2;
+    const bool conditional_opponent = side != nullptr && *side == "second";
+    const bool conditional_ally =
+        side != nullptr && *side == "first" && player_two;
+    if (minimum_players == 2 && !conditional_opponent && !conditional_ally) {
         refuse_edit(
             result,
             SourceDiagnosticCode::invalid_value,
             placement_path + ".minimumPlayers",
-            "only opposing placements can be limited to two players"
+            "only opponents or Player 2 allies can require two players"
         );
         return result;
     }
@@ -5079,6 +5427,10 @@ SourceTextResult set_source_placement_player_json(
     }
     if (player == 1) {
         placement->erase("player");
+        // A conditional ally is valid only as Player 2's distinct army. When
+        // an editor returns it to Player 1, return it to the solo baseline too
+        // rather than leaving a half-valid placement behind.
+        placement->erase("minimumPlayers");
     } else {
         (*placement)["player"] = Json{player};
     }
@@ -6859,6 +7211,99 @@ SourceTextResult rename_source_campaign_member_json(
         return result;
     }
     (*member)["name"] = Json{std::string(name)};
+    const bool was_playable = static_cast<bool>(compile(before.source));
+    finish_document_edit(document, result);
+    if (!result || !was_playable) return result;
+    const SourceParseResult after = parse_source_project_json(result.json);
+    const CompileResult compiled = after ? compile(after.source) : CompileResult{};
+    if (after && compiled) return result;
+    result.json.clear();
+    refuse_edit(
+        result, SourceDiagnosticCode::invalid_value, member_path,
+        "character edit would make this playable project invalid"
+    );
+    return result;
+}
+
+SourceTextResult set_source_campaign_member_player_nameable_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view member_id,
+    bool player_nameable
+) {
+    SourceTextResult result;
+    if (!valid_source_key(campaign_id) || !valid_source_key(member_id)) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.campaigns",
+            "campaign and member identities must be stable source-key strings"
+        );
+        return result;
+    }
+    const SourceParseResult before = parse_source_project_json(source_json);
+    if (!before) {
+        result.diagnostics = before.diagnostics;
+        return result;
+    }
+    Json document;
+    try {
+        document = JsonParser(source_json).parse();
+    } catch (const JsonError& error) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_json, "$",
+            "JSON parse error at byte " + std::to_string(error.offset()) +
+                ": " + error.what()
+        );
+        return result;
+    }
+    auto* root = std::get_if<Object>(&document.value);
+    Array* campaigns =
+        root == nullptr ? nullptr : mutable_array(*root, "campaigns");
+    std::size_t campaign_index = 0;
+    Object* campaign = campaigns == nullptr
+                           ? nullptr
+                           : find_object_by_id(
+                                 *campaigns, campaign_id, &campaign_index
+                             );
+    if (campaign == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.campaigns",
+            "campaign was not found"
+        );
+        return result;
+    }
+    const std::string campaign_path =
+        "$.campaigns[" + std::to_string(campaign_index) + "]";
+    Object* member = nullptr;
+    std::string member_path = campaign_path + ".roster";
+    Array* roster = mutable_array(*campaign, "roster");
+    if (roster != nullptr) member = find_object_by_id(*roster, member_id);
+    Object* flow = mutable_object(*campaign, "flow");
+    Array* nodes = flow == nullptr ? nullptr : mutable_array(*flow, "nodes");
+    for (std::size_t node_index = 0;
+         member == nullptr && nodes != nullptr && node_index < nodes->size();
+         ++node_index) {
+        auto* node = std::get_if<Object>(&(*nodes)[node_index].value);
+        Array* recruits =
+            node == nullptr ? nullptr : mutable_array(*node, "recruits");
+        if (recruits == nullptr) continue;
+        member = find_object_by_id(*recruits, member_id);
+        if (member != nullptr) {
+            member_path = campaign_path + ".flow.nodes[" +
+                          std::to_string(node_index) + "].recruits";
+        }
+    }
+    if (member == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, member_path,
+            "character was not found"
+        );
+        return result;
+    }
+    if (player_nameable) {
+        (*member)["playerNameable"] = Json{true};
+    } else {
+        member->erase("playerNameable");
+    }
     const bool was_playable = static_cast<bool>(compile(before.source));
     finish_document_edit(document, result);
     if (!result || !was_playable) return result;

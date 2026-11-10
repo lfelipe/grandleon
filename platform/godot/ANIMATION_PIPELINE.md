@@ -80,6 +80,24 @@ figures use the same target-facing event without changing animation assets.
 Invalid or absent animation metadata falls back to the shipped layout without
 changing simulation behavior.
 
+The base 4×2 sprite sheets contain action phases, not compass views. Godot
+mirrors their right-facing walk against east/west route travel; both compact
+consoles do the same. All 112 curated bodies bind a separate 4×2 directional
+sheet with north idle/walk above south idle/walk and a matching team mask. The
+2D and 3D Godot boards select it from the current authoritative route leg,
+never from predicted simulation state. Combat poses remain on the original
+action sheet. Missing or invalid directional metadata falls back to the
+existing side silhouette, preserving safe behavior for external art packs.
+
+The source/profile audit is `platform/console_art/check-directional-art.py`.
+It reports complete 112/112 coverage and a 931,840-byte CI4 projection per
+compact platform. The console
+generator publishes project-specific coverage and budget, but the N64 and PS1
+production renderers stay unchanged until gameplay captures and performance
+measurements pass their active hardware-review gate. Generation
+provenance and the exact cell contract are in
+`project/art/characters/DIRECTIONAL_ART.md` and its batch records.
+
 ## Optional close attack view
 
 Godot pairs a combat presentation batch with the authoritative snapshot that

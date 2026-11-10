@@ -20,8 +20,8 @@
 // The vocabulary is deliberately smaller than a filesystem's. There are no
 // directories, no paths, no seeking, no partial reads, no handles, no times.
 // A Nintendo 64 has four kilobytes of EEPROM addressed in sixty-four-bit
-// blocks, or a battery-backed byte-wide SRAM window; a browser has a key-value
-// store with a string-shaped value. The intersection of those is "a short name,
+// blocks, or a battery-backed byte-wide SRAM window; an object store has keys
+// and whole values. The intersection of those is "a short name,
 // a blob, all of it at once", so that is the interface, and the desktop adapter
 // is the one that has to give something up rather than the consoles having to
 // invent something.

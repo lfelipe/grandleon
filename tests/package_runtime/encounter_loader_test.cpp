@@ -131,6 +131,10 @@ void decodes_compiled_encounter() {
     const auto decoded = pr::load_encounter(loaded, 100);
     expect(static_cast<bool>(decoded), "encounter payload decodes");
     expect(
+        decoded.map_id == 70,
+        "the encounter publishes its authoritative authored map identity"
+    );
+    expect(
         decoded.definition.width == 4 &&
             decoded.definition.height == 3 &&
             decoded.definition.units.size() == 2,
@@ -159,12 +163,10 @@ void decodes_compiled_encounter() {
 void carries_map_surroundings_beside_the_tactical_board() {
     auto authored = source();
     auto& outside = authored.maps.front().surroundings;
-    outside.mode = gc::MapSurroundingMode::manual;
+    outside.mode = gc::MapSurroundingMode::fill;
     outside.depth = 1;
-    outside.terrain.assign(18, 700);
-    outside.terrain_kinds.assign(
-        18, gc::terrain_kind_index("mountain")
-    );
+    outside.fill_terrain = 700;
+    outside.fill_terrain_kind = gc::terrain_kind_index("mountain");
     const auto compiled = gc::compile(authored);
     expect(static_cast<bool>(compiled), "the framed runtime fixture compiles");
     const auto loaded = pf::load_mock_package(
@@ -174,16 +176,70 @@ void carries_map_surroundings_beside_the_tactical_board() {
     const auto decoded = pr::load_encounter(loaded.package, 100);
     expect(static_cast<bool>(decoded), "the framed encounter decodes");
     expect(
-        decoded.surroundings.mode == pr::MapSurroundingMode::manual &&
+        decoded.surroundings.mode == pr::MapSurroundingMode::fill &&
             decoded.surroundings.depth == 1 &&
             decoded.surroundings.terrain ==
                 std::vector<std::uint64_t>(18, 700),
-        "the outside ring reaches presentation without becoming map terrain"
+        "the compiler materializes a portable outside ring for presentation"
     );
     expect(
         decoded.definition.width == 4 && decoded.definition.height == 3 &&
             decoded.terrain.size() == 12,
         "outside presentation never changes tactical dimensions"
+    );
+
+    auto blended_authored = source();
+    auto& blended = blended_authored.maps.front().surroundings;
+    blended.mode = gc::MapSurroundingMode::blend;
+    blended.depth = 2;
+    blended.fill_terrain = 700;
+    blended.fill_terrain_kind = gc::terrain_kind_index("forest");
+    const auto blended_compiled = gc::compile(blended_authored);
+    const auto blended_loaded = pf::load_mock_package(
+        blended_compiled.package,
+        {{0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 10'000}
+    );
+    const auto blended_decoded =
+        pr::load_encounter(blended_loaded.package, 100);
+    expect(
+        blended_decoded &&
+            blended_decoded.surroundings.mode ==
+                pr::MapSurroundingMode::blend &&
+            blended_decoded.surroundings.terrain.size() == 44 &&
+            std::find(
+                blended_decoded.surroundings.terrain.begin(),
+                blended_decoded.surroundings.terrain.end(), 1
+            ) != blended_decoded.surroundings.terrain.end() &&
+            std::find(
+                blended_decoded.surroundings.terrain.begin(),
+                blended_decoded.surroundings.terrain.end(), 700
+            ) != blended_decoded.surroundings.terrain.end(),
+        "natural blend is materialized deterministically from edge and fill terrain"
+    );
+}
+
+void carries_visual_visibility_beside_the_tactical_board() {
+    auto authored = source();
+    authored.maps.front().visual_visibility.reveal_radius = 2;
+    authored.maps.front().visual_visibility.hidden_cells = {5, 6, 9, 10};
+    const auto compiled = gc::compile(authored);
+    expect(static_cast<bool>(compiled), "the visibility runtime fixture compiles");
+    const auto loaded = pf::load_mock_package(
+        compiled.package,
+        {{0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 10'000}
+    );
+    const auto decoded = pr::load_encounter(loaded.package, 100);
+    expect(static_cast<bool>(decoded), "the visibility encounter decodes");
+    expect(
+        decoded.visual_visibility.reveal_radius == 2 &&
+            decoded.visual_visibility.hidden_cells ==
+                std::vector<std::uint32_t>({5, 6, 9, 10}),
+        "covered cells reach presentation in authored order"
+    );
+    expect(
+        decoded.definition.width == 4 && decoded.definition.height == 3 &&
+            decoded.terrain.size() == 12,
+        "visual visibility never changes the playable board or rules"
     );
 }
 
@@ -2233,6 +2289,81 @@ void assigns_allies_to_one_or_two_local_armies() {
     );
 }
 
+void carries_a_distinct_coop_army_story_and_opening_layout() {
+    auto authored = ranked_source();
+
+    // Rook is the same persistent member in either variant, but begins farther
+    // back when a second army needs room on the board.
+    gc::Placement& rook = authored.encounters.front().placements.back();
+    rook.two_player_x = 1;
+    rook.two_player_y = 2;
+    rook.states_two_player_position = true;
+
+    // Kite belongs only to the second local player's version of this battle.
+    // The member still has one campaign identity: filtering the placement does
+    // not manufacture or discard a roster record.
+    authored.campaigns.front().roster.push_back({2004, "Kite", 60, 0});
+    gc::Placement kite{
+        1004, 2004, 2004, 60, gc::EncounterSide::first, 3, 2
+    };
+    kite.minimum_players = 2;
+    kite.local_player = 2;
+    authored.encounters.front().placements.push_back(kite);
+    authored.encounters.front().moments = {
+        {21U, gc::MomentTrigger::stage_opens, 0U, 101U},
+        {22U, gc::MomentTrigger::stage_opens, 0U, 102U, 2U},
+    };
+
+    const pf::LoadedPackage package = compile_and_load(authored);
+    expect(
+        package.find(pf::SectionType::placement_two_player_positions, 100) !=
+            nullptr,
+        "the alternate opening position has its portable sparse record"
+    );
+    const pf::SectionView* moment_section =
+        package.find(pf::SectionType::moments);
+    expect(
+        moment_section != nullptr && moment_section->schema_minor == 1U,
+        "conditional story advances the moments section without changing its kind"
+    );
+
+    const auto solo = pr::load_encounter(package, 100, {1});
+    const auto coop = pr::load_encounter(package, 100, {2});
+    expect(solo && coop, "both variants decode from one authored encounter");
+
+    const auto unit = [](const pr::EncounterLoadResult& board,
+                         std::uint64_t id) -> const sim::UnitDefinition* {
+        const auto found = std::find_if(
+            board.definition.units.begin(), board.definition.units.end(),
+            [id](const sim::UnitDefinition& candidate) {
+                return candidate.id == id;
+            }
+        );
+        return found == board.definition.units.end() ? nullptr : &*found;
+    };
+    const sim::UnitDefinition* solo_rook = unit(solo, 1003);
+    const sim::UnitDefinition* coop_rook = unit(coop, 1003);
+    expect(
+        solo_rook != nullptr && solo_rook->position == sim::Position{0, 2} &&
+            coop_rook != nullptr && coop_rook->position == sim::Position{1, 2},
+        "one persistent member resolves the opening coordinate for each mode"
+    );
+    expect(
+        unit(solo, 1004) == nullptr && unit(coop, 1004) != nullptr &&
+            unit(coop, 1004)->local_player == 2U,
+        "the second army is absent in solo and independently owned in co-op"
+    );
+    expect(
+        solo.moments.size() == 1U && solo.moments.front().dialogue_id == 101U &&
+            coop.moments.size() == 2U && coop.moments.back().dialogue_id == 102U,
+        "the second army's story beat appears only in its co-op variant"
+    );
+    expect(
+        solo.placements.size() + 1U == coop.placements.size(),
+        "filtering one army keeps placement joins aligned in both variants"
+    );
+}
+
 void carries_the_survive_count_onto_the_objective() {
     auto authored = ranked_source();
     authored.objectives.front().kind = gc::ObjectiveKind::survive_rounds;
@@ -2356,6 +2487,7 @@ void a_triangle_reaches_the_blow() {
 int main() {
     decodes_compiled_encounter();
     carries_map_surroundings_beside_the_tactical_board();
+    carries_visual_visibility_beside_the_tactical_board();
     carries_every_weapon_a_unit_type_lists();
     carries_the_richer_stat_line();
     carries_passability_and_traversal();
@@ -2375,6 +2507,7 @@ int main() {
     carries_the_arrivals_onto_the_board();
     scales_authored_opponents_with_the_local_party();
     assigns_allies_to_one_or_two_local_armies();
+    carries_a_distinct_coop_army_story_and_opening_layout();
     carries_the_survive_count_onto_the_objective();
     a_triangle_reaches_the_blow();
     carries_the_deployment_capacity_beside_the_board();

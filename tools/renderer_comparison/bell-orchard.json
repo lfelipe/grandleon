@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "kind": "campaign_capture",
+  "project": "games/steel_and_cedar/source/project.json",
+  "campaign": "steel_and_cedar",
+  "node": "bell_orchard",
+  "players": 1,
+  "board": {
+    "width": 8,
+    "height": 6,
+    "unit_count": 5
+  },
+  "actor": {
+    "placement": "rowan_orchard",
+    "unit_id": "7543913367842920562",
+    "start": [
+      1,
+      2
+    ],
+    "destination": [
+      4,
+      1
+    ],
+    "initial_health": 24,
+    "final_health": 23
+  },
+  "target": {
+    "placement": "orchard_sword",
+    "unit_id": "7878946346193111832",
+    "position": [
+      5,
+      1
+    ],
+    "initial_health": 15,
+    "final_health": 9
+  },
+  "sequence": [
+    "settled_board",
+    "walk",
+    "attack",
+    "counterattack",
+    "settled_board"
+  ],
+  "attack_damage": 6,
+  "counter_damage": 1,
+  "capture": {
+    "fps": 30,
+    "playback": "real_time",
+    "minimum_board_hold_seconds": 1,
+    "synchronized_timing": false
+  }
+}

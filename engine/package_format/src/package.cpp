@@ -201,6 +201,10 @@ bool is_known_section(std::uint32_t type) {
         case SectionType::map_surroundings:
         case SectionType::placement_players:
         case SectionType::campaign_players:
+        case SectionType::placement_two_player_positions:
+        case SectionType::localizations:
+        case SectionType::player_nameable_members:
+        case SectionType::map_visual_visibility:
             return true;
     }
     return false;

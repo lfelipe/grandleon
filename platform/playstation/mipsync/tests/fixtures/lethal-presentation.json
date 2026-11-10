@@ -1,0 +1,7 @@
+{
+  "name": "Controlled lethal close-view presentation",
+  "base_encounter": "Bell Orchard",
+  "unit_id": 7878946346193111832,
+  "health": 1,
+  "purpose": "Make the first ordinary legal player attack lethal, without runtime state mutation or tactical rule changes. This content is never shipped."
+}

@@ -4,11 +4,11 @@ set -euo pipefail
 
 script_dir="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(CDPATH= cd -- "${script_dir}/../../.." && pwd)"
-project_source="${repo_root}/games/emberbound/source/project.json"
+project_source="${repo_root}/games/steel_and_cedar/source/project.json"
 build_dir="${repo_root}/build-godot-release"
 output_dir="${repo_root}/out/grandleon-pc"
 godot_binary=""
-campaign_key="emberbound"
+campaign_key="steel_and_cedar"
 player_only=0
 include_examples=1
 release_version="$(tr -d '\r\n' <"${repo_root}/RELEASE_VERSION")"
@@ -82,13 +82,11 @@ cmake --build "${build_dir}" --parallel --target \
 stage_dir="${build_dir}/platform/godot/project/app"
 "${build_dir}/grandleon_content_compile" "${project_source}" "${stage_dir}/game.gpk"
 if [[ "${include_examples}" == "1" ]]; then
+    cmake -E remove_directory "${stage_dir}/content/included"
     cmake -E make_directory "${stage_dir}/content/included"
     "${build_dir}/grandleon_content_compile" \
-        "${repo_root}/games/tarnholt/source/project.json" \
-        "${stage_dir}/content/included/tarnholt.gpk"
-    "${build_dir}/grandleon_content_compile" \
-        "${repo_root}/games/emberbound/source/project.json" \
-        "${stage_dir}/content/included/emberbound.gpk"
+        "${repo_root}/games/steel_and_cedar/source/project.json" \
+        "${stage_dir}/content/included/steel_and_cedar.gpk"
 else
     cmake -E remove_directory "${stage_dir}/content/included"
 fi
@@ -99,7 +97,7 @@ mkdir -p "${godot_state}/data" "${godot_state}/config" "${godot_state}/cache"
 XDG_DATA_HOME="${godot_state}/data" \
 XDG_CONFIG_HOME="${godot_state}/config" \
 XDG_CACHE_HOME="${godot_state}/cache" \
-    "${godot_binary}" --editor --headless --quiet --path "${stage_dir}" --quit
+    "${godot_binary}" --headless --quiet --import --path "${stage_dir}"
 cmake -E rm -rf "${stage_dir}/.godot/editor"
 
 extension="${stage_dir}/bin/libgrandleon_godot.so"
@@ -126,6 +124,10 @@ cmake -E copy "${stage_dir}/icon.png" "${temporary_dir}/grandleon-icon.png"
 cmake -E make_directory "${temporary_dir}/licenses"
 cmake -E copy "${repo_root}/LICENSE" "${temporary_dir}/LICENSE.txt"
 cmake -E copy "${repo_root}/NOTICE" "${temporary_dir}/NOTICE.txt"
+cmake -E copy "${repo_root}/assets/audio/VSCO-2-CE-LICENSE.txt" \
+    "${temporary_dir}/licenses/VSCO-2-CE-LICENSE.txt"
+cmake -E copy "${repo_root}/assets/fonts/spleen/LICENSE" \
+    "${temporary_dir}/licenses/SPLEEN-LICENSE.txt"
 cmake -E copy \
     "${repo_root}/third_party/godot/4.7.2/LICENSE.txt" \
     "${temporary_dir}/licenses/GODOT-LICENSE.txt"
@@ -176,7 +178,7 @@ fi
     printf 'godotVersion=%s\n' "${godot_version}"
     printf 'defaultCampaign=%s\n' "${campaign_key}"
     if [[ "${include_examples}" == "1" ]]; then
-        printf 'includedCampaigns=tarnholt:1,emberbound:2\n'
+        printf 'includedCampaigns=steel_and_cedar:choice\n'
     else
         printf 'includedCampaigns=none\n'
     fi

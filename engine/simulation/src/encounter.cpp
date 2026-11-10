@@ -1115,9 +1115,7 @@ constexpr std::uint8_t present_reach_bonus = 1U << 7U;
 // definition order with a wave's arrivals adjacent, and answers false for an
 // arrival nothing could honour.
 //
-// Done here in the rules rather than in either loader on purpose. The browser
-// builds an `EncounterDefinition` in TypeScript and hands it to this same
-// module; the consoles build one out of a package. Expanding in a loader would
+// Done here in the rules rather than in a loader on purpose. Expanding in a loader would
 // be one rule kept in two places that have to agree, which is the thing
 // `engine/simulation/README.md` §conformance exists to forbid.
 //
@@ -1138,8 +1136,8 @@ constexpr std::uint8_t present_reach_bonus = 1U << 7U;
 // the waves rather than about the listing. It is what
 // makes `engine/simulation/README.md`'s claim that a board is keyed by unit
 // identity rather than by source insertion order true of the identifiers as
-// well as of the walk, and it is what lets the browser's builder and the
-// package loader emit their units in whatever order each finds natural without
+// well as of the walk, and it is what lets different content paths emit their
+// units in whatever order each finds natural without
 // the two disagreeing about the battle.
 bool expand_arrivals(
     const std::vector<UnitDefinition>& authored,
@@ -1404,10 +1402,8 @@ Encounter::CreateResult create_encounter(
     //
     // **It is the one list that used to reach a board unexamined.** The package
     // loader vets a kind as it decodes it (`read_weapon_type`) and the compiler
-    // refuses a malformed one where the author is, so the route a console takes
-    // was covered; the two routes a caller takes, the WebAssembly binding and a
-    // direct call, were not, and the browser therefore ran content a cartridge
-    // would have turned down. A gate every route passes through belongs here,
+    // refuses a malformed one where the author is, so package loading was
+    // covered while a direct call was not. A gate every route passes through belongs here,
     // which is the only place all of them meet.
     //
     // A kind naming itself is the live one. The edges are directed and at most

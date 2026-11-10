@@ -48,11 +48,112 @@
       "secondary_terrain": "grass",
       "transition_terrain": "paved",
       "variant_count": 3,
+      "floor_strip_top": 1.0,
       "root": "res://art/combat_backdrops/medieval_forest_gate",
+      "conversation": {
+        "authored_backdrops": ["deep_wood"]
+      },
       "filename_patterns": {
         "panorama": "panorama_{variant}.png",
         "transition": "transition_grass_paved_{variant}.png",
         "midground": "midground_forest_{variant}.png",
+        "props": "props_{variant}.png"
+      }
+    },
+    {
+      "id": "medieval_village",
+      "dominant_terrain": "paved",
+      "secondary_terrain": "road",
+      "transition_terrain": "grass",
+      "variant_count": 3,
+      "floor_strip_top": 1.0,
+      "root": "res://art/combat_backdrops/medieval_village",
+      "compatibility": {
+        "stage_ids": ["07cb9d097af3a9a1"],
+        "map_ids": ["07cb9d097af3a9a1"],
+        "nearby_features_any": ["village_house"]
+      },
+      "conversation": {
+        "authored_backdrops": []
+      },
+      "filename_patterns": {
+        "panorama": "panorama_{variant}.png",
+        "transition": "transition_road_paved_{variant}.png",
+        "midground": "midground_village_{variant}.png",
+        "props": "props_{variant}.png"
+      }
+    },
+    {
+      "id": "medieval_bell_orchard",
+      "dominant_terrain": "farmland",
+      "secondary_terrain": "road",
+      "transition_terrain": "grass",
+      "variant_count": 3,
+      "floor_strip_top": 1.0,
+      "root": "res://art/combat_backdrops/medieval_bell_orchard",
+      "compatibility": {
+        "stage_ids": ["935b03cf7490233c"],
+        "map_ids": ["935b03cf7490233c"],
+        "nearby_features_any": ["orchard_tree", "orchard_bell"]
+      },
+      "conversation": {
+        "authored_backdrops": []
+      },
+      "filename_patterns": {
+        "panorama": "panorama_{variant}.png",
+        "transition": "transition_farmland_road_{variant}.png",
+        "midground": "midground_orchard_{variant}.png",
+        "props": "props_{variant}.png"
+      }
+    },
+    {
+      "id": "medieval_cedar_watch",
+      "dominant_terrain": "paved",
+      "secondary_terrain": "ruins",
+      "transition_terrain": "road",
+      "variant_count": 3,
+      "floor_strip_top": 1.0,
+      "root": "res://art/combat_backdrops/medieval_cedar_watch",
+      "compatibility": {
+        "stage_ids": ["0079abb4797ff5b4"],
+        "map_ids": ["0079abb4797ff5b4"],
+        "nearby_features_any": ["watch_ruin", "signal_beacon"]
+      },
+      "conversation": {
+        "authored_backdrops": []
+      },
+      "filename_patterns": {
+        "panorama": "panorama_{variant}.png",
+        "transition": "transition_paved_ruins_{variant}.png",
+        "midground": "midground_watch_{variant}.png",
+        "props": "props_{variant}.png"
+      }
+    },
+    {
+      "id": "medieval_castle",
+      "dominant_terrain": "paved",
+      "secondary_terrain": "mountain",
+      "transition_terrain": "paved",
+      "variant_count": 3,
+      "floor_strip_top": 1.0,
+      "root": "res://art/combat_backdrops/medieval_castle",
+      "compatibility": {
+        "stage_ids": ["e5c0ef3904d2b0a3"],
+        "map_ids": ["e5c0ef3904d2b0a3"],
+        "focus_features_any": [
+          "castle_door",
+          "castle_floor",
+          "castle_dais"
+        ],
+        "focus_features_none": ["castle_wall"]
+      },
+      "conversation": {
+        "authored_backdrops": []
+      },
+      "filename_patterns": {
+        "panorama": "panorama_{variant}.png",
+        "transition": "transition_paved_castle_{variant}.png",
+        "midground": "midground_castle_{variant}.png",
         "props": "props_{variant}.png"
       }
     }

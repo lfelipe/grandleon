@@ -2,11 +2,9 @@
 
 // Bring a project file up to the version this checkout writes.
 //
-// The editor asks first and upgrades the open game, leaving the file alone
-// until the author saves. This is the same registry with the other answer: a
-// project on disk, rewritten in place, for a person holding a directory of
-// games rather than one open in a browser. Both roads run the same steps in the
-// same order, because there is one registry and `migration.mjs` is it.
+// This is the command-line path: a project on disk, rewritten in place for a
+// person holding a directory of games. It runs the steps in `migration.mjs` in
+// order.
 //
 //   node tools/source_schema/upgrade.mjs games/demo/source/project.json
 //   node tools/source_schema/upgrade.mjs --check <project.json>

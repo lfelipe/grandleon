@@ -1,0 +1,40 @@
+From 8cd6c338e85262d16b5b38ffeda4815c6654f4de Mon Sep 17 00:00:00 2001
+From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
+Date: Mon, 9 Nov 2026 11:54:10 -0800
+Subject: [PATCH 10/10] Select one tool when resolving Windows build commands
+
+
+diff --git a/scripts/BuildEngine.ps1 b/scripts/BuildEngine.ps1
+index 58528c81ba39857fef83a0ca64483822d23cdbe1..399ecff05a75c7bf1bf7c2c83fdcc82f7e747eb8 100644
+--- a/scripts/BuildEngine.ps1
++++ b/scripts/BuildEngine.ps1
+@@ -9,7 +9,7 @@ $ErrorActionPreference = 'Stop'
+ $source = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+ # Resolve tools before configuring so missing prerequisites produce an actionable
+ # error instead of CMake's cascading "compiler not set" diagnostics.
+-$cmakeCommand = Get-Command cmake -CommandType Application -ErrorAction SilentlyContinue
++$cmakeCommand = Get-Command cmake -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+ if (!$cmakeCommand) { throw 'CMake 3.25 or newer is required. Install CMake and add its bin directory to PATH.' }
+ $cmake = $cmakeCommand.Source
+ $ctest = Join-Path (Split-Path $cmake -Parent) 'ctest.exe'
+@@ -18,7 +18,7 @@ $compilerCandidates = @()
+ if ($CompilerRoot) {
+     $compilerCandidates = @([IO.Path]::GetFullPath($CompilerRoot))
+ } else {
+-    $gccCommand = Get-Command gcc -CommandType Application -ErrorAction SilentlyContinue
++    $gccCommand = Get-Command gcc -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+     if ($gccCommand) { $compilerCandidates += Split-Path $gccCommand.Source -Parent }
+     $compilerCandidates += @('C:\msys64\mingw64\bin', 'C:\msys64\ucrt64\bin')
+ }
+@@ -57,7 +57,7 @@ if (Test-Path -LiteralPath $alias) {
+ }
+ $ninja = Join-Path $alias 'tools/ninja.exe'
+ if (!(Test-Path -LiteralPath $ninja)) {
+-    $ninjaCommand = Get-Command ninja -CommandType Application -ErrorAction SilentlyContinue
++    $ninjaCommand = Get-Command ninja -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+     if (!$ninjaCommand) { throw 'Ninja is missing. Restore the bundled tools/ninja.exe or install Ninja and add it to PATH.' }
+     $ninja = $ninjaCommand.Source
+ }
+-- 
+2.53.0
+

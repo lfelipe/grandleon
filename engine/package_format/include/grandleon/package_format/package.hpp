@@ -117,10 +117,10 @@ enum class SectionType : std::uint32_t {
     // different battle, and one skipping this plays the same battle in silence.
     // Nothing here is read by a rule; the engine never learns a moment exists.
     moments = 19,
-    // Which opposing placements are added when more local players take part,
-    // per encounter. Required when present because omitting it changes the
-    // battle, and pruned entirely when every placement is always present so
-    // packages authored before player scaling remain byte-identical.
+    // Which placements are added when more local players take part, per
+    // encounter. Required when present because omitting it changes the battle,
+    // and pruned entirely when every placement is always present so packages
+    // authored before player scaling remain byte-identical.
     placement_scaling = 20,
     // Optional presentation around a tactical map: a solid colour, an
     // automatically derived impassable border, or authored perimeter terrain.
@@ -138,6 +138,26 @@ enum class SectionType : std::uint32_t {
     // Packages compiled before launch policy existed omit the section; the
     // campaign loader preserves their old Player 2 ownership inference.
     campaign_players = 23,
+    // Optional two-player opening coordinates for placements that use a
+    // different layout when the second army is present. Required when present:
+    // ignoring it can overlap units or erase the authored distance between
+    // fronts. Sparse so old and shared-layout projects remain byte-identical.
+    placement_two_player_positions = 24,
+    // Optional manual language catalogs. Source text stays in the ordinary
+    // content records, while this section carries the source language and the
+    // reviewed source snapshot beside each translation. Unknown runtimes skip
+    // it and continue drawing source strings, so localization never changes a
+    // rule or prevents an older target from playing the game.
+    localizations = 25,
+    // Which campaign members a player may rename, keyed by campaign. Sparse
+    // and optional: a campaign with no such members has no record, and a
+    // project with none has no section. Older runtimes therefore skip the
+    // feature and continue using every required authored default name.
+    player_nameable_members = 26,
+    // Presentation-only covered map cells and their local reveal radius.
+    // Optional and sparse: runtimes that do not know it draw the same playable
+    // board fully visible, while rules and canonical state remain unchanged.
+    map_visual_visibility = 27,
 };
 
 // The presentation section holds records about the whole game, the way the
@@ -150,6 +170,11 @@ enum class SectionType : std::uint32_t {
 // name, and a unit type's archetype, the style that draws it and the body it
 // is drawn with all follow from choices no client should have to re-derive.
 inline constexpr std::uint64_t presentation_record_id = 1;
+
+// One project-wide localization record. It contains the source language and
+// all language catalogs so their arbitrary BCP 47 tags need no hashed record
+// identity and can never collide.
+inline constexpr std::uint64_t localization_record_id = 1;
 
 // The manifest's own record, on the same terms: it says something about the
 // whole game rather than about a piece of content, so its identity is a format
@@ -178,6 +203,12 @@ inline constexpr std::uint64_t presentation_style_record_id = 4;
 // and a reader that knows one of them finds it by its identity and is
 // unaffected by the other.
 inline constexpr std::uint64_t presentation_figure_record_id = 5;
+// Optional project-wide presentation defaults that a player may override
+// locally. The first byte is whether close combat presentation begins enabled.
+// The record is absent when every preference has its historical default, so a
+// project written before it existed and a current project asking for those
+// defaults remain the same package shape.
+inline constexpr std::uint64_t presentation_preferences_record_id = 6;
 
 struct RecordSource final {
     std::uint64_t stable_id{};
@@ -303,7 +334,7 @@ struct LoadedPackage final {
     // which is what `borrowed` below is for. Public and a `std::vector` so that
     // a caller can look at a package it opened the ordinary way, and because a
     // caller assembling a package out of records that arrive one at a time
-    // appends to it, as the browser's campaign entry points do.
+    // appends to it.
     //
     // Appending is safe, and it is safe for the same reason copying is: nothing
     // decoded out of a package holds a pointer into these bytes. Every view is

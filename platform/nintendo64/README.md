@@ -1,71 +1,69 @@
 # Nintendo 64
 
-Grandleon can turn a portable campaign into a Nintendo 64 ROM. The ROM uses the
-same campaign and combat rules as the Godot player, with controller input, SRAM
-saves, and a presentation designed for the console.
+Grandleon can turn any portable project into a Nintendo 64 ROM. The ROM uses
+the same campaign and combat rules as the Godot player, with controller input,
+cartridge saves, local co-op, and graphics designed for the hardware.
 
-## Play the 0.4 showcase
+There is one Nintendo 64 player. It is built on the pinned Pyrite, Tiny3D and
+libdragon revisions under `platform/nintendo64/pyrite/`; a missing dependency
+is an export error, never a reason to fall back to another renderer.
 
-Build Sevenfold Gate from the repository root:
+## Build a ROM
 
-```sh
-cmake -S . -B build -DGRANDLEON_BUILD_TESTS=ON
-cmake --build build --target grandleon_n64_sevenfold_roms
-```
-
-Open `build-n64-sevenfold-roms/sevenfold-n64.z64` in ares, on a compatible FPGA
-system, or from a flash cartridge. The review build shows live FPS and includes
-a Stage picker so every art style, archetype, and terrain can be inspected
-without replaying the complete campaign.
-
-Choose **1 Player** or **2 Players** on the title screen. A new campaign goes
-straight to its save choice and first playable stage; fixed formations do not
-open a roster or deployment screen first. **Help** keeps the full controls
-available without placing a mandatory instructions screen in the launch path.
-
-## Controls
-
-- D-pad: move the active cursor or menu selection.
-- A: confirm, select a unit, or choose a destination.
-- B: cancel or go back.
-- Z: open the selected unit's action menu.
-- Start: open the battle menu.
-
-In two-player mode, each controller has its own cursor and menu state. Authored
-unit ownership decides which characters each player commands.
-
-## Graphics
-
-There is one Nintendo 64 renderer. It draws project-specific, team-coloured
-character cutouts generated from the curated Godot roster over textured
-tactical terrain. Attacks can switch to a closer terrain backdrop, then return
-to the same board state. The campaign contains no alternate graphics mode.
-
-The campaign ROM itself is what release testing exercises. It is not paired
-with a separate renderer demo.
-
-## Build another campaign
+From the repository root:
 
 ```sh
 platform/nintendo64/scripts/build-n64.sh \
-  --project games/tarnholt/source/project.json \
-  --targets grandleon_n64_campaign
+  --project games/steel_and_cedar/source/project.json
 ```
 
-The project is compiled and embedded during the cross-build. Its authored art
-style, body, archetype, and faction colours select drawings from the same
-curated art source used by Godot.
+The ROM is written to `build-n64/platform/nintendo64/grandleon_n64.z64` by
+default. Set `GRANDLEON_N64_BUILD_DIR` to keep another build separate.
+
+The first build downloads the pinned Pyrite source and prepares a pinned
+libdragon/Tiny3D toolchain container, so it takes longer than later builds.
+
+## Controls
+
+- D-pad: move the cursor or menu focus.
+- A: confirm, select a unit, or choose a destination.
+- B: cancel or go back.
+- Z: open actions for the selected unit.
+- Start: open the battle menu.
+
+One-player games use controller one. In local co-op, each player has their own
+cursor and can command only units assigned to them by the campaign. The battle
+menu contains Help, sound and presentation settings, and the Show FPS toggle;
+FPS is off by default.
+
+## What the renderer does
+
+The tactical board is a scrolling isometric scene with textured terrain,
+elevation faces, surrounding non-playable scenery, props, shadows and
+team-coloured character cutouts. Attacks can switch to larger character art on
+a terrain-aware backdrop, show the counterattack and result, then restore the
+same board position.
+
+The release ROM targets a stable 30 fps on NTSC hardware. Campaign timing is
+unchanged; the extra frame budget is spent on filtered materials, denser
+terrain forms, and readable character art rather than a sparse 60 fps board.
+
+Campaign authors do not make a separate N64 map. The exporter reads the same
+project package and generated artwork as the other players, then fits it to the
+cartridge, RDRAM and frame budgets. Unsupported project size or missing art is
+reported during export.
 
 ## Verify the target
 
 ```sh
-cmake --build build --target grandleon_n64_check_all
+cmake -S . -B build -DGRANDLEON_BUILD_TESTS=ON
+cmake --build build --target grandleon_n64_check
 ```
 
-This runs engine conformance, framebuffer checks, a played route, two-controller
-co-op, and SRAM persistence in the pinned ares environment. The first run also
-builds the pinned toolchain and emulator images, so it takes several minutes.
+The gate exports both the small demo and Steel and Cedar through the normal
+creator path, checks that each ROM identifies this renderer with no fallback,
+and boots both in the pinned ares emulator as an exact 4 MB Nintendo 64.
 
-See [Playing on Nintendo 64 and PlayStation](../../docs/CONSOLE_RENDERER.md) for
-export limits and release expectations. Contributor setup is in
-[Setting up](../../docs/SETUP.md).
+See [Playing on Nintendo 64 and PlayStation](../../docs/CONSOLE_RENDERER.md)
+for export expectations and [Setting up](../../docs/SETUP.md) for contributor
+setup.

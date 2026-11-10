@@ -1,5 +1,6 @@
 {
-  "schemaVersion": "1.3.0",
+  "schemaVersion": "1.4.0",
+  "sourceLanguage": "en",
   "packageId": "0a4d1c72-9b8e-4f35-8ad6-2c9f5b3e7104",
   "gameId": "grandleon.weapon.accuracy",
   "title": "Grandleon Weapon Accuracy",
