@@ -11,10 +11,9 @@ its rules.
 
 ![A real Grandleon battle running in Godot with voxel terrain and animated characters](docs/screenshots/godot/gameplay.gif)
 
-The animation above is captured from the included sample campaign in the running
-Godot client. It follows the party into close combat and includes the live
-movement, attack, hit, and impact animations. It is not a mockup or concept
-render.
+This earlier Godot gameplay capture shows real movement and combat in the
+running player. It illustrates the presentation; it is not a recording of the
+current Steel and Cedar release candidate.
 
 ## Make a game
 
@@ -40,29 +39,33 @@ files or internal identifiers. [Creating a game](docs/CREATING_A_GAME.md) is a
 short visual tour of the current workflow; the full tutorial is planned once
 the editor settles closer to 1.0.
 
-## Play the included campaigns
+## Play Steel and Cedar
 
-The home screen includes two complete examples with their intended player
-counts shown before launch:
+The included demo is **Steel and Cedar**, a five-battle campaign shared by
+Godot, Nintendo 64, and PlayStation. A false treaty signal draws two realms
+toward war; follow its couriers from an orchard through woodland and village
+streets to the hidden throne room of Twin Gate Keep.
 
-- **The Tarnholt Line** (one player). The earlier six-battle campaign is a
-  longer solo test of branching story, recruitment, deployment, survival
-  goals, and a final boss.
-- **Emberbound: The Last Dawn** (one or two players). Choose at launch. In
-  co-op, the five-battle campaign divides one allied company between two
-  independent controls; in solo, one player commands the complete company.
+Choose **1 Player** or **2 Players** before starting. Solo follows Rowan and
+Tomas; local co-op adds Akari and Ren with their own controller, routes,
+formations, and opposition. The two variants share a story but give the
+players distinct tactical openings. The campaign includes a twenty-round
+signal defense and a castle whose interior is revealed as your party enters.
 
-These are separate compiled games, not two labels for the same package. They
-also remain portable projects under `games/tarnholt` and `games/emberbound`, so
-the engine and console tests exercise the same authored source as the PC
-examples.
+The demo has authored English, Spanish, and Brazilian Portuguese text. Choose
+a language before play or change it in Settings. Games offer a language choice
+only when their package contains translations. Missing or outdated lines use
+the current source text.
+
+The editable project is in [games/steel_and_cedar](games/steel_and_cedar).
+Earlier campaigns remain in `games/` as examples and regression fixtures.
 
 ## The Godot presentation
 
 Godot is the main player and creator. Its supported presentation combines
 authored 3D terrain with animated high-resolution 2D characters.
 
-![Godot rendering authored voxel terrain with animated character sprites](docs/screenshots/godot/voxel-sprites.png)
+![An earlier Godot sample showing voxel terrain and animated character sprites](docs/screenshots/godot/voxel-sprites.png)
 
 The current Godot art pack covers all eight character archetypes and all
 thirteen terrain kinds. Its seven directions are sci-fi, mythical, medieval,
@@ -78,6 +81,9 @@ This is a quick sample rather than the whole catalog. See the
 [artwork and animation roster](docs/ARTWORK.md) for animated previews and exact
 coverage.
 
+The screenshot above is an earlier sample; the artwork sampler remains a guide
+to the available character catalog.
+
 Boards larger than the readable view scroll horizontally and vertically on
 Godot, Nintendo 64, and PlayStation. Small maps stay centered; on large maps,
 the camera follows the active cursor without shrinking characters into
@@ -91,7 +97,7 @@ item drops use the same accepted battle results. The session menu can disable
 these **Battle Close-ups**. Hold Confirm to fast-forward a close-up or press
 Cancel to skip it; either choice returns to the authoritative board state that
 the shared engine already accepted.
-The live board remains visible as the camera focuses the two units and pushes
+Godot’s live board remains visible as the camera focuses the two units and pushes
 into the close view, then the result dissolves back to that settled board.
 Compatible terrain now selects a layered background that remains stable for
 the complete exchange. The current library covers forest scenes plus the
@@ -103,9 +109,11 @@ simple readable fallback behind the portrait and dialogue.
 The in-game Settings menu can also show a small live FPS counter on any
 renderer. It is off by default, including in console ROMs and disc images.
 
+Across all three players, entering Steel and Cedar’s keep reveals its hidden
+interior while preserving the authored tactical rules.
+
 The players share an orchestral soundtrack and distinct weapon, magic and
-healing effects. Adjust **Music** and **Sound Effects** separately from the start
-menu or in-game Settings; each volume is saved. Creator support for importing
+healing effects. Adjust **Music** and **Sound Effects** separately in Settings; each volume is saved. Creator support for importing
 your own audio is planned on the roadmap below.
 
 ## One project, several targets
@@ -118,10 +126,11 @@ campaign state, and random results remain authoritative in the shared engine.
 | --- | --- |
 | ![Bell Orchard movement and close combat in the Nintendo 64 player](docs/screenshots/nintendo64-console-renderer.gif) | ![Bell Orchard movement, attack and counterattack in the PlayStation player](docs/screenshots/playstation-console-renderer.gif) |
 
-These are current emulator captures of Bell Orchard, including movement and
-close combat. Nintendo 64 shows the solo opening; PlayStation shows co-op.
-The Godot campaign capture is at the top of this page. These clips show each
-player's actual presentation; their timing and formations are not matched.
+These are Bell Orchard emulator review captures from 0.5 development, including
+movement and close combat. Nintendo 64 shows the solo opening; PlayStation shows co-op.
+The earlier Godot capture is at the top of this page. These clips show each
+player’s actual presentation; their timing and formations are not matched,
+and they predate the final language and interface fixes.
 
 The installed Export Center can produce:
 
@@ -138,10 +147,8 @@ hardware-sized cutouts over shaped, textured tactical terrain, with full-frame
 terrain backdrops for close battles. There is no renderer choice in the game
 or in **Finish & Export**.
 
-Nintendo 64 and PlayStation intentionally target a stable 30 fps. That gives
-their renderers room for filtered materials, denser raised terrain, clearer
-silhouettes, and richer effects while input and tactical rules remain
-responsive. Godot keeps its own higher display cadence.
+The consoles target 30 fps; this is a performance target, not a promise that
+every scene currently meets it. Godot keeps its own display cadence.
 
 The 0.5 work is also the middle of an engine transition: Nintendo 64 is moving
 to Pyrite/Tiny3D and PlayStation is moving to Mipsync. Those are the only
@@ -154,18 +161,16 @@ PS1 camera movement can still judder on larger maps, especially around the
 castle. Smoother frame pacing remains planned after 0.5; it does not block
 this release's functional-parity review.
 
-`games/sevenfold` is the compact N64 showcase campaign. One ROM asks for one or
+`games/sevenfold` remains the older compact art showcase campaign. One ROM asks for one or
 two players on its main menu, fields every archetype across all seven art
 styles, and uses seven different maps covering every terrain kind. A debug
 Stage-picker build can jump directly between the gates for review.
 
-Ready-to-test Nintendo 64 and PlayStation images are included with the source
-under [release/0.4.0](release/0.4.0/README.md).
-
-0.4 brings this renderer to Nintendo 64 and PlayStation. Console terrain and
-animation will continue to improve after 0.4. See
-[Playing on Nintendo 64 and PlayStation](docs/CONSOLE_RENDERER.md) for exports,
-controls, limits, and development builds.
+See the [0.5 release notes](release/0.5.0/README.md) for the current demo,
+launch guidance, and known limitations. The committed
+[0.4 review builds](release/0.4.0/README.md) remain an older Sevenfold Gate
+snapshot. [Playing on Nintendo 64 and PlayStation](docs/CONSOLE_RENDERER.md)
+covers controls, exports, and development builds.
 
 ## Roadmap
 
@@ -184,49 +189,23 @@ rest of the documentation describes the current Godot application.
 Importing external artwork may be explored later, but it is not part of the
 current roadmap commitment.
 
-The first localization workflow will be deliberately manual. A later version
-may optionally offer translation suggestions from an external AI service, but
-suggestions must never be required, silently overwrite authored text, or
-replace the author's review and approval.
+Localization is manual and usable today. The application menus and creator
+are available in English, Spanish, and Brazilian Portuguese. Choose a language
+on the home or project screen; it applies immediately and is remembered.
 
-The first localization workflow is usable end to end. Grandleon's home,
-project, and every current creator screen are available in English, Spanish,
-and Brazilian Portuguese. A clean
-install follows the system locale when it is supported, but the language can be
-changed explicitly from either the home or project screen, applies immediately
-without a restart, and is remembered from then on. Missing shell copy falls
-back to English. An automated catalog audit keeps all three languages on the
-same non-empty message IDs and formatting placeholders. The Godot player's
-session menu, display settings, save/checkpoint flow, diagnostics, and
-dialogue-continue prompt follow the same language choice. Its live battle turn
-chip, unit card, action popup, contextual controls, controller ownership, and
-common refusal messages do as well. Campaign results, deployment and controller
-notices, runtime warnings, and the optional Company screen are localized too;
-fixed formations continue directly into play without showing that screen.
+A game records its own source language and translations in the portable
+project. In **Translations**, review player-facing text and character names,
+filter missing or outdated entries, and exchange **.PO** catalogs with a
+translator. **Play Language** previews the selected campaign and 1P/2P variant
+without touching a real save. Authored translations travel with exports to all
+three players. Changed source text falls back to the current original until
+its translation is reviewed again.
 
-Games now record their own source language and carry manual translations in
-the same portable project and compiled package. Open a project's
-**Translations** screen to add a language (including `pt-BR`), review all
-gathered player-facing copy and character names, search the catalog, and filter
-missing or outdated work. **Export .PO** and **Import .PO** let a translator
-review the same catalog in gettext-compatible tools; stable IDs, outdated
-review state, and named placeholders survive the round trip. The portable
-project remains the version used by every runtime. **Play Language** launches
-the selected campaign and 1P/2P variant in an isolated preview so the author
-can check the translation without changing a real save. Before a translated
-game starts, the player chooses from its authored languages. Godot then applies
-that choice to the game title,
-campaign and stage names, dialogue, objectives, company character names, named
-battle placements, and named units, weapons, abilities, and items. Grandleon
-keeps the original source strings; missing or outdated work falls back to the
-current source rather than stale or empty text. During play, **Settings** can
-change among those authored languages immediately on Godot, Nintendo 64, and
-PlayStation, including dialogue that is already queued; the choice is saved and
-does not require a restart. The Pyrite/Tiny3D and Mipsync players use this real
-package-backed path rather than the removed console renderer. Their title,
-help, settings, name entry, tactical actions and results, deployment,
-aftermath, and error screens follow the same selection within the smaller
-console layouts.
+To contribute a menu language, follow [TRANSLATING.md](TRANSLATING.md): copy
+the English catalog, keep its IDs and placeholders, translate the values, and
+submit a pull request. Translating a game uses that project’s catalog instead.
+An external translation service is not required; optional suggestions may be
+explored later, with author review retained.
 
 Player-chosen character names remain literal player input rather than
 translation material; in Godot they survive save and continue and can appear
@@ -255,8 +234,8 @@ To build only the shared native engine and package tools:
 cmake -S . -B build -DGRANDLEON_BUILD_TESTS=OFF
 cmake --build build
 ./build/grandleon_content_compile \
-  games/emberbound/source/project.json build/emberbound.gpk
-./build/grandleon_package_check build/emberbound.gpk
+  games/steel_and_cedar/source/project.json build/steel-and-cedar.gpk
+./build/grandleon_package_check build/steel-and-cedar.gpk
 ```
 
 Developer setup, test dependencies, and console commands are in

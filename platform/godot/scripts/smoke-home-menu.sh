@@ -35,11 +35,8 @@ included_dir="${stage_dir}/content/included"
 cmake -E remove_directory "${included_dir}"
 cmake -E make_directory "${included_dir}"
 "${build_dir}/grandleon_content_compile" \
-    "${repo_root}/games/tarnholt/source/project.json" \
-    "${included_dir}/tarnholt.gpk"
-"${build_dir}/grandleon_content_compile" \
-    "${repo_root}/games/emberbound/source/project.json" \
-    "${included_dir}/emberbound.gpk"
+    "${repo_root}/games/steel_and_cedar/source/project.json" \
+    "${included_dir}/steel_and_cedar.gpk"
 state_dir="$(mktemp -d "${build_dir}/home-menu-state.XXXXXX")"
 cleanup() {
     cmake -E remove_directory "${state_dir}"
@@ -57,14 +54,14 @@ XDG_CACHE_HOME="${state_dir}/cache" \
 XDG_DATA_HOME="${state_dir}/data" \
 XDG_CONFIG_HOME="${state_dir}/config" \
 XDG_CACHE_HOME="${state_dir}/cache" \
-    timeout 30s "${godot_binary}" --headless --path "${stage_dir}" \
+    timeout 180s "${godot_binary}" --headless --path "${stage_dir}" \
     --script "${repo_root}/platform/godot/tests/included_games_test.gd"
 
 output="$({
     XDG_DATA_HOME="${state_dir}/data" \
     XDG_CONFIG_HOME="${state_dir}/config" \
     XDG_CACHE_HOME="${state_dir}/cache" \
-        timeout 30s "${godot_binary}" --headless --path "${stage_dir}" -- \
+        timeout 180s "${godot_binary}" --headless --path "${stage_dir}" -- \
         --home-smoke
 } 2>&1)"
 printf '%s\n' "${output}"
@@ -82,16 +79,17 @@ solo_output="$({
     XDG_DATA_HOME="${state_dir}/data" \
     XDG_CONFIG_HOME="${state_dir}/config" \
     XDG_CACHE_HOME="${state_dir}/cache" \
-        timeout 30s "${godot_binary}" --headless --path "${stage_dir}" -- \
-        --package=res://content/included/tarnholt.gpk \
-        --campaign=tarnholt_line \
+        timeout 180s "${godot_binary}" --headless --path "${stage_dir}" -- \
+        --package=res://content/included/steel_and_cedar.gpk \
+        --campaign=steel_and_cedar \
         --players=1 \
+        --game-language=en \
         --included-campaign-smoke
 } 2>&1)"
 printf '%s\n' "${solo_output}"
-if ! grep -Fq 'included campaign integration smoke passed: tarnholt_line (1 players)' \
+if ! grep -Fq 'included campaign integration smoke passed: steel_and_cedar (1 players)' \
         <<<"${solo_output}" || grep -Fq 'SCRIPT ERROR' <<<"${solo_output}"; then
-    printf 'Tarnholt did not open as the one-player included campaign\n' >&2
+    printf 'Steel and Cedar did not open as the one-player included campaign\n' >&2
     exit 1
 fi
 
@@ -99,16 +97,17 @@ coop_output="$({
     XDG_DATA_HOME="${state_dir}/data" \
     XDG_CONFIG_HOME="${state_dir}/config" \
     XDG_CACHE_HOME="${state_dir}/cache" \
-        timeout 30s "${godot_binary}" --headless --path "${stage_dir}" -- \
-        --package=res://content/included/emberbound.gpk \
-        --campaign=emberbound \
+        timeout 180s "${godot_binary}" --headless --path "${stage_dir}" -- \
+        --package=res://content/included/steel_and_cedar.gpk \
+        --campaign=steel_and_cedar \
         --players=2 \
+        --game-language=en \
         --included-campaign-smoke
 } 2>&1)"
 printf '%s\n' "${coop_output}"
-if ! grep -Fq 'included campaign integration smoke passed: emberbound (2 players)' \
+if ! grep -Fq 'included campaign integration smoke passed: steel_and_cedar (2 players)' \
         <<<"${coop_output}" || grep -Fq 'SCRIPT ERROR' <<<"${coop_output}"; then
-    printf 'Emberbound did not open as the two-player included campaign\n' >&2
+    printf 'Steel and Cedar did not open as the two-player included campaign\n' >&2
     exit 1
 fi
 

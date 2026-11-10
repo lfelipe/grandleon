@@ -11,18 +11,11 @@ func _init() -> void:
 	var parsed := JSON.new()
 	_expect("included-game manifest parses", parsed.parse(source), OK)
 	var games: Array = parsed.data.get("games", []) if parsed.data is Dictionary else []
-	_expect("manifest has solo and co-op campaigns", games.size(), 2)
-	if games.size() == 2:
-		_expect("solo campaign is Tarnholt", games[0].campaign, "tarnholt_line")
-		_expect("solo campaign requests one player", str(games[0].playerMode), "one")
-		_expect("co-op campaign is Emberbound", games[1].campaign, "emberbound")
-		_expect("co-op campaign lets players choose", str(games[1].playerMode), "choice")
-		for game: Dictionary in games:
-			_expect(
-				"compiled example exists: %s" % game.title,
-				FileAccess.file_exists(str(game.path)),
-				true
-			)
+	_expect("manifest has one unified demo", games.size(), 1)
+	if games.size() == 1:
+		_expect("demo is Steel and Cedar", games[0].campaign, "steel_and_cedar")
+		_expect("demo lets players choose", str(games[0].playerMode), "choice")
+		_expect("compiled demo exists", FileAccess.file_exists(str(games[0].path)), true)
 
 	var context = LaunchContextScript.new()
 	context.stage_package(

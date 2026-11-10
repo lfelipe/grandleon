@@ -4,11 +4,11 @@ set -euo pipefail
 
 script_dir="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(CDPATH= cd -- "${script_dir}/../../.." && pwd)"
-project_source="${repo_root}/games/emberbound/source/project.json"
+project_source="${repo_root}/games/steel_and_cedar/source/project.json"
 build_dir="${repo_root}/build-godot-release"
 output_dir="${repo_root}/out/grandleon-pc"
 godot_binary=""
-campaign_key="emberbound"
+campaign_key="steel_and_cedar"
 player_only=0
 include_examples=1
 release_version="$(tr -d '\r\n' <"${repo_root}/RELEASE_VERSION")"
@@ -82,13 +82,11 @@ cmake --build "${build_dir}" --parallel --target \
 stage_dir="${build_dir}/platform/godot/project/app"
 "${build_dir}/grandleon_content_compile" "${project_source}" "${stage_dir}/game.gpk"
 if [[ "${include_examples}" == "1" ]]; then
+    cmake -E remove_directory "${stage_dir}/content/included"
     cmake -E make_directory "${stage_dir}/content/included"
     "${build_dir}/grandleon_content_compile" \
-        "${repo_root}/games/tarnholt/source/project.json" \
-        "${stage_dir}/content/included/tarnholt.gpk"
-    "${build_dir}/grandleon_content_compile" \
-        "${repo_root}/games/emberbound/source/project.json" \
-        "${stage_dir}/content/included/emberbound.gpk"
+        "${repo_root}/games/steel_and_cedar/source/project.json" \
+        "${stage_dir}/content/included/steel_and_cedar.gpk"
 else
     cmake -E remove_directory "${stage_dir}/content/included"
 fi
@@ -180,7 +178,7 @@ fi
     printf 'godotVersion=%s\n' "${godot_version}"
     printf 'defaultCampaign=%s\n' "${campaign_key}"
     if [[ "${include_examples}" == "1" ]]; then
-        printf 'includedCampaigns=tarnholt:1,emberbound:2\n'
+        printf 'includedCampaigns=steel_and_cedar:choice\n'
     else
         printf 'includedCampaigns=none\n'
     fi

@@ -531,13 +531,12 @@ func _set_status(message: String, failure: bool) -> void:
 
 func _run_smoke() -> void:
 	var valid := (
-		game_button_count >= 2
-		and included_games.size() == 2
+		game_button_count >= 1
+		and included_games.size() == 1
 		and first_button != null
-		and first_button.text.contains("TARNHOLT")
-		and str(included_games[0].playerMode) == "one"
-		and str(included_games[1].campaign) == "emberbound"
-		and str(included_games[1].playerMode) == "choice"
+		and first_button.text.contains("STEEL AND CEDAR")
+		and str(included_games[0].playerMode) == "choice"
+		and str(included_games[0].campaign) == "steel_and_cedar"
 		and controls != null
 		and PCNavigation.raw_stick_ui_event_count() == 0
 		and (home_stick_expected.is_empty() or stick_mode == home_stick_expected)
@@ -583,7 +582,13 @@ func _run_smoke() -> void:
 	var select := InputEventKey.new()
 	select.keycode = KEY_ENTER
 	select.pressed = true
+	first_button.grab_focus()
 	_input(select)
+	if not player_choice_overlay.visible or pending_campaign != "steel_and_cedar":
+		push_error("included demo did not offer its authored one/two-player choice")
+		tree.quit(2)
+		return
+	_choose_players(2)
 	print("home menu integration smoke passed")
 	print("home menu selection smoke passed")
 	tree.quit()

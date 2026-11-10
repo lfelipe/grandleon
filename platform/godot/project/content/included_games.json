@@ -1,17 +1,10 @@
 {
   "games": [
     {
-      "title": "The Tarnholt Line",
-      "label": "One-player included campaign",
-      "path": "res://content/included/tarnholt.gpk",
-      "campaign": "tarnholt_line",
-      "playerMode": "one"
-    },
-    {
-      "title": "Emberbound: The Last Dawn",
+      "title": "Steel and Cedar",
       "label": "One or two-player included campaign",
-      "path": "res://content/included/emberbound.gpk",
-      "campaign": "emberbound",
+      "path": "res://content/included/steel_and_cedar.gpk",
+      "campaign": "steel_and_cedar",
       "playerMode": "choice"
     }
   ]
