@@ -128,6 +128,8 @@ cmake -E copy "${repo_root}/LICENSE" "${temporary_dir}/LICENSE.txt"
 cmake -E copy "${repo_root}/NOTICE" "${temporary_dir}/NOTICE.txt"
 cmake -E copy "${repo_root}/assets/audio/VSCO-2-CE-LICENSE.txt" \
     "${temporary_dir}/licenses/VSCO-2-CE-LICENSE.txt"
+cmake -E copy "${repo_root}/assets/fonts/spleen/LICENSE" \
+    "${temporary_dir}/licenses/SPLEEN-LICENSE.txt"
 cmake -E copy \
     "${repo_root}/third_party/godot/4.7.2/LICENSE.txt" \
     "${temporary_dir}/licenses/GODOT-LICENSE.txt"

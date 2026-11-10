@@ -31,5 +31,11 @@ MIT License. Sample provenance and the CC0 text are in assets/audio.
 
     https://github.com/sgossner/VSCO-2-CE
 
-Everything else in this repository is the project's own work, generated art and
-the console font included.
+The PlayStation interface uses Spleen 6x12 by Frederic Cambus under the
+BSD 2-Clause license. The font source, bitmap atlas and complete license are
+in assets/fonts/spleen. Distributed console packages retain that license.
+
+    https://github.com/fcambus/spleen
+
+Grandleon's original source, generated artwork and shared bitmap glyphs use
+the project's MIT License.

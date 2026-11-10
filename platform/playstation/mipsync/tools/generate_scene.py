@@ -15,7 +15,7 @@ from pathlib import Path
 import re
 import struct
 
-from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageOps
 
 
 TERRAIN_NAMES = (
@@ -642,15 +642,9 @@ def write_textures(
     # forecasts and arbitrary ability counts without shipping Sony's debug
     # font or baking encounter-specific text into the background.
     # Keep the atlas inside one indexed PS1 texture page.
-    ui = Image.new("RGBA", (64, 80), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(ui)
-    font = ImageFont.load_default()
-    for code in range(32, 96):
-        slot = code - 32
-        draw.text(
-            ((slot % 8) * 8, (slot // 8) * 10 - 2), chr(code),
-            font=font, fill=(255, 255, 255, 255),
-        )
+    ui = Image.open(repo / "assets/fonts/spleen/console-6x12.png").convert("RGBA")
+    if ui.size != (64, 96):
+        raise ValueError("console font atlas must contain 8x12 pixel cells")
     textures.append(("compact_ui_font", ui, True, 0, 0))
     ui_index = len(textures)
     backdrop_indices = []

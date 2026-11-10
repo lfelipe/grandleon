@@ -222,6 +222,8 @@ install -m 0644 "${repo_root}/LICENSE" "${payload}/LICENSE.txt"
 install -m 0644 "${repo_root}/NOTICE" "${payload}/NOTICE.txt"
 install -m 0644 "${repo_root}/assets/audio/VSCO-2-CE-LICENSE.txt" \
     "${payload}/VSCO-2-CE-LICENSE.txt"
+install -m 0644 "${repo_root}/assets/fonts/spleen/LICENSE" \
+    "${payload}/SPLEEN-LICENSE.txt"
 
 busybox_version="$(/usr/bin/busybox | sed -n '1s/^BusyBox \([^ ]*\).*/\1/p')"
 [[ -n "${busybox_version}" ]] || {

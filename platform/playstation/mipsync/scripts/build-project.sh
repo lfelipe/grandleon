@@ -167,12 +167,14 @@ test -n "$boot_file" || { echo "campaign has no boot stage" >&2; exit 1; }
 
 printf 'BOOT = cdrom:\\%s;1\nTCB = 4\nEVENT = 16\nSTACK = 801FFFF0\n' \
     "$boot_file" > "$disc/system.cnf"
+install -m 0644 "$repo_root/assets/fonts/spleen/LICENSE" "$disc/SPLEEN.TXT"
 {
     printf '%s\n' '<?xml version="1.0" encoding="utf-8"?>' \
         '<iso_project><track type="data">' \
         '<identifiers system="PLAYSTATION" volume="GRANDLEON" volume_set="GRANDLEON" publisher="GRANDLEON" data_preparer="GRANDLEON" application="PLAYSTATION" copyright="SYSTEM.CNF;1" />' \
         '<directory_tree>' \
-        '<file name="SYSTEM.CNF" type="data" source="system.cnf" />'
+        '<file name="SYSTEM.CNF" type="data" source="system.cnf" />' \
+        '<file name="SPLEEN.TXT" type="data" source="SPLEEN.TXT" />'
     while IFS="$tab" read -r index filename encounter; do
         printf '<file name="%s" type="data" source="%s" />\n' \
             "$filename" "$filename"

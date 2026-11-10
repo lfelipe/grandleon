@@ -17,6 +17,25 @@ SCENE = module_from_spec(SPEC)
 SPEC.loader.exec_module(SCENE)
 
 
+def test_console_font_has_complete_pixel_cells() -> None:
+    atlas = Image.open(ROOT.parents[2] / "assets/fonts/spleen/console-6x12.png").convert("RGBA")
+    assert atlas.size == (64, 96)
+    alpha = atlas.getchannel("A").histogram()
+    assert alpha[0] and alpha[255] and not any(alpha[1:255])
+    for code in range(32, 96):
+        slot = code - 32
+        cell = atlas.crop((slot % 8 * 8, slot // 8 * 12,
+                           slot % 8 * 8 + 8, slot // 8 * 12 + 12))
+        # The next character starts at +7: that overlap column must be blank.
+        assert not cell.crop((7, 0, 8, 12)).getbbox(), chr(code)
+        if code != 32:
+            assert cell.getbbox(), chr(code)
+    # Wide letters must retain both stems rather than spill into the next cell.
+    slot = ord("W") - 32
+    w = atlas.crop((slot % 8 * 8, slot // 8 * 12, slot % 8 * 8 + 8, slot // 8 * 12 + 12))
+    assert w.getbbox() == (1, 1, 6, 9)
+
+
 def test_cutout_keeps_grounding_inside_existing_texture() -> None:
     source = Image.new("RGBA", (8, 20), (0, 0, 0, 0))
     ImageDraw.Draw(source).rectangle((2, 0, 5, 18), fill=(220, 180, 120, 255))
@@ -123,6 +142,7 @@ def test_interior_terrain_pages_overlap_the_visible_window() -> None:
 
 
 if __name__ == "__main__":
+    test_console_font_has_complete_pixel_cells()
     test_cutout_keeps_grounding_inside_existing_texture()
     test_stage_palette_keeps_transparency_and_uses_8bpp_tim()
     test_texture_packer_reserves_shared_clut_row()

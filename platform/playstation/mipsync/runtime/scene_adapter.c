@@ -79,12 +79,12 @@ static void draw_glyph(
     if (character < 32 || character > 95) character = '?';
     slot = (unsigned int)(character - 32);
     u = (uint8_t)(base_u + (slot % 8u) * 8u);
-    v = (uint8_t)(base_v + (slot / 8u) * 10u);
+    v = (uint8_t)(base_v + (slot / 8u) * 12u);
     if ((const char*)(*next_packet + sizeof(SPRT)) > packet_end) return;
     glyph = (SPRT*)*next_packet;
     setSprt(glyph);
     setXY0(glyph, x, y);
-    setWH(glyph, 8, 10);
+    setWH(glyph, 8, 12);
     setUV0(glyph, u, v);
     setRGB0(glyph, red, green, blue);
     setShadeTex(glyph, 0);
