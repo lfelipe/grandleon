@@ -1278,7 +1278,10 @@ func _verify_coop_motion(events: Array) -> void:
 		if previous != destination:
 			_fail_coop_motion("accepted route does not end at its event destination")
 			return
-		if int(event.get("duration_msec", 0)) != route.size() * 100:
+		# The portable presentation now recommends ten 60 Hz ticks per cell.
+		# Rendering profiles may pace that recommendation separately.
+		var portable_duration := floori(float(route.size() * 10 * 1000) / 60.0)
+		if int(event.get("duration_msec", 0)) != portable_duration:
 			_fail_coop_motion("accepted route duration does not match portable timing")
 			return
 		coop_smoke_routes += 1
@@ -1328,6 +1331,8 @@ func _create_board(profile: String) -> void:
 
 
 func _create_combat_cinematic(profile: Dictionary) -> void:
+	if board != null and board.has_method("set_ambient_motion_enabled"):
+		board.set_ambient_motion_enabled(cinematic_motion != "reduced")
 	var layer := CanvasLayer.new()
 	layer.layer = 40
 	add_child(layer)
@@ -1350,6 +1355,8 @@ func _on_combat_sound(beat: Dictionary, action: String, content_id: int, impact:
 
 
 func _configure_combat_cinematic() -> void:
+	if board != null and board.has_method("set_ambient_motion_enabled"):
+		board.set_ambient_motion_enabled(cinematic_motion != "reduced")
 	if combat_cinematic == null or graphics_profiles == null:
 		return
 	combat_cinematic.configure(

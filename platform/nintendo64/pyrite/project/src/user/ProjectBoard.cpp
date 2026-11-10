@@ -39,6 +39,7 @@
 #include "scene/sceneManager.h"
 #include "vi/swapChain.h"
 #include <grandleon/view/motion.hpp>
+#include <grandleon/view/ambient_motion.hpp>
 
 namespace campaign = grandleon::campaign;
 namespace client = grandleon::client;
@@ -134,6 +135,7 @@ struct BoardResources final {
     std::array<std::uint8_t, kMaxTerrainForms> terrain_form_shapes{};
     std::size_t apron_cell_count{};
     std::size_t tree_count{};
+    std::array<std::int8_t, kMaxTrees> tree_sway{};
     std::size_t landmark_vertex_count{};
     std::size_t visibility_vertex_count{};
     std::array<bool, kMaxCells> visibility_revealed{};
@@ -1281,6 +1283,7 @@ void build_tree_vertices() {
     const auto width = board.content->definition.width;
     const auto height = board.content->definition.height;
     board.tree_count = 0U;
+    board.tree_sway.fill(0);
     for (std::size_t index = 0; index < board.content->terrain.size(); ++index) {
         const auto id = board.content->terrain[index];
         const std::uint8_t kind = terrain_kind(id);
@@ -1552,7 +1555,18 @@ void build_unit_vertices() {
         }
         const std::int16_t right_x = 17;
         const std::int16_t right_z = 17;
-        const std::int16_t sprite_height = 72;
+        const auto idle = view::idle_pose(
+            frame_count / 2U, unit.id,
+            !combat.reduced_motion && !combat.active &&
+                !(motion.active && motion.unit == unit.id)
+        );
+        const std::int16_t sprite_height = static_cast<std::int16_t>(
+            (72 * idle.stretch_q12 + 2048) / 4096
+        );
+        const std::int32_t lean = idle.lean_q12 * 72;
+        const std::int16_t top_sway = static_cast<std::int16_t>(
+            lean >= 0 ? (lean + 2048) / 4096 : -((-lean + 2048) / 4096)
+        );
         const std::int16_t uv_end = static_cast<std::int16_t>(
             64 << 5
         );
@@ -1565,8 +1579,8 @@ void build_unit_vertices() {
         const std::int16_t right_u = facing_left ? 0 : uv_end;
         set_vertex(board.units, first + 0U, cx - right_x, bottom, cz - right_z, white, left_u, uv_end, normal);
         set_vertex(board.units, first + 1U, cx + right_x, bottom, cz + right_z, white, right_u, uv_end, normal);
-        set_vertex(board.units, first + 2U, cx + right_x, bottom + sprite_height, cz + right_z, white, right_u, 0, normal);
-        set_vertex(board.units, first + 3U, cx - right_x, bottom + sprite_height, cz - right_z, white, left_u, 0, normal);
+        set_vertex(board.units, first + 2U, cx + right_x + top_sway, bottom + sprite_height, cz + right_z + top_sway, white, right_u, 0, normal);
+        set_vertex(board.units, first + 3U, cx - right_x + top_sway, bottom + sprite_height, cz - right_z + top_sway, white, left_u, 0, normal);
         board.shadows.add(cx, static_cast<std::int16_t>(lift + 2), cz, 11);
         if (unit.id == board.rowan_id) {
             board.rowan_x = unit.position.x;
@@ -2645,6 +2659,21 @@ void draw_trees() {
     t3d_state_set_drawflags(static_cast<T3DDrawFlags>(T3D_FLAG_SHADED | T3D_FLAG_DEPTH));
     use_surface_detail();
     for (std::size_t index = 0; index < board.tree_count; ++index) {
+        // Move the existing crown, keeping its trunk and footprint fixed.
+        // Store only the previous offset, rather than another vertex buffer.
+        const auto breeze = combat.reduced_motion ? 0 :
+            view::ambient_wave_q12(frame_count / 2U,
+                static_cast<std::uint32_t>(index * 37U));
+        const auto sway = static_cast<std::int8_t>(breeze * 2 / 4096);
+        const int shift = sway - board.tree_sway[index];
+        if (shift != 0) {
+            for (std::size_t crown = 6U; crown < kTreeVertexCount; ++crown) {
+                auto* position = t3d_vertbuffer_get_pos(board.trees,
+                    static_cast<int>(index * kTreeVertexCount + crown));
+                position[0] += shift;
+            }
+            board.tree_sway[index] = sway;
+        }
         t3d_vert_load(board.trees + index * (kTreeVertexCount / 2U), 0, kTreeVertexCount);
         t3d_tri_draw(0, 1, 4); t3d_tri_draw(1, 2, 4);
         t3d_tri_draw(2, 3, 4); t3d_tri_draw(3, 0, 4);

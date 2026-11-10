@@ -10,8 +10,9 @@
 //
 // Two properties are asserted rather than assumed, because every console check
 // in this repository asserts framebuffer pixels: every animation ends exactly
-// on its resting position, and every periodic function is at rest at phase
-// zero.
+// on its resting position, and route/combat cues start at rest. Ambient idle
+// poses deliberately use independent phases so a whole army never pulses
+// together.
 //
 // The route is checked against the simulation's own rule the only way this
 // file may check it: by construction. It is handed a membership predicate
@@ -21,6 +22,7 @@
 // set is the caller's rule, and this file only holds the route to it.
 
 #include "grandleon/view/motion.hpp"
+#include "grandleon/view/ambient_motion.hpp"
 
 // For one assertion only: that a flinch's nudge stays smaller than the step a
 // cell rises per level of elevation, so a blow taken never reads as a climb.
@@ -63,6 +65,27 @@ struct Board final {
 
 int main() {
     using namespace grandleon::view;
+
+    {
+        bool varied = false;
+        for (std::uint32_t tick = 0; tick < 256U; ++tick) {
+            const auto pose = idle_pose(tick, 0x4c0800efeb4ef2bdULL);
+            const auto next = idle_pose(tick + 1U, 0x4c0800efeb4ef2bdULL);
+            const auto quiet = idle_pose(tick, 0x4c0800efeb4ef2bdULL, false);
+            expect(pose.stretch_q12 >= 4000 && pose.stretch_q12 <= 4192,
+                   "idle breathing stays within a small upright stretch");
+            expect(pose.lean_q12 >= -72 && pose.lean_q12 <= 72,
+                   "idle weight shifts stay small");
+            const auto difference = next.stretch_q12 - pose.stretch_q12;
+            expect(difference >= -6 && difference <= 6,
+                   "breathing changes smoothly across the full cycle");
+            expect(quiet.stretch_q12 == 4096 && quiet.lean_q12 == 0,
+                   "reduced motion returns a neutral pose");
+            const auto neighbour = idle_pose(tick, 0x5108cdb8d261fe8aULL);
+            varied = varied || pose.stretch_q12 != neighbour.stretch_q12;
+        }
+        expect(varied, "different units do not breathe in synchrony");
+    }
 
     // ---------------------------------------------------------------
     // Board direction is presentation, never route authority

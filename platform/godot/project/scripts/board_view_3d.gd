@@ -4,6 +4,7 @@ extends SubViewportContainer
 
 const ArtLibrary = preload("res://scripts/art_library.gd")
 const Locomotion = preload("res://scripts/locomotion.gd")
+const AmbientMotion = preload("res://scripts/ambient_motion.gd")
 const MotionPath = preload("res://scripts/motion_path.gd")
 const PresentationFacing = preload("res://scripts/presentation_facing.gd")
 const TerrainSceneSelector = preload("res://scripts/terrain_scene_selector.gd")
@@ -121,6 +122,15 @@ var _combat_camera_focus_size := 4.8
 var _combat_camera_actor_id := 0
 var _combat_camera_target_id := 0
 var _pulse := 0.0
+var _ambient_motion_enabled := true
+var _ambient_props: Array[Dictionary] = []
+var _ambient_water_materials: Dictionary = {}
+
+
+func set_ambient_motion_enabled(value: bool) -> void:
+	_ambient_motion_enabled = value
+	for material: ShaderMaterial in _ambient_water_materials.values():
+		material.set_shader_parameter("ambient_strength", 1.0 if value else 0.0)
 
 
 func set_profile(value: String, config := {}) -> void:
@@ -576,6 +586,7 @@ func unit_at(cell: Vector2i) -> Dictionary:
 
 func _process(delta: float) -> void:
 	_pulse += delta
+	_update_ambient_terrain()
 	var now_msec := Time.get_ticks_msec()
 	_update_effects(now_msec)
 	_update_tactical_camera(delta)
@@ -623,8 +634,6 @@ func _process(delta: float) -> void:
 			_sync_unit_stride_animation(int(id), float(gait.animation_time))
 		elif _authored_units.has(id) and not animation_locked:
 			_play_unit_animation(int(id), "idle")
-		elif not moving:
-			settled.y += sin(_pulse * 3.2 + float(int(id) % 13)) * 0.025
 		node.position = settled
 		if _unit_sprites.has(id):
 			if not animation_locked:
@@ -671,6 +680,8 @@ func _update_tactical_camera(delta: float) -> void:
 func _rebuild_terrain() -> void:
 	if snapshot.is_empty() or terrain.is_empty() or _terrain_root == null:
 		return
+	_ambient_props.clear()
+	_ambient_water_materials.clear()
 	_terrain_root.queue_free()
 	_terrain_root = Node3D.new()
 	_world.add_child(_terrain_root)
@@ -1324,9 +1335,14 @@ func _build_medieval_campaign_tile(x: int, y: int, kind: int) -> void:
 		2:
 			var trunk := _material("medieval_campaign_trunk", Color("59402d"), 1.0)
 			var leaves := _material("medieval_campaign_leaves", Color("496f3d"), 0.96)
-			_cylinder(cell, Vector3(0.04, top + 0.27, 0), 0.075, 0.54, trunk, 8)
-			_sphere(cell, Vector3(-0.08, top + 0.58, 0.03), Vector3(0.34, 0.27, 0.31), leaves)
-			_sphere(cell, Vector3(0.16, top + 0.55, -0.08), Vector3(0.27, 0.23, 0.26), leaves)
+			var tree := Node3D.new()
+			tree.position.y = top
+			tree.set_meta("ambient_tree", true)
+			cell.add_child(tree)
+			_cylinder(tree, Vector3(0.04, 0.27, 0), 0.075, 0.54, trunk, 8)
+			_sphere(tree, Vector3(-0.08, 0.58, 0.03), Vector3(0.34, 0.27, 0.31), leaves)
+			_sphere(tree, Vector3(0.16, 0.55, -0.08), Vector3(0.27, 0.23, 0.26), leaves)
+			_register_ambient_terrain(tree, kind)
 		3:
 			var stone := _material("medieval_keep_stone", Color("777269"), 1.0)
 			var stone_dark := _material("medieval_keep_stone_dark", Color("55534f"), 1.0)
@@ -1463,6 +1479,7 @@ func _build_medieval_orchard_tree(parent: Node3D, top: float, variation: int) ->
 	_sphere(tree, offset + Vector3(0.12, top + 0.48, -0.06), Vector3(0.20, 0.17, 0.19), leaves)
 	_sphere(tree, offset + Vector3(-0.13, top + 0.49, -0.11), Vector3(0.026, 0.026, 0.026), fruit)
 	_sphere(tree, offset + Vector3(0.14, top + 0.45, 0.08), Vector3(0.022, 0.022, 0.022), fruit)
+	_register_ambient_terrain(tree, 2)
 
 
 func _build_medieval_orchard_bell(parent: Node3D, top: float) -> void:
@@ -1754,11 +1771,20 @@ func _apply_sprite_frame(
 	sprite.pixel_size = world_height / maxf(1.0, float(cell_size.y))
 	var ground_offset := float(sprite_config.get("groundOffset", 0.118))
 	var world_width := float(cell_size.x) * sprite.pixel_size
+	var idle := AmbientMotion.pose(int(_pulse * 30.0), id,
+		_ambient_motion_enabled and state == "idle")
+	sprite.scale.y = idle.x
 	sprite.position = Vector3(
 		(0.5 - pivot.x) * world_width,
 		ground_offset + (pivot.y - 0.5) * world_height,
 		0
 	)
+	# A full billboard stretches along the camera's up vector. Compensate
+	# in that plane so breathing keeps the original foot contact point.
+	if _camera != null:
+		var parent := sprite.get_parent() as Node3D
+		var billboard_up := parent.basis.inverse() * _camera.basis.y
+		sprite.position += billboard_up * (pivot.y - 0.5) * world_height * (idle.x - 1.0)
 
 
 func _create_health_bar(root: Node3D, id: int) -> void:
@@ -2505,7 +2531,58 @@ func _instantiate_art_scene(
 	node3d.scale = Vector3.ONE * float(assets.get("sceneScale", 1.0))
 	_apply_terrain_cluster_presentation(node3d, terrain_kind, cluster_context)
 	_terrain_root.add_child(node3d)
+	if terrain_kind in [0, 2, 11]:
+		_register_ambient_terrain(node3d, terrain_kind)
 	return true
+
+
+func _register_ambient_terrain(node: Node3D, kind: int) -> void:
+	if kind == 0 and node is MeshInstance3D:
+		var mesh_node := node as MeshInstance3D
+		for surface in mesh_node.mesh.get_surface_count():
+			var material := mesh_node.get_active_material(surface)
+			if material is ShaderMaterial and material.shader.resource_path.ends_with("relay_water.gdshader"):
+				var key := material.get_instance_id()
+				if not _ambient_water_materials.has(key):
+					var local_material := material.duplicate() as ShaderMaterial
+					local_material.set_shader_parameter("ambient_strength", 1.0 if _ambient_motion_enabled else 0.0)
+					_ambient_water_materials[key] = local_material
+				mesh_node.set_surface_override_material(surface, _ambient_water_materials[key])
+				mesh_node.extra_cull_margin = 0.02
+	var label := String(node.name)
+	var whole_tree := label in ["TreeA", "TreeB"] or bool(node.get_meta("ambient_tree", false)) or String(node.get_meta("landmark_style", "")) == "orchard_tree"
+	var loose_foliage := label.begins_with("Leaf") or label.begins_with("Grass")
+	if kind != 0 and (whole_tree or loose_foliage):
+		var world := node.position
+		var ancestor := node.get_parent()
+		while ancestor is Node3D and ancestor != _terrain_root:
+			world = (ancestor as Node3D).transform * world
+			ancestor = ancestor.get_parent()
+		_ambient_props.append({
+			"node": node, "rotation": node.rotation, "position": node.position,
+			"phase": world.x * 0.73 + world.z * 1.17 + float(_ambient_props.size()) * 0.31,
+			"tree": whole_tree,
+		})
+		if whole_tree:
+			return
+	for child in node.get_children():
+		if child is Node3D:
+			_register_ambient_terrain(child, kind)
+
+
+func _update_ambient_terrain() -> void:
+	for prop: Dictionary in _ambient_props:
+		var node: Node3D = prop.node
+		if not is_instance_valid(node):
+			continue
+		var phase := float(prop.phase)
+		var breeze := (sin(_pulse * 0.88 + phase) + sin(_pulse * 0.39 + phase * 0.7) * 0.35)
+		if not _ambient_motion_enabled:
+			breeze = 0.0
+		if bool(prop.tree):
+			node.rotation = Vector3(prop.rotation) + Vector3(breeze * 0.010, 0, breeze * 0.018)
+		else:
+			node.position = Vector3(prop.position) + Vector3(breeze * 0.016, 0, breeze * 0.008)
 
 
 func _apply_terrain_cluster_presentation(

@@ -65,17 +65,35 @@ disc still needs that full playthrough and hardware acceptance.
 
 ## Memory and performance
 
-Committed RAM includes the implemented audio code and 51 KiB effect bank,
+The ambient-motion comparison uses fresh discs with the new Spleen bitmap
+font and distinct blade, bow, magic and healing effects. Idle breathing and
+weight shifts reuse the visible unit quad; off-screen units skip art updates.
+Pose changes are sampled at 7.5 Hz to retain cached projection between changes.
+Reduced motion restores a neutral pose. Scenery remains static on PS1.
+
+| Probe | Static completed work, avg/max HBlanks | Idle motion, avg/max | Missed retraces, both |
+| --- | ---: | ---: | ---: |
+| Bell Orchard combat | 211 / 327 | 213 / 339 | 0 |
+| Deepwood scrolling | 260 / 537 | 261 / 538 | 1 |
+| Twin Gate solo | 326 / 634 | 326 / 634 | 46 |
+
+Bell combat and Twin Gate doorway reveal checks pass. The strict Deepwood
+scrolling check still fails; its threshold has not changed. The solo castle
+fixtures regenerate both scene and simulation data from the one-player
+manifest. Evidence: `review-live-baseline/` and `review-live-ambient/` inside
+`~/.cache/grandleon-ps1-indexed-build.mOZON2/`; castle evidence uses `evidence-solo/`.
+
+The production export before ambient motion includes the audio code and 57 KiB effect bank,
 an additional 64 KiB platform reserve, 32 KiB for stack, and 512 KiB for the
 gameplay heap. Music remains on the CD.
 
 | Encounter | Committed RAM / 2,097,152 | Texture VRAM / 720,896 |
 | --- | ---: | ---: |
-| Bell Orchard | 1,790,884 | 211,744 |
-| Cedar Deepwood | 1,844,116 | 167,200 |
-| Cedar Watch | 2,038,692 | 262,976 |
-| Gate Village | 2,059,204 | 281,440 |
-| Twin Gate Keep | 2,007,972 | 242,432 |
+| Bell Orchard | 1,799,092 | 212,768 |
+| Cedar Deepwood | 1,850,276 | 168,224 |
+| Cedar Watch | 2,044,852 | 264,000 |
+| Gate Village | 2,065,300 | 282,464 |
+| Twin Gate Keep | 2,014,132 | 243,456 |
 
 **The corrected graphics do not yet pass the strict 30 fps gates.** With
 music and effects enabled, the 600-tick Deepwood window renders 300 frames
@@ -94,10 +112,12 @@ reduce the remaining scrolling/castle cost before calling performance ready.
 ## Artifacts and remaining gates
 
 The review export and manifests are in
-`~/.cache/grandleon-ps1-indexed-build.mOZON2/review-release05-audio-v3/`.
+`~/.cache/grandleon-ps1-indexed-build.mOZON2/review-release05-audio-v5/`.
 The BIN SHA-256 is
-`66112237fcc2260600eda022be7a7ece71be048a332abbabf567856f138bff46`.
-The audio menu evidence is in `review-release05-audio-v3-controls/`.
+`3bcbec2265f842f666a9327a34c5921c7a2cb9872091fd8cb9f47aada1235f42`.
+It includes the current effects and font; rebuild the final production
+package with ambient motion before distributing.
+The audio menu evidence is in `review-release05-audio-v5-controls/`.
 Graphics/performance evidence is in
 `review-audio-performance/deep-verified-disc-evidence/` and
 `review-audio-performance/gate-verified-disc-evidence/` beside it.

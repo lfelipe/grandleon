@@ -16,6 +16,11 @@ For a later correction or redesign, use the
 confirmed authoring model, the preserved prompts, and the rules that keep a new
 sheet consistent with the rest of the game.
 
+Idle characters also have a small breathing motion, with a different rhythm
+for each unit. This reuses their existing artwork on all three players; it
+does not change their position or movement rules. Reduced motion turns it off.
+Trees sway in Godot and Nintendo 64, while PlayStation scenery is still static.
+
 ## Animated mythical roster
 
 | Portable identity | Animated preview |

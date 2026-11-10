@@ -19,6 +19,7 @@ extern "C" {
 #include <grandleon/storage/byte_window_storage.hpp>
 #include <grandleon/tactics/policy.hpp>
 #include <grandleon/view/motion.hpp>
+#include <grandleon/view/ambient_motion.hpp>
 #include "psx_card.h"
 #include "psx_runtime.h"
 #include <algorithm>
@@ -102,6 +103,7 @@ sim::UnitId s_selected{};
 sim::Position s_cursor{};
 sim::Position s_player_cursors[2]{};
 unsigned s_focus_player{};
+std::uint32_t s_ambient_ticks{};
 InputMode s_mode{InputMode::browse};
 unsigned s_menu_index{};
 unsigned s_pause_menu_index{};
@@ -1222,6 +1224,13 @@ void tick_camera() {
         const bool combat_actor = close_combat &&
             (g_grandleon_unit_ids[index] == s_combat_attacker ||
              g_grandleon_unit_ids[index] == s_combat_target);
+        unit->mesh_enabled = close_combat ? combat_actor :
+            (s_unit_on_board[index] &&
+             s_unit_visible[index] &&
+             unit_x >= camera_x - half_x && unit_x <= camera_x + half_x &&
+             unit_z >= camera_focus_z - half_z && unit_z <= camera_focus_z + half_z);
+        if (!unit->mesh_enabled) continue;
+        unit->rotation[2] = 0;
         if (combat_actor) {
             const bool defender =
                 g_grandleon_unit_ids[index] == s_combat_target;
@@ -1234,11 +1243,17 @@ void tick_camera() {
                 index, *unit, unit_pose_idle, s_unit_facing_left[index]
             );
         }
-        unit->mesh_enabled = close_combat ? combat_actor :
-            (s_unit_on_board[index] &&
-             s_unit_visible[index] &&
-             unit_x >= camera_x - half_x && unit_x <= camera_x + half_x &&
-             unit_z >= camera_focus_z - half_z && unit_z <= camera_focus_z + half_z);
+        if (!close_combat && !s_result_frames && !s_camera_return_frames &&
+            !(s_motion.active && g_grandleon_unit_ids[index] == s_motion.unit)) {
+            // A few small pose updates per second preserve the cached draws
+            // between visible changes. The mesh's foot origin remains fixed.
+            const auto idle = view::idle_pose(
+                (s_ambient_ticks / 2U) & ~3U, g_grandleon_unit_ids[index],
+                !s_reduced_motion
+            );
+            unit->scale[1] = unit->scale[1] * idle.stretch_q12 / 4096;
+            unit->rotation[2] = idle.lean_q12 * 917;
+        }
     }
     if (camera_x < s_camera_min_x) s_camera_min_x = camera_x;
     if (camera_x > s_camera_max_x) s_camera_max_x = camera_x;
@@ -2174,6 +2189,7 @@ extern "C" void grandleon_game_set_fps(uint16_t fps) {
 }
 
 int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
+    ++s_ambient_ticks;
     std::uint16_t pressed = player_one;
     grandleon_audio_theme(s_campaign_mode == CampaignMode::battle ? 1U
         : s_campaign_mode == CampaignMode::prologue || s_campaign_mode == CampaignMode::aftermath ? 2U : 0U);

@@ -78,6 +78,14 @@ release checklist; later sections also contain work planned beyond 0.5.
 
 ## Character movement
 
+- [x] Add gentle, independently phased idle breathing on all three players,
+  without moving units off their cells. Reduced motion restores a still pose.
+- [x] Add rooted foliage sway on Godot and Nintendo 64, keeping existing
+  geometry. Godot water ripples share world coordinates across tile edges.
+- [ ] Expand ambient terrain activity on PlayStation without invalidating
+  static terrain caches; review water, banners and occasional environmental
+  details alongside the remaining console graphics improvements.
+
 - [x] Replace visibly linear tile-to-tile motion with a smoother presentation
   curve: short acceleration, steady travel, and deceleration at the destination.
 - [x] Blend direction changes across route corners so characters turn into the
