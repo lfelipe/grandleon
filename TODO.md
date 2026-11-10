@@ -2,6 +2,13 @@
 
 ## 0.5 closing review
 
+- [x] Apply console hardware feedback: screen-aligned digital/analog controls,
+  legal attack targeting with HP forecasts, movement highlights, unobstructed
+  menus, enemy close-ups, stable counterattack sides and retained defeat art.
+  Add title branding, speaker portraits, complete dialogue paging and saved
+  Music/Sound Effects sliders; remove the visible reduced-motion setting.
+- [x] Translate Steel and Cedar into Spanish and Brazilian Portuguese, showing
+  language selection only when the campaign has authored alternatives.
 - [x] Finish shared orchestral music, weapon and magic effects, PS1 audio
   playback, and independently saved Music and Effects controls on all targets.
   Six score previews are on the private review page. Verify the final mix,
@@ -16,7 +23,7 @@
   takeover across encounter changes. Verify an idle production boot separately.
 - [x] Keep PS1 units visible through terrain-page changes; remove the
   single-update suppression and inspect a two-axis scrolling capture.
-- [x] Pass the host suite and console memory gates: 71 host tests pass, all
+- [x] Pass the host suite and console memory gates: 74 host tests pass, all
   five PS1 encounters fit their budgets, and the N64 campaign completes in
   base 4 MiB memory. Record frame timing separately from functional checks.
 - [x] Refresh the private review page with corrected console stills, scrolling

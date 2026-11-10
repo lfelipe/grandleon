@@ -88,13 +88,11 @@ for an attack, its reported damage or miss, any legal counterattack, and a
 defeat. Area abilities keep the acting character in place while each target
 enters the other side of the scene; healing another character, endurance, and
 item drops use the same accepted battle results. The session menu can disable
-these **Battle Close-ups** or use
-**Reduced** cinematic motion. Hold Confirm to fast-forward a close-up or press
+these **Battle Close-ups**. Hold Confirm to fast-forward a close-up or press
 Cancel to skip it; either choice returns to the authoritative board state that
 the shared engine already accepted.
 The live board remains visible as the camera focuses the two units and pushes
 into the close view, then the result dissolves back to that settled board.
-Reduced motion replaces the push with a short crossfade.
 Compatible terrain now selects a layered background that remains stable for
 the complete exchange. The current library covers forest scenes plus the
 Medieval village and castle used by **Steel and Cedar**. Village and castle
@@ -106,7 +104,7 @@ The in-game Settings menu can also show a small live FPS counter on any
 renderer. It is off by default, including in console ROMs and disc images.
 
 The players share an orchestral soundtrack and distinct weapon, magic and
-healing effects. Adjust **Music** and **Effects** separately from the start
+healing effects. Adjust **Music** and **Sound Effects** separately from the start
 menu or in-game Settings; each volume is saved. Creator support for importing
 your own audio is planned on the roadmap below.
 

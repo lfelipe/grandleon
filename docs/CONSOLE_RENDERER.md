@@ -20,6 +20,26 @@ deployment, close combat, localization and player names, and the castle's
 hidden-area reveal. Visual polish may differ by machine and will continue to
 improve after functional parity.
 
+## Controls and battle planning
+
+Use the D-pad or left analog stick to move the cursor. Directions follow the
+screen on both consoles. Nintendo 64 uses **A** to confirm and **B** to go
+back; PlayStation uses **Cross** and **Circle**. **Start** opens the game menu.
+
+Selecting a unit shows where it can move. After moving, choose an action.
+**Attack** appears only when a legal enemy is in reach and focuses a viable
+target automatically. The forecast shows the target's health, damage, hit
+chance and possible counterattack before you confirm. Menus choose a corner
+that leaves the selected unit and target visible.
+
+Close-ups work for both armies. Attackers and defenders keep their sides
+during counterattacks, and defeated characters remain visible until their
+combat animation ends. Story panels show the speaking character; long lines
+continue on another page before advancing to the next speaker.
+
+The title and in-game **Settings** have separate saved **Music** and
+**Sound Effects** sliders. There is no master-volume control.
+
 ## Language during play
 
 A translated game adds **Language** to the live Settings menu on both consoles.
@@ -30,6 +50,11 @@ language is stored with presentation settings, while an older settings save
 still loads safely. The Nintendo 64 reads the catalog directly from the GPK;
 the PlayStation exporter writes the same reviewed strings into each campaign
 executable. No retired renderer or separate console translation file is used.
+
+The Steel and Cedar demo includes English, Spanish and Brazilian Portuguese.
+Games with only one authored language hide the language selector. The source
+catalog keeps its accents; the consoles' limited fonts display readable
+unaccented equivalents, while Godot displays the full text.
 
 Title, launch, help, pause, Settings, naming, tactical actions and results,
 deployment, aftermath, and error copy is available in English, Spanish, and
@@ -92,25 +117,9 @@ so these landmarks add no texture upload or VRAM allocation. On PlayStation,
 the terrain textures follow a continuous low-poly surface and units, trees,
 and the cursor follow its height rather than floating over a flat board.
 
-The tactical interface uses one compact UI grammar on both machines. Action
-menus have a framed header, a visible focus row, and the real controller's
-confirm and back buttons. Unit status uses an owner accent and a health meter
-instead of relying on an unstructured line of numbers. Panels move to the side
-opposite the selected character, and the PlayStation status panel keeps the
-same 32-pixel reservation, so this work does not shrink the board. The kit is
-flat geometry plus the already-resident font: a full action panel has a fixed
-seven-box base, focus adds three boxes, and a meter adds at most two. It
-allocates no texture, palette, or frame-time memory.
-
-The same grammar continues outside battle. Title and launch, save slots, help,
-story, company and inventory, aftermath, Stage selection, character details,
-warnings, confirmations, and endings use a shared bounded page made of header,
-body, and footer regions. Save, company, inventory, and Stage rows use the same
-focus treatment as battle actions. Footers call the Nintendo 64 buttons A, B,
-Z, and START, and the PlayStation buttons Cross, Circle, Triangle, and START.
-Story pages size their text panel to the lines on that page so unused panel
-space does not cover the backdrop. A complete page costs the same fixed seven
-flat primitives as a complete action panel and adds no texture or allocation.
+The title features the Grandleon sword mark. Framed menus, focus rows, health
+meters and the platform's own button prompts keep the interface readable.
+Battle panels move away from the units involved in the current action.
 
 During combat, the renderer can show the attacker and defender against a
 terrain backdrop before returning to the unchanged tactical board. Characters

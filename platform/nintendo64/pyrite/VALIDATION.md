@@ -1,24 +1,34 @@
 # Generic project export validation
 
-## Closing review, 9 November 2026
+## Hardware feedback follow-up
 
-The current review ROM adds independently phased idle breathing and rooted
-tree-crown sway, reusing the existing geometry. Reduced motion returns both
-to their still pose. It completed all five encounters with six
-streamed music themes, combat effects, and saved independent Music/Effects
-volumes. In base 4 MiB ares it completed 290 commands, 170 opposing commands,
-five combat presentations and the 18-cell castle reveal. The final sample
-measured 30.00 fps, 33,997 microseconds maximum, with 1,226,224 bytes of free
-heap. Evidence: `~/.cache/grandleon-pyrite-surface-quality/living-board-review/`.
+The board is north-up, and both the D-pad and analog stick follow screen
+axes. Unit selection shows movement reach. Attack is available only with a
+legal target, starts on that target, and shows health and a combat forecast.
+Menus choose a corner away from the units involved. Both armies use combat
+close-ups; fatal actors remain through the animation and counters keep sides.
 
-The production ROM has the review driver disabled. Its SHA-256 is
-`5e83c648dec3d964f3e432b49c1bf8422647f62334b4f8a3a936277f43f7267f`.
-It includes the revised weapon effects, clean settings labels and ambient
-motion. An external controller sequence reaches Bell Orchard and records
-an eight-second stationary board with no automated actions or camera moves.
-Evidence: `~/.cache/grandleon-pyrite-surface-quality/stationary-idle-review/`.
-The same ROM is installed on MiSTer, with its remote hash checked. Hardware
-listening, full manual play and balance review remain open.
+The title displays the Grandleon mark. Story and battle dialogue show the
+speaker, including off-board cast members, and page complete lines. Settings
+have independent saved Music and Sound Effects sliders; the visible reduced
+motion option is removed. The demo includes Spanish and Brazilian Portuguese,
+with language selection conditional on authored translations. Translated
+prompts fit their panels.
+
+The refreshed five-stage review completed 290 player commands, 170 opposing
+commands and the 18-cell castle reveal in base 4 MiB ares. The final sample was
+30.00 fps, with 1,160,696 bytes of free heap. Evidence:
+`/tmp/grandleon-n64-v8-review-evidence/ares/`. Normal exports keep the review
+driver disabled. Final hardware acceptance remains open.
+
+## Current production artifact
+
+The normal ROM keeps the automated review driver disabled. SHA-256:
+`acc690aa75a1e0e45adbfeeda6b88197e51eafff16d7d47f302d0fafae6a2f35`.
+The production source and evidence are in
+`~/.cache/grandleon-pyrite-hardware-ux-v8/`. The exact ROM still needs a
+manual hardware playthrough; scripted campaign completion does not establish
+balance or controller feel.
 
 The automated campaign driver is now disabled in normal exports. A separately
 built production ROM logged `review_driver=0` and remained on its title screen

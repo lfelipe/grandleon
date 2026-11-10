@@ -20,8 +20,9 @@ local function update()
       held = 0x4000 -- New Game opens the authored player-count chooser.
     elseif frame == 50 then
       held = 0x0040 -- Select 2 Players.
-    elseif frame == 70 or frame == 100 or frame == 130 then
-      held = 0x4000 -- Confirm players, prologue, and objective.
+    elseif frame == 70 or frame == 100 or frame == 130 or
+           frame == 160 or frame == 190 then
+      held = 0x4000 -- Confirm players, all three authored prologue lines, and objective.
     end
   end
   PCSX.getRegisters().GPR.n.a0 = held
@@ -29,7 +30,7 @@ local function update()
   if held ~= 0 then
     print(string.format('MIPSYNC_PROJECT_INPUT frame=%d held=%04x', frame, held))
   end
-  if frame >= 180 then PCSX.quit(0) end
+  if frame >= 240 then PCSX.quit(0) end
   return true
 end
 

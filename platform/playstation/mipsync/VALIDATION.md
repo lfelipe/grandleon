@@ -2,8 +2,27 @@
 
 Reviewed on 9 November 2026. Mipsync is the only PlayStation renderer;
 missing dependencies or unsupported exports fail rather than selecting an
-older renderer. Ten runtime patches and a Windows build-helper fix apply to
+older renderer. Eleven runtime patches and a Windows build-helper fix apply to
 the pinned upstream revision `866f405a0e34b5925a8d832272fe52c657688430`.
+
+## Hardware feedback follow-up
+
+The current build aligns digital and analog directions with the screen,
+shows reachable movement, and only offers legal attacks. Targeting starts on
+an available enemy and shows health and the combat forecast. Panels avoid the
+units involved; enemy attacks use close-ups, counterattacks keep their sides,
+and defeated characters remain until their animation completes.
+
+The title uses the Grandleon mark. Story and battle conversations have speaker
+portraits and complete paging. Export preserves every authored story line and
+its cast identity, including off-board speakers. Resident character art is
+reused; absent speakers need only a small portrait. Static dialogue arrays
+avoid per-node vector initialization and keep the largest stage inside the
+unchanged memory budget.
+
+Music and Sound Effects have independent saved sliders. Reduced motion is no
+longer a visible setting. Steel and Cedar includes English, Spanish and
+Brazilian Portuguese; language selection appears only for translated games.
 
 ## Corrected in this review
 
@@ -89,11 +108,11 @@ gameplay heap. Music remains on the CD.
 
 | Encounter | Committed RAM / 2,097,152 | Texture VRAM / 720,896 |
 | --- | ---: | ---: |
-| Bell Orchard | 1,799,068 | 212,768 |
+| Bell Orchard | 1,829,364 | 214,816 |
 | Cedar Deepwood | 1,850,316 | 168,224 |
-| Cedar Watch | 2,044,828 | 264,000 |
-| Gate Village | 2,065,324 | 282,464 |
-| Twin Gate Keep | 2,016,156 | 243,456 |
+| Cedar Watch | 2,077,156 | 266,048 |
+| Gate Village | 2,095,572 | 283,488 |
+| Twin Gate Keep | 2,044,404 | 244,480 |
 
 **The corrected graphics do not yet pass the strict 30 fps gates.** With
 music and effects enabled, the 600-tick Deepwood window renders 300 frames
@@ -126,14 +145,16 @@ upstream patch series. Evidence is beside the review export in
 ## Artifacts and remaining gates
 
 The review export and manifests are in
-`~/.cache/grandleon-ps1-indexed-build.mOZON2/review-release05-audio-v6/`.
+`~/.cache/grandleon-ps1-indexed-build.mOZON2/review-release05-hardware-ux-v8/`.
 The BIN SHA-256 is
-`d4e3894ae9674591bf4714beed611d606c27e9fb0714493851fa94f34623476d`.
+`94ea4de937844b52aff8898b09cf7c0759c113c780a36c677f3578e26f2f6e4a`.
 It includes the current effects, font and idle motion. Normal co-op launch,
 CD playback, independent volumes, held-button handling and saved settings
-pass on this exact export. It is installed on MiSTer, with the remote BIN
+pass before the final portrait-depth-only correction. The final disc also
+passes complete story/cast and executable-identity checks. It is installed
+on MiSTer, with the remote BIN
 hash checked; the CUE reference is adjusted to the installed BIN filename.
-The audio menu evidence is in `review-release05-audio-v6-controls/`.
+The audio menu evidence is in `review-release05-hardware-ux-v8-audio-final/`.
 Graphics/performance evidence is in
 `review-audio-performance/deep-verified-disc-evidence/` and
 `review-audio-performance/gate-verified-disc-evidence/` beside it.
