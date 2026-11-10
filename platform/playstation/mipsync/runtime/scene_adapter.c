@@ -4,6 +4,7 @@
 #include "runtime/render.h"
 #include "generated/grandleon_scene.h"
 #include "game_bridge.h"
+#include "text_paging.h"
 #include <grandleon/view/brand_logo.h>
 #include <grandleon/view/console_text.h>
 
@@ -127,25 +128,9 @@ static void draw_wrapped_text_box(
     char line[35];
     int row = 0;
     while (*text && row < rows) {
-        int count = 0;
-        int last_space = -1;
-        const char* cursor = text;
-        const char* space_end = 0;
-        while (*cursor && *cursor != '\n' && count < columns) {
-            const char character = grandleon_text_next(&cursor);
-            line[count] = character;
-            if (character == ' ') { last_space = count; space_end = cursor; }
-            ++count;
-        }
-        if (*cursor && *cursor != '\n' && last_space > 0) {
-            count = last_space;
-            cursor = space_end;
-        }
-        line[count] = 0;
+        grandleon_text_wrap_line(&text, line, (unsigned)columns);
         draw_text(ordering_table, next_packet, packet_end,
                   x, y + row * 13, line, red, green, blue);
-        text = cursor;
-        while (*text == ' ' || *text == '\n') ++text;
         ++row;
     }
 }
@@ -359,7 +344,8 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
             activate_ui_tpage(ordering_table, next_packet, packet_end);
             return;
         }
-        if (state.mode == GRANDLEON_UI_STORY || state.mode == GRANDLEON_UI_AFTERMATH) {
+        if (state.mode == GRANDLEON_UI_STORY || state.mode == GRANDLEON_UI_AFTERMATH ||
+            state.mode == GRANDLEON_UI_OBJECTIVE) {
             draw_panel(ordering_table, next_packet, packet_end, 8, 24, 304, 208);
             draw_wrapped_text_box(ordering_table, next_packet, packet_end, 20, 36,
                 state.headline ? state.headline : "", 255, 205, 68, 34, 2);
@@ -536,6 +522,8 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
         }
         draw_wrapped_text(ordering_table, next_packet, packet_end, state.portrait_texture ? 72 : 19, 180,
                           state.body ? state.body : "", 247, 239, 209);
+        draw_text(ordering_table, next_packet, packet_end, 282, 220,
+                  state.has_more_text ? "X >" : "X", 94, 206, 227);
         activate_ui_tpage(ordering_table, next_packet, packet_end);
         return;
     }

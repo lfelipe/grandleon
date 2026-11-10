@@ -133,6 +133,7 @@ typedef struct grandleon_ui_state {
     uint8_t name_column;
     uint8_t name_invalid;
     uint8_t name_limit;
+    uint8_t has_more_text;
     uint16_t movement_tile_count;
     uint16_t portrait_texture;
     uint8_t talking_phase;

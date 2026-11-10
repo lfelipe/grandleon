@@ -16,13 +16,13 @@ local function sequence(target, start, values)
   end
 end
 
--- Dismiss both two-line authored opening conversations before driving the
--- board, so the following inputs prove combat rather than merely closing
--- dialogue.
+-- Read both authored opening conversations, including the co-op line
+-- that wraps onto a second page, before driving the board.
 actions[20] = 0x4000
 actions[40] = 0x4000
 actions[60] = 0x4000
 actions[80] = 0x4000
+actions[90] = 0x4000
 
 -- Rowan walks beside the raider, then attacks after the visible movement has
 -- settled. Keeping these phases separate proves that input cannot skip the

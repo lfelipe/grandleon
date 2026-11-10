@@ -7,9 +7,12 @@ local actions = {}
 local capture_motion = os.getenv('GRANDLEON_CAPTURE_MOTION') == '1'
 local motion_due = false
 local motion_index = 0
--- The package-authored two-line opening precedes normal board input.
+-- Both authored opening lines wrap to two readable pages. Consume every
+-- page before normal board input; Confirm never skips remaining dialogue.
 actions[20] = 0x4000
-actions[40] = 0x4000
+actions[35] = 0x4000
+actions[50] = 0x4000
+actions[65] = 0x4000
 
 local function sequence(start, spacing, values)
   for index, value in ipairs(values) do

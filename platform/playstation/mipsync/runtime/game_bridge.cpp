@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include "game_bridge.h"
+#include "text_paging.h"
 #include "grandleon_audio.h"
 
 #include "generated/grandleon_scene.h"
@@ -76,6 +77,7 @@ struct BattleMomentState final {
     std::vector<std::uint64_t> dialogue_ids;
     std::size_t dialogue_index{};
     std::size_t line_index{};
+    std::size_t page_offset{};
     bool active{};
 };
 
@@ -174,7 +176,12 @@ std::optional<client::ConsoleNameEditor> s_name_editor;
 CampaignMode s_name_return_mode{CampaignMode::prologue};
 bool s_name_route_after{};
 std::array<char, 192U> s_ui_headline{};
-std::array<char, 768U> s_ui_body{};
+std::vector<char> s_story_body;
+std::vector<char> s_battle_body;
+std::size_t s_story_page_offset{};
+CampaignMode s_story_page_mode{CampaignMode::title};
+std::uint64_t s_story_page_node{};
+unsigned s_story_page_language{};
 std::uint64_t s_logged_member_text_node{};
 bool s_continue_available{};
 bool s_card_available{};
@@ -707,6 +714,7 @@ bool activate_pending_battle_moment() {
         );
         if (!lines.empty()) {
             s_battle_moment.line_index = 0U;
+            s_battle_moment.page_offset = 0U;
             s_battle_moment.active = true;
             psx::Line().text("MIPSYNC_BATTLE_MOMENT dialogue=")
                 .hex64(dialogue_id).text(" lines=")
@@ -754,6 +762,18 @@ void advance_battle_moment() {
     const auto& lines = grandleon_generated_moment_lines(
         s_language_index, dialogue_id
     );
+    if (s_battle_moment.line_index < lines.size()) {
+        const std::string body = substitute_player_names(lines[s_battle_moment.line_index].text);
+        const char* start = body.c_str() + s_battle_moment.page_offset;
+        const char* next = grandleon_text_page_end(start, 34, 3);
+        if (*next) {
+            s_battle_moment.page_offset += static_cast<std::size_t>(next - start);
+            psx::Line().text("MIPSYNC_DIALOGUE_PAGE offset=")
+                .decimal(static_cast<unsigned>(s_battle_moment.page_offset)).flush();
+            return;
+        }
+    }
+    s_battle_moment.page_offset = 0;
     ++s_battle_moment.line_index;
     if (s_battle_moment.line_index < lines.size()) return;
     s_battle_moment.active = false;
@@ -1886,9 +1906,29 @@ extern "C" uint16_t grandleon_game_map_controller(uint16_t pressed) {
     return pressed;
 }
 
+static const char* story_page_body(std::string body) {
+    const auto* node = active_campaign_node();
+    const std::uint64_t id = node ? node->id : 0;
+    if (s_story_page_mode != s_campaign_mode || s_story_page_node != id ||
+        s_story_page_language != s_language_index || std::string_view{s_story_body.empty() ? "" : s_story_body.data()} != body) {
+        s_story_page_offset = 0;
+        s_story_page_mode = s_campaign_mode;
+        s_story_page_node = id;
+        s_story_page_language = s_language_index;
+        s_story_body.assign(body.begin(), body.end());
+        s_story_body.push_back(0);
+    }
+    return s_story_body.data() + s_story_page_offset;
+}
+
 extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
     if (!output) return;
     *output = {};
+    if (s_campaign_mode != CampaignMode::prologue && s_campaign_mode != CampaignMode::objective &&
+        s_campaign_mode != CampaignMode::aftermath) {
+        s_story_page_offset = 0;
+        s_story_page_mode = s_campaign_mode;
+    }
     output->talking_phase = static_cast<std::uint8_t>((s_ambient_ticks / 12U) & 1U);
     if (s_mode == InputMode::move && s_selected && !s_motion.active) {
         if (s_movement_tiles_unit != s_selected) {
@@ -1985,18 +2025,15 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
                 keep_ui_text(s_ui_headline, substitute_player_names(
                     node_name[0] ? node_name : ui(console::Message::story)
                 ));
-                keep_ui_text(
-                    s_ui_body, substitute_player_names(node_dialogue)
-                );
                 output->headline = s_ui_headline.data();
-                output->body = s_ui_body.data();
+                output->body = story_page_body(substitute_player_names(node_dialogue));
                 if (node && node->id != s_logged_member_text_node &&
-                    std::string_view{s_ui_body.data()} !=
+                    std::string_view{s_story_body.data()} !=
                         std::string_view{node_dialogue}) {
                     s_logged_member_text_node = node->id;
                     psx::Line().text("MIPSYNC_MEMBER_TEXT node=")
                         .hex64(node->id).text(" value=")
-                        .text(s_ui_body.data()).flush();
+                        .text(s_story_body.data()).flush();
                 }
                 break;
             case CampaignMode::objective:
@@ -2005,11 +2042,10 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
                     node_name[0]
                         ? node_name : ui(console::Message::battle_heading)
                 ));
-                keep_ui_text(s_ui_body, substitute_player_names(
+                output->headline = s_ui_headline.data();
+                output->body = story_page_body(substitute_player_names(
                     grandleon_generated_objective_for(s_language_index)
                 ));
-                output->headline = s_ui_headline.data();
-                output->body = s_ui_body.data();
                 break;
             case CampaignMode::aftermath:
                 output->mode = GRANDLEON_UI_AFTERMATH;
@@ -2020,7 +2056,7 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
                     : s_campaign_victory ? ui(console::Message::story)
                     : ui(console::Message::defeat)
                 ));
-                keep_ui_text(s_ui_body, substitute_player_names(
+                output->body = story_page_body(substitute_player_names(
                     node && node->kind == 2U
                         ? ui(console::Message::return_to_title)
                     : node_dialogue[0] ? node_dialogue
@@ -2029,7 +2065,6 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
                               : ui(console::Message::company_regroup))
                 ));
                 output->headline = s_ui_headline.data();
-                output->body = s_ui_body.data();
                 break;
             case CampaignMode::save_error:
                 output->mode = GRANDLEON_UI_SAVE_ERROR;
@@ -2048,15 +2083,27 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
                 break;
             case CampaignMode::battle: break;
         }
+        if (output->mode == GRANDLEON_UI_STORY || output->mode == GRANDLEON_UI_AFTERMATH ||
+            output->mode == GRANDLEON_UI_OBJECTIVE)
+            output->has_more_text = *grandleon_text_page_end(output->body, 32, 10) != 0;
         return;
     }
     if (!s_created || !*s_created) return;
     const sim::EncounterSnapshot& snapshot = s_snapshot;
     if (const auto* line = current_battle_moment_line()) {
         output->mode = GRANDLEON_UI_BATTLE_MOMENT;
+        const std::string_view speaker = line->speaker;
+        const auto speaker_matches = [speaker](const char* name) {
+            if (speaker.empty()) return false;
+            const std::string_view full = name;
+            const auto position = full.find(speaker);
+            return position != std::string_view::npos &&
+                (position == 0 || full[position - 1] == ' ') &&
+                (position + speaker.size() == full.size() || full[position + speaker.size()] == ' ');
+        };
         for (const auto& member : grandleon_generated_campaign_members()) {
-            if (std::string_view{line->speaker} != authored_member_name(member) &&
-                std::string_view{line->speaker} != effective_member_name(member)) continue;
+            if (!speaker_matches(authored_member_name(member)) &&
+                !speaker_matches(effective_member_name(member))) continue;
             for (const auto& unit : snapshot.units) {
                 if (unit.unit_type_id != member.unit_type_id) continue;
                 for (unsigned binding = 0; binding < g_grandleon_unit_count; ++binding) {
@@ -2066,9 +2113,12 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
             }
         }
         keep_ui_text(s_ui_headline, substitute_player_names(line->speaker));
-        keep_ui_text(s_ui_body, substitute_player_names(line->text));
+        const auto body = substitute_player_names(line->text);
+        s_battle_body.assign(body.begin(), body.end());
+        s_battle_body.push_back(0);
         output->headline = s_ui_headline.data();
-        output->body = s_ui_body.data();
+        output->body = s_battle_body.data() + s_battle_moment.page_offset;
+        output->has_more_text = *grandleon_text_page_end(output->body, 34, 3) != 0;
     } else if (s_mode == InputMode::pause) output->mode = GRANDLEON_UI_PAUSE;
     else if (s_mode == InputMode::help) output->mode = GRANDLEON_UI_BATTLE_HELP;
     else if (s_mode == InputMode::settings) {
@@ -2299,7 +2349,11 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
         if (!pressed) return 0;
         if (s_campaign_mode == CampaignMode::title) {
             const unsigned count = s_continue_available ? 4U : 3U;
-            if (pressed & (pad_up | pad_down)) {
+            if (pressed & pad_up) {
+                s_campaign_menu_index = s_campaign_menu_index == 0U
+                    ? count - 1U : s_campaign_menu_index - 1U;
+            }
+            if (pressed & pad_down) {
                 s_campaign_menu_index = (s_campaign_menu_index + 1U) % count;
             }
             if (pressed & pad_cross) {
@@ -2390,6 +2444,19 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
                 );
             }
             return 0;
+        }
+        if ((pressed & pad_cross) &&
+            (s_campaign_mode == CampaignMode::prologue || s_campaign_mode == CampaignMode::objective ||
+             s_campaign_mode == CampaignMode::aftermath)) {
+            grandleon_ui_state page{};
+            grandleon_game_ui_state(&page);
+            if (page.has_more_text) {
+                const char* next = grandleon_text_page_end(page.body, 32, 10);
+                s_story_page_offset += static_cast<std::size_t>(next - page.body);
+                psx::Line().text("MIPSYNC_STORY_PAGE offset=")
+                    .decimal(static_cast<unsigned>(s_story_page_offset)).flush();
+                return 0;
+            }
         }
         if (s_campaign_mode == CampaignMode::prologue && (pressed & pad_cross)) {
             if (advance_story()) {

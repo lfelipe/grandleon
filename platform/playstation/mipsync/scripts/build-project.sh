@@ -85,6 +85,7 @@ stage_runtime() {
     cp "$mipsync_dir/runtime/scene_adapter.c" "$source_dir/scene_adapter.c"
     cp "$mipsync_dir/runtime/game_bridge.cpp" "$source_dir/game_bridge.cpp"
     cp "$mipsync_dir/runtime/game_bridge.h" "$source_dir/game_bridge.h"
+    cp "$mipsync_dir/runtime/text_paging.h" "$source_dir/text_paging.h"
     cp "$mipsync_dir/runtime/grandleon_audio.c" "$source_dir/grandleon_audio.c"
     cp "$mipsync_dir/runtime/grandleon_audio.h" "$source_dir/grandleon_audio.h"
     cp "$mipsync_dir/runtime/iso.xml" "$source_dir/iso.xml"
