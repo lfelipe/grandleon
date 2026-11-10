@@ -39,7 +39,8 @@ void write_id(std::ostream& output, std::uint64_t id) {
 
 void write_string(std::ostream& output, std::string_view value) {
     output << '"';
-    for (const unsigned char byte : value) {
+    for (const char character : value) {
+        const auto byte = static_cast<unsigned char>(character);
         switch (byte) {
             case '"': output << "\\\""; break;
             case '\\': output << "\\\\"; break;

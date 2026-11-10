@@ -61,7 +61,8 @@ public:
     [[nodiscard]] const char* c_str() const noexcept { return name_.data(); }
 
     [[nodiscard]] static constexpr int columns(int row) noexcept {
-        return row >= 0 && row < rows ? row_lengths_[row] : 0;
+        return row >= 0 && row < rows
+            ? row_lengths_[static_cast<std::size_t>(row)] : 0;
     }
 
     [[nodiscard]] static constexpr ConsoleNameKey key(
@@ -71,7 +72,8 @@ public:
             column >= columns(row)) {
             return {"", '\0', ConsoleNameKeyKind::character};
         }
-        return keys_[row][column];
+        return keys_[static_cast<std::size_t>(row)]
+                    [static_cast<std::size_t>(column)];
     }
 
     void move(int across, int down) noexcept {

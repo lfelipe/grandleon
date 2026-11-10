@@ -774,11 +774,11 @@ int main() {
     const std::uint64_t protect_id = core::stable_content_id_v1("protect_rowan");
     const auto hold = std::find_if(
         source.objectives.begin(), source.objectives.end(),
-        [hold_id](const gc::Objective& objective) { return objective.id == hold_id; }
+        [](const gc::Objective& objective) { return objective.id == hold_id; }
     );
     const auto protect = std::find_if(
         source.objectives.begin(), source.objectives.end(),
-        [protect_id](const gc::Objective& objective) {
+        [](const gc::Objective& objective) {
             return objective.id == protect_id;
         }
     );
@@ -841,7 +841,7 @@ int main() {
         expect(
             std::none_of(
                 solo.definition.units.begin(), solo.definition.units.end(),
-                [akari_type, ren_type](const sim::UnitDefinition& unit) {
+                [](const sim::UnitDefinition& unit) {
                     return unit.unit_type_id == akari_type || unit.unit_type_id == ren_type;
                 }
             ),
@@ -1245,7 +1245,7 @@ int main() {
     expect(
         finale && std::any_of(
             finale.definition.units.begin(), finale.definition.units.end(),
-            [boss_id](const sim::UnitDefinition& unit) {
+            [](const sim::UnitDefinition& unit) {
                 return unit.side == sim::Side::second &&
                     unit.unit_type_id == boss_id && unit.health == 27;
             }
@@ -1270,7 +1270,7 @@ int main() {
         );
         const auto boss = std::find_if(
             finale.definition.units.begin(), finale.definition.units.end(),
-            [boss_id](const sim::UnitDefinition& unit) {
+            [](const sim::UnitDefinition& unit) {
                 return unit.unit_type_id == boss_id;
             }
         );
