@@ -9,13 +9,16 @@ Set ARES_INPUT_SEQUENCE to comma-separated actions, for example:
 
     wait:3,press:Return,wait:1,shot:title.png
 
-Supported actions are wait (seconds), press (X11 keysym), keydown, keyup and
-shot (a filename written below ARES_OUT_DIR).
+Supported actions are wait (seconds), press (X11 keysym), keydown, keyup,
+shot (a filename written below ARES_OUT_DIR), and film (seconds with no input,
+timestamped screen captures below ARES_OUT_DIR/idle-film).
 """
 
 from __future__ import annotations
 
 import ctypes
+from concurrent.futures import ThreadPoolExecutor
+import math
 import os
 from pathlib import Path
 import subprocess
@@ -86,6 +89,27 @@ def main() -> None:
                     ["import", "-display", DISPLAY.decode(), "-window", "root", str(path)],
                     check=True,
                 )
+            elif action == "film":
+                seconds = float(value)
+                if not math.isfinite(seconds) or not 0 < seconds <= 60:
+                    raise ValueError("film duration must be between zero and 60 seconds")
+                folder = OUT_DIR / "idle-film"
+                folder.mkdir(exist_ok=False)
+                end = time.monotonic() + seconds
+
+                def capture() -> None:
+                    while time.monotonic() < end:
+                        path = folder / f"{time.time_ns()}.png"
+                        subprocess.run(
+                            ["import", "-display", DISPLAY.decode(), "-window", "root", str(path)],
+                            check=True,
+                        )
+
+                # Several independent readbacks improve capture cadence.
+                # They send no controller events and never advance the game.
+                with ThreadPoolExecutor(max_workers=6) as workers:
+                    for result in workers.map(lambda _: capture(), range(6)):
+                        pass
             else:
                 raise ValueError(f"unsupported action: {action}")
     finally:
