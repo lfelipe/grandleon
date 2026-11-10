@@ -5,6 +5,7 @@
 #include "generated/grandleon_scene.h"
 #include "game_bridge.h"
 #include <grandleon/view/brand_logo.h>
+#include <grandleon/view/console_text.h>
 
 #include <psxgpu.h>
 
@@ -113,7 +114,7 @@ static void draw_text(
     int x, int y, const char* text, uint8_t red, uint8_t green, uint8_t blue
 ) {
     while (*text) {
-        draw_glyph(ordering_table, next_packet, packet_end, x, y, *text++, red, green, blue);
+        draw_glyph(ordering_table, next_packet, packet_end, x, y, grandleon_text_next(&text), red, green, blue);
         x += 7;
     }
 }
@@ -128,16 +129,22 @@ static void draw_wrapped_text_box(
     while (*text && row < rows) {
         int count = 0;
         int last_space = -1;
-        while (text[count] && text[count] != '\n' && count < columns) {
-            line[count] = text[count];
-            if (text[count] == ' ') last_space = count;
+        const char* cursor = text;
+        const char* space_end = 0;
+        while (*cursor && *cursor != '\n' && count < columns) {
+            const char character = grandleon_text_next(&cursor);
+            line[count] = character;
+            if (character == ' ') { last_space = count; space_end = cursor; }
             ++count;
         }
-        if (text[count] && text[count] != '\n' && last_space > 0) count = last_space;
+        if (*cursor && *cursor != '\n' && last_space > 0) {
+            count = last_space;
+            cursor = space_end;
+        }
         line[count] = 0;
         draw_text(ordering_table, next_packet, packet_end,
                   x, y + row * 13, line, red, green, blue);
-        text += count;
+        text = cursor;
         while (*text == ' ' || *text == '\n') ++text;
         ++row;
     }
@@ -366,7 +373,8 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
         draw_text(ordering_table, next_packet, packet_end, 42, 47,
                   state.headline ? state.headline : "GRANDLEON",
                   255, 205, 68);
-        if (state.body && state.mode != GRANDLEON_UI_NAME) {
+        if (state.body && state.mode != GRANDLEON_UI_NAME &&
+            state.mode != GRANDLEON_UI_TITLE_SETTINGS) {
             draw_wrapped_text(ordering_table, next_packet, packet_end, 42, 72,
                               state.body, 168, 181, 196);
         }
