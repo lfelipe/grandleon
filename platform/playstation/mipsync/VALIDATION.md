@@ -107,7 +107,11 @@ Foreground haze correction and pressure-based cache eviction reduced the
 scrolling and castle misses from 13/55 to 1/46 without removing terrain.
 The cache change alone leaves the settled scroll and both castle captures
 byte-identical. The strict gates remain unchanged. Scrolling still fails;
-reduce the remaining scrolling/castle cost before calling performance ready.
+performance is not yet ready for a claim of steady 30 fps throughout.
+The remaining frame-pacing work is deferred until after 0.5. Preserve the
+strict checks and their failing results as the follow-up baseline; they are
+no longer a release blocker. Functional, memory and hardware acceptance
+remain required.
 
 Follow-up profiling identifies static scenery drawing as the main CPU cost.
 Isolated prototypes for splitting the unfogged quad path and packing colour
@@ -142,7 +146,7 @@ they are not the distributable campaign disc.
 Campaign/card evidence is in `review-audio-route-evidence/`; that disc
 is a separate probe and must not be distributed as the playable release.
 
-Before release: resolve the frame-budget misses, rerun the final campaign and
+Before release: disclose the frame-budget misses, rerun the final campaign and
 card checks on the resulting disc, test pose transfers and pacing on hardware,
 and play both campaign modes for balance. Check music across stage loads,
 the final mix and combat-effect timing on hardware.

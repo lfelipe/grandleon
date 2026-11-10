@@ -152,6 +152,10 @@ The 0.5 release gate is functional parity with the Godot player across the
 campaign, tactical rules, local co-op, saves, settings, and authored
 presentation. Console graphics can continue maturing after that gate.
 
+PS1 camera movement can still judder on larger maps, especially around the
+castle. Smoother frame pacing remains planned after 0.5; it does not block
+this release's functional-parity review.
+
 `games/sevenfold` is the compact N64 showcase campaign. One ROM asks for one or
 two players on its main menu, fields every archetype across all seven art
 styles, and uses seven different maps covering every terrain kind. A debug
