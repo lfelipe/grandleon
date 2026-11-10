@@ -174,6 +174,11 @@ container="$(docker create --env "GRANDLEON_SOURCE_REVISION=${source_revision}" 
     printf "%s\n" "$GRANDLEON_SOURCE_REVISION" > /GRANDLEON_SOURCE_REVISION
     dpkg-query -W -f="\${binary:Package}\t\${Version}\n" \
         > /GRANDLEON_PACKAGES.tsv
+    # Match export-toolchain.sh: strict check-pins reads these beside N64_INST.
+    if [ -d /n64_toolchain ]; then
+        install -m 0644 /GRANDLEON_PYRITE_TOOLCHAIN_LICENSES.tar.xz /n64_toolchain/
+        install -m 0644 /GRANDLEON_PYRITE_TOOLCHAIN_COMPONENTS.tsv /n64_toolchain/
+    fi
     printf "grandleon-builder\n" > /etc/hostname
     printf "127.0.0.1 localhost\n" > /etc/hosts
     : > /etc/resolv.conf

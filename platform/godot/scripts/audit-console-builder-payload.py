@@ -243,6 +243,23 @@ def main() -> int:
         if components["GCC libstdc++ tree.cc"]["version"] != "12.3.0":
             fail("bundled libstdc++ source version is unexpected")
 
+    if args.target == "nintendo64":
+        # The installed strict pin check reads metadata from N64_INST, even
+        # though the Docker image originally stores it at filesystem root.
+        required_metadata = {
+            "n64_toolchain/GRANDLEON_PYRITE_TOOLCHAIN_LICENSES.tar.xz",
+            "n64_toolchain/GRANDLEON_PYRITE_TOOLCHAIN_COMPONENTS.tsv",
+        }
+        with tarfile.open(root / "rootfs.tar.xz", "r|xz") as handle:
+            for member in handle:
+                name = normalized_member_name(member.name)
+                if name in required_metadata and member.isfile() and member.size > 0:
+                    required_metadata.remove(name)
+                if not required_metadata:
+                    break
+        if required_metadata:
+            fail("installed Nintendo 64 toolchain metadata is missing: " + ", ".join(sorted(required_metadata)))
+
     archive = root / "THIRD_PARTY_LICENSES.tar.xz"
     with tarfile.open(archive, "r:xz") as handle:
         members = {
