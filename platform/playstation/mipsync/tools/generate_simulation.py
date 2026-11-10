@@ -240,6 +240,37 @@ def emit_moment_values(
     return lines
 
 
+def dialogue_span_declaration() -> str:
+    return """struct grandleon_generated_dialogue_span final {
+    const grandleon_generated_dialogue_line* data{};
+    unsigned count{};
+    bool empty() const { return count == 0; }
+    unsigned size() const { return count; }
+    const grandleon_generated_dialogue_line& front() const { return *data; }
+    const grandleon_generated_dialogue_line& operator[](unsigned index) const { return data[index]; }
+    const grandleon_generated_dialogue_line* begin() const { return data; }
+    const grandleon_generated_dialogue_line* end() const { return count ? data + count : data; }
+};"""
+
+
+def node_dialogue_lines(node: dict[str, object]) -> list[dict[str, object]]:
+    structured = node.get("dialogue_lines")
+    if structured is not None:
+        if not isinstance(structured, list) or any(not isinstance(line, dict) for line in structured):
+            raise ValueError("node dialogue_lines must be an array of speaker/text objects")
+        return structured
+    text = str(node.get("dialogue", ""))
+    return [{"speaker": "", "text": text}] if text else []
+
+
+def emit_dialogue_lines(values: list[dict[str, object]]) -> str:
+    return "{" + ",".join(
+        "{" + cpp_string(line.get("speaker", "")) + "," + cpp_string(line.get("text", "")) +
+        "," + str(int(line.get("unit_type_id", 0))) + "ULL}"
+        for line in values
+    ) + "}"
+
+
 def emit_localizations(
     document: dict[str, object], additional: dict[str, object] | None = None,
 ) -> list[str]:
@@ -279,6 +310,7 @@ def emit_localizations(
         "};",
         "struct generated_localized_node final {",
         "    std::uint64_t id; const char* name; const char* dialogue;",
+        "    grandleon_generated_dialogue_span lines;",
         "};",
         "struct generated_localized_dialogue final {",
         "    std::uint64_t id; std::vector<grandleon_generated_dialogue_line> lines;",
@@ -290,9 +322,9 @@ def emit_localizations(
         "    std::vector<generated_localized_dialogue> moments;",
         "};",
         "const std::vector<generated_language>& generated_languages() {",
-        "    static const std::vector<generated_language> values = {",
     ]
-    for language in languages:
+    language_values = []
+    for language_index, language in enumerate(languages):
         if not isinstance(language, dict):
             raise ValueError("language entry is not an object")
         nodes = language.get("nodes", [])
@@ -329,14 +361,19 @@ def emit_localizations(
             )) + "}"
             for member in members
         )
-        node_values = ",".join(
-            "{" + ",".join((
-                f"{int(node['id'])}ULL",
-                cpp_string(node.get("name", "")),
-                cpp_string(node.get("dialogue", "")),
-            )) + "}"
-            for node in nodes
-        )
+        node_rows = []
+        for node_index, node in enumerate(nodes):
+            values = node_dialogue_lines(node)
+            span = "{nullptr,0}"
+            if values:
+                symbol = f"story_lines_{language_index}_{node_index}"
+                lines.append("    static const grandleon_generated_dialogue_line " + symbol + "[] = " + emit_dialogue_lines(values) + ";")
+                span = "{" + symbol + "," + str(len(values)) + "}"
+            node_rows.append("{" + ",".join((
+                f"{int(node['id'])}ULL", cpp_string(node.get("name", "")),
+                cpp_string("" if "dialogue_lines" in node else node.get("dialogue", "")), span,
+            )) + "}")
+        node_values = ",".join(node_rows)
         moment_values = ",".join(
             "{" + ",".join((
                 f"{int(moment['dialogue_id'])}ULL",
@@ -344,13 +381,14 @@ def emit_localizations(
                     "{" + ",".join((
                         cpp_string(line.get("speaker", "")),
                         cpp_string(line.get("text", "")),
+                        str(int(line.get("unit_type_id", 0))) + "ULL",
                     )) + "}"
                     for line in moment.get("lines", [])
                 ) + "}",
             )) + "}"
             for moment in moments
         )
-        lines.append(
+        language_values.append(
             "        {" + ",".join((
                 cpp_string(language.get("code", "en")),
                 cpp_string(language.get("project_title", "Grandleon")),
@@ -360,6 +398,7 @@ def emit_localizations(
                 "{" + moment_values + "}",
             )) + "},"
         )
+    lines += ["    static const std::vector<generated_language> values = {"] + language_values
     lines += [
         "    };",
         "    return values;",
@@ -413,7 +452,12 @@ def emit_localizations(
         "    unsigned language, std::uint64_t id",
         ") {",
         "    const auto* node = generated_localized_node_for(language, id);",
-        "    return node ? node->dialogue : \"\";",
+        "    return node ? (node->lines.empty() ? node->dialogue : node->lines.front().text) : \"\";",
+        "}",
+        "grandleon_generated_dialogue_span",
+        "grandleon_generated_campaign_node_lines(unsigned language, std::uint64_t id) {",
+        "    const auto* node = generated_localized_node_for(language, id);",
+        "    return node ? node->lines : grandleon_generated_dialogue_span{};",
         "}",
         "const char* grandleon_generated_campaign_member_name_for(",
         "    unsigned language, std::uint64_t persistent_id",
@@ -647,6 +691,21 @@ def main() -> int:
         + ids([source["id"] for source in simulation["objectives"]]) + ";",
         "    return values;", "}", "",
     ]
+    presentation_units: dict[int, dict[str, object]] = {}
+    for manifest in (document, one_player or {}):
+        rendered = {int(unit["id"]): unit for unit in manifest.get("units", [])}
+        for unit in manifest.get("simulation", {}).get("units", []):
+            value = dict(unit)
+            value["name"] = rendered.get(int(unit["id"]), {}).get("name", unit.get("name", ""))
+            presentation_units.setdefault(int(unit["id"]), value)
+    lines += ["const char* grandleon_generated_unit_name(std::uint64_t id) {", "    switch (id) {"]
+    for identifier, unit in presentation_units.items():
+        lines.append(f"    case {identifier}ULL: return {cpp_string(unit['name'])};")
+    lines += ["    default: return \"\";", "    }", "}",
+              "std::uint64_t grandleon_generated_unit_type(std::uint64_t id) {", "    switch (id) {"]
+    for identifier, unit in presentation_units.items():
+        lines.append(f"    case {identifier}ULL: return {int(unit['unit_type_id'])}ULL;")
+    lines += ["    default: return 0;", "    }", "}"]
     args.output.mkdir(parents=True, exist_ok=True)
     (args.output / "simulation_data.cpp").write_text("\n".join(lines), encoding="utf-8")
     header = f"""/* Generated from a real Grandleon package. Do not edit. */
@@ -686,11 +745,16 @@ struct grandleon_generated_moment final {{
 struct grandleon_generated_dialogue_line final {{
     const char* speaker{{}};
     const char* text{{}};
+    std::uint64_t unit_type_id{{}};
 }};
+{dialogue_span_declaration()}
 grandleon::simulation::EncounterDefinition grandleon_generated_definition(unsigned local_players = 2);
 const std::vector<grandleon_generated_behavior>& grandleon_generated_behaviors(unsigned local_players = 2);
 const std::vector<grandleon_generated_moment>& grandleon_generated_moments(unsigned local_players = 2);
 const std::vector<grandleon_generated_dialogue_line>& grandleon_generated_moment_lines(unsigned language, std::uint64_t id);
+grandleon_generated_dialogue_span grandleon_generated_campaign_node_lines(unsigned language, std::uint64_t id);
+const char* grandleon_generated_unit_name(std::uint64_t id);
+std::uint64_t grandleon_generated_unit_type(std::uint64_t id);
 grandleon::campaign::CampaignGraph grandleon_generated_campaign_graph();
 const std::vector<grandleon_generated_campaign_member>& grandleon_generated_campaign_members();
 const grandleon_generated_campaign_member* grandleon_generated_campaign_member_for(std::uint64_t persistent_id);

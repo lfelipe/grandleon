@@ -191,7 +191,9 @@ static void draw_portrait(uint32_t* ot, char** next, const char* end,
     setRGB0(portrait, 128, 128, 128);
     portrait->clut = ps1_texture_clut(texture);
     portrait->tpage = ps1_texture_tpage(texture);
-    addPrim(ot + 1, portrait);
+    // Draw before the font tpage at depth one. A textured portrait changes
+    // GPU page state and must not split earlier/later text in the same list.
+    addPrim(ot + 2, portrait);
     *next = (char*)(portrait + 1);
 }
 
@@ -350,6 +352,8 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
             draw_wrapped_text_box(ordering_table, next_packet, packet_end, 20, 36,
                 state.headline ? state.headline : "", 255, 205, 68, 34, 2);
             draw_portrait(ordering_table, next_packet, packet_end, &state, 17, 83);
+            if (state.speaker && state.speaker[0])
+                draw_text(ordering_table, next_packet, packet_end, 76, 62, state.speaker, 94, 206, 227);
             draw_wrapped_text_box(ordering_table, next_packet, packet_end, 76, 75,
                 state.body ? state.body : "", 247, 239, 209, 32, 10);
             draw_text(ordering_table, next_packet, packet_end, 184, 214,

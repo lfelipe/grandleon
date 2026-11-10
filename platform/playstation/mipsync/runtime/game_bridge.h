@@ -113,6 +113,7 @@ typedef struct grandleon_ui_state {
     int16_t restored;
     int16_t result_damage;
     int16_t result_counter_damage;
+    const char* speaker;
     const char* headline;
     const char* body;
     uint8_t campaign_menu_index;

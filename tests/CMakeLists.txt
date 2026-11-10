@@ -1317,6 +1317,23 @@ add_test(
 # byte-level contract, including corruption refusal and exact missing-record
 # fallback, without requiring either cross compiler.
 find_program(GRANDLEON_PYTHON_EXECUTABLE python3 REQUIRED)
+add_executable(grandleon_ps1_text_paging_tests
+    "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/tests/text_paging_test.cpp"
+)
+target_link_libraries(grandleon_ps1_text_paging_tests PRIVATE grandleon::view)
+target_include_directories(grandleon_ps1_text_paging_tests PRIVATE
+    "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/runtime"
+)
+add_test(NAME grandleon.ps1_text_paging
+    COMMAND "${GRANDLEON_PYTHON_EXECUTABLE}"
+        "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/tests/text_paging_test.py"
+        --binary "$<TARGET_FILE:grandleon_ps1_text_paging_tests>"
+)
+add_test(NAME grandleon.ps1_structured_dialogue
+    COMMAND "${GRANDLEON_PYTHON_EXECUTABLE}"
+        "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/tests/structured_dialogue_test.py"
+        --compiler "${CMAKE_CXX_COMPILER}"
+)
 add_test(
     NAME grandleon.console_audio
     COMMAND "${GRANDLEON_PYTHON_EXECUTABLE}"
