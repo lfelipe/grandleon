@@ -15,6 +15,7 @@ for file in \
     project/src/user/BoardShadows.cpp \
     project/src/user/BoardShadows.cpp.conf \
     project/src/user/BoardCamera.hpp \
+    project/src/user/ConsoleFont.hpp \
     project/src/user/BoardSurroundings.hpp \
     project/src/user/CartridgeStorage.hpp \
     project/src/user/GameplaySlice.hpp \
@@ -26,7 +27,7 @@ for file in \
     tests/board_camera_test.cpp tests/gameplay_slice_test.cpp \
     tests/project_prepare_test.py tests/hardware_camera_projection_test.py \
     scripts/build.sh scripts/stage-inputs.sh scripts/fetch-pyrite.sh \
-    scripts/generate-soft-shadow.py \
+    scripts/generate-soft-shadow.py scripts/generate-console-font.py \
     scripts/generate-audio.py scripts/prepare-project.py \
     scripts/export-toolchain.sh scripts/check-pins.sh \
     toolchain/Containerfile

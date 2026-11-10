@@ -29,6 +29,7 @@
 #include "debug/debugDraw.h"
 #include "audio/audioManager.h"
 #include "BoardShadows.hpp"
+#include "ConsoleFont.hpp"
 #include "BoardCamera.hpp"
 #include "BoardSurroundings.hpp"
 #include "CartridgeStorage.hpp"
@@ -406,7 +407,7 @@ std::string_view game_language() {
     return selected_language;
 }
 
-std::string console_ascii(std::string_view utf8) {
+std::string console_latin1(std::string_view utf8) {
     const std::string terminated(utf8);
     const char* cursor = terminated.c_str();
     std::string result;
@@ -415,19 +416,57 @@ std::string console_ascii(std::string_view utf8) {
     return result;
 }
 
+std::size_t console_prefix_bytes(std::string_view utf8, std::size_t cells) {
+    const std::string terminated(utf8);
+    const char* cursor = terminated.c_str();
+    for (std::size_t count = 0U; count < cells && *cursor != '\0'; ++count) {
+        (void)grandleon_text_next(&cursor);
+    }
+    return static_cast<std::size_t>(cursor - terminated.c_str());
+}
+
+void display_glyphs(int x, int y, std::string_view latin1) {
+    namespace font = gp::console_font;
+    rdpq_mode_begin();
+        rdpq_set_mode_standard();
+        rdpq_mode_combiner(RDPQ_COMBINER1((PRIM, ENV, TEX0, ENV), (0, 0, 0, TEX0)));
+        rdpq_mode_alphacompare(128);
+    rdpq_mode_end();
+    P64::Debug::setColor();
+    P64::Debug::setBgColor();
+    unsigned loaded_bank = 255U;
+    for (const unsigned char encoded : latin1) {
+        const unsigned code = encoded >= font::first ? encoded : '?';
+        const unsigned slot = code - font::first;
+        const unsigned bank = slot / 16U;
+        if (code != ' ' && code != 160U) {
+            if (bank != loaded_bank) {
+                surface_t surface = surface_make(const_cast<std::uint8_t*>(font::banks[bank]),
+                    FMT_IA4, font::bank_width, font::height, font::bank_width / 2U);
+                rdpq_tex_upload(TILE0, &surface, nullptr);
+                loaded_bank = bank;
+            }
+            const int texture_x = static_cast<int>(slot % 16U) * 8;
+            rdpq_texture_rectangle_raw(TILE0, x, y, x + 8, y + font::height,
+                texture_x, 0, 1, 1);
+        }
+        x += font::advance;
+    }
+}
+
 void display_printf(int x, int y, const char* format, ...) {
     std::array<char, 512> formatted{};
-    std::array<char, 512> ascii{};
+    std::array<char, 512> latin1{};
     va_list arguments;
     va_start(arguments, format);
     std::vsnprintf(formatted.data(), formatted.size(), format, arguments);
     va_end(arguments);
     const char* cursor = formatted.data();
     std::size_t count = 0U;
-    while (*cursor != '\0' && count + 1U < ascii.size()) {
-        ascii[count++] = grandleon_text_next(&cursor);
+    while (*cursor != '\0' && count + 1U < latin1.size()) {
+        latin1[count++] = grandleon_text_next(&cursor);
     }
-    P64::Debug::printf(x, y, "%s", ascii.data());
+    display_glyphs(x, y, std::string_view(latin1.data(), count));
 }
 
 const char* ui(console::Message message) {
@@ -4486,7 +4525,7 @@ void draw_battle_ui() {
         const std::string speaker = client::substitute_campaign_member_names(
             localized_speaker, roster
         );
-        const std::string dialogue_text = console_ascii(
+        const std::string dialogue_text = console_latin1(
             client::substitute_campaign_member_names(localized_text, roster));
         rdpq_mode_push();
         rdpq_mode_begin();
@@ -4503,7 +4542,7 @@ void draw_battle_ui() {
         P64::Debug::printStart();
         display_printf(
             90, 169, "%.*s",
-            static_cast<int>(std::min<std::size_t>(speaker.size(), 30U)),
+            static_cast<int>(console_prefix_bytes(speaker, 30U)),
             speaker.data()
         );
         constexpr std::size_t width = 31U;
@@ -4514,10 +4553,8 @@ void draw_battle_ui() {
                 const std::size_t space = dialogue_text.rfind(' ', end);
                 if (space != std::string_view::npos && space > start) end = space;
             }
-            display_printf(
-                90, 189 + row * 17, "%.*s",
-                static_cast<int>(end - start), dialogue_text.data() + start
-            );
+            display_glyphs(90, 189 + row * 17,
+                std::string_view(dialogue_text).substr(start, end - start));
             start = end;
             while (start < dialogue_text.size() && dialogue_text[start] == ' ') ++start;
         }
@@ -4705,9 +4742,7 @@ void draw_battle_ui() {
                     );
                 display_printf(
                     menu_x + 14, y, "%s %.*s", marker,
-                    static_cast<int>(std::min<std::size_t>(
-                        localized_name.size(), 14U
-                    )), localized_name.data()
+                    static_cast<int>(console_prefix_bytes(localized_name, 14U)), localized_name.data()
                 );
             } else if (choice.kind == ActionChoiceKind::item) {
                 const std::string_view name = pr::content_name(
@@ -4721,9 +4756,7 @@ void draw_battle_ui() {
                     );
                 display_printf(
                     menu_x + 14, y, "%s %.*s", marker,
-                    static_cast<int>(std::min<std::size_t>(
-                        localized_name.size(), 14U
-                    )), localized_name.data()
+                    static_cast<int>(console_prefix_bytes(localized_name, 14U)), localized_name.data()
                 );
             } else if (choice.kind == ActionChoiceKind::talk) {
                 display_printf(
@@ -4875,8 +4908,8 @@ void draw_battle_ui() {
 }
 
 void draw_wrapped_story(std::string_view utf8) {
-    const std::string ascii = console_ascii(utf8);
-    const std::string_view text = ascii;
+    const std::string glyphs = console_latin1(utf8);
+    const std::string_view text = glyphs;
     constexpr std::size_t width = 27U;
     std::size_t start = std::min(shell.story_text_offset, text.size());
     int line = 0;
@@ -4886,10 +4919,7 @@ void draw_wrapped_story(std::string_view utf8) {
             const std::size_t space = text.rfind(' ', end);
             if (space != std::string_view::npos && space > start) end = space;
         }
-        display_printf(
-            102, 109 + line * 16, "%.*s",
-            static_cast<int>(end - start), text.data() + start
-        );
+        display_glyphs(102, 109 + line * 16, text.substr(start, end - start));
         start = end;
         while (start < text.size() && text[start] == ' ') ++start;
         ++line;
@@ -5011,7 +5041,7 @@ void draw_shell() {
     );
     display_printf(
         43, 38, "%.*s",
-        static_cast<int>(std::min<std::size_t>(project_title.size(), 29U)),
+        static_cast<int>(console_prefix_bytes(project_title, 29U)),
         project_title.data()
     );
     switch (shell.phase) {
@@ -5125,7 +5155,7 @@ void draw_shell() {
                     draw_brand_mark(31, 76);
                 }
                 display_printf(
-                    102, 86, "%.*s", static_cast<int>(std::min<std::size_t>(speaker.size(), 23U)),
+                    102, 86, "%.*s", static_cast<int>(console_prefix_bytes(speaker, 23U)),
                     speaker.data()
                 );
                 draw_wrapped_story(text);
@@ -5167,9 +5197,7 @@ void draw_shell() {
                     "%s %s %.*s",
                     shell.deployment_row == row ? ">" : " ",
                     deployment_contains(entry.member) ? "[X]" : "[ ]",
-                    static_cast<int>(std::min<std::size_t>(
-                        name.size(), 22U
-                    )), name.data()
+                    static_cast<int>(console_prefix_bytes(name, 22U)), name.data()
                 );
             }
             display_printf(
@@ -5216,9 +5244,7 @@ void draw_shell() {
                 display_printf(
                     42, 116 + static_cast<int>(row) * 18,
                     "%.*s  %s",
-                    static_cast<int>(std::min<std::size_t>(
-                        displayed_name.size(), 21U
-                    )), displayed_name.data(), result
+                    static_cast<int>(console_prefix_bytes(displayed_name, 21U)), displayed_name.data(), result
                 );
             }
             display_printf(

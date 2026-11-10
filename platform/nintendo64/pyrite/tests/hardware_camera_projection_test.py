@@ -114,8 +114,10 @@ class HardwareCameraProjection(unittest.TestCase):
 
     def test_translated_dialogue_pages_preserve_complete_text(self):
         source = SOURCE.read_text()
-        ascii_start = source.index("std::string console_ascii(")
-        ascii_end = source.index("\nvoid display_printf(", ascii_start)
+        ascii_start = source.index("std::string console_latin1(")
+        ascii_end = source.index("\nvoid display_glyphs(", ascii_start)
+        printf_start = source.index("void display_printf(")
+        printf_end = source.index("\nconst char* ui(", printf_start)
         story_start = source.index("void draw_wrapped_story(")
         story_end = source.index("\nstd::vector<client::RosterEntry>", story_start)
         moment_start = source.index("        constexpr std::size_t width = 31U;")
@@ -123,6 +125,7 @@ class HardwareCameraProjection(unittest.TestCase):
         harness = r"""
             #include <grandleon/view/console_text.h>
             #include <algorithm>
+            #include <array>
             #include <string>
             #include <string_view>
             #include <vector>
@@ -133,13 +136,8 @@ class HardwareCameraProjection(unittest.TestCase):
             struct Shell { std::size_t story_text_offset{}, story_text_next{}; bool story_text_more{}; } shell;
             struct Moment { std::size_t text_offset{}, text_next{}; bool text_more{}; } battle_moment;
             std::vector<std::string> rows;
-            void display_printf(int, int, const char* format, ...) {
-                char text[512]{};
-                va_list arguments; va_start(arguments, format);
-                std::vsnprintf(text, sizeof text, format, arguments);
-                va_end(arguments); rows.emplace_back(text);
-            }
-        """ + source[ascii_start:ascii_end] + source[story_start:story_end] + r"""
+            void display_glyphs(int, int, std::string_view text) { rows.emplace_back(text); }
+        """ + source[ascii_start:ascii_end] + source[printf_start:printf_end] + source[story_start:story_end] + r"""
             void draw_moment(const std::string& dialogue_text) {
         """ + source[moment_start:moment_end] + r"""
             }
@@ -152,8 +150,13 @@ class HardwareCameraProjection(unittest.TestCase):
                 return result;
             }
             int main() {
+                display_printf(0, 0, "%s", "Aço e Cedro");
+                assert(rows.size() == 1 && rows[0].size() == 11);
+                assert(static_cast<unsigned char>(rows[0][1]) == 0xe7);
+                assert(console_prefix_bytes("Aço", 2) == 3);
+                rows.clear();
                 const std::string translated = "Não tenham pressa de nos encontrar. Vençam sua rota primeiro; nos reuniremos na estrada da vigia. Então chegaremos à campainha antes que uma patrulha assustada se transforme numa guerra. Mantenham a companhia próxima e deixem testemunhas vivas para contar toda a história.";
-                const std::string expected = console_ascii(translated);
+                const std::string expected = console_latin1(translated);
                 unsigned pages = 0;
                 do {
                     draw_wrapped_story(translated);
@@ -170,7 +173,7 @@ class HardwareCameraProjection(unittest.TestCase):
                 } while (battle_moment.text_more);
                 assert(pages > 1);
                 assert(joined_rows() == expected);
-                assert(expected.find("Nao tenham") == 0);
+                assert(expected[0] == 'N' && static_cast<unsigned char>(expected[1]) == 0xe3 && expected[2] == 'o');
             }
         """
         with tempfile.TemporaryDirectory(prefix="grandleon-n64-dialogue-") as temporary:
@@ -241,6 +244,45 @@ class HardwareCameraProjection(unittest.TestCase):
             subprocess.run([str(binary)], check=True)
         battle = source[source.index("void draw_battle_ui()"):source.index("void draw_wrapped_story(")]
         self.assertIn("draw_speaker_portrait(speaker, line.speaker, roster, 23.0F, 164.0F, 0.64F)", battle)
+
+
+    def test_latin1_font_keeps_actual_accent_pixels(self):
+        include = SOURCE.parent
+        harness = r"""
+            #include "ConsoleFont.hpp"
+            #include <cassert>
+            namespace font = grandleon::nintendo64::pyrite::console_font;
+            unsigned pixel(unsigned code, unsigned x, unsigned y) {
+                const unsigned slot = code - font::first;
+                const unsigned offset = y * font::bank_width / 2 + (slot % 16) * 4 + x / 2;
+                const unsigned byte = font::banks[slot / 16][offset];
+                return x % 2 ? byte & 15 : byte >> 4;
+            }
+            unsigned row(unsigned code, unsigned y) {
+                unsigned count = 0;
+                for (unsigned x = 0; x < 8; ++x) count += pixel(code, x, y) != 0;
+                return count;
+            }
+            int main() {
+                static_assert(font::bank_bytes <= 4096);
+                static_assert(sizeof font::banks == 10752);
+                assert(row(0xe7, 10) + row(0xe7, 11) > row('c', 10) + row('c', 11));
+                assert(row(0xe3, 1) > row('a', 1));
+                assert(row(0xe9, 1) > row('e', 1));
+                for (unsigned code = 160; code <= 255; ++code)
+                    for (unsigned y = 0; y < 12; ++y)
+                        for (unsigned x = 0; x < 8; ++x) {
+                            const auto value = pixel(code, x, y);
+                            assert(value == 0 || value == 15);
+                        }
+            }
+        """
+        with tempfile.TemporaryDirectory(prefix="grandleon-n64-font-") as temporary:
+            cpp = Path(temporary) / "font.cpp"
+            binary = Path(temporary) / "font-test"
+            cpp.write_text(harness)
+            subprocess.run(["c++", "-std=c++20", "-Wall", "-Werror", "-I", str(include), str(cpp), "-o", str(binary)], check=True)
+            subprocess.run([str(binary)], check=True)
 
 
 if __name__ == "__main__":

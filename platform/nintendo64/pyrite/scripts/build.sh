@@ -23,6 +23,7 @@ host_cxx=${CXX:-c++}
     "$package_root/tests/board_camera_test.cpp" \
     -o "$output_dir/board_camera_test"
 "$output_dir/board_camera_test"
+python3 "$package_root/scripts/generate-console-font.py" --repo "$repo_root" --check
 GRANDLEON_REPO="$repo_root" python3 "$package_root/tests/hardware_camera_projection_test.py"
 
 . "$package_root/versions.env"
