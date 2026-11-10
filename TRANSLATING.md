@@ -1,5 +1,9 @@
 # Submit a translation
 
+For now, please focus translation work mainly on the editor. Its wording is
+still evolving, so some strings will change. Use the demo campaign mainly to
+test translations, text layout and accents.
+
 You can translate Grandleon's menus with a small pull request:
 
 1. Copy `platform/godot/project/localization/en.json` to a file named with your

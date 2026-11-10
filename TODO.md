@@ -28,9 +28,9 @@
   base 4 MiB memory. Record frame timing separately from functional checks.
 - [x] Refresh the private review page with corrected console stills, scrolling
   and doorway clips, and the current performance measurements.
-- [ ] Refresh the matched three-player capture with the current console engines;
-  the README currently shows independent Bell Orchard clips, not an aligned
-  three-way comparison.
+- [x] Refresh the matched three-player capture with the current console engines;
+  the README shows the same Bell Orchard solo move, attack, counterattack
+  and return on all three players, preserving their individual timing.
 - [ ] Prepare final 0.5 packages and release notes after review, and validate
   the exact console builds on hardware before declaring the milestone done.
 
@@ -46,6 +46,14 @@ terrain rules, routes, timing, or combat results.
 
 The checked items below are implemented. The closing review above is the
 release checklist; later sections also contain work planned beyond 0.5.
+
+## Prior to 1.0: a polished demo campaign
+
+- [ ] Design and playtest a cohesive campaign that introduces the rules through
+  a gentle opening, builds tactical challenge across varied maps, and ends in
+  a final boss battle. Give solo and local co-op distinct, balanced experiences.
+  Treat the current Steel and Cedar campaign as a feature and translation test
+  while this design work is planned.
 
 ## Creator audio customization
 

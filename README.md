@@ -65,7 +65,7 @@ Earlier campaigns remain in `games/` as examples and regression fixtures.
 Godot is the main player and creator. Its supported presentation combines
 authored 3D terrain with animated high-resolution 2D characters.
 
-![An earlier Godot sample showing voxel terrain and animated character sprites](docs/screenshots/godot/voxel-sprites.png)
+![Steel and Cedar’s Bell Orchard board in the current Godot player](docs/screenshots/godot/voxel-sprites.png)
 
 The current Godot art pack covers all eight character archetypes and all
 thirteen terrain kinds. Its seven directions are sci-fi, mythical, medieval,
@@ -126,11 +126,10 @@ campaign state, and random results remain authoritative in the shared engine.
 | --- | --- |
 | ![Bell Orchard movement and close combat in the Nintendo 64 player](docs/screenshots/nintendo64-console-renderer.gif) | ![Bell Orchard movement, attack and counterattack in the PlayStation player](docs/screenshots/playstation-console-renderer.gif) |
 
-These are Bell Orchard emulator review captures from 0.5 development, including
-movement and close combat. Nintendo 64 shows the solo opening; PlayStation shows co-op.
-The earlier Godot capture is at the top of this page. These clips show each
-player’s actual presentation; their timing and formations are not matched,
-and they predate the final language and interface fixes.
+The Godot recording above and both console clips show the same one-player
+**Steel and Cedar** opening, with the same map, units and move. Rowan attacks
+the swordsman beside the orchard gate, receives a counterattack, then returns
+to the board. Each recording preserves the player’s actual timing.
 
 The installed Export Center can produce:
 
@@ -184,7 +183,7 @@ rest of the documentation describes the current Godot application.
 | **0.3** | Godot player and creator. Moved the supported PC experience to Godot, joined creation and play in one application, and added local co-op, standalone export, authored 3D terrain, and a complete high-resolution sci-fi archetype roster. |
 | **0.4** | Broader art and console campaigns. Completes seven coherent Godot character directions, improves terrain clusters and movement presentation, adds portable one/two/choice campaign launch policy, streamlines the player around a nearly full-screen board, includes distinct solo and local co-op campaigns, and uses one textured renderer for the PlayStation and Nintendo 64 campaigns. It also introduces the first optional terrain-aware Godot combat close-up. |
 | **0.5** | Editor, localization and console parity. Improves campaign creation, previews and project checks, with an automated test that creates, exports, launches and wins a game through the normal Godot screens. Adds manual **Translations**, localized menus, optional player-named characters, orchestral music and distinct combat effects with separate Music and Effects controls. Moves Nintendo 64 to Pyrite/Tiny3D and PlayStation to Mipsync. Both consoles must support Godot's campaign features, including co-op and the castle reveal. This engine transition is in progress, with visual quality and a measured 30 fps target still being improved. |
-| **Prior to 1.0** | Expand terrain-aware backdrops for combat and conversations, with optional ambient motion such as moving water, weather, foliage, light, and particles. Continue improving console character readability, terrain variety, animation, effects, interface clarity, close-up scenes, and performance measured on real hardware. Experiment with Android and, if practical, iOS exports of the Godot player and creator using the same portable games and presentation. Improve music, ambience, battle effects and interface sounds across platforms. Let creators import and preview their own music and effects in the editor, assigning them to maps, story scenes, weapons and spells. Static backdrops remain the dependable fallback. |
+| **Prior to 1.0** | Design and playtest a polished demo campaign with a cohesive story, a gentle opening, meaningful solo and co-op tactics, varied maps, and a final boss. Expand terrain-aware backdrops for combat and conversations, with optional ambient motion such as moving water, weather, foliage, light, and particles. Continue improving console character readability, terrain variety, animation, effects, interface clarity, close-up scenes, and performance measured on real hardware. Experiment with Android and, if practical, iOS exports of the Godot player and creator using the same portable games and presentation. Improve music, ambience, battle effects and interface sounds across platforms. Let creators import and preview their own music and effects in the editor, assigning them to maps, story scenes, weapons and spells. Static backdrops remain the dependable fallback. |
 
 Importing external artwork may be explored later, but it is not part of the
 current roadmap commitment.
