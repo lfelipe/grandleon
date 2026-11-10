@@ -71,10 +71,14 @@ if [[ "${target}" == nintendo64 ]]; then
             "${repo_root}/platform/nintendo64/pyrite/toolchain"
     fi
     sdk_image="${image}"
-    image="grandleon/n64-pyrite-payload-runtime:${revision:0:8}-t3d-${tiny3d_revision:0:8}-ubuntu24"
+    sdk_fingerprint="$(docker image inspect --format '{{.Id}}' "${sdk_image}")"
+    sdk_fingerprint="${sdk_fingerprint#sha256:}"
+    runtime_recipe="${repo_root}/platform/nintendo64/pyrite/toolchain/PayloadContainerfile"
+    runtime_fingerprint="$(sha256sum "${runtime_recipe}" | cut -d ' ' -f 1)"
+    image="grandleon/n64-pyrite-payload-runtime:${revision:0:8}-t3d-${tiny3d_revision:0:8}-${runtime_fingerprint:0:12}-${sdk_fingerprint:0:12}"
     if ! docker image inspect "${image}" >/dev/null 2>&1; then
         docker build \
-            --file "${repo_root}/platform/nintendo64/pyrite/toolchain/PayloadContainerfile" \
+            --file "${runtime_recipe}" \
             --build-arg "N64_SDK_IMAGE=${sdk_image}" \
             --tag "${image}" \
             "${repo_root}/platform/nintendo64/pyrite/toolchain"
