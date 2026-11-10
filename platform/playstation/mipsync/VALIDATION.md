@@ -83,17 +83,17 @@ fixtures regenerate both scene and simulation data from the one-player
 manifest. Evidence: `review-live-baseline/` and `review-live-ambient/` inside
 `~/.cache/grandleon-ps1-indexed-build.mOZON2/`; castle evidence uses `evidence-solo/`.
 
-The production export before ambient motion includes the audio code and 57 KiB effect bank,
+The production export includes the audio code and 57 KiB effect bank,
 an additional 64 KiB platform reserve, 32 KiB for stack, and 512 KiB for the
 gameplay heap. Music remains on the CD.
 
 | Encounter | Committed RAM / 2,097,152 | Texture VRAM / 720,896 |
 | --- | ---: | ---: |
-| Bell Orchard | 1,799,092 | 212,768 |
-| Cedar Deepwood | 1,850,276 | 168,224 |
-| Cedar Watch | 2,044,852 | 264,000 |
-| Gate Village | 2,065,300 | 282,464 |
-| Twin Gate Keep | 2,014,132 | 243,456 |
+| Bell Orchard | 1,799,068 | 212,768 |
+| Cedar Deepwood | 1,850,316 | 168,224 |
+| Cedar Watch | 2,044,828 | 264,000 |
+| Gate Village | 2,065,324 | 282,464 |
+| Twin Gate Keep | 2,016,156 | 243,456 |
 
 **The corrected graphics do not yet pass the strict 30 fps gates.** With
 music and effects enabled, the 600-tick Deepwood window renders 300 frames
@@ -112,12 +112,14 @@ reduce the remaining scrolling/castle cost before calling performance ready.
 ## Artifacts and remaining gates
 
 The review export and manifests are in
-`~/.cache/grandleon-ps1-indexed-build.mOZON2/review-release05-audio-v5/`.
+`~/.cache/grandleon-ps1-indexed-build.mOZON2/review-release05-audio-v6/`.
 The BIN SHA-256 is
-`3bcbec2265f842f666a9327a34c5921c7a2cb9872091fd8cb9f47aada1235f42`.
-It includes the current effects and font; rebuild the final production
-package with ambient motion before distributing.
-The audio menu evidence is in `review-release05-audio-v5-controls/`.
+`d4e3894ae9674591bf4714beed611d606c27e9fb0714493851fa94f34623476d`.
+It includes the current effects, font and idle motion. Normal co-op launch,
+CD playback, independent volumes, held-button handling and saved settings
+pass on this exact export. It is installed on MiSTer, with the remote BIN
+hash checked; the CUE reference is adjusted to the installed BIN filename.
+The audio menu evidence is in `review-release05-audio-v6-controls/`.
 Graphics/performance evidence is in
 `review-audio-performance/deep-verified-disc-evidence/` and
 `review-audio-performance/gate-verified-disc-evidence/` beside it.

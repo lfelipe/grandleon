@@ -11,12 +11,14 @@ five combat presentations and the 18-cell castle reveal. The final sample
 measured 30.00 fps, 33,997 microseconds maximum, with 1,226,224 bytes of free
 heap. Evidence: `~/.cache/grandleon-pyrite-surface-quality/living-board-review/`.
 
-The most recently checked production ROM has the review driver disabled. Its
-SHA-256 is `21f5e78d479ef6a2f9a4315e9cb1a7adc2ece71eee5a1bdfed2287b1adcc478f`.
-It includes the revised weapon effects and clean settings labels, before the
-ambient-motion changes. Independent volume changes and persistence passed.
-Rebuild the final production package with ambient motion before distributing;
-hardware listening, full manual play and balance review remain open.
+The production ROM has the review driver disabled. Its SHA-256 is
+`5e83c648dec3d964f3e432b49c1bf8422647f62334b4f8a3a936277f43f7267f`.
+It includes the revised weapon effects, clean settings labels and ambient
+motion. An external controller sequence reaches Bell Orchard and records
+an eight-second stationary board with no automated actions or camera moves.
+Evidence: `~/.cache/grandleon-pyrite-surface-quality/stationary-idle-review/`.
+The same ROM is installed on MiSTer, with its remote hash checked. Hardware
+listening, full manual play and balance review remain open.
 
 The automated campaign driver is now disabled in normal exports. A separately
 built production ROM logged `review_driver=0` and remained on its title screen
