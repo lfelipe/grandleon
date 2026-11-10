@@ -23,7 +23,7 @@
   takeover across encounter changes. Verify an idle production boot separately.
 - [x] Keep PS1 units visible through terrain-page changes; remove the
   single-update suppression and inspect a two-axis scrolling capture.
-- [x] Pass the host suite and console memory gates: 74 host tests pass, all
+- [x] Pass the host suite and console memory gates: 75 host tests pass, all
   five PS1 encounters fit their budgets, and the N64 campaign completes in
   base 4 MiB memory. Record frame timing separately from functional checks.
 - [x] Refresh the private review page with corrected console stills, scrolling

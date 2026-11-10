@@ -1329,6 +1329,14 @@ add_test(NAME grandleon.ps1_text_paging
         "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/tests/text_paging_test.py"
         --binary "$<TARGET_FILE:grandleon_ps1_text_paging_tests>"
 )
+add_executable(grandleon_ps1_font_tests
+    "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/tests/ps1_font_test.cpp"
+)
+target_link_libraries(grandleon_ps1_font_tests PRIVATE grandleon::view)
+target_include_directories(grandleon_ps1_font_tests PRIVATE
+    "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/runtime"
+)
+add_test(NAME grandleon.ps1_font COMMAND grandleon_ps1_font_tests)
 add_test(NAME grandleon.ps1_structured_dialogue
     COMMAND "${GRANDLEON_PYTHON_EXECUTABLE}"
         "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/tests/structured_dialogue_test.py"

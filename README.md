@@ -11,9 +11,9 @@ its rules.
 
 ![A real Grandleon battle running in Godot with voxel terrain and animated characters](docs/screenshots/godot/gameplay.gif)
 
-This earlier Godot gameplay capture shows real movement and combat in the
-running player. It illustrates the presentation; it is not a recording of the
-current Steel and Cedar release candidate.
+This is the current **Steel and Cedar** demo in Godot. Rowan crosses Bell
+Orchard, attacks a swordsman, takes a counterattack and returns to the board.
+The recording uses the running player and the campaign’s actual rules.
 
 ## Make a game
 
