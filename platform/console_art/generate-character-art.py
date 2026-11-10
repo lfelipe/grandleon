@@ -22,6 +22,11 @@ import numpy as np
 
 import directional_bank as directional
 
+# Pillow 9.0 in the pinned N64 builder exposes these identical constants directly.
+RESAMPLING = getattr(Image, "Resampling", Image)
+QUANTIZE = getattr(Image, "Quantize", Image)
+DITHER = getattr(Image, "Dither", Image)
+
 
 ROOT = Path(__file__).resolve().parents[2]
 CHARACTERS = ROOT / "platform/godot/project/art/characters"
@@ -249,7 +254,7 @@ def fitted(source: Image.Image, bounds: tuple[int, int, int, int], side: int) ->
     crop = source.crop(bounds)
     crop = crop.resize(
         (max(1, round(crop.width * scale)), max(1, round(crop.height * scale))),
-        Image.Resampling.LANCZOS,
+        RESAMPLING.LANCZOS,
     )
     canvas = Image.new("RGBA", (side, side), (0, 0, 0, 0))
     canvas.alpha_composite(crop, (
@@ -321,7 +326,7 @@ def quantize(image: Image.Image) -> tuple[list[int], list[int]]:
         raise ValueError("character frame has no opaque pixels")
     sample = Image.new("RGB", (len(opaque), 1))
     sample.putdata(opaque)
-    reduced = sample.quantize(colors=15, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
+    reduced = sample.quantize(colors=15, method=QUANTIZE.MEDIANCUT, dither=DITHER.NONE)
     raw = reduced.getpalette() or []
     palette = [psx_colour(tuple(raw[index:index + 3])) for index in range(0, 45, 3)]
     while len(palette) < 15:

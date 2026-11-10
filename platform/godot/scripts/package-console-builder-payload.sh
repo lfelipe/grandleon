@@ -70,6 +70,15 @@ if [[ "${target}" == nintendo64 ]]; then
             --tag "${image}" \
             "${repo_root}/platform/nintendo64/pyrite/toolchain"
     fi
+    sdk_image="${image}"
+    image="grandleon/n64-pyrite-payload-runtime:${revision:0:8}-t3d-${tiny3d_revision:0:8}-ubuntu24"
+    if ! docker image inspect "${image}" >/dev/null 2>&1; then
+        docker build \
+            --file "${repo_root}/platform/nintendo64/pyrite/toolchain/PayloadContainerfile" \
+            --build-arg "N64_SDK_IMAGE=${sdk_image}" \
+            --tag "${image}" \
+            "${repo_root}/platform/nintendo64/pyrite/toolchain"
+    fi
     toolchain_licenses=/GRANDLEON_PYRITE_TOOLCHAIN_LICENSES.tar.xz
     toolchain_components=/GRANDLEON_PYRITE_TOOLCHAIN_COMPONENTS.tsv
     executable=build-rom
@@ -178,6 +187,10 @@ container="$(docker create --env "GRANDLEON_SOURCE_REVISION=${source_revision}" 
     if [ -d /n64_toolchain ]; then
         install -m 0644 /GRANDLEON_PYRITE_TOOLCHAIN_LICENSES.tar.xz /n64_toolchain/
         install -m 0644 /GRANDLEON_PYRITE_TOOLCHAIN_COMPONENTS.tsv /n64_toolchain/
+    fi
+    if [ -x /opt/pyrite64/usr/bin/pyrite64 ]; then
+        # Fail before compression when the host runtime cannot load the CLI.
+        /opt/pyrite64/usr/bin/pyrite64 --version
     fi
     printf "grandleon-builder\n" > /etc/hostname
     printf "127.0.0.1 localhost\n" > /etc/hosts

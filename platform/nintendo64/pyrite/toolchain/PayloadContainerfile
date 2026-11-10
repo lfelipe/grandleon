@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: MIT
+# Keep the exact SDK while providing the host ABI required by Pyrite64 0.10.
+ARG N64_SDK_IMAGE=grandleon/n64-pyrite-builder:c79a52b4-t3d-517156d9
+FROM ${N64_SDK_IMAGE} AS sdk
+FROM ubuntu@sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
+        build-essential ca-certificates cmake git python3-numpy python3-pil \
+        xz-utils libgmp10 libmpfr6 zlib1g \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=sdk /n64_toolchain /n64_toolchain
+COPY --from=sdk /GRANDLEON_PYRITE_TOOLCHAIN_LICENSES.tar.xz /
+COPY --from=sdk /GRANDLEON_PYRITE_TOOLCHAIN_COMPONENTS.tsv /
+RUN install -m 0644 /GRANDLEON_PYRITE_TOOLCHAIN_LICENSES.tar.xz /n64_toolchain/ \
+    && install -m 0644 /GRANDLEON_PYRITE_TOOLCHAIN_COMPONENTS.tsv /n64_toolchain/
+ENV N64_INST=/n64_toolchain

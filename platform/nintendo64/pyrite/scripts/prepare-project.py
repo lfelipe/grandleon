@@ -19,6 +19,10 @@ import sys
 
 from PIL import Image, ImageDraw
 
+# The pinned builder uses Pillow 9.0; filter values are unchanged across APIs.
+RESAMPLING = getattr(Image, "Resampling", Image)
+QUANTIZE = getattr(Image, "Quantize", Image)
+
 
 TERRAIN_KINDS = (
     (("water", "river"), "water", (55, 112, 157), (91, 166, 190)),
@@ -181,7 +185,7 @@ def draw_atlas(path: Path, kinds: list[int]) -> None:
                     draw.ellipse((x0 + x, y0 + y, x0 + min(x + 4, limit), y0 + min(y + 5, limit)), fill=light)
                 else:
                     draw.rectangle((x0 + x, y0 + y, x0 + min(x + 3, limit), y0 + min(y + 3, limit)), fill=light)
-    image.quantize(colors=16, method=Image.Quantize.MEDIANCUT).convert("RGBA").save(path)
+    image.quantize(colors=16, method=QUANTIZE.MEDIANCUT).convert("RGBA").save(path)
 
 
 def draw_backdrop(path: Path, dominant_kind: int) -> None:
@@ -204,7 +208,7 @@ def draw_backdrop(path: Path, dominant_kind: int) -> None:
         draw.polygon(((x, 120), (x + 17, 104), (x + 34, 120)), fill=dark)
     for y in range(152, 240, 24):
         draw.line((0, y, 319, y), fill=dark, width=2)
-    image.quantize(colors=256, method=Image.Quantize.MEDIANCUT).convert("RGBA").save(path)
+    image.quantize(colors=256, method=QUANTIZE.MEDIANCUT).convert("RGBA").save(path)
 
 
 def write_asset_config(path: Path, name: str, format_index: int) -> None:
@@ -335,8 +339,8 @@ def prepare(project_path: Path, manifest_path: Path, project_root: Path,
             variant = stable_id(encounter_hash) % int(pack["variant_count"])
             source = art_root / pack["root"].removeprefix("res://") / pack["filename_patterns"]["panorama"].format(variant=variant)
             with Image.open(source) as panorama:
-                panorama.convert("RGB").resize((320, 240), Image.Resampling.LANCZOS).quantize(
-                    colors=256, method=Image.Quantize.MEDIANCUT
+                panorama.convert("RGB").resize((320, 240), RESAMPLING.LANCZOS).quantize(
+                    colors=256, method=QUANTIZE.MEDIANCUT
                 ).convert("RGBA").save(assets / f"{name}.png")
         else:
             shutil.copyfile(assets / "combat_backdrop.png", assets / f"{name}.png")
