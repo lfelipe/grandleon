@@ -764,7 +764,7 @@ func _run_controls_smoke() -> void:
 		"save label": session_menu_save_load.text == "SAVE / LOAD",
 		"audio label": session_menu_audio_label.text == "SOUND EFFECTS  /  100%",
 		"close-up label": session_menu_closeups.text == "BATTLE CLOSE-UPS  /  ON",
-		"cinematic motion label": session_menu_cinematic_motion.text == "CINEMATIC MOTION  /  FULL",
+		"motion setting is absent": session_menu_cinematic_motion == null,
 		"FPS label defaults off": session_menu_fps.text == "SHOW FPS  /  OFF",
 		"FPS overlay defaults hidden": not fps_overlay.visible,
 		"stick label": session_menu_stick.text == "STICK INPUT  /  DELIBERATE",
@@ -803,13 +803,13 @@ func _run_controls_smoke() -> void:
 	if battle_closeups_enabled or session_menu_closeups.text != "BATTLE CLOSE-UPS  /  OFF":
 		failed.append("battle close-up setting")
 	session_menu_closeups.pressed.emit()
-	session_menu_cinematic_motion.pressed.emit()
+	_toggle_cinematic_motion()
 	if (
 		cinematic_motion != "reduced"
-		or session_menu_cinematic_motion.text != "CINEMATIC MOTION  /  REDUCED"
+		or session_menu_cinematic_motion != null
 	):
 		failed.append("reduced cinematic motion setting")
-	session_menu_cinematic_motion.pressed.emit()
+	_toggle_cinematic_motion()
 	session_menu_stick.pressed.emit()
 	if (
 		stick_mode != "extra_firm"
@@ -2027,9 +2027,6 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	session_menu_closeups = _settings_button("")
 	session_menu_closeups.pressed.connect(_toggle_battle_closeups)
 	session_menu_settings.add_child(session_menu_closeups)
-	session_menu_cinematic_motion = _settings_button("")
-	session_menu_cinematic_motion.pressed.connect(_toggle_cinematic_motion)
-	session_menu_settings.add_child(session_menu_cinematic_motion)
 	session_menu_fps = _settings_button("")
 	session_menu_fps.pressed.connect(_toggle_show_fps)
 	session_menu_settings.add_child(session_menu_fps)
@@ -3426,7 +3423,7 @@ func _open_action_popup(seat: int, unit_id: int) -> void:
 	):
 		return
 	var options: Array[Dictionary] = []
-	if not session.query_tiles("attack", unit_id, 0).is_empty():
+	if not _legal_attack_targets(unit_id).is_empty():
 		options.append({"mode": "attack", "label": _action_text("attack")})
 	var abilities: Array = unit.get("abilities", [])
 	if (
@@ -3642,11 +3639,33 @@ func _activate_action_popup(seat: int) -> bool:
 	selected_units[seat] = unit_id
 	board.set_selected(seat, unit_id, mode)
 	_update_highlights(seat)
+	_focus_attack_target(seat)
 	_refresh_selected_panel(seat)
 	_show_toast(_ui("player.toast.choose_target", {
 		"action": _action_text(mode),
 	}))
 	return true
+
+
+func _focus_attack_target(seat: int) -> void:
+	if action_modes[seat] != "attack" or selected_units[seat] == 0:
+		return
+	var targets := _legal_attack_targets(selected_units[seat])
+	if not targets.is_empty():
+		seats[seat].cursor = Vector2i(int(targets[0].x), int(targets[0].y))
+		board.set_seats(seats)
+
+
+# The native forecast includes every actor/target gate, so an Attack option
+# always has a command the engine can accept rather than merely a reach tile.
+func _legal_attack_targets(unit_id: int) -> Array[Dictionary]:
+	var targets: Array[Dictionary] = []
+	for unit: Dictionary in snapshot.get("units", []):
+		if not unit.get("on_board", false):
+			continue
+		if bool(session.forecast_attack(unit_id, int(unit.id)).get("available", false)):
+			targets.append(unit)
+	return targets
 
 
 func _selected_by_other_seat(seat: int, unit_id: int) -> int:
@@ -3680,6 +3699,7 @@ func _cycle_mode(seat: int, direction: int) -> void:
 	hud_seat = seat
 	var at := MODES.find(action_modes[seat])
 	action_modes[seat] = MODES[wrapi(at + direction, 0, MODES.size())]
+	_focus_attack_target(seat)
 	board.set_selected(seat, selected_units[seat], action_modes[seat])
 	_update_highlights(seat)
 	_refresh_selected_panel(seat)
@@ -3801,6 +3821,24 @@ func _show_unit(unit: Dictionary, seat := 0) -> void:
 			else "[color=#72e08f]%s[/color]" % _ui("player.hud.ready")
 		)
 	)
+	if action_modes[seat] == "attack" and selected_units[seat] != 0:
+		var target: Dictionary = board.unit_at(Vector2i(seats[seat].cursor))
+		if not target.is_empty():
+			var forecast: Dictionary = session.forecast_attack(selected_units[seat], int(target.id))
+			if bool(forecast.get("available", false)):
+				unit_name.text = String(target.get("name", _ui("player.unit.unnamed")))
+				unit_stats.text = "%s %d → %d   %s %d%%" % [
+					_ui("player.hud.hp"), int(target.health), int(forecast.target_health_after),
+					_ui("player.hud.hit"), int(forecast.hit_chance)
+				]
+				if int(forecast.hit_chance) < 100:
+					unit_stats.text += "  " + _ui("player.hud.on_hit")
+				if bool(forecast.counter):
+					var actor := _unit_by_id(selected_units[seat])
+					unit_stats.text += "\n%s  %s %d → %d  (%d%%)" % [
+						_ui("player.hud.counter"), _ui("player.hud.hp"), int(actor.health),
+						int(forecast.attacker_health_after), int(forecast.counter_chance)
+					]
 	_position_unit_panel(unit, seat)
 	_update_context_help(seat)
 

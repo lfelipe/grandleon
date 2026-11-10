@@ -54,6 +54,8 @@ run_godot timeout 60s "${godot_binary}" --headless --quiet --import \
     --path "${stage_dir}"
 run_godot timeout 60s "${godot_binary}" --headless --path "${stage_dir}" \
     --script "${repo_root}/platform/godot/tests/combat_presentation_plan_test.gd"
+run_godot timeout 60s "${godot_binary}" --headless --path "${stage_dir}" \
+    --script "${repo_root}/platform/godot/tests/attack_targeting_test.gd"
 # Loading the production layered backdrop pack and the real 3D board is the
 # expensive part of this visual test under software rendering. Keep a strict
 # bound, but leave enough headroom for a cold import of the reviewed 1280x720

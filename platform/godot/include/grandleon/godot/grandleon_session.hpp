@@ -272,6 +272,9 @@ public:
         std::int64_t unit_id,
         std::int64_t content_id = 0
     ) const;
+    [[nodiscard]] ::godot::Dictionary forecast_attack(
+        std::int64_t unit_id, std::int64_t target_id
+    ) const;
     void submit_intent(
         const ::godot::String& kind,
         std::int64_t unit_id = 0,

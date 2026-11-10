@@ -902,6 +902,10 @@ void GrandleonSession::_bind_methods() {
         DEFVAL(0)
     );
     gd::ClassDB::bind_method(
+        gd::D_METHOD("forecast_attack", "unit_id", "target_id"),
+        &GrandleonSession::forecast_attack
+    );
+    gd::ClassDB::bind_method(
         gd::D_METHOD(
             "submit_intent", "kind", "unit_id", "target_id", "x", "y",
             "content_id", "request_id"
@@ -1475,6 +1479,29 @@ gd::Array GrandleonSession::query_tiles(
         );
     }
     return positions_array(positions);
+}
+
+gd::Dictionary GrandleonSession::forecast_attack(
+    std::int64_t unit_id, std::int64_t target_id
+) const {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    gd::Dictionary result;
+    result["available"] = false;
+    if (!has_snapshot_) return result;
+    const auto forecast = sim::forecast_attack(
+        latest_snapshot_, static_cast<sim::UnitId>(unit_id),
+        static_cast<sim::UnitId>(target_id), latest_weapons_, 0
+    );
+    result["available"] = static_cast<bool>(forecast);
+    if (!forecast) return result;
+    result["hit_chance"] = forecast.hit_chance;
+    result["damage"] = forecast.damage;
+    result["target_health_after"] = forecast.target_health_after;
+    result["counter"] = forecast.counter;
+    result["counter_chance"] = forecast.counter_chance;
+    result["counter_damage"] = forecast.counter_damage;
+    result["attacker_health_after"] = forecast.attacker_health_after;
+    return result;
 }
 
 void GrandleonSession::submit_intent(
