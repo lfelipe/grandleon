@@ -1945,6 +1945,11 @@
     "catalog.error.not_installed": "Baixe esta campanha antes de jogar.",
     "catalog.error.storage_error": "Não foi possível salvar o download. Verifique o espaço disponível.",
     "catalog.partial": "Não foi possível acessar alguns catálogos. As campanhas baixadas continuam disponíveis.",
-    "catalog.credit": "Por {author} · Versão {version}"
+    "catalog.credit": "Por {author} · Versão {version}",
+    "catalog.mode.one": "1 jogador",
+    "catalog.mode.two": "2 jogadores",
+    "catalog.mode.choice": "1 ou 2 jogadores",
+    "catalog.details": "{mode} · Idiomas: {languages}",
+    "catalog.source": "Catálogo: {source}"
   }
 }

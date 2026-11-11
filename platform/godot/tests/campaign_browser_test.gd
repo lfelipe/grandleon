@@ -57,6 +57,11 @@ func _run() -> void:
 	home.browser.source_input.text = url
 	_find_button(home.browser, localization.text("catalog.add")).pressed.emit()
 	await _idle(home.browser)
+	var details: String = home.browser._entry_details({"playerMode": "choice", "languages": ["en", "es", "pt-BR"]})
+	check(details.contains(localization.text("catalog.mode.choice")) and details.contains("EN, ES, PT-BR"), "Cards must show player choice and readable language codes")
+	check(home.browser._entry_details({"playerMode": "two", "languages": ["es"]}).contains(localization.text("catalog.mode.two")), "Fixed two-player cards must identify their mode")
+	check(home.browser._source_name({"source_url": "https://raw.githubusercontent.com/alice/campaigns/main/catalog.json"}).contains("alice/campaigns"), "Source fallback must identify repository owner")
+	check(home.browser._source_name({"source_url": "https://example.org/catalog.json", "source_title": "My campaigns"}).contains("My campaigns"), "Cards must preserve human catalogue title")
 	var unavailable := 0
 	for entry: Dictionary in catalog.entries():
 		if not entry.available: unavailable += 1

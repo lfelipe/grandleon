@@ -1945,6 +1945,11 @@
     "catalog.error.not_installed": "Download this campaign before playing.",
     "catalog.error.storage_error": "Could not save the download. Check available storage.",
     "catalog.partial": "Some catalogues could not be reached. Downloaded campaigns are still available.",
-    "catalog.credit": "By {author} · Version {version}"
+    "catalog.credit": "By {author} · Version {version}",
+    "catalog.mode.one": "1 player",
+    "catalog.mode.two": "2 players",
+    "catalog.mode.choice": "1 or 2 players",
+    "catalog.details": "{mode} · Languages: {languages}",
+    "catalog.source": "Catalogue: {source}"
   }
 }

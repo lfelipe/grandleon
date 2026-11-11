@@ -138,6 +138,14 @@ func _render_entries() -> void:
 		detail.text = str(entry.get("description", ""))
 		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		column.add_child(detail)
+		var play_details := Label.new()
+		play_details.text = _entry_details(entry)
+		play_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		column.add_child(play_details)
+		var source := Label.new()
+		source.text = _t("catalog.source", {"source": _source_name(entry)})
+		source.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		column.add_child(source)
 		var credit := Label.new()
 		credit.text = _t("catalog.credit", {"author": str(entry.get("author", "")), "version": str(entry.get("version", ""))})
 		credit.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -198,3 +206,23 @@ func _button(key: String) -> Button:
 
 func _t(key: String, values: Dictionary = {}) -> String:
 	return Localization.text(key, values)
+
+
+func _entry_details(entry: Dictionary) -> String:
+	var codes: PackedStringArray = []
+	for code: Variant in entry.get("languages", []):
+		codes.append(str(code).to_upper())
+	return _t("catalog.details", {
+		"mode": _t("catalog.mode." + str(entry.get("playerMode", "one"))),
+		"languages": ", ".join(codes),
+	})
+
+
+func _source_name(entry: Dictionary) -> String:
+	var url := str(entry.get("source_url", ""))
+	var parts := url.trim_prefix("https://").trim_prefix("http://").split("/")
+	var origin := parts[0] if not parts.is_empty() else ""
+	if origin in ["raw.githubusercontent.com", "github.com"] and parts.size() >= 3:
+		origin = "github.com/" + parts[1] + "/" + parts[2]
+	var title := str(entry.get("source_title", ""))
+	return title + " · " + origin if not title.is_empty() else origin
