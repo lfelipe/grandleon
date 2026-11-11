@@ -251,6 +251,12 @@ public:
     [[nodiscard]] ::godot::Dictionary package_presentation(
         const ::godot::PackedByteArray& package_bytes
     ) const;
+    [[nodiscard]] ::godot::String player_version() const;
+    // Inspects downloadable data without starting a worker or opening saves.
+    [[nodiscard]] ::godot::Dictionary inspect_campaign(
+        const ::godot::PackedByteArray& package_bytes,
+        const ::godot::String& campaign_key
+    ) const;
     [[nodiscard]] bool set_language(const ::godot::String& language);
     [[nodiscard]] ::godot::String language() const;
     [[nodiscard]] ::godot::Dictionary localized_state() const;

@@ -2,7 +2,9 @@
 #include <grandleon/godot/grandleon_session.hpp>
 
 #include <grandleon/client/session.hpp>
+#include <grandleon/campaign_runtime/campaign_runtime.hpp>
 #include <grandleon/core/content_identity.hpp>
+#include <grandleon/game_content/compiler.hpp>
 #include <grandleon/package_runtime/encounter_loader.hpp>
 #include <grandleon/package_runtime/localization.hpp>
 #include <grandleon/package_runtime/names.hpp>
@@ -853,6 +855,13 @@ void GrandleonSession::_bind_methods() {
         &GrandleonSession::package_presentation
     );
     gd::ClassDB::bind_method(
+        gd::D_METHOD("player_version"), &GrandleonSession::player_version
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD("inspect_campaign", "package_bytes", "campaign_key"),
+        &GrandleonSession::inspect_campaign
+    );
+    gd::ClassDB::bind_method(
         gd::D_METHOD("set_language", "language"),
         &GrandleonSession::set_language
     );
@@ -1035,6 +1044,115 @@ gd::Dictionary GrandleonSession::package_presentation(
     }
     result["ok"] = true;
     result["battle_closeups"] = presentation.presentation.battle_closeups;
+    return result;
+}
+
+gd::String GrandleonSession::player_version() const {
+    return text(GRANDLEON_PLAYER_VERSION);
+}
+
+gd::Dictionary GrandleonSession::inspect_campaign(
+    const gd::PackedByteArray& package_bytes,
+    const gd::String& campaign_key
+) const {
+    gd::Dictionary result;
+    result["ok"] = false;
+    result["playerVersion"] = player_version();
+    auto fail = [&result](std::string_view code, std::string_view detail) {
+        result["error"] = text(code);
+        result["detail"] = text(detail);
+        return result;
+    };
+    constexpr std::int64_t maximum_package_bytes = 16 * 1024 * 1024;
+    if (package_bytes.is_empty() || package_bytes.size() > maximum_package_bytes) {
+        return fail("package_invalid", "package size outside download limit");
+    }
+    const std::string key = narrow(campaign_key);
+    if (key.empty() || key.size() > 128U) {
+        return fail("campaign_missing", "campaign key is required");
+    }
+    const auto size = static_cast<std::size_t>(package_bytes.size());
+    const std::vector<std::uint8_t> bytes(package_bytes.ptr(), package_bytes.ptr() + size);
+    auto loaded = pf::load_mock_package(
+        bytes, {{0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 10'000}
+    );
+    if (!loaded) return fail("package_invalid", pf::error_name(loaded.error));
+    auto presentation = pr::load_presentation(loaded.package);
+    if (!presentation) {
+        return fail("presentation_invalid", pr::error_name(presentation.error));
+    }
+    // A data-only campaign must name art this player's built-in pack knows.
+    // The format's legacy unresolved values remain valid; out-of-range new
+    // selections must not be clamped into an unrelated picture by the UI.
+    const pr::Presentation& art = presentation.presentation;
+    const bool unknown_art = art.theme >= game_content::theme_count ||
+        std::any_of(art.factions.begin(), art.factions.end(), [](const auto& row) {
+            return row.colour >= game_content::faction_colour_count;
+        }) ||
+        std::any_of(art.unit_types.begin(), art.unit_types.end(), [](const auto& row) {
+            return row.colour != pr::colour_unresolved &&
+                   row.colour >= game_content::faction_colour_count;
+        }) ||
+        std::any_of(art.terrain.begin(), art.terrain.end(), [](const auto& row) {
+            return row.kind != pr::terrain_kind_unresolved &&
+                   row.kind > game_content::terrain_kind_unknown;
+        }) ||
+        std::any_of(art.archetypes.begin(), art.archetypes.end(), [](const auto& row) {
+            return row.archetype != pr::archetype_unresolved &&
+                   row.archetype >= game_content::archetype_count;
+        }) ||
+        std::any_of(art.character_styles.begin(), art.character_styles.end(), [](const auto& row) {
+            return row.style != pr::character_style_unresolved &&
+                   row.style >= game_content::character_style_count;
+        }) ||
+        std::any_of(art.character_figures.begin(), art.character_figures.end(), [](const auto& row) {
+            return row.figure != pr::character_figure_unresolved &&
+                   row.figure >= game_content::character_figure_count;
+        });
+    if (unknown_art) return fail("assets_unsupported", "built-in art selection is unavailable");
+    const std::uint64_t campaign_id = core::stable_content_id_v1(key);
+    const auto authored = pr::load_campaign(loaded.package, campaign_id);
+    if (!authored) {
+        return fail(authored.error == pr::CampaignError::missing_record
+                        ? "campaign_missing" : "campaign_invalid",
+                    pr::error_name(authored.error));
+    }
+    const auto graph = campaign_runtime::build_campaign_graph(
+        loaded.package.game_id, campaign_id, authored.definition
+    );
+    if (!graph) {
+        return fail("campaign_invalid", campaign_runtime::graph_source_error_name(graph.error));
+    }
+    for (const pr::CampaignNode& node : authored.definition.nodes) {
+        for (const std::uint64_t dialogue_id : node.dialogue_ids) {
+            const auto dialogue = pr::load_dialogue(loaded.package, dialogue_id);
+            if (!dialogue) return fail("campaign_invalid", pr::error_name(dialogue.error));
+            if (dialogue.dialogue.backdrop > game_content::backdrop_count) {
+                return fail("assets_unsupported", "built-in dialogue backdrop is unavailable");
+            }
+        }
+        if (node.kind != pr::CampaignNodeKind::encounter) continue;
+        const std::uint8_t first_players = authored.definition.player_mode == pr::LocalPlayerMode::two ? 2 : 1;
+        const std::uint8_t last_players = authored.definition.player_mode == pr::LocalPlayerMode::one ? 1 : 2;
+        for (std::uint8_t players = first_players; players <= last_players; ++players) {
+            const auto encounter = pr::load_encounter(loaded.package, node.encounter_id, {players});
+            if (!encounter) return fail("encounter_invalid", pr::error_name(encounter.error));
+            const auto created = sim::create_encounter(encounter.definition);
+            if (!created) return fail("encounter_invalid", "encounter rules refused the authored definition");
+        }
+    }
+    gd::Array languages;
+    for (const std::string_view language : pr::available_languages(loaded.package)) {
+        languages.push_back(text(language));
+    }
+    result["ok"] = true;
+    result["error"] = "";
+    result["gameId"] = text(hexadecimal(loaded.package.game_id.data(), loaded.package.game_id.size()));
+    result["contentRevision"] = loaded.package.content_revision;
+    result["campaign"] = campaign_key;
+    result["playerMode"] = text(pr::local_player_mode_name(authored.definition.player_mode));
+    result["languages"] = languages;
+    result["title"] = text(pr::content_name(loaded.package, pf::SectionType::manifest, pf::manifest_title_record_id));
     return result;
 }
 

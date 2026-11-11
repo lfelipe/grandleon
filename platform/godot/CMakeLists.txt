@@ -67,6 +67,17 @@ target_include_directories(
 )
 target_compile_features(grandleon_godot PRIVATE cxx_std_17)
 target_compile_options(grandleon_godot PRIVATE ${GRANDLEON_WARNING_FLAGS})
+# The application release and the portable rules/package contract have
+# independent versions. Catalogues compare against the former.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/RELEASE_VERSION")
+file(READ "${CMAKE_SOURCE_DIR}/RELEASE_VERSION" GRANDLEON_PLAYER_VERSION)
+string(STRIP "${GRANDLEON_PLAYER_VERSION}" GRANDLEON_PLAYER_VERSION)
+if(NOT GRANDLEON_PLAYER_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
+    message(FATAL_ERROR "RELEASE_VERSION must contain a semantic release version")
+endif()
+target_compile_definitions(grandleon_godot PRIVATE
+    GRANDLEON_PLAYER_VERSION="${GRANDLEON_PLAYER_VERSION}")
 
 # Assertion strings and source locations in godot-cpp otherwise preserve the
 # absolute checkout path in the shared object.  A portable PC bundle must
