@@ -26,11 +26,19 @@ func _run() -> void:
 		quit(1)
 		return
 	var exporter = StandaloneExporter.new(library, shell, exports)
-	_expect("clean installed player shell is available", exporter.linux_availability().ok, true)
+	_expect("clean installed player shell is available", exporter.availability().ok, true)
+	if OS.has_feature("windows"):
+		_expect("legacy Linux availability stays guarded on Windows", str(exporter.linux_availability().code), "host_not_linux")
+		_expect("legacy Linux export stays guarded on Windows", str(exporter.export_linux_player(str(created.id)).code), "host_not_linux")
+	else:
+		_expect("legacy Linux availability remains supported", exporter.linux_availability().ok, true)
 	var unsafe_exporter = StandaloneExporter.new(library, shell, shell.path_join("exports"))
-	var unsafe: Dictionary = unsafe_exporter.linux_availability()
+	var unsafe: Dictionary = unsafe_exporter.availability()
 	_expect("an export directory inside the player shell is refused", unsafe.ok, false)
 	_expect("unsafe export directory refusal is specific", str(unsafe.code), "export_directory_unsafe")
+	if OS.has_feature("windows"):
+		var mixed_case = StandaloneExporter.new(library, shell, shell.to_upper().path_join("exports"))
+		_expect("Windows case differences cannot bypass shell containment", str(mixed_case.availability().code), "export_directory_unsafe")
 
 	var policy_project: Dictionary = JSON.parse_string(str(created.source))
 	var policy_campaign: Dictionary = policy_project.campaigns[0]
@@ -58,15 +66,15 @@ func _run() -> void:
 		incomplete_saved.ok,
 		true
 	)
-	var blocked: Dictionary = exporter.export_linux_player(str(created.id))
-	_expect("Linux export refuses a battle without Player 2", blocked.ok, false)
+	var blocked: Dictionary = exporter.export_player(str(created.id))
+	_expect("PC export refuses a battle without Player 2", blocked.ok, false)
 	_expect(
-		"Linux export returns the player ownership reason",
+		"PC export returns the player ownership reason",
 		str(blocked.get("code", "")),
 		"player_two_ownership_missing"
 	)
 	_expect(
-		"Linux export tells the author which battle to fix",
+		"PC export tells the author which battle to fix",
 		str(blocked.get("message", "")).contains("Hold the Crossing"),
 		true
 	)
@@ -75,12 +83,12 @@ func _run() -> void:
 		library.save_source(str(created.id), str(created.source)).ok,
 		true
 	)
-	var built: Dictionary = exporter.export_linux_player(str(created.id))
-	_expect("player-only Linux game is exported", built.ok, true)
+	var built: Dictionary = exporter.export_player(str(created.id))
+	_expect("player-only host-native game is exported", built.ok, true)
 	if built.ok:
 		var output := str(built.path)
 		_expect("export has a player-only marker", FileAccess.file_exists(output.path_join("PLAYER-ONLY")), true)
-		_expect("export preserves the tested launcher", FileAccess.file_exists(output.path_join("launch-pc.sh")), true)
+		_expect("export preserves the tested launcher", FileAccess.file_exists(output.path_join(_launcher_name())), true)
 		_expect("export preserves runtime licenses", FileAccess.file_exists(output.path_join("licenses/NOTICE.txt")), true)
 		_expect("export removes runtime saves", DirAccess.dir_exists_absolute(output.path_join("runtime")), false)
 		_expect("export removes local controls", FileAccess.file_exists(output.path_join("controls.local.json")), false)
@@ -111,7 +119,7 @@ func _run() -> void:
 		_expect("export report names the package hash", info.contains("packageSha256=%s" % str(built.package_sha256)), true)
 		_expect("export report contains no source shell path", info.contains(shell), false)
 		_expect("export result does not expose creator", bool(built.creator_included), false)
-	var second: Dictionary = exporter.export_linux_player(str(created.id))
+	var second: Dictionary = exporter.export_player(str(created.id))
 	_expect("a second export receives a new directory", second.ok and str(second.name) != str(built.name), true)
 
 	var multi_project: Dictionary = JSON.parse_string(str(created.source))
@@ -125,10 +133,10 @@ func _run() -> void:
 		library.save_source(str(created.id), multi_source).ok,
 		true
 	)
-	var ambiguous: Dictionary = exporter.export_linux_player(str(created.id))
+	var ambiguous: Dictionary = exporter.export_player(str(created.id))
 	_expect("multiple campaigns never silently export the first", ambiguous.ok, false)
 	_expect("ambiguous export requests a campaign choice", str(ambiguous.code), "campaign_selection_required")
-	var selected: Dictionary = exporter.export_linux_player(str(created.id), "alternate_adventure")
+	var selected: Dictionary = exporter.export_player(str(created.id), "alternate_adventure")
 	_expect("explicit alternate campaign exports", selected.ok, true)
 	if selected.ok:
 		_expect(
@@ -136,27 +144,27 @@ func _run() -> void:
 			FileAccess.get_file_as_string(str(selected.path).path_join("DEFAULT-CAMPAIGN")).strip_edges(),
 			"alternate_adventure"
 		)
-	var missing: Dictionary = exporter.export_linux_player(str(created.id), "removed_campaign")
+	var missing: Dictionary = exporter.export_player(str(created.id), "removed_campaign")
 	_expect("stale campaign selection is refused", str(missing.code), "campaign_not_found")
 	_expect("single-campaign source restores after selection checks", library.save_source(str(created.id), str(created.source)).ok, true)
 
 	_write(shell.path_join("BUILD-INFO.txt"), "sourceTree=dirty\n")
-	var refused: Dictionary = exporter.linux_availability()
+	var refused: Dictionary = exporter.availability()
 	_expect("an unclean player shell is refused", refused.ok, false)
 	_expect("unclean shell refusal is specific", str(refused.code), "player_shell_unverified")
 	var real_shell := _argument("--real-shell=")
 	if not real_shell.is_empty():
 		var real_exporter = StandaloneExporter.new(
-			library, real_shell, "user://real-shell-exports"
+			library, real_shell, _argument("--real-export-root=") if not _argument("--real-export-root=").is_empty() else "user://real-shell-exports"
 		)
-		_expect("packaged release shell is exportable", real_exporter.linux_availability().ok, true)
-		var real_build: Dictionary = real_exporter.export_linux_player(str(created.id))
+		_expect("packaged release shell is exportable", real_exporter.availability().ok, true)
+		var real_build: Dictionary = real_exporter.export_player(str(created.id))
 		_expect("packaged release shell produces a standalone game", real_build.ok, true)
 		if real_build.ok:
 			var real_path := str(real_build.path)
 			_expect(
 				"real standalone keeps the runtime binary",
-				FileAccess.file_exists(real_path.path_join("godot")),
+				FileAccess.file_exists(real_path.path_join(_runtime_name())),
 				true
 			)
 			_expect(
@@ -172,6 +180,11 @@ func _run() -> void:
 				real_info.contains("packageSha256=%s" % str(real_build.package_sha256)),
 				true
 			)
+			_expect("real standalone preserves host launcher", FileAccess.file_exists(real_path.path_join(_launcher_name())), true)
+			_expect("real standalone preserves host extension", FileAccess.file_exists(real_path.path_join(_extension_name())), true)
+			var result_path := _argument("--result-file=")
+			if not result_path.is_empty():
+				_write(result_path, JSON.stringify(real_build, "\t") + "\n")
 
 	if failures == 0:
 		print("standalone exporter smoke passed")
@@ -185,14 +198,29 @@ func _argument(prefix: String) -> String:
 	return ""
 
 
+func _runtime_name() -> String:
+	return "Godot_v4.7.2-stable_win64.exe" if OS.has_feature("windows") else "godot"
+
+
+func _launcher_name() -> String:
+	return "launch-pc.cmd" if OS.has_feature("windows") else "launch-pc.sh"
+
+
+func _extension_name() -> String:
+	return "project/bin/grandleon_godot.dll" if OS.has_feature("windows") else "project/bin/libgrandleon_godot.so"
+
+
 func _make_fake_shell(root_path: String) -> void:
-	_write(root_path.path_join("BUILD-INFO.txt"), "Grandleon Linux PC bundle\nreleaseVersion=0.3.0\nsourceRevision=test\nsourceTree=clean\ndefaultCampaign=old\ncreatorIncluded=yes\n")
-	_write(root_path.path_join("godot"), "fake runtime\n")
-	_write(root_path.path_join("launch-pc.sh"), "#!/usr/bin/env bash\n")
-	_write(root_path.path_join("control-pc.sh"), "#!/usr/bin/env bash\n")
+	_write(root_path.path_join("BUILD-INFO.txt"), "Grandleon PC shell fixture\nreleaseVersion=0.3.0\nsourceRevision=test\nsourceTree=clean\ndefaultCampaign=old\ncreatorIncluded=yes\n")
+	_write(root_path.path_join(_runtime_name()), "structural runtime fixture\n")
+	_write(root_path.path_join(_launcher_name()), "@echo off\r\n" if OS.has_feature("windows") else "#!/usr/bin/env bash\n")
+	if OS.has_feature("windows"):
+		_write(root_path.path_join("Godot_v4.7.2-stable_win64_console.exe"), "structural console fixture\n")
+	else:
+		_write(root_path.path_join("control-pc.sh"), "#!/usr/bin/env bash\n")
 	_write(root_path.path_join("licenses/NOTICE.txt"), "test license\n")
 	_write(root_path.path_join("project/project.godot"), "[application]\n")
-	_write(root_path.path_join("project/bin/libgrandleon_godot.so"), "fake extension\n")
+	_write(root_path.path_join(_extension_name()), "fake extension\n")
 	_write(root_path.path_join("project/game.gpk"), "old package\n")
 	_write(root_path.path_join("project/creator.tscn"), "creator\n")
 	_write(root_path.path_join("project/game_settings.tscn"), "settings\n")
