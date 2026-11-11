@@ -77,9 +77,10 @@ constexpr std::size_t kTerrainFormVertexCount = 8U;
 constexpr std::size_t kMaxTerrainForms = 144U;
 constexpr std::size_t kUnitVertexCount = 4U;
 constexpr std::size_t kMaxUnits = 48U;
-constexpr std::size_t kCursorVerticesPerPlayer = 16U;
+constexpr std::size_t kCursorVerticesPerPlayer = 32U;
+constexpr std::size_t kReachVerticesPerCell = 20U;
 constexpr std::size_t kCursorVertexCount =
-    kMaxCells * 4U + kCursorVerticesPerPlayer * 2U;
+    kMaxCells * kReachVerticesPerCell + kCursorVerticesPerPlayer * 2U;
 constexpr std::size_t kMaxLandmarkVertices = 512U;
 
 enum class VisualPose : std::uint8_t {
@@ -407,6 +408,18 @@ std::string_view game_language() {
     return selected_language;
 }
 
+constexpr color_t kUiIvory{241, 234, 216, 255};
+constexpr color_t kUiGold{201, 170, 103, 255};
+constexpr color_t kUiFrame{126, 111, 78, 255};
+constexpr color_t kUiSurface{13, 25, 37, 248};
+constexpr color_t kUiInset{24, 40, 55, 255};
+constexpr color_t kUiFocus{38, 61, 77, 255};
+
+color_t player_accent(std::uint8_t player) {
+    return player == 0U ? color_t{104, 207, 231, 255}
+                        : color_t{235, 147, 184, 255};
+}
+
 std::string console_latin1(std::string_view utf8) {
     const std::string terminated(utf8);
     const char* cursor = terminated.c_str();
@@ -425,14 +438,14 @@ std::size_t console_prefix_bytes(std::string_view utf8, std::size_t cells) {
     return static_cast<std::size_t>(cursor - terminated.c_str());
 }
 
-void display_glyphs(int x, int y, std::string_view latin1) {
+void display_glyphs(int x, int y, std::string_view latin1, color_t ink = kUiIvory, int scale = 1) {
     namespace font = gp::console_font;
     rdpq_mode_begin();
         rdpq_set_mode_standard();
         rdpq_mode_combiner(RDPQ_COMBINER1((PRIM, ENV, TEX0, ENV), (0, 0, 0, TEX0)));
         rdpq_mode_alphacompare(128);
     rdpq_mode_end();
-    P64::Debug::setColor();
+    P64::Debug::setColor(ink);
     P64::Debug::setBgColor();
     unsigned loaded_bank = 255U;
     for (const unsigned char encoded : latin1) {
@@ -447,10 +460,10 @@ void display_glyphs(int x, int y, std::string_view latin1) {
                 loaded_bank = bank;
             }
             const int texture_x = static_cast<int>(slot % 16U) * 8;
-            rdpq_texture_rectangle_raw(TILE0, x, y, x + 8, y + font::height,
-                texture_x, 0, 1, 1);
+            rdpq_texture_rectangle_raw(TILE0, x, y, x + 8 * scale, y + font::height * scale,
+                texture_x, 0, 1.0F / static_cast<float>(scale), 1.0F / static_cast<float>(scale));
         }
-        x += font::advance;
+        x += font::advance * scale;
     }
 }
 
@@ -472,6 +485,79 @@ void display_printf(int x, int y, const char* format, ...) {
 const char* ui(console::Message message) {
     return console::text(game_language(), message);
 }
+
+void ui_flat() {
+    rdpq_mode_begin();
+        rdpq_mode_zbuf(false, false);
+        rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
+        rdpq_mode_blender(RDPQ_BLENDER_MULTIPLY);
+        rdpq_mode_alphacompare(0);
+        rdpq_mode_fog(0);
+    rdpq_mode_end();
+}
+
+void ui_rectangle(int x, int y, int width, int height, color_t colour) {
+    if (width <= 0 || height <= 0) return;
+    rdpq_set_prim_color(colour);
+    rdpq_fill_rectangle(x, y, x + width, y + height);
+}
+
+void ui_panel(int x, int y, int width, int height, int header = 0) {
+    rdpq_mode_push();
+    ui_flat();
+    ui_rectangle(x + 2, y + 3, width, height, {3, 8, 14, 170});
+    ui_rectangle(x, y, width, height, kUiFrame);
+    ui_rectangle(x + 1, y + 1, width - 2, height - 2, kUiSurface);
+    ui_rectangle(x + 2, y + 2, width - 4, 1, {65, 79, 88, 255});
+    if (header > 0) {
+        ui_rectangle(x + 3, y + 3, width - 6, header - 3, kUiInset);
+        ui_rectangle(x + 8, y + header, width - 16, 1, kUiFrame);
+    }
+    for (int side = 0; side < 2; ++side) {
+        const int edge = side == 0 ? x + 3 : x + width - 10;
+        ui_rectangle(edge, y + 3, 7, 1, kUiGold);
+        ui_rectangle(side == 0 ? edge : edge + 6, y + 3, 1, 7, kUiGold);
+        ui_rectangle(edge, y + height - 4, 7, 1, kUiGold);
+    }
+    rdpq_mode_pop();
+}
+
+void ui_focus(int x, int y, int width, int height, bool selected, color_t accent = kUiGold) {
+    if (!selected) return;
+    rdpq_mode_push();
+    ui_flat();
+    ui_rectangle(x, y, width, height, kUiFocus);
+    ui_rectangle(x, y + 1, 2, height - 2, accent);
+    const int middle = y + height / 2;
+    ui_rectangle(x + 6, middle - 3, 2, 6, accent);
+    ui_rectangle(x + 8, middle - 2, 2, 4, accent);
+    ui_rectangle(x + 10, middle - 1, 2, 2, accent);
+    rdpq_mode_pop();
+}
+
+void ui_button_hint(int x, int y, const char* button, const char* label, color_t accent = kUiGold) {
+    const int width = static_cast<int>(std::char_traits<char>::length(button)) * 6 + 8;
+    rdpq_mode_push();
+    ui_flat();
+    ui_rectangle(x, y, width, 14, accent);
+    ui_rectangle(x + 1, y + 1, width - 2, 12, kUiInset);
+    rdpq_mode_pop();
+    display_glyphs(x + 4, y + 1, button, kUiIvory);
+    if (*label != '\0') display_glyphs(x + width + 5, y + 1, console_latin1(label), kUiIvory);
+}
+
+void ui_health_meter(int x, int y, int width, int health, int maximum, int after) {
+    const int before_width = width * std::clamp(health, 0, maximum) / std::max(1, maximum);
+    const int after_width = width * std::clamp(after, 0, maximum) / std::max(1, maximum);
+    rdpq_mode_push();
+    ui_flat();
+    ui_rectangle(x - 1, y - 1, width + 2, 6, {81, 94, 100, 255});
+    ui_rectangle(x, y, width, 4, {29, 45, 52, 255});
+    ui_rectangle(x, y, before_width, 4, {182, 105, 78, 255});
+    ui_rectangle(x, y, after_width, 4, {130, 186, 133, 255});
+    rdpq_mode_pop();
+}
+
 
 std::vector<std::string_view> game_languages() {
     return pr::available_languages(board.runtime.package());
@@ -1687,64 +1773,57 @@ void build_cursor_vertices() {
     const auto width = board.content->definition.width;
     const auto height = board.content->definition.height;
     constexpr std::int16_t outer = kHalfCell - 2;
-    constexpr std::int16_t inner = kHalfCell - 6;
-    const sim::EncounterSnapshot& snapshot = board.game.snapshot();
+    constexpr std::int16_t inner = kHalfCell - 5;
     std::size_t first = 0U;
-    const sim::UnitId selected = board.game.selected(board.game.active_player());
-    const std::vector<sim::Position> reach = !snapshot.deploying && selected != 0U
-        ? sim::reachable_tiles(snapshot, selected) : std::vector<sim::Position>{};
-    if (snapshot.deploying || !reach.empty()) {
-        for (const sim::Position tile : snapshot.deploying ? snapshot.deployment_tiles : reach) {
-            const std::size_t terrain_index =
-                static_cast<std::size_t>(tile.y) * width +
-                static_cast<std::size_t>(tile.x);
-            const std::int16_t floor = static_cast<std::int16_t>(
-                (terrain_index < board.content->terrain.size()
-                     ? terrain_lift(board.content->terrain[terrain_index]) : 0) +
-                2
-            );
-            const std::int16_t cx = world_x(tile.x, width);
-            const std::int16_t cz = world_z(tile.y, height);
-            cursor_quad(
-                first, cx - 10, cz - 10, cx + 10, cz + 10, floor,
-                pack_rgba(72U, 185U, 235U)
-            );
+    const auto ring = [&](sim::Position tile, std::uint32_t colour, bool fill) {
+        const std::size_t cell = static_cast<std::size_t>(tile.y) * width + static_cast<std::size_t>(tile.x);
+        const std::int16_t floor = static_cast<std::int16_t>(
+            (cell < board.content->terrain.size() ? terrain_lift(board.content->terrain[cell]) : 0) + 3);
+        const std::int16_t cx = world_x(tile.x, width);
+        const std::int16_t cz = world_z(tile.y, height);
+        assert(first + (fill ? kReachVerticesPerCell : 16U) <= kCursorVertexCount);
+        if (fill) {
+            cursor_quad(first, cx - outer, cz - outer, cx + outer, cz + outer, floor,
+                (colour & 0xffffff00U) | 38U);
             first += 4U;
         }
+        cursor_quad(first, cx - outer, cz - outer, cx + outer, cz - inner, floor, colour);
+        cursor_quad(first + 4U, cx - outer, cz + inner, cx + outer, cz + outer, floor, colour);
+        cursor_quad(first + 8U, cx - outer, cz - inner, cx - inner, cz + inner, floor, colour);
+        cursor_quad(first + 12U, cx + inner, cz - inner, cx + outer, cz + inner, floor, colour);
+        first += 16U;
+    };
+    const sim::EncounterSnapshot& snapshot = board.game.snapshot();
+    const std::uint8_t active = board.game.active_player();
+    const sim::UnitId selected = board.game.selected(active);
+    const std::vector<sim::Position> reach = !snapshot.deploying && selected != 0U
+        ? sim::reachable_tiles(snapshot, selected) : std::vector<sim::Position>{};
+    const std::uint32_t reach_colour = active == 0U
+        ? pack_rgba(104U, 207U, 231U, 175U) : pack_rgba(235U, 147U, 184U, 175U);
+    for (const sim::Position tile : snapshot.deploying ? snapshot.deployment_tiles : reach) {
+        ring(tile, reach_colour, true);
     }
-    const std::size_t cursor_first = first;
-    board.cursor_vertex_count = cursor_first +
-        static_cast<std::size_t>(board.game.local_players()) *
-        kCursorVerticesPerPlayer;
     for (std::uint8_t player = 0U; player < board.game.local_players(); ++player) {
         const sim::Position cursor = board.game.cursor(player);
-        const std::size_t terrain_index =
-            static_cast<std::size_t>(cursor.y) * width +
-            static_cast<std::size_t>(cursor.x);
-        const std::int16_t floor = static_cast<std::int16_t>(
-            (terrain_index < board.content->terrain.size()
-                 ? terrain_lift(board.content->terrain[terrain_index]) : 0) +
-            3 + player
-        );
-        const std::int16_t cx = world_x(cursor.x, width);
-        const std::int16_t cz = world_z(cursor.y, height);
-        const std::size_t player_first = cursor_first +
-            static_cast<std::size_t>(player) * kCursorVerticesPerPlayer;
-        const bool selected = board.game.selected(player) != 0U;
-        const std::uint32_t colour = player == 0U
-            ? (selected ? pack_rgba(107U, 221U, 255U)
-                        : pack_rgba(246U, 190U, 58U))
-            : (selected ? pack_rgba(255U, 139U, 194U)
-                        : pack_rgba(190U, 116U, 255U));
-        cursor_quad(player_first + 0U, cx - outer, cz - outer,
-            cx + outer, cz - inner, floor, colour);
-        cursor_quad(player_first + 4U, cx - outer, cz + inner,
-            cx + outer, cz + outer, floor, colour);
-        cursor_quad(player_first + 8U, cx - outer, cz - inner,
-            cx - inner, cz + inner, floor, colour);
-        cursor_quad(player_first + 12U, cx + inner, cz - inner,
-            cx + outer, cz + inner, floor, colour);
+        const bool targeting = battle_ui.player == player && (
+            battle_ui.phase == BattleUiPhase::attack_target ||
+            battle_ui.phase == BattleUiPhase::ability_target ||
+            battle_ui.phase == BattleUiPhase::talk_target);
+        const bool selected_unit = board.game.selected(player) != 0U;
+        const std::uint32_t accent = player == 0U
+            ? pack_rgba(104U, 207U, 231U) : pack_rgba(235U, 147U, 184U);
+        ring(cursor, targeting ? pack_rgba(243U, 139U, 102U) :
+            (selected_unit ? accent : pack_rgba(230U, 196U, 118U)), false);
+        const sim::UnitId actor_id = selected_unit ? board.game.selected(player)
+            : (battle_ui.player == player ? battle_ui.actor : 0U);
+        for (const sim::UnitSnapshot& unit : snapshot.units) {
+            if (unit.id == actor_id && sim::on_board(unit) && unit.position != cursor) {
+                ring(unit.position, accent, false);
+                break;
+            }
+        }
     }
+    board.cursor_vertex_count = first;
 }
 
 void load_runtime_board() {
@@ -1786,7 +1865,9 @@ void load_runtime_board() {
         board.visibility && board.units && board.cursor);
     board.terrain = sprite_load("rom:/material_atlas.sprite");
     board.surface_detail = sprite_load("rom:/surface_detail.sprite");
-    board.combat_backdrop = sprite_load("rom:/combat_backdrop.sprite");
+    // The title and first combat share the first authored plate. Keep just
+    // one plate resident; entering another stage replaces it below.
+    board.combat_backdrop = sprite_load(grandleon_project_backdrop_paths.front());
     board.combat_shadow = sprite_load("rom:/soft_shadow.sprite");
     char path[64]{};
     for (std::size_t index = 0; index < board.art.size(); ++index) {
@@ -2850,9 +2931,9 @@ void draw_units() {
 
 void draw_cursor() {
     rdpq_mode_begin();
-        rdpq_mode_zbuf(true, true);
+        rdpq_mode_zbuf(true, false);
         rdpq_mode_combiner(RDPQ_COMBINER_SHADE);
-        rdpq_mode_blender(0);
+        rdpq_mode_blender(RDPQ_BLENDER_MULTIPLY);
         rdpq_mode_fog(0);
     rdpq_mode_end();
     t3d_state_set_drawflags(
@@ -4601,10 +4682,7 @@ void draw_battle_ui() {
     rdpq_mode_end();
     if (battle_ui.phase == BattleUiPhase::system ||
         battle_ui.phase == BattleUiPhase::help) {
-        rdpq_set_prim_color({45, 73, 92, 245});
-        rdpq_fill_rectangle(45, 32, 275, 226);
-        rdpq_set_prim_color({12, 22, 33, 248});
-        rdpq_fill_rectangle(49, 36, 271, 222);
+        ui_panel(45, 32, 230, 194, 25);
         P64::Debug::printStart();
         if (battle_ui.phase == BattleUiPhase::help) {
             display_printf(132, 48, "%s", ui(console::Message::help));
@@ -4624,32 +4702,35 @@ void draw_battle_ui() {
             const auto y = [](unsigned row) {
                 return 62 + static_cast<int>(row) * 18;
             };
-            display_printf(94, 44, "%s P%u",
+            for (unsigned row = 0U; row < (languages ? 7U : 6U); ++row) {
+                ui_focus(56, y(row) - 2, 208, 18, battle_ui.row == row, player_accent(battle_ui.player));
+            }
+            display_printf(94, 42, "%s P%u",
                 ui(console::Message::settings),
                 static_cast<unsigned>(battle_ui.player + 1U));
             display_printf(69, y(0), "%s %s",
-                battle_ui.row == 0U ? ">" : " ",
+                " ",
                 ui(console::Message::resume));
             display_printf(69, y(1), "%s %s: %s",
-                battle_ui.row == 1U ? ">" : " ",
+                " ",
                 ui(console::Message::close_view),
                 ui(combat.enabled ? console::Message::on : console::Message::off));
             display_printf(69, y(2), "%s %s: %u%%",
-                battle_ui.row == 2U ? ">" : " ",
+                " ",
                 ui(console::Message::music_volume), music_volume);
             display_printf(69, y(3), "%s %s",
-                battle_ui.row == 3U ? ">" : " ",
+                " ",
                 ui(debug_hud ? console::Message::show_fps_on
                              : console::Message::show_fps_off));
             if (languages) {
                 display_printf(69, y(4), "%s %s: %s",
-                    battle_ui.row == 4U ? ">" : " ",
+                    " ",
                     ui(console::Message::language),
                     console::language_code(game_language()));
             }
             const unsigned effects_row = languages ? 5U : 4U;
             display_printf(69, y(effects_row), "%s %s: %u%%",
-                battle_ui.row == effects_row ? ">" : " ",
+                " ",
                 ui(console::Message::effects_volume), effects_volume);
             rdpq_mode_push();
             rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
@@ -4664,16 +4745,21 @@ void draw_battle_ui() {
             P64::Debug::printStart();
             const unsigned help_row = languages ? 6U : 5U;
             display_printf(69, y(help_row), "%s %s",
-                battle_ui.row == help_row ? ">" : " ",
+                " ",
                 ui(console::Message::help));
-            display_printf(76, 210, "A %s   B %s",
-                ui(console::Message::confirm), ui(console::Message::resume));
+            ui_button_hint(63, 207, "A", ui(console::Message::confirm));
+            ui_button_hint(172, 207, "B", ui(console::Message::resume));
         }
         rdpq_mode_pop();
         return;
     }
     struct PanelCorner { int x; int y; };
-    constexpr std::array<PanelCorner, 4> corners{{{5, 12}, {176, 12}, {5, 130}, {176, 130}}};
+    constexpr int menu_width = 127;
+    const int menu_height = battle_ui.phase == BattleUiPhase::action
+        ? 35 + static_cast<int>(std::min<std::size_t>(4U, action_rows())) * 17 : 104;
+    const std::array<PanelCorner, 4> corners{{
+        {5, 12}, {315 - menu_width, 12},
+        {5, 235 - menu_height}, {315 - menu_width, 235 - menu_height}}};
     unsigned best_score = ~0U;
     PanelCorner panel = corners[0];
     const auto projected = [](sim::Position tile) {
@@ -4691,9 +4777,9 @@ void draw_battle_ui() {
     };
     for (const PanelCorner corner : corners) {
         unsigned score = 0U;
-        const auto overlaps = [corner](PanelCorner point) {
-            return point.x + 16 > corner.x && point.x - 16 < corner.x + 139 &&
-                point.y > corner.y && point.y - 52 < corner.y + 105;
+        const auto overlaps = [corner, menu_height](PanelCorner point) {
+            return point.x + 16 > corner.x && point.x - 16 < corner.x + menu_width &&
+                point.y > corner.y && point.y - 52 < corner.y + menu_height;
         };
         for (const sim::UnitSnapshot& unit : board.game.snapshot().units) {
             if (!sim::on_board(unit)) continue;
@@ -4704,16 +4790,15 @@ void draw_battle_ui() {
     }
     const int menu_x = panel.x;
     const int menu_y = panel.y;
-    rdpq_set_prim_color({45, 73, 92, 242});
-    rdpq_fill_rectangle(menu_x, menu_y, menu_x + 139, menu_y + 105);
-    rdpq_set_prim_color({12, 22, 33, 246});
-    rdpq_fill_rectangle(menu_x + 4, menu_y + 4, menu_x + 135, menu_y + 101);
+    ui_panel(menu_x, menu_y, menu_width, menu_height,
+        battle_ui.phase == BattleUiPhase::action ? 23 : 19);
     P64::Debug::printStart();
     if (battle_ui.phase == BattleUiPhase::action) {
         display_printf(
             menu_x + 14, menu_y + 10, "%s P%u", ui(console::Message::action_heading),
             static_cast<unsigned>(battle_ui.player + 1U)
         );
+        ui_button_hint(menu_x + 105, menu_y + 6, "A", "", player_accent(battle_ui.player));
         const sim::UnitSnapshot* menu_actor = find_unit(battle_ui.actor);
         const std::size_t total = action_rows();
         const std::size_t selected = battle_ui.row;
@@ -4722,7 +4807,8 @@ void draw_battle_ui() {
         const ActionMenu menu = action_menu();
         for (std::size_t row = first; row < last; ++row) {
             const int y = menu_y + 28 + static_cast<int>(row - first) * 17;
-            const char* marker = selected == row ? ">" : " ";
+            ui_focus(menu_x + 6, y - 2, menu_width - 12, 17, selected == row, player_accent(battle_ui.player));
+            const char* marker = " ";
             const ActionChoice choice = menu.choices[row];
             if (choice.kind == ActionChoiceKind::attack) {
                 display_printf(
@@ -4784,27 +4870,29 @@ void draw_battle_ui() {
             ? sim::forecast_attack(board.game.snapshot(), actor->id, target->id)
             : sim::AttackForecast{sim::CommandError::unknown_target};
         display_printf(
-            menu_x + 14, menu_y + 10, "%s", ui(console::Message::attack_target)
+            menu_x + 12, menu_y + 5, "%s", ui(console::Message::attack_target)
         );
         if (forecast) {
-            display_printf(menu_x + 14, menu_y + 21, "HP %d", target->health);
+            display_printf(menu_x + 14, menu_y + 22, "HP %d > %d", target->health, forecast.target_health_after);
+            ui_health_meter(menu_x + 14, menu_y + 37, menu_width - 28,
+                target->health, target->maximum_health, forecast.target_health_after);
             display_printf(
-                menu_x + 14, menu_y + 34, "%d%%  %s %d", forecast.hit_chance,
+                menu_x + 14, menu_y + 44, "%d%%  %s %d", forecast.hit_chance,
                 ui(console::Message::hit),
                 forecast.damage
             );
             if (forecast.counter) {
                 display_printf(
-                    menu_x + 14, menu_y + 52, "%s %d", ui(console::Message::counter),
+                    menu_x + 14, menu_y + 58, "%s %d", ui(console::Message::counter),
                     forecast.counter_damage
                 );
             } else {
                 display_printf(
-                    menu_x + 14, menu_y + 52, "%s", ui(console::Message::no_counter)
+                    menu_x + 14, menu_y + 58, "%s", ui(console::Message::no_counter)
                 );
             }
-            display_printf(menu_x + 14, menu_y + 72, "A %s", ui(console::Message::confirm));
-            display_printf(menu_x + 14, menu_y + 88, "B %s", ui(console::Message::back_button));
+            ui_button_hint(menu_x + 14, menu_y + 72, "A", ui(console::Message::confirm), player_accent(battle_ui.player));
+            ui_button_hint(menu_x + 14, menu_y + 87, "B", ui(console::Message::back_button));
         } else {
             display_printf(
                 menu_x + 14, menu_y + 40, "%s", command_error_label(forecast.error)
@@ -5010,7 +5098,57 @@ void draw_volume_slider(int x, int y, unsigned volume, int width = 180) {
     P64::Debug::printStart();
 }
 
+void draw_title_shell() {
+    rdpq_mode_push();
+    if (board.combat_backdrop != nullptr) {
+        rdpq_mode_begin();
+            rdpq_mode_zbuf(false, false);
+            rdpq_mode_combiner(RDPQ_COMBINER_TEX);
+            rdpq_mode_alphacompare(1);
+            rdpq_mode_blender(0);
+            rdpq_mode_fog(0);
+        rdpq_mode_end();
+        rdpq_blitparms_t params{};
+        params.filtering = true;
+        rdpq_sprite_blit(board.combat_backdrop, 0.0F, 0.0F, &params);
+    }
+    ui_flat();
+    ui_rectangle(0, 0, 320, 240, {6, 16, 27, 95});
+    ui_panel(15, 12, 290, 73);
+    draw_brand_mark(24, 18);
+    const std::string_view title = pr::localized_project_title(
+        board.runtime.package(), game_language(), grandleon_project_title);
+    const std::string name = console_latin1(title);
+    const int scale = name.size() <= 16U ? 2 : 1;
+    display_glyphs(101, scale == 2 ? 24 : 31,
+        name.substr(0U, scale == 2 ? 16U : 31U), kUiIvory, scale);
+    ui_flat();
+    ui_rectangle(101, 53, 187, 1, kUiGold);
+    P64::Debug::printStart();
+    display_printf(101, 62, "%s  %s", ui(console::Message::players),
+        shell.allow_one && shell.allow_two ? "1P / 2P" : (shell.allow_one ? "1P" : "2P"));
+    ui_panel(162, 94, 143, 133);
+    const bool languages = game_languages().size() > 1U;
+    const unsigned settings_row = languages ? 3U : 2U;
+    for (unsigned row = 0; row <= settings_row; ++row) {
+        const int y = 104 + static_cast<int>(row) * 24;
+        ui_focus(169, y, 129, 21, shell.title_row == row);
+        if (row == 2U && languages) {
+            display_printf(190, y + 4, "%s: %s", ui(console::Message::language),
+                console::language_code(game_language()));
+        } else {
+            const console::Message label = row == 0U ? console::Message::begin
+                : (row == 1U ? console::Message::help : console::Message::settings);
+            display_printf(190, y + 4, "%s", ui(label));
+        }
+    }
+    const int hint_width = 19 + static_cast<int>(console_latin1(ui(console::Message::confirm)).size()) * 6;
+    ui_button_hint(162 + (143 - hint_width) / 2, 208, "A", ui(console::Message::confirm));
+    rdpq_mode_pop();
+}
+
 void draw_shell() {
+    if (shell.phase == ShellPhase::title) { draw_title_shell(); return; }
     rdpq_mode_push();
     rdpq_mode_begin();
         rdpq_mode_zbuf(false, false);
@@ -5020,21 +5158,7 @@ void draw_shell() {
     rdpq_mode_end();
     rdpq_set_prim_color({8, 16, 27, 255});
     rdpq_fill_rectangle(0, 0, 320, 240);
-    rdpq_set_prim_color({58, 84, 104, 255});
-    rdpq_fill_rectangle(18, 24, 302, 216);
-    rdpq_set_prim_color({14, 26, 39, 255});
-    rdpq_fill_rectangle(22, 28, 298, 212);
-    rdpq_set_prim_color({184, 145, 66, 255});
-    rdpq_fill_rectangle(42, 56, 278, 59);
-    rdpq_set_prim_color({107, 133, 144, 255});
-    rdpq_fill_rectangle(22, 28, 298, 30);
-    rdpq_fill_rectangle(22, 28, 24, 212);
-    rdpq_set_prim_color({184, 145, 66, 255});
-    for (int x : {28, 282}) {
-        rdpq_fill_rectangle(x, 34, x + 10, 36);
-        rdpq_fill_rectangle(x, 34, x + 2, 44);
-        rdpq_fill_rectangle(x, 202, x + 10, 204);
-    }
+    ui_panel(18, 24, 284, 192, 37);
     P64::Debug::printStart();
     const std::string_view project_title = pr::localized_project_title(
         board.runtime.package(), game_language(), grandleon_project_title
@@ -5046,43 +5170,24 @@ void draw_shell() {
     );
     switch (shell.phase) {
         case ShellPhase::title:
-            draw_brand_mark(127, 61);
-            display_printf(
-                91, 126, "%s %s",
-                shell.title_row == 0U ? ">" : " ",
-                ui(console::Message::begin)
-            );
-            display_printf(
-                91, 146, "%s %s",
-                shell.title_row == 1U ? ">" : " ",
-                ui(console::Message::help)
-            );
-            if (game_languages().size() > 1U) {
-                display_printf(
-                    91, 164, "%s %s: %s",
-                    shell.title_row == 2U ? ">" : " ",
-                    ui(console::Message::language),
-                    console::language_code(game_language())
-                );
-            }
-            display_printf(91, 184, "%s %s",
-                shell.title_row == (game_languages().size() > 1U ? 3U : 2U) ? ">" : " ",
-                ui(console::Message::settings));
             break;
         case ShellPhase::settings:
+            ui_focus(54, 96, 212, 27, shell.audio_row == 0U);
+            ui_focus(54, 126, 212, 27, shell.audio_row == 1U);
+            ui_focus(54, 156, 212, 20, shell.audio_row == 2U);
             display_printf(91, 76, "%s", ui(console::Message::settings));
-            display_printf(65, 100, "%s %s: %u%%", shell.audio_row == 0U ? ">" : " ",
+            display_printf(65, 100, "%s %s: %u%%", " ",
                 ui(console::Message::music_volume), music_volume);
-            display_printf(65, 130, "%s %s: %u%%", shell.audio_row == 1U ? ">" : " ",
+            display_printf(65, 130, "%s %s: %u%%", " ",
                 ui(console::Message::effects_volume), effects_volume);
             draw_volume_slider(65, 116, music_volume);
             draw_volume_slider(65, 146, effects_volume);
             if (game_languages().size() > 1U) {
-                display_printf(65, 160, "%s %s: %s", shell.audio_row == 2U ? ">" : " ",
+                display_printf(65, 160, "%s %s: %s", " ",
                     ui(console::Message::language), console::language_code(game_language()));
             }
             display_printf(43, 180, "%s", ui(console::Message::volume_controls));
-            display_printf(43, 194, "%s", ui(console::Message::back));
+            ui_button_hint(65, 194, "B", ui(console::Message::back_button));
             break;
         case ShellPhase::help:
             display_printf(119, 88, "%s", ui(console::Message::help));
@@ -5093,34 +5198,38 @@ void draw_shell() {
             display_printf(43, 192, "%s", ui(console::Message::back));
             break;
         case ShellPhase::players:
+            ui_focus(60, 124, 200, 21, shell.player_choice == 0U);
+            ui_focus(60, 146, 200, 21, shell.player_choice == 1U);
             display_printf(78, 100, "%s", ui(console::Message::players));
             if (shell.allow_one) {
                 display_printf(
                     91, 128, "%s %s",
-                    shell.player_choice == 0U ? ">" : " ",
+                    " ",
                     ui(console::Message::one_player)
                 );
             }
             if (shell.allow_two) {
                 display_printf(
                     76, 150, "%s %s%s",
-                    shell.player_choice == 1U ? ">" : " ",
+                    " ",
                     ui(console::Message::two_players),
                     shell.second_connected ? "" : " (PAD 2)"
                 );
             }
             break;
         case ShellPhase::save:
+            ui_focus(60, 124, 200, 21, shell.save_choice == 0U);
+            ui_focus(60, 146, 200, 21, shell.save_present && shell.save_choice == 1U);
             display_printf(84, 100, "%s", ui(console::Message::start_campaign));
             display_printf(
                 96, 128, "%s %s",
-                shell.save_choice == 0U ? ">" : " ",
+                " ",
                 ui(console::Message::new_game)
             );
             if (shell.save_present) {
                 display_printf(
                     96, 150, "%s %s",
-                    shell.save_choice == 1U ? ">" : " ",
+                    " ",
                     ui(console::Message::continue_game)
                 );
             } else {

@@ -10,7 +10,8 @@ Set ARES_INPUT_SEQUENCE to comma-separated actions, for example:
     wait:3,press:Return,wait:1,shot:title.png
 
 Supported actions are wait (seconds), press (X11 keysym), keydown, keyup,
-shot (a filename written below ARES_OUT_DIR), film-start (ffmpeg capture while later
+shot (a filename written below ARES_OUT_DIR), view-shot (the actual 768x576
+emulator viewport, without window chrome), film-start (ffmpeg capture while later
 controller actions continue; requires ffmpeg in the capture image), and film (seconds with no input,
 timestamped screen captures below ARES_OUT_DIR/idle-film).
 """
@@ -89,6 +90,13 @@ def main() -> None:
                 path = OUT_DIR / Path(value).name
                 subprocess.run(
                     ["import", "-display", DISPLAY.decode(), "-window", "root", str(path)],
+                    check=True,
+                )
+            elif action == "view-shot":
+                path = OUT_DIR / Path(value).name
+                subprocess.run(
+                    ["import", "-display", DISPLAY.decode(), "-window", "root",
+                     "-crop", "768x576+108+81", "+repage", str(path)],
                     check=True,
                 )
             elif action == "film-start":
