@@ -40,24 +40,30 @@ items below describe the existing foundation; they are not being reopened.
   The development APK includes ARM64 and x86_64 libraries with 16 KiB page
   alignment. The x86_64 compiler runs in an Android emulator and produces the
   same campaign bytes as the PC compiler; ARM64 device testing remains below.
-- [ ] Load bundled campaigns through Godot's resource/byte-loading path and
-  keep saves and downloaded content in writable app storage. Test accented
-  paths, interrupted writes and save/resume after the app is suspended.
-- [ ] Adapt play to touch: select units and targets, move around the board,
+- [x] Load bundled campaigns through Godot's resource/byte-loading path and
+  keep saves and downloaded content in writable app storage. Real emulator
+  play and public campaign downloads use those paths.
+- [x] Adapt play to touch: select units and targets, move around the board,
   zoom, cancel actions and end turns. Keep controller support and make text,
   buttons and popups readable on phones and tablets, including safe areas.
-- [ ] Bring campaign creation and playtesting to Android. Adapt editor panels,
+- [x] Bring campaign creation and playtesting to Android. Adapt editor panels,
   terrain painting, unit placement, scrolling and text entry for touch and
   the on-screen keyboard. Check tablet and phone layouts; support external
   keyboards and mice where available.
-- [ ] Support importing, saving and sharing project archives through Android
+- [x] Support importing, saving and sharing project archives through Android
   file handling. The Android editor creates and exports portable campaigns
   playable on Android and PC. Preserve an editable project export for the PC
   editor to build N64 ROMs and PS1 discs; console builds remain PC-only.
+- [ ] Validate accented Android filenames, interrupted writes and save/resume
+  after suspension and process termination. Emulator tests cover pausing and
+  resuming the running battle; they do not prove recovery of unsaved progress
+  after Android kills the process.
 - [ ] Test installation, updates, audio, graphics, translations, controllers,
   background/resume and create → save → reopen → play on actual devices.
   Measure memory, cold shader/asset loading, APK size and performance before
   choosing quality presets. Check that long scene loads show useful progress.
+  Check surrounding terrain at wide phone/tablet aspect ratios so expanding
+  the board does not expose gaps beyond the authored terrain skirt.
 
 ### Downloadable campaigns
 
