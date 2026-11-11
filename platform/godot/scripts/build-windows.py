@@ -123,6 +123,8 @@ def main():
             ("third_party/godot-cpp/10.0.0-stable/LICENSE.md", "licenses/GODOT-CPP-LICENSE.txt"),
         ):
             shutil.copy2(ROOT / source, temporary / destination)
+        for notice in (ROOT / "third_party/windows-runtime").glob("*.txt"):
+            shutil.copy2(notice, licenses / notice.name)
         for name in ("graphics.example.json", "controls.example.json"):
             shutil.copy2(ROOT / "platform/godot/project" / name, temporary / name)
         # Godot needs its own Windows resource imports and extension list before

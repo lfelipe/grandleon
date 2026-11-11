@@ -1,6 +1,6 @@
 Grandleon is distributed under the MIT License; see LICENSE.
 
-The Linux PC build includes Godot Engine 4.7.2 and links godot-cpp
+The PC builds include Godot Engine 4.7.2 and link godot-cpp
 10.0.0-stable.
 Both are distributed under the MIT License and retain their upstream
 copyrights. The release bundle includes their complete license files and the
@@ -8,6 +8,13 @@ Godot Engine third-party copyright inventory in its `licenses` directory.
 
     https://godotengine.org/license/
     https://github.com/godotengine/godot-cpp
+
+The MinGW-w64 Windows build statically links GNU C++ support and MinGW-w64
+runtime components. The bundle retains their copyright notices, GPLv3 and
+GCC Runtime Library Exception texts in its licenses directory.
+
+    https://gcc.gnu.org/git/?p=gcc.git;a=blob;f=COPYING.RUNTIME
+    https://github.com/mingw-w64/mingw-w64
 
 Nintendo 64 ROMs link libdragon. The pinned libdragon revision is released
 into the public domain under the Unlicense. Its full licence is packaged by the
