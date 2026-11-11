@@ -69,7 +69,14 @@ func _run() -> void:
 				_fail("standalone launch evidence could not be written")
 				return
 			file.store_string(JSON.stringify(result, "\t") + "\n")
+			file.close()
 	print("standalone player-only actual campaign battle launch passed (%s, %d allied / %d opposing units)" % [OS.get_name(), first, second])
+	player.set_process(false)
+	player.session.stop()
+	current_scene = null
+	player.queue_free()
+	await process_frame
+	await process_frame
 	quit()
 
 func _fail(message: String) -> void:
