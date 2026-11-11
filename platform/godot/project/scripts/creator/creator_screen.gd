@@ -90,6 +90,7 @@ func _process(_delta: float) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
+		var viewport := get_viewport()
 		if new_campaign_layer != null and new_campaign_layer.visible:
 			_close_new_campaign()
 		elif export_layer != null and export_layer.visible and console_builder != null and console_builder.busy():
@@ -104,7 +105,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_close_import()
 		else:
 			_open_home()
-		get_viewport().set_input_as_handled()
+		if viewport != null: viewport.set_input_as_handled()
 
 
 func _parse_arguments() -> void:

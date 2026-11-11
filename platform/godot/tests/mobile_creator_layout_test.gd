@@ -75,6 +75,11 @@ func _run() -> void:
 	check(home.home_frame.get_global_rect().encloses(home.open_campaign_button.get_global_rect()) and home.home_frame.get_global_rect().encloses(home.browse_button.get_global_rect()), "Main touch actions must remain inside the hub frame")
 	check(home.first_button != null and home.first_button.size.y >= 126, "Included games must remain visible touch targets")
 	check(home.status_label.text == root.get_node("Localization").text("home.mobile_hint"), "Touch hub must explain tapping instead of controller buttons")
+	root.remove_child(home)
+	var detached_adapter = load("res://scripts/creator/mobile_creator_layout.gd").new()
+	detached_adapter.screen = home
+	detached_adapter._apply()
+	detached_adapter.free()
 	home.queue_free()
 	screen.queue_free()
 	await process_frame

@@ -55,8 +55,9 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
+		var viewport := get_viewport()
 		_back_to_projects()
-		get_viewport().set_input_as_handled()
+		if viewport != null: viewport.set_input_as_handled()
 
 
 static func gather_player_strings(value: Dictionary) -> Array[Dictionary]:

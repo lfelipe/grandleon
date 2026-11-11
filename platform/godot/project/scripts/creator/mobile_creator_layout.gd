@@ -12,7 +12,7 @@ static func metrics(units_per_dp: float, canvas_scale := 1.0) -> Dictionary:
 	return {"touch": ceilf(48 * unit), "font": roundi(16 * unit), "body": roundi(14 * unit), "unit": unit}
 
 static func install(control: Control) -> void:
-	if not OS.has_feature("android"): return
+	if not OS.has_feature("android") or not control.is_inside_tree(): return
 	var adapter := control.get_node_or_null("MobileCreatorLayout")
 	if adapter == null:
 		adapter = load("res://scripts/creator/mobile_creator_layout.gd").new()
@@ -34,7 +34,7 @@ func schedule() -> void:
 
 func _apply() -> void:
 	pending = false
-	if not is_instance_valid(screen): return
+	if not is_instance_valid(screen) or not screen.is_inside_tree(): return
 	apply_tree(screen, metrics(MobileLayout.units_per_dp(screen.get_viewport()), screen.scale.x))
 
 static func apply_tree(node: Node, sizes: Dictionary) -> void:
@@ -84,7 +84,7 @@ static func keyboard_pan_delta(field: Rect2, keyboard_top: float, padding: float
 
 
 func _process(_delta: float) -> void:
-	if not is_instance_valid(screen): return
+	if not is_instance_valid(screen) or not screen.is_inside_tree(): return
 	var height := DisplayServer.virtual_keyboard_get_height()
 	if height <= 0:
 		if last_keyboard_height > 0:

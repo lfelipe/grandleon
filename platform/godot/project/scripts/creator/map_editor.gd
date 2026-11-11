@@ -264,6 +264,7 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
+		var viewport := get_viewport()
 		if touch_brush_pointer >= 0:
 			_cancel_touch_brush()
 		elif dependency_layer != null and dependency_layer.visible:
@@ -302,7 +303,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_cancel_patrol_edit()
 		else:
 			_request_projects()
-		get_viewport().set_input_as_handled()
+		if viewport != null: viewport.set_input_as_handled()
 
 
 func _load_project() -> void:

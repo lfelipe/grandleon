@@ -103,6 +103,7 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
+		var viewport := get_viewport()
 		if delete_scene_layer != null and delete_scene_layer.visible:
 			_close_delete_scene()
 		elif new_scene_layer != null and new_scene_layer.visible:
@@ -113,7 +114,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_close_more()
 		else:
 			_request_maps()
-		get_viewport().set_input_as_handled()
+		if viewport != null: viewport.set_input_as_handled()
 
 
 func _load_project() -> void:
