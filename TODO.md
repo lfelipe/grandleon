@@ -67,8 +67,8 @@ public [grandleon-campaigns](https://github.com/lfelipe/grandleon-campaigns)
 repository; keep engine code and deterministic test fixtures in this repository.
 
 - [x] Define a versioned `catalog.json` that the Godot player fetches
-  automatically to populate Browse Campaigns. The initial integration is
-  tested on desktop; the planned Android application shares this format.
+  automatically to populate Browse Campaigns. The integration is tested on
+  desktop and the Android emulator, including a real public HTTPS download.
   Include stable campaign ID, title, author, description, thumbnail, campaign
   version, languages, supported player modes, engine and content compatibility,
   required asset packs, download URL, byte size and SHA-256 checksum.
