@@ -56,7 +56,8 @@ items below describe the existing foundation; they are not being reopened.
   editor to build N64 ROMs and PS1 discs; console builds remain PC-only.
 - [ ] Test installation, updates, audio, graphics, translations, controllers,
   background/resume and create → save → reopen → play on actual devices.
-  Measure memory, loading times and performance before choosing quality presets.
+  Measure memory, cold shader/asset loading, APK size and performance before
+  choosing quality presets. Check that long scene loads show useful progress.
 
 ### Downloadable campaigns
 
