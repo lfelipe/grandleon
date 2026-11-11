@@ -2821,6 +2821,7 @@ func _set_outcome_status(message: String, failure: bool) -> void:
 
 
 func _build_interface() -> void:
+	_fit_mobile_canvas()
 	var background := ColorRect.new()
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	background.color = Color("07111b")
@@ -3660,6 +3661,8 @@ func _panel(fill: Color, radius: int, border: Color) -> StyleBoxFlat:
 
 func _fit_mobile_canvas() -> void:
 	load("res://scripts/mobile_layout.gd").fit_canvas(self)
+	if OS.has_feature("android"):
+		load("res://scripts/creator/mobile_creator_layout.gd").install.call_deferred(self)
 
 
 func _notification(what: int) -> void:

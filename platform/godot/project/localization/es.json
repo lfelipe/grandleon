@@ -1979,6 +1979,11 @@
     "player.touch.drag_hint": "Arrastra para mover la cámara. Pellizca para acercar o alejar.",
     "home.import_game.open": "Abrir archivo de campaña",
     "home.import_game.installed": "IMPORTADO · JUEGA SIN CONEXIÓN",
-    "home.import_game.ready": "{title} está listo para jugar."
+    "home.import_game.ready": "{title} está listo para jugar.",
+    "home.mobile_hint": "Toca un juego para jugar. Desliza las listas para explorar.",
+    "creator.mobile_hint": "Toca un proyecto para abrirlo. Desliza las listas para ver más.",
+    "map.mobile.pan": "Mover mapa",
+    "map.mobile.overview": "Vista general",
+    "map.mobile.paint_hint": "Elige terreno para pintar. Usa Mover mapa para desplazarte."
   }
 }

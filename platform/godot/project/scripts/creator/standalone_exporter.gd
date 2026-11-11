@@ -39,6 +39,7 @@ const EXCLUDED_FILES := [
 	"project/translations_editor.tscn",
 	"project/scripts/creator/creator_screen.gd",
 	"project/scripts/creator/document_transfer.gd",
+	"project/scripts/creator/mobile_creator_layout.gd",
 	"project/scripts/creator/local_campaigns.gd",
 	"project/scripts/creator/portable_campaign_exporter.gd",
 	"project/scripts/creator/campaign_readiness.gd",

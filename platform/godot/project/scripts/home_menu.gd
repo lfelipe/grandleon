@@ -169,6 +169,10 @@ func _open_game_directly() -> void:
 
 
 func _build_interface() -> void:
+	_fit_mobile_canvas()
+	if OS.has_feature("android"):
+		_build_mobile_interface()
+		return
 	var background := ColorRect.new()
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	background.color = Color("07111b")
@@ -732,6 +736,8 @@ func _restore_game_focus() -> void:
 
 func _fit_mobile_canvas() -> void:
 	load("res://scripts/mobile_layout.gd").fit_canvas(self)
+	if OS.has_feature("android"):
+		load("res://scripts/creator/mobile_creator_layout.gd").install.call_deferred(self)
 
 
 func _open_campaign_file() -> void:
@@ -772,3 +778,100 @@ func _notification(what: int) -> void:
 		browser.close()
 	else:
 		get_tree().quit()
+
+
+func _build_mobile_interface() -> void:
+	var background := ColorRect.new()
+	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	background.color = Color("07111b")
+	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(background)
+	var frame := PanelContainer.new()
+	home_frame = frame
+	frame.position = Vector2(24, 24)
+	frame.size = Vector2(1872, 1032)
+	frame.add_theme_stylebox_override("panel", _panel(Color("0a1823"), 24, Color("235568"), 24))
+	add_child(frame)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 16)
+	frame.add_child(column)
+	var heading := HBoxContainer.new()
+	heading.add_theme_constant_override("separation", 24)
+	column.add_child(heading)
+	var icon := TextureRect.new()
+	icon.texture = load("res://icon.svg")
+	icon.custom_minimum_size = Vector2(126, 126)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	heading.add_child(icon)
+	var words := VBoxContainer.new()
+	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	heading.add_child(words)
+	words.add_child(_label(_t("app.name"), 54, Color("f2f7f9")))
+	words.add_child(_label(_t("home.tagline"), 38, Color("8ba5b3")))
+	language_select = OptionButton.new()
+	language_select.custom_minimum_size = Vector2(440, 126)
+	language_select.tooltip_text = _t("language.label")
+	for language: Dictionary in Localization.available_languages():
+		language_select.add_item(str(language.native_name))
+		var index := language_select.item_count - 1
+		language_select.set_item_metadata(index, str(language.code))
+		if str(language.code) == Localization.current_language(): language_select.select(index)
+	language_select.item_selected.connect(_select_language)
+	heading.add_child(language_select)
+	var audio := HBoxContainer.new()
+	audio.add_theme_constant_override("separation", 28)
+	column.add_child(audio)
+	for category: String in ["music", "sound_effects"]:
+		var row := HBoxContainer.new()
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		audio.add_child(row)
+		var label := _label("", 38, Color("8ba5b3"))
+		label.custom_minimum_size.x = 400
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(label)
+		var slider := HSlider.new()
+		slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		slider.custom_minimum_size = Vector2(280, 126)
+		slider.max_value = 1.0
+		slider.step = 0.05
+		slider.value = PCAudio.music_level() if category == "music" else PCAudio.effects_level()
+		label.text = _t("player.settings." + category, {"value": "%d%%" % roundi(slider.value * 100)})
+		slider.value_changed.connect(func(value: float):
+			if category == "music": PCAudio.set_music_level(value)
+			else: PCAudio.set_effects_level(value)
+			label.text = _t("player.settings." + category, {"value": "%d%%" % roundi(value * 100)})
+			_save_audio_settings()
+		)
+		row.add_child(slider)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.custom_minimum_size.y = 280
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	column.add_child(scroll)
+	games_list = VBoxContainer.new()
+	games_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	games_list.add_theme_constant_override("separation", 16)
+	scroll.add_child(games_list)
+	var actions := GridContainer.new()
+	actions.columns = 2
+	actions.add_theme_constant_override("h_separation", 16)
+	actions.add_theme_constant_override("v_separation", 16)
+	column.add_child(actions)
+	if creator_enabled:
+		open_campaign_button = _button(_t("home.import_game.open"))
+		open_campaign_button.pressed.connect(_open_campaign_file)
+		actions.add_child(open_campaign_button)
+		browse_button = _button(_t("catalog.browse"))
+		browse_button.pressed.connect(_open_browser)
+		actions.add_child(browse_button)
+		var create := _button(_t("home.create_edit"))
+		create.pressed.connect(_open_editor)
+		actions.add_child(create)
+	var quit := _button(_t("home.exit"))
+	quit.pressed.connect(get_tree().quit)
+	actions.add_child(quit)
+	for button: Control in actions.get_children(): button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	status_label = _label(_t("home.mobile_hint"), 38, Color("8ba5b3"))
+	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(status_label)

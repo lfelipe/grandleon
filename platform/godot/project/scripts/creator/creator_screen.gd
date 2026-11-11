@@ -117,6 +117,7 @@ func _parse_arguments() -> void:
 
 
 func _build_interface() -> void:
+	_fit_mobile_canvas()
 	var background := ColorRect.new()
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	background.color = Color("07111b")
@@ -133,6 +134,9 @@ func _build_interface() -> void:
 	language_select = OptionButton.new()
 	language_select.position = Vector2(1500, 52)
 	language_select.size = Vector2(340, 56)
+	if OS.has_feature("android"):
+		language_select.position = Vector2(1420, 32)
+		language_select.size.x = 420
 	language_select.add_theme_font_size_override("font_size", 17)
 	language_select.tooltip_text = _t("language.label")
 	var current_language := Localization.current_language()
@@ -157,6 +161,9 @@ func _build_interface() -> void:
 	explanation.text = _t("creator.explanation")
 	explanation.position = Vector2(84, 190)
 	explanation.size = Vector2(1700, 70)
+	if OS.has_feature("android"):
+		explanation.position = Vector2(80, 176)
+		explanation.size = Vector2(1760, 108)
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explanation.add_theme_font_size_override("font_size", 19)
 	explanation.add_theme_color_override("font_color", Color("a9bdc9"))
@@ -165,6 +172,9 @@ func _build_interface() -> void:
 	var actions_panel := PanelContainer.new()
 	actions_panel.position = Vector2(80, 280)
 	actions_panel.size = Vector2(560, 650)
+	if OS.has_feature("android"):
+		actions_panel.position.y = 310
+		actions_panel.size.y = 700
 	actions_panel.add_theme_stylebox_override(
 		"panel", _panel(Color("0c1d29"), 18, Color(0.20, 0.62, 0.78, 0.35))
 	)
@@ -187,7 +197,7 @@ func _build_interface() -> void:
 	home.pressed.connect(_open_home)
 	actions.add_child(home)
 	var hint := _label(
-		_t("creator.controls_hint"),
+		_t("creator.mobile_hint" if OS.has_feature("android") else "creator.controls_hint"),
 		16, Color("718896")
 	)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -197,6 +207,9 @@ func _build_interface() -> void:
 	var projects_panel := PanelContainer.new()
 	projects_panel.position = Vector2(680, 280)
 	projects_panel.size = Vector2(1160, 650)
+	if OS.has_feature("android"):
+		projects_panel.position.y = 310
+		projects_panel.size.y = 700
 	projects_panel.add_theme_stylebox_override(
 		"panel", _panel(Color("0c1d29"), 18, Color(0.20, 0.62, 0.78, 0.35))
 	)
@@ -1455,6 +1468,8 @@ func _export_campaign_from_center() -> void:
 
 func _fit_mobile_canvas() -> void:
 	load("res://scripts/mobile_layout.gd").fit_canvas(self)
+	if OS.has_feature("android"):
+		load("res://scripts/creator/mobile_creator_layout.gd").install.call_deferred(self)
 
 
 func _notification(what: int) -> void:

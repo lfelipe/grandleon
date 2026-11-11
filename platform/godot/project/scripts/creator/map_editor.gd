@@ -106,8 +106,11 @@ var map_select: OptionButton
 var encounter_select: OptionButton
 var experience_select: OptionButton
 var tool_buttons: Dictionary = {}
-var palette_list: VBoxContainer
+var palette_list: Container
 var palette_buttons: Dictionary = {}
+var mobile_pan_mode := false
+var mobile_pan_button: Button
+var mobile_map_zoom := 1.0
 var touch_brush_pointer := -1
 var touch_brush_terrain: Array = []
 var touch_brush_last := -1
@@ -631,7 +634,7 @@ func _refresh_palette() -> void:
 	):
 		selected_terrain = names[0]
 	for name: String in names:
-		var button := _button(_terrain_label(name), 330, 54)
+		var button := _button(_terrain_label(name), 250 if OS.has_feature("android") else 330, 54)
 		button.icon = _terrain_icon(name, 0)
 		button.tooltip_text = _t("map.terrain.paint_tooltip", {"terrain": _terrain_label(name)})
 		button.pressed.connect(_select_terrain.bind(name))
@@ -641,6 +644,12 @@ func _refresh_palette() -> void:
 
 
 func _select_terrain(name: String) -> void:
+	if mobile_pan_button != null:
+		mobile_pan_button.set_pressed_no_signal(false)
+		mobile_pan_mode = false
+		if mobile_map_zoom < 1.0:
+			mobile_map_zoom = 1.0
+			_refresh_grid()
 	var landmark := _landmark_definition_for_source(name)
 	if not landmark.is_empty():
 		_select_tool(str(landmark.tool))
@@ -652,6 +661,12 @@ func _select_terrain(name: String) -> void:
 
 
 func _select_tool(name: String) -> void:
+	if mobile_pan_button != null:
+		mobile_pan_button.set_pressed_no_signal(false)
+		mobile_pan_mode = false
+		if mobile_map_zoom < 1.0:
+			mobile_map_zoom = 1.0
+			_refresh_grid()
 	if deployment_editing and name != "deployment":
 		_reset_deployment_edit()
 	if patrol_editing and name != "patrol":
@@ -764,6 +779,8 @@ func _refresh_grid(focus_index := -1) -> void:
 	var tile_size := clampi(
 		floori(minf(830.0 / outer_width, 620.0 / outer_height)), 34, 96
 	)
+	if OS.has_feature("android"):
+		tile_size = roundi(maxf(48 * load("res://scripts/mobile_layout.gd").units_per_dp(get_viewport()) / maxf(scale.x, 0.1), 96) * mobile_map_zoom)
 	var ring_index := 0
 	var manual_terrain: Array = outside.get("terrain", [])
 	for outer_y in range(-outside_depth, height + outside_depth):
@@ -780,6 +797,7 @@ func _refresh_grid(focus_index := -1) -> void:
 				):
 					outside_name = str(outside.get("terrainId", selected_terrain))
 				var outside_cell := _button("", tile_size, tile_size)
+				outside_cell.set_meta("mobile_tile", true)
 				outside_cell.icon = _terrain_icon(outside_name, 255)
 				outside_cell.expand_icon = true
 				outside_cell.modulate = Color(0.72, 0.78, 0.82, 0.92)
@@ -793,6 +811,7 @@ func _refresh_grid(focus_index := -1) -> void:
 			var index := outer_y * width + outer_x
 			var name := str(terrain[index]) if index < terrain.size() else "grass"
 			var cell := _button("", tile_size, tile_size)
+			cell.set_meta("mobile_tile", true)
 			cell.icon = _terrain_icon(name, _terrain_mask(index, width, height, terrain))
 			cell.expand_icon = true
 			var landmark: Dictionary = landmark_cells.get(index, {})
@@ -1221,7 +1240,7 @@ func _project_theme_index() -> int:
 
 
 func _paint_cell(index: int) -> void:
-	if touch_brush_pointer >= 0: return
+	if touch_brush_pointer >= 0 or mobile_pan_mode: return
 	var map := _current_map()
 	if map.is_empty() or compiler == null:
 		return
@@ -4227,6 +4246,7 @@ func _update_actions() -> void:
 
 
 func _build_interface() -> void:
+	_fit_mobile_canvas()
 	var background := ColorRect.new()
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	background.color = Color("07111b")
@@ -4241,10 +4261,14 @@ func _build_interface() -> void:
 	subtitle.position = Vector2(80, 84)
 	subtitle.size = Vector2(1760, 54)
 	add_child(subtitle)
+	if OS.has_feature("android"): subtitle.hide()
 
 	var toolbar := HBoxContainer.new()
 	toolbar.position = Vector2(80, 148)
 	toolbar.size = Vector2(1760, 62)
+	if OS.has_feature("android"):
+		toolbar.position.y = 106
+		toolbar.size.y = 132
 	toolbar.add_theme_constant_override("separation", 12)
 	add_child(toolbar)
 	save_button = _button(_t("map.save"), 150, 58)
@@ -4269,16 +4293,21 @@ func _build_interface() -> void:
 	toolbar_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	toolbar_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	toolbar.add_child(toolbar_hint)
+	if OS.has_feature("android"): toolbar_hint.hide()
 
 	var tools_panel := PanelContainer.new()
 	tools_panel.position = Vector2(80, 232)
 	tools_panel.size = Vector2(410, 760)
+	if OS.has_feature("android"):
+		tools_panel.position = Vector2(40, 260)
+		tools_panel.size = Vector2(600, 748)
 	tools_panel.add_theme_stylebox_override("panel", _panel(Color("0c1d29"), 18, Color(0.20, 0.62, 0.78, 0.35)))
 	add_child(tools_panel)
 	var tools_column := VBoxContainer.new()
 	tools_column.add_theme_constant_override("separation", 12)
 	tools_panel.add_child(tools_column)
-	tools_column.add_child(_label(_t("map.map_label"), 17, Color("69d9ff")))
+	var map_label := _label(_t("map.map_label"), 17, Color("69d9ff"))
+	tools_column.add_child(map_label)
 	map_select = OptionButton.new()
 	map_select.custom_minimum_size = Vector2(330, 58)
 	map_select.add_theme_font_size_override("font_size", 19)
@@ -4302,7 +4331,8 @@ func _build_interface() -> void:
 	experience_select.tooltip_text = _t("map.preview.tooltip")
 	experience_select.item_selected.connect(_select_experience_preview)
 	tools_column.add_child(experience_select)
-	tools_column.add_child(_label(_t("map.tool_label"), 17, Color("69d9ff")))
+	var tool_label := _label(_t("map.tool_label"), 17, Color("69d9ff"))
+	tools_column.add_child(tool_label)
 	var tool_row := HBoxContainer.new()
 	tool_row.add_theme_constant_override("separation", 6)
 	tools_column.add_child(tool_row)
@@ -4373,12 +4403,21 @@ func _build_interface() -> void:
 		landmark_row.add_child(landmark_button)
 		tool_buttons[landmark_tool] = landmark_button
 	_update_tool_selection()
-	tools_column.add_child(_label(_t("map.terrain_label"), 17, Color("69d9ff")))
+	var terrain_label := _label(_t("map.terrain_label"), 17, Color("69d9ff"))
+	tools_column.add_child(terrain_label)
 	var palette_scroll := ScrollContainer.new()
 	palette_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	palette_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	tools_column.add_child(palette_scroll)
-	palette_list = VBoxContainer.new()
+	if OS.has_feature("android"):
+		palette_scroll.custom_minimum_size.y = 280
+		var mobile_palette := GridContainer.new()
+		mobile_palette.columns = 2
+		palette_list = mobile_palette
+		palette_list.add_theme_constant_override("h_separation", 12)
+		palette_list.add_theme_constant_override("v_separation", 12)
+	else:
+		palette_list = VBoxContainer.new()
 	palette_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	palette_list.add_theme_constant_override("separation", 7)
 	palette_scroll.add_child(palette_list)
@@ -4386,18 +4425,41 @@ func _build_interface() -> void:
 	board_panel = PanelContainer.new()
 	board_panel.position = Vector2(520, 232)
 	board_panel.size = Vector2(1320, 760)
+	if OS.has_feature("android"):
+		board_panel.position = Vector2(670, 260)
+		board_panel.size = Vector2(1210, 748)
+		var priority := [map_label, map_select, tool_label, tool_row, terrain_label, palette_scroll]
+		for at in priority.size(): tools_column.move_child(priority[at], at)
 	board_panel.add_theme_stylebox_override("panel", _panel(Color("091721"), 18, Color(0.20, 0.62, 0.78, 0.25)))
 	add_child(board_panel)
 	var board_column := VBoxContainer.new()
 	board_column.add_theme_constant_override("separation", 10)
 	board_panel.add_child(board_column)
 	var board_title := _label(_t("map.board"), 17, Color("69d9ff"))
+	if OS.has_feature("android"):
+		var map_controls := HBoxContainer.new()
+		map_controls.add_theme_constant_override("separation", 12)
+		board_column.add_child(map_controls)
+		mobile_pan_button = _button(_t("map.mobile.pan"), 220, 126)
+		mobile_pan_button.toggle_mode = true
+		mobile_pan_button.toggled.connect(_mobile_set_pan)
+		map_controls.add_child(mobile_pan_button)
+		for item: Dictionary in [{"text": "−", "factor": 0.8}, {"text": "+", "factor": 1.25}]:
+			var zoom := _button(item.text, 126, 126)
+			zoom.pressed.connect(_mobile_zoom_map.bind(float(item.factor)))
+			map_controls.add_child(zoom)
+		var overview := _button(_t("map.mobile.overview"), 240, 126)
+		overview.pressed.connect(_mobile_overview)
+		map_controls.add_child(overview)
+		board_title.text = _t("map.mobile.paint_hint")
+		board_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	board_column.add_child(board_title)
 	target_budget_label = _label(_t("map.targets.checking"), 15, Color("a9bdc9"))
 	target_budget_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	target_budget_label.custom_minimum_size.y = 24
 	board_column.add_child(target_budget_label)
 	var board_scroll := ScrollContainer.new()
+	board_scroll.follow_focus = OS.has_feature("android")
 	board_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	board_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	board_column.add_child(board_scroll)
@@ -6331,19 +6393,21 @@ func _panel(fill: Color, radius: int, border: Color) -> StyleBoxFlat:
 
 func _fit_mobile_canvas() -> void:
 	load("res://scripts/mobile_layout.gd").fit_canvas(self)
+	if OS.has_feature("android"):
+		load("res://scripts/creator/mobile_creator_layout.gd").install.call_deferred(self)
 
 
 func _input(event: InputEvent) -> void:
 	# The brush consumes real touch events itself. Ignore their synthesized
 	# mouse events on the board so a stroke cannot also trigger a button click.
-	if active_tool == "brush" and event is InputEventMouse and event.device == InputEvent.DEVICE_ID_EMULATION and grid != null and _touch_cell_at(event.position) >= 0:
+	if not mobile_pan_mode and active_tool == "brush" and event is InputEventMouse and event.device == InputEvent.DEVICE_ID_EMULATION and grid != null and _touch_cell_at(event.position) >= 0:
 		get_viewport().set_input_as_handled()
 		return
 	if event is InputEventScreenTouch and event.pressed and touch_brush_pointer >= 0 and event.index != touch_brush_pointer:
 		_cancel_touch_brush()
 		get_viewport().set_input_as_handled()
 		return
-	if active_tool != "brush" or grid == null or not grid.is_visible_in_tree(): return
+	if mobile_pan_mode or active_tool != "brush" or grid == null or not grid.is_visible_in_tree(): return
 	if event is InputEventScreenTouch and event.pressed and touch_brush_pointer < 0:
 		for layer: Control in [dependency_layer, talk_layer, look_layer, surroundings_layer, interior_visibility_layer, objective_layer, forces_layer, moments_layer, placement_layer, resize_layer, copy_setup_layer, setup_layer, chapter_layer, rename_layer, more_layer]:
 			if layer != null and layer.visible: return
@@ -6405,3 +6469,28 @@ func _cancel_touch_brush() -> void:
 	for cell: Node in grid.get_children():
 		if cell is Control and cell.has_meta("terrain_index"):
 			cell.self_modulate = Color.WHITE
+
+
+func _mobile_set_pan(enabled: bool) -> void:
+	_cancel_touch_brush()
+	mobile_pan_mode = enabled
+	if not enabled and mobile_map_zoom < 1.0:
+		mobile_map_zoom = 1.0
+		_refresh_grid()
+
+
+func _mobile_zoom_map(factor: float) -> void:
+	_cancel_touch_brush()
+	mobile_map_zoom = clampf(mobile_map_zoom * factor, 0.4, 3.0)
+	if mobile_map_zoom < 1.0:
+		mobile_pan_mode = true
+		if mobile_pan_button != null: mobile_pan_button.set_pressed_no_signal(true)
+	_refresh_grid()
+
+
+func _mobile_overview() -> void:
+	_cancel_touch_brush()
+	mobile_map_zoom = 0.4
+	mobile_pan_mode = true
+	if mobile_pan_button != null: mobile_pan_button.set_pressed_no_signal(true)
+	_refresh_grid()

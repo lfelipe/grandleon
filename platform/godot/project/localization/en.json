@@ -1979,6 +1979,11 @@
     "player.touch.drag_hint": "Drag to move the camera. Pinch to zoom.",
     "home.import_game.open": "Open campaign file",
     "home.import_game.installed": "IMPORTED · PLAY OFFLINE",
-    "home.import_game.ready": "{title} is ready to play."
+    "home.import_game.ready": "{title} is ready to play.",
+    "home.mobile_hint": "Tap a game to play. Swipe lists to browse.",
+    "creator.mobile_hint": "Tap a project to open it. Swipe lists to find more.",
+    "map.mobile.pan": "Pan map",
+    "map.mobile.overview": "Overview",
+    "map.mobile.paint_hint": "Choose terrain to paint. Use Pan map to move around."
   }
 }
