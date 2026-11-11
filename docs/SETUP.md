@@ -47,10 +47,12 @@ Linux developers can cross-build the native targets with
 
 ```sh
 python3 platform/godot/scripts/build-windows.py --no-build \
-  --build-dir build-windows-cross06 --package out/windows06-steel-and-cedar.gpk
+  --build-dir build-windows-cross06 --package out/windows06-steel-and-cedar.gpk \
+  --wine /usr/bin/wine64
 ```
 
-The supplied package must be compiled from Steel and Cedar. A cross-built
+The supplied package must be compiled from Steel and Cedar. Wine imports the
+actual Windows resources and extension before packaging completes. A cross-built
 bundle needs the same Windows testing as a native build. The builder refuses
 to overwrite an existing output and records whether its source tree was clean.
 

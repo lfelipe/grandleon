@@ -54,12 +54,16 @@ def main():
     parser.add_argument("--package", type=Path,
                         help="Already compiled Steel and Cedar GPK (required with --no-build)")
     parser.add_argument("--cxx", default="g++", help="MinGW-w64 C++ compiler")
+    parser.add_argument("--wine", type=Path,
+                        help="Wine executable for importing a cross-built bundle on Linux")
     args = parser.parse_args()
     build, output = args.build_dir.resolve(), args.output.resolve()
     if output.exists():
         parser.error(f"Output already exists: {output}")
     if args.no_build and args.package is None:
         parser.error("--no-build requires --package")
+    if os.name != "nt" and args.wine is None:
+        parser.error("Cross-packaging requires --wine to import the real Windows project")
     if not args.no_build:
         if os.name != "nt":
             parser.error("Build on Windows, or supply --no-build and a Windows cross-build")
@@ -119,6 +123,17 @@ def main():
             shutil.copy2(ROOT / source, temporary / destination)
         for name in ("graphics.example.json", "controls.example.json"):
             shutil.copy2(ROOT / "platform/godot/project" / name, temporary / name)
+        # Godot needs its own Windows resource imports and extension list before
+        # running the project. Never reuse a Linux import cache for this bundle.
+        command = [str(temporary / CONSOLE), "--headless", "--editor", "--import",
+                   "--quit", "--path", str(temporary / "project")]
+        if args.wine:
+            if os.name == "nt":
+                parser.error("--wine is only for cross-packaging")
+            command[-1] = "Z:" + (temporary / "project").as_posix()
+            command.insert(0, str(args.wine.resolve()))
+        subprocess.run(command, cwd=ROOT, check=True, timeout=300)
+        shutil.rmtree(temporary / "project/.godot/editor", ignore_errors=True)
         revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
         dirty = subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True)
         (temporary / "DEFAULT-CAMPAIGN").write_text("steel_and_cedar\n", encoding="utf-8")
