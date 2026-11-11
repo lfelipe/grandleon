@@ -18,7 +18,7 @@ GODOT_VERSION = '4.7.2'
 TEMPLATES_SHA256 = 'f298490b8d44d934be425a5a65a51bf15f422428b229a06a6e11d9ffea248011'
 TEMPLATES_NAME = f'Godot_v{GODOT_VERSION}-stable_export_templates.tpz'
 NDK_VERSION = '28.1.13356709'
-BUILD_TOOLS = '35.0.1'
+BUILD_TOOLS = '36.1.0'
 ABIS = {'arm64-v8a': 183, 'x86_64': 62}
 
 
@@ -94,8 +94,8 @@ def main():
     ndk = sdk / 'ndk' / NDK_VERSION
     toolchain = ndk / 'build/cmake/android.toolchain.cmake'
     signer = sdk / 'build-tools' / BUILD_TOOLS / 'apksigner'
-    if not toolchain.is_file() or not signer.is_file() or not (sdk / 'platforms/android-35/android.jar').is_file():
-        parser.error(f'Install Android platform 35, build-tools {BUILD_TOOLS}, and NDK {NDK_VERSION} in --sdk')
+    if not toolchain.is_file() or not signer.is_file() or not (sdk / 'platforms/android-36/android.jar').is_file():
+        parser.error(f'Install Android platform 36, build-tools {BUILD_TOOLS}, and NDK {NDK_VERSION} in --sdk')
     env = os.environ.copy()
     env.update(JAVA_HOME=str(java), ANDROID_HOME=str(sdk), ANDROID_SDK_ROOT=str(sdk))
     env['PATH'] = str(java / 'bin') + os.pathsep + env.get('PATH', '')
@@ -189,7 +189,7 @@ def main():
                    '[preset.1.options]\n'
                    f'custom_template/debug={json.dumps(str(template_dir / "android_debug.apk"))}\n'
                    f'custom_template/release={json.dumps(str(template_dir / "android_release.apk"))}\n'
-                   'gradle_build/use_gradle_build=false\ngradle_build/min_sdk="24"\ngradle_build/target_sdk="35"\n'
+                   'gradle_build/use_gradle_build=false\n'
                    'architectures/armeabi-v7a=false\narchitectures/arm64-v8a=true\n'
                    'architectures/x86=false\narchitectures/x86_64=true\nversion/code=1\nversion/name="0.6-dev"\n'
                    'package/unique_name="org.grandleon.app.dev"\npackage/name="Grandleon"\n'
