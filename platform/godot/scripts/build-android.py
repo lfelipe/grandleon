@@ -118,13 +118,13 @@ def main():
             '-DANDROID_STL=c++_static', '-DGRANDLEON_BUILD_TESTS=OFF', '-DGRANDLEON_DESKTOP_SDL=OFF',
             '-DGRANDLEON_BUILD_GODOT=ON', '-DGRANDLEON_GODOT_API_VERSION=4.7', '-DGRANDLEON_WERROR=ON', *binding_source)
         run('cmake', '--build', native, '--parallel', '8', '--target', 'grandleon_godot')
-        libraries[abi] = native / f'platform/godot/project/bin/android/{abi}/libgrandleon_godot.so'
+        libraries[abi] = native / 'platform' / 'godot' / 'project' / 'bin' / 'android' / abi / 'libgrandleon_godot.so'
     native_proof = {abi: elf_info(path, abi) for abi, path in libraries.items()}
     if not args.no_host_build:
         run('cmake', '-S', ROOT, '-B', host, '-DGRANDLEON_BUILD_GODOT=ON', '-DGRANDLEON_BUILD_TESTS=OFF',
             '-DGRANDLEON_DESKTOP_SDL=OFF', '-DGRANDLEON_GODOT_API_VERSION=4.7', '-DGRANDLEON_WERROR=ON', *binding_source)
         run('cmake', '--build', host, '--parallel', '8', '--target', 'grandleon_content_compile', 'grandleon_godot')
-    host_library = host / 'platform/godot/project/bin/libgrandleon_godot.so'
+    host_library = host / 'platform' / 'godot' / 'project' / 'bin' / 'libgrandleon_godot.so'
     compiler = host / 'grandleon_content_compile'
     if not host_library.is_file() or not compiler.is_file():
         parser.error('Host compiler and extension missing; build without --no-host-build')
