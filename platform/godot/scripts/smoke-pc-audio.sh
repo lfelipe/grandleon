@@ -38,9 +38,18 @@ XDG_CONFIG_HOME="${state_dir}/config" \
 XDG_CACHE_HOME="${state_dir}/cache" \
     timeout 60s "${godot_binary}" --headless --quiet --import \
     --path "${stage_dir}"
-XDG_DATA_HOME="${state_dir}/data" \
+if ! XDG_DATA_HOME="${state_dir}/data" \
 XDG_CONFIG_HOME="${state_dir}/config" \
 XDG_CACHE_HOME="${state_dir}/cache" \
     timeout 60s "${godot_binary}" --headless --audio-driver Dummy \
     --path "${stage_dir}" \
-    --script "${repo_root}/platform/godot/tests/pc_audio_test.gd"
+    --script "${repo_root}/platform/godot/tests/pc_audio_test.gd" \
+    >"${state_dir}/test.log" 2>&1; then
+    cat "${state_dir}/test.log"
+    exit 1
+fi
+cat "${state_dir}/test.log"
+if grep -Eq '(^|[[:space:]])(SCRIPT )?ERROR:|Parse Error:' "${state_dir}/test.log" || \
+    ! grep -Fq 'PC audio integration smoke passed' "${state_dir}/test.log"; then
+    exit 1
+fi

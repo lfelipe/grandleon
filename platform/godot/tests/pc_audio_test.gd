@@ -3,6 +3,12 @@ extends SceneTree
 
 const PCAudioScript = preload("res://scripts/pc_audio.gd")
 
+class ButtonAudioRecorder extends PCAudioScript:
+	var cues: Array[String] = []
+	func play_cue(cue: String) -> bool:
+		cues.append(cue)
+		return true
+
 var failures := 0
 
 
@@ -91,6 +97,30 @@ func _run() -> void:
 	for theme: String in audio.MUSIC_THEMES:
 		_expect_true("theme loads: " + theme, audio.play_music(theme))
 
+	# Responsive layouts move existing controls into scroll containers.
+	# A real button must still produce exactly one sound after each move.
+	var recorder := ButtonAudioRecorder.new()
+	root.add_child(recorder)
+	var left := Control.new()
+	var right := Control.new()
+	root.add_child(left)
+	root.add_child(right)
+	var button := Button.new()
+	left.add_child(button)
+	await process_frame
+	await process_frame
+	for step in 3:
+		recorder.cues.clear()
+		button.pressed.emit()
+		_expect("one confirm after layout move %d" % step, recorder.cues, ["confirm"])
+		var destination := right if button.get_parent() == left else left
+		button.get_parent().remove_child(button)
+		destination.add_child(button)
+		await process_frame
+		await process_frame
+	left.queue_free()
+	right.queue_free()
+	recorder.queue_free()
 	audio.queue_free()
 	await process_frame
 	# Let the audio mixer consume pending start/stop commands before shutdown.

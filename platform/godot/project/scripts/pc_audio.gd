@@ -224,10 +224,20 @@ func _bind_button(button: BaseButton) -> void:
 	if _bound_buttons.has(id) or not is_instance_valid(button):
 		return
 	_bound_buttons[id] = true
-	button.focus_entered.connect(play_cue.bind("focus"))
-	button.mouse_entered.connect(_play_button_hover.bind(button))
-	button.pressed.connect(play_cue.bind("confirm"))
-	button.tree_exiting.connect(_forget_button.bind(id))
+	# Reparenting keeps signal connections even though tree_exiting clears
+	# the registry. Reuse those callbacks when a layout moves a button.
+	var focus := play_cue.bind("focus")
+	var hover := _play_button_hover.bind(button)
+	var confirm := play_cue.bind("confirm")
+	var forget := _forget_button.bind(id)
+	if not button.focus_entered.is_connected(focus):
+		button.focus_entered.connect(focus)
+	if not button.mouse_entered.is_connected(hover):
+		button.mouse_entered.connect(hover)
+	if not button.pressed.is_connected(confirm):
+		button.pressed.connect(confirm)
+	if not button.tree_exiting.is_connected(forget):
+		button.tree_exiting.connect(forget)
 
 
 func _play_button_hover(button: BaseButton) -> void:
