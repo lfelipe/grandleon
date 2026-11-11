@@ -14,12 +14,26 @@ const ControllerSeats = preload("res://scripts/controller_seats.gd")
 const FrameTiming = preload("res://scripts/frame_timing.gd")
 const GraphicsProfiles = preload("res://scripts/graphics_profiles.gd")
 const PresentationSettings = preload("res://scripts/presentation_settings.gd")
+const MobileInput = preload("res://scripts/mobile_input.gd")
+const MobileLayout = preload("res://scripts/mobile_layout.gd")
 const PLAYER_COLOURS := [Color("69d9ff"), Color("ffca63")]
 const MODES := ["move", "attack", "ability", "talk"]
 const PUBLIC_GRAPHICS_PROFILES := ["voxel-sprites"]
 const DIAGNOSTIC_GRAPHICS_PROFILES := [
 	"pixel", "diorama", "voxel-sprites", "voxel"
 ]
+
+var mobile_gestures := MobileInput.new()
+var mobile_bar: PanelContainer
+var mobile_buttons: Dictionary = {}
+var mobile_popup_lists: Array[VBoxContainer] = []
+var mobile_seat := 0
+var mobile_backgrounded := false
+var mobile_previously_paused := false
+var mobile_previously_muted := false
+var mobile_top_panel: Control
+var mobile_dialogue_panel: Control
+var mobile_session_panel: Control
 
 var session
 var board: Node
@@ -255,6 +269,8 @@ func _ready() -> void:
 	_create_background()
 	_create_board(graphics_profile)
 	_create_interface()
+	if OS.has_feature("android"):
+		_create_mobile_controls()
 	_create_combat_cinematic(initial_profile)
 	_update_session_labels()
 	if player_localization_preview:
@@ -281,7 +297,7 @@ func _ready() -> void:
 	var launch_package := PackedByteArray()
 	if staged.is_empty():
 		launch_package = FileAccess.get_file_as_bytes(
-			ProjectSettings.globalize_path(package_path)
+			package_path
 		)
 	else:
 		launch_package = staged.package
@@ -307,18 +323,9 @@ func _ready() -> void:
 	_select_matching_interface_language(game_language)
 	_configure_seats()
 	Input.joy_connection_changed.connect(_on_joy_connection_changed)
-	var started := false
-	if staged.is_empty():
-		var absolute_package := ProjectSettings.globalize_path(package_path)
-		started = session.start(
-			absolute_package, campaign_key, player_count, campaign_save_root,
-			game_language
-		)
-	else:
-		started = session.start_package(
-			staged.package, campaign_key, player_count, campaign_save_root,
-			game_language
-		)
+	var started: bool = session.start_package(
+		launch_package, campaign_key, player_count, campaign_save_root, game_language
+	)
 	if not started:
 		_show_fatal(session.last_error())
 	else:
@@ -336,11 +343,18 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	if mobile_backgrounded:
+		get_tree().paused = mobile_previously_paused
+		AudioServer.set_bus_mute(AudioServer.get_bus_index("Master"), mobile_previously_muted)
 	if session:
 		session.stop()
 
 
 func _process(delta: float) -> void:
+	if mobile_backgrounded:
+		return
+	if OS.has_feature("android"):
+		_update_mobile_controls()
 	frame_timing.sample(delta)
 	if show_fps_enabled:
 		_update_fps_overlay()
@@ -407,6 +421,16 @@ func _process(delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if mobile_backgrounded:
+		return
+	if OS.has_feature("android"):
+		# Let Controls receive emulated mouse events; only the original screen
+		# gesture may issue a board command, after release and drag rejection.
+		if event is InputEventMouseButton and event.device == -1:
+			return
+		if event is InputEventScreenTouch or event is InputEventScreenDrag:
+			_handle_mobile_screen(event)
+			return
 	if game_language_picker_layer != null:
 		return
 	if combat_cinematic != null and combat_cinematic.is_active():
@@ -516,7 +540,7 @@ func _show_game_language_picker(
 		button.text = _game_language_name(language)
 		if language == source_language:
 			button.text += "  /  " + _shell_text("player.language.original")
-		button.custom_minimum_size = Vector2(0, 48)
+		button.custom_minimum_size = Vector2(0, 112 if OS.has_feature("android") else 48)
 		button.pressed.connect(_select_game_language.bind(language))
 		choices.add_child(button)
 		if first_button == null:
@@ -1735,6 +1759,7 @@ func _create_interface() -> void:
 	add_child(layer)
 
 	var top := PanelContainer.new()
+	mobile_top_panel = top
 	top.position = Vector2(18, 16)
 	top.size = Vector2(1884, 44)
 	top.add_theme_stylebox_override("panel", _panel(Color(0.018, 0.035, 0.055, 0.82), 12, Color(0.20, 0.62, 0.78, 0.25), 9))
@@ -1758,7 +1783,7 @@ func _create_interface() -> void:
 	# screen to the board.
 	unit_panel = PanelContainer.new()
 	unit_panel.position = Vector2(24, 936)
-	unit_panel.size = Vector2(350, 104)
+	unit_panel.size = Vector2(560, 192) if OS.has_feature("android") else Vector2(350, 104)
 	unit_panel.visible = false
 	unit_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	unit_panel.add_theme_stylebox_override(
@@ -1866,6 +1891,15 @@ func _create_action_popups(layer: CanvasLayer) -> void:
 		choices.add_theme_color_override("default_color", Color("dcebf0"))
 		column.add_child(choices)
 		action_popup_lists.append(choices)
+		var touch_choices := VBoxContainer.new()
+		touch_choices.visible = OS.has_feature("android")
+		column.add_child(touch_choices)
+		mobile_popup_lists.append(touch_choices)
+		if OS.has_feature("android"):
+			choices.visible = false
+			panel.mouse_filter = Control.MOUSE_FILTER_STOP
+			panel.custom_minimum_size.x = 340
+
 
 
 func _create_campaign_manager(layer: CanvasLayer) -> void:
@@ -1897,6 +1931,7 @@ func _create_dialogue(layer: CanvasLayer) -> void:
 	panel.size = Vector2(1580, 300)
 	panel.add_theme_stylebox_override("panel", _panel(Color(0.018, 0.032, 0.052, 0.98), 22, Color(0.30, 0.76, 0.92, 0.55)))
 	dialogue_layer.add_child(panel)
+	mobile_dialogue_panel = panel
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 28)
 	panel.add_child(row)
@@ -1946,6 +1981,7 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 		)
 	)
 	session_menu_layer.add_child(panel)
+	mobile_session_panel = panel
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 14)
 	panel.add_child(column)
@@ -2024,7 +2060,7 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	session_menu_music = HSlider.new()
 	session_menu_music.max_value = 1.0
 	session_menu_music.step = 0.05
-	session_menu_music.custom_minimum_size = Vector2(280, 32)
+	session_menu_music.custom_minimum_size = Vector2(280, 96 if OS.has_feature("android") else 32)
 	session_menu_music.value_changed.connect(_set_music_level)
 	session_menu_settings.add_child(session_menu_music)
 	session_menu_audio_label = Label.new()
@@ -2032,7 +2068,7 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	session_menu_audio = HSlider.new()
 	session_menu_audio.max_value = 1.0
 	session_menu_audio.step = 0.05
-	session_menu_audio.custom_minimum_size = Vector2(280, 32)
+	session_menu_audio.custom_minimum_size = Vector2(280, 96 if OS.has_feature("android") else 32)
 	session_menu_audio.value_changed.connect(_set_effects_level)
 	session_menu_settings.add_child(session_menu_audio)
 	session_menu_closeups = _settings_button("")
@@ -2070,7 +2106,7 @@ func _session_menu_page() -> VBoxContainer:
 func _menu_button(value: String) -> Button:
 	var button := Button.new()
 	button.text = value
-	button.custom_minimum_size = Vector2(680, 76)
+	button.custom_minimum_size = Vector2(680, 112 if OS.has_feature("android") else 76)
 	_bind_font_size(button, "font_size", 22)
 	button.add_theme_color_override("font_color", Color("dcebf0"))
 	button.add_theme_color_override("font_hover_color", Color("071018"))
@@ -2088,7 +2124,7 @@ func _menu_button(value: String) -> Button:
 
 func _settings_button(value: String) -> Button:
 	var button := _menu_button(value)
-	button.custom_minimum_size.y = 58
+	button.custom_minimum_size.y = 112 if OS.has_feature("android") else 58
 	return button
 
 
@@ -2518,7 +2554,7 @@ func _configure_seats() -> void:
 	)
 	for index in 2:
 		var device := assignments[index]
-		var active := index < player_count and (device >= 0 or index == keyboard_seat)
+		var active := index < player_count and (device >= 0 or index == keyboard_seat or OS.has_feature("android"))
 		var cursor := Vector2i(index, index)
 		if index < seats.size():
 			cursor = Vector2i(seats[index].get("cursor", cursor))
@@ -3475,6 +3511,20 @@ func _render_action_popup(seat: int) -> void:
 			lines.append("[color=#%s][b]▶ %s[/b][/color]" % [PLAYER_COLOURS[seat].to_html(), label])
 		else:
 			lines.append("   " + label)
+	if OS.has_feature("android"):
+		var list := mobile_popup_lists[seat]
+		for child in list.get_children():
+			list.remove_child(child)
+			child.queue_free()
+		for index in options.size():
+			var button := Button.new()
+			button.text = str(options[index].get("label", ""))
+			button.custom_minimum_size = Vector2(320, maxf(96, 48 * MobileLayout.units_per_dp(get_viewport())))
+			button.add_theme_font_size_override("font_size", 32)
+			button.pressed.connect(_mobile_popup_chosen.bind(seat, index))
+			list.add_child(button)
+		action_popup_panels[seat].size.y = 0
+		return
 	action_popup_lists[seat].text = "\n".join(lines)
 	action_popup_panels[seat].size.y = 24.0 + float(options.size()) * 27.0
 
@@ -3539,10 +3589,15 @@ func _best_overlay_position(
 	var best := candidates[0]
 	var best_score := INF
 	var points := _important_board_points(seat)
+	var limits := Rect2(Vector2(16, 64), Vector2(1888, 1000))
+	if OS.has_feature("android"):
+		limits = MobileLayout.current_rect(get_viewport()).grow(-16)
+		if mobile_bar != null and mobile_bar.visible:
+			limits.size.y = maxf(1, mobile_bar.position.y - limits.position.y - 12)
 	for index in candidates.size():
 		var candidate := Vector2(
-			clampf(candidates[index].x, 16.0, 1904.0 - overlay_size.x),
-			clampf(candidates[index].y, 64.0, 1064.0 - overlay_size.y)
+			clampf(candidates[index].x, limits.position.x, maxf(limits.position.x, limits.end.x - overlay_size.x)),
+			clampf(candidates[index].y, limits.position.y, maxf(limits.position.y, limits.end.y - overlay_size.y))
 		)
 		var area := Rect2(candidate, overlay_size)
 		var score := area.get_center().distance_to(anchor) * 0.002 + float(index) * 0.01
@@ -3885,6 +3940,11 @@ func _update_context_help(seat := -1) -> void:
 	if seat < 0:
 		seat = hud_seat
 	seat = clampi(seat, 0, selected_units.size() - 1)
+	if OS.has_feature("android"):
+		help_label.text = _ui("player.touch.drag_hint")
+		if help_panel != null:
+			help_panel.visible = not snapshot.is_empty() and selected_units[mobile_seat] == 0
+		return
 	help_label.text = _context_help_text(seat)
 	if help_panel != null:
 		help_panel.visible = not help_label.text.is_empty()
@@ -4112,6 +4172,8 @@ func _localized_runtime_warning(message: String) -> String:
 
 
 func _bind_font_size(control: Control, key: String, base: int) -> void:
+	if OS.has_feature("android"):
+		base = maxi(base, roundi(14 * MobileLayout.units_per_dp(get_viewport())))
 	font_size_bindings.append({"control": control, "key": key, "base": base})
 	control.add_theme_font_size_override(
 		StringName(key), roundi(float(base) * text_scale)
@@ -4148,3 +4210,215 @@ func _panel(
 	style.content_margin_right = 22 if compact_padding < 0 else compact_padding
 	style.content_margin_bottom = 16 if compact_padding < 0 else compact_padding
 	return style
+
+
+func _create_mobile_controls() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 60
+	add_child(layer)
+	mobile_bar = PanelContainer.new()
+	mobile_bar.add_theme_stylebox_override("panel", _panel(Color(0.018, 0.032, 0.052, 0.97), 12, Color("b69a60")))
+	layer.add_child(mobile_bar)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	mobile_bar.add_child(row)
+	for action in ["confirm", "cancel", "wait", "end_turn", "seat", "menu"]:
+		var button := Button.new()
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.pressed.connect(_mobile_action.bind(action))
+		row.add_child(button)
+		mobile_buttons[action] = button
+	get_viewport().size_changed.connect(_layout_mobile_controls)
+	_layout_mobile_controls()
+
+
+func _layout_mobile_controls() -> void:
+	if mobile_bar == null:
+		return
+	var safe := MobileLayout.current_rect(get_viewport())
+	var density := MobileLayout.units_per_dp(get_viewport())
+	var height := maxf(112, 48 * density)
+	mobile_bar.position = Vector2(safe.position.x + 16, safe.end.y - height - 24)
+	mobile_bar.size = Vector2(safe.size.x - 32, height + 8)
+	for button: Button in mobile_buttons.values():
+		button.custom_minimum_size.y = height
+		button.add_theme_font_size_override("font_size", roundi(maxf(26, 16 * density)))
+	mobile_gestures.drag_threshold = maxf(18, 10 * density)
+	if mobile_top_panel != null:
+		mobile_top_panel.position = safe.position + Vector2(16, 16)
+		mobile_top_panel.size.x = safe.size.x - 32
+		mobile_top_panel.size.y = maxf(72, 20 * density + 20)
+	if mobile_dialogue_panel != null:
+		mobile_dialogue_panel.position = Vector2(safe.position.x + 32, mobile_bar.position.y - 324)
+		mobile_dialogue_panel.size.x = safe.size.x - 64
+	if help_panel != null:
+		help_panel.position = Vector2(safe.position.x + 16, mobile_bar.position.y - 68)
+		help_panel.size = Vector2(safe.size.x - 32, 56)
+	if mobile_session_panel != null:
+		mobile_session_panel.position = Vector2(safe.get_center().x - 420, safe.position.y + 24)
+		mobile_session_panel.size = Vector2(840, safe.size.y - 48)
+
+
+func _update_mobile_controls() -> void:
+	if mobile_bar == null:
+		return
+	mobile_bar.visible = game_language_picker_layer == null and not _management_visible() and not _session_menu_visible() and not mobile_backgrounded
+	var conversation: bool = _dialogue_visible() or (combat_cinematic != null and combat_cinematic.is_active())
+	for action: String in mobile_buttons:
+		var button: Button = mobile_buttons[action]
+		button.text = _ui("player.touch." + ("continue" if action == "confirm" and conversation else action), {"seat": mobile_seat + 1})
+		button.visible = not conversation or action in ["confirm", "menu"]
+		if action == "seat":
+			button.visible = not conversation and player_count > 1
+		if action == "wait":
+			button.disabled = selected_units[mobile_seat] == 0 or snapshot.get("deploying", false)
+		if action == "end_turn":
+			button.disabled = snapshot.is_empty()
+			if snapshot.get("deploying", false):
+				button.text = _ui("player.hud.begin")
+
+
+func _mobile_popup_chosen(seat: int, row: int) -> void:
+	if mobile_backgrounded or _session_menu_visible() or not action_popups[seat].get("open", false):
+		return
+	mobile_gestures.reset()
+	mobile_seat = seat
+	action_popups[seat].row = row
+	_activate_action_popup(seat)
+
+
+func _mobile_action(action: String) -> void:
+	if mobile_backgrounded:
+		return
+	mobile_gestures.reset()
+	match action:
+		"menu": _open_session_menu(true)
+		"cancel": _mobile_back()
+		"seat":
+			mobile_seat = (mobile_seat + 1) % player_count
+			hud_seat = mobile_seat
+			_refresh_selected_panel(mobile_seat)
+		"confirm":
+			if combat_cinematic != null and combat_cinematic.is_active():
+				combat_cinematic.skip_exchange()
+			elif _dialogue_visible():
+				_advance_dialogue()
+			else:
+				_accept_at(mobile_seat)
+		"wait":
+			if selected_units[mobile_seat] != 0:
+				_close_action_popup(mobile_seat)
+				_wait_selected(mobile_seat)
+		"end_turn":
+			if snapshot.get("deploying", false):
+				_submit("begin")
+			else:
+				# Existing end-turn policy waits only this player's ready units.
+				_close_action_popup(mobile_seat)
+				selected_units[mobile_seat] = 0
+				action_modes[mobile_seat] = "move"
+				board.set_selected(mobile_seat, 0, "move")
+				board.set_highlights(mobile_seat, [])
+				_wait_selected(mobile_seat)
+
+
+func _mobile_over_buttons(position: Vector2) -> bool:
+	if mobile_bar != null and mobile_bar.visible and mobile_bar.get_global_rect().has_point(position):
+		return true
+	for panel: PanelContainer in action_popup_panels:
+		if panel.visible and panel.get_global_rect().has_point(position):
+			return true
+	return false
+
+
+func _handle_mobile_screen(event: InputEvent) -> void:
+	if game_language_picker_layer != null or _management_visible() or _session_menu_visible():
+		mobile_gestures.reset()
+		return # Godot Controls handle taps, scrolling, and the soft keyboard.
+	if event is InputEventScreenTouch and event.pressed and _mobile_over_buttons(event.position):
+		return
+	var gesture: Dictionary = mobile_gestures.handle(event)
+	if not gesture.is_empty():
+		if gesture.kind == "tap" and not _mobile_over_buttons(gesture.position):
+			_mobile_tap(gesture.position)
+		elif not _dialogue_visible() and (combat_cinematic == null or not combat_cinematic.is_active()):
+			if gesture.kind == "pan" and board.has_method("pan_view"):
+				board.pan_view(gesture.delta)
+			elif gesture.kind == "zoom" and board.has_method("zoom_view"):
+				board.zoom_view(gesture.factor)
+	get_viewport().set_input_as_handled()
+
+
+func _mobile_tap(position: Vector2) -> void:
+	if combat_cinematic != null and combat_cinematic.is_active():
+		combat_cinematic.skip_exchange()
+		return
+	if _dialogue_visible():
+		_advance_dialogue()
+		return
+	if board == null or seats.is_empty():
+		return
+	if action_popups[mobile_seat].get("open", false):
+		_close_action_popup(mobile_seat)
+		return # A tap outside a decision card never activates its focused row.
+	var cell: Vector2i = board.cell_at(position)
+	if cell.x < 0:
+		return
+	var unit: Dictionary = board.unit_at(cell)
+	if selected_units[mobile_seat] == 0 and unit.get("side", "") == "first":
+		mobile_seat = clampi(int(unit.get("player", 1)) - 1, 0, player_count - 1)
+	seats[mobile_seat].active = true
+	seats[mobile_seat].cursor = cell
+	board.set_seats(seats)
+	_accept_at(mobile_seat)
+
+
+func _mobile_back() -> void:
+	mobile_gestures.reset()
+	if game_language_picker_layer != null:
+		_return_home()
+	elif _session_menu_visible():
+		_session_menu_back()
+	elif _management_visible():
+		_open_management_session_menu()
+	elif combat_cinematic != null and combat_cinematic.is_active():
+		combat_cinematic.skip_exchange()
+	elif selected_units[mobile_seat] != 0 or action_popups[mobile_seat].get("open", false):
+		_cancel(mobile_seat)
+	else:
+		_open_session_menu(true)
+
+
+func _notification(what: int) -> void:
+	if not OS.has_feature("android"):
+		return
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		_mobile_back()
+	elif what == NOTIFICATION_APPLICATION_PAUSED:
+		_mobile_set_backgrounded(true)
+	elif what == NOTIFICATION_APPLICATION_RESUMED:
+		_mobile_set_backgrounded(false)
+
+
+func _mobile_set_backgrounded(value: bool) -> void:
+	if value == mobile_backgrounded:
+		return
+	mobile_gestures.reset()
+	for action: StringName in InputMap.get_actions():
+		Input.action_release(action)
+	for device: int in Input.get_connected_joypads():
+		PCNavigation.reset_device(device)
+	if combat_cinematic != null:
+		combat_cinematic.set_fast_forward(false)
+	mobile_backgrounded = value
+	var bus := AudioServer.get_bus_index("Master")
+	if value:
+		mobile_previously_paused = get_tree().paused
+		mobile_previously_muted = AudioServer.is_bus_mute(bus)
+		AudioServer.set_bus_mute(bus, true)
+		get_tree().paused = true
+	else:
+		get_tree().paused = mobile_previously_paused
+		AudioServer.set_bus_mute(bus, mobile_previously_muted)
+		_layout_mobile_controls()
+		_open_session_menu(true) # Resume behind an explicit decision, never a tap.

@@ -553,6 +553,36 @@ func tactical_focus_for_cell(
 	)
 
 
+func _clamp_view_focus(point: Vector3) -> Vector3:
+	var aspect := float(_viewport.size.x) / maxf(1.0, float(_viewport.size.y)) if _viewport != null else 16.0 / 9.0
+	var travel_x := maxf(0.0, (float(snapshot.get("width", 0)) - _camera.size * aspect * 0.82) * 0.5)
+	var travel_z := maxf(0.0, (float(snapshot.get("height", 0)) - _camera.size * 0.90) * 0.5)
+	return Vector3(clampf(point.x, -travel_x, travel_x), _camera_focus_target.y, clampf(point.z, -travel_z, travel_z))
+
+
+func pan_view(screen_delta: Vector2) -> void:
+	if _camera == null or _combat_camera_active or snapshot.is_empty():
+		return
+	var centre := size * 0.5
+	var ground := Plane(Vector3.UP, 0)
+	var from: Variant = ground.intersects_ray(_camera.project_ray_origin(centre), _camera.project_ray_normal(centre))
+	var to: Variant = ground.intersects_ray(_camera.project_ray_origin(centre - screen_delta), _camera.project_ray_normal(centre - screen_delta))
+	if from == null or to == null:
+		return
+	_camera_focus_target = _clamp_view_focus(_camera_focus_target + Vector3(to) - Vector3(from))
+	_camera_focus_current = _camera_focus_target
+	_update_tactical_camera(0)
+
+
+func zoom_view(factor: float) -> void:
+	if _camera == null or _combat_camera_active or snapshot.is_empty() or factor <= 0:
+		return
+	_camera.size = clampf(_camera.size / factor, 3.0, 14.0)
+	_camera_focus_target = _clamp_view_focus(_camera_focus_target)
+	_camera_focus_current = _camera_focus_target
+	_update_tactical_camera(0)
+
+
 func _focus_tactical_camera(cell: Vector2i) -> void:
 	if _camera == null or snapshot.is_empty() or not _cell_is_valid(cell):
 		return

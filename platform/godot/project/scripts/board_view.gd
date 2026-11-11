@@ -21,6 +21,9 @@ var visual_visibility: Dictionary = {}
 var theme := 0
 var profile_config: Dictionary = {}
 var seats: Array = []
+var _mobile_view_active := false
+var _mobile_pan := Vector2.ZERO
+var _mobile_zoom := 1.0
 var tile_size := 64.0
 var origin := Vector2(54, 112)
 var selected_units: Array[int] = [0, 0]
@@ -396,12 +399,35 @@ func _fit_board() -> void:
 		board_area.x / maxf(1.0, float(snapshot.width)),
 		board_area.y / maxf(1.0, float(snapshot.height))
 	))
-	tile_size = clampf(tile_size, 32.0, 82.0)
+	tile_size = clampf(tile_size, 32.0, 82.0) * _mobile_zoom
 	var dimensions := Vector2(snapshot.width, snapshot.height) * tile_size
 	origin = Vector2(
 		16.0 + maxf(0.0, (board_area.x - dimensions.x) * 0.5),
 		16.0 + maxf(0.0, (board_area.y - dimensions.y) * 0.5)
 	)
+
+	var travel := Vector2(maxf(0, (dimensions.x - board_area.x) * 0.5), maxf(0, (dimensions.y - board_area.y) * 0.5))
+	_mobile_pan = _mobile_pan.clamp(-travel, travel)
+	if _mobile_view_active:
+		origin += (board_area - dimensions).min(Vector2.ZERO) * 0.5 + _mobile_pan
+
+
+func pan_view(delta: Vector2) -> void:
+	if snapshot.is_empty():
+		return
+	_mobile_view_active = true
+	_mobile_pan += delta
+	_fit_board()
+	queue_redraw()
+
+
+func zoom_view(factor: float) -> void:
+	if snapshot.is_empty() or factor <= 0:
+		return
+	_mobile_view_active = true
+	_mobile_zoom = clampf(_mobile_zoom * factor, 0.5, 2.0)
+	_fit_board()
+	queue_redraw()
 
 
 func _draw_board_shadow() -> void:
