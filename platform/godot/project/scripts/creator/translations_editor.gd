@@ -44,6 +44,8 @@ var play_language_button: Button
 
 
 func _ready() -> void:
+	_fit_mobile_canvas()
+	get_viewport().size_changed.connect(_fit_mobile_canvas)
 	library = ProjectLibrary.new()
 	compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 	project_id = CreatorContext.project_id
@@ -913,3 +915,15 @@ func _panel(fill: Color, border: Color) -> StyleBoxFlat:
 	style.set_corner_radius_all(16)
 	style.set_content_margin_all(18)
 	return style
+
+
+func _fit_mobile_canvas() -> void:
+	load("res://scripts/mobile_layout.gd").fit_canvas(self)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		var cancel := InputEventAction.new()
+		cancel.action = "ui_cancel"
+		cancel.pressed = true
+		_unhandled_input(cancel)

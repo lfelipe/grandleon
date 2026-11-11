@@ -2,10 +2,15 @@
 extends Control
 
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
+const PortableCampaignExporter = preload("res://scripts/creator/portable_campaign_exporter.gd")
+const DocumentTransfer = preload("res://scripts/creator/document_transfer.gd")
 const StandaloneExporter = preload("res://scripts/creator/standalone_exporter.gd")
 const ConsoleBuilder = preload("res://scripts/creator/console_builder.gd")
 
 var library
+var portable_campaign_exporter
+var document_transfer: Node
+var export_campaign_button: Button
 var standalone_exporter
 var console_builder
 var project_list: VBoxContainer
@@ -50,9 +55,18 @@ var screenshot_frames := -1
 
 
 func _ready() -> void:
+	_fit_mobile_canvas()
+	get_viewport().size_changed.connect(_fit_mobile_canvas)
 	PCNavigation.set_ui_button_bridge(true)
 	_parse_arguments()
-	library = ProjectLibrary.new()
+	if library == null:
+		library = ProjectLibrary.new()
+	portable_campaign_exporter = PortableCampaignExporter.new(library)
+	document_transfer = DocumentTransfer.new()
+	add_child(document_transfer)
+	document_transfer.completed.connect(func(): _set_export_status(_t("creator.export.saved"), false))
+	document_transfer.failed.connect(func(): _set_export_status(_t("creator.export.error.storage_error"), true))
+	document_transfer.cancelled.connect(func(): _set_export_status(_t("creator.export.cancelled"), false))
 	standalone_exporter = StandaloneExporter.new(library)
 	console_builder = ConsoleBuilder.new(library)
 	_build_interface()
@@ -357,16 +371,20 @@ func _build_export_layer() -> void:
 		"panel", _panel(Color("0c1d29"), 22, Color("69d9ff"))
 	)
 	export_layer.add_child(panel)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	panel.add_child(scroll)
 	var column := VBoxContainer.new()
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.add_theme_constant_override("separation", 12)
-	panel.add_child(column)
-	column.add_child(_label("FINISH & EXPORT", 18, Color("69d9ff")))
+	scroll.add_child(column)
+	column.add_child(_label(_t("creator.export.heading"), 18, Color("69d9ff")))
 	export_title = _label("CAMPAIGN", 34, Color("f2f7f9"))
 	export_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	export_title.custom_minimum_size.y = 48
 	column.add_child(export_title)
 	var explanation := _label(
-		"Keep editing with a portable project, or build a game people can launch directly.",
+		_t("creator.export.explanation"),
 		18,
 		Color("a9bdc9")
 	)
@@ -376,7 +394,7 @@ func _build_export_layer() -> void:
 	var campaign_row := HBoxContainer.new()
 	campaign_row.add_theme_constant_override("separation", 14)
 	column.add_child(campaign_row)
-	var campaign_label := _label("STARTING CAMPAIGN", 15, Color("69d9ff"))
+	var campaign_label := _label(_t("creator.export.starting"), 15, Color("69d9ff"))
 	campaign_label.custom_minimum_size = Vector2(230, 54)
 	campaign_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	campaign_row.add_child(campaign_label)
@@ -388,11 +406,15 @@ func _build_export_layer() -> void:
 	export_campaign_select.item_selected.connect(_select_export_campaign)
 	campaign_row.add_child(export_campaign_select)
 	export_first_button = _button(
-		"PORTABLE PROJECT  /  READY\nEditable archive for another Grandleon installation"
+		_t("creator.export.source")
 	)
 	export_first_button.custom_minimum_size.y = 92
 	export_first_button.pressed.connect(_export_portable_from_center)
 	column.add_child(export_first_button)
+	export_campaign_button = _button(_t("creator.export.campaign"))
+	export_campaign_button.custom_minimum_size.y = 92
+	export_campaign_button.pressed.connect(_export_campaign_from_center)
+	column.add_child(export_campaign_button)
 	export_linux_button = _button("PC GAME  /  CHECKING PLAYER SHELL")
 	export_linux_button.custom_minimum_size.y = 92
 	export_linux_button.pressed.connect(_export_linux_from_center)
@@ -568,6 +590,13 @@ func _open_export_center(project_id: String, title: String) -> void:
 
 
 func _refresh_export_center() -> void:
+	export_campaign_button.disabled = export_campaign_id.is_empty()
+	if OS.has_feature("android"):
+		export_linux_button.disabled = true
+		export_linux_button.text = _t("creator.export.pc_only")
+		_refresh_console_export_availability()
+		_set_export_status(_t("creator.export.choose"), false)
+		return
 	var available: Dictionary = standalone_exporter.availability()
 	export_linux_button.disabled = not bool(available.ok) or export_campaign_id.is_empty()
 	if available.ok:
@@ -581,7 +610,7 @@ func _refresh_export_center() -> void:
 		)
 	export_linux_button.tooltip_text = str(available.message)
 	_refresh_console_export_availability()
-	_set_export_status("CHOOSE A FORMAT", false)
+	_set_export_status(_t("creator.export.choose"), false)
 
 
 func _refresh_export_campaigns() -> void:
@@ -653,12 +682,16 @@ func _export_portable_from_center() -> void:
 	if not exported.ok:
 		_set_export_status("EXPORT FAILED  /  %s" % exported.message, true)
 		return
+	if OS.has_feature("android"):
+		document_transfer.save_document(str(exported.path), str(exported.name))
+		return
 	var archive_name := str(exported.name).to_upper()
 	_set_export_status("READY  /  %s" % archive_name, false)
 	_set_status("EXPORTED  /  %s" % archive_name, false)
 
 
 func _export_linux_from_center() -> void:
+	if OS.has_feature("android"): return
 	export_linux_button.disabled = true
 	_set_export_status("BUILDING PC GAME…", false)
 	call_deferred("_build_linux_export")
@@ -683,6 +716,9 @@ func _build_linux_export() -> void:
 
 
 func _refresh_linux_export_availability() -> void:
+	if OS.has_feature("android"):
+		export_linux_button.disabled = true
+		return
 	var available: Dictionary = standalone_exporter.availability()
 	export_linux_button.disabled = not bool(available.ok) or export_campaign_id.is_empty()
 	export_linux_button.tooltip_text = str(available.message)
@@ -694,6 +730,10 @@ func _refresh_console_export_availability() -> void:
 			export_nintendo_64_button if target == "nintendo64"
 			else export_playstation_button
 		)
+		if OS.has_feature("android"):
+			button.disabled = true
+			button.text = _t("creator.export.console_pc_only", {"platform": "Nintendo 64" if target == "nintendo64" else "PlayStation"})
+			continue
 		var available: Dictionary = console_builder.availability(target)
 		button.disabled = (
 			not bool(available.ok)
@@ -711,6 +751,7 @@ func _refresh_console_export_availability() -> void:
 
 
 func _start_console_export(target: String) -> void:
+	if OS.has_feature("android"): return
 	if export_project_id.is_empty():
 		_set_export_status("BUILD FAILED  /  NO PROJECT SELECTED", true)
 		return
@@ -803,7 +844,7 @@ func _build_import_dialog() -> void:
 		"*.grandleon.zip ; Grandleon project archives",
 	])
 	import_dialog.current_dir = library.import_directory()
-	import_dialog.use_native_dialog = false
+	import_dialog.use_native_dialog = OS.has_feature("android")
 	import_dialog.file_selected.connect(_import_project)
 	import_dialog.canceled.connect(_focus_import_inbox)
 	add_child(import_dialog)
@@ -1091,12 +1132,18 @@ func _refresh_import_inbox() -> void:
 
 
 func _open_import_dialog() -> void:
-	import_dialog.current_dir = library.import_directory()
+	if not OS.has_feature("android"):
+		import_dialog.current_dir = library.import_directory()
 	import_dialog.popup_centered_ratio(0.78)
 
 
 func _import_project(path: String) -> void:
-	var imported: Dictionary = library.import_project(path)
+	var staged := DocumentTransfer.stage_import(path)
+	if not staged.ok:
+		_set_import_status(_t("creator.export.error.storage_error"), true)
+		return
+	var imported: Dictionary = library.import_project(str(staged.path))
+	if staged.get("temporary", false): DirAccess.remove_absolute(str(staged.path))
 	if not imported.ok:
 		_set_status("IMPORT FAILED  /  %s" % imported.message, true)
 		_set_import_status("IMPORT FAILED  /  %s" % imported.message, true)
@@ -1307,6 +1354,7 @@ func _select_language(index: int) -> void:
 
 func _rebuild_localized_interface() -> void:
 	for child: Node in get_children():
+		if child == document_transfer: continue
 		remove_child(child)
 		child.queue_free()
 	first_button = null
@@ -1385,3 +1433,33 @@ func _panel(fill: Color, radius: int, border: Color) -> StyleBoxFlat:
 	style.content_margin_top = 22
 	style.content_margin_bottom = 22
 	return style
+
+
+func _export_campaign_package(project_id: String, campaign_id: String, destination := "") -> Dictionary:
+	return portable_campaign_exporter.export_campaign_package(project_id, campaign_id, destination)
+
+
+func _export_campaign_from_center() -> void:
+	var exported := _export_campaign_package(export_project_id, export_campaign_id)
+	if not exported.get("ok", false):
+		var code := str(exported.get("code", "project_not_playable"))
+		if code not in ["native_compiler_unavailable", "campaign_selection_required", "player_two_ownership_missing", "unsupported_assets", "project_not_playable", "package_too_large", "storage_error"]:
+			code = "project_not_playable"
+		_set_export_status(_t("creator.export.error." + code), true)
+		return
+	if OS.has_feature("android"):
+		document_transfer.save_document(str(exported.bundle_path), str(exported.bundle_name))
+	else:
+		_set_export_status(_t("creator.export.ready", {"path": str(exported.bundle_path)}), false)
+
+
+func _fit_mobile_canvas() -> void:
+	load("res://scripts/mobile_layout.gd").fit_canvas(self)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		var cancel := InputEventAction.new()
+		cancel.action = "ui_cancel"
+		cancel.pressed = true
+		_unhandled_input(cancel)

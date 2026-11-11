@@ -108,6 +108,9 @@ var experience_select: OptionButton
 var tool_buttons: Dictionary = {}
 var palette_list: VBoxContainer
 var palette_buttons: Dictionary = {}
+var touch_brush_pointer := -1
+var touch_brush_terrain: Array = []
+var touch_brush_last := -1
 var grid: GridContainer
 var empty_label: Label
 var status_label: Label
@@ -244,7 +247,10 @@ var dependency_id := ""
 
 
 func _ready() -> void:
-	library = ProjectLibrary.new()
+	_fit_mobile_canvas()
+	get_viewport().size_changed.connect(_fit_mobile_canvas)
+	if library == null:
+		library = ProjectLibrary.new()
 	compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 	project_id = CreatorContext.project_id
 	_build_interface()
@@ -253,7 +259,9 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if dependency_layer != null and dependency_layer.visible:
+		if touch_brush_pointer >= 0:
+			_cancel_touch_brush()
+		elif dependency_layer != null and dependency_layer.visible:
 			_close_dependency_review()
 		elif talk_layer != null and talk_layer.visible:
 			_close_talk_choice()
@@ -810,6 +818,7 @@ func _refresh_grid(focus_index := -1) -> void:
 				_add_patrol_badge(cell, tile_size, patrol_cells.find(index) + 1)
 			if objective_targets_by_cell.has(index):
 				_add_objective_marker(cell, objective_targets_by_cell[index])
+			cell.set_meta("terrain_index", index)
 			cell.pressed.connect(_paint_cell.bind(index))
 			grid.add_child(cell)
 	if focus_index >= 0:
@@ -1212,6 +1221,7 @@ func _project_theme_index() -> int:
 
 
 func _paint_cell(index: int) -> void:
+	if touch_brush_pointer >= 0: return
 	var map := _current_map()
 	if map.is_empty() or compiler == null:
 		return
@@ -6317,3 +6327,81 @@ func _panel(fill: Color, radius: int, border: Color) -> StyleBoxFlat:
 	style.content_margin_top = 10
 	style.content_margin_bottom = 10
 	return style
+
+
+func _fit_mobile_canvas() -> void:
+	load("res://scripts/mobile_layout.gd").fit_canvas(self)
+
+
+func _input(event: InputEvent) -> void:
+	# The brush consumes real touch events itself. Ignore their synthesized
+	# mouse events on the board so a stroke cannot also trigger a button click.
+	if active_tool == "brush" and event is InputEventMouse and event.device == InputEvent.DEVICE_ID_EMULATION and grid != null and _touch_cell_at(event.position) >= 0:
+		get_viewport().set_input_as_handled()
+		return
+	if event is InputEventScreenTouch and event.pressed and touch_brush_pointer >= 0 and event.index != touch_brush_pointer:
+		_cancel_touch_brush()
+		get_viewport().set_input_as_handled()
+		return
+	if active_tool != "brush" or grid == null or not grid.is_visible_in_tree(): return
+	if event is InputEventScreenTouch and event.pressed and touch_brush_pointer < 0:
+		for layer: Control in [dependency_layer, talk_layer, look_layer, surroundings_layer, interior_visibility_layer, objective_layer, forces_layer, moments_layer, placement_layer, resize_layer, copy_setup_layer, setup_layer, chapter_layer, rename_layer, more_layer]:
+			if layer != null and layer.visible: return
+		if _touch_cell_at(event.position) < 0: return
+	elif touch_brush_pointer < 0: return
+	_terrain_touch(event)
+
+
+func _terrain_touch(event: InputEvent) -> void:
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			if touch_brush_pointer >= 0: return
+			touch_brush_pointer = event.index
+			touch_brush_terrain = _current_map().get("terrain", []).duplicate()
+			_touch_brush_at(event.position)
+		elif event.index == touch_brush_pointer:
+			var changed := touch_brush_terrain
+			var last := touch_brush_last
+			_cancel_touch_brush()
+			if last >= 0:
+				_apply_terrain(changed, last, _t("map.edit.painted", {"terrain": _terrain_label(selected_terrain)}))
+		get_viewport().set_input_as_handled()
+	elif event is InputEventScreenDrag and event.index == touch_brush_pointer:
+		_touch_brush_at(event.position)
+		get_viewport().set_input_as_handled()
+
+
+func _touch_brush_at(position: Vector2) -> void:
+	for child: Node in grid.get_children():
+		if not child is Control or not child.has_meta("terrain_index"): continue
+		if not child.get_global_rect().has_point(position): continue
+		var index := int(child.get_meta("terrain_index"))
+		if index >= 0 and index < touch_brush_terrain.size():
+			touch_brush_terrain[index] = selected_terrain
+			touch_brush_last = index
+			child.self_modulate = Color("69d9ff")
+		return
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		var cancel := InputEventAction.new()
+		cancel.action = "ui_cancel"
+		cancel.pressed = true
+		_unhandled_input(cancel)
+
+
+func _touch_cell_at(position: Vector2) -> int:
+	for child: Node in grid.get_children():
+		if child is Control and child.has_meta("terrain_index") and child.get_global_rect().has_point(position):
+			return int(child.get_meta("terrain_index"))
+	return -1
+
+
+func _cancel_touch_brush() -> void:
+	touch_brush_pointer = -1
+	touch_brush_terrain = []
+	touch_brush_last = -1
+	for cell: Node in grid.get_children():
+		if cell is Control and cell.has_meta("terrain_index"):
+			cell.self_modulate = Color.WHITE

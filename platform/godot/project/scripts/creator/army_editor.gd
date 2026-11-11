@@ -166,6 +166,8 @@ var dependency_return_button: Button
 
 
 func _ready() -> void:
+	_fit_mobile_canvas()
+	get_viewport().size_changed.connect(_fit_mobile_canvas)
 	library = ProjectLibrary.new()
 	compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 	art = ArtLibrary.new()
@@ -3412,3 +3414,15 @@ func _panel(fill: Color, radius: int, border: Color) -> StyleBoxFlat:
 	style.content_margin_top = 18
 	style.content_margin_bottom = 18
 	return style
+
+
+func _fit_mobile_canvas() -> void:
+	load("res://scripts/mobile_layout.gd").fit_canvas(self)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		var cancel := InputEventAction.new()
+		cancel.action = "ui_cancel"
+		cancel.pressed = true
+		_unhandled_input(cancel)

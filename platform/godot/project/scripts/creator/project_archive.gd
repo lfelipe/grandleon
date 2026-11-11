@@ -455,3 +455,42 @@ func _build_crc_table() -> Array[int]:
 
 func _failure(code: String, message: String) -> Dictionary:
 	return {"ok": false, "code": code, "message": message}
+
+
+# The playable campaign envelope uses the same stored-ZIP preflight and CRC
+# checks as editable archives, with an exact small allowlist before read_file.
+func read_data_archive(path: String, limits: Dictionary) -> Dictionary:
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null: return _failure("archive_missing", "The archive could not be opened.")
+	var maximum := 4096
+	for limit: Variant in limits.values(): maximum += int(limit)
+	var length := file.get_length()
+	file.close()
+	if length > maximum: return _failure("archive_limit_exceeded", "The archive exceeds the size limit.")
+	var checked := _validate_stored_zip(path)
+	if not checked.ok: return checked
+	if checked.entries.size() != limits.size(): return _failure("archive_invalid", "Unexpected archive entries.")
+	for name: String in checked.entries:
+		if not limits.has(name) or not _valid_portable_component(name) or int(checked.entries[name].size) > int(limits[name]):
+			return _failure("archive_invalid", "Unexpected or oversized archive entry.")
+	var reader := ZIPReader.new()
+	if reader.open(path) != OK: return _failure("archive_invalid", "The archive could not be read.")
+	var contents: Dictionary = {}
+	for name: String in checked.entries:
+		var bytes := reader.read_file(name)
+		if bytes.size() != int(checked.entries[name].size) or _crc32(bytes) != int(checked.entries[name].crc):
+			reader.close()
+			return _failure("archive_integrity_failed", "Archive checksum validation failed.")
+		contents[name] = bytes
+	reader.close()
+	return {"ok": true, "contents": contents}
+
+
+func write_data_archive(path: String, contents: Dictionary) -> Dictionary:
+	var entries: Array[Dictionary] = []
+	for name: String in contents:
+		if not _valid_portable_component(name) or not contents[name] is PackedByteArray:
+			return _failure("archive_path_invalid", "The archive entry is invalid.")
+		entries.append({"path": name, "bytes": contents[name]})
+	entries.sort_custom(func(a: Dictionary, b: Dictionary): return str(a.path) < str(b.path))
+	return _write_stored_zip(path, entries)

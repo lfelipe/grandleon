@@ -34,9 +34,14 @@ var catalog: Node
 var browser: Control
 var browse_button: Button
 var home_frame: Control
+var local_campaigns
+var open_campaign_button: Button
+var campaign_file_dialog: FileDialog
 
 
 func _ready() -> void:
+	_fit_mobile_canvas()
+	get_viewport().size_changed.connect(_fit_mobile_canvas)
 	PCNavigation.set_ui_button_bridge(false)
 	_parse_arguments()
 	if _should_open_game_directly():
@@ -61,6 +66,7 @@ func _ready() -> void:
 	library = ProjectLibrary.new()
 	compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 	if creator_enabled:
+		if local_campaigns == null: local_campaigns = load("res://scripts/creator/local_campaigns.gd").new()
 		if catalog == null:
 			catalog = load("res://scripts/campaign_catalog.gd").new()
 		add_child(catalog)
@@ -171,8 +177,8 @@ func _build_interface() -> void:
 
 	var frame := PanelContainer.new()
 	home_frame = frame
-	frame.position = Vector2(360, 80)
-	frame.size = Vector2(1200, 920)
+	frame.position = Vector2(360, 40)
+	frame.size = Vector2(1200, 1000)
 	frame.add_theme_stylebox_override(
 		"panel", _panel(Color("0a1823"), 28, Color(0.18, 0.52, 0.66, 0.55), 40)
 	)
@@ -248,6 +254,9 @@ func _build_interface() -> void:
 	divider.modulate = Color(0.35, 0.70, 0.84, 0.28)
 	column.add_child(divider)
 	if creator_enabled:
+		open_campaign_button = _button(_t("home.import_game.open"))
+		open_campaign_button.pressed.connect(_open_campaign_file)
+		column.add_child(open_campaign_button)
 		browse_button = _button(_t("catalog.browse"))
 		browse_button.pressed.connect(_open_browser)
 		column.add_child(browse_button)
@@ -342,6 +351,12 @@ func _refresh_games() -> void:
 		games_list.add_child(included)
 		first_button = included
 		game_button_count += 1
+	if local_campaigns != null:
+		for entry: Dictionary in local_campaigns.entries():
+			var local := _button(str(entry.title) + "\n" + _t("home.import_game.installed"))
+			local.pressed.connect(_play_local.bind(entry))
+			games_list.add_child(local)
+			game_button_count += 1
 	if catalog != null:
 		for entry: Dictionary in catalog.entries():
 			if not entry.get("installed", false): continue
@@ -713,3 +728,47 @@ func _launch_catalog(launch: Dictionary) -> void:
 func _restore_game_focus() -> void:
 	if first_button != null and (browser == null or not browser.visible):
 		first_button.grab_focus()
+
+
+func _fit_mobile_canvas() -> void:
+	load("res://scripts/mobile_layout.gd").fit_canvas(self)
+
+
+func _open_campaign_file() -> void:
+	if campaign_file_dialog != null: campaign_file_dialog.queue_free()
+	campaign_file_dialog = FileDialog.new()
+	campaign_file_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	campaign_file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	campaign_file_dialog.use_native_dialog = OS.has_feature("android")
+	campaign_file_dialog.title = _t("home.import_game.open")
+	campaign_file_dialog.add_filter("*.grandleon.game.zip", _t("creator.export.campaign"), "application/zip")
+	campaign_file_dialog.file_selected.connect(_import_campaign_file)
+	add_child(campaign_file_dialog)
+	campaign_file_dialog.popup_centered_ratio(0.8)
+
+
+func _import_campaign_file(path: String) -> Dictionary:
+	var imported: Dictionary = local_campaigns.import_file(path)
+	if not imported.get("ok", false):
+		_set_status(browser._error(imported), true)
+		return imported
+	_refresh_games()
+	_set_status(_t("home.import_game.ready", {"title": str(imported.title)}), false)
+	_launch_catalog(imported)
+	return imported
+
+
+func _play_local(entry: Dictionary) -> void:
+	var launch: Dictionary = local_campaigns.read_launch(entry)
+	if launch.get("ok", false): _launch_catalog(launch)
+	else: _set_status(browser._error(launch), true)
+
+
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_WM_GO_BACK_REQUEST: return
+	if player_choice_overlay != null and player_choice_overlay.visible:
+		_cancel_player_choice()
+	elif browser != null and browser.visible:
+		browser.close()
+	else:
+		get_tree().quit()
