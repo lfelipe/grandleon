@@ -28,8 +28,8 @@ Windows release download yet. The Windows x64 engine DLL and campaign compiler
 build with MinGW-w64 GCC 13; all 64 compiled native tests pass under Wine.
 This does not replace testing the application on a real Windows desktop.
 
-Developers can build the creator bundle with Python 3.11 or newer, CMake,
-Ninja and a MinGW-w64 compiler with C++ threading support on their PATH:
+Developers can build the creator bundle with Git, Python 3.11 or newer,
+CMake, Ninja and a MinGW-w64 compiler with C++ threading support on their PATH:
 
 ```powershell
 python platform/godot/scripts/build-windows.py

@@ -70,7 +70,7 @@ def main():
         run("cmake", "-S", ROOT, "-B", build, "-G", "Ninja",
             f"-DCMAKE_CXX_COMPILER={args.cxx}", "-DCMAKE_BUILD_TYPE=Release",
             "-DCMAKE_EXE_LINKER_FLAGS=-static -static-libgcc -static-libstdc++",
-            "-DGRANDLEON_BUILD_GODOT=ON", "-DGRANDLEON_BUILD_TESTS=ON",
+            "-DGRANDLEON_BUILD_GODOT=ON", "-DGRANDLEON_BUILD_TESTS=OFF",
             "-DGRANDLEON_GODOT_API_VERSION=4.7", "-DGRANDLEON_WERROR=ON")
         run("cmake", "--build", build, "--config", "Release", "--parallel",
             "--target", "grandleon_content_compile", "grandleon_godot_project")
