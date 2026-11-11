@@ -8,6 +8,10 @@ func check(value: bool, message: String) -> void:
 		failures += 1
 		push_error(message)
 func _run() -> void:
+	var covered := Rect2(100, 400, 600, 126)
+	var pan := Layout.keyboard_pan_delta(covered, 394, 12)
+	check(covered.end.y - pan <= 382, "An overlay IME must leave the entire focused field visible")
+	check(Layout.keyboard_pan_delta(Rect2(100, 50, 600, 126), 394, 12) == 0, "Visible fields must not cause an accumulating keyboard offset")
 	var screen := Control.new()
 	screen.size = Vector2(1920, 1080)
 	root.add_child(screen)

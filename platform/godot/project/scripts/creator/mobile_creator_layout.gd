@@ -5,6 +5,7 @@ extends Node
 const MobileLayout = preload("res://scripts/mobile_layout.gd")
 var screen: Control
 var pending := false
+var last_keyboard_height := 0
 
 static func metrics(units_per_dp: float, canvas_scale := 1.0) -> Dictionary:
 	var unit := maxf(0.5, units_per_dp) / maxf(0.1, canvas_scale)
@@ -75,3 +76,34 @@ static func _original(node: Node, key: String, value: Variant) -> Variant:
 		stored[key] = value
 		node.set_meta("mobile_original_metrics", stored)
 	return stored[key]
+
+
+static func keyboard_pan_delta(field: Rect2, keyboard_top: float, padding: float) -> float:
+	return maxf(0, field.end.y - keyboard_top + padding)
+
+
+func _process(_delta: float) -> void:
+	if not is_instance_valid(screen): return
+	var height := DisplayServer.virtual_keyboard_get_height()
+	if height <= 0:
+		if last_keyboard_height > 0:
+			MobileLayout.fit_canvas(screen)
+			schedule()
+		last_keyboard_height = 0
+		return
+	last_keyboard_height = height
+	var focused := screen.get_viewport().gui_get_focus_owner()
+	if not (focused is LineEdit or focused is TextEdit) or not screen.is_ancestor_of(focused): return
+	# Android's IME may overlay the window without a viewport resize. Recompute
+	# from the original safe canvas every frame, then pan only enough to keep
+	# the actual editing field above the keyboard. Do not accumulate offsets.
+	MobileLayout.fit_canvas(screen)
+	var viewport_size := screen.get_viewport().get_visible_rect().size
+	var window := Vector2(DisplayServer.window_get_size())
+	var stretch := minf(window.x / maxf(viewport_size.x, 1), window.y / maxf(viewport_size.y, 1))
+	var letterbox_y := (window.y - viewport_size.y * stretch) * 0.5
+	var keyboard_top := (window.y - height - letterbox_y) / maxf(stretch, 0.1)
+	var safe := MobileLayout.current_rect(screen.get_viewport())
+	keyboard_top = minf(keyboard_top, safe.end.y)
+	var padding := 8 * MobileLayout.units_per_dp(screen.get_viewport())
+	screen.position.y -= keyboard_pan_delta(focused.get_global_rect(), keyboard_top, padding)
