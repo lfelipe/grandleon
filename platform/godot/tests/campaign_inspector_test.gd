@@ -9,11 +9,14 @@ func _init() -> void:
 func _run() -> void:
 	var package_path := ""
 	var expected_version := ""
+	var source_path := ""
 	for argument: String in OS.get_cmdline_user_args():
 		if argument.begins_with("--package="):
 			package_path = argument.trim_prefix("--package=")
 		elif argument.begins_with("--player-version="):
 			expected_version = argument.trim_prefix("--player-version=")
+		elif argument.begins_with("--source-project="):
+			source_path = argument.trim_prefix("--source-project=")
 	var bytes := FileAccess.get_file_as_bytes(package_path)
 	_expect("real compiled Steel and Cedar package supplied", bytes.size() == 55584)
 	if bytes.is_empty():
@@ -79,9 +82,49 @@ func _run() -> void:
 	_expect("inspection never starts a native campaign worker", not session.running())
 	_expect("inspection publishes no gameplay events", session.poll().is_empty())
 	_expect("inspection does not mutate session error state", session.last_error().is_empty())
+	var source := FileAccess.get_file_as_string(source_path)
+	_expect("real campaign source supplied for authored player policies", source.contains('"playerMode": "choice"'))
+	if source.contains('"playerMode": "choice"'):
+		var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
+		for mode: String in ["one", "two"]:
+			var variant := source.replace('"playerMode": "choice"', '"playerMode": "%s"' % mode)
+			var compiled: Dictionary = compiler.compile_source_json(variant)
+			_expect("authored %s campaign compiles: %s" % [mode, str(compiled.get("diagnostics", []))], bool(compiled.get("ok", false)))
+			if not compiled.get("ok", false):
+				continue
+			var checked: Dictionary = session.inspect_campaign(compiled.package, "steel_and_cedar")
+			_expect("native %s policy uses external catalogue vocabulary" % mode, checked.get("ok", false) and checked.get("playerMode", "") == mode)
+			if mode == "two":
+				await _launch_authored_two(compiled.package)
 	if failures == 0:
 		print("native campaign inspector passed: real package, identities, player policy, checksum, compatibility, unavailable art and malformed encounter")
 	quit(0 if failures == 0 else 1)
+
+func _launch_authored_two(bytes: PackedByteArray) -> void:
+	var session = ClassDB.instantiate("GrandleonSession")
+	_expect("authored two-player native session starts", session.start_package(bytes, "steel_and_cedar", 2, "", "en"))
+	var deadline := Time.get_ticks_msec() + 15000
+	var snapshot: Dictionary = {}
+	while snapshot.is_empty() and Time.get_ticks_msec() < deadline:
+		await process_frame
+		for event: Dictionary in session.poll():
+			if event.type == "management":
+				_expect("ordinary company Proceed is accepted", session.submit_management("proceed"))
+			elif event.type in ["battle_begins", "snapshot"]:
+				snapshot = event.snapshot
+			elif event.type == "deployment_begins":
+				session.submit_intent("begin")
+			elif event.type == "session_failed":
+				_expect("authored co-op campaign reaches play", false)
+				break
+	var first := 0
+	var second := 0
+	for unit: Dictionary in snapshot.get("units", []):
+		if unit.get("on_board", false) and unit.side == "first":
+			if unit.player == 1: first += 1
+			elif unit.player == 2: second += 1
+	_expect("real authored two-player battle fields separate P1 and P2 armies", first > 0 and second > 0)
+	session.stop()
 
 func _expect(label: String, condition: bool) -> void:
 	if condition:
