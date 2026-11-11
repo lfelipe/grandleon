@@ -77,16 +77,48 @@ The Windows build needs to cover both playing games and creating them:
 
 The Windows application remains a development build until these checks pass.
 
-### Android support planned for 0.6
+### Android development build for 0.6
 
-Android support is planned for both the player and the Grandleon campaign
-editor. There is no Android download or validated build command yet. The
-work includes an ARM64 native extension, APK packaging, touch controls,
-readable phone/tablet layouts, project import/sharing and device testing.
-The Android editor will create and export portable campaigns for Android and
-PC. N64 ROM and PS1 disc builds remain on PC, using an editable project export.
+The Android application includes both the player and campaign editor. Build it
+on Linux with Java 17, CMake, Ninja, the host Godot 4.7.2 executable and the
+Android SDK packages below:
 
-See [TODO](../TODO.md#06) for the Android work list.
+```sh
+sdkmanager "platform-tools" "platforms;android-36" \
+    "build-tools;36.1.0" "ndk;28.1.13356709"
+python3 platform/godot/scripts/build-android.py --sdk /path/to/android-sdk
+```
+
+The script builds ARM64 and x86_64 native extensions, compiles the included
+campaign and downloads checksum-verified Godot 4.7.2 export templates. It creates
+`out/grandleon-android-development` with an APK and build information. Choose a
+new `--output` directory for subsequent builds. Use `--java-home` or `--godot`
+if those tools are installed elsewhere. This is a development build, signed
+with a local key kept under `build-android`; it is not an official release.
+
+Install on a selected device with:
+
+```sh
+adb -s DEVICE_SERIAL install --no-incremental -r \
+    out/grandleon-android-development/grandleon-android-development.apk
+```
+
+Android 7.0 or newer and OpenGL ES 3.0 are required. The APK includes all
+built-in artwork and audio, so it is currently about 436 MB. Physical phone
+and tablet testing remains on the [Android work list](../TODO.md#android-player-and-editor).
+
+Tap to select units and destinations; drag to pan and pinch to zoom. The
+bottom buttons provide confirm, cancel, wait, end turn and the game menu.
+Two-player games also have a player-switch button. Android Back cancels the
+current action or opens the menu. Returning from the background leaves the
+game paused until you resume it.
+
+Use **Playable campaign** to export a `.grandleon.game.zip` that another
+Android or PC installation can open with **Open campaign file**. Use
+**Editable project** to keep a `.grandleon.zip` copy for further editing.
+Android uses the system file picker, so no broad storage permission is needed.
+N64 ROM and PS1 disc builds remain PC-only: transfer the editable project to
+the PC editor when you need those exports.
 
 ### Campaign library in 0.6
 

@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import struct
 import subprocess
@@ -120,6 +121,15 @@ def main():
         run('cmake', '--build', native, '--parallel', '8', '--target', 'grandleon_godot')
         libraries[abi] = native / 'platform' / 'godot' / 'project' / 'bin' / 'android' / abi / 'libgrandleon_godot.so'
     native_proof = {abi: elf_info(path, abi) for abi, path in libraries.items()}
+    readelf = ndk / 'toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf'
+    for abi, library in libraries.items():
+        symbols = subprocess.check_output([str(readelf), '--dyn-syms', '--dynamic', str(library)], text=True)
+        if not re.search(r'GLOBAL\s+DEFAULT\s+\d+\s+grandleon_library_init\b', symbols):
+            raise ValueError(f'Native extension entry point missing: {library}')
+        dependencies = re.findall(r'\(NEEDED\).*\[([^]]+)\]', symbols)
+        if set(dependencies) - {'libm.so', 'libdl.so', 'libc.so', 'liblog.so', 'libandroid.so'}:
+            raise ValueError(f'Unbundled native dependency: {library}: {dependencies}')
+        native_proof[abi]['dependencies'] = dependencies
     if not args.no_host_build:
         run('cmake', '-S', ROOT, '-B', host, '-DGRANDLEON_BUILD_GODOT=ON', '-DGRANDLEON_BUILD_TESTS=OFF',
             '-DGRANDLEON_DESKTOP_SDL=OFF', '-DGRANDLEON_GODOT_API_VERSION=4.7', '-DGRANDLEON_WERROR=ON', *binding_source)
@@ -207,6 +217,12 @@ def main():
         run(godot, '--headless', '--path', stage, '--export-debug', 'Android development', apk, env=env)
         run(signer, 'verify', '--verbose', apk, env=env)
         run(sdk / 'build-tools' / BUILD_TOOLS / 'zipalign', '-c', '-P', '16', '4', apk, env=env)
+        manifest = subprocess.check_output([
+            str(sdk / 'build-tools' / BUILD_TOOLS / 'aapt'), 'dump', 'badging', str(apk),
+        ], text=True, env=env)
+        for expected in ["name='org.grandleon.app.dev'", "sdkVersion:'24'", "targetSdkVersion:'36'"]:
+            if expected not in manifest:
+                raise ValueError(f'Unexpected Android manifest; missing {expected}')
         with zipfile.ZipFile(apk) as package:
             for abi in ABIS:
                 library = package.read(f'lib/{abi}/libgrandleon_godot.so')
@@ -219,6 +235,7 @@ def main():
             'sourceTree': 'dirty' if dirty else 'clean', 'godotVersion': GODOT_VERSION,
             'templatesSha256': TEMPLATES_SHA256, 'ndkVersion': NDK_VERSION,
             'buildTools': BUILD_TOOLS, 'nativeLibraries': native_proof,
+            'minimumSdk': 24, 'targetSdk': 36, 'apkSizeBytes': apk.stat().st_size,
             'apkSha256': digest(apk), 'applicationId': 'org.grandleon.app.dev',
             'signing': 'local development key, not an official release',
         }, indent=2) + '\n')
