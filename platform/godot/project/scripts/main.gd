@@ -4268,8 +4268,9 @@ func _layout_mobile_controls() -> void:
 		mobile_dialogue_panel.position = Vector2(safe.position.x + 32, mobile_bar.position.y - 324)
 		mobile_dialogue_panel.size.x = safe.size.x - 64
 	if help_panel != null:
-		help_panel.position = Vector2(safe.position.x + 16, mobile_bar.position.y - 68)
-		help_panel.size = Vector2(safe.size.x - 32, 56)
+		var hint_height := maxf(56, ceilf(28 * density * text_scale))
+		help_panel.position = Vector2(safe.position.x + 16, mobile_bar.position.y - hint_height - 12)
+		help_panel.size = Vector2(safe.size.x - 32, hint_height)
 	if mobile_session_panel != null:
 		mobile_session_panel.position = Vector2(safe.get_center().x - 420, safe.position.y + 24)
 		mobile_session_panel.size = Vector2(840, safe.size.y - 48)
