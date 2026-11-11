@@ -44,7 +44,7 @@ func export_campaign_package(project_id: String, campaign_id: String, destinatio
 		"minimumPlayerVersion": inspected.playerVersion,
 		"assets": {"kind": "builtin", "pack": "grandleon-core", "version": 1},
 	}
-	var name := str(loaded.project.get("gameId", "campaign")).validate_filename() + ".gpk"
+	var name := "campaign-" + str(loaded.project.get("gameId", "campaign")).validate_filename() + ".gpk"
 	if destination.is_empty():
 		var root: String = library.root_path.get_base_dir().path_join("exports/campaigns")
 		if DirAccess.make_dir_recursive_absolute(root) != OK: return _failure("storage_error")
