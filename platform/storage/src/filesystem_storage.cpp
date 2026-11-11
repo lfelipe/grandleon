@@ -14,9 +14,19 @@ namespace fs = std::filesystem;
 // A slot name becomes a path only after `is_valid_slot_name` has accepted it,
 // so this appends a leaf and can never traverse.
 fs::path path_of(const std::string& root, std::string_view slot) {
-    fs::path path = fs::path(root);
+    fs::path path = fs::u8path(root);
     path /= std::string(slot) + std::string(FilesystemSlotStorage::file_suffix);
     return path;
+}
+
+// Keep the path native all the way to the C file API. Narrow Windows fopen
+// interprets its filename in the process code page rather than as UTF-8.
+std::FILE* open_binary_file(const fs::path& path, bool writing) {
+#ifdef _WIN32
+    return _wfopen(path.c_str(), writing ? L"wb" : L"rb");
+#else
+    return std::fopen(path.c_str(), writing ? "wb" : "rb");
+#endif
 }
 
 // A slot's whole contents, or the reason there are none.
@@ -42,7 +52,7 @@ StorageError read_whole_file(
         return StorageError::too_large;
     }
     out.resize(static_cast<std::size_t>(size));
-    std::FILE* file = std::fopen(path.string().c_str(), "rb");
+    std::FILE* file = open_binary_file(path, false);
     if (file == nullptr) {
         out.clear();
         return StorageError::io_failure;
@@ -59,7 +69,7 @@ StorageError read_whole_file(
 }
 
 bool write_whole_file(const fs::path& path, const std::vector<std::uint8_t>& bytes) {
-    std::FILE* file = std::fopen(path.string().c_str(), "wb");
+    std::FILE* file = open_binary_file(path, true);
     if (file == nullptr) {
         return false;
     }
@@ -82,8 +92,8 @@ FilesystemSlotStorage::FilesystemSlotStorage(std::string root)
 FilesystemSlotStorage::FilesystemSlotStorage(std::string root, StorageBudget budget)
     : root_(std::move(root)), budget_(budget) {
     std::error_code code;
-    fs::create_directories(fs::path(root_), code);
-    available_ = fs::is_directory(fs::path(root_), code);
+    fs::create_directories(fs::u8path(root_), code);
+    available_ = fs::is_directory(fs::u8path(root_), code);
 }
 
 StorageError FilesystemSlotStorage::write(
@@ -193,7 +203,7 @@ std::vector<std::string> FilesystemSlotStorage::slots() const {
         return names;
     }
     std::error_code code;
-    fs::directory_iterator entries(fs::path(root_), code);
+    fs::directory_iterator entries(fs::u8path(root_), code);
     if (code) {
         return names;
     }
@@ -201,7 +211,7 @@ std::vector<std::string> FilesystemSlotStorage::slots() const {
         if (!entry.is_regular_file(code)) {
             continue;
         }
-        const std::string name = entry.path().filename().string();
+        const std::string name = entry.path().filename().u8string();
         if (name.size() <= file_suffix.size() ||
             name.compare(
                 name.size() - file_suffix.size(), file_suffix.size(), file_suffix

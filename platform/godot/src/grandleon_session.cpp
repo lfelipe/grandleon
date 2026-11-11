@@ -936,7 +936,7 @@ bool GrandleonSession::start(
     reset_for_start();
 
     const std::string path = narrow(package_path);
-    std::ifstream input(path, std::ios::binary);
+    std::ifstream input(std::filesystem::u8path(path), std::ios::binary);
     if (!input) {
         std::lock_guard<std::mutex> lock(state_mutex_);
         last_error_ = "cannot open package: " + path;

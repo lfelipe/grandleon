@@ -38,7 +38,7 @@ namespace grandleon::storage {
 
 class FilesystemSlotStorage final : public SlotStorage {
 public:
-    // The directory is created if it is not there. If it cannot be, every
+    // The UTF-8 directory is created if it is not there. If it cannot be, every
     // operation answers `unavailable` rather than throwing: a missing save
     // directory is a device that is not present, which is a case every platform
     // has and every caller must already handle.

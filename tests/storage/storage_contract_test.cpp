@@ -271,7 +271,7 @@ std::string test_root(const char* leaf) {
 
 void a_fresh_directory(const std::string& path) {
     std::error_code code;
-    std::filesystem::remove_all(std::filesystem::path(path), code);
+    std::filesystem::remove_all(std::filesystem::u8path(path), code);
 }
 
 void the_memory_device_keeps_the_contract() {
@@ -305,6 +305,49 @@ void the_desktop_directory_keeps_the_same_contract() {
         },
         "filesystem"
     );
+}
+
+void the_desktop_directory_keeps_unicode_paths() {
+    const std::string root = test_root(u8"revis\u00e3o \u4fdd\u5b58");
+    a_fresh_directory(root);
+    {
+        storage::FilesystemSlotStorage device(root);
+        expect(device.available(), "a UTF-8 save directory is available");
+        the_slot_contract(device, "UTF-8 filesystem");
+        expect(
+            device.write("chapter_one", payload(128, 3)) == storage::StorageError::none,
+            "a save is written inside the actual Unicode directory"
+        );
+    }
+    storage::FilesystemSlotStorage reopened(root);
+    expect(
+        reopened.read("chapter_one").bytes == payload(128, 3),
+        "a later device reopens the Unicode directory and its save"
+    );
+    expect(
+        reopened.write("chapter_one", payload(511, 199)) == storage::StorageError::none,
+        "an existing save is atomically replaced under a Unicode path"
+    );
+    expect(
+        reopened.read("chapter_one").bytes == payload(511, 199),
+        "the Unicode-path replacement contains every new byte"
+    );
+    const auto directory = std::filesystem::u8path(root);
+    std::error_code code;
+    expect(
+        std::filesystem::is_regular_file(directory / "chapter_one.gls", code),
+        "the slot is in the requested Unicode directory, not a code-page spelling"
+    );
+    expect(
+        !std::filesystem::exists(directory / "chapter_one.gls.tmp", code),
+        "the Unicode-path replacement leaves no staged file"
+    );
+    std::ofstream(directory / std::filesystem::u8path(u8"notes-\u00e3.txt")) << "not a slot";
+    expect(
+        reopened.slots() == std::vector<std::string>{"chapter_one"},
+        "a foreign Unicode filename is safely ignored by the slot listing"
+    );
+    a_fresh_directory(root);
 }
 
 // ---------------------------------------------------------------------------
@@ -662,6 +705,7 @@ void a_campaign_survives_a_device() {
 int main() {
     the_memory_device_keeps_the_contract();
     the_desktop_directory_keeps_the_same_contract();
+    the_desktop_directory_keeps_unicode_paths();
     the_byte_window_device_keeps_the_contract();
     a_byte_window_survives_the_device_that_wrote_it();
     the_desktop_directory_is_a_directory();
