@@ -4,6 +4,7 @@ extends Control
 
 const ArtLibrary = preload("res://scripts/art_library.gd")
 const BackdropPackResolver = preload("res://scripts/conversation_backdrop_resolver.gd")
+const MobileLayout = preload("res://scripts/mobile_layout.gd")
 const TERRAIN_COLOURS := [
 	Color("287da3"), Color("a8845b"), Color("3f8151"), Color("75838a"),
 	Color("b89a62"), Color("d6e4e6"), Color("486f5b"), Color("789568"),
@@ -575,9 +576,12 @@ func _label(font_size: int, colour: Color) -> Label:
 func _update_font_sizes() -> void:
 	for label: Label in [_headline, _result, _actor_name, _target_name, _hint]:
 		if label != null:
+			var base := float(label.get_meta("base_font_size", 16))
+			if OS.has_feature("android"):
+				base = maxf(base, 16 * MobileLayout.units_per_dp(get_viewport()))
 			label.add_theme_font_size_override(
 				"font_size",
-				roundi(float(label.get_meta("base_font_size", 16)) * text_scale)
+				roundi(base * text_scale)
 			)
 
 
@@ -600,6 +604,14 @@ func _update_labels() -> void:
 	_target_name.position = Vector2(viewport_size.x * 0.58, viewport_size.y - 150)
 	_target_name.size = Vector2(viewport_size.x * 0.30, 44)
 	_target_name.text = String(_stage_right_unit.get("name", "Unit"))
+	if OS.has_feature("android"):
+		var safe := MobileLayout.current_rect(get_viewport())
+		var density := MobileLayout.units_per_dp(get_viewport())
+		var controls_top := safe.end.y - maxf(112, 48 * density) - 24
+		var name_height := maxf(64, ceilf(24 * density * text_scale))
+		for label: Label in [_actor_name, _target_name]:
+			label.position.y = controls_top - name_height - 16
+			label.size.y = name_height
 	var render_state := stage_render_state()
 	var result_x := 0.12 if String(render_state.get("target_slot", "right")) == "left" else 0.58
 	_result.position = Vector2(viewport_size.x * result_x, viewport_size.y * 0.24)
@@ -659,7 +671,7 @@ func _text(message_id: String, values: Dictionary = {}) -> String:
 func _apply_capture_hud_visibility() -> void:
 	for label: Label in [_headline, _actor_name, _target_name, _hint]:
 		if label != null:
-			label.visible = not capture_hud_mode
+			label.visible = not capture_hud_mode and not (label == _hint and OS.has_feature("android"))
 
 
 func _draw() -> void:
