@@ -187,6 +187,12 @@ downloads compatible games and keeps installed campaigns available offline.
 You can add another public catalogue URL too. The first packages use Grandleon's
 built-in artwork and audio. This browser is not in the published 0.5 app yet.
 
+Android development builds now package the player and creator together, with
+touch controls and portable campaign exports. See the
+[Android build instructions](docs/SETUP.md#android-development-build-for-06).
+Phone and tablet testing is still in progress. Building N64 and PS1 games
+continues to require the PC editor.
+
 Importing external artwork may be explored later, but it is not part of the
 current roadmap commitment.
 
