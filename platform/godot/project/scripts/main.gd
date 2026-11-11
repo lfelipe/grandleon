@@ -531,6 +531,11 @@ func _show_game_language_picker(
 	explanation.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	choices.add_child(explanation)
+	if OS.has_feature("android"):
+		heading.add_theme_font_size_override("font_size", roundi(20 * MobileLayout.units_per_dp(get_viewport())))
+		explanation.add_theme_font_size_override("font_size", roundi(16 * MobileLayout.units_per_dp(get_viewport())))
+		panel.custom_minimum_size.x = 900
+		panel.position = Vector2(-450, -360)
 
 	var source_language := str(language_info.get("source", ""))
 	var first_button: Button = null
@@ -540,7 +545,9 @@ func _show_game_language_picker(
 		button.text = _game_language_name(language)
 		if language == source_language:
 			button.text += "  /  " + _shell_text("player.language.original")
-		button.custom_minimum_size = Vector2(0, 112 if OS.has_feature("android") else 48)
+		button.custom_minimum_size = Vector2(0, maxf(112, 48 * MobileLayout.units_per_dp(get_viewport())) if OS.has_feature("android") else 48)
+		if OS.has_feature("android"):
+			button.add_theme_font_size_override("font_size", roundi(16 * MobileLayout.units_per_dp(get_viewport())))
 		button.pressed.connect(_select_game_language.bind(language))
 		choices.add_child(button)
 		if first_button == null:
@@ -1769,6 +1776,9 @@ func _create_interface() -> void:
 	top.add_child(top_row)
 	title_label = _label("PC", 19, Color("e9f7ff"))
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if OS.has_feature("android"):
+		title_label.clip_text = true
+		title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	top_row.add_child(title_label)
 	turn_label = _label(_ui("player.hud.waiting"), 17, Color("69d9ff"))
 	top_row.add_child(turn_label)
@@ -1956,6 +1966,7 @@ func _create_dialogue(layer: CanvasLayer) -> void:
 		_ui("player.dialogue.continue", {"confirm": controls.label("confirm")}),
 		15, Color("89a8b8")
 	)
+	dialogue_hint.visible = not OS.has_feature("android")
 	dialogue_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	words.add_child(dialogue_hint)
 
@@ -2089,6 +2100,7 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	session_menu_settings.add_child(session_menu_settings_back)
 
 	session_menu_hint = _label("", 16, Color("718896"))
+	session_menu_hint.visible = not OS.has_feature("android")
 	session_menu_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(session_menu_hint)
 	_update_session_labels()
@@ -3520,7 +3532,7 @@ func _render_action_popup(seat: int) -> void:
 			var button := Button.new()
 			button.text = str(options[index].get("label", ""))
 			button.custom_minimum_size = Vector2(320, maxf(96, 48 * MobileLayout.units_per_dp(get_viewport())))
-			button.add_theme_font_size_override("font_size", 32)
+			button.add_theme_font_size_override("font_size", roundi(16 * MobileLayout.units_per_dp(get_viewport())))
 			button.pressed.connect(_mobile_popup_chosen.bind(seat, index))
 			list.add_child(button)
 		action_popup_panels[seat].size.y = 0
@@ -4173,11 +4185,13 @@ func _localized_runtime_warning(message: String) -> String:
 
 func _bind_font_size(control: Control, key: String, base: int) -> void:
 	if OS.has_feature("android"):
-		base = maxi(base, roundi(14 * MobileLayout.units_per_dp(get_viewport())))
-	font_size_bindings.append({"control": control, "key": key, "base": base})
-	control.add_theme_font_size_override(
-		StringName(key), roundi(float(base) * text_scale)
-	)
+		base = maxi(base, roundi(16 * MobileLayout.units_per_dp(get_viewport())))
+	var keys: Array[String] = [key]
+	if OS.has_feature("android") and control is RichTextLabel and key == "normal_font_size":
+		keys.append_array(["bold_font_size", "italics_font_size", "bold_italics_font_size", "mono_font_size"])
+	for font_key: String in keys:
+		font_size_bindings.append({"control": control, "key": font_key, "base": base})
+		control.add_theme_font_size_override(StringName(font_key), roundi(float(base) * text_scale))
 
 
 func _label(value: String, size: int, colour: Color) -> Label:
@@ -4236,6 +4250,8 @@ func _layout_mobile_controls() -> void:
 	if mobile_bar == null:
 		return
 	var safe := MobileLayout.current_rect(get_viewport())
+	if board is Control:
+		board.size = get_viewport().get_visible_rect().size
 	var density := MobileLayout.units_per_dp(get_viewport())
 	var height := maxf(112, 48 * density)
 	mobile_bar.position = Vector2(safe.position.x + 16, safe.end.y - height - 24)
@@ -4263,6 +4279,8 @@ func _update_mobile_controls() -> void:
 	if mobile_bar == null:
 		return
 	mobile_bar.visible = game_language_picker_layer == null and not _management_visible() and not _session_menu_visible() and not mobile_backgrounded
+	if game_language_picker_layer != null and help_panel != null:
+		help_panel.visible = false
 	var conversation: bool = _dialogue_visible() or (combat_cinematic != null and combat_cinematic.is_active())
 	for action: String in mobile_buttons:
 		var button: Button = mobile_buttons[action]
@@ -4336,6 +4354,7 @@ func _handle_mobile_screen(event: InputEvent) -> void:
 		mobile_gestures.reset()
 		return # Godot Controls handle taps, scrolling, and the soft keyboard.
 	if event is InputEventScreenTouch and event.pressed and _mobile_over_buttons(event.position):
+		mobile_gestures.reset() # Mixed board/UI contacts cannot finish a board tap.
 		return
 	var gesture: Dictionary = mobile_gestures.handle(event)
 	if not gesture.is_empty():
@@ -4380,7 +4399,8 @@ func _mobile_back() -> void:
 	elif _session_menu_visible():
 		_session_menu_back()
 	elif _management_visible():
-		_open_management_session_menu()
+		if not campaign_manager.mobile_back():
+			_open_management_session_menu()
 	elif combat_cinematic != null and combat_cinematic.is_active():
 		combat_cinematic.skip_exchange()
 	elif selected_units[mobile_seat] != 0 or action_popups[mobile_seat].get("open", false):

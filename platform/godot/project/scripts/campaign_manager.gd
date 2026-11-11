@@ -5,6 +5,7 @@ signal intent_requested(kind: String, member_id: int, item_id: int, stage_id: in
 signal player_name_requested(member_id: int, name: String)
 signal session_menu_requested
 
+const MobileLayout = preload("res://scripts/mobile_layout.gd")
 const ACCENT := Color("69d9ff")
 const TEXT := Color("e9f0f4")
 const MUTED := Color("8ba5b3")
@@ -201,7 +202,18 @@ func _build_interface() -> void:
 
 	var root := VBoxContainer.new()
 	root.add_theme_constant_override("separation", 14)
-	panel.add_child(root)
+	if OS.has_feature("android"):
+		var safe := MobileLayout.current_rect(get_viewport())
+		panel.position = safe.position + Vector2(24, 24)
+		panel.size = safe.size - Vector2(48, 48)
+		var scroll := ScrollContainer.new()
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scroll.follow_focus = true
+		panel.add_child(scroll)
+		root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.add_child(root)
+	else:
+		panel.add_child(root)
 	root.add_child(_label(_ui("player.company.header"), 16, ACCENT))
 	_heading = _label(_ui("player.company.prepare"), 38, TEXT)
 	root.add_child(_heading)
@@ -288,6 +300,7 @@ func _build_interface() -> void:
 	action_scroll.add_child(_actions_list)
 
 	_footer = _label("", 16, MUTED)
+	_footer.visible = not OS.has_feature("android")
 	_footer.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(_footer)
 	_update_control_hints()
@@ -432,6 +445,10 @@ func _update_summary() -> void:
 
 
 func _update_control_hints() -> void:
+	if OS.has_feature("android"):
+		_proceed_button.text = _ui("player.hud.begin")
+		_session_button.text = _ui("player.touch.menu")
+		return
 	_proceed_button.text = _ui("player.company.start_battle", {
 		"menu": _menu_label, "confirm": _confirm_label,
 	})
@@ -497,7 +514,18 @@ func _build_name_layer() -> void:
 	_name_layer.add_child(panel)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 16)
-	panel.add_child(column)
+	if OS.has_feature("android"):
+		var safe := MobileLayout.current_rect(get_viewport())
+		panel.size = Vector2(minf(1200, safe.size.x - 64), safe.size.y - 64)
+		panel.position = Vector2(safe.get_center().x - panel.size.x * 0.5, safe.position.y + 32)
+		var scroll := ScrollContainer.new()
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scroll.follow_focus = true
+		panel.add_child(scroll)
+		column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.add_child(column)
+	else:
+		panel.add_child(column)
 	column.add_child(_label(_ui("player.company.name_header"), 16, ACCENT))
 	_name_heading = _label(_ui("player.company.name_choose"), 32, TEXT)
 	column.add_child(_name_heading)
@@ -506,7 +534,7 @@ func _build_name_layer() -> void:
 	column.add_child(_name_default)
 	_name_input = LineEdit.new()
 	_name_input.max_length = 64
-	_name_input.custom_minimum_size = Vector2(900, 64)
+	_name_input.custom_minimum_size = Vector2(900, maxf(96, 48 * MobileLayout.units_per_dp(get_viewport())) if OS.has_feature("android") else 64)
 	_bind_font(_name_input, "font_size", 22)
 	_name_input.text_changed.connect(_validate_player_name)
 	column.add_child(_name_input)
@@ -728,7 +756,7 @@ func _label(value: String, size: int, colour: Color) -> Label:
 func _button(value: String) -> Button:
 	var button := Button.new()
 	button.text = value
-	button.custom_minimum_size = Vector2(0, 62)
+	button.custom_minimum_size = Vector2(0, maxf(112, 48 * MobileLayout.units_per_dp(get_viewport())) if OS.has_feature("android") else 62)
 	_bind_font(button, "font_size", 19)
 	button.add_theme_color_override("font_color", Color("dcebf0"))
 	button.add_theme_color_override("font_disabled_color", Color("607682"))
@@ -749,8 +777,14 @@ func _button(value: String) -> Button:
 
 
 func _bind_font(control: Control, key: String, size: int) -> void:
-	_font_bindings.append({"control": control, "key": key, "base": size})
-	control.add_theme_font_size_override(StringName(key), roundi(size * _text_scale))
+	if OS.has_feature("android"):
+		size = maxi(size, roundi(16 * MobileLayout.units_per_dp(get_viewport())))
+	var keys: Array[String] = [key]
+	if OS.has_feature("android") and control is RichTextLabel and key == "normal_font_size":
+		keys.append_array(["bold_font_size", "italics_font_size", "bold_italics_font_size", "mono_font_size"])
+	for font_key: String in keys:
+		_font_bindings.append({"control": control, "key": font_key, "base": size})
+		control.add_theme_font_size_override(StringName(font_key), roundi(size * _text_scale))
 
 
 func _panel(fill: Color, radius: int, border: Color, padding: int) -> StyleBoxFlat:
@@ -764,3 +798,13 @@ func _panel(fill: Color, radius: int, border: Color, padding: int) -> StyleBoxFl
 	style.content_margin_top = padding
 	style.content_margin_bottom = padding
 	return style
+
+
+func mobile_back() -> bool:
+	if _name_layer != null and _name_layer.visible:
+		_close_name_entry()
+		return true
+	if _actions_open:
+		_back_to_roster()
+		return true
+	return false

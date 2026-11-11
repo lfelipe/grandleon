@@ -48,5 +48,6 @@ func _init() -> void:
 	expect(Layout.safe_rect(Vector2(1920, 1080), Vector2(1920, 1080), Rect2(80, 24, 1760, 1032)) == Rect2(80, 24, 1760, 1032), "notch/navigation bounds preserved")
 	expect(Layout.safe_rect(Vector2(1920, 1080), Vector2(2400, 1080), Rect2(120, 0, 2160, 1080)) == Rect2(0, 0, 1920, 1080), "letterboxing lies outside logical canvas")
 	expect(Layout.safe_rect(Vector2(1920, 1080), Vector2.ZERO, Rect2()) == Rect2(0, 0, 1920, 1080), "missing display metadata keeps usable viewport")
+	expect(Layout.safe_rect(Vector2(2400, 1080), Vector2(2400, 1080), Rect2(128, 0, 2272, 1080)) == Rect2(128, 0, 2272, 1080), "expanded ultrawide viewport retains actual notch inset")
 	print("MOBILE_INPUT_PASS checks=%d real_screen_events=true tap_drag_pinch=true safe_area=true" % checks)
 	quit()
