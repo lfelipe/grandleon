@@ -34,9 +34,12 @@ items below describe the existing foundation; they are not being reopened.
 
 ### Android player and editor
 
-- [ ] Build the native extension and campaign compiler for Android ARM64.
+- [x] Build the native extension and campaign compiler for Android ARM64.
   Package the Godot application, required runtime libraries and built-in
   campaign as an installable APK, with reproducible SDK/NDK and template pins.
+  The development APK includes ARM64 and x86_64 libraries with 16 KiB page
+  alignment. The x86_64 compiler runs in an Android emulator and produces the
+  same campaign bytes as the PC compiler; ARM64 device testing remains below.
 - [ ] Load bundled campaigns through Godot's resource/byte-loading path and
   keep saves and downloaded content in writable app storage. Test accented
   paths, interrupted writes and save/resume after the app is suspended.
@@ -93,7 +96,8 @@ instead of silently using built-in replacements. Catalogue metadata, download
 and failure cases have deterministic HTTP tests, plus a real unauthenticated
 GitHub release download. The real public package also passes an actual battle
 victory, checkpoint save and offline resume without modifying built-in saves.
-Android packaging remains separate work.
+The Android development APK includes the same browser; device validation is
+tracked above.
 
 ### Graphics and animation
 
