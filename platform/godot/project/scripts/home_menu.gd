@@ -29,6 +29,11 @@ var pending_package := PackedByteArray()
 var pending_campaign := ""
 var pending_preview := false
 var player_choice_return_focus: Control
+var pending_save_scope := ""
+var catalog: Node
+var browser: Control
+var browse_button: Button
+var home_frame: Control
 
 
 func _ready() -> void:
@@ -55,13 +60,21 @@ func _ready() -> void:
 	PCNavigation.allow_all_devices()
 	library = ProjectLibrary.new()
 	compiler = ClassDB.instantiate("GrandleonProjectCompiler")
+	if creator_enabled:
+		if catalog == null:
+			catalog = load("res://scripts/campaign_catalog.gd").new()
+		add_child(catalog)
+		catalog.changed.connect(_refresh_games)
 	_build_interface()
 	_build_player_choice()
+	_build_browser()
 	_refresh_games()
 	if first_button != null:
 		first_button.grab_focus()
 	if home_smoke:
 		_run_smoke()
+	elif catalog != null:
+		browser.call_deferred("refresh_catalog")
 
 
 func _process(_delta: float) -> void:
@@ -87,6 +100,16 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			_cancel_player_choice()
 			return
+	if browser != null and browser.visible:
+		if (event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE) or (
+			event is InputEventJoypadButton and event.pressed
+			and controls.matches("cancel", event.button_index)
+		):
+			get_viewport().set_input_as_handled()
+			browser.close()
+			return
+	if browser != null and browser.visible and get_viewport().gui_get_focus_owner() is LineEdit:
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode in [KEY_ENTER, KEY_SPACE]:
 			get_viewport().set_input_as_handled()
@@ -147,6 +170,7 @@ func _build_interface() -> void:
 	add_child(background)
 
 	var frame := PanelContainer.new()
+	home_frame = frame
 	frame.position = Vector2(360, 80)
 	frame.size = Vector2(1200, 920)
 	frame.add_theme_stylebox_override(
@@ -224,6 +248,9 @@ func _build_interface() -> void:
 	divider.modulate = Color(0.35, 0.70, 0.84, 0.28)
 	column.add_child(divider)
 	if creator_enabled:
+		browse_button = _button(_t("catalog.browse"))
+		browse_button.pressed.connect(_open_browser)
+		column.add_child(browse_button)
 		var editor := _button(_t("home.create_edit"))
 		editor.pressed.connect(_open_editor)
 		column.add_child(editor)
@@ -289,6 +316,10 @@ func _build_player_choice() -> void:
 
 
 func _refresh_games() -> void:
+	var focused := get_viewport().gui_get_focus_owner()
+	var restore_focus := focused != null and games_list.is_ancestor_of(focused)
+	if restore_focus:
+		call_deferred("_restore_game_focus")
 	for child: Node in games_list.get_children():
 		child.queue_free()
 	game_button_count = 0
@@ -311,6 +342,13 @@ func _refresh_games() -> void:
 		games_list.add_child(included)
 		first_button = included
 		game_button_count += 1
+	if catalog != null:
+		for entry: Dictionary in catalog.entries():
+			if not entry.get("installed", false): continue
+			var installed := _button(str(entry.get("title", "")) + "\n" + _t("catalog.installed_label"))
+			installed.pressed.connect(_play_catalog.bind(entry))
+			games_list.add_child(installed)
+			game_button_count += 1
 	if not creator_enabled or library == null:
 		return
 	for project: Dictionary in library.list_projects():
@@ -430,17 +468,18 @@ func _play_project(project_id: String, selected_campaign := "") -> void:
 
 
 func _launch_package_for_mode(
-	bytes: PackedByteArray, campaign: String, mode: String, preview: bool
+	bytes: PackedByteArray, campaign: String, mode: String, preview: bool, save_scope := ""
 ) -> void:
 	if mode == "choice":
 		pending_package = bytes.duplicate()
 		pending_campaign = campaign
 		pending_preview = preview
+		pending_save_scope = save_scope
 		player_choice_return_focus = get_viewport().gui_get_focus_owner()
 		player_choice_overlay.visible = true
 		player_one_button.grab_focus()
 		return
-	_stage_package(bytes, campaign, preview, 2 if mode == "two" else 1)
+	_stage_package(bytes, campaign, preview, 2 if mode == "two" else 1, save_scope)
 
 
 func _choose_players(players: int) -> void:
@@ -450,14 +489,15 @@ func _choose_players(players: int) -> void:
 	var bytes := pending_package
 	var campaign := pending_campaign
 	var preview := pending_preview
+	var scope := pending_save_scope
 	_clear_player_choice()
-	_stage_package(bytes, campaign, preview, players)
+	_stage_package(bytes, campaign, preview, players, scope)
 
 
 func _stage_package(
-	bytes: PackedByteArray, campaign: String, preview: bool, players: int
+	bytes: PackedByteArray, campaign: String, preview: bool, players: int, scope := ""
 ) -> void:
-	LaunchContext.stage_package(bytes, campaign, preview, players)
+	LaunchContext.stage_package(bytes, campaign, preview, players, "", "", "", scope)
 	get_tree().change_scene_to_file("res://main.tscn")
 
 
@@ -473,6 +513,7 @@ func _clear_player_choice() -> void:
 	pending_package = PackedByteArray()
 	pending_campaign = ""
 	pending_preview = false
+	pending_save_scope = ""
 	player_choice_return_focus = null
 
 
@@ -493,6 +534,7 @@ func _select_language(index: int) -> void:
 
 func _rebuild_localized_interface() -> void:
 	for child: Node in get_children():
+		if child == catalog: continue
 		remove_child(child)
 		child.queue_free()
 	first_button = null
@@ -504,9 +546,11 @@ func _rebuild_localized_interface() -> void:
 	pending_package = PackedByteArray()
 	pending_campaign = ""
 	pending_preview = false
+	pending_save_scope = ""
 	player_choice_return_focus = null
 	_build_interface()
 	_build_player_choice()
+	_build_browser()
 	_refresh_games()
 	if first_button != null:
 		first_button.grab_focus()
@@ -518,7 +562,7 @@ func _t(message_id: String, values: Dictionary = {}) -> String:
 
 func _activate_focus() -> void:
 	var focused := get_viewport().gui_get_focus_owner()
-	if focused is BaseButton:
+	if focused is BaseButton and not focused.disabled:
 		focused.emit_signal("pressed")
 
 
@@ -636,3 +680,36 @@ func _panel(fill: Color, radius: int, border: Color, padding: int) -> StyleBoxFl
 	style.content_margin_top = padding
 	style.content_margin_bottom = padding
 	return style
+
+
+func _build_browser() -> void:
+	if catalog == null: return
+	browser = load("res://scripts/campaign_browser.gd").new()
+	browser.configure(catalog)
+	add_child(browser)
+	browser.hide()
+	move_child(player_choice_overlay, get_child_count() - 1)
+	browser.launch_requested.connect(_launch_catalog)
+	browser.closed.connect(func():
+		home_frame.show()
+		browse_button.grab_focus()
+	)
+
+func _open_browser() -> void:
+	home_frame.hide()
+	browser.open()
+
+func _play_catalog(entry: Dictionary) -> void:
+	var launch: Dictionary = catalog.read_launch(entry)
+	if launch.get("ok", false):
+		_launch_catalog(launch)
+	else:
+		_set_status(browser._error(launch), true)
+
+func _launch_catalog(launch: Dictionary) -> void:
+	_launch_package_for_mode(launch.package, str(launch.campaign), ("two" if str(launch.playerMode) == "coop" else str(launch.playerMode)), false, str(launch.save_scope))
+
+
+func _restore_game_focus() -> void:
+	if first_button != null and (browser == null or not browser.visible):
+		first_button.grab_focus()

@@ -8,6 +8,7 @@ var draft_preview := false
 var preview_return_scene := ""
 var preview_label := ""
 var game_language := ""
+var save_scope := ""
 
 
 func stage_package(
@@ -17,7 +18,8 @@ func stage_package(
 	players := 2,
 	return_scene := "",
 	label := "",
-	language := ""
+	language := "",
+	scope := ""
 ) -> void:
 	package_bytes = bytes.duplicate()
 	campaign_key = campaign
@@ -26,6 +28,7 @@ func stage_package(
 	preview_return_scene = return_scene if preview else ""
 	preview_label = label if preview else ""
 	game_language = language
+	save_scope = scope
 
 
 func take_package() -> Dictionary:
@@ -39,6 +42,7 @@ func take_package() -> Dictionary:
 		"preview_return_scene": preview_return_scene,
 		"preview_label": preview_label,
 		"language": game_language,
+		"save_scope": save_scope,
 	}
 	clear()
 	return staged
@@ -52,3 +56,4 @@ func clear() -> void:
 	preview_return_scene = ""
 	preview_label = ""
 	game_language = ""
+	save_scope = ""

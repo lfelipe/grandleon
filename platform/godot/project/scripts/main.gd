@@ -72,6 +72,7 @@ var presentation_settings_smoke := ""
 var frame_timing_smoke := false
 var campaign_progress_enabled := true
 var campaign_save_root := ""
+var campaign_save_scope := ""
 var campaign_persistence_smoke := false
 var campaign_persistence_resetting := false
 var campaign_management_smoke := false
@@ -195,6 +196,7 @@ func _ready() -> void:
 	campaign_save_state = _ui("player.save.auto_no_checkpoint")
 	var staged: Dictionary = LaunchContext.take_package()
 	draft_preview = bool(staged.get("draft_preview", false))
+	campaign_save_scope = str(staged.get("save_scope", ""))
 	if not staged.is_empty():
 		campaign_key = str(staged.get("campaign", campaign_key))
 		player_count = clampi(int(staged.get("players", player_count)), 1, 2)
@@ -468,6 +470,7 @@ func _show_game_language_picker(
 		"draft_preview": bool(staged.get("draft_preview", false)),
 		"preview_return_scene": str(staged.get("preview_return_scene", "")),
 		"preview_label": str(staged.get("preview_label", "")),
+		"save_scope": campaign_save_scope,
 	}
 	game_language_picker_layer = CanvasLayer.new()
 	game_language_picker_layer.layer = 100
@@ -539,7 +542,8 @@ func _select_game_language(language: String) -> void:
 		int(pending_language_launch.players),
 		str(pending_language_launch.preview_return_scene),
 		str(pending_language_launch.preview_label),
-		language
+		language,
+		str(pending_language_launch.get("save_scope", ""))
 	)
 	get_tree().reload_current_scene()
 
@@ -681,7 +685,14 @@ func _resolve_campaign_save_root() -> String:
 		)
 	):
 		return ""
-	return ProjectSettings.globalize_path("user://campaigns")
+	return _scoped_campaign_save_root(ProjectSettings.globalize_path("user://campaigns"), campaign_save_scope)
+
+
+static func _scoped_campaign_save_root(root: String, scope: String) -> String:
+	# The scope is one directory, never a path supplied by a downloaded catalogue.
+	if not scope.is_empty():
+		root = root.path_join("downloaded").path_join(scope.sha256_text())
+	return root
 
 
 func _use_presentation_settings() -> bool:
