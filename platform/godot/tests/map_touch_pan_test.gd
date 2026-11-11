@@ -52,6 +52,12 @@ func _run() -> void:
 	root.push_input(touch, true)
 	await process_frame
 	check(moved > 0, "A real viewport drag over map tiles must scroll the map")
+	var modal := Control.new()
+	editor.add_child(modal)
+	editor.more_layer = modal
+	touch.pressed = true
+	check(not editor._mobile_pan_input(touch), "Map panning must leave visible editor forms in control of touch input")
+	modal.hide()
 	editor._mobile_set_pan(false)
 	check(grid.get_child(0).mouse_filter == Control.MOUSE_FILTER_STOP, "Leaving Pan must restore tile editing input")
 	editor.queue_free()

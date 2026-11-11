@@ -6515,6 +6515,10 @@ func _update_mobile_pan_filters() -> void:
 
 func _mobile_pan_input(event: InputEvent) -> bool:
 	if not mobile_pan_mode or mobile_board_scroll == null or not mobile_board_scroll.is_visible_in_tree(): return false
+	for layer: Control in [dependency_layer, talk_layer, look_layer, surroundings_layer, interior_visibility_layer, objective_layer, forces_layer, moments_layer, placement_layer, resize_layer, copy_setup_layer, setup_layer, chapter_layer, rename_layer, more_layer]:
+		if layer != null and layer.visible:
+			mobile_pan_pointer = -1
+			return false
 	if event is InputEventMouse and event.device == InputEvent.DEVICE_ID_EMULATION and mobile_board_scroll.get_global_rect().has_point(event.position):
 		get_viewport().set_input_as_handled()
 		return true
