@@ -118,6 +118,10 @@ Two-player games also have a player-switch button. Android Back cancels the
 current action or opens the menu. Returning from the background leaves the
 game paused until you resume it.
 
+In the map editor, choose terrain and drag across cells to paint. Switch on
+**Pan map** when you want to move around instead; the zoom buttons change the
+editing scale.
+
 Use **Playable campaign** to export a `.grandleon.game.zip` that another
 Android or PC installation can open with **Open campaign file**. Use
 **Editable project** to keep a `.grandleon.zip` copy for further editing.
