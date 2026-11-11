@@ -161,7 +161,10 @@ def main():
     notice = ndk / 'toolchains/llvm/prebuilt/linux-x86_64/NOTICE'
     shutil.copy2(notice, licenses / 'ANDROID-LLVM-RUNTIME-NOTICE.txt')
     project = stage / 'project.godot'
-    project.write_text(project.read_text().replace('config/name="Grandleon PC"', 'config/name="Grandleon"'))
+    project.write_text(project.read_text().replace('config/name="Grandleon PC"', 'config/name="Grandleon"').replace(
+        'renderer/rendering_method.mobile="gl_compatibility"',
+        'renderer/rendering_method.mobile="gl_compatibility"\ntextures/vram_compression/import_etc2_astc=true',
+    ))
     state = build / 'godot-state'
     for name in ['config', 'data', 'cache']:
         (state / name).mkdir(parents=True, exist_ok=True)
@@ -176,7 +179,8 @@ def main():
     settings.write_text('[gd_resource type="EditorSettings" format=3]\n[resource]\n'
                         f'export/android/android_sdk_path = {json.dumps(str(sdk))}\n'
                         f'export/android/java_sdk_path = {json.dumps(str(java))}\n'
-                        f'export/android/debug_keystore = {json.dumps(str(keystore))}\n')
+                        f'export/android/debug_keystore = {json.dumps(str(keystore))}\n'
+                        'export/android/shutdown_adb_on_exit = false\n')
     preset = stage / 'export_presets.cfg'
     with preset.open('a') as file:
         file.write('\n[preset.1]\nname="Android development"\nplatform="Android"\nrunnable=true\n'
@@ -185,7 +189,8 @@ def main():
                    '[preset.1.options]\n'
                    f'custom_template/debug={json.dumps(str(template_dir / "android_debug.apk"))}\n'
                    f'custom_template/release={json.dumps(str(template_dir / "android_release.apk"))}\n'
-                   'gradle_build/use_gradle_build=false\narchitectures/armeabi-v7a=false\narchitectures/arm64-v8a=true\n'
+                   'gradle_build/use_gradle_build=false\ngradle_build/min_sdk="24"\ngradle_build/target_sdk="35"\n'
+                   'architectures/armeabi-v7a=false\narchitectures/arm64-v8a=true\n'
                    'architectures/x86=false\narchitectures/x86_64=true\nversion/code=1\nversion/name="0.6-dev"\n'
                    'package/unique_name="org.grandleon.app.dev"\npackage/name="Grandleon"\n'
                    'permissions/internet=true\npermissions/read_external_storage=false\npermissions/write_external_storage=false\n'
