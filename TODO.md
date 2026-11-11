@@ -48,8 +48,11 @@ items below describe the existing foundation; they are not being reopened.
   buttons and popups readable on phones and tablets, including safe areas.
 - [x] Bring campaign creation and playtesting to Android. Adapt editor panels,
   terrain painting, unit placement, scrolling and text entry for touch and
-  the on-screen keyboard. Check tablet and phone layouts; support external
-  keyboards and mice where available.
+  the on-screen keyboard. The core creation, map editing, keyboard and export
+  flows have real emulator coverage.
+- [ ] Finish the phone/tablet usability pass on advanced editor forms,
+  including the campaign outline's nested chapter list, and verify external
+  keyboards and mice. Readable controls alone do not prove every form fits well.
 - [x] Support importing, saving and sharing project archives through Android
   file handling. The Android editor creates and exports portable campaigns
   playable on Android and PC. Preserve an editable project export for the PC
