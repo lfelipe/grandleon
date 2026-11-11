@@ -83,10 +83,13 @@ items below describe the existing foundation; they are not being reopened.
 - [ ] Profile Godot's large-board, scrolling, ambient-animation and cinematic
   workloads, including on Windows, and fix observed rendering bottlenecks.
 
-Recorded 0.5 PS1 baseline: the 600-update scrolling probe misses one display
-deadline; the castle probe misses 46 and defers three renders. Re-measure the
-current artifacts before comparing changes. These are 0.6 work, with the
-strict checks retained.
+The first 0.6 PS1 optimization reduces average scenery rendering cost by
+about 5%. In matched 600-update probes, the scrolling case still misses one
+display deadline; the solo castle case improves from 36 misses to 32, with
+three deferred renders unchanged. The strict 30 fps checks remain open.
+All five campaign memory checks pass; 382 scrolling/castle comparison frames
+are byte-identical. [Measurements and build identities](tools/renderer_comparison/ps1-performance-06.json)
+retain the separate normal-game capture timing caveat.
 
 ### Review and release checks
 

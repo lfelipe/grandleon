@@ -1,0 +1,152 @@
+{
+  "production_baseline_sha256": "40323d98a9ae6f35a22e99f3325ae4bd6118bac9b3228220aa93e3068c43eeec",
+  "cases": {
+    "deep": {
+      "baseline": {
+        "bin_sha256": "e1fe0387e05e620f697346265afac13a4e1c7022a160d5d6f4bf2ae5f20417ad",
+        "runs": {
+          "evidence": [
+            "MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=300 scheduled_frames=300 deferred_frames=0 missed_vblanks=1 max_elapsed_vblanks=3",
+            "MIPSYNC_FRAME_BUDGET render_hbl_avg=258 render_hbl_max=535 ready_hbl_avg=261 ready_hbl_max=537 mutation_hbl_max=0",
+            "MIPSYNC_MISS_RANGE first=123 last=123"
+          ],
+          "motion": [
+            "MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=300 scheduled_frames=300 deferred_frames=0 missed_vblanks=1 max_elapsed_vblanks=3",
+            "MIPSYNC_FRAME_BUDGET render_hbl_avg=258 render_hbl_max=535 ready_hbl_avg=261 ready_hbl_max=537 mutation_hbl_max=0",
+            "MIPSYNC_MISS_RANGE first=123 last=123"
+          ]
+        },
+        "strict_30fps_gate_pass": false
+      },
+      "certified-projection": {
+        "bin_sha256": "34b1866586680b2e8fd349747a3d1b453bf5f69e9787e05bc2553d346fcddebb",
+        "runs": {
+          "evidence": [
+            "MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=300 scheduled_frames=300 deferred_frames=0 missed_vblanks=1 max_elapsed_vblanks=3",
+            "MIPSYNC_FRAME_BUDGET render_hbl_avg=244 render_hbl_max=518 ready_hbl_avg=246 ready_hbl_max=521 mutation_hbl_max=0",
+            "MIPSYNC_MISS_RANGE first=123 last=123"
+          ],
+          "motion": [
+            "MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=300 scheduled_frames=300 deferred_frames=0 missed_vblanks=1 max_elapsed_vblanks=3",
+            "MIPSYNC_FRAME_BUDGET render_hbl_avg=244 render_hbl_max=518 ready_hbl_avg=246 ready_hbl_max=521 mutation_hbl_max=0",
+            "MIPSYNC_MISS_RANGE first=123 last=123"
+          ]
+        },
+        "strict_30fps_gate_pass": false
+      },
+      "identical_motion_frames": 131
+    },
+    "gate": {
+      "baseline": {
+        "bin_sha256": "2b81cb98df16811ef1f461652e5e5e0e8ad747b04edff674c0c796e4e587d01d",
+        "runs": {
+          "evidence": [
+            "MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=297 scheduled_frames=300 deferred_frames=3 missed_vblanks=36 max_elapsed_vblanks=3",
+            "MIPSYNC_FRAME_BUDGET render_hbl_avg=298 render_hbl_max=760 ready_hbl_avg=301 ready_hbl_max=763 mutation_hbl_max=311",
+            "MIPSYNC_MISS_RANGE first=93 last=655"
+          ],
+          "motion": [
+            "MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=297 scheduled_frames=300 deferred_frames=3 missed_vblanks=36 max_elapsed_vblanks=3",
+            "MIPSYNC_FRAME_BUDGET render_hbl_avg=298 render_hbl_max=760 ready_hbl_avg=301 ready_hbl_max=763 mutation_hbl_max=311",
+            "MIPSYNC_MISS_RANGE first=93 last=655"
+          ]
+        },
+        "strict_30fps_gate_pass": false
+      },
+      "certified-projection": {
+        "bin_sha256": "1de9daebd2187c8a5d6b5904f0eb7a3d173b24be1b69ae8748e282a4edc60ed2",
+        "runs": {
+          "evidence": [
+            "MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=297 scheduled_frames=300 deferred_frames=3 missed_vblanks=32 max_elapsed_vblanks=3",
+            "MIPSYNC_FRAME_BUDGET render_hbl_avg=282 render_hbl_max=729 ready_hbl_avg=285 ready_hbl_max=732 mutation_hbl_max=311",
+            "MIPSYNC_MISS_RANGE first=93 last=655"
+          ],
+          "motion": [
+            "MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=297 scheduled_frames=300 deferred_frames=3 missed_vblanks=32 max_elapsed_vblanks=3",
+            "MIPSYNC_FRAME_BUDGET render_hbl_avg=282 render_hbl_max=729 ready_hbl_avg=285 ready_hbl_max=732 mutation_hbl_max=311",
+            "MIPSYNC_MISS_RANGE first=93 last=655"
+          ]
+        },
+        "strict_30fps_gate_pass": false
+      },
+      "identical_motion_frames": 251
+    }
+  },
+  "native_checks": [
+    "Ps1GpuClippingTests",
+    "Ps1ClipMathTests",
+    "Ps1WorldProjectionTests",
+    "Ps1ViewmodelProjectionTests"
+  ],
+  "normal_production_comparison": {
+    "frames_each": 200,
+    "identical_image_sets": true,
+    "same_index_identical": 168,
+    "presentation_note": "GPU-Vsync capture samples repeat/transition phases by one 30fps frame during the close view; every unique framebuffer is byte-identical and sets are equal.",
+    "baseline": {
+      "metrics": [
+        "MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=298 scheduled_frames=300 deferred_frames=2 missed_vblanks=0 max_elapsed_vblanks=2",
+        "MIPSYNC_FRAME_BUDGET render_hbl_avg=234 render_hbl_max=361 ready_hbl_avg=236 ready_hbl_max=382 mutation_hbl_max=178"
+      ],
+      "identity": {
+        "campaign_bin_sha256": "40323d98a9ae6f35a22e99f3325ae4bd6118bac9b3228220aa93e3068c43eeec",
+        "verified_stages": {
+          "STG03.EXE": "ebbc466562e4446b1fdfa4b6a4a82161f54af0854f9f902c6f8c57acf4f83ae4",
+          "STG04.EXE": "8920a4c8cad25514a1be2c8b1a8c87c0eb597b1d43bebffc35cfc3495949b8d6",
+          "STG01.EXE": "fa0e69b16e181b4253c583d69416cf9c807129d1eea5db5821c5f261916aeb1f",
+          "STG02.EXE": "312b26486482d97d86ff1639c22f689b9ea3fbaa118b3e18459b0bf4ca836428",
+          "STG05.EXE": "d491ddd6f82c8626234bd771ac271ff2ee8b491cbab00e4e4bb09244fa89a591"
+        }
+      }
+    },
+    "optimized": {
+      "metrics": [
+        "MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=298 scheduled_frames=300 deferred_frames=2 missed_vblanks=0 max_elapsed_vblanks=2",
+        "MIPSYNC_FRAME_BUDGET render_hbl_avg=218 render_hbl_max=345 ready_hbl_avg=220 ready_hbl_max=365 mutation_hbl_max=178"
+      ],
+      "identity": {
+        "campaign_bin_sha256": "90457d33b4df21fd6a1e16959841c7c4aeacb049d329945155a5d954611bc1aa",
+        "verified_stages": {
+          "STG03.EXE": "3a43bde860c9842ac946175015416164052025006576477fbc5e6587bcd09d6d",
+          "STG04.EXE": "a48a895458ebd94730bd772c5c2da91a1cdb6338771d4482c02fafef9de79c27",
+          "STG01.EXE": "f864c48a3f2827d1b0eae9a271ec734cc7867937c02131a0f2954487cdc2e5a1",
+          "STG02.EXE": "82039214e51af0d6e2d8788562fb5fb0aad018c0ff6fcff6aecee26465b7be43",
+          "STG05.EXE": "e7870947e8f51c0d49a6786407fb325412eb43f327c3316bfd18c6fa5001f4d3"
+        }
+      }
+    }
+  },
+  "normal_pinned_build": {
+    "applied_patches": 13,
+    "upstream_patched_revision": "b45b2cb86bc8cfed964b675cea57fa5814117ff5",
+    "budgets": {
+      "01": {
+        "committed": 1825252,
+        "headroom": 271900,
+        "passes": true
+      },
+      "02": {
+        "committed": 1876436,
+        "headroom": 220716,
+        "passes": true
+      },
+      "03": {
+        "committed": 2073044,
+        "headroom": 24108,
+        "passes": true
+      },
+      "04": {
+        "committed": 2089476,
+        "headroom": 7676,
+        "passes": true
+      },
+      "05": {
+        "committed": 2040292,
+        "headroom": 56860,
+        "passes": true
+      }
+    }
+  },
+  "change": "Mipsync patch 0013: reuse certified visibility in cached flat draws",
+  "strict_performance_checks": "Remain failing for Deepwood and Twin Gate; no thresholds or scenarios relaxed."
+}
