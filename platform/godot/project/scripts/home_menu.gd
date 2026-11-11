@@ -707,7 +707,7 @@ func _play_catalog(entry: Dictionary) -> void:
 		_set_status(browser._error(launch), true)
 
 func _launch_catalog(launch: Dictionary) -> void:
-	_launch_package_for_mode(launch.package, str(launch.campaign), ("two" if str(launch.playerMode) == "coop" else str(launch.playerMode)), false, str(launch.save_scope))
+	_launch_package_for_mode(launch.package, str(launch.campaign), str(launch.playerMode), false, str(launch.save_scope))
 
 
 func _restore_game_focus() -> void:

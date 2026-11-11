@@ -146,10 +146,12 @@ func _render_entries() -> void:
 		column.add_child(actions)
 		if bool(entry.get("installed", false)):
 			var play := _button("catalog.play")
+			play.set_meta("campaign_id", str(entry.get("id", "")))
 			play.pressed.connect(_play.bind(entry))
 			actions.add_child(play)
 		if not bool(entry.get("installed", false)) or bool(entry.get("update_available", false)):
 			var install := _button("catalog.update" if entry.get("installed", false) else "catalog.download")
+			install.set_meta("campaign_id", str(entry.get("id", "")))
 			install.disabled = not bool(entry.get("available", false)) or busy
 			install.pressed.connect(_install.bind(entry))
 			actions.add_child(install)

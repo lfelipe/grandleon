@@ -19,6 +19,13 @@ func _find_button(node: Node, text: String) -> Button:
 		if result != null: return result
 	return null
 
+func _campaign_button(node: Node, id: String, text: String) -> Button:
+	for child: Node in node.get_children():
+		if child is Button and child.text == text and child.get_meta("campaign_id", "") == id: return child
+		var result := _campaign_button(child, id, text)
+		if result != null: return result
+	return null
+
 func _idle(browser: Control) -> void:
 	var deadline := Time.get_ticks_msec() + 20000
 	while browser.busy and Time.get_ticks_msec() < deadline:
@@ -35,7 +42,7 @@ func _run() -> void:
 		quit(2)
 		return
 	var catalog = load("res://scripts/campaign_catalog.gd").new("user://catalog-ui-test-" + str(Time.get_ticks_usec()), "")
-	var home = load("res://scripts/home_menu.gd").new()
+	var home = load(get_script().resource_path.get_base_dir().path_join("campaign_browser_home.gd")).new()
 	home.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	home.catalog = catalog
 	root.add_child(home)
@@ -54,8 +61,8 @@ func _run() -> void:
 	for entry: Dictionary in catalog.entries():
 		if not entry.available: unavailable += 1
 	check(unavailable == 1, "Unsupported custom artwork must stay unavailable")
-	check(catalog.entries().size() == 2, "Visible Add catalogue button must refresh actual HTTP metadata")
-	var download := _find_button(home.browser, localization.text("catalog.download"))
+	check(catalog.entries().size() == 3, "Visible Add catalogue button must refresh actual HTTP metadata")
+	var download := _campaign_button(home.browser, "steel", localization.text("catalog.download"))
 	check(download != null and not download.disabled, "Compatible native campaign must offer download")
 	if download != null:
 		download.pressed.emit()
@@ -65,7 +72,7 @@ func _run() -> void:
 			await RenderingServer.frame_post_draw
 			root.get_texture().get_image().save_png(arg.trim_prefix("--catalog-test-capture="))
 	var play := _find_button(home.browser, localization.text("catalog.play"))
-	var unavailable_download := _find_button(home.browser, localization.text("catalog.download"))
+	var unavailable_download := _campaign_button(home.browser, "custom", localization.text("catalog.download"))
 	check(unavailable_download != null and unavailable_download.disabled, "Unsupported custom artwork must disable Download")
 	check(play != null, "Verified native package must offer Play")
 	if play != null: play.pressed.emit()
@@ -81,7 +88,16 @@ func _run() -> void:
 	check(installed, "Cached campaign must launch without a refresh or network")
 	offline.queue_free()
 	var scope: String = home.pending_save_scope
-	home._cancel_player_choice()
+	home._choose_players(1)
+	check(home.observed_launch.players == 1 and home.observed_launch.save_scope == scope, "Player choice must stage selected count and source scope")
+	var two_download := _campaign_button(home.browser, "fixed-two", localization.text("catalog.download"))
+	check(two_download != null and not two_download.disabled, "Fixed two-player campaign must offer download")
+	if two_download != null: two_download.pressed.emit()
+	await _idle(home.browser)
+	var two_play := _campaign_button(home.browser, "fixed-two", localization.text("catalog.play"))
+	check(two_play != null, "Actual authored two-player package must verify and install")
+	if two_play != null: two_play.pressed.emit()
+	check(not home.player_choice_overlay.visible and home.observed_launch.players == 2, "Fixed two-player campaign must bypass choice and stage two players")
 	var context = root.get_node("LaunchContext")
 	context.stage_package(PackedByteArray([1]), "test", false, 1, "", "", "es", scope)
 	var staged: Dictionary = context.take_package()
