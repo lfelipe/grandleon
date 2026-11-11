@@ -107,6 +107,11 @@ Android 7.0 or newer and OpenGL ES 3.0 are required. The APK includes all
 built-in artwork and audio, so it is currently about 436 MB. Physical phone
 and tablet testing remains on the [Android work list](../TODO.md#android-player-and-editor).
 
+For emulator testing, use host graphics. Godot 4.7.2 can show a black screen
+with `swiftshader_indirect` because of an
+[upstream shader compiler issue](https://github.com/godotengine/godot/issues/109550).
+On a headless Linux machine, run the emulator under Xvfb with `-gpu host`.
+
 Tap to select units and destinations; drag to pan and pinch to zoom. The
 bottom buttons provide confirm, cancel, wait, end turn and the game menu.
 Two-player games also have a player-switch button. Android Back cancels the
