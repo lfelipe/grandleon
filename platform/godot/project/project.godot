@@ -10,6 +10,7 @@ config/name="Grandleon PC"
 run/main_scene="res://home.tscn"
 config/icon="res://icon.svg"
 config/features=PackedStringArray("4.7", "GL Compatibility")
+config/quit_on_go_back=false
 
 [autoload]
 
@@ -27,7 +28,7 @@ window/size/viewport_height=1080
 window/size/window_width_override=1280
 window/size/window_height_override=720
 window/stretch/mode="canvas_items"
-window/handheld/orientation=1
+window/handheld/orientation=4
 
 [rendering]
 
@@ -43,4 +44,5 @@ driver/enable_input=false
 
 [input_devices]
 
-pointing/emulate_touch_from_mouse=true
+pointing/emulate_touch_from_mouse=false
+pointing/emulate_mouse_from_touch=true
