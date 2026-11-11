@@ -24,6 +24,9 @@ items below describe the existing foundation; they are not being reopened.
 - [ ] Test the downloadable application on a clean Windows machine: saves,
   keyboard and controllers, audio, live language switching, and project paths
   containing spaces or accented characters.
+- [ ] Investigate player shutdown warnings in the headless Windows smoke:
+  battle launch passes, but Godot reports four retained ObjectDB instances
+  and two resources on exit, including after orderly player/session teardown.
 - [ ] Provide and test the optional console-builder installation and launch
   path on Windows, with clear dependencies. Desktop editing and play must work
   without those optional tools. See [Setting up](docs/SETUP.md#windows-builds-for-06).
