@@ -77,6 +77,19 @@ The Windows build needs to cover both playing games and creating them:
 
 The Windows application remains a development build until these checks pass.
 
+### Android support planned for 0.6
+
+Android support is planned for both the player and the Grandleon campaign
+editor. There is no Android download or validated build command yet. The
+work includes an ARM64 native extension, APK packaging, touch controls,
+readable phone/tablet layouts, project import/sharing and device testing.
+The desktop console-builder payloads will need a separate Android workflow.
+
+The planned Godot campaign library will fetch a small public catalogue,
+download compatible campaigns and keep installed games playable offline.
+Its initial packages will use the player's built-in artwork and audio.
+See [TODO](../TODO.md#06) for both work lists.
+
 ### Linux development environment
 
 On Ubuntu 26.04, install the host tools:

@@ -1,7 +1,8 @@
 # Current development TODO
 
-0.5 is released. The next milestone is Windows support and graphics and
-performance improvements across Godot, Nintendo 64 and PlayStation. Completed
+0.5 is released. The next milestone adds Windows and Android support, a
+downloadable campaign library, and graphics and performance improvements
+across Godot, Nintendo 64 and PlayStation. Completed
 items below describe the existing foundation; they are not being reopened.
 
 ## 0.6
@@ -30,6 +31,60 @@ items below describe the existing foundation; they are not being reopened.
 - [ ] Provide and test the optional console-builder installation and launch
   path on Windows, with clear dependencies. Desktop editing and play must work
   without those optional tools. See [Setting up](docs/SETUP.md#windows-builds-for-06).
+
+### Android player and editor
+
+- [ ] Build the native extension and campaign compiler for Android ARM64.
+  Package the Godot application, required runtime libraries and built-in
+  campaign as an installable APK, with reproducible SDK/NDK and template pins.
+- [ ] Load bundled campaigns through Godot's resource/byte-loading path and
+  keep saves and downloaded content in writable app storage. Test accented
+  paths, interrupted writes and save/resume after the app is suspended.
+- [ ] Adapt play to touch: select units and targets, move around the board,
+  zoom, cancel actions and end turns. Keep controller support and make text,
+  buttons and popups readable on phones and tablets, including safe areas.
+- [ ] Bring campaign creation and playtesting to Android. Adapt editor panels,
+  terrain painting, unit placement, scrolling and text entry for touch and
+  the on-screen keyboard. Check tablet and phone layouts; support external
+  keyboards and mice where available.
+- [ ] Support importing, saving and sharing project archives through Android
+  file handling. Clearly distinguish portable project sharing from building
+  standalone applications or console ROMs; the current desktop builder
+  payloads cannot run unchanged on Android. Define the Android export workflow.
+- [ ] Test installation, updates, audio, graphics, translations, controllers,
+  background/resume and create → save → reopen → play on actual devices.
+  Measure memory, loading times and performance before choosing quality presets.
+
+### Downloadable campaigns
+
+The existing compiled campaign format and Godot byte-loading path make an
+initial campaign library feasible. Start with campaigns using the artwork
+and audio already installed with the player. The proposed home is a separate
+public `grandleon-campaigns` repository; keep engine code and deterministic
+test fixtures in this repository. Repository creation is still pending.
+
+- [ ] Define a versioned `catalog.json` that the Godot player fetches
+  automatically to populate a Browse Campaigns menu on desktop and Android.
+  Include stable campaign ID, title, author, description, thumbnail, campaign
+  version, languages, supported player modes, engine and content compatibility,
+  required asset packs, download URL, byte size and SHA-256 checksum.
+- [ ] Cache the last valid catalogue and keep installed campaigns available
+  offline. Show progress, installed/update states and useful error messages;
+  a failed catalogue refresh must not block the main menu or existing games.
+- [ ] Publish versioned campaign packages as GitHub Release assets in the
+  campaign repository, with a stable public catalogue URL. Browsing and
+  downloading public campaigns must not require a GitHub account or token.
+- [ ] Validate catalogue/package compatibility and checksums before atomic
+  installation. Use stable campaign identities and isolated save locations;
+  preserve the playable installed version and its saves when an update fails,
+  and avoid replacing a campaign version underneath an active play session.
+- [ ] Reuse the normal campaign launch and 1P/2P selection flow for downloaded
+  games. Test download → install → play → save → offline resume, corrupt or
+  interrupted downloads, incompatible versions and catalogue refresh failures.
+- [ ] Document a small author workflow: export a campaign, publish its
+  versioned package, and submit a catalogue entry for review. Keep the first
+  format data-only. Custom artwork/music need a separately defined portable
+  asset bundle and installation workflow before the library can accept them.
 
 ### Graphics and animation
 
@@ -117,7 +172,7 @@ retain the separate normal-game capture timing caveat.
   feedback, and run the Windows and console export acceptance checks.
 
 Campaign design, creator audio customization, AI translation suggestions and
-mobile exports remain later milestones; they are not part of the 0.6 scope.
+iOS exports remain later milestones; they are not part of the 0.6 scope.
 
 ## Prior to 1.0: a polished demo campaign
 
