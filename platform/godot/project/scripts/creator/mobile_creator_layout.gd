@@ -40,6 +40,7 @@ func _apply() -> void:
 static func apply_tree(node: Node, sizes: Dictionary) -> void:
 	for child: Node in node.get_children(): apply_tree(child, sizes)
 	if node is Control and node.get_meta("mobile_tile", false): return
+	if node is Button: node.mouse_filter = Control.MOUSE_FILTER_PASS
 	if node is Button or node is LineEdit or node is TextEdit or node is SpinBox:
 		node.add_theme_font_size_override("font_size", maxi(int(_original(node, "font", node.get_theme_font_size("font_size"))), sizes.font))
 		node.custom_minimum_size.y = maxf(float(_original(node, "min_y", node.custom_minimum_size.y)), sizes.touch)

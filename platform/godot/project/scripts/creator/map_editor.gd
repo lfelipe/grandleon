@@ -108,6 +108,8 @@ var experience_select: OptionButton
 var tool_buttons: Dictionary = {}
 var palette_list: Container
 var palette_buttons: Dictionary = {}
+var mobile_pan_pointer := -1
+var mobile_board_scroll: ScrollContainer
 var mobile_pan_mode := false
 var mobile_pan_button: Button
 var mobile_map_zoom := 1.0
@@ -647,6 +649,7 @@ func _select_terrain(name: String) -> void:
 	if mobile_pan_button != null:
 		mobile_pan_button.set_pressed_no_signal(false)
 		mobile_pan_mode = false
+		_update_mobile_pan_filters()
 		if mobile_map_zoom < 1.0:
 			mobile_map_zoom = 1.0
 			_refresh_grid()
@@ -664,6 +667,7 @@ func _select_tool(name: String) -> void:
 	if mobile_pan_button != null:
 		mobile_pan_button.set_pressed_no_signal(false)
 		mobile_pan_mode = false
+		_update_mobile_pan_filters()
 		if mobile_map_zoom < 1.0:
 			mobile_map_zoom = 1.0
 			_refresh_grid()
@@ -797,6 +801,7 @@ func _refresh_grid(focus_index := -1) -> void:
 				):
 					outside_name = str(outside.get("terrainId", selected_terrain))
 				var outside_cell := _button("", tile_size, tile_size)
+				outside_cell.mouse_filter = Control.MOUSE_FILTER_IGNORE if mobile_pan_mode else Control.MOUSE_FILTER_STOP
 				outside_cell.set_meta("mobile_tile", true)
 				outside_cell.icon = _terrain_icon(outside_name, 255)
 				outside_cell.expand_icon = true
@@ -811,6 +816,7 @@ func _refresh_grid(focus_index := -1) -> void:
 			var index := outer_y * width + outer_x
 			var name := str(terrain[index]) if index < terrain.size() else "grass"
 			var cell := _button("", tile_size, tile_size)
+			cell.mouse_filter = Control.MOUSE_FILTER_IGNORE if mobile_pan_mode else Control.MOUSE_FILTER_STOP
 			cell.set_meta("mobile_tile", true)
 			cell.icon = _terrain_icon(name, _terrain_mask(index, width, height, terrain))
 			cell.expand_icon = true
@@ -4459,6 +4465,7 @@ func _build_interface() -> void:
 	target_budget_label.custom_minimum_size.y = 24
 	board_column.add_child(target_budget_label)
 	var board_scroll := ScrollContainer.new()
+	mobile_board_scroll = board_scroll
 	board_scroll.follow_focus = OS.has_feature("android")
 	board_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	board_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -6398,6 +6405,7 @@ func _fit_mobile_canvas() -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if _mobile_pan_input(event): return
 	# The brush consumes real touch events itself. Ignore their synthesized
 	# mouse events on the board so a stroke cannot also trigger a button click.
 	if not mobile_pan_mode and active_tool == "brush" and event is InputEventMouse and event.device == InputEvent.DEVICE_ID_EMULATION and grid != null and _touch_cell_at(event.position) >= 0:
@@ -6473,7 +6481,9 @@ func _cancel_touch_brush() -> void:
 
 func _mobile_set_pan(enabled: bool) -> void:
 	_cancel_touch_brush()
+	mobile_pan_pointer = -1
 	mobile_pan_mode = enabled
+	_update_mobile_pan_filters()
 	if not enabled and mobile_map_zoom < 1.0:
 		mobile_map_zoom = 1.0
 		_refresh_grid()
@@ -6494,3 +6504,30 @@ func _mobile_overview() -> void:
 	mobile_pan_mode = true
 	if mobile_pan_button != null: mobile_pan_button.set_pressed_no_signal(true)
 	_refresh_grid()
+
+
+func _update_mobile_pan_filters() -> void:
+	if grid == null: return
+	for cell: Node in grid.get_children():
+		if cell is BaseButton:
+			cell.mouse_filter = Control.MOUSE_FILTER_IGNORE if mobile_pan_mode else Control.MOUSE_FILTER_STOP
+
+
+func _mobile_pan_input(event: InputEvent) -> bool:
+	if not mobile_pan_mode or mobile_board_scroll == null or not mobile_board_scroll.is_visible_in_tree(): return false
+	if event is InputEventMouse and event.device == InputEvent.DEVICE_ID_EMULATION and mobile_board_scroll.get_global_rect().has_point(event.position):
+		get_viewport().set_input_as_handled()
+		return true
+	if event is InputEventScreenTouch:
+		if event.pressed and mobile_pan_pointer < 0 and mobile_board_scroll.get_global_rect().has_point(event.position):
+			mobile_pan_pointer = event.index
+		elif not event.pressed and event.index == mobile_pan_pointer:
+			mobile_pan_pointer = -1
+		else: return false
+	elif event is InputEventScreenDrag and event.index == mobile_pan_pointer:
+		var factor := mobile_board_scroll.get_global_transform().get_scale()
+		mobile_board_scroll.scroll_horizontal -= roundi(event.relative.x / maxf(factor.x, 0.1))
+		mobile_board_scroll.scroll_vertical -= roundi(event.relative.y / maxf(factor.y, 0.1))
+	else: return false
+	get_viewport().set_input_as_handled()
+	return true
