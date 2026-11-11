@@ -393,7 +393,7 @@ func _build_export_layer() -> void:
 	export_first_button.custom_minimum_size.y = 92
 	export_first_button.pressed.connect(_export_portable_from_center)
 	column.add_child(export_first_button)
-	export_linux_button = _button("LINUX PC GAME  /  CHECKING PLAYER SHELL")
+	export_linux_button = _button("PC GAME  /  CHECKING PLAYER SHELL")
 	export_linux_button.custom_minimum_size.y = 92
 	export_linux_button.pressed.connect(_export_linux_from_center)
 	column.add_child(export_linux_button)
@@ -568,16 +568,16 @@ func _open_export_center(project_id: String, title: String) -> void:
 
 
 func _refresh_export_center() -> void:
-	var available: Dictionary = standalone_exporter.linux_availability()
+	var available: Dictionary = standalone_exporter.availability()
 	export_linux_button.disabled = not bool(available.ok) or export_campaign_id.is_empty()
 	if available.ok:
 		export_linux_button.text = (
-			"LINUX PC GAME  /  READY\nStandalone player build without creator tools or saves"
+			"PC GAME  /  READY\nStandalone player build without creator tools or saves"
 		)
 	else:
 		export_linux_button.text = (
-			"LINUX PC GAME  /  PLAYER SHELL NOT INSTALLED\n"
-			+ "Install the full Linux release to enable this target"
+			"PC GAME  /  PLAYER SHELL NOT INSTALLED\n"
+			+ "Install the full PC release to enable this target"
 		)
 	export_linux_button.tooltip_text = str(available.message)
 	_refresh_console_export_availability()
@@ -660,7 +660,7 @@ func _export_portable_from_center() -> void:
 
 func _export_linux_from_center() -> void:
 	export_linux_button.disabled = true
-	_set_export_status("BUILDING LINUX PC GAME…", false)
+	_set_export_status("BUILDING PC GAME…", false)
 	call_deferred("_build_linux_export")
 
 
@@ -669,7 +669,7 @@ func _build_linux_export() -> void:
 		_set_export_status("BUILD FAILED  /  NO PROJECT SELECTED", true)
 		_refresh_export_center()
 		return
-	var built: Dictionary = standalone_exporter.export_linux_player(
+	var built: Dictionary = standalone_exporter.export_player(
 		export_project_id, export_campaign_id
 	)
 	if not built.ok:
@@ -677,13 +677,13 @@ func _build_linux_export() -> void:
 		_refresh_linux_export_availability()
 		return
 	var bundle_name := str(built.name).to_upper()
-	_set_export_status("READY  /  %s  /  PLAYER-ONLY LINUX GAME" % bundle_name, false)
-	_set_status("BUILT LINUX PC GAME  /  %s" % bundle_name, false)
+	_set_export_status("READY  /  %s  /  PLAYER-ONLY PC GAME" % bundle_name, false)
+	_set_status("BUILT PC GAME  /  %s" % bundle_name, false)
 	_refresh_linux_export_availability()
 
 
 func _refresh_linux_export_availability() -> void:
-	var available: Dictionary = standalone_exporter.linux_availability()
+	var available: Dictionary = standalone_exporter.availability()
 	export_linux_button.disabled = not bool(available.ok) or export_campaign_id.is_empty()
 	export_linux_button.tooltip_text = str(available.message)
 

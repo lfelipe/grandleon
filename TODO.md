@@ -8,6 +8,10 @@ items below describe the existing foundation; they are not being reopened.
 
 ### Windows builds
 
+- [x] Build the Windows x64 native extension and campaign compiler with
+  MinGW-w64, verify DLL exports and dependencies, and run the 64 compiled
+  native tests under Wine. The compiler produces the same campaign package
+  as Linux. Real Windows desktop validation remains below.
 - [ ] Package the Godot creator and player for Windows with the native
   extension, required DLLs, pinned runtime and export templates. Users should
   not need a compiler or a separate Godot installation.

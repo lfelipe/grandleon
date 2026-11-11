@@ -12,6 +12,14 @@ const REQUIRED_SHELL_FILES := [
 	"project/project.godot",
 	"project/bin/libgrandleon_godot.so",
 ]
+const WINDOWS_SHELL_FILES := [
+	"BUILD-INFO.txt",
+	"Godot_v4.7.2-stable_win64.exe",
+	"Godot_v4.7.2-stable_win64_console.exe",
+	"launch-pc.cmd",
+	"project/project.godot",
+	"project/bin/grandleon_godot.dll",
+]
 const EXCLUDED_DIRECTORIES := [
 	"runtime",
 	"project/content/templates",
@@ -69,20 +77,26 @@ func _init(
 
 func linux_availability() -> Dictionary:
 	if not OS.has_feature("linux"):
-		return _failure(
-			"host_not_linux",
-			"Linux PC export is available from the Linux edition."
-		)
-	if export_root == shell_root or export_root.begins_with(shell_root + "/"):
+		return _failure("host_not_linux", "Linux PC export is available from the Linux edition.")
+	return availability()
+
+
+func availability() -> Dictionary:
+	if not OS.has_feature("linux") and not OS.has_feature("windows"):
+		return _failure("host_not_supported", "PC export requires the Linux or Windows edition.")
+	var compared_export := export_root.to_lower() if OS.has_feature("windows") else export_root
+	var compared_shell := shell_root.to_lower() if OS.has_feature("windows") else shell_root
+	if compared_export == compared_shell or compared_export.begins_with(compared_shell + "/"):
 		return _failure(
 			"export_directory_unsafe",
 			"The game export directory must be outside the installed player shell."
 		)
-	for relative: String in REQUIRED_SHELL_FILES:
+	var required := WINDOWS_SHELL_FILES if OS.has_feature("windows") else REQUIRED_SHELL_FILES
+	for relative: String in required:
 		if not FileAccess.file_exists(shell_root.path_join(relative)):
 			return _failure(
 				"player_shell_unavailable",
-				"The tested Linux player shell is not installed in this build."
+				"The PC player shell is not installed in this build."
 			)
 	var build_info := FileAccess.get_file_as_string(
 		shell_root.path_join("BUILD-INFO.txt")
@@ -97,6 +111,13 @@ func linux_availability() -> Dictionary:
 
 func export_linux_player(project_id: String, campaign_id := "") -> Dictionary:
 	var available := linux_availability()
+	if not available.ok:
+		return available
+	return export_player(project_id, campaign_id)
+
+
+func export_player(project_id: String, campaign_id := "") -> Dictionary:
+	var available := availability()
 	if not available.ok:
 		return available
 	if compiler == null:
@@ -125,7 +146,7 @@ func export_linux_player(project_id: String, campaign_id := "") -> Dictionary:
 	elif campaigns.size() > 1:
 		return _failure(
 			"campaign_selection_required",
-			"Choose which campaign this Linux game should start."
+			"Choose which campaign this PC game should start."
 		)
 	if selected_campaign.is_empty():
 		return _failure(
@@ -148,7 +169,8 @@ func export_linux_player(project_id: String, campaign_id := "") -> Dictionary:
 		}
 	var game_id := str(project.get("gameId", "game"))
 	var package_id := str(project.get("packageId", project_id))
-	var stem := _safe_stem(game_id) + "-linux"
+	var platform_suffix := "-windows" if OS.has_feature("windows") else "-linux"
+	var stem := _safe_stem(game_id) + platform_suffix
 	if DirAccess.make_dir_recursive_absolute(export_root) != OK:
 		return _failure(
 			"export_directory_failed",

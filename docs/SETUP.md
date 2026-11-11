@@ -23,22 +23,42 @@ exports become available when their optional builder payload is installed.
 
 ### Windows builds for 0.6
 
-Windows builds are planned for 0.6 and still need to be built and validated.
-The current PC bundle, Godot export preset and standalone-game exporter target
-Linux. CMake already
-has MSVC warning settings, but that does not establish Windows compatibility.
+Windows support is being developed on the local 0.6 branch. There is no
+Windows release download yet. The Windows x64 engine DLL and campaign compiler
+build with MinGW-w64 GCC 13; all 64 compiled native tests pass under Wine.
+This does not replace testing the application on a real Windows desktop.
+
+Developers can build the creator bundle with Python 3.11 or newer, CMake,
+Ninja and a MinGW-w64 compiler with C++ threading support on their PATH:
+
+```powershell
+python platform/godot/scripts/build-windows.py
+```
+
+The script downloads the pinned Godot 4.7.2 Windows runtime, verifies its
+checksum, and packages it with the native extension, artwork, translations,
+Steel and Cedar campaign and license notices. The output is
+`out/grandleon-windows`; start it with `launch-pc.cmd`. Build dependencies are
+for developers; the resulting bundle includes the runtime needed by players.
+This native Windows build command still needs Windows desktop validation.
+
+Linux developers can cross-build the native targets with
+`cmake/toolchains/WindowsMinGW.cmake`, then package the staged Windows app:
+
+```sh
+python3 platform/godot/scripts/build-windows.py --no-build \
+  --build-dir build-windows-cross06 --package out/windows06-steel-and-cedar.gpk
+```
+
+The supplied package must be compiled from Steel and Cedar. A cross-built
+bundle needs the same Windows testing as a native build. The builder refuses
+to overwrite an existing output and records whether its source tree was clean.
 
 The Windows build needs to cover both playing games and creating them:
 
-- Choose and test a Windows C++ toolchain for the shared rules, content tools
-  and Godot extension. Start with one supported compiler and record its version.
-  Resolve each tool to a single executable when several versions are on `PATH`.
-- Obtain the matching pinned Windows Godot runtime and export templates, with
-  verified checksums. Add Windows DLL entries to the extension manifest and
-  handle Windows DLL output paths in the CMake staging rules.
-- Provide a Windows launcher and a complete downloadable application, including
-  artwork, translations and required runtime DLLs. Users should not need Godot
-  or a compiler installed to play or create a game.
+- Validate native Windows compilation and the packaged launcher, including
+  paths containing spaces or accents. Export templates for Godot's separate
+  native export workflow are not included in this source-project bundle.
 - Add a Windows standalone-game export path in the creator. It must produce a
   game that launches independently of the creator and source checkout.
 - Run the native tests and the create → export → play acceptance flow on
@@ -51,7 +71,7 @@ The Windows build needs to cover both playing games and creating them:
   containers and shell launchers need an explicit integration plan; desktop
   playing and editing should work without installing those optional tools.
 
-These are preparation tasks, not instructions for an available Windows release.
+The Windows application remains a development build until these checks pass.
 
 ### Linux development environment
 
