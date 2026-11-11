@@ -103,7 +103,7 @@ adb -s DEVICE_SERIAL install --no-incremental -r \
     out/grandleon-android-development/grandleon-android-development.apk
 ```
 
-Android 7.0 or newer and OpenGL ES 3.0 are required. The APK includes all
+A 64-bit Android 7.0 or newer device with OpenGL ES 3.0 is required. The APK includes all
 built-in artwork and audio, so it is currently about 436 MB. Physical phone
 and tablet testing remains on the [Android work list](../TODO.md#android-player-and-editor).
 
