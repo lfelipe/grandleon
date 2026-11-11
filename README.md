@@ -181,6 +181,12 @@ rest of the documentation describes the current Godot application.
 
 See [TODO](TODO.md) for the detailed work list.
 
+The 0.6 development branch adds **Browse Campaigns** to the Godot home menu.
+It reads the public [campaign catalogue](https://github.com/lfelipe/grandleon-campaigns),
+downloads compatible games and keeps installed campaigns available offline.
+You can add another public catalogue URL too. The first packages use Grandleon's
+built-in artwork and audio. This browser is not in the published 0.5 app yet.
+
 Importing external artwork may be explored later, but it is not part of the
 current roadmap commitment.
 

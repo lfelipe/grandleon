@@ -48,43 +48,52 @@ items below describe the existing foundation; they are not being reopened.
   the on-screen keyboard. Check tablet and phone layouts; support external
   keyboards and mice where available.
 - [ ] Support importing, saving and sharing project archives through Android
-  file handling. Clearly distinguish portable project sharing from building
-  standalone applications or console ROMs; the current desktop builder
-  payloads cannot run unchanged on Android. Define the Android export workflow.
+  file handling. The Android editor creates and exports portable campaigns
+  playable on Android and PC. Preserve an editable project export for the PC
+  editor to build N64 ROMs and PS1 discs; console builds remain PC-only.
 - [ ] Test installation, updates, audio, graphics, translations, controllers,
   background/resume and create → save → reopen → play on actual devices.
   Measure memory, loading times and performance before choosing quality presets.
 
 ### Downloadable campaigns
 
-The existing compiled campaign format and Godot byte-loading path make an
-initial campaign library feasible. Start with campaigns using the artwork
-and audio already installed with the player. The proposed home is a separate
-public `grandleon-campaigns` repository; keep engine code and deterministic
-test fixtures in this repository. Repository creation is still pending.
+The initial campaign library uses compiled campaign data and the artwork and
+audio already installed with the player. Its official catalogue lives in the
+public [grandleon-campaigns](https://github.com/lfelipe/grandleon-campaigns)
+repository; keep engine code and deterministic test fixtures in this repository.
 
-- [ ] Define a versioned `catalog.json` that the Godot player fetches
-  automatically to populate a Browse Campaigns menu on desktop and Android.
+- [x] Define a versioned `catalog.json` that the Godot player fetches
+  automatically to populate Browse Campaigns. The initial integration is
+  tested on desktop; the planned Android application shares this format.
   Include stable campaign ID, title, author, description, thumbnail, campaign
   version, languages, supported player modes, engine and content compatibility,
   required asset packs, download URL, byte size and SHA-256 checksum.
-- [ ] Cache the last valid catalogue and keep installed campaigns available
+- [x] Cache the last valid catalogue and keep installed campaigns available
   offline. Show progress, installed/update states and useful error messages;
   a failed catalogue refresh must not block the main menu or existing games.
-- [ ] Publish versioned campaign packages as GitHub Release assets in the
+- [x] Publish versioned campaign packages as GitHub Release assets in the
   campaign repository, with a stable public catalogue URL. Browsing and
   downloading public campaigns must not require a GitHub account or token.
-- [ ] Validate catalogue/package compatibility and checksums before atomic
+- [x] Validate catalogue/package compatibility and checksums before atomic
   installation. Use stable campaign identities and isolated save locations;
   preserve the playable installed version and its saves when an update fails,
   and avoid replacing a campaign version underneath an active play session.
-- [ ] Reuse the normal campaign launch and 1P/2P selection flow for downloaded
+- [x] Reuse the normal campaign launch and 1P/2P selection flow for downloaded
   games. Test download → install → play → save → offline resume, corrupt or
   interrupted downloads, incompatible versions and catalogue refresh failures.
-- [ ] Document a small author workflow: export a campaign, publish its
+- [x] Document a small author workflow: export a campaign, publish its
   versioned package, and submit a catalogue entry for review. Keep the first
   format data-only. Custom artwork/music need a separately defined portable
   asset bundle and installation workflow before the library can accept them.
+
+The browser also accepts public catalogue URLs from other repositories now.
+Cards show the catalogue source, player count and languages. Each source has
+isolated downloads and saves, and unsupported asset requirements remain visible
+instead of silently using built-in replacements. Catalogue metadata, download
+and failure cases have deterministic HTTP tests, plus a real unauthenticated
+GitHub release download. The real public package also passes an actual battle
+victory, checkpoint save and offline resume without modifying built-in saves.
+Android packaging remains separate work.
 
 ### Graphics and animation
 

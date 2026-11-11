@@ -83,12 +83,25 @@ Android support is planned for both the player and the Grandleon campaign
 editor. There is no Android download or validated build command yet. The
 work includes an ARM64 native extension, APK packaging, touch controls,
 readable phone/tablet layouts, project import/sharing and device testing.
-The desktop console-builder payloads will need a separate Android workflow.
+The Android editor will create and export portable campaigns for Android and
+PC. N64 ROM and PS1 disc builds remain on PC, using an editable project export.
 
-The planned Godot campaign library will fetch a small public catalogue,
-download compatible campaigns and keep installed games playable offline.
-Its initial packages will use the player's built-in artwork and audio.
-See [TODO](../TODO.md#06) for both work lists.
+See [TODO](../TODO.md#06) for the Android work list.
+
+### Campaign library in 0.6
+
+The development branch adds **Browse Campaigns** to the Godot home menu. It
+loads the [official catalogue](https://github.com/lfelipe/grandleon-campaigns)
+automatically. Choose **Download**, then **Play**. Games offering a choice of
+one or two players use the usual player selector. Installed campaigns remain
+available offline and appear on the home screen too.
+
+To use a community catalogue, paste its public HTTPS JSON URL into the browser
+and choose **Add catalogue**. No GitHub login is needed for public catalogues.
+Each source has separate downloads and saves. The first packages rely on
+built-in artwork and audio; packages requiring other asset packs are shown as
+unavailable until that support is implemented. The published 0.5 application
+does not include this browser yet.
 
 ### Linux development environment
 
