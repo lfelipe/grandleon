@@ -166,9 +166,12 @@ def main():
         'renderer/rendering_method.mobile="gl_compatibility"\ntextures/vram_compression/import_etc2_astc=true',
     ))
     state = build / 'godot-state'
-    for name in ['config', 'data', 'cache']:
+    for name in ['config', 'data', 'cache', 'tmp']:
         (state / name).mkdir(parents=True, exist_ok=True)
     env.update(XDG_CONFIG_HOME=str(state / 'config'), XDG_DATA_HOME=str(state / 'data'), XDG_CACHE_HOME=str(state / 'cache'))
+    env.update(TMPDIR=str(state / 'tmp'), TEMP=str(state / 'tmp'), TMP=str(state / 'tmp'))
+    java_tmp = str(state / 'tmp').replace('\\', '\\\\').replace('"', '\\"')
+    env['JAVA_TOOL_OPTIONS'] = env.get('JAVA_TOOL_OPTIONS', '') + f' -Djava.io.tmpdir="{java_tmp}"'
     settings = state / f'config/godot/editor_settings-4.7.tres'
     settings.parent.mkdir(parents=True, exist_ok=True)
     keystore = build / 'debug.keystore'
