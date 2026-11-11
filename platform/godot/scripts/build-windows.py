@@ -74,7 +74,9 @@ def main():
             "-DGRANDLEON_GODOT_API_VERSION=4.7", "-DGRANDLEON_WERROR=ON")
         run("cmake", "--build", build, "--config", "Release", "--parallel",
             "--target", "grandleon_content_compile", "grandleon_godot_project")
-    stage = build / "platform/godot/project/app"
+    stage = build / "platform" / "godot" / "project" / "app"
+    if output.is_relative_to(stage):
+        parser.error("Output must be outside the staged project")
     dll = stage / "bin/grandleon_godot.dll"
     if not dll.is_file() or dll.read_bytes()[:2] != b"MZ":
         raise ValueError(f"Windows native extension missing: {dll}")
