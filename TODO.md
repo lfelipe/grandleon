@@ -1,53 +1,105 @@
 # Current development TODO
 
-## 0.5 closing review
+0.5 is released. The next milestone is Windows support and graphics and
+performance improvements across Godot, Nintendo 64 and PlayStation. Completed
+items below describe the existing foundation; they are not being reopened.
 
-- [x] Apply console hardware feedback: screen-aligned digital/analog controls,
-  legal attack targeting with HP forecasts, movement highlights, unobstructed
-  menus, enemy close-ups, stable counterattack sides and retained defeat art.
-  Add title branding, speaker portraits, complete dialogue paging and saved
-  Music/Sound Effects sliders; remove the visible reduced-motion setting.
-- [x] Translate Steel and Cedar into Spanish and Brazilian Portuguese, showing
-  language selection only when the campaign has authored alternatives.
-- [x] Finish shared orchestral music, weapon and magic effects, PS1 audio
-  playback, and independently saved Music and Effects controls on all targets.
-  Six score previews are on the private review page. Verify the final mix,
-  effect timing and campaign music changes during the hardware playthrough.
-- [x] Correct PS1 visible floor coverage, authored castle masonry, the
-  hidden-room cover winding, and action-menu indexing. Inspect the resulting
-  scrolling and castle before/after captures.
-- [ ] Review both console captures for movement, scrolling, UI overlap, combat
-  sides, castle entry, story, save/resume, and campaign completion.
-- [x] Disable the Nintendo 64 automated review driver in normal exports,
-  opt into it explicitly for emulator campaign checks, and preserve physical
-  takeover across encounter changes. Verify an idle production boot separately.
-- [x] Keep PS1 units visible through terrain-page changes; remove the
-  single-update suppression and inspect a two-axis scrolling capture.
-- [x] Pass the host suite and console memory gates: 75 host tests pass, all
-  five PS1 encounters fit their budgets, and the N64 campaign completes in
-  base 4 MiB memory. Record frame timing separately from functional checks.
-- [x] Refresh the private review page with corrected console stills, scrolling
-  and doorway clips, and the current performance measurements.
-- [x] Refresh the matched three-player capture with the current console engines;
-  the README shows the same Bell Orchard solo move, attack, counterattack
-  and return on all three players, preserving their individual timing.
-- [x] Prepare 0.5 application, console and optional builder packages, release
-  notes and checksums. Verify both builders through real installed exports.
-- [ ] Continue hardware playthroughs, listening and controller feedback after
-  release; track functional issues separately from the pre-1.0 campaign design.
+## 0.6
 
-Known 0.5 limitation: PS1 camera movement can judder on the larger maps.
-The 600-update scrolling probe misses one display deadline; the castle probe
-misses 46 and defers three renders. The frame-pacing improvement is deferred
-until after 0.5. Keep the strict performance checks and report their failures;
-they are no longer a blocker for this release.
+### Windows builds
 
-This is the short list of active presentation work. These changes may improve
-how a battle looks and moves, but must not change the authoritative grid,
-terrain rules, routes, timing, or combat results.
+- [ ] Package the Godot creator and player for Windows with the native
+  extension, required DLLs, pinned runtime and export templates. Users should
+  not need a compiler or a separate Godot installation.
+- [ ] Add Windows standalone-game export from the creator and verify that the
+  exported game runs independently of the editor and source checkout.
+- [ ] Run native tests and the complete create → export → play acceptance flow
+  in Windows CI, with a runner that supports the required graphics and audio.
+- [ ] Test the downloadable application on a clean Windows machine: saves,
+  keyboard and controllers, audio, live language switching, and project paths
+  containing spaces or accented characters.
+- [ ] Provide and test the optional console-builder installation and launch
+  path on Windows, with clear dependencies. Desktop editing and play must work
+  without those optional tools. See [Setting up](docs/SETUP.md#windows-builds-for-06).
 
-The checked items below are implemented. The closing review above is the
-release checklist; later sections also contain work planned beyond 0.5.
+### Graphics and animation
+
+- [ ] Close the PlayStation visual gap with Nintendo 64 and Godot on the board
+  and in close combat. Compare the same real campaign scenes, including large
+  maps and the castle, rather than relying on isolated close-up renders.
+- [ ] Expand reviewed terrain textures, depth, material variety and connected
+  scenery across terrain families. Refine joins and cluster variation beyond
+  the existing foundation while keeping walkable boundaries readable.
+- [ ] Expand thematic multi-tile landmark art beyond the current Medieval
+  houses and keep: Sengoku, pirate, sci-fi and the other scenario styles need
+  their own families. Add corresponding console variants, fences, gates,
+  civic buildings, walls, bridges and other multi-cell features. Preserve the
+  authored footprint and the editor's placement and preview workflow.
+- [ ] Improve landmark silhouettes and terrain-matched backdrop variations on
+  PlayStation, comparing equivalent views with Nintendo 64 and Godot.
+- [ ] Adopt the genuine north/south idle and walk banks on Nintendo 64 where
+  measured resident memory permits. The 112-body art foundation is complete;
+  finish runtime compass coverage rather than regenerating the roster.
+- [ ] Further polish movement, turns, planted feet, idle motion, attack,
+  reaction and defeat animation on all three players. Preserve the accepted
+  route, destination, event order and combat results.
+- [ ] Expand ambient terrain motion on PlayStation without invalidating static
+  terrain caches. Review water, banners and environmental details, and refine
+  Godot/N64 ambient motion where it improves the board's readability.
+- [ ] Add richer close-combat character animation and terrain packs beyond the
+  existing forest, orchard, watch, village and castle coverage. Refine camera
+  transitions, grounding, lighting and effects on all three players while
+  keeping stable attacker/defender sides and a clean return to the board.
+- [ ] Add optional subtle motion to combat and conversation backgrounds, such
+  as water, foliage, weather, light or particles. Keep a static presentation
+  available within each platform's budget.
+- [ ] Polish graphical menus, portraits, text boxes, button hints, selection
+  and movement highlights. Keep text readable with translations and panels
+  clear of relevant units. Add compact non-controller icons only when a player
+  test shows they communicate faster than the existing concise labels.
+- [ ] Extend rendered hidden interiors beyond Twin Gate's single region to
+  multiple authored connected rooms. Keep the underlying map, movement and
+  units authoritative, with straightforward editor placement and previews.
+  Gameplay fog of war and nighttime sight rules remain separate later work.
+
+### Performance and memory
+
+- [ ] Record the 0.5 production builds as baselines: artifact hashes, matched
+  captures, frame timing, CPU/rendering cost, ROM/RAM and PS1 VRAM usage.
+- [ ] Fix PS1 scenery-rendering cost and frame pacing on scrolling and castle
+  views so the existing strict 30 fps checks pass. Retain the full terrain,
+  units, camera behaviour and test scenarios; do not change gameplay to pass
+  a performance test or weaken the checks.
+- [ ] Improve console texture/palette residency and streaming where it buys
+  visible quality. Measure upload, cache, geometry and memory costs before
+  spending the recovered budget on richer scenery, characters or effects.
+- [ ] Maintain the 30 fps console target and explicit memory limits, including
+  base 4 MiB Nintendo 64 support. Improve quality within those limits rather
+  than restoring retired renderers or adding silent fallbacks.
+- [ ] Profile Godot's large-board, scrolling, ambient-animation and cinematic
+  workloads, including on Windows, and fix observed rendering bottlenecks.
+
+Recorded 0.5 PS1 baseline: the 600-update scrolling probe misses one display
+deadline; the castle probe misses 46 and defers three renders. Re-measure the
+current artifacts before comparing changes. These are 0.6 work, with the
+strict checks retained.
+
+### Review and release checks
+
+- [ ] Review movement, two-axis scrolling, UI overlap, combat sides, castle
+  entry/reveal, story and save/resume on the actual console builds. Complete
+  the matched physical-target castle review on Nintendo 64 and PlayStation.
+- [ ] Validate PS1 streamed poses on hardware, including identical archetypes,
+  scrolling and the worst-case 30 fps budget. Check the expanded N64 poses too.
+- [ ] Judge each graphics change from a normal exported campaign and retain
+  its build hash, screenshots/video and measurements. Keep matched board,
+  close-up and castle captures current across all three players.
+- [ ] Preserve 1P/2P functional parity, saves, translations and audio while
+  changing rendering or packaging. Continue hardware listening and controller
+  feedback, and run the Windows and console export acceptance checks.
+
+Campaign design, creator audio customization, AI translation suggestions and
+mobile exports remain later milestones; they are not part of the 0.6 scope.
 
 ## Prior to 1.0: a polished demo campaign
 
@@ -66,18 +118,6 @@ release checklist; later sections also contain work planned beyond 0.5.
 - [ ] Export the assigned audio with the game to Godot, Nintendo 64 and
   PlayStation, with clear file-format, duration and platform size guidance.
   Retain separate player Music and Effects volume controls.
-
-## Planned Windows desktop edition
-
-- [ ] Build and package the Godot player and creator for Windows, including
-  the native extension, required DLLs, pinned Godot runtime and export templates.
-- [ ] Add Windows standalone-game export and run the native tests plus the
-  complete create → export → play acceptance flow in Windows CI.
-- [ ] Verify the downloadable package on a clean Windows machine, including
-  saves, controllers, audio, translations and paths with spaces or accents.
-- [ ] Define the optional console-builder installation and launch path on
-  Windows. See [Setting up](docs/SETUP.md#planned-windows-edition) for the
-  implementation checklist.
 
 ## Terrain joins and variety
 
@@ -99,9 +139,6 @@ release checklist; later sections also contain work planned beyond 0.5.
   without moving units off their cells. Reduced motion restores a still pose.
 - [x] Add rooted foliage sway on Godot and Nintendo 64, keeping existing
   geometry. Godot water ripples share world coordinates across tile edges.
-- [ ] Expand ambient terrain activity on PlayStation without invalidating
-  static terrain caches; review water, banners and occasional environmental
-  details alongside the remaining console graphics improvements.
 
 - [x] Replace visibly linear tile-to-tile motion with a smoother presentation
   curve: short acceleration, steady travel, and deceleration at the destination.
@@ -130,8 +167,8 @@ release checklist; later sections also contain work planned beyond 0.5.
 - [x] Complete genuine north/south idle/walk coverage for all 112 curated
   bodies, reviewing identity, front/back readability, team tint, and planted
   walk phases for each. PlayStation enables compact north/south movement inside
-  its measured RAM, VRAM, and frame budgets. A full Nintendo 64 compass bank
-  remains a later quality step once its resident-memory cost is justified.
+  its measured RAM, VRAM, and frame budgets. The remaining Nintendo 64 compass
+  bank adoption is scheduled for 0.6, with resident memory measured first.
 
 ## Character art and console graphics
 
@@ -145,10 +182,8 @@ release checklist; later sections also contain work planned beyond 0.5.
   console campaign through the same curated cutout pipeline and team masks.
   Keep the tactical and close-view checks reproducible. See
   [Console renderer](docs/CONSOLE_RENDERER.md).
-- [ ] Continue improving console graphics across releases: character readability,
-  terrain depth and variety, camera composition, movement and attack
-  animation, effects, UI clarity, close-up scenes, and measured performance on
-  original-style hardware.
+Implemented console presentation work:
+
   - [x] Replace the flat top-down tactical board with a depth-bearing
     production view on both consoles. Start from the proven isometric textured
     terrain, elevation faces, grounded shadows, and recognizable Godot-derived
@@ -196,8 +231,6 @@ release checklist; later sections also contain work planned beyond 0.5.
     information, confirmation, and ending screens. Story panels fit their
     actual text instead of hiding the unused part of the backdrop, and button
     names use each machine's own controller vocabulary.
-  - [ ] Add compact non-controller icons only where a measured player test
-    shows they communicate faster than the concise labels already in place.
   - [x] Improve console terrain in both tactical and close views with a first
     deterministic composition pass: stronger material identity, stable
     variants, cleaner neighbour transitions, clustered scenery, elevation
@@ -212,10 +245,6 @@ release checklist; later sections also contain work planned beyond 0.5.
     forms and a full-frustum close-combat floor while keeping controller input
     and rules at 60 Hz. Exact-emulator probes measure the resulting frame
     budget rather than assuming it.
-  - [ ] Expand that runtime composition with richer reviewed texture and art
-    packs for the campaign's important terrain families. Keep the shared map
-    footprint and tactical readability authoritative, then recheck ROM, RAM,
-    VRAM, frame time, and original-style hardware for every new pack.
 
 ### Follow-up from 0.4 hardware review
 
@@ -237,18 +266,10 @@ release:
 
 ## Unified demo campaign
 
-The first playable candidate is now under `games/steel_and_cedar`: five
-purpose-built Medieval-versus-Sengoku battles and one portable source with two
-deliberate variants. Solo is Commander Rowan's complete story and army; co-op
-adds Akari's separate army, dialogue, deployment fronts, tactical duties,
-opening layouts, enemies, and waves. Later conflicts extend beyond one console
-view, Cedar Watch is a 20-round protect-the-commander defense, and automated
-checks cover both variants, tactical regions, contact cadence, objective and
-wave timing, co-op participation, roster identity, the final castle doors and
-boss, and console budgets. The defense now loses when a company merely waits,
-and Twin Gate co-op no longer spends fourteen rounds reaching its conclusion.
-The work below remains open until human playtests prove its pacing and balance
-and it safely replaces the included campaigns on all three players.
+Steel and Cedar is the current shared feature and translation demo. Proper
+campaign design and playtesting remain pre-1.0 work. The tasks below concern
+story, teaching, balance and map design; the remaining landmark art and visual
+polish are in [0.6](#06).
 
 - [ ] Design and build one cohesive campaign to replace the current included
   campaigns as Grandleon's main demo on Godot, Nintendo 64, and PlayStation.
@@ -269,34 +290,12 @@ and it safely replaces the included campaigns on all three players.
   terrain regions, readable routes, flanks, cover, chokepoints, landmarks, and
   objective spaces; remove random-looking terrain patches and avoid repeating
   the same central-lane layout.
-- [ ] Add portable multi-tile map features for the campaign's two anchor
-  environments. Deepwood needs connected tree clusters and trunks, rock
-  outcrops, clearings, and narrow paths. Gate Village needs house footprints,
-  connected fences, a gate, square details, and alley pieces. Authors must be
-  able to place and preview them in the Godot editor, and every renderer must
-  draw the same feature footprint. The first playable prototype now gives
-  Deepwood two explicit blocked ancient groves and Gate Village six explicit
-  blocked houses; Godot groups each four-cell footprint into one landmark and
-  the map editor can place or remove the complete validated 2×2 feature in one
-  action. Nintendo 64 and PlayStation give both features connected composite
-  silhouettes while preserving the same blocked cells. Godot's first house
-  family now has four coherent Medieval variants instead of repeating one
-  generic building. Add different landmark families for Sengoku, pirate,
-  science-fiction, and the other scenario styles rather than recolouring the
-  Medieval set; add corresponding console variants, fences, gates, larger
-  civic buildings, walls, bridges, and other multi-cell features.
-- [ ] Finish the connected castle feature introduced at Twin Gate Keep. The
-  campaign authors blocked walls, passable double doors, a walkable throne room
-  and a boss dais as one 6×6 tactical footprint. Godot now validates that exact
-  footprint, keeps the exterior closed until the rendered unit crosses a door,
-  then reveals and retains the walkable room without moving the board, camera,
-  or units. Its five exact campaign maps also use one coherent Medieval terrain
-  family rather than the Relay demo art. Godot's real-source smoke now proves
-  threshold reveal and stable framing; the current exact-4-MB Nintendo 64 ROM
-  records closed and revealed frames in real-RSP ares; and a BIOS-style
-  PlayStation probe walks Rowan through the real one-player doorway and records
-  the same 18-cell transition. Complete the matched review on the physical
-  Nintendo 64 and PlayStation targets before closing this item.
+The current feature baseline includes editor-placeable 2×2 groves and houses,
+four Medieval house variants, and matching blocked footprints on all three
+players. Twin Gate has a connected 6×6 castle with doors, a throne room and an
+18-cell interior reveal. The remaining art families, room expansion and
+physical-target visual review are scheduled in [0.6](#06).
+
 - [ ] Tune 1P and 2P separately. Co-op must give both players useful characters
   and decisions without merely doubling the battle size; solo play must retain
   the same strategic possibilities at a manageable pace. Playtest every map
@@ -324,14 +323,11 @@ and it safely replaces the included campaigns on all three players.
   duration, clarity, dead turns, and dominant strategies before it replaces
   the existing demos.
 
-### Future visibility and exploration
+### Later gameplay visibility and exploration
 
-- [ ] Extend the portable visual-visibility foundation beyond Twin Gate's one
-  authored region. Let a map define multiple connected rooms so entering one
-  building reveals nearby interior cells while unexplored rooms remain
-  covered; the authoritative map, movement and units continue underneath.
-  Keep this separate from the optional cinematic cutaway used for
-  conversations, recruits, shops or item rewards.
+Rendered room expansion is in [0.6](#06); the gameplay changes below remain
+later work.
+
 - [ ] Later, let authors enable the same visibility foundation for ordinary
   maps, including nighttime scenarios with limited sight. Treat visual fog,
   player knowledge and gameplay rules as separate choices: define sight
@@ -548,8 +544,7 @@ than reproduce those implementation details.
 The Nintendo 64, PlayStation, and Godot players now consume real hit and miss
 events in terrain-derived close views. Damage comes from the
 simulation, and a legal counter-attack arrives as the next authoritative event
-with the roles reversed. The remaining work is richer art and animation,
-portable campaign authoring, and complete combat-outcome coverage.
+with the roles reversed. Further art, animation and presentation work is scheduled in [0.6](#06).
 
 - [x] Add the first optional Godot close-up: frontal attacker and defender,
   terrain-derived backdrop, reported damage or miss, authoritative counter and
@@ -562,12 +557,6 @@ portable campaign authoring, and complete combat-outcome coverage.
   retaining the local player override because the view adds meaningful time to
   every exchange. Older games default to enabled, while an explicit local or
   command-line player choice remains final.
-- [ ] Continue expanding the close view with more terrain packs and richer
-  character animation. Production packs now cover compatible forest scenes,
-  Bell Orchard, Cedar Watch, Gate Village houses and the walkable interior of
-  Twin Gate Keep. The four campaign-specific Medieval packs require exact
-  stage, map and landmark context; maps without a compatible pack retain the
-  safe terrain-derived fallback.
 - [x] Cover multi-target abilities, special results, and rapid queued combat.
   Area attacks keep their initiating character planted while targets rotate
   through the other stage slot; restoration, defeat, endurance and item drops
@@ -586,19 +575,13 @@ portable campaign authoring, and complete combat-outcome coverage.
   Unsupported scenes retain the existing readable wash until more art pools
   are authored.
 
-## PlayStation graphics gap
+## Implemented PlayStation graphics foundation
 
-- [ ] After 0.5, reduce scenery-rendering cost so scrolling and castle views
-  sustain the 30 fps target without missed display deadlines. Retain terrain,
-  units, camera behaviour and the existing strict checks; compare captures
-  and measurements on hardware as well as in the emulator.
+The remaining visual and performance tasks are scheduled in [0.6](#06).
+
 - [x] Add indexed textures and a shared stage palette, restore 64×64 compass
   poses, and page walking frames through shared VRAM slots.
 - [x] Increase native terrain density and add material textures to existing
   forms, grouping triangle pairs by material.
 - [x] Use 4-bit palettes for terrain materials while preserving 8-bit units.
 - [x] Reuse compatible Godot panoramas for console close-combat backdrops.
-- [ ] Improve landmark silhouettes and compose more terrain-matched backdrop
-  variations; compare equivalent scenes against Nintendo 64 and Godot.
-- [ ] Validate streamed pose changes on hardware, including identical unit
-  archetypes, scrolling, and the worst-case 30 fps budget.

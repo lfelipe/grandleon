@@ -21,10 +21,11 @@ exports become available when their optional builder payload is installed.
 
 ## Working on Grandleon
 
-### Planned Windows edition
+### Windows builds for 0.6
 
-Windows support still needs to be built and validated. The current PC bundle,
-Godot export preset and standalone-game exporter target Linux. CMake already
+Windows builds are planned for 0.6 and still need to be built and validated.
+The current PC bundle, Godot export preset and standalone-game exporter target
+Linux. CMake already
 has MSVC warning settings, but that does not establish Windows compatibility.
 
 The Windows build needs to cover both playing games and creating them:

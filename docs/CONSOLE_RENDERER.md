@@ -20,6 +20,14 @@ deployment, close combat, localization and player names, and the castle's
 hidden-area reveal. Visual polish may differ by machine and will continue to
 improve after functional parity.
 
+## 0.6 graphics and performance work
+
+0.6 focuses on Windows builds and the remaining graphics and performance
+backlog across all three players. Console work includes PS1 frame pacing,
+richer terrain and landmarks, animation and background motion, clearer UI,
+and measured texture/memory use while targeting 30 fps. Review normal campaign
+exports on hardware as well as in emulators. See [the 0.6 checklist](../TODO.md#06).
+
 ## Controls and battle planning
 
 Use the D-pad or left analog stick to move the cursor. Directions follow the

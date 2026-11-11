@@ -151,8 +151,7 @@ is part of that transition: the players share Godot’s campaign features while
 console graphics continue to mature.
 
 PS1 camera movement can still judder on larger maps, especially around the
-castle. Smoother frame pacing remains planned after 0.5; it does not block
-this release's functional-parity review.
+castle. Smoother frame pacing is planned for 0.6.
 
 `games/sevenfold` remains the older compact art showcase campaign. One ROM asks for one or
 two players on its main menu, fields every archetype across all seven art
@@ -177,7 +176,8 @@ rest of the documentation describes the current Godot application.
 | **0.3** | Godot player and creator. Moved the supported PC experience to Godot, joined creation and play in one application, and added local co-op, standalone export, authored 3D terrain, and a complete high-resolution sci-fi archetype roster. |
 | **0.4** | Broader art and console campaigns. Completes seven coherent Godot character directions, improves terrain clusters and movement presentation, adds portable one/two/choice campaign launch policy, streamlines the player around a nearly full-screen board, includes distinct solo and local co-op campaigns, and uses one textured renderer for the PlayStation and Nintendo 64 campaigns. It also introduces the first optional terrain-aware Godot combat close-up. |
 | **0.5** | Editor, translations and console play. Improves campaign creation, previews and project checks, including a test that creates, exports and plays a new game. Adds manual translations, player-named characters, orchestral music and distinct combat sounds. Introduces Steel and Cedar and moves the console players to Pyrite/Tiny3D and Mipsync. |
-| **Prior to 1.0** | Design and playtest a polished campaign with a cohesive story, introductory battles, distinct solo/co-op tactics, varied maps and a final boss. Improve console graphics, animation, UI and performance. Expand combat and conversation backdrops with optional ambient motion. Rework audio and let creators import and assign their own music and effects. Experiment with Android and possibly iOS exports of the Godot player and creator. |
+| **0.6** | Windows builds of the creator and player, including standalone-game export. Graphics, animation, terrain, backdrops and interface improvements across all three players, with particular attention to the PS1 quality gap and stable 30 fps console performance. Hardware checks and matched gameplay captures guide the work. |
+| **Prior to 1.0** | Design and playtest a polished campaign with a cohesive story, introductory battles, distinct solo/co-op tactics, varied maps and a final boss. Rework audio and let creators import and assign their own music and effects. Experiment with Android and possibly iOS exports of the Godot player and creator. |
 
 See [TODO](TODO.md) for the detailed work list.
 
