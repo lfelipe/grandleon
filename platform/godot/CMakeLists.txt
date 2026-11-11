@@ -8,6 +8,16 @@ include(FetchContent)
 set(GODOTCPP_API_VERSION "${GRANDLEON_GODOT_API_VERSION}" CACHE STRING "" FORCE)
 set(GODOTCPP_TARGET "template_release" CACHE STRING "" FORCE)
 set(GODOTCPP_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+if(ANDROID AND NOT DEFINED GODOTCPP_BUILD_PROFILE)
+    # The bridge extends RefCounted and uses variant types; the application's
+    # scenes remain GDScript and do not need thousands of C++ class wrappers.
+    set(GODOTCPP_BUILD_PROFILE "${CMAKE_CURRENT_SOURCE_DIR}/native.build_profile.json"
+        CACHE FILEPATH "Godot classes needed by the native extension")
+endif()
+if(ANDROID AND GODOTCPP_BUILD_PROFILE)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+        "${GODOTCPP_BUILD_PROFILE}")
+endif()
 FetchContent_Declare(
     godot_cpp
     GIT_REPOSITORY https://github.com/godotengine/godot-cpp.git
@@ -114,6 +124,23 @@ else()
     set(GRANDLEON_GODOT_LIBRARY_PREFIX "lib")
 endif()
 
+set(GRANDLEON_GODOT_BINARY_SUBDIR "")
+if(ANDROID)
+    if(NOT ANDROID_ABI STREQUAL "arm64-v8a" AND NOT ANDROID_ABI STREQUAL "x86_64")
+        message(FATAL_ERROR "Supported Android ABIs: arm64-v8a and x86_64")
+    endif()
+    if((DEFINED ANDROID_STL AND NOT ANDROID_STL STREQUAL "c++_static") OR
+       (DEFINED CMAKE_ANDROID_STL_TYPE AND NOT CMAKE_ANDROID_STL_TYPE STREQUAL "c++_static"))
+        message(FATAL_ERROR "Android packaging currently requires ANDROID_STL=c++_static")
+    endif()
+    set(GRANDLEON_GODOT_BINARY_SUBDIR "android/${ANDROID_ABI}/")
+    # Keep the native ELF compatible with Android devices using 16 KiB pages.
+    # Hide the linked static C++ runtime behind the GDExtension C entry point.
+    target_link_options(grandleon_godot PRIVATE
+        "-Wl,-z,max-page-size=16384" "-Wl,-z,common-page-size=16384"
+        "-Wl,--exclude-libs,ALL")
+endif()
+
 set_target_properties(
     grandleon_godot
     PROPERTIES
@@ -126,8 +153,8 @@ set_target_properties(
         OUTPUT_NAME "grandleon_godot"
         # A generator expression prevents multi-config generators from adding a
         # Debug/Release suffix. The manifest uses one filename per platform.
-        LIBRARY_OUTPUT_DIRECTORY "$<1:${CMAKE_CURRENT_BINARY_DIR}/project/bin>"
-        RUNTIME_OUTPUT_DIRECTORY "$<1:${CMAKE_CURRENT_BINARY_DIR}/project/bin>"
+        LIBRARY_OUTPUT_DIRECTORY "$<1:${CMAKE_CURRENT_BINARY_DIR}/project/bin/${GRANDLEON_GODOT_BINARY_SUBDIR}>"
+        RUNTIME_OUTPUT_DIRECTORY "$<1:${CMAKE_CURRENT_BINARY_DIR}/project/bin/${GRANDLEON_GODOT_BINARY_SUBDIR}>"
 )
 
 # A runnable project is staged in the build tree.  The generated art stays in
@@ -146,10 +173,10 @@ add_custom_target(grandleon_godot_project ALL
             "${CMAKE_SOURCE_DIR}/games/demo/source/project.json"
             "${CMAKE_CURRENT_BINARY_DIR}/project/app/content/templates/starter_battle.json"
     COMMAND "${CMAKE_COMMAND}" -E make_directory
-            "${CMAKE_CURRENT_BINARY_DIR}/project/app/bin"
+            "${CMAKE_CURRENT_BINARY_DIR}/project/app/bin/${GRANDLEON_GODOT_BINARY_SUBDIR}"
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
             "$<TARGET_FILE:grandleon_godot>"
-            "${CMAKE_CURRENT_BINARY_DIR}/project/app/bin/$<TARGET_FILE_NAME:grandleon_godot>"
+            "${CMAKE_CURRENT_BINARY_DIR}/project/app/bin/${GRANDLEON_GODOT_BINARY_SUBDIR}$<TARGET_FILE_NAME:grandleon_godot>"
     DEPENDS grandleon_godot
     COMMENT "Staging the Grandleon Godot project"
     VERBATIM

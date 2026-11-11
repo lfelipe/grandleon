@@ -11,3 +11,8 @@ linux.release.x86_64 = "res://bin/libgrandleon_godot.so"
 
 windows.debug.x86_64 = "res://bin/grandleon_godot.dll"
 windows.release.x86_64 = "res://bin/grandleon_godot.dll"
+
+android.debug.arm64 = "res://bin/android/arm64-v8a/libgrandleon_godot.so"
+android.release.arm64 = "res://bin/android/arm64-v8a/libgrandleon_godot.so"
+android.debug.x86_64 = "res://bin/android/x86_64/libgrandleon_godot.so"
+android.release.x86_64 = "res://bin/android/x86_64/libgrandleon_godot.so"
