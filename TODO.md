@@ -12,11 +12,13 @@ items below describe the existing foundation; they are not being reopened.
   MinGW-w64, verify DLL exports and dependencies, and run the 64 compiled
   native tests under Wine. The compiler produces the same campaign package
   as Linux. Real Windows desktop validation remains below.
-- [ ] Package the Godot creator and player for Windows with the native
-  extension, required DLLs, pinned runtime and export templates. Users should
-  not need a compiler or a separate Godot installation.
-- [ ] Add Windows standalone-game export from the creator and verify that the
-  exported game runs independently of the editor and source checkout.
+- [x] Add Windows creator/player packaging with the native extension, pinned
+  runtime, imported resources, launcher and license notices. Users need no
+  compiler or separate Godot installation. Headless Windows-engine checks
+  pass under Wine; desktop checks remain below.
+- [x] Add Windows standalone-game export and launch the actual exported game
+  after removing its creator copy. Fix accented campaign and save paths and
+  exercise Unicode save round trips, reopening and atomic replacement.
 - [ ] Run native tests and the complete create → export → play acceptance flow
   in Windows CI, with a runner that supports the required graphics and audio.
 - [ ] Test the downloadable application on a clean Windows machine: saves,

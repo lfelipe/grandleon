@@ -61,8 +61,10 @@ The Windows build needs to cover both playing games and creating them:
 - Validate native Windows compilation and the packaged launcher, including
   paths containing spaces or accents. Export templates for Godot's separate
   native export workflow are not included in this source-project bundle.
-- Add a Windows standalone-game export path in the creator. It must produce a
-  game that launches independently of the creator and source checkout.
+- Validate authoring and standalone-game export through the Windows creator
+  interface. Headless Windows-engine export and independent battle launch
+  already pass under Wine, including paths with accents; Unicode package and
+  save-path regression checks also run against the native extension.
 - Run the native tests and the create → export → play acceptance flow on
   Windows. Check saves, keyboard and controllers, audio, live language changes,
   and project paths containing spaces or accented characters. Test the packaged
