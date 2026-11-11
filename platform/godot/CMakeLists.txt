@@ -97,6 +97,12 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         )
     endforeach()
 endif()
+if(WIN32)
+    set(GRANDLEON_GODOT_LIBRARY_PREFIX "")
+else()
+    set(GRANDLEON_GODOT_LIBRARY_PREFIX "lib")
+endif()
+
 set_target_properties(
     grandleon_godot
     PROPERTIES
@@ -105,9 +111,12 @@ set_target_properties(
         VISIBILITY_INLINES_HIDDEN ON
         POSITION_INDEPENDENT_CODE ON
         BUILD_RPATH_USE_ORIGIN ON
-        PREFIX "lib"
+        PREFIX "${GRANDLEON_GODOT_LIBRARY_PREFIX}"
         OUTPUT_NAME "grandleon_godot"
-        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/project/bin"
+        # A generator expression prevents multi-config generators from adding a
+        # Debug/Release suffix. The manifest uses one filename per platform.
+        LIBRARY_OUTPUT_DIRECTORY "$<1:${CMAKE_CURRENT_BINARY_DIR}/project/bin>"
+        RUNTIME_OUTPUT_DIRECTORY "$<1:${CMAKE_CURRENT_BINARY_DIR}/project/bin>"
 )
 
 # A runnable project is staged in the build tree.  The generated art stays in
