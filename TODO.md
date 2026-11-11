@@ -66,6 +66,12 @@ items below describe the existing foundation; they are not being reopened.
   and movement highlights. Keep text readable with translations and panels
   clear of relevant units. Add compact non-controller icons only when a player
   test shows they communicate faster than the existing concise labels.
+- [x] Complete a first console interface pass: illustrated main menus,
+  framed popups, stronger focus rows, controller badges, health forecasts
+  and clearer unit/movement markers. Review six matched before/after views
+  per console from normal campaign builds. Nintendo 64 passes all five
+  battles in base 4 MiB; PS1 fits all five memory budgets. Hardware review
+  and the existing heavy-map PS1 frame-pacing work remain open.
 - [ ] Extend rendered hidden interiors beyond Twin Gate's single region to
   multiple authored connected rooms. Keep the underlying map, movement and
   units authoritative, with straightforward editor placement and previews.
