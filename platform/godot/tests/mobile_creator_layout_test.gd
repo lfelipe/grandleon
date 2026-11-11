@@ -26,10 +26,16 @@ func _run() -> void:
 		contents.add_child(button)
 		if first == null: first = button
 		last = button
+	var rich := RichTextLabel.new()
+	rich.bbcode_enabled = true
+	rich.text = "[b]Bold[/b] [i]Italic[/i] [code]Code[/code]"
+	contents.add_child(rich)
 	var normal := Layout.metrics(2.625)
 	Layout.apply_tree(screen, normal)
 	await process_frame
 	await process_frame
+	for variant: String in ["normal_font_size", "bold_font_size", "italics_font_size", "bold_italics_font_size", "mono_font_size"]:
+		check(rich.get_theme_font_size(variant) >= 37, "Every rich-text style must remain readable at phone density: " + variant)
 	check(first.custom_minimum_size.y >= 126 and first.get_theme_font_size("font_size") >= 42, "Pixel 6 density must retain 48dp targets and 16sp button text")
 	check(panel.size.y == 500 and panel.get_child(0) is ScrollContainer, "A tall form must scroll within its fixed panel")
 	var scroll: ScrollContainer = panel.get_child(0)

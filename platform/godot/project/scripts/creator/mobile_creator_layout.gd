@@ -50,6 +50,9 @@ static func apply_tree(node: Node, sizes: Dictionary) -> void:
 			popup.add_theme_constant_override("v_separation", roundi(32 * sizes.unit))
 	elif node is Label or node is RichTextLabel:
 		node.add_theme_font_size_override("font_size" if node is Label else "normal_font_size", maxi(int(_original(node, "font", node.get_theme_font_size("font_size" if node is Label else "normal_font_size"))), sizes.body))
+		if node is RichTextLabel:
+			for variant: String in ["bold_font_size", "italics_font_size", "bold_italics_font_size", "mono_font_size"]:
+				node.add_theme_font_size_override(variant, maxi(int(_original(node, variant, node.get_theme_font_size(variant))), sizes.body))
 	elif node is HSlider or node is VSlider:
 		node.custom_minimum_size.y = maxf(float(_original(node, "min_y", node.custom_minimum_size.y)), sizes.touch)
 	if node is ScrollContainer:
