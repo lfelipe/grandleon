@@ -53,6 +53,24 @@ items below describe the existing foundation; they are not being reopened.
 - [ ] Finish the phone/tablet usability pass on advanced editor forms,
   including the campaign outline's nested chapter list, and verify external
   keyboards and mice. Readable controls alone do not prove every form fits well.
+- [ ] Make the phone player board-first with contextual controls. Show legal
+  unit actions after selection, target details during targeting, and compact
+  dialogue/close-up controls only while those views are active. Avoid a
+  permanent row of redundant Confirm/Back/Wait buttons and move secondary
+  settings off the main play view. Keep controls clear of important units.
+- [ ] Use available screen space and density to adapt the shared Android app;
+  make play the main phone entry point and keep Create/Edit available on
+  phones as well as tablets. Use focused phone editing forms while reserving
+  more room on tablets and PCs. Keep one Android application and choose the
+  layout from the available space, rather than removing the creator on phones.
+- [ ] Keep emulator screenshot/input checks for compact and wide phones,
+  tablets, cutouts, larger text and the on-screen keyboard. Emulation covers
+  layout and interaction; confirm graphics speed, audio and ergonomics on
+  actual hardware.
+  The first compact-phone review found that home-screen audio/settings and
+  the fixed action row take too much room. Window/density changes also need
+  to recalculate existing text sizes, rather than retaining the old layout's
+  font sizes. Cover this resize case alongside fresh app starts.
 - [x] Support importing, saving and sharing project archives through Android
   file handling. The Android editor creates and exports portable campaigns
   playable on Android and PC. Preserve an editable project export for the PC
