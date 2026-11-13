@@ -127,6 +127,8 @@ var _combat_camera_actor_id := 0
 var _combat_camera_target_id := 0
 var _pulse := 0.0
 var _ambient_motion_enabled := true
+var _scenery_occluders: Array[Dictionary] = []
+var _occlusion_elapsed := 0.0
 var _ambient_props: Array[Dictionary] = []
 var _ambient_water_materials: Dictionary = {}
 
@@ -705,6 +707,7 @@ func _process(delta: float) -> void:
 	_update_castle_reveal_target()
 	_update_castle_reveal(delta)
 	_update_castle_unit_presentation()
+	_update_scenery_occlusion(delta)
 	_update_mobile_render_scale()
 	if _viewport and _viewport.size != Vector2i(size):
 		_viewport.size = Vector2i(size)
@@ -730,6 +733,8 @@ func _update_tactical_camera(delta: float) -> void:
 func _rebuild_terrain() -> void:
 	if snapshot.is_empty() or terrain.is_empty() or _terrain_root == null:
 		return
+	_scenery_occluders.clear()
+	_occlusion_elapsed = 0.0
 	_ambient_props.clear()
 	_ambient_water_materials.clear()
 	_terrain_root.queue_free()
@@ -1439,7 +1444,66 @@ func _medieval_landmark(parent: Node3D, style: String) -> Node3D:
 	var landmark := Node3D.new()
 	landmark.set_meta("landmark_style", style)
 	parent.add_child(landmark)
+	_scenery_occluders.append({"node": landmark, "alpha": 1.0, "blocked": false, "materials": []})
 	return landmark
+
+
+# Fade whole props rather than individual beams, so scenery stays readable.
+# Test rays against the rendered unit positions, including while walking. This
+# is presentation only; unexplored castle rooms keep their own visibility rules.
+func _update_scenery_occlusion(delta: float) -> void:
+	if _camera == null or _scenery_occluders.is_empty():
+		return
+	_occlusion_elapsed += delta
+	var refresh := _occlusion_elapsed >= 0.08
+	if refresh:
+		_occlusion_elapsed = 0.0
+	var rays: Array = []
+	if refresh:
+		var sprite_config: Dictionary = profile_config.get("sprite", {})
+		var body_height := float(sprite_config.get("worldHeight", 0.8))
+		var right := _camera.global_basis.x * 0.18
+		for unit_node: Node3D in _unit_nodes.values():
+			if not unit_node.is_visible_in_tree():
+				continue
+			for height_fraction: float in [0.45, 0.85]:
+				for offset: float in [-1.0, 0.0, 1.0]:
+					var end: Vector3 = unit_node.global_position + Vector3.UP * body_height * height_fraction + right * offset
+					if _camera.is_position_behind(end):
+						continue
+					rays.append([_camera.project_ray_origin(_camera.unproject_position(end)), end])
+	for entry: Dictionary in _scenery_occluders:
+		var prop: Node3D = entry.node
+		if refresh:
+			entry.blocked = _scenery_blocks_rays(prop, rays)
+		var target := 0.42 if bool(entry.blocked) else 1.0
+		var alpha := move_toward(float(entry.alpha), target, delta * 3.5)
+		if is_equal_approx(alpha, float(entry.alpha)):
+			continue
+		entry.alpha = alpha
+		if entry.materials.is_empty():
+			# Materials are normally shared across the map. Duplicate only this
+			# prop's overrides on first fade; distant matching props stay opaque.
+			for child in prop.get_children():
+				if child is MeshInstance3D and child.material_override is StandardMaterial3D:
+					var material: StandardMaterial3D = child.material_override.duplicate()
+					child.material_override = material
+					entry.materials.append(material)
+		for material: StandardMaterial3D in entry.materials:
+			material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA if alpha < 0.999 else BaseMaterial3D.TRANSPARENCY_DISABLED
+			material.albedo_color.a = alpha
+
+
+func _scenery_blocks_rays(prop: Node3D, rays: Array) -> bool:
+	for child in prop.get_children():
+		if not child is MeshInstance3D or not child.is_visible_in_tree():
+			continue
+		var inverse: Transform3D = child.global_transform.affine_inverse()
+		var bounds: AABB = child.get_aabb()
+		for ray: Array in rays:
+			if bounds.intersects_segment(inverse * Vector3(ray[0]), inverse * Vector3(ray[1])) != null:
+				return true
+	return false
 
 
 func _build_medieval_castle_cell(

@@ -81,6 +81,8 @@ func _run() -> void:
 				root.get_texture().get_image().save_png(capture)
 				break
 			await process_frame
+	if landmarks.size() == 1:
+		await _verify_scenery_fade(board, landmarks[0], capture)
 	player.queue_free()
 	await process_frame
 	var audio := root.get_node("PCAudio")
@@ -90,9 +92,47 @@ func _run() -> void:
 			stream_player.stream = null
 	audio.set("_streams", {})
 	await create_timer(0.15).timeout
-	if not failed: print("BELL_TRAVERSAL_PASS real_campaign=true native_waypoints=true walkable_cells_preserved=true mesh_clearance=true")
+	if not failed: print("BELL_TRAVERSAL_PASS real_campaign=true native_waypoints=true walkable_cells_preserved=true mesh_clearance=true scenery_occlusion=true")
 	quit(1 if failed else 0)
 
 func _collect_bells(node: Node, result: Array[Node3D]) -> void:
 	if node is Node3D and node.get_meta("landmark_style", "") == "orchard_bell": result.append(node)
 	for child in node.get_children(): _collect_bells(child, result)
+
+func _verify_scenery_fade(board: Node, bell: Node3D, capture: String) -> void:
+	board.set_process(false)
+	# Use a real beam and the real camera, then put a rendered unit directly
+	# behind it. No snapshot or rules are changed for this presentation check.
+	var post: MeshInstance3D = bell.get_child(1)
+	var original: StandardMaterial3D = board._materials["medieval_orchard_bell_timber"]
+	var colour := original.albedo_color
+	for node: Node3D in board._unit_nodes.values():
+		node.visible = false
+	board._update_scenery_occlusion(1.0)
+	var unit: Node3D = board._unit_nodes[ROWAN]
+	unit.visible = true
+	var camera: Camera3D = board._camera
+	var body_height := float(board.profile_config.get("sprite", {}).get("worldHeight", 0.8))
+	var endpoint := post.global_position - camera.global_basis.z
+	unit.global_position = endpoint - Vector3.UP * body_height * 0.85
+	if not capture.is_empty():
+		await RenderingServer.frame_post_draw
+		root.get_texture().get_image().save_png(capture.get_basename() + "-blocked.png")
+	board._update_scenery_occlusion(0.1)
+	var faded: StandardMaterial3D = post.material_override
+	check(faded != original and faded.albedo_color.a < 0.99, "A real bell beam between camera and unit must fade gradually")
+	check(original.albedo_color == colour, "Fading a prop must not change its shared map material")
+	board._update_scenery_occlusion(0.1)
+	check(faded.albedo_color.a >= 0.4 and faded.albedo_color.a < 0.6, "Occluding scenery stays visible and translucent")
+	if not capture.is_empty():
+		await RenderingServer.frame_post_draw
+		root.get_texture().get_image().save_png(capture.get_basename() + "-faded.png")
+	# Same screen position, now in front of the beam: projection overlap alone
+	# must not make the bell transparent.
+	unit.global_position = post.global_position + camera.global_basis.z - Vector3.UP * body_height * 0.85
+	board._update_scenery_occlusion(1.0)
+	check(is_equal_approx(faded.albedo_color.a, 1.0), "Bell returns opaque when the unit moves in front")
+	check(faded.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED, "Clear scenery returns to opaque rendering")
+	unit.visible = false
+	board._update_scenery_occlusion(1.0)
+	check(is_equal_approx(faded.albedo_color.a, 1.0), "Hidden units must not reveal scenery")

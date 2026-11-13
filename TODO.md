@@ -150,6 +150,9 @@ tracked above.
 
 ### Graphics and animation
 
+- [x] In Godot, gently fade Medieval mesh props such as the bell when they
+  obstruct a unit, following its animated position and restoring opacity
+  when it comes back into view. Shared scenery materials stay unchanged.
 - [ ] Close the PlayStation visual gap with Nintendo 64 and Godot on the board
   and in close combat. Compare the same real campaign scenes, including large
   maps and the castle, rather than relying on isolated close-up renders.
