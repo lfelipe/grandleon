@@ -501,14 +501,12 @@ func _show_game_language_picker(
 	add_child(game_language_picker_layer)
 
 	var shade := ColorRect.new()
-	shade.color = Color("e90b1320")
+	shade.color = Color(0.035, 0.075, 0.125, 0.94)
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	game_language_picker_layer.add_child(shade)
 
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(520, 0)
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	panel.position = Vector2(-260, -180)
 	game_language_picker_layer.add_child(panel)
 
 	var margin := MarginContainer.new()
@@ -519,7 +517,12 @@ func _show_game_language_picker(
 	panel.add_child(margin)
 	var choices := VBoxContainer.new()
 	choices.add_theme_constant_override("separation", 12)
-	margin.add_child(choices)
+	var language_scroll := ScrollContainer.new()
+	language_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	language_scroll.follow_focus = true
+	margin.add_child(language_scroll)
+	choices.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	language_scroll.add_child(choices)
 
 	var heading := Label.new()
 	heading.text = _shell_text("player.language.heading")
@@ -535,7 +538,6 @@ func _show_game_language_picker(
 		heading.add_theme_font_size_override("font_size", roundi(20 * MobileLayout.units_per_dp(get_viewport())))
 		explanation.add_theme_font_size_override("font_size", roundi(16 * MobileLayout.units_per_dp(get_viewport())))
 		panel.custom_minimum_size.x = 900
-		panel.position = Vector2(-450, -360)
 
 	var source_language := str(language_info.get("source", ""))
 	var first_button: Button = null
@@ -554,6 +556,21 @@ func _show_game_language_picker(
 			first_button = button
 	if first_button != null:
 		first_button.grab_focus.call_deferred()
+	var layout := _layout_game_language_picker.bind(panel, choices)
+	get_viewport().size_changed.connect(layout)
+	choices.minimum_size_changed.connect(layout, CONNECT_DEFERRED)
+	layout.call_deferred()
+
+
+func _layout_game_language_picker(panel: PanelContainer, choices: VBoxContainer) -> void:
+	if not is_inside_tree() or not is_instance_valid(panel) or not panel.is_inside_tree():
+		return
+	var safe := MobileLayout.current_rect(get_viewport())
+	panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	panel.custom_minimum_size.x = minf(900 if OS.has_feature("android") else 520, safe.size.x - 48)
+	panel.size = Vector2(panel.custom_minimum_size.x,
+		minf(choices.get_combined_minimum_size().y + 64, safe.size.y - 48))
+	panel.position = safe.get_center() - panel.size * 0.5
 
 
 func _game_language_name(language: String) -> String:
