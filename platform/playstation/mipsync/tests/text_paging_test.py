@@ -21,12 +21,13 @@ def strings(value):
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--binary', type=Path)
+parser.add_argument('--emulator', action='append', default=[])
 args = parser.parse_args()
 
 project = json.loads((repo / 'games/steel_and_cedar/source/project.json').read_text())
 payload = ('\0'.join(strings(project)) + '\0').encode()
 if args.binary:
-    subprocess.run([str(args.binary.resolve())], input=payload, check=True)
+    subprocess.run(args.emulator + [str(args.binary.resolve())], input=payload, check=True)
     raise SystemExit(0)
 
 with tempfile.TemporaryDirectory(prefix='grandleon-ps1-paging-') as directory:

@@ -46,7 +46,11 @@ def main():
         f'config/custom_user_dir_name="GrandleonAcceptance-{uuid.uuid4().hex}"\n',
         encoding="utf-8",
     )
-    runtime = "Godot_v4.7.2-stable_win64_console.exe" if windows else "godot"
+    # Wine's console relay can keep its own output pipe open after the GUI
+    # engine exits. Run that engine directly in Wine; native Windows checks
+    # still exercise launch-pc.cmd and the official console launcher.
+    runtime = ("Godot_v4.7.2-stable_win64.exe" if args.wine else
+               "Godot_v4.7.2-stable_win64_console.exe") if windows else "godot"
     result_path = output / "exported-game.txt"
     export_root = output / "exported games revisão"
     command = prefix + [str(source / runtime), "--headless", "--path",
@@ -81,7 +85,11 @@ def main():
     automation = output / "automation"
     environment.update(GRANDLEON_WINDOWED="1", GRANDLEON_PLAYERS="1",
                        GRANDLEON_AUTOMATION_DIR=native(automation))
-    if windows:
+    if args.wine:
+        launch = prefix + [str(game / runtime), "--path", native(game / "project"), "--",
+                           "--package=res://game.gpk", "--campaign=first_adventure",
+                           "--players=1", "--player-only", "--automation-dir=" + native(automation)]
+    elif windows:
         launch = prefix + ["cmd.exe", "/d", "/c", native(game / "launch-pc.cmd"),
                            "--automation-dir=" + native(automation)]
     else:
@@ -138,9 +146,9 @@ def main():
             state, text = inspect()
             if "START BATTLE" in text:
                 press("ctrl_enter")
-            elif "DEPLOYMENT" in text:
+            elif "DEPLOY" in text:
                 press("b")
-            return state if "ROUND 1" in text else None
+            return state if "ROUND 1" in text and "DEPLOY" not in text else None
 
         wait_for(battle_ready, "authored battle")
         for _ in range(2):
@@ -158,7 +166,8 @@ def main():
             raise RuntimeError("Player returned a failure on exit")
         (output / "result.json").write_text(json.dumps({
             "passed": True, "platform": "Windows" if windows else "Linux",
-            "wine": bool(args.wine), "creator_copy_removed": not source.exists(),
+            "wine": bool(args.wine), "launcher_used": not bool(args.wine),
+            "creator_copy_removed": not source.exists(),
             "exported_game": str(game), "victory": victory[0],
         }, indent=2) + "\n", encoding="utf-8")
         print("PC create → export → independent launch → victory acceptance passed")

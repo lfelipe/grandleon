@@ -1190,6 +1190,12 @@ add_test(
 )
 
 configure_file(
+    cmake/native_test_context.cmake.in
+    "${CMAKE_CURRENT_BINARY_DIR}/native_test_context.cmake"
+    @ONLY
+)
+
+configure_file(
     cmake/package_sdk_test.cmake.in
     "${CMAKE_CURRENT_BINARY_DIR}/package_sdk_test.cmake"
     @ONLY
@@ -1198,6 +1204,7 @@ add_test(
     NAME grandleon.package_sdk
     COMMAND
         "${CMAKE_COMMAND}"
+        "-DGRANDLEON_TEST_CONFIG=$<CONFIG>"
         -P "${CMAKE_CURRENT_BINARY_DIR}/package_sdk_test.cmake"
 )
 
@@ -1210,6 +1217,7 @@ add_test(
     NAME grandleon.game_template
     COMMAND
         "${CMAKE_COMMAND}"
+        "-DGRANDLEON_TEST_CONFIG=$<CONFIG>"
         -P "${CMAKE_CURRENT_BINARY_DIR}/game_template_test.cmake"
 )
 
@@ -1222,6 +1230,7 @@ add_test(
     NAME grandleon.desktop_client
     COMMAND
         "${CMAKE_COMMAND}"
+        "-DGRANDLEON_TEST_CONFIG=$<CONFIG>"
         -P "${CMAKE_CURRENT_BINARY_DIR}/desktop_client_test.cmake"
 )
 
@@ -1248,6 +1257,7 @@ add_test(
     NAME grandleon.game_tarnholt
     COMMAND
         "${CMAKE_COMMAND}"
+        "-DGRANDLEON_TEST_CONFIG=$<CONFIG>"
         -P "${CMAKE_CURRENT_BINARY_DIR}/tarnholt_test.cmake"
 )
 
@@ -1260,6 +1270,7 @@ add_test(
     NAME grandleon.game_demo
     COMMAND
         "${CMAKE_COMMAND}"
+        "-DGRANDLEON_TEST_CONFIG=$<CONFIG>"
         -P "${CMAKE_CURRENT_BINARY_DIR}/game_demo_test.cmake"
 )
 
@@ -1324,10 +1335,20 @@ target_link_libraries(grandleon_ps1_text_paging_tests PRIVATE grandleon::view)
 target_include_directories(grandleon_ps1_text_paging_tests PRIVATE
     "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/runtime"
 )
+set(grandleon_test_emulator_args)
+foreach(argument IN LISTS CMAKE_CROSSCOMPILING_EMULATOR)
+    list(APPEND grandleon_test_emulator_args "--emulator=${argument}")
+endforeach()
+set(grandleon_test_compiler_args)
+separate_arguments(grandleon_test_flags NATIVE_COMMAND "${CMAKE_CXX_FLAGS} ${CMAKE_EXE_LINKER_FLAGS}")
+foreach(argument IN LISTS grandleon_test_flags)
+    list(APPEND grandleon_test_compiler_args "--compiler-arg=${argument}")
+endforeach()
 add_test(NAME grandleon.ps1_text_paging
     COMMAND "${GRANDLEON_PYTHON_EXECUTABLE}"
         "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/tests/text_paging_test.py"
         --binary "$<TARGET_FILE:grandleon_ps1_text_paging_tests>"
+        ${grandleon_test_emulator_args}
 )
 add_executable(grandleon_ps1_font_tests
     "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/tests/ps1_font_test.cpp"
@@ -1341,6 +1362,8 @@ add_test(NAME grandleon.ps1_structured_dialogue
     COMMAND "${GRANDLEON_PYTHON_EXECUTABLE}"
         "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/tests/structured_dialogue_test.py"
         --compiler "${CMAKE_CXX_COMPILER}"
+        "--executable-suffix=${CMAKE_EXECUTABLE_SUFFIX}"
+        ${grandleon_test_compiler_args} ${grandleon_test_emulator_args}
 )
 add_test(
     NAME grandleon.console_audio

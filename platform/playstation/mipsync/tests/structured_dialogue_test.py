@@ -3,6 +3,7 @@
 """Compile generated localized multi-speaker data, preserving order and cast IDs."""
 import argparse
 import json
+import os
 import re
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
@@ -15,6 +16,9 @@ module = module_from_spec(spec)
 spec.loader.exec_module(module)
 parser = argparse.ArgumentParser()
 parser.add_argument('--compiler', default='g++')
+parser.add_argument('--compiler-arg', action='append', default=[])
+parser.add_argument('--emulator', action='append', default=[])
+parser.add_argument('--executable-suffix', default='.exe' if os.name == 'nt' else '')
 parser.add_argument('--manifest', action='append', type=Path, default=[])
 parser.add_argument('--scene-data', type=Path)
 args = parser.parse_args()
@@ -59,11 +63,11 @@ for index, code in enumerate(('en', 'es', 'pt-BR')):
                'assert(battle.size()==1 && battle[0].unit_type_id==903); }']
 with tempfile.TemporaryDirectory(prefix='grandleon-structured-dialogue-') as directory:
     source = Path(directory) / 'test.cpp'
-    binary = Path(directory) / 'test'
+    binary = Path(directory) / ('test' + args.executable_suffix)
     source.write_text(prefix + module.dialogue_span_declaration() + emitted + '\nint main(){\n' + '\n'.join(checks) + '\n}\n')
-    subprocess.run([args.compiler, '-std=c++17', '-Wall', '-Wextra', '-Werror',
+    subprocess.run([args.compiler, *args.compiler_arg, '-std=c++17', '-Wall', '-Wextra', '-Werror',
                     str(source), '-o', str(binary)], check=True)
-    subprocess.run([str(binary)], check=True)
+    subprocess.run(args.emulator + [str(binary)], check=True)
 print('PS1_STRUCTURED_DIALOGUE_PASS languages=3 speakers=3 ordered_lines=9 typed_battle_cast=3 legacy_flat=3')
 
 

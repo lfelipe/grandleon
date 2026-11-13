@@ -23,59 +23,52 @@ exports become available when their optional builder payload is installed.
 
 ### Windows builds for 0.6
 
-Windows support is being developed on the local 0.6 branch. There is no
-Windows release download yet. The Windows x64 engine DLL and campaign compiler
-build with MinGW-w64 GCC 13; all 64 compiled native tests pass under Wine.
-This does not replace testing the application on a real Windows desktop.
-
-Developers can build the creator bundle with Git, Python 3.11 or newer,
-CMake, Ninja and a MinGW-w64 compiler with C++ threading support on their PATH:
+Windows support is in development for 0.6; there is no official Windows download
+yet. To build the creator, put Git, Python 3.11 or newer, CMake, Ninja and a
+MinGW-w64 compiler with C++ threading support on your PATH, then run:
 
 ```powershell
 python platform/godot/scripts/build-windows.py
 ```
 
-The script downloads the pinned Godot 4.7.2 Windows runtime, verifies its
-checksum, and packages it with the native extension, artwork, translations,
-Steel and Cedar campaign and license notices. The output is
-`out/grandleon-windows`; start it with `launch-pc.cmd`. Build dependencies are
-for developers; the resulting bundle includes the runtime needed by players.
-This native Windows build command still needs Windows desktop validation.
+The output is `out/grandleon-windows`. Start it with `launch-pc.cmd`. The bundle
+includes Godot 4.7.2, the native extension, artwork, audio, translations and Steel
+and Cedar. Players need no separate compiler or Godot installation.
 
-Linux developers can cross-build the native targets with
-`cmake/toolchains/WindowsMinGW.cmake`, then package the staged Windows app:
+To check the installed creator, export a new campaign and play it to victory:
+
+```powershell
+python platform/godot/scripts/check-pc-acceptance.py `
+  --bundle out/grandleon-windows --output out/windows-acceptance
+```
+
+This check uses its own project library and leaves the installed bundle alone.
+It removes its disposable creator copy before launching the exported game, and
+keeps logs and a victory screenshot. Use a new output directory for each run.
+
+Linux developers can cross-build with `cmake/toolchains/WindowsMinGW.cmake`,
+then package and check the Windows application under Wine:
 
 ```sh
 python3 platform/godot/scripts/build-windows.py --no-build \
-  --build-dir build-windows-cross06 --package out/windows06-steel-and-cedar.gpk \
+  --build-dir build-windows-cross06 --package path/to/steel-and-cedar.gpk \
+  --wine /usr/bin/wine64 --output out/grandleon-windows
+python3 platform/godot/scripts/check-pc-acceptance.py \
+  --bundle out/grandleon-windows --output out/windows-acceptance \
   --wine /usr/bin/wine64
 ```
 
-The supplied package must be compiled from Steel and Cedar. Wine imports the
-actual Windows resources and extension before packaging completes. A cross-built
-bundle needs the same Windows testing as a native build. The builder refuses
-to overwrite an existing output and records whether its source tree was clean.
+Compile the supplied package from Steel and Cedar. Packaging verifies the pinned
+runtime download, imports Windows resources and refuses to overwrite an existing
+output. The complete 74-check Windows-target suite and rendered creator-to-victory
+flow pass under Wine. Wine runs the engine directly because its console relay can
+hang after the game exits; the native Windows check uses `launch-pc.cmd`.
 
-The Windows build needs to cover both playing games and creating them:
-
-- Validate native Windows compilation and the packaged launcher, including
-  paths containing spaces or accents. Export templates for Godot's separate
-  native export workflow are not included in this source-project bundle.
-- Validate authoring and standalone-game export through the Windows creator
-  interface. Headless Windows-engine export and independent battle launch
-  already pass under Wine, including paths with accents; Unicode package and
-  save-path regression checks also run against the native extension.
-- Run the native tests and the create → export → play acceptance flow on
-  Windows. Check saves, keyboard and controllers, audio, live language changes,
-  and project paths containing spaces or accented characters. Test the packaged
-  download on a clean Windows machine as well as the development build.
-  Graphics and audio integration tests need a runner that can create the
-  required OpenGL context and open an audio output device.
-- Decide how optional console builders work on Windows. Their current Linux
-  containers and shell launchers need an explicit integration plan; desktop
-  playing and editing should work without installing those optional tools.
-
-The Windows application remains a development build until these checks pass.
+Before an official release, validate the native build and launcher on Windows,
+then check audio, controllers, saves, language switching and accented paths on a
+clean Windows machine. These Wine results do not cover that hardware review.
+Optional console builders also need Windows integration; desktop editing and play
+work without them.
 
 ### Android development build for 0.6
 

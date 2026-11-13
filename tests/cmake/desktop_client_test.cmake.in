@@ -1,3 +1,5 @@
+include("@CMAKE_CURRENT_BINARY_DIR@/native_test_context.cmake")
+
 # Plays a scripted battle through the terminal client.
 #
 # The client reads commands a line at a time precisely so this is possible: a
@@ -9,7 +11,7 @@ set(script "@CMAKE_CURRENT_BINARY_DIR@/desktop-client-input.txt")
 
 execute_process(
     COMMAND
-        "@CMAKE_BINARY_DIR@/grandleon_content_compile"
+        ${test_run_prefix} "@CMAKE_BINARY_DIR@${test_runtime_subdir}/grandleon_content_compile${test_exe_suffix}"
         "@CMAKE_SOURCE_DIR@/games/tarnholt/source/project.json"
         "${package}"
     RESULT_VARIABLE compile_result
@@ -23,7 +25,7 @@ endif()
 file(WRITE "${script}" "units\nmove 3 1 3\nstate\nquit\n")
 
 execute_process(
-    COMMAND "@CMAKE_BINARY_DIR@/grandleon_play" "${package}"
+    COMMAND ${test_run_prefix} "@CMAKE_BINARY_DIR@${test_runtime_subdir}/grandleon_play${test_exe_suffix}" "${package}"
         --campaign=tarnholt_line --no-colour
     INPUT_FILE "${script}"
     OUTPUT_VARIABLE output
