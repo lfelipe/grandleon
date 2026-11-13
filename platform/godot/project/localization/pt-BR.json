@@ -1984,6 +1984,8 @@
     "creator.mobile_hint": "Toque em um projeto para abrir. Deslize as listas para ver mais.",
     "map.mobile.pan": "Mover mapa",
     "map.mobile.overview": "Visão geral",
-    "map.mobile.paint_hint": "Escolha terreno para pintar. Use Mover mapa para navegar."
+    "map.mobile.paint_hint": "Escolha terreno para pintar. Use Mover mapa para navegar.",
+    "player.touch.actions": "Ações",
+    "player.touch.tap_continue": "Toque para continuar"
   }
 }

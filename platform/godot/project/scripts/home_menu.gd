@@ -36,6 +36,10 @@ var catalog: Node
 var browser: Control
 var browse_button: Button
 var home_frame: Control
+var mobile_settings: Control
+var mobile_settings_open := false
+var mobile_settings_button: Button
+var mobile_settings_back: Button
 var local_campaigns
 var open_campaign_button: Button
 var campaign_file_dialog: FileDialog
@@ -95,6 +99,11 @@ func _process(_delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if mobile_settings != null and mobile_settings.visible:
+		if (event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE) or (event is InputEventJoypadButton and event.pressed and controls.matches("cancel", event.button_index)):
+			get_viewport().set_input_as_handled()
+			_show_mobile_settings(false)
+			return
 	if player_choice_overlay != null and player_choice_overlay.visible:
 		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 			get_viewport().set_input_as_handled()
@@ -792,7 +801,9 @@ func _play_local(entry: Dictionary) -> void:
 
 func _notification(what: int) -> void:
 	if what != NOTIFICATION_WM_GO_BACK_REQUEST or launch_in_progress: return
-	if player_choice_overlay != null and player_choice_overlay.visible:
+	if mobile_settings != null and mobile_settings.visible:
+		_show_mobile_settings(false)
+	elif player_choice_overlay != null and player_choice_overlay.visible:
 		_cancel_player_choice()
 	elif browser != null and browser.visible:
 		browser.close()
@@ -829,6 +840,27 @@ func _build_mobile_interface() -> void:
 	heading.add_child(words)
 	words.add_child(_label(_t("app.name"), 54, Color("f2f7f9")))
 	words.add_child(_label(_t("home.tagline"), 38, Color("8ba5b3")))
+	mobile_settings_button = _button(_t("player.session.settings"))
+	mobile_settings_button.custom_minimum_size = Vector2(260, 126)
+	mobile_settings_button.pressed.connect(_show_mobile_settings.bind(true))
+	heading.add_child(mobile_settings_button)
+	mobile_settings = Control.new()
+	mobile_settings.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	mobile_settings.visible = mobile_settings_open
+	add_child(mobile_settings)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.005, 0.015, 0.025, 0.94)
+	mobile_settings.add_child(shade)
+	var settings_panel := PanelContainer.new()
+	settings_panel.position = Vector2(420, 70)
+	settings_panel.size = Vector2(1080, 940)
+	settings_panel.add_theme_stylebox_override("panel", _panel(Color("0a1823"), 24, Color("235568"), 24))
+	mobile_settings.add_child(settings_panel)
+	var settings_column := VBoxContainer.new()
+	settings_column.add_theme_constant_override("separation", 20)
+	settings_panel.add_child(settings_column)
+	settings_column.add_child(_label(_t("player.session.settings"), 42, Color("e9f7ff")))
 	language_select = OptionButton.new()
 	language_select.custom_minimum_size = Vector2(440, 126)
 	language_select.tooltip_text = _t("language.label")
@@ -838,16 +870,16 @@ func _build_mobile_interface() -> void:
 		language_select.set_item_metadata(index, str(language.code))
 		if str(language.code) == Localization.current_language(): language_select.select(index)
 	language_select.item_selected.connect(_select_language)
-	heading.add_child(language_select)
-	var audio := HBoxContainer.new()
+	settings_column.add_child(language_select)
+	var audio := VBoxContainer.new()
 	audio.add_theme_constant_override("separation", 28)
-	column.add_child(audio)
+	settings_column.add_child(audio)
 	for category: String in ["music", "sound_effects"]:
-		var row := HBoxContainer.new()
+		var row := VBoxContainer.new()
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		audio.add_child(row)
 		var label := _label("", 38, Color("8ba5b3"))
-		label.custom_minimum_size.x = 400
+		label.custom_minimum_size.x = 0
 		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		row.add_child(label)
 		var slider := HSlider.new()
@@ -864,6 +896,10 @@ func _build_mobile_interface() -> void:
 			_save_audio_settings()
 		)
 		row.add_child(slider)
+	mobile_settings_back = _button(_t("player.session.back"))
+	mobile_settings_back.pressed.connect(_show_mobile_settings.bind(false))
+	settings_column.add_child(mobile_settings_back)
+	if mobile_settings_open: _show_mobile_settings.call_deferred(true)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.custom_minimum_size.y = 280
@@ -895,3 +931,14 @@ func _build_mobile_interface() -> void:
 	status_label = _label(_t("home.mobile_hint"), 38, Color("8ba5b3"))
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(status_label)
+
+
+func _show_mobile_settings(open: bool) -> void:
+	mobile_settings_open = open
+	if mobile_settings == null: return
+	mobile_settings.visible = open
+	if open:
+		mobile_settings.move_to_front()
+		mobile_settings_back.grab_focus()
+	elif mobile_settings_button != null:
+		mobile_settings_button.grab_focus()

@@ -25,6 +25,12 @@ const DIAGNOSTIC_GRAPHICS_PROFILES := [
 
 var mobile_gestures := MobileInput.new()
 var mobile_bar: PanelContainer
+var mobile_menu_panel: PanelContainer
+var mobile_context_row: HBoxContainer
+var mobile_menu_row: HBoxContainer
+var mobile_context_key := ""
+var mobile_density := 0.0
+var mobile_context_tween: Tween
 var mobile_buttons: Dictionary = {}
 var mobile_popup_lists: Array[VBoxContainer] = []
 var mobile_seat := 0
@@ -365,6 +371,12 @@ func _process(delta: float) -> void:
 	for event: Dictionary in session.poll():
 		_handle_event(event)
 	_position_action_popups()
+	if OS.has_feature("android"):
+		_position_mobile_context()
+		if unit_panel.visible:
+			var shown := _unit_by_id(selected_units[mobile_seat])
+			if action_modes[mobile_seat] == "attack": shown = board.unit_at(Vector2i(seats[mobile_seat].cursor))
+			if not shown.is_empty(): _position_unit_panel(shown, mobile_seat)
 	if menu_preview:
 		if _dialogue_visible():
 			_advance_dialogue()
@@ -1642,7 +1654,7 @@ func _refresh_live_interface_language() -> void:
 		if bool(action_popups[seat].get("open", false)):
 			_close_action_popup(seat)
 	if dialogue_hint != null:
-		dialogue_hint.text = _ui(
+		dialogue_hint.text = _ui("player.touch.tap_continue") if OS.has_feature("android") else _ui(
 			"player.dialogue.continue", {"confirm": controls.label("confirm")}
 		)
 	_configure_combat_cinematic()
@@ -3395,7 +3407,7 @@ func _accept_at(seat: int) -> void:
 		return
 	if selected == 0:
 		_show_toast(_ui("player.toast.choose_friendly", {
-			"finish": controls.label("end_turn"),
+			"finish": _ui("player.touch.end_turn") if OS.has_feature("android") else controls.label("end_turn"),
 		}))
 		return
 	if _unit_is_pending(selected):
@@ -3566,6 +3578,8 @@ func _position_action_popups() -> void:
 		if not bool(popup.get("open", false)):
 			continue
 		var unit := _unit_by_id(int(popup.get("unit_id", 0)))
+		if OS.has_feature("android"):
+			action_popup_panels[seat].visible = not _mobile_unit_busy(int(popup.get("unit_id", 0)))
 		if unit.is_empty() or unit.get("has_acted", false) or not unit.get("on_board", false):
 			_close_action_popup(seat)
 			continue
@@ -3596,11 +3610,12 @@ func _position_unit_panel(unit: Dictionary, seat: int) -> void:
 	var anchor: Vector2 = board.screen_position_for_cell(
 		Vector2i(int(unit.x), int(unit.y))
 	)
+	var safe := MobileLayout.current_rect(get_viewport()).grow(-16) if OS.has_feature("android") else Rect2(16, 66, 1888, 998)
 	var candidates: Array[Vector2] = [
-		Vector2(16, 1064.0 - unit_panel.size.y),
-		Vector2(1904.0 - unit_panel.size.x, 1064.0 - unit_panel.size.y),
-		Vector2(16, 66),
-		Vector2(1904.0 - unit_panel.size.x, 66),
+		Vector2(safe.position.x, safe.end.y - unit_panel.size.y),
+		Vector2(safe.end.x - unit_panel.size.x, safe.end.y - unit_panel.size.y),
+		safe.position,
+		Vector2(safe.end.x - unit_panel.size.x, safe.position.y),
 	]
 	unit_panel.position = _best_overlay_position(
 		unit_panel.size, candidates, anchor, seat, unit_panel
@@ -3621,8 +3636,6 @@ func _best_overlay_position(
 	var limits := Rect2(Vector2(16, 64), Vector2(1888, 1000))
 	if OS.has_feature("android"):
 		limits = MobileLayout.current_rect(get_viewport()).grow(-16)
-		if mobile_bar != null and mobile_bar.visible:
-			limits.size.y = maxf(1, mobile_bar.position.y - limits.position.y - 12)
 	for index in candidates.size():
 		var candidate := Vector2(
 			clampf(candidates[index].x, limits.position.x, maxf(limits.position.x, limits.end.x - overlay_size.x)),
@@ -3630,6 +3643,10 @@ func _best_overlay_position(
 		)
 		var area := Rect2(candidate, overlay_size)
 		var score := area.get_center().distance_to(anchor) * 0.002 + float(index) * 0.01
+		if OS.has_feature("android"):
+			for control: Control in [mobile_bar, mobile_menu_panel, mobile_top_panel]:
+				if control != null and control != moving_overlay and control.visible and area.intersects(control.get_global_rect().grow(12)):
+					score += 100000.0
 		for item: Dictionary in points:
 			if area.grow(float(item.padding)).has_point(Vector2(item.point)):
 				score += float(item.weight)
@@ -3662,7 +3679,7 @@ func _important_board_points(seat: int) -> Array[Dictionary]:
 		points.append({
 			"point": board.screen_position_for_cell(Vector2i(int(unit.x), int(unit.y))),
 			"weight": 600.0,
-			"padding": 34.0,
+			"padding": maxf(34, 48 * MobileLayout.units_per_dp(get_viewport())) if OS.has_feature("android") else 34.0,
 		})
 	var highlights: Variant = board.get("highlight_tiles")
 	if highlights is Array and seat >= 0 and seat < highlights.size():
@@ -3970,9 +3987,9 @@ func _update_context_help(seat := -1) -> void:
 		seat = hud_seat
 	seat = clampi(seat, 0, selected_units.size() - 1)
 	if OS.has_feature("android"):
-		help_label.text = _ui("player.touch.drag_hint")
+		help_label.text = ""
 		if help_panel != null:
-			help_panel.visible = not snapshot.is_empty() and selected_units[mobile_seat] == 0
+			help_panel.visible = false
 		return
 	help_label.text = _context_help_text(seat)
 	if help_panel != null:
@@ -4069,7 +4086,7 @@ func _show_dialogue_line() -> void:
 	dialogue_speaker.text = String(line.get("speaker", ""))
 	dialogue_text.text = String(line.get("text", ""))
 	var confirm_label: String = controls.label("confirm")
-	dialogue_hint.text = _ui("player.dialogue.continue", {"confirm": confirm_label})
+	dialogue_hint.text = _ui("player.touch.tap_continue") if OS.has_feature("android") else _ui("player.dialogue.continue", {"confirm": confirm_label})
 	var backdrop_selection := backdrop_pack_resolver.resolve_for_conversation(
 		line.get("dialogue_id", 0), int(line.get("backdrop", 0)),
 		bool(line.get("over_board", false)), snapshot, battle_terrain,
@@ -4144,6 +4161,18 @@ func _show_toast(message: String) -> void:
 func _position_toast() -> void:
 	if toast_label == null:
 		return
+	if OS.has_feature("android"):
+		var safe := MobileLayout.current_rect(get_viewport()).grow(-16)
+		var density := MobileLayout.units_per_dp(get_viewport())
+		toast_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		toast_label.size = Vector2(safe.size.x * 0.8, 0)
+		toast_label.size.y = maxf(48 * density, toast_label.get_minimum_size().y)
+		var left := safe.get_center().x - toast_label.size.x * 0.5
+		var top := safe.position.y + 48 * density + 28
+		var bottom := safe.end.y - toast_label.size.y - 48 * density - 28
+		var positions: Array[Vector2] = [Vector2(left, top), Vector2(left, bottom)]
+		toast_label.position = _best_overlay_position(toast_label.size, positions, safe.get_center(), hud_seat, toast_label)
+		return
 	var width := toast_label.size.x
 	var height := toast_label.size.y
 	var candidates: Array[Vector2] = [
@@ -4201,13 +4230,14 @@ func _localized_runtime_warning(message: String) -> String:
 
 
 func _bind_font_size(control: Control, key: String, base: int) -> void:
+	var authored_base := base
 	if OS.has_feature("android"):
 		base = maxi(base, roundi(16 * MobileLayout.units_per_dp(get_viewport())))
 	var keys: Array[String] = [key]
 	if OS.has_feature("android") and control is RichTextLabel and key == "normal_font_size":
 		keys.append_array(["bold_font_size", "italics_font_size", "bold_italics_font_size", "mono_font_size"])
 	for font_key: String in keys:
-		font_size_bindings.append({"control": control, "key": font_key, "base": base})
+		font_size_bindings.append({"control": control, "key": font_key, "base": base, "authored_base": authored_base})
 		control.add_theme_font_size_override(StringName(font_key), roundi(float(base) * text_scale))
 
 
@@ -4248,19 +4278,51 @@ func _create_mobile_controls() -> void:
 	layer.layer = 60
 	add_child(layer)
 	mobile_bar = PanelContainer.new()
-	mobile_bar.add_theme_stylebox_override("panel", _panel(Color(0.018, 0.032, 0.052, 0.97), 12, Color("b69a60")))
+	mobile_bar.add_theme_stylebox_override("panel", _panel(Color(0.018, 0.032, 0.052, 0.95), 12, Color("b69a60"), 8))
 	layer.add_child(mobile_bar)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	mobile_bar.add_child(row)
-	for action in ["confirm", "cancel", "wait", "end_turn", "seat", "menu"]:
+	mobile_context_row = HBoxContainer.new()
+	mobile_context_row.add_theme_constant_override("separation", 12)
+	mobile_bar.add_child(mobile_context_row)
+	mobile_menu_panel = PanelContainer.new()
+	mobile_menu_panel.add_theme_stylebox_override("panel", _panel(Color(0.018, 0.032, 0.052, 0.88), 12, Color("b69a60"), 6))
+	layer.add_child(mobile_menu_panel)
+	mobile_menu_row = HBoxContainer.new()
+	mobile_menu_row.add_theme_constant_override("separation", 8)
+	mobile_menu_panel.add_child(mobile_menu_row)
+	for action in ["cancel", "actions", "confirm", "wait", "end_turn", "seat", "menu"]:
 		var button := Button.new()
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.visible = false
 		button.pressed.connect(_mobile_action.bind(action))
-		row.add_child(button)
+		(mobile_menu_row if action in ["menu", "seat"] else mobile_context_row).add_child(button)
 		mobile_buttons[action] = button
 	get_viewport().size_changed.connect(_layout_mobile_controls)
 	_layout_mobile_controls()
+
+
+func _mobile_unit_busy(unit_id: int) -> bool:
+	return unit_id != 0 and (_unit_is_pending(unit_id) or (
+		board != null and board.has_method("is_unit_moving") and board.is_unit_moving(unit_id)))
+
+
+func _mobile_context_actions() -> Array:
+	if snapshot.is_empty() or _dialogue_visible() or (combat_cinematic != null and combat_cinematic.is_active()):
+		return []
+	var selected: int = selected_units[mobile_seat]
+	if _mobile_unit_busy(selected):
+		return []
+	if snapshot.get("deploying", false):
+		return ["cancel"] if selected != 0 else ["end_turn"]
+	if str(snapshot.get("active_side", "")) != "first":
+		return []
+	if action_popups[mobile_seat].get("open", false):
+		return ["cancel"]
+	if selected != 0:
+		if _unit_by_id(selected).get("has_acted", false): return ["cancel"]
+		return ["cancel", "confirm"] if action_modes[mobile_seat] != "move" else ["cancel", "actions"]
+	for unit: Dictionary in snapshot.get("units", []):
+		if _unit_owned_by_seat(unit, mobile_seat) and unit.get("on_board", false) and not unit.get("has_acted", false):
+			return ["end_turn"]
+	return []
 
 
 func _layout_mobile_controls() -> void:
@@ -4270,52 +4332,107 @@ func _layout_mobile_controls() -> void:
 	if board is Control:
 		board.size = get_viewport().get_visible_rect().size
 	var density := MobileLayout.units_per_dp(get_viewport())
-	var height := maxf(112, 48 * density)
-	mobile_bar.position = Vector2(safe.position.x + 16, safe.end.y - height - 24)
-	mobile_bar.size = Vector2(safe.size.x - 32, height + 8)
-	for button: Button in mobile_buttons.values():
-		button.custom_minimum_size.y = height
-		button.add_theme_font_size_override("font_size", roundi(maxf(26, 16 * density)))
+	mobile_density = density
+	var height := 48 * density
+	for binding: Dictionary in font_size_bindings:
+		if is_instance_valid(binding.control):
+			binding.base = maxi(int(binding.get("authored_base", binding.base)), roundi(16 * density))
+			binding.control.add_theme_font_size_override(StringName(binding.key), roundi(float(binding.base) * text_scale))
+	for action: String in mobile_buttons:
+		var button: Button = mobile_buttons[action]
+		button.add_theme_font_size_override("font_size", roundi(16 * density * text_scale))
+		button.custom_minimum_size = Vector2((64 if action in ["menu", "seat"] else 96) * density, height)
+	var context_width := 16.0
+	var visible_count := 0
+	for button: Button in mobile_context_row.get_children():
+		if button.visible:
+			context_width += button.get_combined_minimum_size().x
+			visible_count += 1
+	context_width += maxf(0, visible_count - 1) * 12
+	mobile_bar.size = Vector2(context_width, height + 16)
+	mobile_bar.position = Vector2(safe.end.x - context_width - 16, safe.end.y - height - 32)
+	var menu_width := 12.0
+	for button: Button in mobile_menu_row.get_children():
+		if button.visible: menu_width += button.get_combined_minimum_size().x + 8
+	mobile_menu_panel.size = Vector2(menu_width, height + 12)
+	mobile_menu_panel.position = Vector2(safe.end.x - menu_width - 16, safe.position.y + 12)
 	mobile_gestures.drag_threshold = maxf(18, 10 * density)
 	if mobile_top_panel != null:
-		mobile_top_panel.position = safe.position + Vector2(16, 16)
-		mobile_top_panel.size.x = safe.size.x - 32
-		mobile_top_panel.size.y = maxf(72, 20 * density + 20)
+		mobile_top_panel.position = safe.position + Vector2(16, 12)
+		title_label.visible = safe.size.x / density >= 720
+		mobile_top_panel.size = Vector2(
+			maxf(120, safe.size.x - menu_width - 52) if title_label.visible else turn_label.get_combined_minimum_size().x + 24,
+			height + 12
+		)
 	if mobile_dialogue_panel != null:
-		mobile_dialogue_panel.position = Vector2(safe.position.x + 32, mobile_bar.position.y - 324)
-		mobile_dialogue_panel.size.x = safe.size.x - 64
+		var dialogue_height := minf(safe.size.y * 0.46, maxf(160 * density, 280))
+		mobile_dialogue_panel.size = Vector2(safe.size.x - 32, dialogue_height)
+		mobile_dialogue_panel.position = Vector2(safe.position.x + 16, safe.end.y - dialogue_height - 16)
+		dialogue_portrait.custom_minimum_size = Vector2(80, 96) * density
+		dialogue_hint.visible = true
+		dialogue_hint.text = _ui("player.touch.tap_continue")
 	if help_panel != null:
-		var hint_height := maxf(56, ceilf(28 * density * text_scale))
-		help_panel.position = Vector2(safe.position.x + 16, mobile_bar.position.y - hint_height - 12)
-		help_panel.size = Vector2(safe.size.x - 32, hint_height)
+		help_panel.visible = false
 	if mobile_session_panel != null:
-		mobile_session_panel.position = Vector2(safe.get_center().x - 420, safe.position.y + 24)
-		mobile_session_panel.size = Vector2(840, safe.size.y - 48)
+		mobile_session_panel.position = Vector2(safe.get_center().x - minf(420, safe.size.x * 0.44), safe.position.y + 24)
+		mobile_session_panel.size = Vector2(minf(840, safe.size.x * 0.88), safe.size.y - 48)
+	if toast_label != null:
+		toast_label.position = Vector2(safe.position.x + safe.size.x * 0.16, safe.position.y + height + 36)
+		toast_label.size = Vector2(safe.size.x * 0.68, 32 * density)
+	if fps_overlay != null:
+		fps_overlay.position = Vector2(safe.position.x + 16, safe.position.y + height + 28)
+	if unit_panel != null:
+		unit_panel.custom_minimum_size.x = 0
+		unit_panel.size = Vector2(minf(560, safe.size.x * 0.46), 0)
+		unit_stats.custom_minimum_size.x = maxf(180, unit_panel.size.x - 24)
+	if combat_cinematic != null:
+		combat_cinematic.set_text_scale(text_scale)
+
+
+func _position_mobile_context() -> void:
+	if mobile_bar == null or not mobile_bar.visible or board == null or snapshot.is_empty(): return
+	var safe := MobileLayout.current_rect(get_viewport()).grow(-16)
+	var anchor := safe.get_center()
+	var actor := _unit_by_id(selected_units[mobile_seat])
+	if not actor.is_empty(): anchor = board.screen_position_for_cell(Vector2i(int(actor.x), int(actor.y)))
+	var candidates: Array[Vector2] = [
+		Vector2(safe.end.x - mobile_bar.size.x, safe.end.y - mobile_bar.size.y),
+		Vector2(safe.position.x, safe.end.y - mobile_bar.size.y),
+		Vector2(safe.get_center().x - mobile_bar.size.x * 0.5, safe.end.y - mobile_bar.size.y),
+	]
+	mobile_bar.position = _best_overlay_position(mobile_bar.size, candidates, anchor, mobile_seat, mobile_bar)
 
 
 func _update_mobile_controls() -> void:
 	if mobile_bar == null:
 		return
-	mobile_bar.visible = game_language_picker_layer == null and not _management_visible() and not _session_menu_visible() and not mobile_backgrounded
-	if game_language_picker_layer != null and help_panel != null:
-		help_panel.visible = false
+	var available := game_language_picker_layer == null and not _management_visible() and not _session_menu_visible() and not mobile_backgrounded
 	var conversation: bool = _dialogue_visible() or (combat_cinematic != null and combat_cinematic.is_active())
+	var actions: Array = _mobile_context_actions() if available else []
 	for action: String in mobile_buttons:
 		var button: Button = mobile_buttons[action]
-		button.text = _ui("player.touch." + ("continue" if action == "confirm" and conversation else action), {"seat": mobile_seat + 1})
-		button.visible = not conversation or action in ["confirm", "menu"]
-		if action == "seat":
-			button.visible = not conversation and player_count > 1
-		if action == "wait":
-			button.disabled = selected_units[mobile_seat] == 0 or snapshot.get("deploying", false)
-		if action == "end_turn":
-			button.disabled = snapshot.is_empty()
-			if snapshot.get("deploying", false):
-				button.text = _ui("player.hud.begin")
+		button.text = _ui("player.touch." + action, {"seat": mobile_seat + 1})
+		button.visible = action in actions or (available and (action == "menu" or (action == "seat" and player_count > 1 and not conversation)))
+		button.disabled = false
+	if snapshot.get("deploying", false): mobile_buttons.end_turn.text = _ui("player.hud.begin")
+	if "confirm" in actions: mobile_buttons.confirm.text = _action_text(action_modes[mobile_seat])
+	mobile_bar.visible = available and not actions.is_empty()
+	mobile_menu_panel.visible = available
+	if mobile_top_panel != null: mobile_top_panel.visible = available and not conversation
+	if help_panel != null: help_panel.visible = false
+	var key := str([available, actions, conversation, player_count, mobile_seat, action_modes[mobile_seat], snapshot.get("round", 0), snapshot.get("active_side", ""), Localization.current_language(), text_scale])
+	if key != mobile_context_key or absf(MobileLayout.units_per_dp(get_viewport()) - mobile_density) > 0.01:
+		mobile_context_key = key
+		_layout_mobile_controls()
+		if mobile_context_tween != null: mobile_context_tween.kill()
+		if mobile_bar.visible:
+			mobile_bar.modulate.a = 0.65
+			mobile_context_tween = create_tween()
+			mobile_context_tween.tween_property(mobile_bar, "modulate:a", 1.0, 0.10)
 
 
 func _mobile_popup_chosen(seat: int, row: int) -> void:
-	if mobile_backgrounded or _session_menu_visible() or not action_popups[seat].get("open", false):
+	if mobile_backgrounded or _session_menu_visible() or _mobile_unit_busy(selected_units[seat]) or not action_popups[seat].get("open", false):
 		return
 	mobile_gestures.reset()
 	mobile_seat = seat
@@ -4329,12 +4446,16 @@ func _mobile_action(action: String) -> void:
 	mobile_gestures.reset()
 	match action:
 		"menu": _open_session_menu(true)
+		"actions":
+			if not _mobile_unit_busy(selected_units[mobile_seat]) and not _unit_by_id(selected_units[mobile_seat]).get("has_acted", false):
+				_open_action_popup(mobile_seat, selected_units[mobile_seat])
 		"cancel": _mobile_back()
 		"seat":
 			mobile_seat = (mobile_seat + 1) % player_count
 			hud_seat = mobile_seat
 			_refresh_selected_panel(mobile_seat)
 		"confirm":
+			if _mobile_unit_busy(selected_units[mobile_seat]) or _unit_by_id(selected_units[mobile_seat]).get("has_acted", false): return
 			if combat_cinematic != null and combat_cinematic.is_active():
 				combat_cinematic.skip_exchange()
 			elif _dialogue_visible():
@@ -4359,8 +4480,9 @@ func _mobile_action(action: String) -> void:
 
 
 func _mobile_over_buttons(position: Vector2) -> bool:
-	if mobile_bar != null and mobile_bar.visible and mobile_bar.get_global_rect().has_point(position):
-		return true
+	for panel: Control in [mobile_bar, mobile_menu_panel]:
+		if panel != null and panel.visible and panel.get_global_rect().has_point(position):
+			return true
 	for panel: PanelContainer in action_popup_panels:
 		if panel.visible and panel.get_global_rect().has_point(position):
 			return true
@@ -4402,6 +4524,19 @@ func _mobile_tap(position: Vector2) -> void:
 	if cell.x < 0:
 		return
 	var unit: Dictionary = board.unit_at(cell)
+	var selected: int = selected_units[mobile_seat]
+	if (_mobile_unit_busy(selected) or _unit_by_id(selected).get("has_acted", false)) and (unit.is_empty() or unit.get("side", "") != "first"):
+		return
+	# Selecting the current unit a second time reveals its legal actions.
+	if selected != 0 and int(unit.get("id", 0)) == selected and not _mobile_unit_busy(selected):
+		_open_action_popup(mobile_seat, selected)
+		return
+	if selected != 0 and action_modes[mobile_seat] == "attack" and unit.get("side", "") == "second":
+		if Vector2i(seats[mobile_seat].cursor) != cell:
+			seats[mobile_seat].cursor = cell
+			board.set_seats(seats)
+			_refresh_selected_panel(mobile_seat)
+			return
 	if selected_units[mobile_seat] == 0 and unit.get("side", "") == "first":
 		mobile_seat = clampi(int(unit.get("player", 1)) - 1, 0, player_count - 1)
 	seats[mobile_seat].active = true

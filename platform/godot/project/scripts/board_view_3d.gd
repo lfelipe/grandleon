@@ -127,6 +127,10 @@ var _ambient_props: Array[Dictionary] = []
 var _ambient_water_materials: Dictionary = {}
 
 
+func is_unit_moving(unit_id: int) -> bool:
+	return _unit_motion_states.has(unit_id) or _pending_motion_records.has(unit_id)
+
+
 func set_ambient_motion_enabled(value: bool) -> void:
 	_ambient_motion_enabled = value
 	for material: ShaderMaterial in _ambient_water_materials.values():

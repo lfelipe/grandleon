@@ -21,7 +21,7 @@ static func units_per_dp(viewport: Viewport) -> float:
 	var size := viewport.get_visible_rect().size
 	var window := Vector2(DisplayServer.window_get_size())
 	var stretch := minf(window.x / maxf(1.0, size.x), window.y / maxf(1.0, size.y))
-	return clampf(float(DisplayServer.screen_get_dpi()) / 160.0 / maxf(0.1, stretch), 0.75, 4.0)
+	return maxf(0.75, float(DisplayServer.screen_get_dpi()) / 160.0 / maxf(0.1, stretch))
 
 static func fit_canvas(control: Control, design := Vector2(1920, 1080)) -> void:
 	if not OS.has_feature("android"):

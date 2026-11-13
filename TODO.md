@@ -53,7 +53,7 @@ items below describe the existing foundation; they are not being reopened.
 - [ ] Finish the phone/tablet usability pass on advanced editor forms,
   including the campaign outline's nested chapter list, and verify external
   keyboards and mice. Readable controls alone do not prove every form fits well.
-- [ ] Make the phone player board-first with contextual controls. Show legal
+- [x] Make the phone player board-first with contextual controls. Show legal
   unit actions after selection, target details during targeting, and compact
   dialogue/close-up controls only while those views are active. Avoid a
   permanent row of redundant Confirm/Back/Wait buttons and move secondary
@@ -67,10 +67,11 @@ items below describe the existing foundation; they are not being reopened.
   tablets, cutouts, larger text and the on-screen keyboard. Emulation covers
   layout and interaction; confirm graphics speed, audio and ergonomics on
   actual hardware.
-  The first compact-phone review found that home-screen audio/settings and
-  the fixed action row take too much room. Window/density changes also need
-  to recalculate existing text sizes, rather than retaining the old layout's
-  font sizes. Cover this resize case alongside fresh app starts.
+  The player now uses floating context controls and a compact phone turn chip;
+  home-screen language and audio live in Settings. Existing player text sizes
+  recalculate after window/density changes. Keep cold-start device profiles
+  separate from live-resize stress checks. The native mobile smoke suite covers
+  real campaign movement/attack/wait, stale-action guards, focus and scrolling.
 - [x] Support importing, saving and sharing project archives through Android
   file handling. The Android editor creates and exports portable campaigns
   playable on Android and PC. Preserve an editable project export for the PC

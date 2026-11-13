@@ -192,7 +192,9 @@ You can add another public catalogue URL too. The first packages use Grandleon's
 built-in artwork and audio. This browser is not in the published 0.5 app yet.
 
 Android development builds now package the player and creator together, with
-touch controls and portable campaign exports. See the
+touch controls and portable campaign exports. On phones, the board fills the
+screen and actions appear when a unit is selected. Language and audio are in
+Settings; Create/Edit remains available. See the
 [Android build instructions](docs/SETUP.md#android-development-build-for-06).
 Phone and tablet testing is still in progress. Building N64 and PS1 games
 continues to require the PC editor.

@@ -43,6 +43,10 @@ func _run() -> void:
 			proceeded = true
 	if not expect(player.snapshot.get("width", 0) == 8, "authored Bell Orchard reached through native story/company"):
 		return
+	player._create_mobile_controls()
+	player._update_mobile_controls()
+	expect(player.mobile_buttons.menu.visible and player.mobile_buttons.end_turn.visible, "idle HUD offers Menu and End turn")
+	expect(not player.mobile_buttons.confirm.visible and not player.mobile_buttons.wait.visible, "idle HUD omits irrelevant actions")
 	var rowan := 7543913367842920562
 	var target := 7878946346193111832
 	var board: Node = player.board
@@ -53,6 +57,14 @@ func _run() -> void:
 	tap(pick)
 	if not expect(player.selected_units[0] == rowan, "real screen tap selects Rowan"):
 		return
+	player._update_mobile_controls()
+	expect(player.mobile_buttons.actions.visible and player.mobile_buttons.cancel.visible, "selection offers Actions and Back")
+	expect(not player.mobile_buttons.end_turn.visible, "selection hides army-wide End turn")
+	player._mobile_action("actions")
+	expect(player.action_popups[0].get("open", false), "Actions opens native legal choices without moving")
+	player._update_mobile_controls()
+	expect(player.mobile_buttons.cancel.visible and not player.mobile_buttons.actions.visible, "decision popup needs only Back")
+	player._mobile_back()
 	var before := int(player.next_request_id)
 	touch(pick, true)
 	var drag := InputEventScreenDrag.new()
@@ -76,6 +88,15 @@ func _run() -> void:
 	var moved: Dictionary = player._unit_by_id(rowan)
 	if not expect(int(moved.x) == 4 and int(moved.y) == 1, "tap moves Rowan through native legal movement"):
 		return
+	if board.is_unit_moving(rowan):
+		player._update_mobile_controls()
+		expect(not player.mobile_bar.visible, "commands stay hidden while actor walks")
+		before = player.next_request_id
+		player._mobile_action("confirm")
+		expect(player.next_request_id == before, "walking actor cannot submit a premature command")
+	while board.is_unit_moving(rowan) and Time.get_ticks_msec() < deadline:
+		await process_frame
+	expect(not board.is_unit_moving(rowan), "visual walk reaches its destination")
 	var options: Array = player.action_popups[0].get("options", [])
 	var attack_row := -1
 	for index in options.size():
@@ -84,15 +105,36 @@ func _run() -> void:
 		return
 	player._mobile_popup_chosen(0, attack_row)
 	expect(player.action_modes[0] == "attack", "touch action selects Attack")
+	player._update_mobile_controls()
+	expect(player.mobile_buttons.confirm.visible and not player.mobile_buttons.actions.visible, "targeting offers explicit confirmation")
 	expect(player.session.forecast_attack(rowan, target).get("available", false), "autofocused target has native legal forecast")
+	player._mobile_action("confirm")
+	deadline = Time.get_ticks_msec() + 10000
+	while player.pending_requests.size() > 0 and Time.get_ticks_msec() < deadline:
+		await process_frame
+	expect(player._unit_by_id(rowan).get("has_acted", false), "touch confirmation submits the real native attack")
+	if player.combat_cinematic.is_active(): player.combat_cinematic.skip_exchange()
+	player._update_mobile_controls()
+	expect(not player.mobile_buttons.confirm.visible, "completed actor no longer offers Attack")
+	before = player.next_request_id
+	player._mobile_action("confirm")
+	expect(player.next_request_id == before, "completed actor cannot repeat its attack")
 	player._mobile_back()
-	expect(player.selected_units[0] == 0, "Back cancels targeting without a command")
-	tap(_pick_cell(board, Vector2i(4, 1), board.screen_position_for_cell(Vector2i(4, 1))))
+	expect(player.selected_units[0] == 0, "Back releases the completed actor")
+	var ally_id := 0
+	for ally: Dictionary in player.snapshot.units:
+		if player._unit_owned_by_seat(ally, 0) and ally.get("on_board", false) and not ally.get("has_acted", false):
+			ally_id = int(ally.id)
+			var cell := Vector2i(int(ally.x), int(ally.y))
+			tap(_pick_cell(board, cell, board.screen_position_for_cell(cell)))
+			break
+	expect(ally_id != 0 and player.selected_units[0] == ally_id, "remaining ally can be selected after attack")
+	var round_before := int(player.snapshot.get("round", 0))
 	player._mobile_action("wait")
 	deadline = Time.get_ticks_msec() + 10000
 	while player.pending_requests.size() > 0 and Time.get_ticks_msec() < deadline:
 		await process_frame
-	expect(player._unit_by_id(rowan).get("has_acted", false), "touch Wait uses native wait intent")
+	expect(player._unit_by_id(ally_id).get("has_acted", false) or int(player.snapshot.get("round", 0)) > round_before, "touch Wait finishes ally or advances the round when the army is done")
 	var bus := AudioServer.get_bus_index("Master")
 	var muted := AudioServer.is_bus_mute(bus)
 	before = player.next_request_id

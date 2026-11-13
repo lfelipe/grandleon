@@ -104,6 +104,12 @@ func configure(
 	_update_labels()
 
 
+func set_text_scale(value: float) -> void:
+	text_scale = clampf(value, 1.0, 1.20)
+	_update_font_sizes()
+	_update_labels()
+
+
 func set_capture_hud_mode(value: bool) -> void:
 	capture_hud_mode = value
 	_apply_capture_hud_visibility()
@@ -607,7 +613,7 @@ func _update_labels() -> void:
 	if OS.has_feature("android"):
 		var safe := MobileLayout.current_rect(get_viewport())
 		var density := MobileLayout.units_per_dp(get_viewport())
-		var controls_top := safe.end.y - maxf(112, 48 * density) - 24
+		var controls_top := safe.end.y - 8
 		var name_height := maxf(64, ceilf(24 * density * text_scale))
 		for label: Label in [_actor_name, _target_name]:
 			label.position.y = controls_top - name_height - 16

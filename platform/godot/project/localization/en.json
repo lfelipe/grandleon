@@ -1984,6 +1984,8 @@
     "creator.mobile_hint": "Tap a project to open it. Swipe lists to find more.",
     "map.mobile.pan": "Pan map",
     "map.mobile.overview": "Overview",
-    "map.mobile.paint_hint": "Choose terrain to paint. Use Pan map to move around."
+    "map.mobile.paint_hint": "Choose terrain to paint. Use Pan map to move around.",
+    "player.touch.actions": "Actions",
+    "player.touch.tap_continue": "Tap to continue"
   }
 }
