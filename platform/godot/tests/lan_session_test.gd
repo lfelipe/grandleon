@@ -131,6 +131,40 @@ func run() -> void:
 	check(host_snapshot == saved_snapshot, "paused host accepts no battle commands")
 	host_net.set_host_paused(false)
 	check(await until(func(): return not guest_net.game_paused), "host resume releases guest")
+	# Android can restart before ENet notices that the old process vanished.
+	# An unrelated device must not disturb the active army; the returning
+	# device must reclaim it using the saved seat, without a socket timeout.
+	var old_peer: int = host_net.remote_peer
+	var intruder: Node = Transport.new()
+	intruder.storage_root = base + "/unrelated-device"
+	root.add_child(intruder)
+	intruder.join("127.0.0.1", game_port)
+	check(await until(func(): return intruder.status_key == "lan.seat_reserved"), "unrelated device cannot replace an occupied army")
+	check(host_net.connected and guest_net.connected and host_net.remote_peer == old_peer, "refused candidate leaves the original connection intact")
+	intruder.leave()
+	intruder.queue_free()
+	await process_frame
+	var replacement: Node = Transport.new()
+	replacement.storage_root = guest_net.storage_root
+	root.add_child(replacement)
+	replacement.browse(game_port + 1)
+	check(await until(func(): return replacement.rooms.values().any(func(r): return r.occupied and r.rejoin)), "returning army can discover and rejoin its occupied room")
+	replacement.join("127.0.0.1", game_port)
+	check(await until(func(): return replacement.connected and host_net.connected and host_net.remote_peer != old_peer), "saved army identity replaces stale connection immediately")
+	check(host_snapshot == saved_snapshot, "connection replacement preserves the actual battle")
+	guest_game.stop()
+	guest_game = null
+	guest_net.queue_free()
+	guest_net = replacement
+	guest_snapshot = {}
+	guest_game = Campaign.new(guest_net)
+	guest_game.start_package(bytes, "steel_and_cedar", 2, "", "en")
+	check(await until(func(): return guest_snapshot == saved_snapshot), "replacement guest receives current combat and action flags")
+	var interrupted_peer: int = host_net.remote_peer
+	guest_net.peer.close()
+	check(await until(func(): return not guest_net.connected), "running guest observes network interruption")
+	check(await until(func(): return guest_net.connected and host_net.connected and host_net.remote_peer != interrupted_peer), "running guest reconnects automatically without a menu action")
+	check(await until(func(): return guest_snapshot == saved_snapshot), "automatic reconnect preserves the unfinished battle")
 	guest_net.peer.close()
 	check(await until(func(): return not host_net.connected), "host detects disconnect")
 	guest_game.resynchronize()

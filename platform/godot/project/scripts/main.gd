@@ -44,6 +44,9 @@ var mobile_previously_muted := false
 var mobile_top_panel: Control
 var mobile_dialogue_panel: Control
 var mobile_session_panel: Control
+var mobile_session_column: VBoxContainer
+var mobile_session_pages: VBoxContainer
+var mobile_session_scroll: ScrollContainer
 
 var session
 var board: Node
@@ -339,6 +342,12 @@ func _ready() -> void:
 	_select_matching_interface_language(game_language)
 	_configure_seats()
 	Input.joy_connection_changed.connect(_on_joy_connection_changed)
+	if OS.has_feature("android"):
+		# Put loading feedback and the Menu button on screen before the first
+		# board initializes its geometry, textures and graphics pipelines.
+		_update_mobile_controls()
+		await RenderingServer.frame_post_draw
+		if not is_inside_tree(): return
 	var started: bool = session.start_package(
 		launch_package, campaign_key, player_count, campaign_save_root, game_language
 	)
@@ -1820,7 +1829,7 @@ func _create_interface() -> void:
 		title_label.clip_text = true
 		title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	top_row.add_child(title_label)
-	turn_label = _label(_ui("player.hud.waiting"), 17, Color("69d9ff"))
+	turn_label = _label(_ui("player.status.loading_campaign"), 17, Color("69d9ff"))
 	top_row.add_child(turn_label)
 	status_label = _label(_ui("player.hud.starting"), 16, Color("9db6c5"))
 	# Kept as the internal status sink for loading and automation, but routine
@@ -2036,17 +2045,31 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 14)
 	panel.add_child(column)
+	mobile_session_column = column
 	session_menu_header = _label(_ui("player.session.header"), 16, Color("69d9ff"))
+	if OS.has_feature("android"): session_menu_header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(session_menu_header)
 	session_menu_title = _label(_ui("player.session.paused"), 38, Color("f2f7f9"))
+	if OS.has_feature("android"): session_menu_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(session_menu_title)
 	session_menu_subtitle = _label(_ui("player.session.choose_option"), 18, Color("a9bdc9"))
 	session_menu_subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	session_menu_subtitle.custom_minimum_size.y = 54
 	column.add_child(session_menu_subtitle)
+	var pages := column
+	if OS.has_feature("android"):
+		mobile_session_scroll = ScrollContainer.new()
+		mobile_session_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		mobile_session_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		mobile_session_scroll.follow_focus = true
+		column.add_child(mobile_session_scroll)
+		mobile_session_pages = VBoxContainer.new()
+		mobile_session_pages.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		mobile_session_scroll.add_child(mobile_session_pages)
+		pages = mobile_session_pages
 
 	session_menu_root = _session_menu_page()
-	column.add_child(session_menu_root)
+	pages.add_child(session_menu_root)
 	session_menu_resume = _menu_button(_ui("player.session.resume"))
 	session_menu_resume.pressed.connect(_close_session_menu)
 	session_menu_root.add_child(session_menu_resume)
@@ -2069,7 +2092,7 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	session_menu_root.add_child(session_menu_quit)
 
 	session_menu_saves = _session_menu_page()
-	column.add_child(session_menu_saves)
+	pages.add_child(session_menu_saves)
 	for slot in range(1, 4):
 		var checkpoint_button := _menu_button("")
 		checkpoint_button.pressed.connect(_select_checkpoint_slot.bind(slot))
@@ -2084,7 +2107,7 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	session_menu_saves.add_child(session_menu_saves_back)
 
 	session_menu_slot_actions = _session_menu_page()
-	column.add_child(session_menu_slot_actions)
+	pages.add_child(session_menu_slot_actions)
 	session_menu_checkpoint_save = _menu_button(_ui("player.session.save_here"))
 	session_menu_checkpoint_save.pressed.connect(_save_selected_checkpoint)
 	session_menu_slot_actions.add_child(session_menu_checkpoint_save)
@@ -2096,7 +2119,7 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	session_menu_slot_actions.add_child(session_menu_slot_back)
 
 	session_menu_settings = _session_menu_page()
-	column.add_child(session_menu_settings)
+	pages.add_child(session_menu_settings)
 	session_menu_camera = _settings_button("")
 	session_menu_camera.pressed.connect(_toggle_camera_impulse)
 	session_menu_settings.add_child(session_menu_camera)
@@ -2106,20 +2129,22 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 	session_menu_stick = _settings_button("")
 	session_menu_stick.pressed.connect(_toggle_stick_mode)
 	session_menu_settings.add_child(session_menu_stick)
-	session_menu_music_label = Label.new()
+	session_menu_music_label = _label("", 18, Color("a9bdc9"))
 	session_menu_settings.add_child(session_menu_music_label)
 	session_menu_music = HSlider.new()
+	if OS.has_feature("android"): session_menu_music.mouse_filter = Control.MOUSE_FILTER_PASS
 	session_menu_music.max_value = 1.0
 	session_menu_music.step = 0.05
-	session_menu_music.custom_minimum_size = Vector2(280, 96 if OS.has_feature("android") else 32)
+	session_menu_music.custom_minimum_size = Vector2(280, 48 * MobileLayout.units_per_dp(get_viewport()) if OS.has_feature("android") else 32)
 	session_menu_music.value_changed.connect(_set_music_level)
 	session_menu_settings.add_child(session_menu_music)
-	session_menu_audio_label = Label.new()
+	session_menu_audio_label = _label("", 18, Color("a9bdc9"))
 	session_menu_settings.add_child(session_menu_audio_label)
 	session_menu_audio = HSlider.new()
+	if OS.has_feature("android"): session_menu_audio.mouse_filter = Control.MOUSE_FILTER_PASS
 	session_menu_audio.max_value = 1.0
 	session_menu_audio.step = 0.05
-	session_menu_audio.custom_minimum_size = Vector2(280, 96 if OS.has_feature("android") else 32)
+	session_menu_audio.custom_minimum_size = Vector2(280, 48 * MobileLayout.units_per_dp(get_viewport()) if OS.has_feature("android") else 32)
 	session_menu_audio.value_changed.connect(_set_effects_level)
 	session_menu_settings.add_child(session_menu_audio)
 	session_menu_closeups = _settings_button("")
@@ -2158,7 +2183,10 @@ func _session_menu_page() -> VBoxContainer:
 func _menu_button(value: String) -> Button:
 	var button := Button.new()
 	button.text = value
-	button.custom_minimum_size = Vector2(680, 112 if OS.has_feature("android") else 76)
+	button.custom_minimum_size = Vector2(680, 48 * MobileLayout.units_per_dp(get_viewport()) if OS.has_feature("android") else 76)
+	if OS.has_feature("android"):
+		button.mouse_filter = Control.MOUSE_FILTER_PASS
+		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_bind_font_size(button, "font_size", 22)
 	button.add_theme_color_override("font_color", Color("dcebf0"))
 	button.add_theme_color_override("font_hover_color", Color("071018"))
@@ -2176,7 +2204,7 @@ func _menu_button(value: String) -> Button:
 
 func _settings_button(value: String) -> Button:
 	var button := _menu_button(value)
-	button.custom_minimum_size.y = 112 if OS.has_feature("android") else 58
+	if not OS.has_feature("android"): button.custom_minimum_size.y = 58
 	return button
 
 
@@ -2186,6 +2214,7 @@ func _show_session_menu_page(page: String) -> void:
 	session_menu_saves.visible = page == "saves"
 	session_menu_slot_actions.visible = page == "slot"
 	session_menu_settings.visible = page == "settings"
+	session_menu_subtitle.visible = not OS.has_feature("android") or page != "root" or campaign_complete or not preview_return_scene.is_empty()
 	match page:
 		"saves":
 			session_menu_title.text = _ui("player.session.save_load")
@@ -2237,6 +2266,9 @@ func _show_session_menu_page(page: String) -> void:
 		"back": back_text,
 	})
 	_grab_first_session_menu_focus()
+	if OS.has_feature("android"):
+		mobile_session_scroll.scroll_vertical = 0
+		_layout_mobile_controls.call_deferred()
 
 
 func _grab_first_session_menu_focus() -> void:
@@ -2388,6 +2420,9 @@ func _open_session_menu(force_over_dialogue := false) -> void:
 func _update_session_diagnostics(force := false) -> void:
 	if session_menu_diagnostics == null:
 		return
+	if session_menu_diagnostics.visible != show_fps_enabled:
+		session_menu_diagnostics.visible = show_fps_enabled
+		if OS.has_feature("android"): _layout_mobile_controls.call_deferred()
 	var now := Time.get_ticks_msec()
 	if not force and now < frame_timing_next_update_msec:
 		return
@@ -2407,8 +2442,7 @@ func _update_session_diagnostics(force := false) -> void:
 		if not campaign_save_root.is_empty() else _ui("player.session.not_saved")
 	)
 	session_menu_diagnostics.text = (
-		_ui("player.session.diagnostics_paused") + "\n"
-		+ _ui("player.session.live_performance", {"timing": timing}) + "\n"
+		_ui("player.session.live_performance", {"timing": timing}) + "\n"
 		+ _ui("player.session.window", {
 			"width": window.x,
 			"height": window.y,
@@ -2869,7 +2903,8 @@ func _handle_event(event: Dictionary) -> void:
 			# A fresh guest has no previous presentation or menu to discard.
 			if not snapshot.is_empty() or _dialogue_visible() or not pending_company.is_empty():
 				_clear_session_presentation()
-			if _session_menu_visible(): _close_session_menu()
+			# Reconnection must preserve the explicit Resume decision after an
+			# Android suspension, or a menu the player opened while waiting.
 			lan_waiting_for_host = false
 		"network_save_failed":
 			_show_toast(_ui("lan.storage_error"))
@@ -4377,6 +4412,8 @@ func _layout_mobile_controls() -> void:
 		if is_instance_valid(binding.control):
 			binding.base = maxi(int(binding.get("authored_base", binding.base)), roundi(16 * density))
 			binding.control.add_theme_font_size_override(StringName(binding.key), roundi(float(binding.base) * text_scale))
+			if OS.has_feature("android") and binding.control is Button and mobile_session_panel.is_ancestor_of(binding.control):
+				binding.control.custom_minimum_size.y = 48 * density
 	for action: String in mobile_buttons:
 		var button: Button = mobile_buttons[action]
 		button.add_theme_font_size_override("font_size", roundi(16 * density * text_scale))
@@ -4413,8 +4450,18 @@ func _layout_mobile_controls() -> void:
 	if help_panel != null:
 		help_panel.visible = false
 	if mobile_session_panel != null:
-		mobile_session_panel.position = Vector2(safe.get_center().x - minf(420, safe.size.x * 0.44), safe.position.y + 24)
-		mobile_session_panel.size = Vector2(minf(840, safe.size.x * 0.88), safe.size.y - 48)
+		if OS.has_feature("android"):
+			session_menu_music.custom_minimum_size.y = 48 * density
+			session_menu_audio.custom_minimum_size.y = 48 * density
+		var panel_width := minf(840, safe.size.x * 0.88)
+		var panel_height := safe.size.y - 48
+		if mobile_session_scroll != null:
+			var header_height := mobile_session_column.get_combined_minimum_size().y - mobile_session_scroll.get_combined_minimum_size().y
+			var content_height := mobile_session_pages.get_combined_minimum_size().y
+			var padding := mobile_session_panel.get_theme_stylebox("panel").get_minimum_size().y
+			panel_height = minf(panel_height, header_height + content_height + padding)
+		mobile_session_panel.size = Vector2(panel_width, panel_height)
+		mobile_session_panel.position = safe.get_center() - mobile_session_panel.size * 0.5
 	if toast_label != null:
 		toast_label.position = Vector2(safe.position.x + safe.size.x * 0.16, safe.position.y + height + 36)
 		toast_label.size = Vector2(safe.size.x * 0.68, 32 * density)
@@ -4664,7 +4711,7 @@ func _update_lan_status() -> void:
 	lan_status_panel.visible = (not LANSession.connected or LANSession.game_paused or lan_waiting_for_host or restoring) and not _session_menu_visible()
 	if not lan_status_panel.visible: return
 	lan_status_text.text = _ui("lan.restoring" if restoring else ("lan.host_preparing" if lan_waiting_for_host else LANSession.status_key))
-	lan_retry_button.visible = LANSession.role == "client" and not LANSession.connected
+	lan_retry_button.visible = LANSession.role == "client" and not LANSession.connected and not LANSession.is_connecting()
 	var safe := MobileLayout.current_rect(get_viewport())
 	lan_status_panel.size = Vector2(minf(980, safe.size.x * 0.82), 0)
 	lan_status_panel.position = Vector2(safe.get_center().x - lan_status_panel.size.x * 0.5, safe.position.y + (160 if OS.has_feature("android") else 90))

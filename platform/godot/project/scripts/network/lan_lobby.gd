@@ -55,6 +55,7 @@ func configure(value: Node, close_callback: Callable) -> void:
 	room_list.add_theme_constant_override("separation", 12)
 	scroll.add_child(room_list)
 	address_input = LineEdit.new()
+	address_input.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_URL
 	address_input.custom_minimum_size.y = 86
 	address_input.placeholder_text = Localization.text("lan.address")
 	address_input.text_submitted.connect(func(_text: String): _join_address())
@@ -84,14 +85,22 @@ func _button(key: String) -> Button:
 	return button
 
 func _join_address() -> void:
+	if _joining(): return
 	if not address_input.text.strip_edges().is_empty(): transport.join(address_input.text)
+
+func _joining() -> bool:
+	return transport.role == "client" and (transport.connected or transport.is_connecting())
 
 func _status() -> void:
 	if not is_inside_tree(): return
 	status.text = Localization.text(transport.status_key)
 	var hosting: bool = transport.role == "host"
 	address_input.visible = not hosting
+	address_input.editable = not _joining()
 	get_meta("direct_button").visible = not hosting
+	get_meta("direct_button").disabled = _joining()
+	for button: Button in room_list.get_children():
+		button.disabled = _joining() or bool(button.get_meta("occupied", false))
 	host_note.visible = true
 	if hosting: host_note.text = str(transport.metadata.get("title", "")) + "\n" + Localization.text("lan.host_saves")
 	reset_partner.visible = hosting and not transport.connected and transport.has_reserved_seat()
@@ -104,6 +113,8 @@ func _rooms() -> void:
 	for room: Dictionary in transport.rooms.values():
 		var button := _button("lan.join")
 		button.text = str(room.title) + "  ·  " + str(room.address)
-		button.disabled = bool(room.occupied)
+		var unavailable := bool(room.occupied) and not bool(room.get("rejoin", false))
+		button.set_meta("occupied", unavailable)
+		button.disabled = unavailable or _joining()
 		button.pressed.connect(transport.join.bind(str(room.address), int(room.port)))
 		room_list.add_child(button)

@@ -132,6 +132,13 @@ func _run() -> void:
 	)
 	player._show_session_menu_page("settings")
 	_expect("player settings title uses Portuguese", player.session_menu_title.text, "CONFIGURAÇÕES")
+	_expect("performance details are hidden by default", player.session_menu_diagnostics.visible, false)
+	player.session_menu_fps.pressed.emit()
+	player._update_session_diagnostics(true)
+	_expect("Show FPS enables the performance details", player.session_menu_diagnostics.visible, true)
+	player.session_menu_fps.pressed.emit()
+	player._update_session_diagnostics(true)
+	_expect("disabling Show FPS hides the performance details", player.session_menu_diagnostics.visible, false)
 	_expect(
 		"player settings choices use Portuguese",
 		player.session_menu_camera.text,
@@ -178,6 +185,15 @@ func _run() -> void:
 	system_portuguese.free()
 	system_spanish.free()
 	await process_frame
+	# The shell previews start music and focus sounds. Stop their playback
+	# before shutting down the audio server rather than leaking test streams.
+	var audio := root.get_node("PCAudio")
+	for stream_player: Node in audio.get_children():
+		if stream_player is AudioStreamPlayer:
+			stream_player.stop()
+			stream_player.stream = null
+	audio.set("_streams", {})
+	await create_timer(0.15).timeout
 
 	if failures == 0:
 		print("localization shell smoke passed")

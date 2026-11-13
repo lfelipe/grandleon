@@ -79,6 +79,17 @@ items below describe the existing foundation; they are not being reopened.
   file handling. The Android editor creates and exports portable campaigns
   playable on Android and PC. Preserve an editable project export for the PC
   editor to build N64 ROMs and PS1 discs; console builds remain PC-only.
+- [x] Show loading feedback and the Menu button before initializing the first
+  board. Match Android's 3D sampling to the screen's pixel density while keeping
+  text and touch coordinates in the logical layout.
+- [x] Keep Android pause menus compact, and make long settings pages scroll
+  within the screen. Scale touch targets and audio labels for phone/tablet
+  density changes, wrap long labels, and show performance details only when
+  the player enables Show FPS.
+- [x] Reuse identical terrain and prop geometry instead of allocating duplicate
+  mesh buffers. Bell Orchard uses 16 unique primitive meshes instead of 735;
+  matched static captures are pixel-identical. Check all five demo maps,
+  including the village and castle, for repeated geometry sharing.
 - [ ] Validate accented Android filenames, interrupted writes and save/resume
   after suspension and process termination. Emulator tests cover pausing and
   resuming the running battle; they do not prove recovery of unsaved progress
@@ -239,10 +250,17 @@ iOS exports remain later milestones; they are not part of the 0.6 scope.
   host background/resume, controllers and Windows firewalls. Discovery uses
   UDP 29531; gameplay uses UDP 29532. Keep direct-address joining available
   when an access point blocks broadcasts or isolates clients.
-- [ ] Investigate intermittent stale Android emulator display on LAN rejoin.
-  The restored board appears in Godot viewport captures but the emulator can
-  retain its initial frame until background/foreground. Verify on physical
-  Android hardware before considering reconnect acceptance complete.
+- [x] Let a returning army authenticate and replace its stale connection after
+  an app restart, without waiting for ENet's disconnect timeout. Keep unrelated
+  devices from disturbing the active army. Allow retry after a failed join or
+  host departure, and prevent duplicate submissions during connection setup.
+  Reconnect an interrupted running guest automatically with bounded retry
+  backoff, while keeping the explicit Resume menu after Android suspension.
+- [ ] Finish Android cold-load and rejoin performance checks. Native traces
+  show emulator graphics-driver stalls during buffer uploads; the board can
+  recover without background/foreground. Shared geometry and native-density
+  rendering reduce the work, but first-frame delays still need profiling and
+  physical-device verification.
 - [ ] Plan internet play using the same authoritative session and save format.
   Replace LAN discovery with authenticated invitations or rooms. Investigate
   an encrypted relay so players behind NAT/firewalls can join without router

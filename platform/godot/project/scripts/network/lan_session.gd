@@ -38,11 +38,15 @@ var _part_count := 0
 var _part_next := 0
 var _parts_started := 0
 var _multicast_lock
+var _candidates: Dictionary = {}
+var _retry_at := 0
+var _retry_delay := 1000
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
 func active() -> bool: return role != ""
+func is_connecting() -> bool: return peer != null and not connected and _started > 0
 func local_seat() -> int: return 1 if role == "client" else 0
 func _status(key: String) -> void:
 	status_key = key
@@ -80,7 +84,9 @@ func host(bytes: PackedByteArray, campaign: String, title: String, scope := "", 
 		_status("lan.invalid_campaign")
 		return false
 	peer = ENetMultiplayerPeer.new()
-	if peer.create_server(game_port, 1) != OK:
+	# Keep one extra handshake slot so the returning army can replace a stale
+	# connection after Android kills its process without an ENet goodbye.
+	if peer.create_server(game_port, 2) != OK:
 		peer = null
 		_status("lan.port_busy")
 		return false
@@ -161,20 +167,31 @@ func rejoin() -> void:
 
 func _peer_connected(id: int) -> void:
 	if role != "host": return
-	remote_peer = id
-	_started = Time.get_ticks_msec()
-	_send({"type": "challenge", "version": PROTOCOL, "room": str(_room.id)})
+	_candidates[id] = Time.get_ticks_msec()
+	_send({"type": "challenge", "version": PROTOCOL, "room": str(_room.id)}, id)
 
-func _peer_disconnected(_id: int) -> void:
+func _peer_disconnected(id: int) -> void:
+	_candidates.erase(id)
+	if (role == "host" and id != remote_peer) or (role == "client" and id != 1): return
 	connected = false
 	_authenticated = false
 	remote_peer = 0
 	_started = 0
 	_parts.clear()
 	_status("lan.partner_left" if role == "host" else "lan.disconnected")
+	_schedule_rejoin()
+
+func _schedule_rejoin() -> void:
+	# Only an already-running guest retries automatically. A failed initial
+	# join remains an editable lobby; leaving the game cancels retries.
+	if role != "client" or adapter == null or _retry_at > 0: return
+	_retry_at = Time.get_ticks_msec() + _retry_delay
+	_retry_delay = mini(8000, _retry_delay * 2)
 
 func _process(_delta: float) -> void:
 	var now := Time.get_ticks_msec()
+	if _retry_at > 0 and now >= _retry_at and role == "client" and adapter != null and not connected:
+		if not join(address, port): _schedule_rejoin()
 	if discovery != null:
 		if discovering and now >= _next_discover:
 			_next_discover = now + 1200
@@ -195,8 +212,9 @@ func _process(_delta: float) -> void:
 				var room_id := str(value.get("room", ""))
 				if room_id.length() != 48 or rooms.size() > 64: continue
 				var prior: Dictionary = rooms.get(room_id, {})
-				rooms[room_id] = {"address": ip, "port": int(value.port), "title": str(value.get("title", "Grandleon")).left(120), "occupied": bool(value.get("occupied", false)), "seen": now}
-				if prior.get("address") != ip or prior.get("port") != int(value.port) or prior.get("title") != rooms[room_id].title or prior.get("occupied") != rooms[room_id].occupied: rooms_changed.emit()
+				var returning := not str(_load_json("joined.json").get(room_id, "")).is_empty()
+				rooms[room_id] = {"address": ip, "port": int(value.port), "title": str(value.get("title", "Grandleon")).left(120), "occupied": bool(value.get("occupied", false)), "rejoin": returning, "seen": now}
+				if prior.get("address") != ip or prior.get("port") != int(value.port) or prior.get("title") != rooms[room_id].title or prior.get("occupied") != rooms[room_id].occupied or prior.get("rejoin") != returning: rooms_changed.emit()
 		var expired: Array = []
 		for key: String in rooms:
 			if now - int(rooms[key].seen) > 4500: expired.append(key)
@@ -208,28 +226,41 @@ func _process(_delta: float) -> void:
 		elif _started > 0 and now - _started > 15000:
 			_close_peer()
 			_status("lan.timeout")
+			_schedule_rejoin()
 		return
 	peer.poll()
+	if role == "host":
+		for id: int in _candidates.keys():
+			if now - int(_candidates[id]) > 10000:
+				_candidates.erase(id)
+				peer.disconnect_peer(id, true)
 	for _index in mini(128, peer.get_available_packet_count()):
+		if peer == null: break # A refusal packet can close the client mid-poll.
 		var sender := peer.get_packet_peer()
 		var packet := peer.get_packet()
 		if packet.size() > CHUNK + 512: continue
 		if role == "client" and sender != 1: continue
-		if role == "host" and sender != remote_peer: continue
+		if role == "host" and sender != remote_peer and not _candidates.has(sender): continue
 		var value: Variant = bytes_to_var(packet)
 		if not value is Dictionary: continue
-		_receive(value)
+		if role == "host" and sender != remote_peer and value.get("type") != "hello": continue
+		_receive(value, sender)
 	if not connected and _started > 0 and now - _started > 15000:
-		_close_peer()
+		if role == "host":
+			var expired_peer := remote_peer
+			_peer_disconnected(expired_peer)
+			if expired_peer != 0: peer.disconnect_peer(expired_peer, true)
+		else: _close_peer()
 		_status("lan.timeout")
+		_schedule_rejoin()
 	if _parts_started > 0 and now - _parts_started > 10000:
 		_parts.clear()
 		_part_count = 0
 		_parts_started = 0
 
-func _send(value: Dictionary) -> void:
+func _send(value: Dictionary, target := 0) -> void:
 	if peer == null or peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED: return
-	peer.set_target_peer(remote_peer if role == "host" else 1)
+	peer.set_target_peer(target if target > 0 else (remote_peer if role == "host" else 1))
 	peer.transfer_mode = MultiplayerPeer.TRANSFER_MODE_RELIABLE
 	var bytes := var_to_bytes(value)
 	if bytes.size() > MAX_MESSAGE:
@@ -245,7 +276,7 @@ func _send(value: Dictionary) -> void:
 func send_message(value: Dictionary) -> void:
 	if connected: _send(value)
 
-func _receive(value: Dictionary) -> void:
+func _receive(value: Dictionary, sender := 0) -> void:
 	var kind := str(value.get("type", ""))
 	if kind == "chunk":
 		var index := int(value.get("index", -1))
@@ -265,7 +296,7 @@ func _receive(value: Dictionary) -> void:
 			_parts.clear()
 			_part_count = 0
 			_parts_started = 0
-			if result is Dictionary and result.get("type") != "chunk": _receive(result)
+			if result is Dictionary and result.get("type") != "chunk": _receive(result, sender)
 		return
 	if role == "client" and kind == "challenge":
 		if value.get("version") != PROTOCOL:
@@ -276,16 +307,28 @@ func _receive(value: Dictionary) -> void:
 		_send({"type": "hello", "version": PROTOCOL, "token": str(saved.get(str(value.get("room", "")), ""))})
 		return
 	if role == "host" and kind == "hello":
+		if not _candidates.has(sender): return
 		if value.get("version") != PROTOCOL or (not str(_room.seat_token).is_empty() and str(value.get("token", "")) != str(_room.seat_token)):
-			_send({"type": "error", "key": "lan.version_mismatch" if value.get("version") != PROTOCOL else "lan.seat_reserved"})
-			peer.disconnect_peer(remote_peer)
+			_send({"type": "error", "key": "lan.version_mismatch" if value.get("version") != PROTOCOL else "lan.seat_reserved"}, sender)
+			# Let the reason arrive before closing. Keep the candidate deadline
+			# until ENet finishes, so an unresponsive device cannot hold a slot.
+			peer.get_peer(sender).peer_disconnect_later()
 			return
 		if str(_room.seat_token).is_empty():
 			_room.seat_token = _token()
 			if not _save_json(str(_room.file), _room):
 				_status("lan.storage_error")
 				return
+		var old_peer := remote_peer
+		remote_peer = sender
+		_candidates.erase(sender)
+		connected = false
+		_parts.clear()
+		_parts_started = 0
+		_started = Time.get_ticks_msec()
 		_authenticated = true
+		if old_peer != 0 and old_peer != sender: peer.disconnect_peer(old_peer, true)
+		_status("lan.connecting")
 		_send({"type": "launch", "metadata": metadata, "package": package_bytes, "token": str(_room.seat_token)})
 		return
 	if role == "client" and kind == "launch":
@@ -304,13 +347,16 @@ func _receive(value: Dictionary) -> void:
 		metadata = meta
 		package_bytes = bytes
 		connected = true
+		_retry_at = 0
+		_retry_delay = 1000
 		_status("lan.connected")
 		_send({"type": "ready"})
 		if adapter != null: adapter.resynchronize()
 		else: game_ready.emit()
 		return
-	if role == "host" and kind == "ready" and _authenticated:
+	if role == "host" and kind == "ready" and _authenticated and not connected:
 		connected = true
+		_started = 0
 		_status("lan.connected")
 		if adapter != null: adapter.peer_rejoined()
 		else: game_ready.emit()
@@ -345,6 +391,8 @@ func _close_peer() -> void:
 	_started = 0
 	_parts.clear()
 	_parts_started = 0
+	_candidates.clear()
+	_retry_at = 0
 
 func leave() -> void:
 	_close_peer()
@@ -357,6 +405,7 @@ func leave() -> void:
 	adapter = null
 	package_bytes.clear()
 	metadata.clear()
+	_retry_delay = 1000
 	_release_multicast_lock()
 
 func set_host_paused(value: bool) -> void:
@@ -368,7 +417,7 @@ func has_reserved_seat() -> bool:
 	return role == "host" and not str(_room.get("seat_token", "")).is_empty()
 
 func release_seat() -> void:
-	if role != "host" or connected or remote_peer != 0: return
+	if role != "host" or connected or remote_peer != 0 or not _candidates.is_empty(): return
 	_room.seat_token = ""
 	if not _save_json(str(_room.file), _room): _status("lan.storage_error")
 	else: _status("lan.waiting")

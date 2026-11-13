@@ -189,7 +189,8 @@ available too.
 
 Shared progress and checkpoint saves live on the host, including unfinished
 battles. Host the same campaign again to continue; the second player can rejoin
-their army. Keep the host's application data backed up. If discovery finds
+their army. Brief connection interruptions reconnect automatically. Keep the
+host's application data backed up. If discovery finds
 nothing, enter the host's IP address. Internet play is planned separately.
 
 The 0.6 development branch adds **Browse Campaigns** to the Godot home menu.

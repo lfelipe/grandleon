@@ -73,6 +73,12 @@ func run() -> void:
 	player._update_mobile_controls()
 	check(not player.mobile_buttons.seat.visible, "network touch UI has no hot-seat army switch")
 	check(player.session_menu_save_load.disabled, "guest menu identifies host-owned saves")
+	var previous_peer: int = host_net.remote_peer
+	player._open_session_menu(true)
+	net.peer.close()
+	check(await wait_until(func(): return net.connected and host_net.connected and host_net.remote_peer != previous_peer and not player.snapshot.is_empty()), "guest UI reconnects automatically to its existing army")
+	check(player._session_menu_visible(), "reconnect preserves the explicit Resume menu")
+	player._close_session_menu()
 	# Recreate the entire guest scene/session as after closing the Android app.
 	# Native host has no new events to emit: the join bootstrap must be enough.
 	var resumed: Dictionary = player.snapshot.duplicate(true)
