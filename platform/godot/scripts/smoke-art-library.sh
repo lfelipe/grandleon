@@ -48,3 +48,20 @@ XDG_CONFIG_HOME="${state_dir}/config" \
 XDG_CACHE_HOME="${state_dir}/cache" \
     timeout 60s "${godot_binary}" --headless --path "${stage_dir}" \
     --script "${repo_root}/platform/godot/tests/directional_art_test.gd"
+
+for regression in lazy_art_loading game_language_layout; do
+    test_log="${state_dir}/${regression}.log"
+    if ! XDG_DATA_HOME="${state_dir}/data" \
+        XDG_CONFIG_HOME="${state_dir}/config" \
+        XDG_CACHE_HOME="${state_dir}/cache" \
+        timeout 60s "${godot_binary}" --headless --path "${stage_dir}" \
+        --script "${repo_root}/platform/godot/tests/${regression}_test.gd" \
+        >"${test_log}" 2>&1; then
+        cat "${test_log}"
+        exit 1
+    fi
+    cat "${test_log}"
+    if grep -Eq '(^|[[:space:]])(SCRIPT )?ERROR:|Parse Error:' "${test_log}"; then
+        exit 1
+    fi
+done

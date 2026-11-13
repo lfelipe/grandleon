@@ -68,6 +68,12 @@ items below describe the existing foundation; they are not being reopened.
   Check surrounding terrain at wide phone/tablet aspect ratios so expanding
   the board does not expose gaps beyond the authored terrain skirt.
 
+An ARM64 ONN 13 Pro tablet running Android 16 now passes real 1P/2P launch,
+touch movement, attack/counterattack, background/resume and creator
+create → paint → save → compile → play checks. Roster art now loads on demand
+and the language picker stays within the visible screen. This is functional
+coverage on one tablet; wider device, audio and controller checks remain open.
+
 ### Downloadable campaigns
 
 The initial campaign library uses compiled campaign data and the artwork and

@@ -40,5 +40,8 @@ func _run() -> void:
 	assert(scroll.scroll_vertical > 0, "Keyboard focus must reveal the last language")
 	player.queue_free()
 	await process_frame
+	# Focus changes play the normal UI sound. Let the audio mixer finish it
+	# before tearing down the autoload players at process exit.
+	await create_timer(0.15).timeout
 	print("Game language popup: actual CanvasLayer centering, tablet/phone resize and long-list focus scrolling PASS")
 	quit()
