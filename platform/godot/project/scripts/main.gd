@@ -2483,7 +2483,7 @@ func _close_session_menu() -> void:
 
 func _quit_to_launcher() -> void:
 	status_label.text = _ui("player.status.exiting")
-	get_tree().quit()
+	PCAudio.request_quit()
 
 
 func _request_progress_reset() -> void:

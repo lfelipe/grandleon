@@ -53,3 +53,25 @@ if grep -Eq '(^|[[:space:]])(SCRIPT )?ERROR:|Parse Error:' "${state_dir}/test.lo
     ! grep -Fq 'PC audio integration smoke passed' "${state_dir}/test.log"; then
     exit 1
 fi
+
+# Exercise normal user exits with active playback, without test-side stream
+# cleanup. A process that exits zero while leaking resources still fails.
+for mode in home player window; do
+    log="${state_dir}/exit-${mode}.log"
+    if ! XDG_DATA_HOME="${state_dir}/data" \
+        XDG_CONFIG_HOME="${state_dir}/config" \
+        XDG_CACHE_HOME="${state_dir}/cache" \
+        timeout 60s "${godot_binary}" --headless --verbose --audio-driver Dummy \
+        --path "${stage_dir}" \
+        --script "${repo_root}/platform/godot/tests/application_exit_test.gd" -- \
+        "--mode=${mode}" >"${log}" 2>&1; then
+        cat "${log}"
+        exit 1
+    fi
+    if grep -Eq 'SCRIPT ERROR:|^ERROR:|Parse Error:|Leaked instance:|ObjectDB instances were leaked|resources still in use' "${log}" || \
+        ! grep -Fq "APPLICATION_EXIT_REQUESTED mode=${mode}" "${log}"; then
+        cat "${log}"
+        exit 1
+    fi
+    printf 'Application exit without audio/resource leaks: %s\n' "${mode}"
+done

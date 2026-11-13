@@ -148,7 +148,7 @@ func _execute(command_id: String, command: Dictionary) -> void:
 			)
 		"quit":
 			_write_result(command_id, operation, true, {})
-			get_tree().quit()
+			PCAudio.request_quit()
 		_:
 			_write_result(command_id, operation, false, {"error": "unsupported operation"})
 

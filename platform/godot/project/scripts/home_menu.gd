@@ -287,7 +287,7 @@ func _build_interface() -> void:
 		editor.pressed.connect(_open_editor)
 		column.add_child(editor)
 	var quit := _button(_t("home.exit"))
-	quit.pressed.connect(get_tree().quit)
+	quit.pressed.connect(PCAudio.request_quit)
 	column.add_child(quit)
 	status_label = _label("", 17, Color("8ba5b3"))
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -829,7 +829,7 @@ func _notification(what: int) -> void:
 	elif browser != null and browser.visible:
 		browser.close()
 	else:
-		get_tree().quit()
+		PCAudio.request_quit()
 
 
 func _build_mobile_interface() -> void:

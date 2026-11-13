@@ -13,9 +13,12 @@ var _music_level := 0.45
 var _music_player: AudioStreamPlayer
 var _music_theme := ""
 var _bound_buttons: Dictionary = {}
+var _shutting_down := false
 
 
 func _ready() -> void:
+	get_tree().auto_accept_quit = false
+	get_tree().root.close_requested.connect(request_quit)
 	_build_streams()
 	_music_player = AudioStreamPlayer.new()
 	_music_player.bus = &"Master"
@@ -42,10 +45,49 @@ func set_effects_level(value: float) -> void:
 			player.stop()
 
 
-func _exit_tree() -> void:
+func request_quit(exit_code := 0) -> void:
+	if _shutting_down:
+		return
+	_shutting_down = true
+	var tree := get_tree()
+	tree.root.set_disable_input(true)
+	var playbacks: Array[WeakRef] = []
 	for player: AudioStreamPlayer in _players:
-		player.stop()
-		player.stream = null
+		if player.has_stream_playback():
+			playbacks.append(weakref(player.get_stream_playback()))
+	if is_instance_valid(_music_player) and _music_player.has_stream_playback():
+		playbacks.append(weakref(_music_player.get_stream_playback()))
+	_release_playback()
+	for player: AudioStreamPlayer in _players:
+		player.queue_free()
+	_players.clear()
+	if is_instance_valid(_music_player):
+		_music_player.queue_free()
+		_music_player = null
+	# AudioServer retires playback references on its mixer thread. Observe
+	# their release instead of guessing a delay from the output buffer size.
+	# Keep an unavailable audio backend from holding application exit forever.
+	var deadline := Time.get_ticks_msec() + 1000
+	await tree.process_frame
+	await tree.process_frame
+	while playbacks.any(func(value: WeakRef): return value.get_ref() != null):
+		if Time.get_ticks_msec() >= deadline:
+			break
+		await tree.process_frame
+
+	tree.quit(exit_code)
+
+
+func _exit_tree() -> void:
+	_release_playback()
+
+
+func _release_playback() -> void:
+	_music_theme = ""
+	for player: AudioStreamPlayer in _players:
+		if is_instance_valid(player):
+			player.stop()
+			player.stream = null
 	if is_instance_valid(_music_player):
 		_music_player.stop()
 		_music_player.stream = null
@@ -68,7 +110,7 @@ func music_level() -> float:
 
 
 func play_music(theme := "cedar_overture") -> bool:
-	if theme not in MUSIC_THEMES or not is_instance_valid(_music_player):
+	if _shutting_down or theme not in MUSIC_THEMES or not is_instance_valid(_music_player):
 		return false
 	if theme == _music_theme:
 		return true
@@ -92,7 +134,7 @@ func level_name() -> String:
 
 
 func play_cue(cue: String) -> bool:
-	if is_zero_approx(_effects_level) or not _streams.has(cue) or _players.is_empty():
+	if _shutting_down or is_zero_approx(_effects_level) or not _streams.has(cue) or _players.is_empty():
 		return false
 	var player := _players[_next_player]
 	_next_player = (_next_player + 1) % _players.size()
