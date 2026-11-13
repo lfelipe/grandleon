@@ -9,6 +9,9 @@ config_version=5
 config/name="Grandleon PC"
 run/main_scene="res://home.tscn"
 config/icon="res://icon.svg"
+boot_splash/image="res://icon.png"
+boot_splash/fullsize=false
+boot_splash/bg_color=Color(0.027451, 0.066667, 0.105882, 1)
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/quit_on_go_back=false
 
