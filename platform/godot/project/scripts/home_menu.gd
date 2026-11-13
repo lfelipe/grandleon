@@ -7,6 +7,8 @@ const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
 const GRAPHICS_PROFILES := ["voxel-sprites"]
 const INCLUDED_GAMES_PATH := "res://content/included_games.json"
 
+var launch_in_progress := false
+
 var library
 var compiler
 var controls
@@ -516,7 +518,25 @@ func _choose_players(players: int) -> void:
 func _stage_package(
 	bytes: PackedByteArray, campaign: String, preview: bool, players: int, scope := ""
 ) -> void:
+	if launch_in_progress:
+		return
+	launch_in_progress = true
 	LaunchContext.stage_package(bytes, campaign, preview, players, "", "", "", scope)
+	if OS.has_feature("android"):
+		var shade := ColorRect.new()
+		shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		shade.color = Color("07111b")
+		add_child(shade)
+		var message := _label(_t("player.status.loading_campaign"), 48, Color("e9f7ff"))
+		message.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		message.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		shade.add_child(message)
+		# Draw feedback before entering the next scene's resource initialization.
+		await get_tree().process_frame
+		await get_tree().process_frame
+		if not is_inside_tree():
+			return
 	get_tree().change_scene_to_file("res://main.tscn")
 
 
@@ -771,7 +791,7 @@ func _play_local(entry: Dictionary) -> void:
 
 
 func _notification(what: int) -> void:
-	if what != NOTIFICATION_WM_GO_BACK_REQUEST: return
+	if what != NOTIFICATION_WM_GO_BACK_REQUEST or launch_in_progress: return
 	if player_choice_overlay != null and player_choice_overlay.visible:
 		_cancel_player_choice()
 	elif browser != null and browser.visible:

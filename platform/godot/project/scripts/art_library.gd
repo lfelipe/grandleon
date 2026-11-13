@@ -45,6 +45,7 @@ var _team_colours: Dictionary = DEFAULT_TEAM_COLOURS.duplicate()
 var _mask_to_variant: Array = []
 var _character_assets: Dictionary = {}
 var _character_sprite_overrides: Dictionary = {}
+var _character_sprite_entries: Dictionary = {}
 
 
 func _init(manifest_override: Variant = null) -> void:
@@ -198,6 +199,7 @@ func character_frame(
 # independently to the generated roster.
 func configure_profile(config: Dictionary) -> void:
 	_character_sprite_overrides.clear()
+	_character_sprite_entries.clear()
 	_team_textures.clear()
 	_team_texture_order.clear()
 	_team_colours = DEFAULT_TEAM_COLOURS.duplicate()
@@ -216,26 +218,31 @@ func configure_profile(config: Dictionary) -> void:
 	var sprites_value: Variant = assets_value.get("characterSprites", {})
 	if not sprites_value is Dictionary:
 		return
-	for key_value: Variant in sprites_value.keys():
-		var value: Variant = sprites_value[key_value]
-		if not value is Dictionary:
-			continue
-		var entry: Dictionary = value
-		if not _valid_character_sprite(entry):
-			continue
-		var resolved := entry.duplicate(true)
-		resolved["_team_mask_path"] = _valid_team_mask_path(resolved)
-		var directional_value: Variant = resolved.get("directionalSheet", {})
-		if directional_value is Dictionary:
-			var directional: Dictionary = directional_value
-			if _valid_character_sprite(directional):
-				var resolved_directional := directional.duplicate(true)
-				resolved_directional["directionalFlip"] = false
-				resolved_directional["_team_mask_path"] = _valid_team_mask_path(
-					resolved_directional
-				)
-				resolved["_directional_sheet"] = resolved_directional
-		_character_sprite_overrides[String(key_value)] = resolved
+	# Register metadata without loading every theme's textures. Resolve and
+	# validate each binding when a unit actually needs it, including failures.
+	_character_sprite_entries = sprites_value.duplicate(true)
+
+
+func _resolve_character_sprite(key: String) -> Dictionary:
+	if not _character_sprite_entries.has(key):
+		return {}
+	if _character_sprite_overrides.has(key):
+		return _character_sprite_overrides[key]
+	_character_sprite_overrides[key] = {}
+	var value: Variant = _character_sprite_entries.get(key, {})
+	if not value is Dictionary or not _valid_character_sprite(value):
+		return {}
+	var resolved: Dictionary = value.duplicate(true)
+	resolved["_team_mask_path"] = _valid_team_mask_path(resolved)
+	var directional_value: Variant = resolved.get("directionalSheet", {})
+	if directional_value is Dictionary and not directional_value.is_empty():
+		if _valid_character_sprite(directional_value):
+			var directional: Dictionary = directional_value.duplicate(true)
+			directional["directionalFlip"] = false
+			directional["_team_mask_path"] = _valid_team_mask_path(directional)
+			resolved["_directional_sheet"] = directional
+	_character_sprite_overrides[key] = resolved
+	return resolved
 
 
 func _valid_character_sprite(entry: Dictionary) -> bool:
@@ -267,12 +274,13 @@ func _valid_character_sprite(entry: Dictionary) -> bool:
 
 func _character_sprite_override(unit: Dictionary) -> Dictionary:
 	var exact_key := _character_identity_key(unit)
-	if _character_sprite_overrides.has(exact_key):
-		return _character_sprite_overrides[exact_key]
+	var exact := _resolve_character_sprite(exact_key)
+	if not exact.is_empty():
+		return exact
 	var fields := exact_key.split("|")
 	if fields.size() == 4:
 		fields[1] = "*"
-		return _character_sprite_overrides.get("|".join(fields), {})
+		return _resolve_character_sprite("|".join(fields))
 	return {}
 
 
