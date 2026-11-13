@@ -456,6 +456,17 @@ func cell_at(screen_position: Vector2) -> Vector2i:
 
 # Touch selection follows the visible figure instead of projecting its head
 # onto a different ground tile. Ground picking remains separate for movement.
+func _is_unit_figure_visible(id: int) -> bool:
+	var node: Node3D = _unit_nodes.get(id)
+	if node == null or not node.is_visible_in_tree():
+		return false
+	if _unit_sprites.has(id):
+		var sprite: Sprite3D = _unit_sprites[id]
+		return sprite.is_visible_in_tree() and sprite.modulate.a > 0.01
+	var cell := _cell_from_world(node.position)
+	return _visibility.visibility_at(roundi(cell.y) * int(snapshot.get("width", 0)) + roundi(cell.x)) > 0.01
+
+
 func unit_cell_at(screen_position: Vector2) -> Vector2i:
 	var result := Vector2i(-1, -1)
 	if _camera == null:
@@ -469,7 +480,7 @@ func unit_cell_at(screen_position: Vector2) -> Vector2i:
 		if not unit.get("on_board", false) or not _unit_nodes.has(id):
 			continue
 		var node: Node3D = _unit_nodes[id]
-		if not node.is_visible_in_tree():
+		if not _is_unit_figure_visible(id):
 			continue
 		var centre := node.global_position + Vector3.UP * 0.45
 		var half_size := Vector2(0.25, 0.4)
@@ -1502,9 +1513,10 @@ func _update_scenery_occlusion(delta: float) -> void:
 		var sprite_config: Dictionary = profile_config.get("sprite", {})
 		var body_height := float(sprite_config.get("worldHeight", 0.8))
 		var right := _camera.global_basis.x * 0.18
-		for unit_node: Node3D in _unit_nodes.values():
-			if not unit_node.is_visible_in_tree():
+		for id: int in _unit_nodes:
+			if not _is_unit_figure_visible(id):
 				continue
+			var unit_node: Node3D = _unit_nodes[id]
 			for height_fraction: float in [0.45, 0.85]:
 				for offset: float in [-1.0, 0.0, 1.0]:
 					var end: Vector3 = unit_node.global_position + Vector3.UP * body_height * height_fraction + right * offset

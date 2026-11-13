@@ -55,6 +55,10 @@ func _run() -> void:
 	var actor_screen: Vector2 = board.global_position + board._camera.unproject_position(actor_sprite.global_position)
 	var pick := actor_screen
 	expect(board.unit_cell_at(actor_screen) == Vector2i(1, 2), "visible torso resolves to the character's own cell")
+	var actor_colour := actor_sprite.modulate
+	actor_sprite.modulate.a = 0.0
+	expect(board.unit_cell_at(actor_screen) != Vector2i(1, 2), "unexplored transparent figures cannot be selected by torso")
+	actor_sprite.modulate = actor_colour
 	tap(pick)
 	if not expect(player.selected_units[0] == rowan, "real screen tap selects Rowan"):
 		return
