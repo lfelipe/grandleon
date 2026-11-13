@@ -76,6 +76,22 @@ func _run() -> void:
 	check(home.home_frame.get_global_rect().encloses(home.open_campaign_button.get_global_rect()) and home.home_frame.get_global_rect().encloses(home.browse_button.get_global_rect()), "Main touch actions must remain inside the hub frame")
 	check(home.first_button != null and home.first_button.size.y >= 126, "Included games must remain visible touch targets")
 	check(home.status_label.text == root.get_node("Localization").text("home.mobile_hint"), "Touch hub must explain tapping instead of controller buttons")
+	var hub = load("res://scripts/creator/creator_screen.gd").new()
+	root.add_child(hub)
+	await process_frame
+	hub._layout_mobile_hub(true)
+	Layout.apply_tree(hub, normal)
+	await process_frame
+	await process_frame
+	check(hub.hub_projects_panel.position.x == 80 and hub.hub_projects_panel.size.x == 1760, "Compact creator gives the project list the full canvas width")
+	check(not hub.hub_actions.vertical and not hub.hub_explanation.visible, "Compact creator uses a short action row")
+	for action: Control in hub.hub_actions.get_children():
+		if action is Button:
+			check(hub.hub_actions_panel.get_global_rect().encloses(action.get_global_rect()), "Compact creator actions must stay inside their panel")
+	hub._layout_mobile_hub(false)
+	await process_frame
+	check(hub.hub_actions.vertical and hub.hub_projects_panel.position.x == 680, "Tablet layout restores the two-column hub")
+	hub.queue_free()
 	root.remove_child(home)
 	var detached_adapter = load("res://scripts/creator/mobile_creator_layout.gd").new()
 	detached_adapter.screen = home

@@ -626,7 +626,7 @@ func _run() -> void:
 				_expect(
 					"session menu names its editor return",
 					current_scene.session_menu_projects.text,
-					"RETURN TO CAMPAIGN EDITOR"
+					"VOLTAR AO EDITOR DA CAMPANHA" # The fixture selects pt-BR above.
 				)
 				current_scene._open_projects()
 				await process_frame
@@ -678,6 +678,16 @@ func _run() -> void:
 	_expect("add chapter dialog receives controller focus", map_editor.chapter_title.has_focus(), true)
 
 	localization.call("select_language", prior_language, false)
+	for child in root.get_children():
+		if child is Control: child.queue_free()
+	await process_frame
+	var audio := root.get_node("PCAudio")
+	for stream_player in audio.get_children():
+		if stream_player is AudioStreamPlayer:
+			stream_player.stop()
+			stream_player.stream = null
+	audio.set("_streams", {})
+	await create_timer(0.15).timeout
 	if failures == 0:
 		print("campaign outline smoke passed")
 	quit(1 if failures > 0 else 0)

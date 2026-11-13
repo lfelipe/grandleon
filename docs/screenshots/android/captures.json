@@ -1,0 +1,72 @@
+{
+  "status": "0.6 development screenshots prepared for documentation review",
+  "date": "2026-11-12",
+  "captures": [
+    {
+      "file": "phone-selection.webp",
+      "alt": "Grandleon Android phone layout: move a unit. Select a friendly unit to see movement range and contextual actions. The board keeps its size as controls appear.",
+      "caption": "Select a friendly unit to see movement range and contextual actions. The board keeps its size as controls appear.",
+      "width": 1280,
+      "height": 720,
+      "device_mode": "phone",
+      "dpi": 320,
+      "capture": "Android emulator, adb screencap; unmodified UI, WebP encoding only",
+      "original_png_sha256": "b145c6f3e6d570fa813c1cd7356448b6f3b35073d7ac975ca417a5f47056c813"
+    },
+    {
+      "file": "tablet-targeting.webp",
+      "alt": "Grandleon Android tablet layout: plan an attack. Inspect target health, expected damage and the counterattack before committing.",
+      "caption": "Inspect target health, expected damage and the counterattack before committing.",
+      "width": 2400,
+      "height": 1600,
+      "device_mode": "tablet",
+      "dpi": 240,
+      "capture": "Android emulator, adb screencap; unmodified UI, WebP encoding only",
+      "original_png_sha256": "8e251ca84ceaa639ce6ae5a7d8f853ffceecdd74aa05d06e6fdfd0b78cf92611"
+    },
+    {
+      "file": "phone-map.webp",
+      "alt": "Grandleon Android phone layout: edit terrain. The editor uses a 2D terrain grid for painting and placement. Playtesting opens the Godot game board. Compact map-editing panels still need refinement.",
+      "caption": "The editor uses a 2D terrain grid for painting and placement. Playtesting opens the Godot game board. Compact map-editing panels still need refinement.",
+      "width": 1280,
+      "height": 720,
+      "device_mode": "phone",
+      "dpi": 320,
+      "capture": "Android emulator, adb screencap; unmodified UI, WebP encoding only",
+      "original_png_sha256": "07961fa31f8b662e0ae42fae06b3ca44e11b45980844299a2e5696a5f637d9e4"
+    },
+    {
+      "file": "tablet-map.webp",
+      "alt": "Grandleon Android tablet layout: edit terrain. The editor uses a 2D terrain grid for painting and placement. Playtesting opens the Godot game board. Compact map-editing panels still need refinement.",
+      "caption": "The editor uses a 2D terrain grid for painting and placement. Playtesting opens the Godot game board. Compact map-editing panels still need refinement.",
+      "width": 2400,
+      "height": 1600,
+      "device_mode": "tablet",
+      "dpi": 240,
+      "capture": "Android emulator, adb screencap; unmodified UI, WebP encoding only",
+      "original_png_sha256": "9f01d19cd0773e4e4752b167eab3c56e88f38e6fbb677d9d3e4ef7c13158317f"
+    },
+    {
+      "file": "phone-creator.webp",
+      "alt": "Grandleon Android phone layout: create and edit. Phones use a short action row and a full-width project list. Tablets retain the two-column project hub.",
+      "caption": "Phones use a short action row and a full-width project list. Tablets retain the two-column project hub.",
+      "width": 1280,
+      "height": 720,
+      "device_mode": "phone",
+      "dpi": 320,
+      "capture": "Android emulator, adb screencap; unmodified UI, WebP encoding only",
+      "original_png_sha256": "b8849b260c00ac25d786b782e1e79e237a3759a5eac6690ad2efc2df9f83db93"
+    },
+    {
+      "file": "tablet-creator.webp",
+      "alt": "Grandleon Android tablet layout: create and edit. Phones use a short action row and a full-width project list. Tablets retain the two-column project hub.",
+      "caption": "Phones use a short action row and a full-width project list. Tablets retain the two-column project hub.",
+      "width": 2400,
+      "height": 1600,
+      "device_mode": "tablet",
+      "dpi": 240,
+      "capture": "Android emulator, adb screencap; unmodified UI, WebP encoding only",
+      "original_png_sha256": "97373b0e4b1c4476e2ef7506ba266502975c2d24092e1dbbd1a8dfeb79e06e4c"
+    }
+  ]
+}

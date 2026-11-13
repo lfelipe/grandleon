@@ -53,6 +53,9 @@ items below describe the existing foundation; they are not being reopened.
 - [ ] Finish the phone/tablet usability pass on advanced editor forms,
   including the campaign outline's nested chapter list, and verify external
   keyboards and mice. Readable controls alone do not prove every form fits well.
+  Compact project hubs now use a full-width list; chapter cards stack their
+  actions, and campaign settings fold away. Phone/tablet review captures cover
+  these screens and the map editor, browser and player.
 - [x] Make the phone player board-first with contextual controls. Show legal
   unit actions after selection, target details during targeting, and compact
   dialogue/close-up controls only while those views are active. Avoid a

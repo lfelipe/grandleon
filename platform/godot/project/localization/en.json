@@ -1986,6 +1986,10 @@
     "map.mobile.overview": "Overview",
     "map.mobile.paint_hint": "Choose terrain to paint. Use Pan map to move around.",
     "player.touch.actions": "Actions",
-    "player.touch.tap_continue": "Tap to continue"
+    "player.touch.tap_continue": "Tap to continue",
+    "creator.mobile.new": "New",
+    "creator.mobile.import": "Import",
+    "creator.mobile.home": "Home",
+    "campaign.mobile.settings": "Campaign settings"
   }
 }

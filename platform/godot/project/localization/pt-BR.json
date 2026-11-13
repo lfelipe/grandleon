@@ -1986,6 +1986,10 @@
     "map.mobile.overview": "Visão geral",
     "map.mobile.paint_hint": "Escolha terreno para pintar. Use Mover mapa para navegar.",
     "player.touch.actions": "Ações",
-    "player.touch.tap_continue": "Toque para continuar"
+    "player.touch.tap_continue": "Toque para continuar",
+    "creator.mobile.new": "Novo",
+    "creator.mobile.import": "Importar",
+    "creator.mobile.home": "Início",
+    "campaign.mobile.settings": "Configurações da campanha"
   }
 }

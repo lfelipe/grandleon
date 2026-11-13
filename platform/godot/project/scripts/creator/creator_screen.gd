@@ -50,6 +50,13 @@ var import_buttons: Array[Button] = []
 var import_open_button: Button
 var import_refresh_button: Button
 var import_dialog: FileDialog
+var hub_actions_panel: PanelContainer
+var hub_projects_panel: PanelContainer
+var hub_actions: BoxContainer
+var hub_actions_title: Label
+var hub_home_button: Button
+var hub_hint: Label
+var hub_explanation: Label
 var screenshot_path := ""
 var screenshot_frames := -1
 
@@ -159,6 +166,7 @@ func _build_interface() -> void:
 	add_child(title)
 
 	var explanation := Label.new()
+	hub_explanation = explanation
 	explanation.text = _t("creator.explanation")
 	explanation.position = Vector2(84, 190)
 	explanation.size = Vector2(1700, 70)
@@ -171,6 +179,7 @@ func _build_interface() -> void:
 	add_child(explanation)
 
 	var actions_panel := PanelContainer.new()
+	hub_actions_panel = actions_panel
 	actions_panel.position = Vector2(80, 280)
 	actions_panel.size = Vector2(560, 650)
 	if OS.has_feature("android"):
@@ -180,11 +189,14 @@ func _build_interface() -> void:
 		"panel", _panel(Color("0c1d29"), 18, Color(0.20, 0.62, 0.78, 0.35))
 	)
 	add_child(actions_panel)
-	var actions := VBoxContainer.new()
+	var actions := BoxContainer.new()
+	actions.vertical = true
+	hub_actions = actions
 	actions.add_theme_constant_override("separation", 18)
 	actions_panel.add_child(actions)
 	var actions_title := _label(_t("creator.create.heading"), 18, Color("69d9ff"))
 	actions.add_child(actions_title)
+	hub_actions_title = actions_title
 	var campaign := _button(_t("creator.new_campaign"))
 	campaign.tooltip_text = _t("creator.new_campaign.help")
 	campaign.pressed.connect(_open_new_campaign)
@@ -195,6 +207,7 @@ func _build_interface() -> void:
 	import_open_button.pressed.connect(_open_import)
 	actions.add_child(import_open_button)
 	var home := _button(_t("creator.main_menu"))
+	hub_home_button = home
 	home.pressed.connect(_open_home)
 	actions.add_child(home)
 	var hint := _label(
@@ -204,8 +217,10 @@ func _build_interface() -> void:
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.custom_minimum_size.y = 86
 	actions.add_child(hint)
+	hub_hint = hint
 
 	var projects_panel := PanelContainer.new()
+	hub_projects_panel = projects_panel
 	projects_panel.position = Vector2(680, 280)
 	projects_panel.size = Vector2(1160, 650)
 	if OS.has_feature("android"):
@@ -222,7 +237,7 @@ func _build_interface() -> void:
 	project_filter = LineEdit.new()
 	project_filter.placeholder_text = "SEARCH PROJECTS"
 	project_filter.clear_button_enabled = true
-	project_filter.custom_minimum_size = Vector2(1040, 54)
+	project_filter.custom_minimum_size = Vector2(0 if OS.has_feature("android") else 1040, 54)
 	project_filter.add_theme_font_size_override("font_size", 18)
 	project_filter.text_changed.connect(_filter_projects)
 	projects_column.add_child(project_filter)
@@ -244,6 +259,7 @@ func _build_interface() -> void:
 	_build_rename_layer()
 	_build_import_layer()
 	_build_import_dialog()
+	_fit_mobile_canvas()
 
 
 func _build_new_campaign_layer() -> void:
@@ -975,9 +991,11 @@ func _refresh_projects() -> void:
 		project_list.add_child(entry)
 		var project_source: Dictionary = project.get("project", {})
 		var progress := _project_progress(project_source)
-		var edit := _button("CONTINUE CREATING  /  %s\n%s" % [title, progress])
+		var edit := _button(("%s\n%s" if OS.has_feature("android") else "CONTINUE CREATING  /  %s\n%s") % [title, progress])
 		edit.disabled = not bool(project.get("readable", false))
-		edit.custom_minimum_size = Vector2(1040, 86)
+		edit.custom_minimum_size = Vector2(0 if OS.has_feature("android") else 1040, 86)
+		if OS.has_feature("android"):
+			edit.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		edit.pressed.connect(_edit_project.bind(str(project.id)))
 		entry.add_child(edit)
@@ -1004,7 +1022,7 @@ func _refresh_projects() -> void:
 		var campaign_select: OptionButton = null
 		if choices.size() > 1:
 			campaign_select = OptionButton.new()
-			campaign_select.custom_minimum_size = Vector2(390, 58)
+			campaign_select.custom_minimum_size = Vector2(0 if OS.has_feature("android") else 390, 58)
 			campaign_select.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			campaign_select.add_theme_font_size_override("font_size", 17)
 			for choice: Dictionary in choices:
@@ -1018,7 +1036,8 @@ func _refresh_projects() -> void:
 			project_campaign_selects[str(project.id)] = campaign_select
 		var play := _button("TEST SELECTED" if campaign_select != null else "TEST CAMPAIGN")
 		play.disabled = edit.disabled
-		play.custom_minimum_size = Vector2(280 if campaign_select != null else 310, 58)
+		play.custom_minimum_size = Vector2(0 if OS.has_feature("android") else (280 if campaign_select != null else 310), 58)
+		play.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		if campaign_select != null:
 			play.pressed.connect(_play_selected_project.bind(str(project.id), campaign_select))
 		else:
@@ -1026,7 +1045,8 @@ func _refresh_projects() -> void:
 		actions.add_child(play)
 		var more := _button("MORE")
 		more.disabled = edit.disabled
-		more.custom_minimum_size = Vector2(270 if campaign_select != null else 470, 58)
+		more.custom_minimum_size = Vector2(0 if OS.has_feature("android") else (270 if campaign_select != null else 470), 58)
+		more.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		more.pressed.connect(_open_project_actions.bind(str(project.id), title))
 		actions.add_child(more)
 	if matches == 0:
@@ -1471,6 +1491,33 @@ func _fit_mobile_canvas() -> void:
 	load("res://scripts/mobile_layout.gd").fit_canvas(self)
 	if OS.has_feature("android"):
 		load("res://scripts/creator/mobile_creator_layout.gd").install.call_deferred(self)
+		var mobile = load("res://scripts/mobile_layout.gd")
+		_layout_mobile_hub(mobile.current_rect(get_viewport()).size.x / mobile.units_per_dp(get_viewport()) < 720)
+
+
+func _layout_mobile_hub(compact: bool) -> void:
+	if hub_actions_panel == null: return
+	hub_explanation.visible = not compact
+	hub_actions_title.visible = not compact
+	hub_hint.visible = not compact
+	hub_actions.vertical = not compact
+	for child: Node in hub_actions.get_children():
+		if child is Button:
+			child.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			child.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			if not child.has_meta("hub_full_text"): child.set_meta("hub_full_text", child.text)
+			var key := "new" if child == first_button else ("home" if child == hub_home_button else "import")
+			child.text = _t("creator.mobile." + key) if compact else str(child.get_meta("hub_full_text"))
+	if compact:
+		hub_actions_panel.position = Vector2(80, 216)
+		hub_actions_panel.size = Vector2(1760, 194)
+		hub_projects_panel.position = Vector2(80, 434)
+		hub_projects_panel.size = Vector2(1760, 576)
+	else:
+		hub_actions_panel.position = Vector2(80, 310)
+		hub_actions_panel.size = Vector2(560, 700)
+		hub_projects_panel.position = Vector2(680, 310)
+		hub_projects_panel.size = Vector2(1160, 700)
 
 
 func _notification(what: int) -> void:

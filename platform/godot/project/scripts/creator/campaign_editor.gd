@@ -840,10 +840,14 @@ func _filter_route(_value: String) -> void:
 
 func _add_node_button(node: Dictionary, battle_number: int, alternate: bool) -> void:
 	var kind := str(node.get("kind", ""))
-	var row := HBoxContainer.new()
+	var row := BoxContainer.new()
+	row.vertical = OS.has_feature("android")
 	row.add_theme_constant_override("separation", 12)
 	route_list.add_child(row)
 	var button := _button(_node_text(node, battle_number, alternate), 160)
+	if OS.has_feature("android"):
+		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.tooltip_text = _node_tooltip(node)
 	match kind:
 		"story":
@@ -856,17 +860,25 @@ func _add_node_button(node: Dictionary, battle_number: int, alternate: bool) -> 
 			button.disabled = true
 	row.add_child(button)
 	node_buttons[str(node.get("id", ""))] = button
+	var detail_actions: Container = row
+	if OS.has_feature("android"):
+		var compact_actions := GridContainer.new()
+		compact_actions.columns = 2
+		compact_actions.add_theme_constant_override("h_separation", 12)
+		compact_actions.add_theme_constant_override("v_separation", 12)
+		row.add_child(compact_actions)
+		detail_actions = compact_actions
 	if kind == "encounter":
 		var node_id := str(node.get("id", ""))
 		var test_one := _button(_t("campaign.test.battle_one"), 150)
 		test_one.tooltip_text = _t("campaign.test.battle_one_tooltip")
 		test_one.pressed.connect(_play_battle.bind(node_id, 1))
-		row.add_child(test_one)
+		detail_actions.add_child(test_one)
 		battle_test_one_buttons[node_id] = test_one
 		var test_two := _button(_t("campaign.test.battle_two"), 160)
 		test_two.tooltip_text = _t("campaign.test.battle_two_tooltip")
 		test_two.pressed.connect(_play_battle.bind(node_id, 2))
-		row.add_child(test_two)
+		detail_actions.add_child(test_two)
 		battle_test_two_buttons[node_id] = test_two
 		_refresh_battle_test_button(node, 1, test_one)
 		_refresh_battle_test_button(node, 2, test_two)
@@ -875,12 +887,12 @@ func _add_node_button(node: Dictionary, battle_number: int, alternate: bool) -> 
 		dependencies.pressed.connect(
 			_open_dependency_review.bind("battle", node_id, dependencies)
 		)
-		row.add_child(dependencies)
+		detail_actions.add_child(dependencies)
 		battle_dependency_buttons[node_id] = dependencies
 	if kind == "terminal":
 		var spacer := Control.new()
 		spacer.custom_minimum_size.x = 300
-		row.add_child(spacer)
+		detail_actions.add_child(spacer)
 	else:
 		var route_count: int = node.get("transitions", []).size()
 		var outcomes := _button(
@@ -894,10 +906,16 @@ func _add_node_button(node: Dictionary, battle_number: int, alternate: bool) -> 
 		outcomes.size_flags_horizontal = Control.SIZE_SHRINK_END
 		outcomes.tooltip_text = _t("campaign.outcome.button_tooltip")
 		outcomes.pressed.connect(_open_outcomes.bind(str(node.get("id", ""))))
-		row.add_child(outcomes)
+		detail_actions.add_child(outcomes)
 		outcome_buttons[str(node.get("id", ""))] = outcomes
 	if first_button == null and not button.disabled:
 		first_button = button
+
+	if OS.has_feature("android"):
+		for action: Control in detail_actions.get_children():
+			if action is Button:
+				action.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				action.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 
 func _node_text(node: Dictionary, battle_number: int, alternate: bool) -> String:
@@ -2877,10 +2895,25 @@ func _build_interface() -> void:
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	toolbar.add_child(hint)
+	if OS.has_feature("android"):
+		subtitle.hide()
+		hint.hide()
+		var toolbar_scroll := ScrollContainer.new()
+		toolbar_scroll.position = Vector2(80, 106)
+		toolbar_scroll.size = Vector2(1760, 136)
+		toolbar_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		toolbar_scroll.follow_focus = true
+		remove_child(toolbar)
+		add_child(toolbar_scroll)
+		toolbar_scroll.add_child(toolbar)
+		toolbar.position = Vector2.ZERO
 
 	var panel := PanelContainer.new()
 	panel.position = Vector2(80, 232)
 	panel.size = Vector2(1760, 760)
+	if OS.has_feature("android"):
+		panel.position.y = 260
+		panel.size.y = 748
 	panel.add_theme_stylebox_override(
 		"panel", _panel(Color("0c1d29"), 18, Color(0.20, 0.62, 0.78, 0.35))
 	)
@@ -2896,7 +2929,8 @@ func _build_interface() -> void:
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explanation.custom_minimum_size.y = 38
 	column.add_child(explanation)
-	var campaign_row := HBoxContainer.new()
+	var campaign_row := BoxContainer.new()
+	campaign_row.vertical = OS.has_feature("android")
 	campaign_row.add_theme_constant_override("separation", 16)
 	column.add_child(campaign_row)
 	var campaign_title := _label(_t("campaign.campaign_label"), 15, Color("69d9ff"))
@@ -2932,7 +2966,8 @@ func _build_interface() -> void:
 	campaign_help.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	campaign_help.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	campaign_row.add_child(campaign_help)
-	var player_row := HBoxContainer.new()
+	var player_row := BoxContainer.new()
+	player_row.vertical = OS.has_feature("android")
 	player_row.add_theme_constant_override("separation", 16)
 	column.add_child(player_row)
 	var player_title := _label(_t("campaign.players.label"), 15, Color("69d9ff"))
@@ -2961,6 +2996,26 @@ func _build_interface() -> void:
 	target_budget_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	target_budget_label.custom_minimum_size.y = 28
 	column.add_child(target_budget_label)
+	if OS.has_feature("android"):
+		var settings := FoldableContainer.new()
+		settings.title = _t("campaign.mobile.settings")
+		settings.folded = true
+		settings.add_theme_font_size_override("font_size", 42)
+		settings.add_theme_constant_override("outline_size", 0)
+		column.add_child(settings)
+		column.move_child(settings, 0)
+		var form := VBoxContainer.new()
+		form.add_theme_constant_override("separation", 16)
+		settings.add_child(form)
+		for item: Control in [explanation, campaign_row, player_row, target_budget_label]:
+			column.remove_child(item)
+			form.add_child(item)
+			item.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		campaign_select.custom_minimum_size.x = 0
+		player_mode_select.custom_minimum_size.x = 0
+		form.custom_minimum_size.x = 1640
+		player_mode_help.custom_minimum_size.x = 1640
+		campaign_help.custom_minimum_size.x = 1640
 	route_filter = LineEdit.new()
 	route_filter.placeholder_text = _t("campaign.route.search")
 	route_filter.custom_minimum_size = Vector2(0, 46)
