@@ -197,6 +197,17 @@ retain the separate normal-game capture timing caveat.
 Campaign design, creator audio customization, AI translation suggestions and
 iOS exports remain later milestones; they are not part of the 0.6 scope.
 
+## Future: co-op across devices
+
+- [ ] Explore hosting a shared Godot campaign session and joining it from
+  another tablet, phone or PC. Each player should control their own army on
+  their own screen. Keep the existing distinct 1P/2P campaign setups; the
+  current same-device player switch remains useful for testing and hot-seat
+  play. Start with local-network host/join, then consider remote sessions.
+  Design synchronized commands, host authority, save ownership, disconnects
+  and rejoining before implementation. Joining should enter the same shared
+  campaign state, rather than merging two independently progressed games.
+
 ## Prior to 1.0: a polished demo campaign
 
 - [ ] Design and playtest a cohesive campaign that introduces the rules through

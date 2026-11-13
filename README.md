@@ -181,6 +181,10 @@ rest of the documentation describes the current Godot application.
 
 See [TODO](TODO.md) for the detailed work list.
 
+A future co-op experiment will let one Godot player host a campaign and
+another join from their own tablet, phone or PC, with each controlling their
+own army. The first investigation will focus on local-network play.
+
 The 0.6 development branch adds **Browse Campaigns** to the Godot home menu.
 It reads the public [campaign catalogue](https://github.com/lfelipe/grandleon-campaigns),
 downloads compatible games and keeps installed campaigns available offline.
