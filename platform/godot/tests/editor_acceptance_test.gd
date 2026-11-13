@@ -179,7 +179,7 @@ func _run() -> void:
 	_expect("finished project validates", compiled.ok, true)
 	_expect("validation reports no diagnostics", compiled.get("diagnostics", []).size(), 0)
 	var exporter = StandaloneExporter.new(library, shell_root, export_root)
-	var exported: Dictionary = exporter.export_linux_player(project_id)
+	var exported: Dictionary = exporter.export_player(project_id)
 	_expect("validated campaign exports as a player-only game", exported.ok, true)
 	if exported.get("ok", false):
 		_expect(
