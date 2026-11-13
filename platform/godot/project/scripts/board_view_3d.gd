@@ -1518,18 +1518,22 @@ func _build_medieval_orchard_tree(parent: Node3D, top: float, variation: int) ->
 
 func _build_medieval_orchard_bell(parent: Node3D, top: float) -> void:
 	var bell := _medieval_landmark(parent, "orchard_bell")
-	bell.position.x = 0.5
+	# This landmark spans two passable paved cells. Keep the posts at the
+	# outer corners and the bell above a walking unit: the old narrow frame
+	# put both posts on cell centres and forced every legal east/west walk
+	# visibly through the wood and hanging bell.
+	bell.position = Vector3(0.5, 0, -0.38)
 	var timber := _material("medieval_orchard_bell_timber", Color("66452d"), 1.0)
 	var timber_light := _material("medieval_orchard_bell_beam", Color("825b39"), 0.98)
 	var stone := _material("medieval_orchard_bell_stone", Color("817869"), 1.0)
 	var bronze := _material("medieval_orchard_bell_bronze", Color("aa7537"), 0.74)
-	for post_x in [-0.39, 0.39]:
-		_box(bell, Vector3(post_x, top + 0.10, 0), Vector3(0.24, 0.16, 0.28), stone)
-		_box(bell, Vector3(post_x, top + 0.62, 0), Vector3(0.12, 0.94, 0.12), timber)
-	_box(bell, Vector3(0, top + 1.08, 0), Vector3(1.02, 0.14, 0.16), timber_light)
-	_box(bell, Vector3(0, top + 0.90, 0), Vector3(0.07, 0.28, 0.07), timber)
-	_cone(bell, Vector3(0, top + 0.76, 0), 0.17, 0.10, 0.25, bronze, 10)
-	_sphere(bell, Vector3(0, top + 0.61, 0), Vector3(0.045, 0.045, 0.045), bronze)
+	for post_x in [-0.90, 0.90]:
+		_box(bell, Vector3(post_x, top + 0.10, 0), Vector3(0.24, 0.16, 0.22), stone)
+		_box(bell, Vector3(post_x, top + 0.92, 0), Vector3(0.12, 1.60, 0.12), timber)
+	_box(bell, Vector3(0, top + 1.75, 0), Vector3(2.04, 0.14, 0.16), timber_light)
+	_box(bell, Vector3(0, top + 1.57, 0), Vector3(0.07, 0.28, 0.07), timber)
+	_cone(bell, Vector3(0, top + 1.38, 0), 0.17, 0.10, 0.25, bronze, 10)
+	_sphere(bell, Vector3(0, top + 1.23, 0), Vector3(0.045, 0.045, 0.045), bronze)
 
 
 func _build_medieval_signal_beacon(
