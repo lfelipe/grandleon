@@ -144,6 +144,16 @@ func _verify_and_capture(
 			"%s renders %s landmarks" % [spec.node, style],
 			_count_landmark_style(board._terrain_root, style, board), int(spec.visuals[style])
 		)
+	var geometry := {"instances": 0, "resources": {}}
+	_count_primitive_meshes(board._terrain_root, geometry)
+	if int(geometry.instances) > 20:
+		_expect_true(
+			"%s shares repeated terrain geometry" % spec.node,
+			geometry.resources.size() * 2 < int(geometry.instances)
+		)
+	print("%s terrain: %d primitive instances, %d shared meshes" % [
+		spec.node, int(geometry.instances), geometry.resources.size()
+	])
 	board._focus_tactical_camera(spec.focus)
 	board._update_tactical_camera(10.0)
 	board.set_process(false)
@@ -165,6 +175,13 @@ func _verify_and_capture(
 	_expect("%s capture writes a frame" % spec.node, error, OK)
 	board.queue_free()
 	await process_frame
+
+
+func _count_primitive_meshes(node: Node, counts: Dictionary) -> void:
+	if node is MeshInstance3D and node.mesh is PrimitiveMesh:
+		counts.instances += 1
+		counts.resources[node.mesh.get_instance_id()] = true
+	for child: Node in node.get_children(): _count_primitive_meshes(child, counts)
 
 
 func _count_landmark_style(root: Node, style: String, board: Node) -> int:

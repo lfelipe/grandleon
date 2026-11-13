@@ -49,5 +49,8 @@ func _init() -> void:
 	expect(Layout.safe_rect(Vector2(1920, 1080), Vector2(2400, 1080), Rect2(120, 0, 2160, 1080)) == Rect2(0, 0, 1920, 1080), "letterboxing lies outside logical canvas")
 	expect(Layout.safe_rect(Vector2(1920, 1080), Vector2.ZERO, Rect2()) == Rect2(0, 0, 1920, 1080), "missing display metadata keeps usable viewport")
 	expect(Layout.safe_rect(Vector2(2400, 1080), Vector2(2400, 1080), Rect2(128, 0, 2272, 1080)) == Rect2(128, 0, 2272, 1080), "expanded ultrawide viewport retains actual notch inset")
+	expect(is_equal_approx(Layout.native_3d_scale(Transform2D.IDENTITY.scaled(Vector2.ONE * (2.0 / 3.0))), 2.0 / 3.0), "720p phone renders its 1080p logical board at physical resolution")
+	expect(is_equal_approx(Layout.native_3d_scale(Transform2D.IDENTITY.scaled(Vector2.ONE * 1.25)), 1.0), "larger tablet keeps full board resolution")
+	expect(is_equal_approx(Layout.native_3d_scale(Transform2D(PI / 2, Vector2.ZERO).scaled(Vector2(0.5, 0.75))), 0.75), "rotation and unequal parent scaling keep enough samples on both axes")
 	print("MOBILE_INPUT_PASS checks=%d real_screen_events=true tap_drag_pinch=true safe_area=true" % checks)
 	quit()

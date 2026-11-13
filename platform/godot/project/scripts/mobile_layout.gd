@@ -23,6 +23,12 @@ static func units_per_dp(viewport: Viewport) -> float:
 	var stretch := minf(window.x / maxf(1.0, size.x), window.y / maxf(1.0, size.y))
 	return maxf(0.75, float(DisplayServer.screen_get_dpi()) / 160.0 / maxf(0.1, stretch))
 
+static func native_3d_scale(local_to_screen: Transform2D) -> float:
+	# The UI uses a logical canvas. Do not shade a larger 3D image than the
+	# pixels that canvas actually occupies on a phone. Keep enough samples
+	# for both axes when a parent scales them differently.
+	return clampf(maxf(local_to_screen.x.length(), local_to_screen.y.length()), 0.25, 1.0)
+
 static func fit_canvas(control: Control, design := Vector2(1920, 1080)) -> void:
 	if not OS.has_feature("android"):
 		return

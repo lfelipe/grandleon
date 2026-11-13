@@ -9,6 +9,7 @@ const MotionPath = preload("res://scripts/motion_path.gd")
 const PresentationFacing = preload("res://scripts/presentation_facing.gd")
 const TerrainSceneSelector = preload("res://scripts/terrain_scene_selector.gd")
 const VisualVisibility = preload("res://scripts/visual_visibility.gd")
+const MobileLayout = preload("res://scripts/mobile_layout.gd")
 const CURSOR_COLOURS := [Color("69d9ff"), Color("ffca63")]
 const DEFAULT_DECORATIVE_DEPTH := 3
 const TERRAIN_NAMES := [
@@ -101,6 +102,9 @@ var _visibility = VisualVisibility.new()
 var _visibility_cover_root: Node3D
 var _visibility_cover_materials: Dictionary = {}
 var _materials: Dictionary = {}
+var _box_meshes: Dictionary = {}
+var _cylinder_meshes: Dictionary = {}
+var _sphere_mesh: SphereMesh
 var _effects: Array[Dictionary] = []
 var _impact_texture: Texture2D
 var _slash_texture: Texture2D
@@ -168,6 +172,7 @@ func _ready() -> void:
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	_viewport.transparent_bg = false
 	add_child(_viewport)
+	_update_mobile_render_scale()
 
 	_world = Node3D.new()
 	_viewport.add_child(_world)
@@ -181,6 +186,16 @@ func _ready() -> void:
 	_world.add_child(_effect_root)
 	_create_environment()
 	set_process(true)
+
+
+func _update_mobile_render_scale() -> void:
+	if not OS.has_feature("android") or _viewport == null:
+		return
+	var to_screen := get_viewport().get_screen_transform() * get_global_transform_with_canvas()
+	var render_scale := MobileLayout.native_3d_scale(to_screen)
+	if not is_equal_approx(_viewport.scaling_3d_scale, render_scale):
+		_viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+		_viewport.scaling_3d_scale = render_scale
 
 
 func _create_environment() -> void:
@@ -690,6 +705,7 @@ func _process(delta: float) -> void:
 	_update_castle_reveal_target()
 	_update_castle_reveal(delta)
 	_update_castle_unit_presentation()
+	_update_mobile_render_scale()
 	if _viewport and _viewport.size != Vector2i(size):
 		_viewport.size = Vector2i(size)
 		# A resized gameplay area changes the orthographic footprint. Re-clamp
@@ -2763,10 +2779,14 @@ func _material(key: String, colour: Color, roughness := 0.8, transparent := fals
 
 
 func _box(parent: Node3D, at: Vector3, dimensions: Vector3, material: Material) -> MeshInstance3D:
-	var mesh := BoxMesh.new()
-	mesh.size = dimensions
+	# Repeated terrain and props share immutable vertex buffers. Material and
+	# transform stay on each instance, including animated doors and roofs.
+	if not _box_meshes.has(dimensions):
+		var mesh := BoxMesh.new()
+		mesh.size = dimensions
+		_box_meshes[dimensions] = mesh
 	var instance := MeshInstance3D.new()
-	instance.mesh = mesh
+	instance.mesh = _box_meshes[dimensions]
 	instance.material_override = material
 	instance.position = at
 	parent.add_child(instance)
@@ -2774,13 +2794,8 @@ func _box(parent: Node3D, at: Vector3, dimensions: Vector3, material: Material) 
 
 
 func _cylinder(parent: Node3D, at: Vector3, radius: float, height: float, material: Material, segments: int, scale_value := Vector3.ONE) -> MeshInstance3D:
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = radius
-	mesh.bottom_radius = radius
-	mesh.height = height
-	mesh.radial_segments = segments
 	var instance := MeshInstance3D.new()
-	instance.mesh = mesh
+	instance.mesh = _cylinder_mesh(radius, radius, height, segments)
 	instance.material_override = material
 	instance.position = at
 	instance.scale = scale_value
@@ -2789,25 +2804,33 @@ func _cylinder(parent: Node3D, at: Vector3, radius: float, height: float, materi
 
 
 func _cone(parent: Node3D, at: Vector3, bottom_radius: float, top_radius: float, height: float, material: Material, segments: int) -> MeshInstance3D:
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = top_radius
-	mesh.bottom_radius = bottom_radius
-	mesh.height = height
-	mesh.radial_segments = segments
 	var instance := MeshInstance3D.new()
-	instance.mesh = mesh
+	instance.mesh = _cylinder_mesh(bottom_radius, top_radius, height, segments)
 	instance.material_override = material
 	instance.position = at
 	parent.add_child(instance)
 	return instance
 
 
+func _cylinder_mesh(bottom_radius: float, top_radius: float, height: float, segments: int) -> CylinderMesh:
+	var key := Vector4(bottom_radius, top_radius, height, float(segments))
+	if not _cylinder_meshes.has(key):
+		var mesh := CylinderMesh.new()
+		mesh.bottom_radius = bottom_radius
+		mesh.top_radius = top_radius
+		mesh.height = height
+		mesh.radial_segments = segments
+		_cylinder_meshes[key] = mesh
+	return _cylinder_meshes[key]
+
+
 func _sphere(parent: Node3D, at: Vector3, scale_value: Vector3, material: Material) -> MeshInstance3D:
-	var mesh := SphereMesh.new()
-	mesh.radial_segments = 8
-	mesh.rings = 4
+	if _sphere_mesh == null:
+		_sphere_mesh = SphereMesh.new()
+		_sphere_mesh.radial_segments = 8
+		_sphere_mesh.rings = 4
 	var instance := MeshInstance3D.new()
-	instance.mesh = mesh
+	instance.mesh = _sphere_mesh
 	instance.material_override = material
 	instance.position = at
 	instance.scale = scale_value
