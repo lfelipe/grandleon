@@ -13,6 +13,7 @@ import subprocess
 import tempfile
 import urllib.request
 import zipfile
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[3]
 GODOT_VERSION = '4.7.2'
@@ -170,6 +171,24 @@ def main():
         shutil.copy2(ROOT / source, licenses / name)
     notice = ndk / 'toolchains/llvm/prebuilt/linux-x86_64/NOTICE'
     shutil.copy2(notice, licenses / 'ANDROID-LLVM-RUNTIME-NOTICE.txt')
+    # Android masks adaptive/splash icons to a circle. Pad the existing logo
+    # into its safe area so the G and sword remain intact on every launcher.
+    svg_namespace = 'http://www.w3.org/2000/svg'
+    ET.register_namespace('', svg_namespace)
+    icon = ET.fromstring((stage / 'icon.svg').read_text())
+    origin_x, origin_y, width, height = map(float, icon.attrib['viewBox'].split())
+    icon.set('viewBox', f'0 0 {width * 1.5:g} {height * 1.5:g}')
+    group = ET.Element(f'{{{svg_namespace}}}g', {
+        'transform': f'translate({width * 0.25 - origin_x:g} {height * 0.25 - origin_y:g})',
+    })
+    for child in list(icon):
+        icon.remove(child)
+        group.append(child)
+    icon.append(group)
+    (stage / 'android_icon.svg').write_text(ET.tostring(icon, encoding='unicode'))
+    (stage / 'android_background.svg').write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 432 432">'
+        '<rect width="432" height="432" fill="#07111b"/></svg>')
     project = stage / 'project.godot'
     project.write_text(project.read_text().replace('config/name="Grandleon PC"', 'config/name="Grandleon"').replace(
         'renderer/rendering_method.mobile="gl_compatibility"',
@@ -207,7 +226,9 @@ def main():
                    'architectures/x86=false\narchitectures/x86_64=true\nversion/code=1\nversion/name="0.6-dev"\n'
                    'package/unique_name="org.grandleon.app.dev"\npackage/name="Grandleon"\n'
                    'launcher_icons/main_192x192="res://icon.png"\n'
-                   'splash_screen/icon="res://icon.png"\n'
+                   'launcher_icons/adaptive_foreground_432x432="res://android_icon.svg"\n'
+                   'launcher_icons/adaptive_background_432x432="res://android_background.svg"\n'
+                   'splash_screen/icon="res://android_icon.svg"\n'
                    'splash_screen/background_color=Color(0.027451, 0.066667, 0.105882, 1)\n'
                    'splash_screen/disable_godot_boot_splash=true\n'
                    'permissions/internet=true\npermissions/change_wifi_multicast_state=true\npermissions/access_wifi_state=true\npermissions/read_external_storage=false\npermissions/write_external_storage=false\n'
