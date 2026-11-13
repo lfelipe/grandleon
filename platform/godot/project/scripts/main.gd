@@ -4607,6 +4607,10 @@ func _mobile_tap(position: Vector2) -> void:
 		_close_action_popup(mobile_seat)
 		return # A tap outside a decision card never activates its focused row.
 	var cell: Vector2i = board.cell_at(position)
+	if board.has_method("unit_cell_at"):
+		var figure_cell: Vector2i = board.unit_cell_at(position)
+		if figure_cell.x >= 0:
+			cell = figure_cell
 	if cell.x < 0:
 		return
 	var unit: Dictionary = board.unit_at(cell)

@@ -50,10 +50,11 @@ func _run() -> void:
 	var rowan := 7543913367842920562
 	var target := 7878946346193111832
 	var board: Node = player.board
-	var actor_screen: Vector2 = board.screen_position_for_cell(Vector2i(1, 2))
-	# Projected marker anchors sit above the ground; find the cell centre by
-	# using the board camera's own ray picker rather than overriding selection.
-	var pick := _pick_cell(board, Vector2i(1, 2), actor_screen)
+	# Tap the actual displayed torso, not a ground coordinate found by search.
+	var actor_sprite: Sprite3D = board._unit_sprites[rowan]
+	var actor_screen: Vector2 = board.global_position + board._camera.unproject_position(actor_sprite.global_position)
+	var pick := actor_screen
+	expect(board.unit_cell_at(actor_screen) == Vector2i(1, 2), "visible torso resolves to the character's own cell")
 	tap(pick)
 	if not expect(player.selected_units[0] == rowan, "real screen tap selects Rowan"):
 		return

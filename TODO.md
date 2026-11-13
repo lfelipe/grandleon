@@ -34,6 +34,8 @@ items below describe the existing foundation; they are not being reopened.
 
 ### Android player and editor
 
+- [x] Let touch players select the visible character body instead of requiring
+  a tap on its ground tile; retain ground picking for movement destinations.
 - [x] Build the native extension and campaign compiler for Android ARM64.
   Package the Godot application, required runtime libraries and built-in
   campaign as an installable APK, with reproducible SDK/NDK and template pins.
@@ -106,6 +108,9 @@ touch movement, attack/counterattack, background/resume and creator
 create → paint → save → compile → play checks. Roster art now loads on demand
 and the language picker stays within the visible screen. This is functional
 coverage on one tablet; wider device, audio and controller checks remain open.
+Tablet-to-PC LAN discovery, a touch command accepted by the host, app restart
+and rejoining the same army with its completed action preserved, and
+background/resume behind the pause menu have also passed on this device.
 
 ### Downloadable campaigns
 

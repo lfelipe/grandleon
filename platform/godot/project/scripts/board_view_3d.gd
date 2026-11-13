@@ -454,6 +454,45 @@ func cell_at(screen_position: Vector2) -> Vector2i:
 	return cell
 
 
+# Touch selection follows the visible figure instead of projecting its head
+# onto a different ground tile. Ground picking remains separate for movement.
+func unit_cell_at(screen_position: Vector2) -> Vector2i:
+	var result := Vector2i(-1, -1)
+	if _camera == null:
+		return result
+	var local := screen_position - global_position
+	if not Rect2(Vector2.ZERO, size).has_point(local):
+		return result
+	var closest := INF
+	for unit: Dictionary in snapshot.get("units", []):
+		var id := int(unit.get("id", 0))
+		if not unit.get("on_board", false) or not _unit_nodes.has(id):
+			continue
+		var node: Node3D = _unit_nodes[id]
+		if not node.is_visible_in_tree():
+			continue
+		var centre := node.global_position + Vector3.UP * 0.45
+		var half_size := Vector2(0.25, 0.4)
+		if _unit_sprites.has(id):
+			var sprite: Sprite3D = _unit_sprites[id]
+			centre = sprite.global_position
+			half_size = Vector2(sprite.get_aabb().size.x, sprite.get_aabb().size.y) * 0.5
+			half_size *= Vector2(sprite.global_basis.get_scale().x, sprite.global_basis.get_scale().y)
+		if _camera.is_position_behind(centre):
+			continue
+		var projected := _camera.unproject_position(centre)
+		var right := _camera.unproject_position(centre + _camera.global_basis.x * half_size.x)
+		var up := _camera.unproject_position(centre + _camera.global_basis.y * half_size.y)
+		var extent := Vector2(projected.distance_to(right), projected.distance_to(up))
+		if not Rect2(projected - extent, extent * 2.0).has_point(local):
+			continue
+		var depth := -(_camera.global_transform.affine_inverse() * centre).z
+		if depth < closest:
+			closest = depth
+			result = Vector2i(int(unit.x), int(unit.y))
+	return result
+
+
 func screen_position_for_cell(cell: Vector2i) -> Vector2:
 	if _camera == null or snapshot.is_empty():
 		return global_position + size * 0.5
