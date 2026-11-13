@@ -147,6 +147,6 @@
       }
     }
   },
-  "change": "Mipsync patch 0013: reuse certified visibility in cached flat draws",
+  "change": "Mipsync local optimization: reuse certified visibility in cached flat draws",
   "strict_performance_checks": "Remain failing for Deepwood and Twin Gate; no thresholds or scenarios relaxed."
 }

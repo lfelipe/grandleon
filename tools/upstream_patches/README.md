@@ -14,6 +14,22 @@ format-patch` files. Each engine has:
 Grandleon-specific adapters, art conversion, campaign loading and game UI stay
 under `platform/`. They do not belong in these patches.
 
+## Current Mipsync version
+
+Mipsync is pinned to `v1.0.0f1` (`ce1e489`). [Upstream PR #1](https://github.com/KasaBranca/Mipsync/pull/1)
+contains our first twelve patches, so those copies have been removed. The release
+also fixes forward and chained shared-palette references and registers the
+world-projection test with CTest, covering both review follow-ups.
+
+Validation of this pin passed the five portable upstream PS1 projection,
+clipping and palette tests. Grandleon's project export gate also passed: both
+the small demo and Steel and Cedar built and booted in the PS1 emulator, followed
+by the CD-audio and independent volume-setting checks. This does not replace
+upstream's full desktop editor validation.
+
+One later optimization remains local: reusing certified visibility when drawing
+cached flat meshes. It is kept as a separate patch for a future upstream review.
+
 ## Making an engine fix
 
 1. Clone the upstream repository (or your fork) separately.
