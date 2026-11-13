@@ -225,16 +225,33 @@ retain the separate normal-game capture timing caveat.
 Campaign design, creator audio customization, AI translation suggestions and
 iOS exports remain later milestones; they are not part of the 0.6 scope.
 
-## Future: co-op across devices
+## Co-op across devices
 
-- [ ] Explore hosting a shared Godot campaign session and joining it from
-  another tablet, phone or PC. Each player should control their own army on
-  their own screen. Keep the existing distinct 1P/2P campaign setups; the
-  current same-device player switch remains useful for testing and hot-seat
-  play. Start with local-network host/join, then consider remote sessions.
-  Design synchronized commands, host authority, save ownership, disconnects
-  and rejoining before implementation. Joining should enter the same shared
-  campaign state, rather than merging two independently progressed games.
+- [x] Add Android/PC LAN host/join with automatic discovery, independent screens
+  and one army per device. Keep authored two-player setups and same-device play.
+  The host runs the native rules and supplies movement routes, battle events,
+  legal actions and attack forecasts to its partner.
+- [x] Save shared campaigns on the host, including unfinished battles. Preserve
+  both armies, combat results, action flags and the returning partner's seat
+  across disconnects, checkpoint loads and host restarts. Reject damaged saves
+  without replacing the running game.
+- [ ] Finish Android/PC hardware checks across different Wi-Fi access points,
+  host background/resume, controllers and Windows firewalls. Discovery uses
+  UDP 29531; gameplay uses UDP 29532. Keep direct-address joining available
+  when an access point blocks broadcasts or isolates clients.
+- [ ] Investigate intermittent stale Android emulator display on LAN rejoin.
+  The restored board appears in Godot viewport captures but the emulator can
+  retain its initial frame until background/foreground. Verify on physical
+  Android hardware before considering reconnect acceptance complete.
+- [ ] Plan internet play using the same authoritative session and save format.
+  Replace LAN discovery with authenticated invitations or rooms. Investigate
+  an encrypted relay so players behind NAT/firewalls can join without router
+  configuration; direct connections can be an optimization later.
+- [ ] Remote play must save and resume the same shared campaign, including
+  unfinished battles. Keep a durable session identity, host-owned checkpoints,
+  seat recovery, compatible campaign versions and clear reconnect/conflict
+  handling. Consider explicit host transfer or save export later; do not merge
+  independently progressed campaigns or treat remote co-op as two controllers.
 
 ## Prior to 1.0: a polished demo campaign
 

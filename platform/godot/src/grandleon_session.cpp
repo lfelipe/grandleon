@@ -2,6 +2,7 @@
 #include <grandleon/godot/grandleon_session.hpp>
 
 #include <grandleon/client/session.hpp>
+#include <grandleon/campaign/save.hpp>
 #include <grandleon/campaign_runtime/campaign_runtime.hpp>
 #include <grandleon/core/content_identity.hpp>
 #include <grandleon/game_content/compiler.hpp>
@@ -895,6 +896,14 @@ void GrandleonSession::_bind_methods() {
         &GrandleonSession::load_checkpoint
     );
     gd::ClassDB::bind_method(
+        gd::D_METHOD("campaign_checkpoint_bytes"),
+        &GrandleonSession::campaign_checkpoint_bytes
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD("restore_campaign_checkpoint", "bytes"),
+        &GrandleonSession::restore_campaign_checkpoint
+    );
+    gd::ClassDB::bind_method(
         gd::D_METHOD("reset_progress"), &GrandleonSession::reset_progress
     );
     gd::ClassDB::bind_method(gd::D_METHOD("stop"), &GrandleonSession::stop);
@@ -1322,6 +1331,7 @@ bool GrandleonSession::launch_worker() {
             options.resume = resume;
             options.player_side = sim::Side::first;
             options.local_players = players;
+            options.checkpoint_before_battle = true;
             const client::CampaignSessionError status =
                 client::run_persistent_campaign(
                     package_, campaign_id, *presenter, *presenter, *device,
@@ -1434,6 +1444,60 @@ bool GrandleonSession::load_checkpoint(std::int64_t slot) {
     {
         std::lock_guard<std::mutex> lock(state_mutex_);
         last_error_.clear();
+        has_snapshot_ = false;
+        latest_weapons_.clear();
+        latest_abilities_.clear();
+        latest_snapshot_event_.reset();
+        latest_definitions_event_.reset();
+        latest_campaign_event_.reset();
+        latest_management_event_.reset();
+        latest_dialogue_events_.clear();
+        progress_available_ = true;
+    }
+    return launch_worker();
+}
+
+// Network battle checkpoints pair this portable campaign boundary with an
+// ordered intent journal. Keep storage access here instead of teaching the
+// Godot transport about native slot filenames or encodings.
+gd::PackedByteArray GrandleonSession::campaign_checkpoint_bytes() const {
+    gd::PackedByteArray result;
+    if (!storage_) return result;
+    const storage::StorageRead read = storage_->read(save_slot_);
+    if (!read) return result;
+    result.resize(static_cast<int64_t>(read.bytes.size()));
+    std::copy(read.bytes.begin(), read.bytes.end(), result.ptrw());
+    return result;
+}
+
+bool GrandleonSession::restore_campaign_checkpoint(
+    const gd::PackedByteArray& bytes
+) {
+    if (!storage_ || bytes.is_empty() || bytes.size() > 16 * 1024 * 1024) {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        last_error_ = "campaign checkpoint is unavailable";
+        return false;
+    }
+    const std::vector<std::uint8_t> candidate(bytes.ptr(), bytes.ptr() + bytes.size());
+    const auto loaded = campaign::load_campaign(candidate, {});
+    if (!loaded || !loaded.save.state.progress.active ||
+        !(loaded.save.state.progress.campaign == core::ContentRef{package_.game_id, core::ContentCategory::campaign, campaign_id_}) ||
+        loaded.save.packages.size() != 1 ||
+        loaded.save.packages.front().package != package_.game_id ||
+        loaded.save.packages.front().content_revision != package_.content_revision) {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        last_error_ = "campaign checkpoint is incompatible or damaged";
+        return false;
+    }
+    stop();
+    const auto written = storage_->write(save_slot_, candidate);
+    if (written != storage::StorageError::none) {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        last_error_ = "campaign checkpoint could not be restored";
+        return false;
+    }
+    {
+        std::lock_guard<std::mutex> lock(state_mutex_);
         has_snapshot_ = false;
         latest_weapons_.clear();
         latest_abilities_.clear();

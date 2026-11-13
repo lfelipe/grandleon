@@ -1191,6 +1191,9 @@ CampaignSessionError run_persistent_campaign(
             continue;
         }
         if (!published) return prepared.error;
+        if (options.checkpoint_before_battle) {
+            narrator.campaign_saved(options.slot, session.save());
+        }
         narrator.board_prepared(prepared.board);
         presenter.battle_route(
             prepared.board.node.stable_id,

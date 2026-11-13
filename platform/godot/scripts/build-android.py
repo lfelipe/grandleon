@@ -206,7 +206,7 @@ def main():
                    'architectures/armeabi-v7a=false\narchitectures/arm64-v8a=true\n'
                    'architectures/x86=false\narchitectures/x86_64=true\nversion/code=1\nversion/name="0.6-dev"\n'
                    'package/unique_name="org.grandleon.app.dev"\npackage/name="Grandleon"\n'
-                   'permissions/internet=true\npermissions/read_external_storage=false\npermissions/write_external_storage=false\n'
+                   'permissions/internet=true\npermissions/change_wifi_multicast_state=true\npermissions/access_wifi_state=true\npermissions/read_external_storage=false\npermissions/write_external_storage=false\n'
                    'screen/support_small=true\nscreen/support_normal=true\nscreen/support_large=true\nscreen/support_xlarge=true\n'
                    'texture_format/s3tc_bptc=false\ntexture_format/etc2_astc=true\n')
     run(godot, '--headless', '--editor', '--import', '--quit', '--path', stage, env=env)

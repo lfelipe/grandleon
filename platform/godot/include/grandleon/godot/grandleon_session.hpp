@@ -268,6 +268,8 @@ public:
     [[nodiscard]] bool checkpoint_save_ready() const;
     [[nodiscard]] bool save_checkpoint(std::int64_t slot);
     [[nodiscard]] bool load_checkpoint(std::int64_t slot);
+    [[nodiscard]] ::godot::PackedByteArray campaign_checkpoint_bytes() const;
+    [[nodiscard]] bool restore_campaign_checkpoint(const ::godot::PackedByteArray& bytes);
     [[nodiscard]] bool reset_progress();
     void stop();
     [[nodiscard]] bool running() const;

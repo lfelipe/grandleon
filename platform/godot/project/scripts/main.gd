@@ -23,6 +23,10 @@ const DIAGNOSTIC_GRAPHICS_PROFILES := [
 	"pixel", "diorama", "voxel-sprites", "voxel"
 ]
 
+var lan_waiting_for_host := false
+var lan_status_panel: PanelContainer
+var lan_status_text: Label
+var lan_retry_button: Button
 var mobile_gestures := MobileInput.new()
 var mobile_bar: PanelContainer
 var mobile_menu_panel: PanelContainer
@@ -275,10 +279,16 @@ func _ready() -> void:
 	_create_background()
 	_create_board(graphics_profile)
 	_create_interface()
+	if LANSession.active(): _create_lan_status()
 	if OS.has_feature("android"):
 		_create_mobile_controls()
 	_create_combat_cinematic(initial_profile)
 	_update_session_labels()
+	if LANSession.active() and LANSession.role == "client":
+		session_menu_save_load.disabled = true
+		session_menu_save_load.tooltip_text = _ui("lan.host_saves")
+		session_menu_language.disabled = true
+		session_menu_language.tooltip_text = _ui("lan.host_language")
 	if player_localization_preview:
 		return
 	if frame_timing_smoke:
@@ -296,7 +306,7 @@ func _ready() -> void:
 	if controls_smoke:
 		_run_controls_smoke()
 		return
-	session = ClassDB.instantiate("GrandleonSession")
+	session = load("res://scripts/network/lan_campaign.gd").new(LANSession) if LANSession.active() else ClassDB.instantiate("GrandleonSession")
 	if session == null:
 		_show_fatal(_ui("player.error.native_bridge"))
 		return
@@ -359,6 +369,7 @@ func _exit_tree() -> void:
 func _process(delta: float) -> void:
 	if mobile_backgrounded:
 		return
+	if LANSession.active(): _update_lan_status()
 	if OS.has_feature("android"):
 		_update_mobile_controls()
 	frame_timing.sample(delta)
@@ -2593,9 +2604,17 @@ func _configure_seats() -> void:
 	keyboard_seat = ControllerSeats.assign_keyboard(
 		previous_keyboard, assignments, player_count
 	)
+	if LANSession.active():
+		assignments = [-1, -1]
+		keyboard_seat = LANSession.local_seat()
+		mobile_seat = keyboard_seat
+		hud_seat = keyboard_seat
+		var connected_pads := Input.get_connected_joypads()
+		if not connected_pads.is_empty(): assignments[keyboard_seat] = int(connected_pads[0])
 	for index in 2:
 		var device := assignments[index]
 		var active := index < player_count and (device >= 0 or index == keyboard_seat or OS.has_feature("android"))
+		if LANSession.active(): active = index == LANSession.local_seat()
 		var cursor := Vector2i(index, index)
 		if index < seats.size():
 			cursor = Vector2i(seats[index].get("cursor", cursor))
@@ -2784,6 +2803,7 @@ func _handle_event(event: Dictionary) -> void:
 				dialogue_index = dialogue_lines.size() - event.get("lines", []).size()
 				_show_dialogue_line()
 		"battle_begins":
+			lan_waiting_for_host = false
 			PCAudio.play_music("banners_afar")
 			pending_combat_presentation.clear()
 			if combat_cinematic != null:
@@ -2822,7 +2842,7 @@ func _handle_event(event: Dictionary) -> void:
 			for seat in 2:
 				board.set_selected(seat, 0, "move")
 			_seed_cursors()
-			_show_no_selection(0)
+			_show_no_selection(LANSession.local_seat() if LANSession.active() else 0)
 			_update_status()
 			if fixed_formation_smoke:
 				if not fixed_formation_skipped:
@@ -2845,6 +2865,18 @@ func _handle_event(event: Dictionary) -> void:
 				"hidden_cells": event.get("hidden_cells", []).duplicate(),
 			}
 			board.set_visual_visibility(battle_visual_visibility)
+		"network_resync":
+			# A fresh guest has no previous presentation or menu to discard.
+			if not snapshot.is_empty() or _dialogue_visible() or not pending_company.is_empty():
+				_clear_session_presentation()
+			if _session_menu_visible(): _close_session_menu()
+			lan_waiting_for_host = false
+		"network_save_failed":
+			_show_toast(_ui("lan.storage_error"))
+		"network_language":
+			game_language = str(event.get("language", game_language))
+			_select_matching_interface_language(game_language)
+			_apply_localized_runtime_state(event.get("state", {}))
 		"definitions":
 			definitions = event
 		"deployment_begins":
@@ -3020,6 +3052,10 @@ func _maybe_show_campaign_result() -> void:
 
 
 func _handle_management(company: Dictionary) -> void:
+	if LANSession.active() and LANSession.role == "client":
+		lan_waiting_for_host = true
+		pending_company.clear()
+		return
 	if company.is_empty():
 		_show_fatal(_ui("player.error.company_missing"))
 		return
@@ -3375,6 +3411,7 @@ func _move_cursor(seat: int, delta: Vector2i) -> void:
 
 
 func _accept_at(seat: int) -> void:
+	if LANSession.active() and (not LANSession.connected or LANSession.game_paused or lan_waiting_for_host): return
 	if snapshot.is_empty():
 		return
 	hud_seat = seat
@@ -3788,6 +3825,7 @@ func _selected_by_other_seat(seat: int, unit_id: int) -> int:
 
 
 func _unit_owned_by_seat(unit: Dictionary, seat: int) -> bool:
+	if LANSession.active() and seat != LANSession.local_seat(): return false
 	return (
 		String(unit.get("side", "")) == "first"
 		and int(unit.get("player", 1)) == seat + 1
@@ -4305,12 +4343,13 @@ func _mobile_unit_busy(unit_id: int) -> bool:
 
 
 func _mobile_context_actions() -> Array:
-	if snapshot.is_empty() or _dialogue_visible() or (combat_cinematic != null and combat_cinematic.is_active()):
+	if (LANSession.active() and (not LANSession.connected or LANSession.game_paused or lan_waiting_for_host)) or snapshot.is_empty() or _dialogue_visible() or (combat_cinematic != null and combat_cinematic.is_active()):
 		return []
 	var selected: int = selected_units[mobile_seat]
 	if _mobile_unit_busy(selected):
 		return []
 	if snapshot.get("deploying", false):
+		if LANSession.active() and LANSession.role == "client": return ["cancel"] if selected != 0 else []
 		return ["cancel"] if selected != 0 else ["end_turn"]
 	if str(snapshot.get("active_side", "")) != "first":
 		return []
@@ -4412,7 +4451,7 @@ func _update_mobile_controls() -> void:
 	for action: String in mobile_buttons:
 		var button: Button = mobile_buttons[action]
 		button.text = _ui("player.touch." + action, {"seat": mobile_seat + 1})
-		button.visible = action in actions or (available and (action == "menu" or (action == "seat" and player_count > 1 and not conversation)))
+		button.visible = action in actions or (available and (action == "menu" or (action == "seat" and player_count > 1 and not conversation and not LANSession.active())))
 		button.disabled = false
 	if snapshot.get("deploying", false): mobile_buttons.end_turn.text = _ui("player.hud.begin")
 	if "confirm" in actions: mobile_buttons.confirm.text = _action_text(action_modes[mobile_seat])
@@ -4537,7 +4576,7 @@ func _mobile_tap(position: Vector2) -> void:
 			board.set_seats(seats)
 			_refresh_selected_panel(mobile_seat)
 			return
-	if selected_units[mobile_seat] == 0 and unit.get("side", "") == "first":
+	if not LANSession.active() and selected_units[mobile_seat] == 0 and unit.get("side", "") == "first":
 		mobile_seat = clampi(int(unit.get("player", 1)) - 1, 0, player_count - 1)
 	seats[mobile_seat].active = true
 	seats[mobile_seat].cursor = cell
@@ -4584,6 +4623,7 @@ func _mobile_set_backgrounded(value: bool) -> void:
 	if combat_cinematic != null:
 		combat_cinematic.set_fast_forward(false)
 	mobile_backgrounded = value
+	if LANSession.active(): LANSession.set_host_paused(value)
 	var bus := AudioServer.get_bus_index("Master")
 	if value:
 		mobile_previously_paused = get_tree().paused
@@ -4595,3 +4635,36 @@ func _mobile_set_backgrounded(value: bool) -> void:
 		AudioServer.set_bus_mute(bus, mobile_previously_muted)
 		_layout_mobile_controls()
 		_open_session_menu(true) # Resume behind an explicit decision, never a tap.
+
+
+func _create_lan_status() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 64
+	add_child(layer)
+	lan_status_panel = PanelContainer.new()
+	lan_status_panel.add_theme_stylebox_override("panel", _panel(Color("0a1823"), 16, Color("b69a60"), 16))
+	layer.add_child(lan_status_panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 12)
+	lan_status_panel.add_child(column)
+	lan_status_text = _label("", 24, Color("f2f7f9"))
+	lan_status_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(lan_status_text)
+	lan_retry_button = Button.new()
+	lan_retry_button.text = _ui("lan.rejoin")
+	lan_retry_button.custom_minimum_size.y = 96
+	_bind_font_size(lan_retry_button, "font_size", 24)
+	lan_retry_button.pressed.connect(LANSession.rejoin)
+	column.add_child(lan_retry_button)
+	_update_lan_status()
+
+func _update_lan_status() -> void:
+	if lan_status_panel == null: return
+	var restoring: bool = session != null and session.has_method("is_restoring") and session.is_restoring()
+	lan_status_panel.visible = (not LANSession.connected or LANSession.game_paused or lan_waiting_for_host or restoring) and not _session_menu_visible()
+	if not lan_status_panel.visible: return
+	lan_status_text.text = _ui("lan.restoring" if restoring else ("lan.host_preparing" if lan_waiting_for_host else LANSession.status_key))
+	lan_retry_button.visible = LANSession.role == "client" and not LANSession.connected
+	var safe := MobileLayout.current_rect(get_viewport())
+	lan_status_panel.size = Vector2(minf(980, safe.size.x * 0.82), 0)
+	lan_status_panel.position = Vector2(safe.get_center().x - lan_status_panel.size.x * 0.5, safe.position.y + (160 if OS.has_feature("android") else 90))

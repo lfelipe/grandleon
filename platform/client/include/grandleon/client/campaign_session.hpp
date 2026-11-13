@@ -787,6 +787,9 @@ struct CampaignSessionOptions final {
     // configuration rather than save state: connecting a second controller
     // changes the next board's authored opposition, not the campaign record.
     std::uint8_t local_players{1};
+    // Publish a portable stage boundary before play, for front ends that
+    // pair it with an ordered in-battle intent journal.
+    bool checkpoint_before_battle{false};
 };
 
 

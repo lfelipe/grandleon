@@ -36,6 +36,7 @@ var catalog: Node
 var browser: Control
 var browse_button: Button
 var home_frame: Control
+var lan_lobby: Control
 var mobile_settings: Control
 var mobile_settings_open := false
 var mobile_settings_button: Button
@@ -47,6 +48,7 @@ var campaign_file_dialog: FileDialog
 
 func _ready() -> void:
 	_fit_mobile_canvas()
+	LANSession.game_ready.connect(_lan_game_ready)
 	get_viewport().size_changed.connect(_fit_mobile_canvas)
 	PCNavigation.set_ui_button_bridge(false)
 	_parse_arguments()
@@ -99,6 +101,12 @@ func _process(_delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if lan_lobby != null:
+		if (event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE) or (event is InputEventJoypadButton and event.pressed and controls.matches("cancel", event.button_index)):
+			_close_lan_lobby()
+			get_viewport().set_input_as_handled()
+			return
+		if get_viewport().gui_get_focus_owner() is LineEdit: return
 	if mobile_settings != null and mobile_settings.visible:
 		if (event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE) or (event is InputEventJoypadButton and event.pressed and controls.matches("cancel", event.button_index)):
 			get_viewport().set_input_as_handled()
@@ -334,6 +342,9 @@ func _build_player_choice() -> void:
 	var player_two := _button(_t("home.player_choice.two"))
 	player_two.pressed.connect(_choose_players.bind(2))
 	column.add_child(player_two)
+	var host_button := _button(_t("lan.host"))
+	host_button.pressed.connect(_host_lan)
+	column.add_child(host_button)
 	var cancel := _button(_t("common.back"))
 	cancel.pressed.connect(_cancel_player_choice)
 	column.add_child(cancel)
@@ -348,6 +359,9 @@ func _refresh_games() -> void:
 		child.queue_free()
 	game_button_count = 0
 	first_button = null
+	var join_button := _button(_t("lan.join"))
+	join_button.pressed.connect(_browse_lan)
+	games_list.add_child(join_button)
 	included_games = _available_included_games()
 	for game: Dictionary in included_games:
 		var included := _button("%s\n%s" % [
@@ -500,7 +514,8 @@ func _play_project(project_id: String, selected_campaign := "") -> void:
 func _launch_package_for_mode(
 	bytes: PackedByteArray, campaign: String, mode: String, preview: bool, save_scope := ""
 ) -> void:
-	if mode == "choice":
+	if mode in ["choice", "two"]:
+		player_one_button.visible = mode == "choice"
 		pending_package = bytes.duplicate()
 		pending_campaign = campaign
 		pending_preview = preview
@@ -530,8 +545,11 @@ func _stage_package(
 	if launch_in_progress:
 		return
 	launch_in_progress = true
-	LaunchContext.stage_package(bytes, campaign, preview, players, "", "", "", scope)
+	LaunchContext.stage_package(bytes, campaign, preview, players, "", "", str(LANSession.metadata.get("language", "")) if LANSession.active() else "", scope)
 	if OS.has_feature("android"):
+		# Dismiss the lobby address editor before replacing its scene.
+		get_viewport().gui_release_focus()
+		DisplayServer.virtual_keyboard_hide()
 		var shade := ColorRect.new()
 		shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		shade.color = Color("07111b")
@@ -801,6 +819,9 @@ func _play_local(entry: Dictionary) -> void:
 
 func _notification(what: int) -> void:
 	if what != NOTIFICATION_WM_GO_BACK_REQUEST or launch_in_progress: return
+	if lan_lobby != null:
+		_close_lan_lobby()
+		return
 	if mobile_settings != null and mobile_settings.visible:
 		_show_mobile_settings(false)
 	elif player_choice_overlay != null and player_choice_overlay.visible:
@@ -942,3 +963,34 @@ func _show_mobile_settings(open: bool) -> void:
 		mobile_settings_back.grab_focus()
 	elif mobile_settings_button != null:
 		mobile_settings_button.grab_focus()
+
+
+func _browse_lan() -> void:
+	LANSession.browse()
+	_show_lan_lobby()
+
+func _host_lan() -> void:
+	if pending_package.is_empty(): return
+	var bytes := pending_package
+	var campaign := pending_campaign
+	var scope := pending_save_scope
+	_clear_player_choice()
+	LANSession.host(bytes, campaign, campaign.replace("_", " ").capitalize(), scope)
+	_show_lan_lobby()
+
+func _show_lan_lobby() -> void:
+	if lan_lobby != null: return
+	lan_lobby = load("res://scripts/network/lan_lobby.gd").new()
+	add_child(lan_lobby)
+	lan_lobby.configure(LANSession, _close_lan_lobby)
+
+func _close_lan_lobby() -> void:
+	LANSession.leave()
+	if lan_lobby != null:
+		lan_lobby.queue_free()
+		lan_lobby = null
+	if first_button != null: first_button.grab_focus()
+
+func _lan_game_ready() -> void:
+	if launch_in_progress or not LANSession.active(): return
+	_stage_package(LANSession.package_bytes, str(LANSession.metadata.campaign), false, 2, str(LANSession.metadata.scope))

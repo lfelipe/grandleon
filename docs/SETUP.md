@@ -207,3 +207,19 @@ optional; CMake uses it automatically when available.
 
 For build conventions and contribution checks, continue with
 [Coding](../CODING.md).
+
+
+### Checking LAN co-op
+
+Use matching 0.6 development builds on the same network. Host a campaign on
+one device and select it from **Join a LAN game** on the other. The host stores
+shared saves; hosting that campaign again resumes both armies. Direct joining
+also accepts `host-address:port` when needed. Internet matchmaking is not part
+of the LAN build.
+
+Run the real UDP discovery, ENet, campaign save/resume, guest-input and bell
+movement regressions with:
+
+```sh
+platform/godot/scripts/smoke-lan.sh build-godot
+```

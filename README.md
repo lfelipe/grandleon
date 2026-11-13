@@ -176,14 +176,21 @@ rest of the documentation describes the current Godot application.
 | **0.3** | Godot player and creator. Moved the supported PC experience to Godot, joined creation and play in one application, and added local co-op, standalone export, authored 3D terrain, and a complete high-resolution sci-fi archetype roster. |
 | **0.4** | Broader art and console campaigns. Completes seven coherent Godot character directions, improves terrain clusters and movement presentation, adds portable one/two/choice campaign launch policy, streamlines the player around a nearly full-screen board, includes distinct solo and local co-op campaigns, and uses one textured renderer for the PlayStation and Nintendo 64 campaigns. It also introduces the first optional terrain-aware Godot combat close-up. |
 | **0.5** | Editor, translations and console play. Improves campaign creation, previews and project checks, including a test that creates, exports and plays a new game. Adds manual translations, player-named characters, orchestral music and distinct combat sounds. Introduces Steel and Cedar and moves the console players to Pyrite/Tiny3D and Mipsync. |
-| **0.6** | Windows and Android builds of the creator and player, with touch-friendly Android controls and layouts. Browse and download compatible campaigns in the Godot player from a GitHub-hosted catalogue, then play offline. Continue graphics, animation, terrain, backdrop and interface improvements across Godot and both consoles, especially the PS1 quality gap and stable 30 fps console performance. |
+| **0.6** | Windows and Android builds of the creator and player, with touch-friendly Android controls and layouts. Adds LAN co-op between Android and PC, with automatic discovery and shared saves. Browse and download compatible campaigns in the Godot player from a GitHub-hosted catalogue, then play offline. Continue graphics, animation, terrain, backdrop and interface improvements across Godot and both consoles, especially the PS1 quality gap and stable 30 fps console performance. |
 | **Prior to 1.0** | Design and playtest a polished campaign with a cohesive story, introductory battles, distinct solo/co-op tactics, varied maps and a final boss. Rework audio and let creators import and assign their own music and effects. Experiment with iOS exports of the Godot player and creator. |
 
 See [TODO](TODO.md) for the detailed work list.
 
-A future co-op experiment will let one Godot player host a campaign and
-another join from their own tablet, phone or PC, with each controlling their
-own army. The first investigation will focus on local-network play.
+The 0.6 development build supports co-op across devices on the same network.
+Choose a campaign and **Host on LAN**. On the other Android device or PC,
+choose **Join a LAN game** and select the discovered host. Each device commands
+its own army in the authored two-player campaign. Same-device co-op remains
+available too.
+
+Shared progress and checkpoint saves live on the host, including unfinished
+battles. Host the same campaign again to continue; the second player can rejoin
+their army. Keep the host's application data backed up. If discovery finds
+nothing, enter the host's IP address. Internet play is planned separately.
 
 The 0.6 development branch adds **Browse Campaigns** to the Godot home menu.
 It reads the public [campaign catalogue](https://github.com/lfelipe/grandleon-campaigns),
