@@ -22,6 +22,8 @@ The bell and low walls remain passable:
 the bell spans two adjacent cells, and low walls stay along cell edges.
 Both console generators check the scenery, board and natural-scenery hashes and reject
 stale geometry. Regenerate with `platform/godot/tests/export_settlement_scenery.gd`.
+Use Godot's compatibility renderer for that export (with `xvfb-run` when no
+display is available); headless rendering does not preserve the tree instance transforms.
 PS1 stores each model once and places it separately from terrain pages; its
 build audit still enforces main RAM and texture limits. Console prop animation
 and the busier village's frame budget remain open work.

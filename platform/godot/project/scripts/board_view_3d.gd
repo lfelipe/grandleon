@@ -1653,6 +1653,19 @@ func _build_medieval_castle_cell(
 			for i in 7:
 				StoneKeep.box(parent, Vector3(-0.04, 1.46, float(i - 3) * 0.23 + 0.5), Vector3(0.035, 0.32, 0.035), iron)
 			StoneKeep.box(parent, Vector3(-0.04, 1.36, 0.5), Vector3(0.04, 0.035, 1.62), iron)
+			# Warm gatepost lanterns pick out the walkable arch, without a UI
+			# marker or light spilling across the covered interior. These solid
+			# colours also survive the shared console geometry export.
+			var lantern_frame := _material("castle_gate_lantern_frame", Color("544a38"), 0.85)
+			var lantern_light := _material("castle_gate_lantern_light", Color("edb85c"), 0.75)
+			for offset in [-0.45, 1.45]:
+				StoneKeep.box(parent, Vector3(-0.30, top + 0.88, offset), Vector3(0.16, 0.30, 0.22), lantern_frame)
+				StoneKeep.box(parent, Vector3(-0.39, top + 0.88, offset), Vector3(0.06, 0.19, 0.14), lantern_light)
+			StoneKeep.box(parent, Vector3(-0.27, 1.46, 0.5), Vector3(0.08, 0.18, 0.16), lantern_light)
+			# The board camera can hide the arch beneath the terrace edge. A
+			# short gold pennant above it keeps the entrance readable from there.
+			StoneKeep.box(parent, Vector3(-0.34, 1.88, 0.5), Vector3(0.06, 0.80, 0.06), lantern_frame)
+			StoneKeep.box(parent, Vector3(-0.34, 2.10, 0.68), Vector3(0.06, 0.26, 0.32), lantern_light)
 		"castle_dais":
 			parent.set_meta("landmark_style", "medieval_castle_interior")
 			_box(

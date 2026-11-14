@@ -2950,6 +2950,160 @@
     },
     {
       "centre": [
+        -2.8,
+        0.98,
+        -0.95
+      ],
+      "colour": [
+        84,
+        74,
+        56
+      ],
+      "grounded": false,
+      "masonry": false,
+      "shape": "box",
+      "size": [
+        0.16,
+        0.3,
+        0.22
+      ],
+      "upper": false,
+      "yaw": 0.0
+    },
+    {
+      "centre": [
+        -2.89,
+        0.98,
+        -0.95
+      ],
+      "colour": [
+        237,
+        184,
+        92
+      ],
+      "grounded": false,
+      "masonry": false,
+      "shape": "box",
+      "size": [
+        0.06,
+        0.19,
+        0.14
+      ],
+      "upper": false,
+      "yaw": 0.0
+    },
+    {
+      "centre": [
+        -2.8,
+        0.98,
+        0.95
+      ],
+      "colour": [
+        84,
+        74,
+        56
+      ],
+      "grounded": false,
+      "masonry": false,
+      "shape": "box",
+      "size": [
+        0.16,
+        0.3,
+        0.22
+      ],
+      "upper": false,
+      "yaw": 0.0
+    },
+    {
+      "centre": [
+        -2.89,
+        0.98,
+        0.95
+      ],
+      "colour": [
+        237,
+        184,
+        92
+      ],
+      "grounded": false,
+      "masonry": false,
+      "shape": "box",
+      "size": [
+        0.06,
+        0.19,
+        0.14
+      ],
+      "upper": false,
+      "yaw": 0.0
+    },
+    {
+      "centre": [
+        -2.77,
+        1.46,
+        0.0
+      ],
+      "colour": [
+        237,
+        184,
+        92
+      ],
+      "grounded": false,
+      "masonry": false,
+      "shape": "box",
+      "size": [
+        0.08,
+        0.18,
+        0.16
+      ],
+      "upper": false,
+      "yaw": 0.0
+    },
+    {
+      "centre": [
+        -2.84,
+        1.88,
+        0.0
+      ],
+      "colour": [
+        84,
+        74,
+        56
+      ],
+      "grounded": false,
+      "masonry": false,
+      "shape": "box",
+      "size": [
+        0.06,
+        0.8,
+        0.06
+      ],
+      "upper": false,
+      "yaw": 0.0
+    },
+    {
+      "centre": [
+        -2.84,
+        2.1,
+        0.18
+      ],
+      "colour": [
+        237,
+        184,
+        92
+      ],
+      "grounded": false,
+      "masonry": false,
+      "shape": "box",
+      "size": [
+        0.06,
+        0.26,
+        0.32
+      ],
+      "upper": false,
+      "yaw": 0.0
+    },
+    {
+      "centre": [
         2.7,
         0.56,
         -0.5
@@ -3175,7 +3329,7 @@
     6
   ],
   "source": {
-    "castle_cells_sha256": "aa5b484dd6c957ef643ffd2f3368cde34381c7c657423eb1e2eaf51326f16e0b",
+    "castle_cells_sha256": "3b7b6a04e3566d85c6e08203decc48cd31a6918bfc61c9f9cbd6bbe87fb06366",
     "stone_keep_sha256": "6bf03b7cd54667b86ccebd97546399dbcf977b9f88e107f35eceac59ab9c6540"
   }
 }
