@@ -66,5 +66,32 @@
     "heap_free_bytes": 1022360,
     "rdram_bytes": 4194304,
     "canonical_hash": "11460780795836040227"
+  },
+  "terrain_followup": {
+    "changes": [
+      "Fractured shaded rock forms replace repeated stone blocks and white peaks.",
+      "Natural N64 ground uses shared corner colours; road, water and masonry boundaries stay distinct.",
+      "N64 decorative capacity increased from 144 to 192, retaining all 147 forms on the final map."
+    ],
+    "n64_full_campaign": {
+      "battles": 5,
+      "castle_cells_revealed": 18,
+      "final_sample_frames": 120,
+      "average_frame_us": 33339,
+      "fps_x100": 2999,
+      "heap_free_bytes": 1008600,
+      "rdram_bytes": 4194304,
+      "canonical_hash": "11460780795836040227"
+    },
+    "ps1_deepwood_scroll": {
+      "rendered_frames": 300,
+      "missed_vblanks": 0,
+      "render_hbl_average": 234,
+      "render_hbl_maximum": 474
+    },
+    "ps1_rock_vertices_before": 15,
+    "ps1_rock_vertices_after": 12,
+    "ps1_rock_triangles_before": 12,
+    "ps1_rock_triangles_after": 12
   }
 }

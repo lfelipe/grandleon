@@ -74,7 +74,7 @@ constexpr std::size_t kMaxApronCells = 800U;
 constexpr std::size_t kTreeVertexCount = 20U;
 constexpr std::size_t kMaxTrees = 176U;
 constexpr std::size_t kTerrainFormVertexCount = 8U;
-constexpr std::size_t kMaxTerrainForms = 144U;
+constexpr std::size_t kMaxTerrainForms = 192U;
 constexpr std::size_t kUnitVertexCount = 4U;
 constexpr std::size_t kMaxUnits = 48U;
 constexpr std::size_t kCursorVerticesPerPlayer = 32U;
@@ -917,6 +917,34 @@ std::uint32_t terrain_tint(std::uint64_t id, std::size_t index) {
     );
 }
 
+bool natural_ground(std::uint8_t kind) {
+    return kind == 2U || kind == 6U || kind == 7U || kind == 9U ||
+        kind == 10U || kind == 11U;
+}
+
+std::uint32_t ground_corner_tint(std::uint64_t id, std::size_t index, int gx, int gz) {
+    if (!natural_ground(terrain_kind(id))) return terrain_tint(id, index);
+    const int width = board.content->definition.width;
+    const int height = board.content->definition.height;
+    unsigned red = 0U, green = 0U, blue = 0U, count = 0U;
+    for (int z = gz - 1; z <= gz; ++z) {
+        for (int x = gx - 1; x <= gx; ++x) {
+            if (x < 0 || z < 0 || x >= width || z >= height) continue;
+            const auto neighbour = static_cast<std::size_t>(z * width + x);
+            const auto terrain = board.content->terrain[neighbour];
+            if (!natural_ground(terrain_kind(terrain))) continue;
+            const auto colour = terrain_tint(terrain, neighbour);
+            red += (colour >> 24U) & 255U;
+            green += (colour >> 16U) & 255U;
+            blue += (colour >> 8U) & 255U;
+            ++count;
+        }
+    }
+    // Shared corners give neighbouring natural surfaces the same colour.
+    // Roads, water and masonry retain their deliberate tactical boundaries.
+    return count == 0U ? terrain_tint(id, index) : pack_rgba(red / count, green / count, blue / count);
+}
+
 void build_cell_vertices() {
     const auto width = board.content->definition.width;
     const auto height = board.content->definition.height;
@@ -933,12 +961,14 @@ void build_cell_vertices() {
         std::int16_t s1 = 0;
         std::int16_t t1 = 0;
         terrain_uv(board.content->terrain[index], index, s0, t0, s1, t1);
-        const std::uint32_t tint = terrain_tint(board.content->terrain[index], index);
+        const auto tint = [&](int gx, int gz) {
+            return ground_corner_tint(board.content->terrain[index], index, gx, gz);
+        };
         const std::size_t first = index * kCellVertexCount;
-        set_vertex(board.cells, first + 0U, cx - kHalfCell, lift, cz - kHalfCell, tint, s0, t0, normal);
-        set_vertex(board.cells, first + 1U, cx + kHalfCell, lift, cz - kHalfCell, tint, s1, t0, normal);
-        set_vertex(board.cells, first + 2U, cx + kHalfCell, lift, cz + kHalfCell, tint, s1, t1, normal);
-        set_vertex(board.cells, first + 3U, cx - kHalfCell, lift, cz + kHalfCell, tint, s0, t1, normal);
+        set_vertex(board.cells, first + 0U, cx - kHalfCell, lift, cz - kHalfCell, tint(x, z), s0, t0, normal);
+        set_vertex(board.cells, first + 1U, cx + kHalfCell, lift, cz - kHalfCell, tint(x + 1, z), s1, t0, normal);
+        set_vertex(board.cells, first + 2U, cx + kHalfCell, lift, cz + kHalfCell, tint(x + 1, z + 1), s1, t1, normal);
+        set_vertex(board.cells, first + 3U, cx - kHalfCell, lift, cz + kHalfCell, tint(x, z + 1), s0, t1, normal);
     }
 }
 
@@ -1156,6 +1186,7 @@ void build_elevation_vertices() {
 enum class TerrainFormShape : std::uint8_t {
     tapered,
     crossed,
+    rock,
 };
 
 void append_terrain_form(
@@ -1182,6 +1213,22 @@ void append_terrain_form(
         set_vertex(board.terrain_forms, first + 5U, cx - top_half, floor + height, cz, colour, 0, 0, normal);
         set_vertex(board.terrain_forms, first + 6U, cx, floor + height, cz + top_half, colour, 0, 0, normal);
         set_vertex(board.terrain_forms, first + 7U, cx, floor + height, cz - top_half, colour, 0, 0, normal);
+    } else if (shape == TerrainFormShape::rock) {
+        const auto roll = environment_hash(cx, cz);
+        const std::int16_t depth = half * (80 + static_cast<int>(roll % 21U)) / 100;
+        const std::int16_t lean = static_cast<std::int16_t>((roll >> 7U) % 5U) - 2;
+        const auto point = [&](std::size_t vertex, int x, int y, int z, std::uint32_t shade) {
+            set_vertex(board.terrain_forms, first + vertex, cx + x, floor + y,
+                cz + z, shade, 0, 0, normal);
+        };
+        point(0U, -half, 0, -depth, lower);
+        point(1U, half, 0, -depth, darken(colour, 135U));
+        point(2U, half, 0, depth, lower);
+        point(3U, -half, 0, depth, darken(colour, 200U));
+        point(4U, -half / 2 + lean, height * 4 / 5, -depth / 3, colour);
+        point(5U, half / 3 + lean, height * 3 / 5, -depth / 2, darken(colour, 175U));
+        point(6U, half / 2, height * 2 / 3, depth / 3, darken(colour, 210U));
+        point(7U, -half / 3, height, depth / 2, colour);
     } else {
         set_vertex(board.terrain_forms, first + 0U, cx - half, floor, cz - half, lower, 0, 0, normal);
         set_vertex(board.terrain_forms, first + 1U, cx + half, floor, cz - half, lower, 0, 0, normal);
@@ -1222,13 +1269,18 @@ void build_terrain_form_vertices() {
             append_terrain_form(cx, floor, cz, 3, 13, pack_rgba(73U, 130U, 92U), TerrainFormShape::crossed);
             break;
         case 1U: // road edge stones
-            append_terrain_form(cx, floor, cz, 6, 6, pack_rgba(143U, 127U, 102U), TerrainFormShape::tapered);
+            append_terrain_form(cx, floor, cz, 6, 6, pack_rgba(143U, 127U, 102U), TerrainFormShape::rock);
             break;
         case 2U: // forest undergrowth
             append_terrain_form(cx, floor, cz, 8, 11, pack_rgba(62U, 121U, 58U), TerrainFormShape::tapered);
             break;
         case 3U: // mountain outcrops
-            append_terrain_form(cx, floor, cz, 10, 22, pack_rgba(154U, 159U, 155U), TerrainFormShape::tapered);
+            append_terrain_form(world_x(x, width) - 4, floor, world_z(z, height),
+                19, 33 + static_cast<int>((roll >> 5U) % 10U),
+                pack_rgba(120U, 137U, 142U), TerrainFormShape::rock);
+            append_terrain_form(world_x(x, width) + 14, floor, world_z(z, height) - 12,
+                10, 17 + static_cast<int>((roll >> 11U) % 8U),
+                pack_rgba(106U, 121U, 128U), TerrainFormShape::rock);
             break;
         case 4U: // sand ridges
             append_terrain_form(cx, floor, cz, 9, 8, pack_rgba(213U, 178U, 105U), TerrainFormShape::tapered);
@@ -1240,7 +1292,7 @@ void build_terrain_form_vertices() {
             append_terrain_form(cx, floor, cz, 4, 17, pack_rgba(91U, 117U, 62U), TerrainFormShape::crossed);
             break;
         case 7U: // hill rocks
-            append_terrain_form(cx, floor, cz, 9, 16, pack_rgba(126U, 139U, 92U), TerrainFormShape::tapered);
+            append_terrain_form(cx, floor, cz, 11, 16, pack_rgba(126U, 139U, 112U), TerrainFormShape::rock);
             break;
         case 8U: // ruin rubble around the authored landmark
             append_terrain_form(cx, floor, cz, 7, 9, pack_rgba(135U, 142U, 139U), TerrainFormShape::tapered);

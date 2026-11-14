@@ -209,6 +209,21 @@ def test_forest_variation_preserves_topology_and_rooted_trunks() -> None:
     assert counts == {(17, 17, 14)}
 
 
+def test_fractured_rock_has_grounded_volume_and_outward_faces() -> None:
+    for x in range(8):
+        vertices, uvs, triangles = [], [], []
+        SCENE.append_terrain_form(vertices, uvs, triangles, 3, 0, 9, 0,
+                                  SCENE.hash_cell(x, 4, 42), {-1: 1, -2: 2, -3: 3})
+        assert len(vertices) <= 15 and len(triangles) == 12
+        assert all(vertices[i][1] == 10 for i in range(4))
+        assert len({vertices[i][1] for i in range(4, 7)}) == 3
+        for triangle in triangles:
+            assert triangle[3] == 3
+            a, b, c = (vertices[index] for index in triangle[:3])
+            normal_y = (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2])
+            assert normal_y > 0
+
+
 if __name__ == "__main__":
     test_console_font_has_complete_pixel_cells()
     test_accented_font_uses_complete_cells_and_dedicated_four_bit_clut()
@@ -219,4 +234,5 @@ if __name__ == "__main__":
     test_hidden_cover_faces_the_same_way_as_the_floor()
     test_interior_terrain_pages_overlap_the_visible_window()
     test_forest_variation_preserves_topology_and_rooted_trunks()
+    test_fractured_rock_has_grounded_volume_and_outward_faces()
     print("Mipsync scene generator presentation passed.")

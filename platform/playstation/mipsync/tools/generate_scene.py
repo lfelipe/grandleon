@@ -1028,6 +1028,23 @@ def append_terrain_form(
         face(top_front_left, top_back_right, top_back_left,
              shifted_colour(face_colour, 128), material)
 
+    def boulder(x: int, z: int, width: int, depth: int, height: int,
+                face_colour: tuple[int, int, int]) -> None:
+        # A fractured ridge has a broad footprint and unequal shoulders,
+        # rather than the single apex that made every outcrop a white spike.
+        points = ((-width, 1, depth), (width, 1, depth),
+                  (width, 1, -depth), (-width, 1, -depth),
+                  (-width // 2, height * 3 // 4, depth // 5),
+                  (width // 3, height * 3 // 5, depth // 4),
+                  (-width // 7, height, -depth // 2))
+        indices = [vertex(x + dx, floor + dy, z + dz) for dx, dy, dz in points]
+        for a, b, c, brightness in ((0, 1, 5, 106), (0, 5, 4, 106),
+                                    (1, 2, 6, 75), (1, 6, 5, 75),
+                                    (2, 3, 6, 82), (3, 0, 4, 116),
+                                    (3, 4, 6, 116), (4, 5, 6, 124)):
+            face(indices[a], indices[b], indices[c],
+                 shifted_colour(face_colour, brightness))
+
     if castle_wall:
         stone = (157, 147, 130)
         box(cx, cz, 62, 62, 84, stone)
@@ -1055,11 +1072,11 @@ def append_terrain_form(
                  shifted_colour(colour, brightness))
         pyramid(cx + lean, cz - 3, canopy_width * 2 // 3, canopy_depth * 2 // 3,
                 canopy_height // 2, colour, 22 + canopy_height * 3 // 4)
-    elif kind == 3:  # mountain: a small range, not one isolated pyramid
-        pyramid(cx - 12, cz + 7, 48, 42, 108, colour)
-        pyramid(cx + 32, cz - 17, 31, 29, 76, light)
-        pyramid(cx - 43, cz - 21, 24, 22, 58,
-                shifted_colour(colour, 88))
+    elif kind == 3:  # mountain: fractured stone, with a smaller weathered spur
+        stone_tones = ((111, 128, 136), (130, 125, 112), (115, 132, 125))
+        stone = stone_tones[(roll >> 15) % len(stone_tones)]
+        boulder(cx - 12, cz + 7, 48, 42, 102, stone)
+        pyramid(cx + 32, cz - 17, 29, 26, 65, shifted_colour(stone, 106))
     elif kind == 11:  # bamboo: solid clustered stalks
         box(cx - 9, cz + 4, 4, 4, 108, colour)
         box(cx + 10, cz - 3, 4, 4, 128, light)
