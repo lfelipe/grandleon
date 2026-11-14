@@ -258,6 +258,15 @@ bug report.
 > multiple stages before upgrading, and report any import or migration issue
 > you find.
 
+## Publish an update
+
+Keep the campaign ID stable and give each published package a newer version
+in its catalogue. For artwork or wording-only changes, keep **Content Revision**
+in Game Settings unchanged. Increase it when changes to maps, campaign flow or
+game rules require a new game. Changing any part of that revision makes existing
+saves incompatible; the player asks whether to keep the installed version or
+update and start fresh. Test an old save before publishing a compatible update.
+
 ## Refresh this visual guide
 
 The animations above come from scripted interactions with the real Godot

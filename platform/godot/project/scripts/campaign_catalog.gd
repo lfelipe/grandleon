@@ -21,6 +21,7 @@ var _busy := false
 var _request: HTTPRequest
 var _progress_clock := 0.0
 var _session: Object
+var _pending_update: Dictionary = {}
 
 func _init(root := "", default_source := OFFICIAL_URL) -> void:
 	if not root.is_empty():
@@ -209,6 +210,8 @@ func _validate_entry(value: Variant, url: String) -> Dictionary:
 	if assets.kind == "builtin" and (not assets.get("pack") is String or not (assets.get("version") is int or assets.get("version") is float) or assets.version != int(assets.version) or int(assets.version) < 1):
 		return _error("invalid_catalog", "invalid_assets")
 	var entry: Dictionary = value.duplicate(true)
+	# Save lineage belongs to this installation, never to the remote catalogue.
+	entry.erase("_save_scopes")
 	entry.package.sha256 = entry.package.sha256.to_lower()
 	entry.source_url = url
 	entry.source_title = value.get("source_title", url) if value.get("source_title", url) is String and str(value.get("source_title", url)).length() <= 160 else url
@@ -270,6 +273,12 @@ func installed_entry(entry: Dictionary) -> Dictionary:
 	result.path = path
 	result.installed = true
 	result.installed_version = result.version
+	result._save_scopes = {}
+	var scopes: Variant = saved.get("_save_scopes", {})
+	if scopes is Dictionary and scopes.size() <= 128:
+		for identity: Variant in scopes:
+			if identity is String and _matches("^[a-f0-9]{64}$", identity) and (scopes[identity] == "legacy" or scopes[identity] == identity):
+				result._save_scopes[identity] = scopes[identity]
 	return result
 
 func entries() -> Array:
@@ -295,7 +304,7 @@ func entries() -> Array:
 			var installed := installed_entry(entry)
 			entry.installed = not installed.is_empty()
 			entry.installed_version = installed.get("version", "")
-			entry.update_available = entry.installed and entry.package.sha256 != installed.package.sha256
+			entry.update_available = entry.installed and _older(installed.version, entry.version) and entry.package.sha256 != installed.package.sha256
 			result.append(entry)
 	return result
 
@@ -382,9 +391,12 @@ func _inspect(bytes: PackedByteArray, entry: Dictionary) -> Dictionary:
 		return _error("unsupported_assets" if checked.get("error") == "assets_unsupported" else "invalid_package", str(checked.get("detail", checked.get("error", "invalid_package"))))
 	if checked.get("playerMode", "") != entry.playerMode:
 		return _error("invalid_package", "player_mode_mismatch")
-	return {"ok": true}
+	return {"ok": true, "compatibility": checked}
 
-func install(entry: Dictionary) -> Dictionary:
+func _save_identity(info: Dictionary, entry: Dictionary) -> String:
+	return (str(info.get("gameId", "")) + "\n" + str(info.get("contentRevision", "")) + "\n" + str(entry.campaign) + "\n" + str(info.get("playerMode", ""))).sha256_text()
+
+func install(entry: Dictionary, accept_fresh_start := false) -> Dictionary:
 	_ensure_loaded()
 	if _busy:
 		return _error("busy")
@@ -400,17 +412,42 @@ func install(entry: Dictionary) -> Dictionary:
 	if not entry.available:
 		return _error(entry.reason)
 	_busy = true
-	var fetched := await _fetch(entry.package.url, int(entry.package.sizeBytes))
+	var fetched: Dictionary
+	if accept_fresh_start and _pending_update.get("key") == entry.key and _pending_update.get("sha") == entry.package.sha256:
+		fetched = {"ok": true, "body": _pending_update.bytes}
+	else:
+		fetched = await _fetch(entry.package.url, int(entry.package.sizeBytes))
 	var result: Dictionary = fetched
 	if fetched.ok:
 		result = _inspect(fetched.body, entry)
 		if result.ok:
+			var previous := installed_entry(entry)
+			var old_launch := read_launch(previous) if not previous.is_empty() else {}
+			var identity := _save_identity(result.compatibility, entry)
+			var scopes: Dictionary = previous.get("_save_scopes", {}).duplicate()
+			var compatible := previous.is_empty()
+			if old_launch.get("ok", false):
+				var old_identity := _save_identity(old_launch.compatibility, previous)
+				if not scopes.has(old_identity): scopes[old_identity] = "legacy"
+				compatible = identity == old_identity
+			if not compatible and not accept_fresh_start:
+				_pending_update = {"key": entry.key, "sha": entry.package.sha256, "bytes": fetched.body}
+				_busy = false
+				return {"ok": false, "error": "save_incompatible", "installed_version": previous.get("version", ""), "version": entry.version}
+			if not scopes.has(identity): scopes[identity] = "legacy" if previous.is_empty() else identity
+			entry._save_scopes = scopes
 			var blob := _source_dir(entry.source_key).path_join("packages").path_join(entry.package.sha256 + ".gpk")
 			if not _write_atomic(blob, fetched.body) or not _write_atomic(_installed_pointer(entry), JSON.stringify(entry).to_utf8_buffer()):
 				result = _error("storage_error")
+			else:
+				result.save_compatible = compatible
+				_pending_update.clear()
 	_busy = false
 	changed.emit()
-	return {"ok": true, "entry": installed_entry(entry)} if result.ok else result
+	return {"ok": true, "entry": installed_entry(entry), "save_compatible": result.get("save_compatible", true)} if result.ok else result
+
+func cancel_update() -> void:
+	_pending_update.clear()
 
 func read_launch(entry: Dictionary) -> Dictionary:
 	var installed := installed_entry(entry)
@@ -422,6 +459,10 @@ func read_launch(entry: Dictionary) -> Dictionary:
 	var checked := _inspect(bytes, installed)
 	if not checked.ok:
 		return checked
+	var identity := _save_identity(checked.compatibility, installed)
+	var generation: String = installed.get("_save_scopes", {}).get(identity, "legacy")
+	var scope: String = "catalog-" + (installed.source_url + "\n" + installed.id).sha256_text()
+	if generation != "legacy": scope += "-" + generation
 	return {"ok": true, "package": bytes, "bytes": bytes, "campaign": installed.campaign,
 		"playerMode": installed.playerMode, "languages": installed.languages,
-		"title": installed.title, "save_scope": "catalog-" + (installed.source_url + "\n" + installed.id).sha256_text()}
+		"title": installed.title, "save_scope": scope, "compatibility": checked.compatibility}

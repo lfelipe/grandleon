@@ -350,7 +350,7 @@
     "settings.revision.patch": "+ CORREÇÃO",
     "settings.revision.minor": "+ MENOR",
     "settings.revision.major": "+ MAIOR",
-    "settings.revision_help": "Aumente quando o conteúdo exportado mudar. Aqui, as versões só avançam.",
+    "settings.revision_help": "Alterar esta revisão exige um novo jogo. Mantenha-a para atualizações compatíveis; use a versão do catálogo para identificar cada lançamento.",
     "settings.presentation": "APRESENTAÇÃO PADRÃO DO JOGADOR",
     "settings.closeups": "COMEÇAR COM CLOSE-UPS DE BATALHA",
     "settings.closeups_help": "Os jogadores começam assim, mas podem mudar essa opção nas próprias configurações de tela.",
@@ -2024,6 +2024,12 @@
     "graphics.auto": "AUTOMÁTICO ({value})",
     "graphics.low": "BAIXO",
     "graphics.medium": "MÉDIO",
-    "graphics.high": "ALTO"
+    "graphics.high": "ALTO",
+    "catalog.update_title": "Atualizar para {version}",
+    "catalog.update_incompatible": "Esta atualização não pode usar seus jogos salvos. Mantenha a versão instalada para continuar, ou atualize e comece de novo. Os arquivos anteriores serão mantidos.",
+    "catalog.update_fresh": "Atualizar e começar de novo",
+    "catalog.keep_version": "Manter versão instalada",
+    "catalog.updated_compatible": "Pronto para jogar. Seus jogos salvos continuam compatíveis.",
+    "catalog.updated_fresh": "Atualizado. Comece um novo jogo; os jogos salvos anteriores foram mantidos."
   }
 }

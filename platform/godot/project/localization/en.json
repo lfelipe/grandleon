@@ -350,7 +350,7 @@
     "settings.revision.patch": "+ PATCH",
     "settings.revision.minor": "+ MINOR",
     "settings.revision.major": "+ MAJOR",
-    "settings.revision_help": "Increase this when exported content changes. Versions only move forward here.",
+    "settings.revision_help": "Changing this revision requires a new game. Keep it for save-compatible updates; use the catalogue version to label releases.",
     "settings.presentation": "PLAYER PRESENTATION DEFAULT",
     "settings.closeups": "BEGIN WITH BATTLE CLOSE-UPS",
     "settings.closeups_help": "Players begin here, then may override this in their own display settings.",
@@ -2024,6 +2024,12 @@
     "graphics.auto": "AUTO ({value})",
     "graphics.low": "LOW",
     "graphics.medium": "MEDIUM",
-    "graphics.high": "HIGH"
+    "graphics.high": "HIGH",
+    "catalog.update_title": "Update to {version}",
+    "catalog.update_incompatible": "This update cannot use your current saves. Keep the installed version to continue your game, or update and start fresh. Your previous save files will be kept.",
+    "catalog.update_fresh": "Update and start fresh",
+    "catalog.keep_version": "Keep installed version",
+    "catalog.updated_compatible": "Ready to play. Your existing saves remain compatible.",
+    "catalog.updated_fresh": "Updated. Start a new game; previous saves have been kept."
   }
 }

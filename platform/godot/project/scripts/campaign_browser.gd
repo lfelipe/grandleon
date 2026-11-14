@@ -77,6 +77,7 @@ func open() -> void:
 	refresh_catalog()
 
 func close() -> void:
+	if busy: return
 	hide()
 	closed.emit()
 
@@ -155,6 +156,7 @@ func _render_entries() -> void:
 		if bool(entry.get("installed", false)):
 			var play := _button("catalog.play")
 			play.set_meta("campaign_id", str(entry.get("id", "")))
+			play.disabled = busy
 			play.pressed.connect(_play.bind(entry))
 			actions.add_child(play)
 		if not bool(entry.get("installed", false)) or bool(entry.get("update_available", false)):
@@ -169,16 +171,40 @@ func _render_entries() -> void:
 			reason.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			column.add_child(reason)
 
-func _install(entry: Dictionary) -> void:
+func _install(entry: Dictionary, accept_fresh_start := false) -> void:
 	if busy: return
 	busy = true
 	refresh_button.disabled = true
+	back_button.disabled = true
 	_render_entries()
 	status.text = _t("catalog.downloading")
-	var result: Dictionary = await catalog.install(entry)
+	var result: Dictionary = await catalog.install(entry, accept_fresh_start)
 	busy = false
 	refresh_button.disabled = false
-	status.text = _t("catalog.installed") if result.get("ok", false) else _error(result)
+	back_button.disabled = false
+	if result.get("error") == "save_incompatible":
+		var dialog := ConfirmationDialog.new()
+		dialog.exclusive = true
+		dialog.title = _t("catalog.update_title", {"version": str(entry.version)})
+		dialog.dialog_text = _t("catalog.update_incompatible")
+		dialog.ok_button_text = _t("catalog.update_fresh")
+		dialog.cancel_button_text = _t("catalog.keep_version")
+		dialog.get_label().autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		dialog.get_label().custom_minimum_size.x = mini(520, maxi(180, int(size.x) - 80))
+		for button: Button in [dialog.get_ok_button(), dialog.get_cancel_button()]:
+			button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			button.custom_minimum_size = Vector2(mini(180, maxi(90, (int(size.x) - 80) / 2)), 56)
+		dialog.confirmed.connect(func():
+			dialog.queue_free()
+			_install(entry, true))
+		dialog.canceled.connect(func():
+			catalog.cancel_update()
+			dialog.queue_free())
+		add_child(dialog)
+		dialog.popup_centered(Vector2i(mini(640, int(size.x) - 32), 0))
+		status.text = _t("catalog.update_incompatible")
+	else:
+		status.text = _t("catalog.updated_compatible" if result.get("save_compatible", true) else "catalog.updated_fresh") if result.get("ok", false) else _error(result)
 	_render_entries()
 
 func _play(entry: Dictionary) -> void:

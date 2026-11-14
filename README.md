@@ -196,6 +196,8 @@ nothing, enter the host's IP address. Internet play is planned separately.
 The 0.6 development branch adds **Browse Campaigns** to the Godot home menu.
 It reads the public [campaign catalogue](https://github.com/lfelipe/grandleon-campaigns),
 downloads compatible games and keeps installed campaigns available offline.
+Updates keep compatible saves; otherwise, you can keep the installed version
+or update and start a new game.
 You can add another public catalogue URL too. The first packages use Grandleon's
 built-in artwork and audio. This browser is not in the published 0.5 app yet.
 

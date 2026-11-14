@@ -34,7 +34,11 @@ def main():
     (project / 'fixtures').mkdir()
     (project / 'bin').mkdir()
     shutil.copy2(ROOT / 'platform/godot/project/scripts/campaign_catalog.gd', project / 'scripts/')
+    shutil.copy2(ROOT / 'platform/godot/project/scripts/campaign_browser.gd', project / 'scripts/')
+    shutil.copy2(ROOT / 'platform/godot/project/scripts/localization.gd', project / 'scripts/')
+    shutil.copytree(ROOT / 'platform/godot/project/localization', project / 'localization')
     shutil.copy2(ROOT / 'platform/godot/tests/campaign_catalog_http_test.gd', project / 'test.gd')
+    shutil.copy2(ROOT / 'platform/godot/tests/native_campaign_play.gd', project / 'native_campaign_play.gd')
     shutil.copy2(ROOT / 'platform/godot/tests/campaign_catalog_live_test.gd', project / 'live.gd')
     shutil.copy2(ROOT / 'games/steel_and_cedar/source/project.json', project / 'fixtures/source.json')
     library_name = args.extension.name
@@ -44,7 +48,7 @@ def main():
         '[configuration]\nentry_symbol="grandleon_library_init"\ncompatibility_minimum="4.7"\n'
         '[libraries]\n%s.debug.x86_64="res://bin/%s"\n%s.release.x86_64="res://bin/%s"\n'
         % (library_key, library_name, library_key, library_name))
-    (project / 'project.godot').write_text('config_version=5\n[application]\nconfig/name="Campaign Catalog HTTP Integration"\n')
+    (project / 'project.godot').write_text('config_version=5\n[application]\nconfig/name="Campaign Catalog HTTP Integration"\n[autoload]\nLocalization="*res://scripts/localization.gd"\n')
     # Register the known fixture extension at engine startup, as an exported
     # project does. Late discovery during the first minimal-editor scan aborts
     # Godot 4.7.2 on exit even in a native-only control with no catalog scripts.
@@ -81,7 +85,7 @@ def main():
                         entry['playerMode'] = mode
                         entry['package'] = {'url': base + '/' + mode + '.gpk', 'sizeBytes': state['size'], 'sha256': state['sha']}
                     elif mode == 'update':
-                        entry['version'] = '0.5.1'
+                        entry['version'] = state.get('version', '0.5.1')
                         entry['package'] = {'url': base + '/updated.gpk', 'sizeBytes': state['size'], 'sha256': state['sha']}
                     elif mode == 'size':
                         entry['package']['sizeBytes'] += 1

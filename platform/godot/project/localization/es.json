@@ -350,7 +350,7 @@
     "settings.revision.patch": "+ PARCHE",
     "settings.revision.minor": "+ MENOR",
     "settings.revision.major": "+ MAYOR",
-    "settings.revision_help": "Auméntala cuando cambie el contenido exportado. Aquí las versiones solo avanzan.",
+    "settings.revision_help": "Cambiar esta revisión requiere una partida nueva. Consérvala para actualizaciones compatibles; usa la versión del catálogo para identificar cada publicación.",
     "settings.presentation": "PRESENTACIÓN PREDETERMINADA",
     "settings.closeups": "EMPEZAR CON PRIMEROS PLANOS DE BATALLA",
     "settings.closeups_help": "Los jugadores empiezan así, pero pueden cambiarlo en sus ajustes de pantalla.",
@@ -2024,6 +2024,12 @@
     "graphics.auto": "AUTOMÁTICO ({value})",
     "graphics.low": "BAJO",
     "graphics.medium": "MEDIO",
-    "graphics.high": "ALTO"
+    "graphics.high": "ALTO",
+    "catalog.update_title": "Actualizar a {version}",
+    "catalog.update_incompatible": "Esta actualización no puede usar tus partidas guardadas. Conserva la versión instalada para continuar, o actualiza y empieza de nuevo. Se conservarán los archivos anteriores.",
+    "catalog.update_fresh": "Actualizar y empezar de nuevo",
+    "catalog.keep_version": "Conservar versión instalada",
+    "catalog.updated_compatible": "Listo para jugar. Tus partidas guardadas siguen siendo compatibles.",
+    "catalog.updated_fresh": "Actualizado. Empieza una nueva partida; se han conservado las partidas anteriores."
   }
 }

@@ -136,6 +136,11 @@ automatically. Choose **Download**, then **Play**. Games offering a choice of
 one or two players use the usual player selector. Installed campaigns remain
 available offline and appear on the home screen too.
 
+Newer versions offer **Update**. The player checks the downloaded package
+before switching versions. Compatible updates keep your progress. If saves
+are incompatible, choose **Keep installed version** to continue your game,
+or **Update and start fresh**. Previous save files remain on your device.
+
 To use a community catalogue, paste its public HTTPS JSON URL into the browser
 and choose **Add catalogue**. No GitHub login is needed for public catalogues.
 Each source has separate downloads and saves. The first packages rely on

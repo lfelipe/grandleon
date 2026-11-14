@@ -148,6 +148,13 @@ repository; keep engine code and deterministic test fixtures in this repository.
   installation. Use stable campaign identities and isolated save locations;
   preserve the playable installed version and its saves when an update fails,
   and avoid replacing a campaign version underneath an active play session.
+- [x] Check campaign-update save compatibility against the downloaded
+  package's real identity and content revision. Keep compatible progress;
+  require a choice between keeping the installed version and updating to a
+  fresh save namespace otherwise. Preserve previous save files. Real HTTP
+  tests play a battle, restore its checkpoint after a compatible update, and
+  verify cancellation, fresh start, native rejection and offline persistence
+  for an incompatible revision.
 - [x] Reuse the normal campaign launch and 1P/2P selection flow for downloaded
   games. Test download → install → play → save → offline resume, corrupt or
   interrupted downloads, incompatible versions and catalogue refresh failures.

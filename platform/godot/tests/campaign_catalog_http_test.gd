@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-extends SceneTree
+extends "native_campaign_play.gd"
 const Catalog = preload("res://scripts/campaign_catalog.gd")
 var library: Node
 var base := ""
@@ -11,12 +11,13 @@ var progress_events := 0
 func _init() -> void:
 	call_deferred("_run")
 
-func expect(condition: bool, message: String) -> void:
+func expect(condition: bool, message: String) -> bool:
 	checks += 1
 	if not condition:
 		push_error("catalog integration: " + message)
 		quit(1)
 		assert(condition, message)
+	return condition
 
 func control(mode: String, extra := {}) -> void:
 	var file := FileAccess.open(work.path_join("control.json"), FileAccess.WRITE)
@@ -34,6 +35,7 @@ func _attempt_parallel() -> void:
 	busy_refused = (await library.refresh()).get("error") == "busy" and library.add_source(base + "/busy/catalog.json").get("error") == "busy"
 
 func _run() -> void:
+	root.get_node("Localization").select_language("en", false)
 	base = OS.get_environment("GRANDLEON_CATALOG_TEST_URL")
 	work = OS.get_environment("GRANDLEON_CATALOG_TEST_WORK")
 	expect(not base.is_empty() and not work.is_empty(), "real HTTP fixture configured")
@@ -59,15 +61,21 @@ func _run() -> void:
 	expect(launch.ok and launch.campaign == "steel_and_cedar" and launch.package.size() == 55584, "native inspected actual Steel and Cedar package launches")
 	var initial_hash: String = launch.package.hex_encode().sha256_text()
 	var save_scope: String = launch.save_scope
+	var original_session = ClassDB.instantiate("GrandleonSession")
+	expect(original_session.start_package(launch.package, launch.campaign, 1, work.path_join("saves").path_join(save_scope), "en"), "original campaign starts in its actual save namespace")
+	var played: Dictionary = await _play_to_checkpoint(original_session)
+	expect(played.get("ok", false), "original campaign reaches a real first-battle victory")
+	var checkpoint: PackedByteArray = original_session.campaign_checkpoint_bytes()
+	expect(not checkpoint.is_empty(), "native campaign writes a real checkpoint")
+	original_session.stop()
 	var other := first("steel-and-cedar", "/b/catalog.json")
 	expect((await library.install(other)).ok, "second source installs same id independently")
 	expect(library.read_launch(other).save_scope != save_scope, "source-specific save isolation")
 	var local_path: String = library.installed_entry(one).path
-	# The package fixture is compiled normally, with an authored title/revision
-	# change. This exercises a genuine updated GPK rather than mutating runtime.
+	# A presentation-only update retains the authored save revision. Compile
+	# normally rather than mutating a loaded runtime or patching package bytes.
 	var source := FileAccess.get_file_as_string("res://fixtures/source.json")
 	source = source.replace('"title": "Steel and Cedar"', '"title": "Steel and Cedar Updated"')
-	source = source.replace('"contentRevision": "0.1.0"', '"contentRevision": "0.1.1"')
 	var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 	var compiled: Dictionary = compiler.compile_source_json(source)
 	expect(compiled.get("ok", false), "normal compiler produces updated campaign fixture: " + str(compiled.get("diagnostics", [])))
@@ -136,6 +144,64 @@ func _run() -> void:
 	var updated_launch: Dictionary = library.read_launch(one)
 	expect(updated_launch.ok and updated_launch.save_scope == save_scope, "update preserves version-independent saves")
 	expect(updated_launch.package == update and library.installed_entry(one).version == "0.5.1", "exact updated artifact selected")
+	control("valid")
+	expect((await library.refresh()).ok and not first().update_available, "older catalogue version is not offered as an update")
+	var compatible_session = ClassDB.instantiate("GrandleonSession")
+	expect(compatible_session.start_package(updated_launch.package, one.campaign, 1, work.path_join("saves").path_join(save_scope), "en"), "compatible updated package starts")
+	expect(compatible_session.restore_campaign_checkpoint(checkpoint), "real previous checkpoint restores into compatible updated package")
+	compatible_session.stop()
+	var breaking: Dictionary = compiler.compile_source_json(source.replace('"contentRevision": "0.1.0"', '"contentRevision": "0.2.0"'))
+	expect(breaking.ok, "normal compiler produces an incompatible-revision fixture")
+	file = FileAccess.open(work.path_join("updated.gpk"), FileAccess.WRITE)
+	file.store_buffer(breaking.package)
+	file.close()
+	hash = HashingContext.new()
+	hash.start(HashingContext.HASH_SHA256)
+	hash.update(breaking.package)
+	control("update", {"sha": hash.finish().hex_encode(), "size": breaking.package.size(), "version": "0.5.2"})
+	expect((await library.refresh()).ok, "incompatible update listing refreshed")
+	one = first()
+	var browser = load("res://scripts/campaign_browser.gd").new()
+	browser.configure(library)
+	root.add_child(browser)
+	await process_frame
+	var update_button_found := false
+	for button in browser.find_children("*", "Button", true, false):
+		if button.text == "Update" and button.get_meta("campaign_id", "") == one.id:
+			update_button_found = true
+	expect(update_button_found, "newer incompatible release has a real Update button")
+	await browser._install(one)
+	var dialog: ConfirmationDialog
+	for child in browser.get_children():
+		if child is ConfirmationDialog: dialog = child
+	expect(dialog != null and dialog.visible and dialog.dialog_text.contains("cannot use your current saves"), "real browser shows incompatible-save choice before installation")
+	expect(library.read_launch(one).package == update and library.read_launch(one).save_scope == save_scope, "declining update retains exact playable package and progress namespace")
+	dialog.get_cancel_button().pressed.emit()
+	await process_frame
+	expect(library.read_launch(one).package == update, "Keep installed version leaves current package playable")
+	root.size = Vector2i(390, 780)
+	root.get_node("Localization").select_language("pt-BR", false)
+	await process_frame
+	await browser._install(one)
+	for child in browser.get_children():
+		if child is ConfirmationDialog: dialog = child
+	expect(dialog.visible, "incompatible update still requires choice after cancellation")
+	expect(dialog.dialog_text.contains("não pode usar"), "Brazilian Portuguese update guidance includes accents")
+	expect(dialog.size.x <= root.size.x, "update choice fits a portrait phone viewport")
+	dialog.get_ok_button().pressed.emit()
+	await process_frame
+	await process_frame
+	expect(library.read_launch(one).package == breaking.package, "real confirmation button installs the verified incompatible update")
+	browser.queue_free()
+	await process_frame
+	updated_launch = library.read_launch(one)
+	expect(updated_launch.save_scope != save_scope, "incompatible update uses a different save namespace")
+	expect(original_session.campaign_checkpoint_bytes() == checkpoint, "updating preserves actual previous checkpoint bytes")
+	var fresh_session = ClassDB.instantiate("GrandleonSession")
+	expect(fresh_session.start_package(updated_launch.package, one.campaign, 1, work.path_join("saves").path_join(updated_launch.save_scope), "en"), "new revision starts in its fresh namespace")
+	expect(not fresh_session.restore_campaign_checkpoint(checkpoint), "native runtime confirms old checkpoint is incompatible")
+	fresh_session.stop()
+	update = breaking.package
 	control("down")
 	library.queue_free()
 	await process_frame
