@@ -162,29 +162,29 @@ def selected_maps(project: dict, encounters: list[dict]) -> list[dict]:
 def draw_atlas(path: Path, kinds: list[int]) -> None:
     rows = 3
     image = Image.new(
-        "RGB", (ATLAS_COLUMNS * ATLAS_CELL, rows * ATLAS_CELL), (20, 28, 24)
+        "RGB", (ATLAS_COLUMNS * ATLAS_CELL, rows * ATLAS_CELL), (237, 237, 237)
     )
-    draw = ImageDraw.Draw(image)
-    limit = ATLAS_CELL - 2
     for slot, kind in enumerate(kinds):
-        _keywords, _label, dark, light = TERRAIN_KINDS[kind]
-        # Geometry supplies terrain identity. Keep the ground quiet enough
-        # that repeated ground marks do not compete with units and paths.
-        light = tuple((base * 3 + accent) // 4 for base, accent in zip(dark, light))
+        # Vertex colours carry terrain identity; a neutral detail atlas avoids
+        # double tinting and shares all sixteen luminance levels across kinds.
         x0 = (slot % ATLAS_COLUMNS) * ATLAS_CELL
         y0 = (slot // ATLAS_COLUMNS) * ATLAS_CELL
-        draw.rectangle((x0, y0, x0 + ATLAS_CELL - 1, y0 + ATLAS_CELL - 1), fill=dark)
-        for y in range(1, ATLAS_CELL - 1, 6):
-            shift = (slot * 3 + y) % 5
-            for x in range(1 + shift, ATLAS_CELL - 1, 9):
-                if kind == 0:
-                    draw.line((x0 + x, y0 + y, x0 + min(x + 7, limit), y0 + y), fill=light)
+        for y in range(ATLAS_CELL):
+            for x in range(ATLAS_CELL):
+                grain = ((x * 73 + y * 151 + x * y * 17 + kind * 31) % 13) - 6
+                value = 237 + grain
+                if kind == 0:  # Broken ripples, rather than a dotted grid.
+                    value += 7 if (y + x // 7) % 7 == 0 else 0
                 elif kind in (1, 12):
-                    draw.rectangle((x0 + x, y0 + y, x0 + min(x + 6, limit), y0 + min(y + 3, limit)), outline=light)
-                elif kind in (2, 10, 11):
-                    draw.ellipse((x0 + x, y0 + y, x0 + min(x + 4, limit), y0 + min(y + 5, limit)), fill=light)
-                else:
-                    draw.rectangle((x0 + x, y0 + y, x0 + min(x + 3, limit), y0 + min(y + 3, limit)), fill=light)
+                    value -= 16 if y % 9 == 0 or (x + y // 9 * 7) % 13 == 0 else 0
+                elif kind == 10:
+                    value -= 13 if x % 6 == 0 else 0
+                elif kind in (2, 6, 9, 11):
+                    value -= 10 if (x * 11 + y * 7) % 23 < 3 else 0
+                elif kind in (3, 8):
+                    value -= 12 if (x + y * 3) % 17 == 0 else 0
+                value = max(0, min(255, value))
+                image.putpixel((x0 + x, y0 + y), (value, value, value))
     image.quantize(colors=16, method=QUANTIZE.MEDIANCUT).convert("RGBA").save(path)
 
 

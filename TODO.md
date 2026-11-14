@@ -177,6 +177,10 @@ tracked above.
 - [ ] Expand reviewed terrain textures, depth, material variety and connected
   scenery across terrain families. Refine joins and cluster variation beyond
   the existing foundation while keeping walkable boundaries readable.
+  The console material pass adds stable tree colour and silhouette variation;
+  PS1 reeds, shrubs and outcrops also vary in size. Neutral texture detail
+  preserves authored colours. Nintendo 64 has varied crown sway; PS1 foliage
+  motion remains pending and must preserve static terrain caching.
 - [ ] Expand thematic multi-tile landmark art beyond the current Medieval
   houses and keep: Sengoku, pirate, sci-fi and the other scenario styles need
   their own families. Add corresponding console variants, fences, gates,

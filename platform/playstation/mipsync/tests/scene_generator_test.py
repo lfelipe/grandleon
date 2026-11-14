@@ -171,6 +171,31 @@ def test_interior_terrain_pages_overlap_the_visible_window() -> None:
             assert min(ys) <= start_y - 2
 
 
+def test_forest_variation_preserves_topology_and_rooted_trunks() -> None:
+    profiles = set()
+    palettes = set()
+    counts = set()
+    for x in range(12):
+        roll = SCENE.hash_cell(x, 3, 0x47A4D1E)
+        vertices, uvs, triangles = [], [], []
+        SCENE.append_terrain_form(vertices, uvs, triangles, 2, 0, 7, 0,
+                                  roll, {-1: 1, -2: 2, -3: 3})
+        counts.add((len(vertices), len(uvs), len(triangles)))
+        profiles.add(tuple(vertices))
+        palettes.add(tuple(face[5:] for face in triangles if face[3] == 2))
+        # Trunks retain their fixed footprint and contact with the ground;
+        # shape variation must not turn them into floating or moving props.
+        assert all(vertex[1] == 8 for vertex in vertices[:4])
+        assert all(abs(vertex[0]) == 6 and abs(vertex[2]) == 6
+                   for vertex in vertices[:4])
+        assert all(0 <= component < 32 for uv in uvs for component in uv)
+    assert len(profiles) > 6
+    assert len(palettes) >= 3
+    # Variation uses the existing trunk and two canopies, with no additional
+    # vertices, texture references or triangles in a resident terrain page.
+    assert counts == {(18, 18, 14)}
+
+
 if __name__ == "__main__":
     test_console_font_has_complete_pixel_cells()
     test_accented_font_uses_complete_cells_and_dedicated_four_bit_clut()
@@ -180,4 +205,5 @@ if __name__ == "__main__":
     test_four_bit_material_packs_texels_and_owns_palette()
     test_hidden_cover_faces_the_same_way_as_the_floor()
     test_interior_terrain_pages_overlap_the_visible_window()
+    test_forest_variation_preserves_topology_and_rooted_trunks()
     print("Mipsync scene generator presentation passed.")

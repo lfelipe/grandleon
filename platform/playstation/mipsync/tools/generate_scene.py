@@ -611,8 +611,10 @@ def write_textures(
 
     # Small material swatches give native terrain forms surface detail at
     # every viewing distance, without adding an entity or another polygon.
-    for material, base in ((-1, (148, 112, 75)), (-2, (102, 151, 81)),
-                           (-3, (158, 161, 151))):
+    # Face colours supply bark, foliage and stone hues. Neutral detail avoids
+    # multiplying two coloured surfaces and muddying those authored colours.
+    for material, base in ((-1, (235, 235, 235)), (-2, (235, 235, 235)),
+                           (-3, (235, 235, 235))):
         swatch = Image.new("RGBA", (32, 32), (*base, 255))
         pixels = swatch.load()
         for y in range(32):
@@ -942,9 +944,25 @@ def append_terrain_form(
 ) -> None:
     """Append one small native low-poly landmark for a terrain cell."""
     colour, scale = TERRAIN_FORM_STYLES[kind]
+    if kind in (0, 2, 6, 9, 10, 11) and not castle_wall:
+        # Stable per-cell variation survives scrolling and scene reloads.
+        # The narrow palette stays within the terrain's own visual identity.
+        foliage_tints = ((100, 100, 100), (112, 103, 84),
+                         (86, 96, 109), (103, 111, 92))
+        tint = foliage_tints[(roll >> 13) & 3]
+        colour = tuple(min(255, c * t // 100) for c, t in zip(colour, tint))
     light = shifted_colour(colour, 122)
+    width_percent = 88 + int((roll >> 3) % 25)
+    depth_percent = 88 + int((roll >> 19) % 25)
+    height_percent = 90 + int((roll >> 25) % 21)
 
     def vertex(x: int, y: int, z: int) -> int:
+        if not castle_wall and kind != 2:
+            # Vary reeds, outcrops and shrubs too; authored castle walls and
+            # the forest's independently varied canopies retain their shape.
+            x = cx + (x - cx) * width_percent // 100
+            z = cz + (z - cz) * depth_percent // 100
+            y = floor + 1 + (y - floor - 1) * height_percent // 100
         index = len(vertices)
         vertices.append((x, y, z, 0))
         uvs.append((((x - cx + z - cz) // 4 + 16) % 32,
@@ -1000,13 +1018,16 @@ def append_terrain_form(
         box(cx, cz, 62, 62, 84, stone)
         box(cx, cz, 21, 60, 18, light, 84)
     elif kind == 2:  # forest: trunk plus a layered, faceted canopy
-        canopy_height = 88 + int((roll >> 5) % 17)
-        canopy_width = 40 + int((roll >> 11) % 8)
-        box(cx, cz, 6, 6, 44, (102, 70, 42))
-        pyramid(cx - 5, cz + 2, canopy_width, canopy_width - 5,
-                canopy_height, colour, 24)
-        pyramid(cx + 15, cz - 9, canopy_width - 12, canopy_width - 15,
-                canopy_height - 19, light, 39)
+        canopy_height = 72 + int((roll >> 5) % 41)
+        canopy_width = 33 + int((roll >> 18) % 18)
+        canopy_depth = canopy_width - 8 + int((roll >> 23) % 13)
+        lean = int((roll >> 9) % 13) - 6
+        trunk_height = 35 + canopy_height // 10
+        box(cx, cz, 6, 6, trunk_height, (102, 70, 42))
+        pyramid(cx - 5 + lean, cz + 2, canopy_width, canopy_depth,
+                canopy_height, colour, 22)
+        pyramid(cx + 15 - lean, cz - 9, canopy_width - 12, canopy_depth - 11,
+                canopy_height - 19, light, 37)
     elif kind == 3:  # mountain: a small range, not one isolated pyramid
         pyramid(cx - 12, cz + 7, 48, 42, 108, colour)
         pyramid(cx + 32, cz - 17, 31, 29, 76, light)

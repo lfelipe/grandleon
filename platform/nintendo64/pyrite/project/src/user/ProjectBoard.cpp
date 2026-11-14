@@ -1415,16 +1415,20 @@ void append_tree(
     const std::size_t first = board.tree_count * kTreeVertexCount;
     const fm_vec3_t up = {{0.0F, 1.0F, 0.0F}};
     const std::uint16_t normal = t3d_vert_pack_normal(&up);
-    const std::int16_t lean = static_cast<std::int16_t>((variant % 3U) * 3U - 3);
+    const std::int16_t lean = static_cast<std::int16_t>(static_cast<int>((variant >> 3U) % 7U) - 3);
     const std::uint32_t bark_a = pack_rgba(112U, 75U, 43U);
     const std::uint32_t bark_b = pack_rgba(82U, 57U, 37U);
-    const std::uint32_t leaf_a = pack_rgba(
-        54U, static_cast<std::uint8_t>(112U + (variant & 7U)), 55U);
-    const std::uint32_t leaf_b = pack_rgba(
-        76U, static_cast<std::uint8_t>(137U + (variant & 7U)), 63U);
+    constexpr std::uint8_t foliage[4][3] = {
+        {66U, 126U, 62U}, {91U, 134U, 56U},
+        {58U, 115U, 79U}, {82U, 143U, 70U},
+    };
+    const auto& tone = foliage[(variant >> 8U) & 3U];
+    const std::uint32_t leaf_a = pack_rgba(tone[0], tone[1], tone[2]);
+    const std::uint32_t leaf_b = pack_rgba(tone[0] + 18U, tone[1] + 22U, tone[2] + 10U);
     const std::int16_t trunk = scaled(5, scale);
-    const std::int16_t crown = scaled(21, scale);
-    const std::int16_t shoulder = scaled(43, scale);
+    const std::int16_t crown = scaled(18 + static_cast<int>((variant >> 12U) % 8U), scale);
+    const std::int16_t depth = scaled(18 + static_cast<int>((variant >> 16U) % 8U), scale);
+    const std::int16_t shoulder = scaled(38 + static_cast<int>((variant >> 20U) % 11U), scale);
     set_vertex(board.trees, first + 0U, cx - trunk, floor, cz - trunk, bark_a, 0, 0, normal);
     set_vertex(board.trees, first + 1U, cx + trunk, floor, cz - trunk, bark_b, 0, 0, normal);
     set_vertex(board.trees, first + 2U, cx + trunk, floor, cz + trunk, bark_a, 0, 0, normal);
@@ -1433,9 +1437,9 @@ void append_tree(
     set_vertex(board.trees, first + 5U, cx, floor + scaled(24, scale), cz, bark_a, 0, 0, normal);
     set_vertex(board.trees, first + 6U, cx + lean, floor + scaled(74, scale), cz, leaf_b, 0, 0, normal);
     set_vertex(board.trees, first + 7U, cx - crown, floor + shoulder, cz, leaf_a, 0, 0, normal);
-    set_vertex(board.trees, first + 8U, cx, floor + shoulder, cz - crown, leaf_b, 0, 0, normal);
+    set_vertex(board.trees, first + 8U, cx, floor + shoulder, cz - depth, leaf_b, 0, 0, normal);
     set_vertex(board.trees, first + 9U, cx + crown, floor + shoulder, cz, leaf_a, 0, 0, normal);
-    set_vertex(board.trees, first + 10U, cx, floor + shoulder, cz + crown, leaf_b, 0, 0, normal);
+    set_vertex(board.trees, first + 10U, cx, floor + shoulder, cz + depth, leaf_b, 0, 0, normal);
     set_vertex(board.trees, first + 11U, cx + lean, floor + scaled(25, scale), cz, leaf_a, 0, 0, normal);
     ++board.tree_count;
 }
@@ -1451,20 +1455,21 @@ void build_tree_vertices() {
         if (kind != 2U) continue;
         const auto x = static_cast<std::int16_t>(index % width);
         const auto z = static_cast<std::int16_t>(index / width);
+        const auto variation = environment_hash(x, z);
         append_tree(
             world_x(x, width) + static_cast<std::int16_t>((index & 1U) == 0U ? -4 : 5),
             terrain_lift(id),
             world_z(z, height) + static_cast<std::int16_t>((index & 2U) == 0U ? -3 : 4),
-            index,
-            108 + static_cast<int>((index % 3U) * 8U)
+            variation,
+            92 + static_cast<int>((variation >> 4U) % 37U)
         );
         if (index % 3U == 0U) {
             append_tree(
                 world_x(x, width) + 15,
                 terrain_lift(id),
                 world_z(z, height) - 13,
-                index + 19U,
-                64 + static_cast<int>((index & 1U) * 8U)
+                variation ^ 0x9e3779b9U,
+                62 + static_cast<int>((variation >> 17U) % 23U)
             );
         }
     }
@@ -2868,13 +2873,15 @@ void draw_trees() {
         const auto breeze = combat.reduced_motion ? 0 :
             view::ambient_wave_q12(frame_count / 2U,
                 static_cast<std::uint32_t>(index * 37U));
-        const auto sway = static_cast<std::int8_t>(breeze * 2 / 4096);
+        const int amplitude = 2 + static_cast<int>(index % 3U);
+        const auto sway = static_cast<std::int8_t>(breeze * amplitude / 4096);
         const int shift = sway - board.tree_sway[index];
         if (shift != 0) {
             for (std::size_t crown = 6U; crown < kTreeVertexCount; ++crown) {
                 auto* position = t3d_vertbuffer_get_pos(board.trees,
                     static_cast<int>(index * kTreeVertexCount + crown));
-                position[0] += shift;
+                // The apex catches more wind; the lower crown stays rooted.
+                position[0] += crown == 6U ? shift * 2 : shift;
             }
             board.tree_sway[index] = sway;
         }
