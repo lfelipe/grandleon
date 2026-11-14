@@ -144,7 +144,7 @@ func _verify_and_capture(
 	_expect(
 		"%s selects the Medieval family" % spec.node,
 		String(board.castle_presentation_state().terrain_family),
-		"medieval_temperate"
+		str(spec.get("terrain_family", "medieval_temperate"))
 	)
 	for style: String in spec.visuals:
 		_expect(

@@ -8,6 +8,20 @@ const COLOURS := [
 	Color("6d685f"), Color("556a4b"), Color("806a4d"), Color("58704d"), Color("777268"),
 ]
 const NATURAL := [1, 2, 6, 7, 9, 10, 11]
+const SEASON_COLOURS := [COLOURS, [
+	Color("526e7a"), Color("896448"), Color("766344"), Color("756e65"),
+	Color("aa8a5f"), Color("cbd2cf"), Color("696548"), Color("8a7751"),
+	Color("736c63"), Color("8b794f"), Color("92784d"), Color("6d7549"), Color("80766a"),
+], [
+	Color("74949f"), Color("929791"), Color("9eaea9"), Color("8d9d9a"),
+	Color("b8b4a4"), Color("cbd8d3"), Color("869d98"), Color("aebcb7"),
+	Color("a2acaa"), Color("b4c0b7"), Color("a6ac9d"), Color("a0b49c"), Color("9ba7a2"),
+], [
+	Color("5b646b"), Color("655a52"), Color("575850"), Color("5e5d5a"),
+	Color("898172"), Color("babdb8"), Color("555e53"), Color("66665a"),
+	Color("625b55"), Color("696954"), Color("706353"), Color("60644f"), Color("6d6962"),
+]]
+var colours: Array = COLOURS.duplicate()
 var cells: Dictionary = {}
 var materials: Dictionary = {}
 var heights: Dictionary = {}
@@ -19,6 +33,10 @@ var landform_noise := FastNoiseLite.new()
 func _init() -> void:
 	landform_noise.seed = 917
 	landform_noise.frequency = 0.16
+
+
+func set_theme(theme: int) -> void:
+	colours = SEASON_COLOURS[clampi(theme, 0, SEASON_COLOURS.size() - 1)].duplicate()
 
 
 func kind_at(cell: Vector2i) -> int:
@@ -51,15 +69,15 @@ func corner_height(corner: Vector2i) -> float:
 
 func corner_colour(corner: Vector2i, kind: int) -> Color:
 	if kind not in NATURAL:
-		return COLOURS[kind]
+		return colours[kind]
 	var colour := Color(0, 0, 0, 0)
 	var count := 0
 	for offset: Vector2i in [Vector2i(-1, -1), Vector2i(0, -1), Vector2i(-1, 0), Vector2i.ZERO]:
 		var adjacent := kind_at(corner + offset)
 		if adjacent in NATURAL:
-			colour += COLOURS[adjacent]
+			colour += colours[adjacent]
 			count += 1
-	return colour / float(count) if count > 0 else COLOURS[kind]
+	return colour / float(count) if count > 0 else colours[kind]
 
 
 func sample_height(cell: Vector2i, uv: Vector2) -> float:
@@ -79,7 +97,7 @@ func sample_height(cell: Vector2i, uv: Vector2) -> float:
 
 func mesh_for(cell: Vector2i, divisions := 6, extent := 1.0, lift := 0.0) -> ArrayMesh:
 	var kind := kind_at(cell)
-	var colours := [corner_colour(cell, kind), corner_colour(cell + Vector2i.RIGHT, kind),
+	var corners := [corner_colour(cell, kind), corner_colour(cell + Vector2i.RIGHT, kind),
 		corner_colour(cell + Vector2i.DOWN, kind), corner_colour(cell + Vector2i.ONE, kind)]
 	var surface := SurfaceTool.new()
 	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -90,9 +108,9 @@ func mesh_for(cell: Vector2i, divisions := 6, extent := 1.0, lift := 0.0) -> Arr
 				var uv := Vector2(corner) / float(divisions)
 				var surface_uv := (uv - Vector2(0.5, 0.5)) * extent + Vector2(0.5, 0.5)
 				surface.set_uv(uv)
-				var edge_colour: Color = colours[0].lerp(colours[1], uv.x).lerp(colours[2].lerp(colours[3], uv.x), uv.y)
+				var edge_colour: Color = corners[0].lerp(corners[1], uv.x).lerp(corners[2].lerp(corners[3], uv.x), uv.y)
 				var distance_to_edge := minf(minf(uv.x, 1.0 - uv.x), minf(uv.y, 1.0 - uv.y))
-				surface.set_color(edge_colour.lerp(COLOURS[kind], smoothstep(0.0, 0.22, distance_to_edge)))
+				surface.set_color(edge_colour.lerp(colours[kind], smoothstep(0.0, 0.22, distance_to_edge)))
 				surface.add_vertex(Vector3(surface_uv.x - 0.5, sample_height(cell, surface_uv) + lift, surface_uv.y - 0.5))
 	surface.generate_normals()
 	surface.index()

@@ -196,8 +196,11 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   preserves authored colours. Nintendo 64 has varied crown sway; PS1 foliage
   motion remains pending and must preserve static terrain caching.
   Steel and Cedar's Godot landscape now has connected height meshes, shaped
-  banks, branched trees, crops and leafy bamboo. Extend this treatment to the
-  other built-in themes and creator previews while preserving custom scenes;
+  banks, branched trees, crops and leafy bamboo in temperate, autumn, winter
+  and ashland. Winter has exposed branches and snow; ashland has bare trees.
+  Ancient-grove foliage follows the season. Explicit custom scene bindings
+  retain their authored rendering. Extend this treatment to other campaigns
+  and creator previews;
   review the new scenery's performance on Android after the visual pass.
 - [ ] Expand thematic multi-tile landmark art beyond the current Medieval
   houses and keep: Sengoku, pirate, sci-fi and the other scenario styles need
@@ -272,6 +275,9 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   than restoring retired renderers or adding silent fallbacks.
 - [ ] Profile Godot's large-board, scrolling, ambient-animation and cinematic
   workloads, including on Windows, and fix observed rendering bottlenecks.
+  Straight scenery branches now use 40 triangles instead of 120, with no
+  change to their round silhouette. One fully instanced tree uses 3,608
+  triangles in temperate/autumn, 2,840 in winter and 1,240 in ashland.
 
 The first 0.6 PS1 optimization reduces average scenery rendering cost by
 about 5%. In matched 600-update probes, the scrolling case still misses one

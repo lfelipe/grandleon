@@ -1,0 +1,65 @@
+{
+  "date": "2026-11-14",
+  "map": "Twin Gate Keep",
+  "players": 2,
+  "note": "Only runtime/render.c optimisation level changed in disposable builds. Same authored scene, input driver and pinned toolchain/emulator. Both alternatives are slower; production retains -O3. These are centred review captures, not substitutes for strict frame-pacing tests.",
+  "cases": {
+    "retained": {
+      "renderCompileOption": "-O3",
+      "metrics": {
+        "frames": 600,
+        "rendered_frames": 300,
+        "scheduled_frames": 300,
+        "deferred_frames": 0,
+        "missed_vblanks": 111,
+        "max_elapsed_vblanks": 4,
+        "render_hbl_avg": 499,
+        "render_hbl_max": 1023,
+        "ready_hbl_avg": 501,
+        "ready_hbl_max": 1025,
+        "mutation_hbl_max": 0
+      },
+      "pixelIdenticalFrames": 131,
+      "comparedFrames": 131,
+      "finalFrameIdentical": true
+    },
+    "rejected_o2": {
+      "renderCompileOption": "-O2",
+      "metrics": {
+        "frames": 600,
+        "rendered_frames": 300,
+        "scheduled_frames": 300,
+        "deferred_frames": 0,
+        "missed_vblanks": 121,
+        "max_elapsed_vblanks": 5,
+        "render_hbl_avg": 540,
+        "render_hbl_max": 1173,
+        "ready_hbl_avg": 542,
+        "ready_hbl_max": 1175,
+        "mutation_hbl_max": 0
+      },
+      "pixelIdenticalFrames": 131,
+      "comparedFrames": 131,
+      "finalFrameIdentical": true
+    },
+    "rejected_size": {
+      "renderCompileOption": "-Os",
+      "metrics": {
+        "frames": 600,
+        "rendered_frames": 300,
+        "scheduled_frames": 300,
+        "deferred_frames": 0,
+        "missed_vblanks": 328,
+        "max_elapsed_vblanks": 6,
+        "render_hbl_avg": 605,
+        "render_hbl_max": 1326,
+        "ready_hbl_avg": 608,
+        "ready_hbl_max": 1329,
+        "mutation_hbl_max": 0
+      },
+      "pixelIdenticalFrames": 131,
+      "comparedFrames": 131,
+      "finalFrameIdentical": true
+    }
+  }
+}

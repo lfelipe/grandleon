@@ -59,13 +59,22 @@ func _run() -> void:
 		board.castle_presentation_state().terrain_family, "default"
 	)
 	board.configure(
-		route_fixture, [9], 1, {}, [],
+		route_fixture, [9], 99, {}, [],
 		{"stage_id": STEEL_AND_CEDAR_MAP_IDS[0], "map_id": STEEL_AND_CEDAR_MAP_IDS[0]}
 	)
 	_expect(
-		"a non-temperate theme cannot borrow Steel and Cedar terrain",
+		"an unsupported theme cannot borrow Steel and Cedar terrain",
 		board.castle_presentation_state().terrain_family, "default"
 	)
+	var custom: Dictionary = GraphicsProfiles.new().profile("voxel-sprites").duplicate(true)
+	custom.assets.terrainScenes.forest = "res://art/terrain/relay_forest.tscn"
+	board.set_profile("voxel-sprites", custom)
+	board.configure(
+		route_fixture, [2], 2, {}, [],
+		{"stage_id": STEEL_AND_CEDAR_MAP_IDS[0], "map_id": STEEL_AND_CEDAR_MAP_IDS[0]}
+	)
+	_expect("an explicit custom scene keeps its authored renderer in winter", board.castle_presentation_state().terrain_family, "default")
+	board.set_profile("voxel-sprites", GraphicsProfiles.new().profile("voxel-sprites"))
 	var approach_snapshot: Dictionary = battle.snapshot.duplicate(true)
 	var rowan_id := _rowan_id(approach_snapshot)
 	var boss_id := _unit_id_named(approach_snapshot, "Masatora")

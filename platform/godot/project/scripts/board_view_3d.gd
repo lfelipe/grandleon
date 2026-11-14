@@ -10,6 +10,7 @@ const PresentationFacing = preload("res://scripts/presentation_facing.gd")
 const TerrainSceneSelector = preload("res://scripts/terrain_scene_selector.gd")
 const NaturalGround = preload("res://scripts/natural_ground.gd")
 const NaturalScenery = preload("res://scripts/natural_scenery.gd")
+const GraphicsProfiles = preload("res://scripts/graphics_profiles.gd")
 const StoneKeep = preload("res://scripts/stone_keep.gd")
 const TerrainMarkerShader = preload("res://shaders/terrain_marker.gdshader")
 const VisualVisibility = preload("res://scripts/visual_visibility.gd")
@@ -136,6 +137,7 @@ var _ambient_motion_enabled := true
 var _scenery_occluders: Array[Dictionary] = []
 var _natural_ground
 var _natural_scenery
+var _has_custom_terrain_bindings := false
 var _occlusion_elapsed := 0.0
 var _ambient_props: Array[Dictionary] = []
 var _ambient_water_materials: Dictionary = {}
@@ -158,6 +160,9 @@ func set_ambient_motion_enabled(value: bool) -> void:
 func set_profile(value: String, config := {}) -> void:
 	render_profile = value if value in ["diorama", "voxel-sprites", "voxel"] else "diorama"
 	profile_config = config if config is Dictionary else {}
+	var bindings: Dictionary = profile_config.get("assets", {}).get("terrainScenes", {})
+	var builtin: Dictionary = GraphicsProfiles.new().profile(render_profile).get("assets", {}).get("terrainScenes", {})
+	_has_custom_terrain_bindings = not bindings.is_empty() and bindings != builtin
 	art.configure_profile(profile_config)
 	_unit_sprite_headings.clear()
 	_update_surrounding_background()
@@ -864,18 +869,23 @@ func _rebuild_terrain() -> void:
 
 
 func _uses_medieval_campaign_terrain() -> bool:
-	# Temperate is Steel and Cedar's authored theme. The old default 3D asset
+	# Steel and Cedar can use each authored season. The old default 3D asset
 	# binding points at the Relay demonstration scenes, whose cyan circuitry and
 	# beacons are intentionally wrong in this Medieval-versus-Sengoku campaign.
 	# Exact stage/map identity keeps every unrelated/custom map on its prior path.
 	var stage_id := String(route_identity.get("stage_id", ""))
 	var map_id := String(route_identity.get("map_id", ""))
 	return (
-		terrain_theme == 0
+		not _has_custom_terrain_bindings
+		and terrain_theme in [0, 1, 2, 3]
 		and stage_id in STEEL_AND_CEDAR_MAP_IDS
 		and map_id in STEEL_AND_CEDAR_MAP_IDS
 		and stage_id == map_id
 	)
+
+
+func _medieval_terrain_family() -> String:
+	return "medieval_" + str(["temperate", "autumn", "winter", "ashland"][terrain_theme]) if _uses_medieval_campaign_terrain() else "default"
 
 
 func _detect_cluster_landmarks() -> void:
@@ -1086,7 +1096,7 @@ func castle_presentation_state() -> Dictionary:
 		"bounds": _castle_bounds,
 		"valid_footprint": _castle_bounds.size == Vector2i(6, 6),
 		"revealed": _castle_revealed,
-		"terrain_family": "medieval_temperate" if _uses_medieval_campaign_terrain() else "default",
+		"terrain_family": _medieval_terrain_family(),
 		"target": _castle_reveal_target,
 		"progress": _castle_reveal_progress,
 		"roof_alpha": 1.0 - reveal if _castle_roof != null else -1.0,
@@ -1330,6 +1340,8 @@ func _build_ancient_grove_cutout(centre: Vector3) -> bool:
 	grove.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
 	grove.shaded = false
 	grove.double_sided = true
+	if _uses_medieval_campaign_terrain() and terrain_theme > 0:
+		grove.material_override = _natural_scenery.seasonal_cutout(grove.texture)
 	grove.set_meta("landmark_style", "ancient_grove")
 	grove.set_meta("landmark_asset", ANCIENT_GROVE_TEXTURE)
 	_terrain_root.add_child(grove)
@@ -1415,8 +1427,10 @@ func _build_diorama_tile(x: int, y: int, kind: int) -> void:
 
 func _prepare_natural_terrain(width: int, height: int, depth: int) -> void:
 	_natural_ground = NaturalGround.new()
+	_natural_ground.set_theme(terrain_theme)
 	if _natural_scenery == null:
 		_natural_scenery = NaturalScenery.new()
+	_natural_scenery.set_theme(terrain_theme)
 	var configured_heights: Dictionary = profile_config.get("surfaceHeights", {})
 	for kind in TERRAIN_NAMES.size():
 		_natural_ground.heights[kind] = float(configured_heights.get(TERRAIN_NAMES[kind], configured_heights.get("default", 0.10)))
@@ -1441,7 +1455,7 @@ func _prepare_natural_terrain(width: int, height: int, depth: int) -> void:
 
 func _build_medieval_campaign_tile(x: int, y: int, kind: int) -> void:
 	var cell := Node3D.new()
-	cell.set_meta("terrain_family", "medieval_temperate")
+	cell.set_meta("terrain_family", _medieval_terrain_family())
 	cell.set_meta("terrain_kind", kind)
 	cell.position = _cell_position(x, y)
 	_terrain_root.add_child(cell)
@@ -1662,9 +1676,10 @@ func _build_medieval_orchard_tree(parent: Node3D, top: float, variation: int) ->
 	var offset: Vector3 = offsets[variation % offsets.size()]
 	var crown: Node3D = _natural_scenery.tree(tree, variation, true)
 	crown.position = offset + Vector3(0, top, 0)
-	var fruit := _material("medieval_orchard_fruit", Color("a55238"), 0.90)
-	_sphere(crown, Vector3(-0.22, 0.68, -0.11), Vector3(0.065, 0.065, 0.065), fruit)
-	_sphere(crown, Vector3(0.23, 0.62, 0.15), Vector3(0.055, 0.055, 0.055), fruit)
+	if terrain_theme < 2:
+		var fruit := _material("medieval_orchard_fruit", Color("a55238"), 0.90)
+		_sphere(crown, Vector3(-0.22, 0.68, -0.11), Vector3(0.065, 0.065, 0.065), fruit)
+		_sphere(crown, Vector3(0.23, 0.62, 0.15), Vector3(0.055, 0.055, 0.055), fruit)
 	_register_ambient_terrain(tree, 2)
 
 

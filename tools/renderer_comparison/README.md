@@ -25,3 +25,7 @@ opening with eight units; they are separate from the one-player README clips.
 and projection follow-ups, matched PS1 frame comparisons and unchanged campaign
 memory limits. Deepwood meets the strict frame-pacing gate; the heavier castle
 scroll still has missed frames.
+
+[ps1-compiler-06.json](ps1-compiler-06.json) compares renderer compiler settings
+on the richer castle. `-O2` and `-Os` preserve the captures but run slower;
+the production renderer keeps `-O3`.

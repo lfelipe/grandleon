@@ -2,6 +2,7 @@
 extends RefCounted
 
 var leaf_mesh: ArrayMesh
+var snow_mesh: ArrayMesh
 var rock_mesh: ArrayMesh
 var branch_mesh: CylinderMesh
 var foliage_texture: ImageTexture
@@ -9,16 +10,32 @@ var bark_texture: ImageTexture
 var materials: Dictionary = {}
 var grass_mesh: ArrayMesh
 var motion_enabled := true
+var theme := 0
+const LEAF_TONES := [
+	[Color("547443"), Color("627b43"), Color("426b49"), Color("647e4c")],
+	[Color("b46c38"), Color("a87e3e"), Color("93533b"), Color("b58a4d")],
+	[Color("c2d0c9"), Color("aabeb5"), Color("cdd6ce"), Color("b3c5c0")],
+	[Color("62604c"), Color("72634e"), Color("504f46"), Color("7c725c")],
+]
+
+
+func set_theme(value: int) -> void:
+	value = clampi(value, 0, LEAF_TONES.size() - 1)
+	if theme != value:
+		theme = value
+		materials.clear()
 
 
 func _init() -> void:
 	leaf_mesh = _weathered_sphere(0.12, 713)
+	snow_mesh = _weathered_sphere(0.08, 713, 8, 4)
 	rock_mesh = _weathered_sphere(0.29, 491)
 	branch_mesh = CylinderMesh.new()
 	branch_mesh.bottom_radius = 1.0
 	branch_mesh.top_radius = 0.65
 	branch_mesh.height = 1.0
 	branch_mesh.radial_segments = 10
+	branch_mesh.rings = 0
 	foliage_texture = _grain_texture(false)
 	bark_texture = _grain_texture(true)
 	grass_mesh = ArrayMesh.new()
@@ -31,10 +48,10 @@ func _init() -> void:
 	grass_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 
 
-func _weathered_sphere(strength: float, seed_value: int) -> ArrayMesh:
+func _weathered_sphere(strength: float, seed_value: int, segments := 16, rings := 8) -> ArrayMesh:
 	var sphere := SphereMesh.new()
-	sphere.radial_segments = 16
-	sphere.rings = 8
+	sphere.radial_segments = segments
+	sphere.rings = rings
 	var arrays := sphere.surface_get_arrays(0)
 	var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
 	var noise := FastNoiseLite.new()
@@ -104,18 +121,45 @@ func tree(parent: Node3D, seed_value: int, orchard := false) -> Node3D:
 		var level := float(i / 3)
 		var angle := phase + float(i) * 2.4
 		var spread := 0.20 if orchard else 0.24 - level * 0.045
+		if theme >= 2:
+			spread = 0.29 - level * 0.025
 		var end := Vector3(cos(angle) * spread, 0.57 + level * (0.06 if orchard else 0.16), sin(angle) * spread)
 		var start := Vector3(0, 0.32 + level * 0.10, 0)
 		var delta := end - start
-		var basis := Basis(Quaternion(Vector3.UP, delta.normalized())).scaled(Vector3(0.019, delta.length(), 0.019))
+		var basis := Basis(Quaternion(Vector3.UP, delta.normalized())) * Basis.from_scale(Vector3(0.019, delta.length(), 0.019))
 		branches.append(Transform3D(basis, (start + end) * 0.5))
+		if theme >= 2:
+			for side in [-1.0, 1.0]:
+				var fork_angle: float = angle + float(side) * 0.65
+				var tip := end + Vector3(cos(fork_angle) * 0.17, 0.13, sin(fork_angle) * 0.17)
+				var twig := tip - end
+				var twig_basis := Basis(Quaternion(Vector3.UP, twig.normalized())) * Basis.from_scale(Vector3(0.010, twig.length(), 0.010))
+				branches.append(Transform3D(twig_basis, (end + tip) * 0.5))
+				if theme == 2:
+					var snow := Basis(Vector3.UP, -fork_angle) * Basis.from_scale(Vector3(0.18, 0.022, 0.055))
+					leaves.append(Transform3D(snow, (end + tip) * 0.5 + Vector3(0, 0.02, 0)))
+			continue
 		var size := Vector3(0.56, 0.48, 0.52) if orchard else Vector3(0.55 - level * 0.075, 0.43 - level * 0.045, 0.51 - level * 0.065)
-		leaves.append(Transform3D(Basis(Vector3.UP, angle).scaled(size), end + Vector3(0, 0.13, 0)))
-	leaves.append(Transform3D(Basis.IDENTITY.scaled(Vector3(0.48, 0.45, 0.44) if orchard else Vector3(0.30, 0.42, 0.28)), Vector3(0, 0.87 if orchard else 1.12, 0)))
-	var tones := [Color("547443"), Color("627b43"), Color("426b49"), Color("647e4c")]
-	_batch(tree_root, branch_mesh, branches, _material("bark", Color("65503b"), true))
-	_batch(tree_root, leaf_mesh, leaves, _material("leaves_%d" % variation, tones[variation]))
+		leaves.append(Transform3D(Basis(Vector3.UP, angle) * Basis.from_scale(size), end + Vector3(0, 0.13, 0)))
+	if theme < 2:
+		leaves.append(Transform3D(Basis.IDENTITY.scaled(Vector3(0.48, 0.45, 0.44) if orchard else Vector3(0.30, 0.42, 0.28)), Vector3(0, 0.87 if orchard else 1.12, 0)))
+	var tones: Array = LEAF_TONES[theme]
+	var bark: Color = [Color("65503b"), Color("65503b"), Color("646663"), Color("47413b")][theme]
+	_batch(tree_root, branch_mesh, branches, _material("bark", bark, true))
+	if not leaves.is_empty():
+		_batch(tree_root, snow_mesh if theme == 2 else leaf_mesh, leaves, _material("leaves_%d" % variation, tones[variation]))
 	return tree_root
+
+
+func seasonal_cutout(texture: Texture2D) -> ShaderMaterial:
+	var key := "seasonal_cutout_%d" % texture.get_instance_id()
+	if not materials.has(key):
+		var material := ShaderMaterial.new()
+		material.shader = preload("res://shaders/seasonal_cutout.gdshader")
+		material.set_shader_parameter("source_texture", texture)
+		material.set_shader_parameter("season", theme)
+		materials[key] = material
+	return materials[key]
 
 
 func rock(parent: Node3D, at: Vector3, size: Vector3, seed_value: int) -> void:
@@ -125,6 +169,10 @@ func rock(parent: Node3D, at: Vector3, size: Vector3, seed_value: int) -> void:
 	instance.scale = size
 	instance.rotation.y = float(posmod(seed_value * 71, 360)) * PI / 180.0
 	var tones := [Color("797b71"), Color("777d7b"), Color("887e6c")]
+	if theme == 2:
+		tones = [Color("a4b0b0"), Color("929fa3"), Color("b3bcb6")]
+	elif theme == 3:
+		tones = [Color("5f5f59"), Color("68655d"), Color("72695c")]
 	instance.material_override = _material("stone_%d" % posmod(seed_value, 3), tones[posmod(seed_value, 3)])
 	parent.add_child(instance)
 
@@ -146,7 +194,9 @@ func grass(parent: Node3D, seed_value: int, top: float, crop := false, height_sa
 	if not materials.has(key):
 		var material := ShaderMaterial.new()
 		material.shader = preload("res://shaders/natural_grass.gdshader")
-		material.set_shader_parameter("blade_colour", Color("718052") if crop else Color("516b38"))
+		var crop_tones := [Color("718052"), Color("9b834d"), Color("b6bda7"), Color("716551")]
+		var grass_tones := [Color("516b38"), Color("807b45"), Color("b6c2b8"), Color("666752")]
+		material.set_shader_parameter("blade_colour", crop_tones[theme] if crop else grass_tones[theme])
 		material.set_shader_parameter("motion_strength", 1.0 if motion_enabled else 0.0)
 		materials[key] = material
 	_batch(parent, grass_mesh, transforms, materials[key])
@@ -167,8 +217,10 @@ func bamboo(parent: Node3D, seed_value: int, top: float, height_sampler := Calla
 			var angle := float(leaf) * 2.4 + float(seed_value)
 			var at := Vector3(x + cos(angle) * 0.12, floor_height + height * 0.7 + float(leaf % 2) * 0.13, z + sin(angle) * 0.12)
 			leaves.append(Transform3D(Basis(Vector3.UP, angle).scaled(Vector3(0.30, 0.04, 0.07)), at))
-	_batch(parent, branch_mesh, stalks, _material("bamboo_stem", Color("70834a"), true))
-	_batch(parent, leaf_mesh, leaves, _material("bamboo_leaves", Color("486c38")))
+	var stems := [Color("70834a"), Color("7e804a"), Color("a1b19b"), Color("64644d")]
+	var foliage := [Color("486c38"), Color("727348"), Color("a8bbae"), Color("555a43")]
+	_batch(parent, branch_mesh, stalks, _material("bamboo_stem", stems[theme], true))
+	_batch(parent, leaf_mesh, leaves, _material("bamboo_leaves", foliage[theme]))
 
 
 func set_motion_enabled(enabled: bool) -> void:

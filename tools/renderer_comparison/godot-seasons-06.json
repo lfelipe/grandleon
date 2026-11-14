@@ -1,0 +1,58 @@
+{
+  "date": "2026-11-14",
+  "renderer": "Godot",
+  "campaign": "Steel and Cedar",
+  "maps": [
+    "Bell Orchard",
+    "Cedar Deepwood"
+  ],
+  "authoredThemes": [
+    "temperate",
+    "autumn",
+    "winter",
+    "ashland"
+  ],
+  "viewport": [
+    1280,
+    720
+  ],
+  "sourceSha256": {
+    "platform/godot/project/scripts/board_view_3d.gd": "7167c49467048519a3acfcfd298bd1628fc778e55db092c86ad1acb2a79e7ff9",
+    "platform/godot/project/scripts/natural_ground.gd": "fe59e536f3b03dff8e3f574af57156c7846fe983bb55cc25d7b1ecd8da18ecc9",
+    "platform/godot/project/scripts/natural_scenery.gd": "f71975aedb0a30e9700c773d45e46eb7ae4543affa4167ee0aae6e980b02b602",
+    "platform/godot/project/shaders/seasonal_cutout.gdshader": "993ddece1eb5adc9aecd85a5c0d5d4b8bfed17f544f93a72ccd88b5c540cecf5"
+  },
+  "captureSha256": {
+    "ashland-bell_orchard.png": "0969916f39a8071d3d2a2b0b5599e3075bcff8efabf23996bd78d70459995928",
+    "ashland-cedar_deepwood.png": "f9b1d728ae91131157c452e888c05656a49bc98c9e1d2d619121d8545396d412",
+    "autumn-bell_orchard.png": "c1ce3a5c885218c6d799019a30634df70b26c124f7934f2eb4619cdc8fd1dcfc",
+    "autumn-cedar_deepwood.png": "cd54bc000d54eca43143bab462404181011fe4af34233c3a65ef803b163e67b8",
+    "temperate-bell_orchard.png": "0c1162b38b7548da7ce92d45a95e3a430571e68d9a86df976143472f49911da7",
+    "temperate-cedar_deepwood.png": "7bd2eb3323213b339e6351661030360bfef25ccb93d7d53d2989dc1a2472c4ed",
+    "winter-bell_orchard.png": "73c32f4fd9f8022140fcfa3a84c6c52c95d8880d8810469eddc5ded7ea50f749",
+    "winter-cedar_deepwood.png": "92e1cbb593ecc9e27a58494c1340996763cfb002d0fdf710e772488526e7ceb8"
+  },
+  "treeTriangles": {
+    "0": 3608,
+    "1": 3608,
+    "2": 2840,
+    "3": 1240
+  },
+  "branchTriangles": 40,
+  "previousBranchTriangles": 120,
+  "checks": [
+    "compiled package publishes each authored theme",
+    "starting terrain rules and unit state remain identical",
+    "shared ground edges, unit footing and landmark pads",
+    "every branch joins its trunk or parent branch",
+    "winter tree triangle budget stays below temperate",
+    "explicit custom terrain-scene bindings preserved",
+    "native bell route, walking clearance and scenery fading",
+    "castle reveal, opacity and camera restoration"
+  ],
+  "limitations": [
+    "Applies to the current campaign; other campaigns and creator previews remain pending.",
+    "Software-rendered desktop captures, not Android performance measurements.",
+    "Console seasonal scenery is not changed by this Godot pass."
+  ]
+}
