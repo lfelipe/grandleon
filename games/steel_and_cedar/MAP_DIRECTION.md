@@ -63,3 +63,7 @@ maps. Console prop animation and PS1 village performance still need work. Curren
 finish in 13 solo rounds and 6 co-op rounds; the earlier solo pacing/attrition
 baseline flags this change for further playtesting. Do not force casualties or
 change combat rules to satisfy an old trace.
+
+The redesigned layout uses campaign content revision `0.2.0`. Checkpoints from
+revision `0.1.0` are incompatible: their saved positions can fall inside the new
+building plots. Keep those old saves separate and start the new layout fresh.

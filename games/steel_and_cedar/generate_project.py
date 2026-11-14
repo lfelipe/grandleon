@@ -562,7 +562,7 @@ def build_project() -> dict:
         "packageId": "751d322d-dc60-4c6d-a1e1-821e4dd7c617",
         "gameId": "grandleon.steel_and_cedar",
         "title": "Steel and Cedar",
-        "contentRevision": "0.1.0",
+        "contentRevision": "0.2.0",
         "themeId": "temperate",
         "characterStyleId": "medieval",
         "characterFigureId": "first",
