@@ -44,11 +44,17 @@ var results_dir := ""
 var screenshots_dir := ""
 var capture_command: Dictionary = {}
 var capture_frames := -1
+var measurement: Dictionary = {}
+var measurement_samples: Array[float] = []
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	control_root = _argument_value("--automation-dir=")
+	# Android's exported launcher deliberately rejects arbitrary command-line
+	# extras. A local ADB run-as opt-in enables the same protocol in debug APKs.
+	if control_root.is_empty() and OS.has_feature("android") and OS.is_debug_build() and FileAccess.file_exists("user://enable-automation"):
+		control_root = "user://device-review"
 	if control_root.is_empty():
 		set_process(false)
 		return
@@ -77,6 +83,10 @@ func _exit_tree() -> void:
 
 
 func _process(_delta: float) -> void:
+	if not measurement.is_empty():
+		measurement_samples.append(_delta)
+		if Time.get_ticks_msec() >= int(measurement.until):
+			_finish_measurement()
 	if capture_frames > 0:
 		capture_frames -= 1
 	elif capture_frames == 0:
@@ -108,6 +118,12 @@ func _process_next_command() -> void:
 func _execute(command_id: String, command: Dictionary) -> void:
 	var operation := String(command.get("op", ""))
 	match operation:
+		"measure":
+			if not measurement.is_empty():
+				_write_result(command_id, operation, false, {"error": "measurement busy"})
+				return
+			measurement_samples.clear()
+			measurement = {"id": command_id, "until": Time.get_ticks_msec() + clampi(int(command.get("seconds", 30)), 1, 120) * 1000}
 		"inspect":
 			_write_result(command_id, operation, true, _inspect_scene())
 		"screenshot":
@@ -197,9 +213,57 @@ func _inspect_scene() -> Dictionary:
 		"scene": scene.scene_file_path if scene != null else "",
 		"focus": str(scene.get_path_to(focused)) if scene != null and focused != null else "",
 		"viewport": [get_viewport().size.x, get_viewport().size.y],
+		"window_size": [DisplayServer.window_get_size().x, DisplayServer.window_get_size().y],
+		"window_position": [DisplayServer.window_get_position().x, DisplayServer.window_get_position().y],
 		"joypads": joypads,
 		"controls": controls,
+		"quality": {"choice": RenderQuality.choice, "effective": RenderQuality.effective(), "recommended": RenderQuality.recommended},
+		"network": {"role": LANSession.role, "connected": LANSession.connected, "paused": LANSession.game_paused, "rooms": LANSession.rooms.values()},
+		"game": _inspect_game(scene),
 	}
+
+
+func _inspect_game(scene: Node) -> Dictionary:
+	if scene == null or scene.scene_file_path != "res://main.tscn": return {}
+	var data: Dictionary = scene.snapshot.duplicate(true)
+	data["selected"] = scene.selected_units
+	data["dialogue"] = scene._dialogue_visible()
+	data["menu"] = scene._session_menu_visible()
+	data["pending_requests"] = scene.pending_requests.size()
+	var board = scene.board
+	if board != null and board.has_method("is_unit_moving"):
+		data["render_size"] = [board._viewport.size.x, board._viewport.size.y]
+		data["render_scale"] = board._viewport.scaling_3d_scale
+		data["cells"] = []
+		var transform: Transform2D = get_viewport().get_screen_transform()
+		for y: int in range(int(data.get("height", 0))):
+			for x: int in range(int(data.get("width", 0))):
+				var at: Vector2 = transform * board.screen_position_for_cell(Vector2i(x, y))
+				data.cells.append({"x": x, "y": y, "screen": [at.x, at.y]})
+		for id: int in scene.selected_units:
+			if id != 0: data["moves"] = scene.session.query_tiles("move", id, 0)
+	return data
+
+
+func _finish_measurement() -> void:
+	var seconds := 0.0
+	for delta: float in measurement_samples: seconds += delta
+	measurement_samples.sort()
+	var count := measurement_samples.size()
+	var data := _inspect_scene()
+	data["performance"] = {
+		"frames": count, "seconds": seconds,
+		"fps": float(count) / maxf(seconds, 0.001),
+		"p95_msec": measurement_samples[clampi(ceili(count * 0.95) - 1, 0, count - 1)] * 1000.0,
+		"peak_msec": measurement_samples[-1] * 1000.0,
+		"gpu": RenderingServer.get_video_adapter_name(),
+		"objects": Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME),
+		"primitives": Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME),
+		"draw_calls": Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
+	}
+	_write_result(str(measurement.id), "measure", true, data)
+	measurement.clear()
+	measurement_samples.clear()
 
 
 func _collect_controls(node: Node, scene: Node, rows: Array[Dictionary]) -> void:
@@ -220,6 +284,9 @@ func _collect_controls(node: Node, scene: Node, rows: Array[Dictionary]) -> void
 					],
 					"focused": control.has_focus(),
 				}
+				var transform := get_viewport().get_screen_transform() * control.get_global_transform_with_canvas()
+				var bounds := transform * Rect2(Vector2.ZERO, control.size)
+				row["screen_rect"] = [bounds.position.x, bounds.position.y, bounds.size.x, bounds.size.y]
 				if control is BaseButton:
 					row["disabled"] = (control as BaseButton).disabled
 				rows.append(row)

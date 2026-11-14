@@ -11,6 +11,7 @@ usage() {
         "       $0 screenshot [NAME]" \
         "       $0 press KEY" \
         "       $0 pad DEVICE BUTTON" \
+        "       $0 measure SECONDS" \
         "       $0 quit" \
         "KEY: enter escape space tab left right up down a b d e f q s w ctrl_enter" \
         "BUTTON: a b x y start back dpad_left dpad_right dpad_up dpad_down left_shoulder right_shoulder"
@@ -28,6 +29,11 @@ fi
 operation="$1"
 shift
 case "${operation}" in
+    measure)
+        [[ $# -eq 1 && "$1" =~ ^[0-9]{1,3}$ ]] || { usage >&2; exit 64; }
+        (( 10#$1 >= 1 && 10#$1 <= 120 )) || { usage >&2; exit 64; }
+        payload="{\"op\":\"measure\",\"seconds\":$((10#$1))}"
+        ;;
     inspect|quit)
         [[ $# -eq 0 ]] || { usage >&2; exit 64; }
         payload="{\"op\":\"${operation}\"}"
@@ -67,7 +73,9 @@ mv "${temporary}" "${command_file}"
 # renderer used by release smoke tests. Keep the command pending across that
 # one-time transition; the launcher's independent timeout still detects a hung
 # player.
-for _attempt in $(seq 1 600); do
+attempts=600
+if [[ "${operation}" == measure ]]; then attempts=$(( (10#$1 + 60) * 10 )); fi
+for _attempt in $(seq 1 "${attempts}"); do
     if [[ -s "${result_file}" ]]; then
         cat "${result_file}"
         exit 0

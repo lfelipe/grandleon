@@ -243,6 +243,7 @@ func _build_interface() -> void:
 			language_select.select(at)
 	language_select.item_selected.connect(_select_language)
 	language_column.add_child(language_select)
+	language_column.add_child(RenderQuality.make_selector(54))
 	for category: String in ["music", "sound_effects"]:
 		var row := HBoxContainer.new()
 		var label := _label("", 15, Color("8ba5b3"))
@@ -892,6 +893,7 @@ func _build_mobile_interface() -> void:
 		if str(language.code) == Localization.current_language(): language_select.select(index)
 	language_select.item_selected.connect(_select_language)
 	settings_column.add_child(language_select)
+	settings_column.add_child(RenderQuality.make_selector(96))
 	var audio := VBoxContainer.new()
 	audio.add_theme_constant_override("separation", 28)
 	settings_column.add_child(audio)

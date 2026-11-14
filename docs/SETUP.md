@@ -111,6 +111,12 @@ Two-player games also have a player-switch button. Android Back cancels the
 current action or opens the menu. Returning from the background leaves the
 game paused until you resume it.
 
+**Settings → Graphics** offers Auto, Low, Medium and High. Auto uses a
+conservative hardware recommendation; a manual choice stays selected after
+restarting. Changes apply immediately. Low reduces 3D
+resolution and disables dynamic shadows; Medium keeps shadows at a lower 3D
+resolution. Text, touch controls and campaign rules stay the same at every level.
+
 In the map editor, choose terrain and drag across cells to paint. Switch on
 **Pan map** when you want to move around instead; the zoom buttons change the
 editing scale.

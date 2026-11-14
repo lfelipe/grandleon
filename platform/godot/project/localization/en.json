@@ -2019,6 +2019,11 @@
     "lan.other_army": "Choose a unit from your own army.",
     "lan.invalid_save": "This shared save is damaged or belongs to another campaign build. It has not been overwritten.",
     "lan.restoring": "Restoring the shared battle…",
-    "lan.host_paused": "The host app is paused. Waiting for it to resume."
+    "lan.host_paused": "The host app is paused. Waiting for it to resume.",
+    "graphics.quality": "GRAPHICS  /  {value}",
+    "graphics.auto": "AUTO ({value})",
+    "graphics.low": "LOW",
+    "graphics.medium": "MEDIUM",
+    "graphics.high": "HIGH"
   }
 }

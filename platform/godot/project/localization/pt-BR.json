@@ -2019,6 +2019,11 @@
     "lan.other_army": "Escolha uma unidade do seu próprio exército.",
     "lan.invalid_save": "Este jogo salvo está danificado ou pertence a outra versão da campanha. Ele não foi sobrescrito.",
     "lan.restoring": "Restaurando a batalha compartilhada…",
-    "lan.host_paused": "O aplicativo do anfitrião está pausado. Aguardando seu retorno."
+    "lan.host_paused": "O aplicativo do anfitrião está pausado. Aguardando seu retorno.",
+    "graphics.quality": "GRÁFICOS  /  {value}",
+    "graphics.auto": "AUTOMÁTICO ({value})",
+    "graphics.low": "BAIXO",
+    "graphics.medium": "MÉDIO",
+    "graphics.high": "ALTO"
   }
 }

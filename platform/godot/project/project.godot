@@ -18,6 +18,7 @@ config/quit_on_go_back=false
 [autoload]
 
 Localization="*res://scripts/localization.gd"
+RenderQuality="*res://scripts/render_quality.gd"
 LaunchContext="*res://scripts/launch_context.gd"
 LANSession="*res://scripts/network/lan_session.gd"
 CreatorContext="*res://scripts/creator/creator_context.gd"

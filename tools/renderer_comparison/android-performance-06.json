@@ -1,0 +1,145 @@
+{
+  "date": "2026-11-13",
+  "milestone": "0.6",
+  "build": "grandleon-android06-quality-lan-verified",
+  "campaign": "Steel and Cedar",
+  "map": "Bell Orchard",
+  "mapSize": [
+    8,
+    6
+  ],
+  "players": 2,
+  "units": 8,
+  "host": "tablet",
+  "method": "30-second warmed stationary board samples during an active device-to-device ENet LAN game; real artwork, idle animations and surroundings enabled; no video recording during sampling. FPS is frames divided by accumulated frame time.",
+  "limits": [
+    "Opening board only; not a whole-campaign or sustained thermal benchmark.",
+    "Devices have different native resolutions and aspect ratios, so visible surroundings and draw counts differ."
+  ],
+  "devices": [
+    {
+      "device": "phone",
+      "model": "Moto G Play (2024)",
+      "screen": [
+        1600,
+        720
+      ],
+      "automaticQuality": "low",
+      "results": [
+        {
+          "quality": "low",
+          "draw_calls": 997.0,
+          "fps": 43.7782674951647,
+          "frames": 1314,
+          "gpu": "Adreno (TM) 610",
+          "objects": 1076.0,
+          "p95_msec": 22.9166666666667,
+          "peak_msec": 24.2424242424243,
+          "primitives": 43350.0,
+          "seconds": 30.0148926666669,
+          "viewport": [
+            2400,
+            1080
+          ],
+          "scale": 0.400000005960464
+        },
+        {
+          "quality": "medium",
+          "draw_calls": 2118.0,
+          "fps": 27.4123942237146,
+          "frames": 823,
+          "gpu": "Adreno (TM) 610",
+          "objects": 2197.0,
+          "p95_msec": 36.6666666666667,
+          "peak_msec": 44.8412698412698,
+          "primitives": 95236.0,
+          "seconds": 30.0229156666665,
+          "viewport": [
+            2400,
+            1080
+          ],
+          "scale": 0.533333361148834
+        },
+        {
+          "quality": "high",
+          "draw_calls": 2118.0,
+          "fps": 17.6521699201871,
+          "frames": 530,
+          "gpu": "Adreno (TM) 610",
+          "objects": 2197.0,
+          "p95_msec": 56.6666666666667,
+          "peak_msec": 56.9963333333333,
+          "primitives": 95236.0,
+          "seconds": 30.0246373333338,
+          "viewport": [
+            2400,
+            1080
+          ],
+          "scale": 0.666666686534882
+        }
+      ]
+    },
+    {
+      "device": "tablet",
+      "model": "ONN 13 Pro",
+      "screen": [
+        2400,
+        1600
+      ],
+      "automaticQuality": "medium",
+      "results": [
+        {
+          "quality": "low",
+          "draw_calls": 797.0,
+          "fps": 89.9999999999936,
+          "frames": 2703,
+          "gpu": "Mali-G615 MC2",
+          "objects": 874.0,
+          "p95_msec": 11.1111111111111,
+          "peak_msec": 11.1111111111111,
+          "primitives": 33976.0,
+          "seconds": 30.0333333333355,
+          "viewport": [
+            1920,
+            1280
+          ],
+          "scale": 0.600000023841858
+        },
+        {
+          "quality": "medium",
+          "draw_calls": 1839.0,
+          "fps": 90.0009000090025,
+          "frames": 2703,
+          "gpu": "Mali-G615 MC2",
+          "objects": 1916.0,
+          "p95_msec": 11.111,
+          "peak_msec": 11.111,
+          "primitives": 83162.0,
+          "seconds": 30.0330329999992,
+          "viewport": [
+            1920,
+            1280
+          ],
+          "scale": 0.800000011920929
+        },
+        {
+          "quality": "high",
+          "draw_calls": 1839.0,
+          "fps": 81.8138810501122,
+          "frames": 2455,
+          "gpu": "Mali-G615 MC2",
+          "objects": 1916.0,
+          "p95_msec": 12.5,
+          "peak_msec": 15.9567878787879,
+          "primitives": 83162.0,
+          "seconds": 30.0071328787871,
+          "viewport": [
+            1920,
+            1280
+          ],
+          "scale": 1.0
+        }
+      ]
+    }
+  ]
+}

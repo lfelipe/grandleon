@@ -74,6 +74,8 @@ home="$(${command[@]} inspect)"
 grep -Fq 'res://home.tscn' <<<"${home}"
 grep -Fq 'INCLUDED GAME' <<<"${home}"
 grep -Fq 'DEFAULT CAMPAIGN' <<<"${home}"
+measurement="$(${command[@]} measure 1)"
+python3 -c 'import json, sys; data = json.load(sys.stdin); timing = data["performance"]; assert data["ok"] and timing["frames"] > 0 and timing["seconds"] >= 0.9 and timing["fps"] > 0 and timing["p95_msec"] > 0' <<<"${measurement}"
 "${command[@]}" screenshot home-smoke >/dev/null
 test -s "${state_dir}/automation/screenshots/home-smoke.png"
 pad_result="$(${command[@]} pad 0 dpad_right)"

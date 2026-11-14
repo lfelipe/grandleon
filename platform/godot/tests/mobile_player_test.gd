@@ -150,15 +150,8 @@ func _run() -> void:
 	expect(not paused and AudioServer.is_bus_mute(bus) == muted and player._session_menu_visible(), "resume restores audio behind explicit menu")
 	player.queue_free()
 	await process_frame
-	var audio := root.get_node("PCAudio")
-	for stream_player in audio.get_children():
-		if stream_player is AudioStreamPlayer:
-			stream_player.stop()
-			stream_player.stream = null
-	audio.set("_streams", {})
-	await create_timer(0.1).timeout
 	print("MOBILE_PLAYER_PASS checks=%d real_package=true real_screen_events=true native_move_wait=true background_guard=true" % checks)
-	quit()
+	root.get_node("PCAudio").request_quit()
 
 func _pick_cell(board: Node, cell: Vector2i, anchor: Vector2) -> Vector2:
 	for y in range(-100, 101, 4):

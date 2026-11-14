@@ -63,6 +63,7 @@ var _viewport: SubViewport
 var _world: Node3D
 var _camera: Camera3D
 var _environment: Environment
+var _key_light: DirectionalLight3D
 var _terrain_root: Node3D
 var _marker_root: Node3D
 var _unit_root: Node3D
@@ -187,17 +188,29 @@ func _ready() -> void:
 	_world.add_child(_unit_root)
 	_world.add_child(_effect_root)
 	_create_environment()
+	RenderQuality.changed.connect(_apply_render_quality)
+	_apply_render_quality()
 	set_process(true)
 
 
 func _update_mobile_render_scale() -> void:
-	if not OS.has_feature("android") or _viewport == null:
+	if _viewport == null:
 		return
 	var to_screen := get_viewport().get_screen_transform() * get_global_transform_with_canvas()
-	var render_scale := MobileLayout.native_3d_scale(to_screen)
+	var native_scale := MobileLayout.native_3d_scale(to_screen) if OS.has_feature("android") else 1.0
+	var render_scale := native_scale * float(RenderQuality.profile(RenderQuality.effective()).scale)
 	if not is_equal_approx(_viewport.scaling_3d_scale, render_scale):
 		_viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 		_viewport.scaling_3d_scale = render_scale
+
+
+func _apply_render_quality() -> void:
+	_update_mobile_render_scale()
+	if _key_light == null: return
+	var quality: Dictionary = RenderQuality.profile(RenderQuality.effective())
+	_key_light.shadow_enabled = bool(quality.shadows)
+	_key_light.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL if RenderQuality.effective() == "medium" else DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+	_key_light.directional_shadow_max_distance = float(quality.shadow_distance)
 
 
 func _create_environment() -> void:
@@ -215,6 +228,7 @@ func _create_environment() -> void:
 	_update_surrounding_background()
 
 	var key := DirectionalLight3D.new()
+	_key_light = key
 	key.rotation_degrees = _configured_vector(lighting.get("keyRotation", []), Vector3(-54, -38, 0))
 	key.light_color = _configured_colour(lighting, "key", Color("f1d7ad"))
 	key.light_energy = float(lighting.get("keyEnergy", 1.08))

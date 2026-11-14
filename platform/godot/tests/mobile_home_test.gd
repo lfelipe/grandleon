@@ -31,6 +31,5 @@ func _run() -> void:
 	assert(not home.mobile_settings.visible and home.mobile_settings_button.has_focus())
 	home.queue_free()
 	await process_frame
-	await create_timer(0.15).timeout
 	print("MOBILE_HOME_PASS creator_visible=true contextual_settings=true focus_return=true")
-	quit()
+	root.get_node("PCAudio").request_quit()

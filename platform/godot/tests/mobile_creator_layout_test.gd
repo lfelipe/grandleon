@@ -100,14 +100,5 @@ func _run() -> void:
 	home.queue_free()
 	screen.queue_free()
 	await process_frame
-	# The real home screen starts music and focus sounds. Drain these players
-	# before the test process tears down the audio autoload.
-	var audio := root.get_node("PCAudio")
-	for stream_player in audio.get_children():
-		if stream_player is AudioStreamPlayer:
-			stream_player.stop()
-			stream_player.stream = null
-	audio.set("_streams", {})
-	await create_timer(0.15).timeout
 	print("mobile creator density/scroll/keyboard-resize layout: ", "PASS" if failures == 0 else "FAIL")
-	quit(0 if failures == 0 else 2)
+	root.get_node("PCAudio").request_quit(0 if failures == 0 else 2)

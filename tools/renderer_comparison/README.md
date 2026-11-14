@@ -16,3 +16,7 @@ probe logs with local release evidence so a clip can be traced to its build.
 `scene.json` and `compose-renderer-comparison.sh` are an older isolated
 cinematic fixture with fixed timing. They do not represent the campaign or
 supply the current README captures.
+
+[android-performance-06.json](android-performance-06.json) records 30-second
+phone/tablet LAN samples at each graphics setting. These use the two-player
+opening with eight units; they are separate from the one-player README clips.

@@ -890,6 +890,20 @@ func _run_controls_smoke() -> void:
 	_show_settings_page()
 	if session_menu_page != "settings" or not session_menu_audio.visible:
 		failed.append("settings page")
+	session_menu_layer.visible = true
+	var quality_selector := session_menu_settings.get_child(0) as OptionButton
+	quality_selector.grab_focus()
+	_activate_session_menu_focus()
+	if not quality_selector.get_popup().visible:
+		failed.append("keyboard/controller opens graphics choices")
+	var popup_back := InputEventKey.new()
+	popup_back.pressed = true
+	popup_back.keycode = KEY_ESCAPE
+	_handle_session_menu_input(popup_back)
+	if session_menu_page != "settings":
+		failed.append("graphics popup owns its Back input")
+	quality_selector.get_popup().hide()
+	session_menu_layer.visible = false
 	session_menu_closeups.pressed.emit()
 	if battle_closeups_enabled or session_menu_closeups.text != "BATTLE CLOSE-UPS  /  OFF":
 		failed.append("battle close-up setting")
@@ -1013,10 +1027,10 @@ func _run_controls_smoke() -> void:
 	device_to_seat.clear()
 	if not failed.is_empty():
 		push_error("control profile did not propagate: " + ", ".join(failed))
-		get_tree().quit(2)
+		PCAudio.request_quit(2)
 		return
 	print("control profile integration smoke passed")
-	get_tree().quit()
+	PCAudio.request_quit()
 
 
 func _run_frame_timing_smoke() -> void:
@@ -1036,10 +1050,10 @@ func _run_frame_timing_smoke() -> void:
 	)
 	if not expected:
 		push_error("frame timing did not reach the private session-menu summary")
-		get_tree().quit(2)
+		PCAudio.request_quit(2)
 		return
 	print("frame timing integration smoke passed")
-	get_tree().quit()
+	PCAudio.request_quit()
 
 
 func _run_smoke_auto() -> void:
@@ -2120,6 +2134,9 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 
 	session_menu_settings = _session_menu_page()
 	pages.add_child(session_menu_settings)
+	var quality_selector: OptionButton = RenderQuality.make_selector(64 if OS.has_feature("android") else 58)
+	_bind_font_size(quality_selector, "font_size", 22)
+	session_menu_settings.add_child(quality_selector)
 	session_menu_camera = _settings_button("")
 	session_menu_camera.pressed.connect(_toggle_camera_impulse)
 	session_menu_settings.add_child(session_menu_camera)
@@ -2586,6 +2603,9 @@ func _session_menu_visible() -> bool:
 
 
 func _handle_session_menu_input(event: InputEvent) -> void:
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused is OptionButton and focused.get_popup().visible:
+		return
 	if event is InputEventJoypadButton and not device_to_seat.has(event.device):
 		get_viewport().set_input_as_handled()
 		return
@@ -2619,7 +2639,9 @@ func _handle_session_menu_input(event: InputEvent) -> void:
 
 func _activate_session_menu_focus() -> void:
 	var focused := get_viewport().gui_get_focus_owner()
-	if focused is BaseButton:
+	if focused is OptionButton:
+		focused.show_popup()
+	elif focused is BaseButton:
 		focused.emit_signal("pressed")
 	else:
 		_session_menu_back()
@@ -4412,6 +4434,8 @@ func _layout_mobile_controls() -> void:
 		if is_instance_valid(binding.control):
 			binding.base = maxi(int(binding.get("authored_base", binding.base)), roundi(16 * density))
 			binding.control.add_theme_font_size_override(StringName(binding.key), roundi(float(binding.base) * text_scale))
+			if binding.control is OptionButton:
+				binding.control.get_popup().add_theme_font_size_override("font_size", roundi(float(binding.base) * text_scale))
 			if OS.has_feature("android") and binding.control is Button and mobile_session_panel.is_ancestor_of(binding.control):
 				binding.control.custom_minimum_size.y = 48 * density
 	for action: String in mobile_buttons:
