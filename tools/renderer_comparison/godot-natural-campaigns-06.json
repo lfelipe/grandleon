@@ -1,0 +1,28 @@
+{
+  "date": "2026-11-14",
+  "renderer": "Godot",
+  "change": "Natural landscapes follow the authored season without demo campaign identifiers.",
+  "sourceSha256": {
+    "platform/godot/project/scripts/board_view_3d.gd": "bae01cd47dd8afaf731c6bec7fe2440a560de5e0352970b592c95d74e027ee03",
+    "platform/godot/project/content/graphics_profiles.json": "e4f21b8e856408a976f8e5c27abc81fd65cd46b95eb68ceb72fab90e3d14c9df",
+    "platform/godot/tests/editor_acceptance_test.gd": "b329bde311ea5e9f9de1a71d11da39f96d26cffd2d49335b9b212fbb05714472",
+    "platform/godot/scripts/smoke-editor-acceptance.sh": "e03f64c04c11b03c2fd2d5c2378b7a053f5f3b98953814bcce598c03da929f8c"
+  },
+  "checks": [
+    "Fresh campaign created through the editor, edited, exported, started from exported GPK and played to victory through normal UI controls.",
+    "Newly created campaign selects natural temperate terrain.",
+    "All eight real campaign seasonal captures pass with unchanged unit state and terrain rules.",
+    "Castle threshold reveal and framing pass.",
+    "Explicit custom terrain scenes and the authored landscapeRenderer choice preserve scene rendering."
+  ],
+  "logs": {
+    "out/natural-default06-acceptance-final.log": "7afe50b39e553836afa23d1d7af09b8018c6bb5ffc86313a84ce3ec20bcf8ee2",
+    "out/natural-default06-keep.log": "15c708f0ae55b0e506c8aa82acbf0b46c17a44120bbea3881424d6a9dfa33452",
+    "out/natural-default06-seasons.log": "d5c7dbd001e3d91d8881279e9179316a098e39d344e5eff0296d5bd22930e0bb"
+  },
+  "limitations": [
+    "Desktop software rendering; Android performance remains unmeasured.",
+    "Creator 3D previews and additional thematic landmark families remain pending.",
+    "Console seasonal scenery is unchanged."
+  ]
+}

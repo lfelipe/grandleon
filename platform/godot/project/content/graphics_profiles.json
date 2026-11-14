@@ -2,6 +2,7 @@
   "contractVersion": "1.0.0",
   "defaultProfile": "voxel-sprites",
   "common": {
+    "landscapeRenderer": "natural",
     "cameraImpulse": true,
     "textScale": 1.0,
     "camera": {

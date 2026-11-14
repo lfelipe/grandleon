@@ -46,17 +46,17 @@ func _run() -> void:
 			{"stage_id": map_id, "map_id": map_id}
 		)
 		_expect(
-			"Steel and Cedar route %s selects Medieval terrain" % map_id,
+			"Steel and Cedar route %s selects natural terrain" % map_id,
 			board.castle_presentation_state().terrain_family,
-			"medieval_temperate"
+			"natural_temperate"
 		)
 	board.configure(
 		route_fixture, [9], 0, {}, [],
 		{"stage_id": STEEL_AND_CEDAR_MAP_IDS[0], "map_id": "unrelated"}
 	)
 	_expect(
-		"an unrelated map cannot borrow Steel and Cedar terrain",
-		board.castle_presentation_state().terrain_family, "default"
+		"a creator map uses the same natural landscape without demo identifiers",
+		board.castle_presentation_state().terrain_family, "natural_temperate"
 	)
 	board.configure(
 		route_fixture, [9], 99, {}, [],
@@ -66,6 +66,11 @@ func _run() -> void:
 		"an unsupported theme cannot borrow Steel and Cedar terrain",
 		board.castle_presentation_state().terrain_family, "default"
 	)
+	var authored: Dictionary = GraphicsProfiles.new().profile("voxel-sprites").duplicate(true)
+	authored.landscapeRenderer = "authored"
+	board.set_profile("voxel-sprites", authored)
+	board.configure(route_fixture, [2], 0, {}, [], {})
+	_expect("a creator can keep the built-in authored scenes", board.castle_presentation_state().terrain_family, "default")
 	var custom: Dictionary = GraphicsProfiles.new().profile("voxel-sprites").duplicate(true)
 	custom.assets.terrainScenes.forest = "res://art/terrain/relay_forest.tscn"
 	board.set_profile("voxel-sprites", custom)
@@ -97,7 +102,7 @@ func _run() -> void:
 	board._update_castle_unit_presentation()
 	var state: Dictionary = board.castle_presentation_state()
 	_expect("real source resolves the exact keep footprint", state.bounds, KEEP_BOUNDS)
-	_expect("the real temperate route selects Medieval terrain", state.terrain_family, "medieval_temperate")
+	_expect("the real temperate route selects natural terrain", state.terrain_family, "natural_temperate")
 	_expect("the keep begins closed", state.revealed, false)
 	_expect_true("the keep begins under its grounded roof", float(state.roof_alpha) > 0.99)
 	if boss_id != 0 and board._unit_sprites.has(boss_id):

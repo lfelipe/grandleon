@@ -34,13 +34,6 @@ const MEDIEVAL_HOUSE_TEXTURES := [
 const MEDIEVAL_HOUSE_PIXEL_SIZE := 0.00320
 const MEDIEVAL_HOUSE_CENTRE_HEIGHT := 0.79
 const ANCIENT_GROVE_TEXTURE := "res://art/map_features/ancient_tree_cluster_2x2.png"
-const STEEL_AND_CEDAR_MAP_IDS := [
-	"935b03cf7490233c", # Bell Orchard
-	"a6b11e9ea987638a", # Cedar Deepwood
-	"0079abb4797ff5b4", # Cedar Watch
-	"07cb9d097af3a9a1", # Gate Village
-	"e5c0ef3904d2b0a3", # Twin Gate Keep
-]
 const TERRAIN_COLOURS := [
 	Color("287da3"), Color("a87a4f"), Color("316b45"), Color("65717a"),
 	Color("c39a60"), Color("dce7e8"), Color("496c58"), Color("78915b"),
@@ -825,7 +818,7 @@ func _rebuild_terrain() -> void:
 	var width := int(snapshot.width)
 	var height := int(snapshot.height)
 	var depth := _surrounding_depth()
-	if _uses_medieval_campaign_terrain():
+	if _uses_natural_terrain():
 		_prepare_natural_terrain(width, height, depth)
 	_box(
 		_terrain_root, Vector3(0, -0.30, 0),
@@ -842,8 +835,8 @@ func _rebuild_terrain() -> void:
 			if outside_x >= 0 and outside_y >= 0 and outside_x < width and outside_y < height:
 				continue
 			var outside_kind := _surrounding_kind(outside_x, outside_y, ring_index)
-			if _uses_medieval_campaign_terrain():
-				_build_medieval_campaign_tile(outside_x, outside_y, outside_kind)
+			if _uses_natural_terrain():
+				_build_natural_tile(outside_x, outside_y, outside_kind)
 			elif String(profile_config.get("terrainRenderer", render_profile)) == "voxel":
 				_build_voxel_tile(outside_x, outside_y, outside_kind)
 			else:
@@ -855,8 +848,8 @@ func _rebuild_terrain() -> void:
 			var kind := int(terrain[index]) if index < terrain.size() else 9
 			if kind == 255:
 				kind = 9
-			if _uses_medieval_campaign_terrain():
-				_build_medieval_campaign_tile(x, y, kind)
+			if _uses_natural_terrain():
+				_build_natural_tile(x, y, kind)
 				continue
 			if not _landmark_cells.has(Vector2i(x, y)) and _create_authored_tile(x, y, kind):
 				continue
@@ -868,24 +861,18 @@ func _rebuild_terrain() -> void:
 	_build_castle_landmark()
 
 
-func _uses_medieval_campaign_terrain() -> bool:
-	# Steel and Cedar can use each authored season. The old default 3D asset
-	# binding points at the Relay demonstration scenes, whose cyan circuitry and
-	# beacons are intentionally wrong in this Medieval-versus-Sengoku campaign.
-	# Exact stage/map identity keeps every unrelated/custom map on its prior path.
-	var stage_id := String(route_identity.get("stage_id", ""))
-	var map_id := String(route_identity.get("map_id", ""))
+func _uses_natural_terrain() -> bool:
+	# The landscape belongs to the authored theme, independent of campaign IDs
+	# or unit styles. Explicit scenes retain their original placement and shape.
 	return (
 		not _has_custom_terrain_bindings
+		and String(profile_config.get("landscapeRenderer", "natural")) == "natural"
 		and terrain_theme in [0, 1, 2, 3]
-		and stage_id in STEEL_AND_CEDAR_MAP_IDS
-		and map_id in STEEL_AND_CEDAR_MAP_IDS
-		and stage_id == map_id
 	)
 
 
-func _medieval_terrain_family() -> String:
-	return "medieval_" + str(["temperate", "autumn", "winter", "ashland"][terrain_theme]) if _uses_medieval_campaign_terrain() else "default"
+func _natural_terrain_family() -> String:
+	return "natural_" + str(["temperate", "autumn", "winter", "ashland"][terrain_theme]) if _uses_natural_terrain() else "default"
 
 
 func _detect_cluster_landmarks() -> void:
@@ -1096,7 +1083,7 @@ func castle_presentation_state() -> Dictionary:
 		"bounds": _castle_bounds,
 		"valid_footprint": _castle_bounds.size == Vector2i(6, 6),
 		"revealed": _castle_revealed,
-		"terrain_family": _medieval_terrain_family(),
+		"terrain_family": _natural_terrain_family(),
 		"target": _castle_reveal_target,
 		"progress": _castle_reveal_progress,
 		"roof_alpha": 1.0 - reveal if _castle_roof != null else -1.0,
@@ -1140,7 +1127,7 @@ func _configure_visual_visibility() -> void:
 
 func _landmark_centre(anchor: Vector2i) -> Vector3:
 	var centre := (_cell_position(anchor.x, anchor.y) + _cell_position(anchor.x + 1, anchor.y + 1)) * 0.5
-	if _uses_medieval_campaign_terrain() and _natural_ground != null:
+	if _uses_natural_terrain() and _natural_ground != null:
 		# Existing cutouts were grounded on the old 0.20-high landmark pads.
 		centre.y = _natural_ground.height_at(anchor) - 0.20
 	return centre
@@ -1340,7 +1327,7 @@ func _build_ancient_grove_cutout(centre: Vector3) -> bool:
 	grove.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
 	grove.shaded = false
 	grove.double_sided = true
-	if _uses_medieval_campaign_terrain() and terrain_theme > 0:
+	if _uses_natural_terrain() and terrain_theme > 0:
 		grove.material_override = _natural_scenery.seasonal_cutout(grove.texture)
 	grove.set_meta("landmark_style", "ancient_grove")
 	grove.set_meta("landmark_asset", ANCIENT_GROVE_TEXTURE)
@@ -1453,9 +1440,9 @@ func _prepare_natural_terrain(width: int, height: int, depth: int) -> void:
 	_natural_scenery.set_motion_enabled(_ambient_motion_enabled)
 
 
-func _build_medieval_campaign_tile(x: int, y: int, kind: int) -> void:
+func _build_natural_tile(x: int, y: int, kind: int) -> void:
 	var cell := Node3D.new()
-	cell.set_meta("terrain_family", _medieval_terrain_family())
+	cell.set_meta("terrain_family", _natural_terrain_family())
 	cell.set_meta("terrain_kind", kind)
 	cell.position = _cell_position(x, y)
 	_terrain_root.add_child(cell)
@@ -2054,7 +2041,7 @@ func _marker_at(
 	outlined := false
 ) -> void:
 	var at := _cell_position(x, y)
-	if _uses_medieval_campaign_terrain() and _natural_ground != null:
+	if _uses_natural_terrain() and _natural_ground != null:
 		var marker := MeshInstance3D.new()
 		marker.position = at
 		marker.mesh = _natural_ground.mesh_for(Vector2i(x, y), 6, scale_value, 0.045)
@@ -2134,7 +2121,7 @@ func _motion_world_position(sampled: Dictionary) -> Vector3:
 	at.y = lerpf(
 		from_height, to_height, float(sampled.segment_progress)
 	) + 0.04
-	if _uses_medieval_campaign_terrain() and _natural_ground != null:
+	if _uses_natural_terrain() and _natural_ground != null:
 		var cell := Vector2i(roundi(position.x), roundi(position.y))
 		var uv := position - Vector2(cell) + Vector2(0.5, 0.5)
 		at.y = _natural_ground.sample_height(cell, uv) + 0.04
@@ -2144,7 +2131,7 @@ func _motion_world_position(sampled: Dictionary) -> Vector3:
 func _surface_height(x: int, y: int) -> float:
 	if snapshot.is_empty() or terrain.is_empty():
 		return 0.1
-	if _uses_medieval_campaign_terrain() and _natural_ground != null:
+	if _uses_natural_terrain() and _natural_ground != null:
 		return _natural_ground.height_at(Vector2i(x, y))
 	var index := y * int(snapshot.width) + x
 	if index < 0 or index >= terrain.size():

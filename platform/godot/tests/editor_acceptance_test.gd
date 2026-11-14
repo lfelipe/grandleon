@@ -188,10 +188,36 @@ func _run() -> void:
 			"first_adventure"
 		)
 		_write_result(result_path, str(exported.path))
+		await _verify_exported_landscape(str(exported.path))
 
 	if failures == 0:
 		print("editor authoring and export acceptance passed")
 	quit(1 if failures > 0 else 0)
+
+
+func _verify_exported_landscape(export_root: String) -> void:
+	# Start the actual exported bytes through the player, without demo map IDs.
+	var package := FileAccess.get_file_as_bytes(export_root.path_join("project/game.gpk"))
+	_expect("export contains its playable package", not package.is_empty(), true)
+	if package.is_empty():
+		return
+	root.get_node("LaunchContext").stage_package(package, "first_adventure", true, 1, "", "", "en")
+	var player = load("res://main.tscn").instantiate()
+	root.add_child(player)
+	var deadline := Time.get_ticks_msec() + 30000
+	while (player.snapshot.is_empty() or player._dialogue_visible()) and Time.get_ticks_msec() < deadline:
+		if player._dialogue_visible():
+			player._advance_dialogue()
+		if player._management_visible():
+			player._on_management_intent("proceed", 0, 0, 0)
+		await process_frame
+	_expect("the creator's exported campaign starts", not player.snapshot.is_empty(), true)
+	if not player.snapshot.is_empty():
+		_expect("a new campaign receives the natural landscape", player.board.castle_presentation_state().terrain_family, "natural_temperate")
+	player.queue_free()
+	await process_frame
+	# Drain deferred viewport/resource teardown before SceneTree shuts down.
+	await process_frame
 
 
 func _argument(prefix: String) -> String:

@@ -22,7 +22,7 @@ func _run() -> void:
 		file.close()
 		for index in [0, 1]:
 			var spec: Dictionary = MAPS[index].duplicate(true)
-			spec.terrain_family = "medieval_" + themes[theme]
+			spec.terrain_family = "natural_" + themes[theme]
 			var battle := await _load_real_battle(path, spec)
 			if battle.is_empty():
 				quit(1)

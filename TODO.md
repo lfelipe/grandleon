@@ -195,13 +195,13 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   PS1 reeds, shrubs and outcrops also vary in size. Neutral texture detail
   preserves authored colours. Nintendo 64 has varied crown sway; PS1 foliage
   motion remains pending and must preserve static terrain caching.
-  Steel and Cedar's Godot landscape now has connected height meshes, shaped
-  banks, branched trees, crops and leafy bamboo in temperate, autumn, winter
+  Godot landscapes, including newly created campaigns, now have connected
+  height meshes, shaped banks, branched trees, crops and leafy bamboo in
+  temperate, autumn, winter
   and ashland. Winter has exposed branches and snow; ashland has bare trees.
   Ancient-grove foliage follows the season. Explicit custom scene bindings
-  retain their authored rendering. Extend this treatment to other campaigns
-  and creator previews;
-  review the new scenery's performance on Android after the visual pass.
+  retain their authored rendering. Extend creator previews and thematic
+  scenery families, then review the new scenery's performance on Android.
 - [ ] Expand thematic multi-tile landmark art beyond the current Medieval
   houses and keep: Sengoku, pirate, sci-fi and the other scenario styles need
   their own families. Add corresponding console variants, fences, gates,
