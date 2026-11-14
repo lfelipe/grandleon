@@ -118,6 +118,10 @@ var _combat_camera_start_size := 8.4
 var _combat_camera_focus_size := 4.8
 var _combat_camera_actor_id := 0
 var _combat_camera_target_id := 0
+var _overview_elapsed := 0.0
+var _overview_duration := 0.0
+var _overview_from := Vector3.ZERO
+var _overview_to := Vector3.ZERO
 var _pulse := 0.0
 var _ambient_motion_enabled := true
 var _scenery_occluders: Array[Dictionary] = []
@@ -265,6 +269,8 @@ func configure(
 	new_surroundings: Dictionary = {}, new_terrain_features: Array = [],
 	new_route_identity: Dictionary = {}
 ) -> void:
+	_overview_duration = 0.0
+	_overview_elapsed = 0.0
 	snapshot = new_snapshot
 	terrain = new_terrain
 	terrain_features = new_terrain_features.duplicate()
@@ -649,7 +655,7 @@ func _clamp_view_focus(point: Vector3) -> Vector3:
 
 
 func pan_view(screen_delta: Vector2) -> void:
-	if _camera == null or _combat_camera_active or snapshot.is_empty():
+	if _camera == null or _combat_camera_active or stage_overview_active() or snapshot.is_empty():
 		return
 	var centre := size * 0.5
 	var ground := Plane(Vector3.UP, 0)
@@ -663,11 +669,39 @@ func pan_view(screen_delta: Vector2) -> void:
 
 
 func zoom_view(factor: float) -> void:
-	if _camera == null or _combat_camera_active or snapshot.is_empty() or factor <= 0:
+	if _camera == null or _combat_camera_active or stage_overview_active() or snapshot.is_empty() or factor <= 0:
 		return
 	_camera.size = clampf(_camera.size / factor, 3.0, 14.0)
 	_camera_focus_target = _clamp_view_focus(_camera_focus_target)
 	_camera_focus_current = _camera_focus_target
+	_update_tactical_camera(0)
+
+
+func begin_stage_overview(home: Vector2i) -> void:
+	if _camera == null or snapshot.is_empty():
+		return
+	var width := int(snapshot.width)
+	var height := int(snapshot.height)
+	var far_cell := Vector2i(width - 1 if home.x * 2 < width - 1 else 0,
+		height - 1 if home.y * 2 < height - 1 else 0)
+	var aspect := float(_viewport.size.x) / maxf(1.0, float(_viewport.size.y))
+	_overview_to = tactical_focus_for_cell(home, _camera.size, aspect)
+	_overview_from = tactical_focus_for_cell(far_cell, _camera.size, aspect)
+	_overview_elapsed = 0.0
+	_overview_duration = 4.0 if width > 12 or height > 9 else (2.5 if width > 8 or height > 6 else 1.5)
+	_camera_focus_current = _overview_from
+	_camera_focus_target = _overview_to
+	_update_tactical_camera(0)
+
+
+func stage_overview_active() -> bool:
+	return _overview_elapsed < _overview_duration
+
+
+func finish_stage_overview() -> void:
+	_overview_elapsed = _overview_duration
+	_camera_focus_current = _overview_to
+	_camera_focus_target = _overview_to
 	_update_tactical_camera(0)
 
 
@@ -790,8 +824,14 @@ func _process(delta: float) -> void:
 func _update_tactical_camera(delta: float) -> void:
 	if _camera == null or _combat_camera_active:
 		return
-	var blend := 1.0 - exp(-maxf(0.0, delta) * 7.5)
-	_camera_focus_current = _camera_focus_current.lerp(_camera_focus_target, blend)
+	if stage_overview_active():
+		_overview_elapsed = minf(_overview_duration, _overview_elapsed + maxf(0.0, delta))
+		var progress := _overview_elapsed / _overview_duration
+		_camera_focus_current = _overview_from.lerp(_overview_to, smoothstep(0.0, 1.0, progress))
+		_camera_focus_target = _overview_to
+	else:
+		var blend := 1.0 - exp(-maxf(0.0, delta) * 7.5)
+		_camera_focus_current = _camera_focus_current.lerp(_camera_focus_target, blend)
 	_camera_base_position = _camera_focus_current + _camera_tactical_offset
 	_camera.position = _camera_base_position
 	_camera.look_at(_camera_focus_current, Vector3.UP)
@@ -1689,6 +1729,14 @@ func _build_medieval_orchard_tree(parent: Node3D, top: float, variation: int) ->
 	var offset: Vector3 = offsets[variation % offsets.size()]
 	var crown: Node3D = _natural_scenery.tree(tree, variation, true)
 	crown.position = offset + Vector3(0, top, 0)
+	# A tended soil basin and a pair of low timber supports make the orchard
+	# read as planted rows rather than isolated trees on a flat field.
+	_cylinder(tree, offset + Vector3(0, top + 0.018, 0), 0.27, 0.036,
+		_material("orchard_mulch", Color("65523a"), 0.98), 12)
+	var stake := _material("orchard_stake", Color("98805b"), 0.95)
+	for side in [-1.0, 1.0]:
+		_box(tree, offset + Vector3(side * 0.15, top + 0.12, 0.06), Vector3(0.035, 0.24, 0.035), stake)
+
 	if terrain_theme < 2:
 		var fruit := _material("medieval_orchard_fruit", Color("a55238"), 0.90)
 		_sphere(crown, Vector3(-0.22, 0.68, -0.11), Vector3(0.065, 0.065, 0.065), fruit)

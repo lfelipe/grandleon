@@ -29,7 +29,8 @@ enum grandleon_ui_mode {
     GRANDLEON_UI_SAVE_ERROR,
     GRANDLEON_UI_TITLE_HELP,
     GRANDLEON_UI_TITLE_SETTINGS,
-    GRANDLEON_UI_NAME
+    GRANDLEON_UI_NAME,
+    GRANDLEON_UI_STAGE_OVERVIEW
 };
 
 enum grandleon_ui_text_id {

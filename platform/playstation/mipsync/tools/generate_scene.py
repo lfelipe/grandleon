@@ -1071,6 +1071,9 @@ def append_terrain_form(
         else:
             box(cx - 10, cz, 28, 8, 58, colour)
         box(cx + 29, cz + 15, 20, 16, 15, light)
+    elif kind == 9:  # meadow: rounded low scrub, not miniature conifers
+        boulder(cx - 18, cz + 7, 24, 21, round(31 * scale[1]), colour)
+        boulder(cx + 24, cz - 13, 17, 15, round(23 * scale[1]), light)
     elif kind == 5:  # snow: one clear faceted ice shard
         pyramid(cx, cz, 19, 16, 82, light)
     elif kind == 4:  # sand: broad, low dune crest

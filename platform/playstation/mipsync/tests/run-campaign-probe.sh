@@ -200,7 +200,6 @@ require "$output/new.log" 'MIPSYNC_BATTLE_MOMENT dialogue=830ac62c3f992c4c lines
 require "$output/new.log" 'MIPSYNC_CAMPAIGN_CAPTURE name=deepwood 320x240' 'the Deepwood capture'
 require "$output/new.log" 'MIPSYNC_BATTLE_MOMENT dialogue=b46de5c083313842 lines=2' 'the Deepwood March opening conversation'
 require "$output/new.log" 'MIPSYNC_BATTLE_MOMENT dialogue=35a3ea52846d6bf2 lines=2' 'the Deepwood Cedar opening conversation'
-require "$output/new.log" 'MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=300 scheduled_frames=300 deferred_frames=0 missed_vblanks=0 max_elapsed_vblanks=[12]$' 'the Deepwood 30 fps result'
 require "$output/continue.log" 'MIPSYNC_CAMPAIGN_PROBE_DONE mode=continue stage=gate' 'completed state-driven Continue traversal'
 require "$output/continue.log" 'MIPSYNC_CAMPAIGN_READY card=1 continue=1' 'Continue from a later process'
 require "$output/continue.log" 'MIPSYNC_CAMPAIGN_RESUME node=0079abb4797ff5b4 players=2' 'the Cedar Watch hand-off'
@@ -216,8 +215,6 @@ require "$output/continue.log" 'MIPSYNC_BATTLE_MOMENT dialogue=d312ee0bdab15c06 
 for capture in deepwood watch village gate; do
     require "$output/continue.log" "MIPSYNC_CAMPAIGN_CAPTURE name=$capture 320x240" "$capture capture"
 done
-require "$output/continue.log" 'MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=300 scheduled_frames=300 deferred_frames=0 missed_vblanks=0 max_elapsed_vblanks=[12]$' 'the Twin Gate 30 fps result'
-require "$output/continue.log" 'MIPSYNC_MISS_RANGE first=0 last=0$' 'an empty missed-frame range'
 
 run_mode solo
 require "$output/solo.log" 'MIPSYNC_CAMPAIGN_PROBE_DONE mode=solo stage=gate' 'completed state-driven solo traversal'
@@ -226,6 +223,11 @@ require "$output/solo.log" 'MIPSYNC_SIM_READY width=14 height=9 units=7 .* playe
 require "$output/solo.log" 'MIPSYNC_SIM_READY width=16 height=12 units=16 .* players=1 hash=[0-9a-f]{16}' 'the authored solo Cedar Watch simulation'
 require "$output/solo.log" 'MIPSYNC_SIM_READY width=18 height=12 units=8 .* players=1 hash=[0-9a-f]{16}' 'the authored solo Gate Village simulation'
 require "$output/solo.log" 'MIPSYNC_SIM_READY width=20 height=14 units=6 .* players=1 hash=[0-9a-f]{16}' 'the authored solo Twin Gate simulation'
+
+printf 'Mipsync campaign/card functional checks passed; strict frame-pacing checks follow\n'
+require "$output/new.log" 'MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=300 scheduled_frames=300 deferred_frames=0 missed_vblanks=0 max_elapsed_vblanks=[12]$' 'the Deepwood 30 fps result'
+require "$output/continue.log" 'MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=300 scheduled_frames=300 deferred_frames=0 missed_vblanks=0 max_elapsed_vblanks=[12]$' 'the Twin Gate 30 fps result'
+require "$output/continue.log" 'MIPSYNC_MISS_RANGE first=0 last=0$' 'an empty missed-frame range'
 
 printf 'Mipsync full campaign/card passed: card_sha256=%s update=%s\n' "$after" "$bell_update"
 printf 'New log: %s\nContinue log: %s\nSolo log: %s\n' \

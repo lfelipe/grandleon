@@ -71,6 +71,8 @@ var battle_closeups_argument_explicit := false
 var battle_closeups_local_override := false
 var persistent_battle_closeups_enabled := true
 var cinematic_motion := "full"
+var stage_overview_pending := false
+var stage_overview_showing := false
 var show_fps_enabled := false
 var screenshot_path := ""
 var screenshot_frames := -1
@@ -390,6 +392,18 @@ func _process(delta: float) -> void:
 		return
 	for event: Dictionary in session.poll():
 		_handle_event(event)
+	if stage_overview_pending and not _dialogue_visible() and not _management_visible() and not _session_menu_visible():
+		stage_overview_pending = false
+		if board.has_method("begin_stage_overview") and cinematic_motion != "reduced":
+			board.begin_stage_overview(Vector2i(seats[0].cursor))
+	if _stage_overview_active():
+		stage_overview_showing = true
+		if help_panel != null: help_panel.visible = false
+		if unit_panel != null: unit_panel.visible = false
+		return
+	if stage_overview_showing:
+		stage_overview_showing = false
+		_update_context_help()
 	_position_action_popups()
 	if OS.has_feature("android"):
 		_position_mobile_context()
@@ -452,7 +466,18 @@ func _process(delta: float) -> void:
 		get_tree().quit()
 
 
+func _stage_overview_active() -> bool:
+	return board != null and board.has_method("stage_overview_active") and board.stage_overview_active()
+
+
 func _input(event: InputEvent) -> void:
+	if _stage_overview_active():
+		var skip: bool = (event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_ENTER, KEY_SPACE, KEY_ESCAPE])
+		skip = skip or (event is InputEventJoypadButton and event.pressed and (controls.matches("confirm", event.button_index) or controls.matches("cancel", event.button_index)))
+		skip = skip or (event is InputEventMouseButton and event.pressed) or (event is InputEventScreenTouch and event.pressed)
+		if skip: board.finish_stage_overview()
+		get_viewport().set_input_as_handled()
+		return
 	if mobile_backgrounded:
 		return
 	if OS.has_feature("android"):
@@ -2540,6 +2565,8 @@ func _restart_without_progress() -> void:
 
 
 func _clear_session_presentation() -> void:
+	stage_overview_pending = false
+	if _stage_overview_active(): board.finish_stage_overview()
 	campaign_complete = false
 	final_outcome = "ongoing"
 	dialogue_lines.clear()
@@ -2898,6 +2925,7 @@ func _handle_event(event: Dictionary) -> void:
 			for seat in 2:
 				board.set_selected(seat, 0, "move")
 			_seed_cursors()
+			stage_overview_pending = true
 			_show_no_selection(LANSession.local_seat() if LANSession.active() else 0)
 			_update_status()
 			if fixed_formation_smoke:
@@ -2941,6 +2969,7 @@ func _handle_event(event: Dictionary) -> void:
 			board.update_snapshot(snapshot)
 			status_label.text = _ui("player.deployment.start")
 		"presentation":
+			if _stage_overview_active(): board.finish_stage_overview()
 			var presentation_events: Array = event.get("events", [])
 			var presentation_action := String(event.get("action", ""))
 			if coop_smoke:
@@ -3468,6 +3497,9 @@ func _move_cursor(seat: int, delta: Vector2i) -> void:
 
 
 func _accept_at(seat: int) -> void:
+	if _stage_overview_active():
+		board.finish_stage_overview()
+		return
 	if LANSession.active() and (not LANSession.connected or LANSession.game_paused or lan_waiting_for_host): return
 	if snapshot.is_empty():
 		return
@@ -4551,6 +4583,9 @@ func _mobile_popup_chosen(seat: int, row: int) -> void:
 
 
 func _mobile_action(action: String) -> void:
+	if _stage_overview_active():
+		board.finish_stage_overview()
+		return
 	if mobile_backgrounded:
 		return
 	mobile_gestures.reset()

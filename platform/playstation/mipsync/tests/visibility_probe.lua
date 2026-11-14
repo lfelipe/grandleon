@@ -9,6 +9,8 @@ local motion_due = false
 local motion_index = 0
 -- Both authored opening lines wrap to two readable pages. Consume every
 -- page before normal board input; Confirm never skips remaining dialogue.
+-- Skip the opening sweep through ordinary Confirm before paging dialogue.
+actions[10] = 0x4000
 actions[20] = 0x4000
 actions[35] = 0x4000
 actions[50] = 0x4000

@@ -30,6 +30,7 @@
 #include "audio/audioManager.h"
 #include "BoardShadows.hpp"
 #include "StoneKeep.hpp"
+#include <grandleon/view/stage_overview.hpp>
 #include "SettlementScenery.hpp"
 #include "ScenerySprites.hpp"
 #include "GeneratedSceneryStyle.hpp"
@@ -78,7 +79,7 @@ constexpr std::size_t kMaxApronCells = 800U;
 constexpr std::size_t kTreeVertexCount = 20U;
 constexpr std::size_t kMaxTrees = 176U;
 constexpr std::size_t kTerrainFormVertexCount = 8U;
-constexpr std::size_t kMaxTerrainForms = 192U;
+constexpr std::size_t kMaxTerrainForms = 384U;
 constexpr std::size_t kUnitVertexCount = 4U;
 constexpr std::size_t kMaxUnits = 48U;
 constexpr std::size_t kCursorVerticesPerPlayer = 32U;
@@ -391,6 +392,8 @@ ShellState shell;
 BattleUiState battle_ui;
 BattleMomentState battle_moment;
 CameraPose current_camera{kTacticalCamera};
+grandleon::view::StageOverview stage_overview{};
+CameraPose overview_from{}, overview_to{};
 std::uint32_t frame_count = 0;
 // Pyrite presents every second NTSC retrace. Timings in the shared campaign
 // remain authored in 60 Hz ticks, so each 30 Hz update advances two ticks.
@@ -829,6 +832,11 @@ CameraPose tactical_camera_for(sim::Position requested) {
 
 void update_tactical_camera() {
     if (combat.active) return;
+    if (stage_overview.active()) {
+        apply_camera(interpolate_camera(overview_from, overview_to,
+            static_cast<float>(stage_overview.elapsed) / static_cast<float>(stage_overview.duration)));
+        return;
+    }
     const CameraPose wanted = tactical_camera_for(
         board.game.cursor(board.game.active_player())
     );
@@ -1283,7 +1291,8 @@ void build_terrain_form_vertices() {
             append_terrain_form(cx, floor, cz, 6, 6, pack_rgba(143U, 127U, 102U), TerrainFormShape::rock);
             break;
         case 2U: // forest undergrowth
-            append_terrain_form(cx, floor, cz, 8, 11, pack_rgba(62U, 121U, 58U), TerrainFormShape::tapered);
+            append_terrain_form(cx, floor, cz, 12, 14, pack_rgba(73U, 126U, 58U), TerrainFormShape::rock);
+            append_terrain_form(cx + 9, floor, cz - 7, 7, 9, pack_rgba(98U, 137U, 64U), TerrainFormShape::rock);
             break;
         case 3U: // mountain outcrops
             append_terrain_form(world_x(x, width) - 4, floor, world_z(z, height),
@@ -1309,7 +1318,9 @@ void build_terrain_form_vertices() {
             append_terrain_form(cx, floor, cz, 7, 9, pack_rgba(135U, 142U, 139U), TerrainFormShape::tapered);
             break;
         case 9U: // grass shrubs
-            append_terrain_form(cx, floor, cz, 7, 10, pack_rgba(75U, 143U, 63U), TerrainFormShape::tapered);
+            append_terrain_form(cx, floor, cz, 10, 12, pack_rgba(82U, 140U, 65U), TerrainFormShape::rock);
+            if ((roll & 4U) != 0U) append_terrain_form(cx - 10, floor, cz + 7, 6, 8,
+                pack_rgba(127U, 149U, 75U), TerrainFormShape::rock);
             break;
         case 10U: // crop rows
             append_terrain_form(cx, floor, cz, 4, 17, pack_rgba(202U, 167U, 69U), TerrainFormShape::crossed);
@@ -5655,12 +5666,44 @@ void onSceneUpdate() {
         return;
     }
     if (!camera_configured) {
-        apply_camera(tactical_camera_for(board.game.cursor()));
+        const auto home = board.game.cursor();
+        overview_to = tactical_camera_for(home);
+        overview_from = tactical_camera_for({
+            static_cast<std::int16_t>(grandleon::view::StageOverview::far_edge(board.content->definition.width, home.x)),
+            static_cast<std::int16_t>(grandleon::view::StageOverview::far_edge(board.content->definition.height, home.y))});
+        stage_overview.begin(board.content->definition.width, board.content->definition.height);
+        if (combat.reduced_motion) stage_overview.finish();
+        apply_camera(stage_overview.active() ? overview_from : overview_to);
+        debugf("CHECKPOINT PYRITE_STAGE_OVERVIEW_BEGIN_%lu stage=%lu\n",
+            static_cast<unsigned long>(shell.stage_index + 1U), static_cast<unsigned long>(shell.stage_index + 1U));
         camera_min_x = current_camera.target_x;
         camera_max_x = current_camera.target_x;
         camera_min_z = current_camera.target_z;
         camera_max_z = current_camera.target_z;
         camera_configured = true;
+    }
+    if (stage_overview.active()) {
+        bool skipped = false;
+        for (const auto port : {JOYPAD_PORT_1, JOYPAD_PORT_2}) {
+            const auto pressed = joypad_get_buttons_pressed(port);
+            skipped = skipped || pressed.a || pressed.b || pressed.start;
+        }
+        if (skipped) stage_overview.finish();
+        else stage_overview.advance(kLogicTicksPerUpdate);
+        if (stage_overview.active()) update_tactical_camera();
+        else {
+            apply_camera(overview_to);
+            // Opening motion is not evidence of player-driven scrolling.
+            camera_min_x = camera_max_x = current_camera.target_x;
+            camera_min_z = camera_max_z = current_camera.target_z;
+            debugf("CHECKPOINT PYRITE_STAGE_OVERVIEW_END skipped=%u\n", skipped ? 1U : 0U);
+        }
+        replay.next_frame += kLogicTicksPerUpdate;
+        battle_moment.next_automatic_frame += kLogicTicksPerUpdate;
+        build_unit_vertices();
+        frame_count += kLogicTicksPerUpdate;
+        update_performance_sample();
+        return;
     }
     if (battle_ui.phase == BattleUiPhase::result && !combat.active &&
         frame_count >= battle_ui.result_until) {
@@ -5705,13 +5748,17 @@ void onScenePreDraw3D() {
     board.scenery_sprites.draw(current_camera.eye_x,current_camera.eye_y,current_camera.eye_z,current_camera.target_x,current_camera.target_y,current_camera.target_z);
     draw_visual_visibility();
     board.shadows.draw();
-    draw_cursor();
+    if (!stage_overview.active()) draw_cursor();
     draw_units();
 }
 
 void onSceneDraw2D() {
     if (shell.phase != ShellPhase::battle) {
         draw_shell();
+        return;
+    }
+    if (stage_overview.active()) {
+        ui_button_hint(232, 216, "A", ui(console::Message::begin));
         return;
     }
     draw_combat_stage_2d();

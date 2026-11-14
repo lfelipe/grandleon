@@ -21,6 +21,7 @@ extern "C" {
 #include <grandleon/tactics/policy.hpp>
 #include <grandleon/view/motion.hpp>
 #include <grandleon/view/ambient_motion.hpp>
+#include <grandleon/view/stage_overview.hpp>
 #include "psx_card.h"
 #include "psx_runtime.h"
 #include <algorithm>
@@ -167,6 +168,8 @@ BoardMotion s_motion{};
 BattleMomentState s_battle_moment{};
 sim::ContentId s_action_content{};
 unsigned s_camera_settle_frames{};
+view::StageOverview s_stage_overview{};
+bool s_overview_snap_home{};
 CampaignMode s_campaign_mode{CampaignMode::battle};
 unsigned s_campaign_menu_index{};
 unsigned s_local_players{1};
@@ -1170,13 +1173,28 @@ void tick_camera() {
             s_map_height, g_grandleon_camera_view_tiles_y
         ) * 65536;
     }
+    if (s_stage_overview.active()) {
+        const auto far_x = view::StageOverview::far_edge(s_map_width, s_cursor.x);
+        const auto far_y = view::StageOverview::far_edge(s_map_height, s_cursor.y);
+        const auto from_x = clamp_camera_focus(far_x * 2 + 1 - s_map_width,
+            s_map_width, g_grandleon_camera_view_tiles_x) * 65536;
+        const auto from_z = clamp_camera_focus(s_map_height - far_y * 2 - 1,
+            s_map_height, g_grandleon_camera_view_tiles_y) * 65536;
+        const auto blend = s_stage_overview.blend();
+        focus_x = from_x + static_cast<std::int32_t>(
+            static_cast<std::int64_t>(focus_x - from_x) * blend / 65536);
+        focus_z = from_z + static_cast<std::int32_t>(
+            static_cast<std::int64_t>(focus_z - from_z) * blend / 65536);
+    }
+    const bool snap = s_reduced_motion || s_stage_overview.active() || s_overview_snap_home;
+    s_overview_snap_home = false;
     const std::int32_t previous_camera_x = camera->position[0];
     const std::int32_t previous_camera_z = camera->position[2];
-    camera->position[0] = s_reduced_motion
+    camera->position[0] = snap
         ? focus_x : approach(camera->position[0], focus_x);
-    camera->position[1] = s_reduced_motion
+    camera->position[1] = snap
         ? desired_height : approach(camera->position[1], desired_height);
-    camera->position[2] = s_reduced_motion
+    camera->position[2] = snap
         ? focus_z + desired_trailing
         : approach(camera->position[2], focus_z + desired_trailing);
     const bool camera_moved =
@@ -1227,7 +1245,7 @@ void tick_camera() {
             g_grandleon_cursor_entity_indices[player]
         );
         if (cursor) {
-            cursor->mesh_enabled =
+            cursor->mesh_enabled = !s_stage_overview.active() &&
                 !close_combat && player < s_local_players ? 1 : 0;
         }
     }
@@ -1287,6 +1305,7 @@ void tick_camera() {
             unit->rotation[2] = idle.lean_q12 * 917;
         }
     }
+    if (s_stage_overview.active()) return; // Do not count the intro as player scrolling.
     if (camera_x < s_camera_min_x) s_camera_min_x = camera_x;
     if (camera_x > s_camera_max_x) s_camera_max_x = camera_x;
     if (camera_z < s_camera_min_z) s_camera_min_z = camera_z;
@@ -1315,7 +1334,7 @@ void sync_scene(const sim::EncounterSnapshot& snapshot) {
             g_grandleon_cursor_entity_indices[player]
         );
         if (cursor) {
-            cursor->mesh_enabled = player < s_local_players ? 1 : 0;
+            cursor->mesh_enabled = !s_stage_overview.active() && player < s_local_players ? 1 : 0;
             place_entity(
                 *cursor, s_player_cursors[player],
                 snapshot.width, snapshot.height, 0
@@ -1767,6 +1786,9 @@ bool start_encounter() {
     if (!cursor_found[1]) s_player_cursors[1] = s_player_cursors[0];
     s_focus_player = 0U;
     s_cursor = s_player_cursors[0];
+    s_stage_overview.begin(snapshot.width, snapshot.height);
+    if (s_reduced_motion) s_stage_overview.finish();
+    psx::Line().text("MIPSYNC_STAGE_OVERVIEW_BEGIN ticks=").decimal(s_stage_overview.duration).flush();
     sync_scene(snapshot);
     ps1_entity* camera = grandleon_scene_mutable_entity(
         g_grandleon_camera_entity_index
@@ -1991,6 +2013,12 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
         s_story_page_mode = s_campaign_mode;
         s_story_line_mode = s_campaign_mode;
         s_story_line_index = 0;
+    }
+    if (s_campaign_mode == CampaignMode::battle && s_stage_overview.active()) {
+        output->mode = GRANDLEON_UI_STAGE_OVERVIEW;
+        output->show_fps = s_display_options.show_fps ? 1 : 0;
+        output->measured_fps = s_measured_fps;
+        return;
     }
     output->talking_phase = static_cast<std::uint8_t>((s_ambient_ticks / 12U) & 1U);
     if (s_mode == InputMode::move && s_selected && !s_motion.active) {
@@ -2567,6 +2595,25 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
         return 0;
     }
     if (!s_created || !*s_created) return 0;
+    if (s_stage_overview.active()) {
+        const bool skipped = ((player_one | player_two) & (pad_cross | pad_circle | pad_start)) != 0;
+        if (skipped) s_stage_overview.finish();
+        else s_stage_overview.advance(1U);
+        if (!s_stage_overview.active()) {
+            s_overview_snap_home = true;
+            psx::Line().text("MIPSYNC_STAGE_OVERVIEW_END skipped=").decimal(skipped ? 1U : 0U)
+                .text(" hash=").hex64(s_created->encounter.canonical_hash()).flush();
+        }
+        tick_camera();
+        if (!s_stage_overview.active()) {
+            const auto* camera = grandleon_scene_mutable_entity(g_grandleon_camera_entity_index);
+            if (camera) {
+                s_camera_min_x = s_camera_max_x = camera->position[0] / 65536;
+                s_camera_min_z = s_camera_max_z = camera->position[2] / 65536;
+            }
+        }
+        return 0;
+    }
     const bool motion_was_active = advance_board_motion();
     tick_camera();
     if (motion_was_active) return 0;
@@ -2959,7 +3006,7 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
             g_grandleon_cursor_entity_indices[player]
         );
         if (cursor) {
-            cursor->mesh_enabled = player < s_local_players ? 1 : 0;
+            cursor->mesh_enabled = !s_stage_overview.active() && player < s_local_players ? 1 : 0;
             place_entity(
                 *cursor, s_player_cursors[player],
                 snapshot.width, snapshot.height, 0

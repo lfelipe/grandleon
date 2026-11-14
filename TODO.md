@@ -216,6 +216,11 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
 - [x] Mark the keep's entrance with restrained amber gatepost lanterns and a
   gold pennant above the arch. Share the geometry across all three players;
   preserve the doorway clearance and reveal only when a unit enters.
+- [x] Introduce each stage with an eased camera sweep from the far side to
+  the starting party. Keep gameplay and hidden-room discovery unchanged;
+  allow normal controller, keyboard or touch input to skip the sweep.
+  Orchard soil basins and supports, cart cargo, fuller garden beds, weathered
+  wall feet and broader console undergrowth add another shared scenery pass.
 - [ ] Expand thematic multi-tile landmark art beyond the current Medieval
   houses and keep: Sengoku, pirate, sci-fi and the other scenario styles need
   their own families. Add corresponding console variants, fences, gates,
@@ -227,7 +232,7 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   64. Stage six CI4 sprites per project drawing, retain each unit's facing
   through route turns and rest, and keep the existing side view for custom
   drawings without compass art. The five-battle 1P replay passes in base 4 MiB;
-  the final replay has about 762 KiB of free heap. Hardware review remains open.
+  the expanded scenery retains a measured memory margin. Hardware review remains open.
 - [ ] Further polish movement, turns, planted feet, idle motion, attack,
   reaction and defeat animation on all three players. Preserve the accepted
   route, destination, event order and combat results.

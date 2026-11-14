@@ -115,6 +115,9 @@ renderer. It is off by default, including in console ROMs and disc images.
 Across all three players, entering Steel and Cedar’s keep reveals its hidden
 interior while preserving the authored tactical rules.
 
+A short opening camera sweep shows each stage before settling on your party.
+Press **Confirm** (Space/Enter, A or Cross), or tap the screen, to skip it.
+
 The players share an orchestral soundtrack and distinct weapon, magic and
 healing effects. Adjust **Music** and **Sound Effects** separately in Settings; each volume is saved. Creator support for importing
 your own audio is planned on the roadmap below.

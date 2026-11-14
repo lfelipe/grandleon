@@ -393,6 +393,12 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
                     state.measured_fps, 247, 239, 209);
     }
 
+    if (state.mode == GRANDLEON_UI_STAGE_OVERVIEW) {
+        draw_panel(ordering_table, next_packet, packet_end, 210, 210, 104, 25);
+        draw_button(ordering_table, next_packet, packet_end, 218, 215, 'X', GRANDLEON_TEXT_BEGIN);
+        activate_ui_tpage(ordering_table, next_packet, packet_end);
+        return;
+    }
     if (state.mode >= GRANDLEON_UI_TITLE) {
         if (state.mode != GRANDLEON_UI_TITLE || !g_grandleon_combat_plate_indices[0])
             draw_box_depth(ordering_table, next_packet, packet_end,

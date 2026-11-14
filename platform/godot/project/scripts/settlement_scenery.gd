@@ -114,9 +114,24 @@ func _cart(root: Node3D, variation: int) -> void:
 	for z in [-0.20, 0.20]:
 		var shaft := _box(root, Vector3(0.67, 0.32, z), Vector3(0.51, 0.05, 0.05), dark)
 		shaft.rotation.z = -0.18
+	# Cargo belongs in the cart's bed, with a spare cask beside the broken
+	# wheel. Nothing extends into the neighbouring playable road.
+	_crate(bed, Vector3(-0.22, 0.21, -0.06), 0.34)
+	_crate(bed, Vector3(0.22, 0.15, 0.10), 0.22)
+	_cylinder(root, Vector3(0.56, 0.16, -0.67), 0.15, 0.32, _material("cask", "94734b"))
+	_ring(root, Vector3(0.56, 0.25, -0.67), 0.145, 0.16, _material("iron", "45423d"))
 	for index in 3:
 		var plank := _box(root, Vector3(-0.48 + index * 0.31, 0.04, -0.72), Vector3(0.42, 0.045, 0.08), wood)
 		plank.rotation.y = 0.3 + index * 0.5
+
+func _crate(root: Node3D, at: Vector3, size: float) -> void:
+	var wood := _material("crate_wood", "a08352")
+	var edge := _material("crate_edges", "594831")
+	_box(root, at, Vector3(size, size, size), wood)
+	for side in [-1.0, 1.0]:
+		_box(root, at + Vector3(0, side * size * 0.35, size * 0.51), Vector3(size, size * 0.10, 0.025), edge)
+		_box(root, at + Vector3(size * 0.51, 0, side * size * 0.35), Vector3(0.025, size, size * 0.10), edge)
+
 
 func _well(root: Node3D) -> void:
 	var stone := _material("stone", "a79b86", true)
@@ -176,7 +191,7 @@ func _garden(root: Node3D, variation: int) -> void:
 		leaf.radial_segments = 12
 		leaf.rings = 6
 		meshes["leaf"] = leaf
-	for row in (2 if console_detail else 3):
+	for row in 3:
 		_box(root, Vector3(0, 0.055, (row - 1) * 0.42), Vector3(1.30, 0.04, 0.27), _material("soil", "463d30"))
 		for column in 3:
 			for layer in (1 if console_detail else 3):
@@ -206,6 +221,9 @@ func build_wall(parent: Node3D, neighbours: Array[bool]) -> Node3D:
 		var size := Vector3(0.16, 0.70, 0.50) if index % 2 == 0 else Vector3(0.50, 0.70, 0.16)
 		_box(wall, direction * 0.25 + Vector3(0, 0.35, 0), size, stone)
 		_box(wall, direction * 0.25 + Vector3(0, 0.73, 0), Vector3(size.x + (0.05 if index % 2 == 0 else 0.0), 0.08, size.z + (0.05 if index % 2 else 0.0)), stone)
+	var moss := _material("wall_moss", "69764c")
+	for side in [-1.0, 1.0]:
+		_box(wall, Vector3(side * 0.13, 0.055, 0.05), Vector3(0.11, 0.11, 0.24), moss)
 	return wall
 
 func _house(root: Node3D, variation: int) -> void:

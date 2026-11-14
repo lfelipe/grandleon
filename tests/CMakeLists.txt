@@ -961,6 +961,10 @@ add_executable(grandleon_view_motion_tests
 target_link_libraries(grandleon_view_motion_tests PRIVATE grandleon::view)
 add_test(NAME grandleon.view_motion COMMAND grandleon_view_motion_tests)
 
+add_executable(grandleon_view_stage_overview_tests view/stage_overview_test.cpp)
+target_link_libraries(grandleon_view_stage_overview_tests PRIVATE grandleon::view)
+add_test(NAME grandleon.view_stage_overview COMMAND grandleon_view_stage_overview_tests)
+
 # The console font. Two machines have no font of their own and read one table,
 # and the *shape* of a letter is the part they share, so the shape is pinned
 # here, where neither console is in the loop. The box matters most: both
