@@ -202,24 +202,17 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   Ancient-grove foliage follows the season. Explicit custom scene bindings
   retain their authored rendering. Extend creator previews and thematic
   scenery families, then review the new scenery's performance on Android.
-- [ ] Compose the campaign as connected places before adding more props. Follow
-  [the map direction](games/steel_and_cedar/MAP_DIRECTION.md): orchard, woodland,
-  ruined watch fort, market village and grounded keep. Gate Village now has a
-  main street, market square, cottage gardens, loading yard and connected gate
-  wall; the isolated Deepwood tower has been removed. Review full maps, both
-  player modes, sightlines and pacing. Then expand related orchard varieties,
-  fences, service buildings and fortifications, with restrained foliage,
-  cloth, water and signal-fire motion. Both console engines now draw shared
-  settlement models, the actual Godot house drawings, orchard bell, watch
-  beacons and broken walls, plus ground materials
-  sampled through Godot’s current shader; N64 completes all five encounters in
-  base 4 MiB. PS1 fits
-  RAM by storing models once, but its busier village misses the 30 FPS budget
-  during scrolling. Improve that cost and review matching views. The staggered
-  village passes the full campaign suite, with both village traces finishing
-  in eight rounds; human review is open. Bring the actual orchard-tree and
-  ancient-grove presentations across next; these still differ substantially
-  from Godot.
+- [x] Give all five campaign maps a connected composition: cultivated orchard,
+  brook and groves, ruined command court, staggered market village, and a keep
+  with an attached tower and service court. Bring the shared house/grove art,
+  branching orchard trees and named landmarks to both consoles. Draw continuous
+  PS1 ground independently of nearby scenery so highlights stay over terrain;
+  calibrate N64 colours and texture the surrounding landscape.
+- [ ] Human-playtest the revised `0.3.0` campaign layouts in solo and co-op,
+  checking cover, approach time, pressure, retreats and both players' roles.
+  Extend related orchard varieties, fences, service buildings and fortifications
+  where the design calls for them. Add restrained foliage, cloth, water and
+  signal-fire motion, and continue console visual/performance work toward 30 FPS.
 - [ ] Expand thematic multi-tile landmark art beyond the current Medieval
   houses and keep: Sengoku, pirate, sci-fi and the other scenario styles need
   their own families. Add corresponding console variants, fences, gates,

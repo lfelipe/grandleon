@@ -38,27 +38,10 @@ MAP_ROWS = {
         "YXXRGYYH", "GRXRGGRH", "YRZZRGRY",
         "YRGRPPRY", "GRGRXRGH", "YXXRGYYH",
     ),
-    "cedar_deepwood": (
-        "FFFFFFFHBBBBBB", "FRRRRGFFGRRRCB", "FRFFGGTTGFFRCB",
-        "FRRRGGTTGFRRCB", "FFFRRGGGFFRFBB", "FFRFFGFFGTTRCB",
-        "FRRRGGFFGTTRCB", "FRRRRGGGRRRRCB", "FFFFFHHHBBBBBB",
-    ),
-    "cedar_watch": (
-        "CCCHHRRRERHHCCCF", "CCGRRRGSPGRRGCFF", "HGRRGPPPPGGRRHFF",
-        "RREGPPOOOPPGRRRH", "RRGPPOPPPOPPGRRH", "RRGPPPPPPPPGGRRH",
-        "RRGPPPPPPPPGGRRH", "RRGPPOPPPOPPGRRH", "RRRGPPOOOPPGRERH",
-        "HGRRGPPPPGGRRHFF", "CCGRRRGPSGRRGCFF", "CCCHHRRERRHHCCCF",
-    ),
-    "gate_village": (), # Filled from the settlement plan below.
-    "twin_gate": (
-        "MMMUURRRRPPPRRRRUUMM", "MMURRGGGRPPPRGGGRRUM",
-        "MURRGPPPPUUUPPPPGRRU", "URRGPPUUPPPPPUUPPGRR",
-        "RRGPPUPPPUUUPKKKKKKR", "RGPPUPPPPPPPPKIIIIKR",
-        "RGPPPPUUUPPPUDIIIQKR", "RGPPPPUUUPPPUDIIIQKR",
-        "RGPPUPPPPPPPPKIIIIKR", "RRGPPUPPPUUUPKKKKKKR",
-        "URRGPPUUPPPPPUUPPGRR", "MURRGPPPPUUUPPPPGRRU",
-        "MMURRGGGRPPPRGGGRRUM", "MMMUURRRRPPPRRRRUUMM",
-    ),
+    "cedar_deepwood": (),
+    "cedar_watch": (),
+    "gate_village": (),
+    "twin_gate": (),
 }
 
 
@@ -95,6 +78,91 @@ def village_rows() -> tuple[str, ...]:
     for y in [5, 6, 7]:
         area(15, y, 3, 1, "P")
     return tuple("".join(row) for row in cells)
+
+
+def woodland_rows() -> tuple[str, ...]:
+    """Two clearings join around old groves beside a continuous brook."""
+    cells = [["F"] * 14 for _ in range(9)]
+    def area(x, y, width, height, code):
+        for row in range(y, y + height):
+            for column in range(x, x + width): cells[row][column] = code
+    area(1, 1, 5, 3, "G")
+    area(2, 5, 7, 3, "G")
+    area(8, 1, 4, 4, "G")
+    area(8, 7, 4, 1, "G")
+    for y in range(9):
+        cells[y][12] = "W"
+    # One-cell brook with a wooded far bank, crossed by three short bridges.
+    # Keeping water off the map edge prevents automatic surroundings from
+    # turning the brook into a broad lake beyond the tactical area.
+    for y in (2, 4, 6):
+        cells[y][12] = "B"
+        cells[y][13] = "R"
+    for x, y in [(0, 2), (1, 2), (1, 1), (2, 1), (3, 1), (4, 1), (5, 1),
+                 (5, 2), (5, 3), (5, 4), (6, 4), (7, 4), (8, 4), (9, 4),
+                 (10, 4), (10, 3), (11, 3), (11, 2),
+                 (1, 7), (2, 7), (3, 7), (4, 7), (5, 7), (6, 7), (7, 7),
+                 (8, 7), (9, 7), (10, 7), (11, 7), (11, 6), (8, 6), (8, 5)]:
+        cells[y][x] = "R"
+    area(6, 2, 2, 2, "T")
+    area(9, 5, 2, 2, "T")
+    return tuple("".join(row) for row in cells)
+
+
+def watch_rows() -> tuple[str, ...]:
+    """A single ruined court, four approaches and a ridge behind it."""
+    cells = [["G"] * 16 for _ in range(12)]
+    for y in range(12):
+        for x in range(16):
+            if y < 2 or y > 9: cells[y][x] = "H"
+            if (x < 3 or x > 12) and (y < 3 or y > 8): cells[y][x] = "F"
+            if 5 <= x <= 10 and 3 <= y <= 8: cells[y][x] = "P"
+            if (3 <= y <= 8 and x in (2, 3, 12, 13)) or (x in (7, 8) and (y < 3 or y > 8)):
+                cells[y][x] = "R"
+    for x in range(5): cells[5][x] = "R"
+    for x in range(11, 16): cells[6][x] = "R"
+    for x, y in [(6,3),(7,3),(8,3),(5,4),(9,4),(5,7),(9,7),(6,8),(7,8),(8,8)]: cells[y][x] = "O"
+    for x, y, code in [(8,0,"E"),(7,1,"S"),(2,3,"E"),(13,8,"E"),(8,10,"S"),(7,11,"E")]: cells[y][x] = code
+    return tuple("".join(row) for row in cells)
+
+
+def keep_rows() -> tuple[str, ...]:
+    """An upper ward, loading court and connected walls below the keep."""
+    cells = [["G"] * 20 for _ in range(14)]
+    def area(x, y, width, height, code):
+        for row in range(y, y + height):
+            for column in range(x, x + width): cells[row][column] = code
+    area(0, 0, 20, 2, "H")
+    area(0, 12, 20, 2, "H")
+    area(18, 0, 2, 14, "H")
+    area(17, 0, 3, 3, "M")
+    area(0, 2, 2, 10, "F")
+    area(4, 3, 9, 8, "P")
+    area(2, 4, 2, 2, "R")
+    area(2, 9, 2, 2, "R")
+    area(8, 2, 5, 1, "R")
+    area(9, 0, 2, 3, "R")
+    area(9, 11, 2, 3, "R")
+    area(12, 3, 1, 8, "R")
+    # A collapsed barracks foundation offers cover in the otherwise exposed
+    # ward. Keep it one recognisable footprint, not scattered rubble tiles.
+    area(6, 6, 3, 2, "U")
+    area(6, 1, 2, 2, "c") # Loading bay beside the upper service road.
+    area(9, 4, 2, 2, "t")
+    # Fortify the upper flank and connect it to the keep, while leaving both
+    # companies a broad, direct approach to its two door cells.
+    for x, y in [(11,4),(12,4),(11,5)]: cells[y][x] = "l"
+    # The existing six-by-six hidden-room footprint and entry stay intact.
+    area(13, 4, 6, 6, "K")
+    area(14, 5, 4, 4, "I")
+    area(13, 6, 1, 2, "D")
+    area(17, 6, 1, 2, "Q")
+    return tuple("".join(row) for row in cells)
+
+
+MAP_ROWS["cedar_deepwood"] = woodland_rows()
+MAP_ROWS["cedar_watch"] = watch_rows()
+MAP_ROWS["twin_gate"] = keep_rows()
 
 
 MAP_ROWS["gate_village"] = village_rows()
@@ -564,7 +632,7 @@ def build_project() -> dict:
         "packageId": "751d322d-dc60-4c6d-a1e1-821e4dd7c617",
         "gameId": "grandleon.steel_and_cedar",
         "title": "Steel and Cedar",
-        "contentRevision": "0.2.0",
+        "contentRevision": "0.3.0",
         "themeId": "temperate",
         "characterStyleId": "medieval",
         "characterFigureId": "first",

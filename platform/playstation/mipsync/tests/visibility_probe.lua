@@ -21,20 +21,20 @@ local function sequence(start, spacing, values)
 end
 
 -- Use the real one-player Twin Gate encounter. Rowan first advances to the
--- castle approach, and both friendly units finish their turns so the authored
+-- castle approach's ruined foundation (two cells cost four movement), and both friendly units finish their turns so the authored
 -- opponent gets a normal turn. On the next round Rowan crosses the doorway at
 -- 13,6. This is deliberately player input rather than a test-only reveal hook.
 sequence(80, 10, {
   0x4000,                         -- select Rowan at 6,6
-  0x0020, 0x0020, 0x0020,
-  0x4000,                         -- move to 9,6
+  0x0020, 0x0020,
+  0x4000,                         -- move to 8,6
 })
 sequence(200, 10, {
   0x0010, 0x4000,                 -- choose Wait
 })
 sequence(260, 10, {
-  0x0080, 0x0080, 0x0080, 0x0080,
-  0x4000, 0x4000,                 -- select Elowen; keep 5,6
+  0x0080, 0x0080, 0x0080,
+  0x4000, 0x4000,                 -- select Tomas; keep 5,6
   0x0010, 0x4000,                 -- choose Wait
 })
 -- After the enemy turn returns the camera to the player's cursor, inspect
@@ -44,9 +44,9 @@ sequence(1350, 10, {
   0x0020, 0x0020, 0x0020, 0x0020,
 })
 sequence(1480, 10, {
-  0x0080, 0x0080, 0x0080, 0x0080,
-  0x4000,                         -- select Rowan at 9,6
-  0x0020, 0x0020, 0x0020, 0x0020, 0x4000,
+  0x0080, 0x0080, 0x0080, 0x0080, 0x0080,
+  0x4000,                         -- select Rowan at 8,6
+  0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x4000,
                                     -- cross into the castle at 13,6
 })
 

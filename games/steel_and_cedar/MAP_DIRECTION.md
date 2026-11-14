@@ -17,9 +17,8 @@ does not turn the village into a random mix of architectural styles.
 | Gate Village | A small market settlement at the keep road. | Homes and workshops face a main street. The well anchors a paved square; a quieter lane serves cottages and their gardens. The cart belongs in the loading yard. A tower joins the town wall at the eastern gate. Co-op enters by the main street and southern lane, then converges in the square. |
 | Twin Gate Keep | The fortified seat above the village. | The approach leads through a service court to a connected gatehouse and curtain wall. Towers reinforce corners and gates. The keep sits on a grounded stone terrace against the ridge; entering reveals its chamber. Solo reaches a nearby defended approach; co-op separates the upper road and lower court before the final room. |
 
-The [five overhead plans](plans/) show the intended composition. Gate Village
-reflects the current prototype; the others are design diagrams, not new playable
-layouts.
+The [five overhead plans](plans/) are generated from the current playable
+source. They show the terrain, named landmarks and distinct solo/co-op starts.
 
 ## Placement rules
 
@@ -44,27 +43,29 @@ branches, with small differences in timing. Water can ripple and the watch's
 signal fire can flicker. Stone walls, carts and buildings stay still. Motion
 must stay subtle enough that movement ranges and unit actions remain clear.
 
-## Build order
+## Current pass
 
-1. **Gate Village:** establish the street, market, cottage gardens and connected
-   gate wall. This is the first layout prototype; judge the whole settlement,
-   then refine materials and small details.
-2. **Console versions:** export the same landmark shapes to both engines,
-   simplify detail deliberately and compare the same village views. Do not
-   substitute generic mountain scenery for the buildings.
-3. **Bell Orchard and Deepwood:** make cultivated rows and natural woodland
-   visibly different; give each route a clear origin and destination.
-4. **Cedar Watch and Twin Gate:** replace decorative paved/rubble patterns with
-   connected fortifications, service spaces and a convincing approach.
+All five places now have their composition pass. Deepwood has a narrow brook
+with a wooded far bank and three short crossings. Watch uses one command court
+with broken perimeter walls and four approaches. The keep's upper tower joins
+a curtain wall; its loading bay leaves the main approach clear, and a collapsed
+barracks foundation offers cover in the ward. Its six-by-six hidden chamber and
+entry remain intact.
 
-Gate Village now has the first revised layout, with initial models in all three
-renderers. The other four rows describe planned composition work, not finished
-maps. The houses have varied setbacks, roof drawings and facing directions; the rear
-lane bends around the recessed cottage. All three renderers use the same house
-art and placement recipe. The full native campaign suite passes, including both
-village traces in eight rounds. Human playtesting, console prop animation and
-PS1 village performance remain open.
+The consoles share the house and ancient-grove drawings, branching orchard
+models and named landmark geometry with Godot. Nintendo 64 has calibrated
+ground colours and textured surrounding terrain. PS1 draws continuous ground
+separately from paged nearby detail, so movement ranges cannot extend over an
+unrendered part of the map. Performance and prop animation remain open work.
 
-The redesigned layout uses campaign content revision `0.2.0`. Checkpoints from
-revision `0.1.0` are incompatible: their saved positions can fall inside the new
-building plots. Keep those old saves separate and start the new layout fresh.
+The native campaign checks demonstrate legal solo and co-op completions without
+requiring casualties or equal action counts. Human balance and readability
+reviews remain necessary. Regenerate the overhead plans after editing the maps:
+
+```sh
+python3 games/steel_and_cedar/render_plans.py
+```
+
+The redesigned layouts use campaign content revision `0.3.0`. Checkpoints from
+`0.1.0` and `0.2.0` are incompatible: saved positions may fall inside new terrain
+or buildings. Keep those saves separate and start the new layouts fresh.

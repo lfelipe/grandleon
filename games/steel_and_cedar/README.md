@@ -35,67 +35,39 @@ its old watch fort, then into Gate Village and the keep above it. See the
 [map direction](MAP_DIRECTION.md) for each place's layout, scenery and solo/co-op
 role.
 
-Gate Village is the first composition prototype: homes face connected streets,
-a market square surrounds the well, cottage gardens adjoin the southern lane,
-and the tower joins the wall at the eastern gate. Deepwood retains its ancient
-groves. New Godot landmark models and editor stamps are available; their console
-versions are being prepared. The other maps still need the planned composition
-pass. More detail alone does not make those layouts finished.
+The composition pass now covers all five maps. The orchard has cultivated rows
+and a bell court; Deepwood follows a brook around old groves; Watch has one
+ruined command court; Village has staggered houses, a market and loading yard;
+and the keep has connected fortifications and separate approaches.
+
+Both consoles use the Godot house and grove drawings, simplified branching
+orchard trees, bell, watch details, village props and stone keep. The PS1 floor
+continues across the whole map independently of its nearby scenery pages.
+Nintendo 64 uses a stronger ground palette and textured surrounding terrain.
+The console versions still need visual and performance refinement.
 
 Twin Gate's connected 6×6 keep covers a playable chamber. Entering reveals that
 room without moving the board or units; it stays open once explored.
 
-## Current status
+## Playtesting and editing
 
-The source parses, compiles, and opens every encounter as both a one-player and
-a two-player campaign. The four protagonists now use campaign-specific class
-numbers and equipment while keeping the same shared Commander, Archer, Healer,
-and Rogue art roles. They have a measured durability and mobility edge over
-rank-and-file enemies; Tomas restores eight health so the late solo route can
-recover from a real exchange rather than requiring a flawless run.
+All five battles load for solo and co-op in the editor and players. Automated
+checks cover legal routes, arrivals, real command-driven completions, both
+players contributing, and campaign progression. They do not require casualties
+or equal workloads from different roles. Human playtests still need to judge
+difficulty, instructions, retreats, retries, saves and dominant strategies.
 
-Automated checks walk the real terrain to ensure both armies have routes to
-every opponent and reinforcement, make every larger conflict extend beyond a
-single console view, distribute both solo and co-op opposition across at least
-three map regions, reject opening enemy blobs, keep each co-op player within
-two moves of a consequential opening front, and prove that every arrival lands
-on a unique legal cell. Bell Orchard also checks its exact upper/lower 2P
-deployments against the route named in its co-op dialogue. The
-Watch authors each arrival separately, so every wave keeps its intended
-hold-or-advance order instead of becoming an inert recurring copy. A
-deterministic player-pursuit run against those authored orders gives all ten
-1P/2P encounters a repeatable completion baseline. It reaches combat by round
-two, never records more than one quiet round in a row, and gives each co-op
-player at least one quarter of their side's combat actions. The active Watch
-run survives to round twenty, while a company that only waits loses on round
-seventeen in 1P and round twelve in 2P. Finally, the
-campaign cursor follows the objective results through all five victories and
-the ending; keeping Rowan alive correctly remains a pending protection result,
-while the stage's survival or boss objective advances the story.
+Layout revision `0.3.0` changes terrain and routes. Start fresh rather than
+resuming a checkpoint from `0.1.0` or `0.2.0`, whose positions may now be blocked.
 
-A separate Godot smoke imports this exact source through the normal project
-library, opens all five battles in Campaign Editor, compiles every isolated
-direct-test project, and then opens Cedar Watch in Map Editor. It proves that
-the 1P preview excludes Akari's company, the 2P preview uses the separated
-western/eastern starts without duplicating roster members, and all 23 staggered
-arrivals remain visible and editable with their intended player scaling.
-
-The unattended traces are a balance baseline, not proof that a map is fun.
-The redesigned village currently finishes in thirteen solo rounds and six
-co-op rounds. Its earlier solo pacing and attrition assertions flag the change
-for review; the map has not been tuned to force those old results. Human
-playtests should judge the approaches, enemy pressure, retreats and whether
-both co-op companies have worthwhile jobs.
-
-The campaign still needs real solo and co-op playtests for difficulty,
-instructions, retries, saves and dominant strategies. Maintainers can regenerate
-its repeatable source below; authored campaign translations are retained:
+Maintainers can regenerate the source and its overhead plans with:
 
 ```sh
 python3 games/steel_and_cedar/generate_project.py
+python3 games/steel_and_cedar/render_plans.py
 ```
 
-To run the real-editor readiness check:
+Authored translations are retained. To check the real editing workflow:
 
 ```sh
 platform/godot/scripts/smoke-steel-cedar-editor.sh

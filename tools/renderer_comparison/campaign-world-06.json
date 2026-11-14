@@ -1,0 +1,354 @@
+{
+  "schema": "grandleon.campaign-world-review.v1",
+  "campaign": "Steel and Cedar",
+  "campaign_content_revision": "0.3.0",
+  "scope": "Whole five-stage scenery/layout pass, continuous PS1 ground and stronger N64 colours. Console performance and human playtesting remain open.",
+  "source_revision_base": "64017fc5",
+  "package_sha256": "3f9c6fab1e82f1ff8db048b7dac2a800b964ace07a106585b534f02150b7039c",
+  "shared_package_verified": true,
+  "checks": {
+    "native_solo_coop": "Ten encounters have legal winning command traces against authored enemies. No required casualties or equal action ratios.",
+    "godot_editor": "Real Campaign/Map Editor import, all five encounters, both player modes and survival setup pass.",
+    "godot_boards": "Five real-source overview captures pass.",
+    "godot_keep": "Threshold reveal, stable framing and room restoration pass.",
+    "ps1_campaign": "New campaign, Continue, memory-card progression, solo traversal and player-two ownership pass. Stage skipping in this UI traversal uses the supported debug action; combat completion is checked separately.",
+    "ps1_visibility": "Real player input approaches in two steps, keeps the room covered during cursor inspection, then crosses the doorway in five steps and reveals all 18 cells."
+  },
+  "ps1": {
+    "bell": {
+      "main_ram": {
+        "text_bytes": 413144,
+        "data_bytes": 487924,
+        "bss_bytes": 283416,
+        "resident_bytes": 1184484,
+        "end_address": "0x80130b18",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1250020,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 1807076,
+        "passes_playable_slice_budget": true
+      },
+      "geometry_cache": {
+        "vertices": 2638,
+        "vertex_limit": 2688,
+        "triangles": 2869,
+        "triangle_limit": 2880,
+        "mesh_vertex_limit": 1024
+      },
+      "artifacts": {
+        "grandleon_mipsync.elf": {
+          "bytes": 7118724,
+          "sha256": "a4de4ec64288199cfd76327a6ba98c4643acce512d4a377a88f9b775b4356634"
+        },
+        "grandleon_mipsync.exe": {
+          "bytes": 901120,
+          "sha256": "7885c3b02da561e258ef9fdf5a349b228f68a9de0ff2b7dce3731b681d50c341"
+        },
+        "grandleon-mipsync-campaign.cue": {
+          "bytes": 89,
+          "sha256": "29d16c06436b8a5210108dcf67bbbd29ef0c78753e18cceed2e506a8f9ffecff"
+        },
+        "grandleon-mipsync-campaign.bin": {
+          "bytes": 8410752,
+          "sha256": "8643a2d2bc134a763bc8a34c9c6dafa0cfb711fb6160e56f4a6f6f249959a71b"
+        }
+      }
+    },
+    "deep": {
+      "main_ram": {
+        "text_bytes": 415672,
+        "data_bytes": 493620,
+        "bss_bytes": 221744,
+        "resident_bytes": 1131036,
+        "end_address": "0x80123a30",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1196572,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 1753628,
+        "passes_playable_slice_budget": true
+      },
+      "geometry_cache": {
+        "vertices": 490,
+        "vertex_limit": 1280,
+        "triangles": 484,
+        "triangle_limit": 1280,
+        "mesh_vertex_limit": 1024
+      },
+      "artifacts": {
+        "grandleon_mipsync.elf": {
+          "bytes": 7139576,
+          "sha256": "46aa9f293c77c79f1831a456c226bb560b026cf9c27d23fe285b03dd049ddedf"
+        },
+        "grandleon_mipsync.exe": {
+          "bytes": 909312,
+          "sha256": "8afaceb51a43ec2dad42c62bbcdec3d459c0a8e2e70adb26817a0211e972efa3"
+        },
+        "grandleon-mipsync-campaign.cue": {
+          "bytes": 89,
+          "sha256": "29d16c06436b8a5210108dcf67bbbd29ef0c78753e18cceed2e506a8f9ffecff"
+        },
+        "grandleon-mipsync-campaign.bin": {
+          "bytes": 8410752,
+          "sha256": "8643a2d2bc134a763bc8a34c9c6dafa0cfb711fb6160e56f4a6f6f249959a71b"
+        }
+      }
+    },
+    "watch": {
+      "main_ram": {
+        "text_bytes": 425672,
+        "data_bytes": 663796,
+        "bss_bytes": 223520,
+        "resident_bytes": 1312988,
+        "end_address": "0x80150120",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1378524,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 1935580,
+        "passes_playable_slice_budget": true
+      },
+      "geometry_cache": {
+        "vertices": 1143,
+        "vertex_limit": 1280,
+        "triangles": 1388,
+        "triangle_limit": 1408,
+        "mesh_vertex_limit": 1024
+      },
+      "artifacts": {
+        "grandleon_mipsync.elf": {
+          "bytes": 7387912,
+          "sha256": "cffea94ee4f97c7c9cf621b5cabf6f9464a53df524b12c6af01de660f20b5301"
+        },
+        "grandleon_mipsync.exe": {
+          "bytes": 1089536,
+          "sha256": "69691bf4eeb7c15ca39042823742388b19e6092f64042aa6f018bb0fa41ca864"
+        },
+        "grandleon-mipsync-campaign.cue": {
+          "bytes": 89,
+          "sha256": "29d16c06436b8a5210108dcf67bbbd29ef0c78753e18cceed2e506a8f9ffecff"
+        },
+        "grandleon-mipsync-campaign.bin": {
+          "bytes": 8410752,
+          "sha256": "8643a2d2bc134a763bc8a34c9c6dafa0cfb711fb6160e56f4a6f6f249959a71b"
+        }
+      }
+    },
+    "village": {
+      "main_ram": {
+        "text_bytes": 417448,
+        "data_bytes": 743732,
+        "bss_bytes": 255728,
+        "resident_bytes": 1416908,
+        "end_address": "0x801696f0",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1482444,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 2039500,
+        "passes_playable_slice_budget": true
+      },
+      "geometry_cache": {
+        "vertices": 2156,
+        "vertex_limit": 2176,
+        "triangles": 1876,
+        "triangle_limit": 1920,
+        "mesh_vertex_limit": 1024
+      },
+      "artifacts": {
+        "grandleon_mipsync.elf": {
+          "bytes": 7407048,
+          "sha256": "03c3dfe70d90ccfc2602eef6d6d2ff739f1f068880699b8914c7713619dfadd5"
+        },
+        "grandleon_mipsync.exe": {
+          "bytes": 1161216,
+          "sha256": "90228efd865e2f51421a68e812515f4e7004d23125b8ac7e2f5934eb369fb4d9"
+        },
+        "grandleon-mipsync-campaign.cue": {
+          "bytes": 89,
+          "sha256": "29d16c06436b8a5210108dcf67bbbd29ef0c78753e18cceed2e506a8f9ffecff"
+        },
+        "grandleon-mipsync-campaign.bin": {
+          "bytes": 8410752,
+          "sha256": "8643a2d2bc134a763bc8a34c9c6dafa0cfb711fb6160e56f4a6f6f249959a71b"
+        }
+      }
+    },
+    "gate": {
+      "main_ram": {
+        "text_bytes": 415864,
+        "data_bytes": 700276,
+        "bss_bytes": 261976,
+        "resident_bytes": 1378116,
+        "end_address": "0x8015ff58",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1443652,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 2000708,
+        "passes_playable_slice_budget": true
+      },
+      "geometry_cache": {
+        "vertices": 2187,
+        "vertex_limit": 2240,
+        "triangles": 2188,
+        "triangle_limit": 2240,
+        "mesh_vertex_limit": 1024
+      },
+      "artifacts": {
+        "grandleon_mipsync.elf": {
+          "bytes": 7349580,
+          "sha256": "2dc48b7aa9048ef2cec50c3a8f7820ae22741de1a24b57bff2c6cf18c3d8f33a"
+        },
+        "grandleon_mipsync.exe": {
+          "bytes": 1116160,
+          "sha256": "477fc3a8ecdbc49acd266759908f8526e08078ba2e78347adf801c9b2f8427fc"
+        },
+        "grandleon-mipsync-campaign.cue": {
+          "bytes": 89,
+          "sha256": "29d16c06436b8a5210108dcf67bbbd29ef0c78753e18cceed2e506a8f9ffecff"
+        },
+        "grandleon-mipsync-campaign.bin": {
+          "bytes": 8410752,
+          "sha256": "8643a2d2bc134a763bc8a34c9c6dafa0cfb711fb6160e56f4a6f6f249959a71b"
+        }
+      }
+    }
+  },
+  "n64": {
+    "rdram_bytes": 4194304,
+    "campaign_battles": 5,
+    "castle_reveal_cells": 18,
+    "final_heap_free_bytes": 373184,
+    "final_sample_fps": 30.0,
+    "fps_scope": "Last 120 replay frames; not a per-stage benchmark or physical-console result."
+  },
+  "limitations": [
+    "PS1 orchard/village exceed the 30 FPS budget in diagnostic captures.",
+    "The strict PS1 combat wrapper fails its 30 FPS assertion; attack, ability, counter/audio timing and player-two camera-return proofs are present in its log. This is not reported as a passing performance test.",
+    "Console screenshots use gameplay zoom; Godot overviews show the whole map, at different moments/player modes.",
+    "No physical-console review in this pass."
+  ],
+  "ps1_visual_diagnostics": {
+    "orchard": {
+      "schema": "grandleon.scene-review.v1",
+      "scene": "out/campaign-world06-scenes/bell_orchard-2.json",
+      "canonical_hash": "12352774744198827936",
+      "capture_verified": true,
+      "metrics": {
+        "frames": 600,
+        "rendered_frames": 299,
+        "scheduled_frames": 300,
+        "deferred_frames": 1,
+        "missed_vblanks": 299,
+        "max_elapsed_vblanks": 3,
+        "render_hbl_avg": 622,
+        "render_hbl_max": 750
+      },
+      "scope": "Emulator visual review. Frame-budget misses are recorded, not treated as a passed performance test."
+    },
+    "village": {
+      "schema": "grandleon.scene-review.v1",
+      "scene": "out/campaign-world06-scenes/gate_village-2.json",
+      "canonical_hash": "9005011463098403465",
+      "capture_verified": true,
+      "metrics": {
+        "frames": 600,
+        "rendered_frames": 300,
+        "scheduled_frames": 300,
+        "deferred_frames": 0,
+        "missed_vblanks": 140,
+        "max_elapsed_vblanks": 5,
+        "render_hbl_avg": 551,
+        "render_hbl_max": 1293
+      },
+      "scope": "Emulator visual review. Frame-budget misses are recorded, not treated as a passed performance test."
+    },
+    "large_floor": {
+      "schema": "grandleon.scene-review.v1",
+      "scene": "out/campaign-world06-large-floor/scene.json",
+      "canonical_hash": "14038670892359620606",
+      "capture_verified": true,
+      "metrics": {
+        "frames": 600,
+        "rendered_frames": 299,
+        "scheduled_frames": 300,
+        "deferred_frames": 1,
+        "missed_vblanks": 72,
+        "max_elapsed_vblanks": 3,
+        "render_hbl_avg": 399,
+        "render_hbl_max": 621
+      },
+      "scope": "Emulator visual review. Frame-budget misses are recorded, not treated as a passed performance test."
+    }
+  },
+  "large_floor": {
+    "dimensions": [
+      32,
+      32
+    ],
+    "source": "Separate camera/geometry regression fixture, with a distant stationary guard. Not a change to the demo campaign.",
+    "surface_meshes": 2,
+    "camera_extrema": {
+      "min_x": -24,
+      "max_x": 24,
+      "min_z": -12,
+      "max_z": 40
+    },
+    "memory": {
+      "text_bytes": 353960,
+      "data_bytes": 223540,
+      "bss_bytes": 200944,
+      "resident_bytes": 778444,
+      "end_address": "0x800cd8f0",
+      "renderer_probe_budget_bytes": 524288,
+      "platform_audio_reserve_bytes": 65536,
+      "stack_reserve_bytes": 32768,
+      "minimum_gameplay_heap_bytes": 524288,
+      "main_ram_bytes": 2097152,
+      "renderer_and_audio_reserve_bytes": 843980,
+      "passes_renderer_only_probe_budget": false,
+      "playable_slice_committed_bytes": 1401036,
+      "passes_playable_slice_budget": true
+    },
+    "per_mesh_vertex_limit": 1024
+  },
+  "hashes": {
+    "games/steel_and_cedar/source/project.json": "91b0f1ee7ac74c07a6046ecf2212f3741cc732b39285f8b259b842e549025b30",
+    "games/steel_and_cedar/generate_project.py": "0bf893c2f6d7a757fd8f1faca3f6fe793f4fbdd176fab39839bce7b9690fe82d",
+    "platform/console_art/settlement_scenery.json": "5c58511755885040d4663062315fb8eab8270bdb8780d930bfd8f07b7af0ed58",
+    "platform/console_art/scenery_style.py": "e78d70d014028e01ca449b7d6539f1124295e5fbf4b231bbe152122e41236b2f",
+    "platform/godot/project/scripts/board_view_3d.gd": "6ff1f446056c7280d732bebc2151ca741578c1620b87c62592c83ce81e2ecabf",
+    "platform/playstation/mipsync/tools/generate_scene.py": "1886c4b7ab1f94e1ce087ce0c35e2fb7674060ef5f5d2a98d724b746ef0d020a",
+    "platform/playstation/mipsync/runtime/game_bridge.cpp": "aeaeb64105bf2835c18a336bd0f2e68d029afc8b0bc957c3c2867ef7ae00ba3d",
+    "platform/nintendo64/pyrite/project/src/user/ProjectBoard.cpp": "b1cc9082fe06f6198d2f2549b5ae2a82c38b151d175732b45df49e6af6768c22",
+    "platform/nintendo64/pyrite/project/src/user/ScenerySprites.cpp": "6063d213e5f7b557baa3d71db8671a96d3249285fe14154134c8c290cfb62fb7",
+    "out/campaign-world06-native-tests.log": "a23c426a281754d1e3c8fabe13bf6a948cd12ed0538e0718b44bd678b2a5b513",
+    "out/campaign-world06-editor.log": "9df74146fa9fc435ce055c7b9dadedc2ca868d7a41dcd57eacb394baf7193b5e",
+    "out/campaign-world06-latest-godot.log": "a94e731cfe53b8ace6213d39095c6ad178819de2c66257e712e84c86637f7eb8",
+    "out/campaign-world06-godot-castle.log": "15c708f0ae55b0e506c8aa82acbf0b46c17a44120bbea3881424d6a9dfa33452",
+    "out/campaign-world06-colour-n64-review/ares/game.log": "f978605134efc6c90ab6026a6789244f58fed6169956c25a01e26418ab87616d",
+    "out/campaign-world06-final-ps1-gameplay.log": "661a7a4911277b7056c86d313322ecd8c9c30395b919fc3cfed803d18d8b122d",
+    "out/campaign-world06-visibility-final.log": "090b9387f887be060bc324953630e531ad1d9608812f9df8a6134abbe2be265b",
+    "out/campaign-world06-ps1-combat/emulator.log": "754819ac36d9fd35eb0b69b068bc1a7fa28a45e684b5e09065374fa867ebac06",
+    "out/campaign-world06-ps1-generator-final.log": "451a6b1bee0fef1b5964a58f5033fa665b5f18a23fd1e6eae492b054e3cf9454",
+    "out/campaign-world06-n64-prepare-tests-final.log": "78d8f10609de5bfc382f7269a8e5913ba874063f04119dbe4863c6abb24f377f"
+  },
+  "rendering_commit": "3c5e3d0a"
+}
