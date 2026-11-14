@@ -8,13 +8,13 @@
   "checks": {
     "portable_timing": "out/stage-pan06-host-test-final.log: CTest timing, easing, far-edge and skip checks pass.",
     "godot_overview": "out/stage-pan06-last-godot.log: playable camera clamp, unchanged snapshot, covered keep and exact skip endpoint pass.",
-    "godot_player": "out/stage-pan06-player-final.log: normal native campaign launch and keyboard skip; no unit selection or movement from the skip.",
+    "godot_player": "out/stage-pan06-player-clean.log: normal native campaign launch and keyboard skip; no unit selection or movement from the skip. The native session and rendered resources finish teardown before exit.",
     "godot_boards": "out/stage-pan06-rich-godot-boards.log: all five actual maps captured.",
     "godot_keep": "out/stage-pan06-keep-godot.log: original doorway-clearance and threshold-reveal tests pass.",
     "shared_models": "out/stage-pan06-final-model-tests.log: six portable scenery tests pass.",
     "ps1_generator": "out/stage-pan06-final-generator-tests.log: original terrain/visibility/palette checks and drawn-face preservation pass.",
     "ps1_overview": "out/stage-pan06-last-ps1-overview.log: full sweep and normal controller skip preserve the native encounter hash.",
-    "ps1_reveal": "out/stage-pan06-final-ps1-reveal.log: normal input skips the sweep, keeps the room covered during cursor inspection and reveals all 18 cells on entry.",
+    "ps1_reveal": "out/stage-pan06-release-ps1-reveal.log: final executable, normal Confirm skips the overview; cursor inspection keeps the room covered, and walking through the doorway reveals all 18 cells.",
     "ps1_campaign": "out/stage-pan06-last-campaign-review.log: all functional checks pass before the unchanged strict frame-pacing checks fail. New/Continue and all five solo stages, card persistence, player-two ownership and opening dialogue are checked. Stage progression in this UI probe uses the supported debug skip; battle outcomes are not claimed by this probe."
   },
   "n64": {
@@ -122,5 +122,15 @@
     "platform/nintendo64/pyrite/project/src/user/ProjectBoard.cpp": "5fc0c2173a9139c22b2acbc68906f948dbf19c81a47d5e498b4209441e99a1c1",
     "platform/playstation/mipsync/runtime/game_bridge.cpp": "680b80521ddf19aaedde4ec517eb29e48889830261802b9f2610bfd90cefe03b",
     "platform/playstation/mipsync/runtime/scene_adapter.c": "77f549dbb71953a7cc1f0e1bced66f56e6efd3b325be1417f5151bd1e123e270"
+  },
+  "validation_log_sha256": {
+    "out/stage-pan06-player-clean.log": "1a1b42a8c9f674f10b909f9173ba305ce781d5d057c011f6abdb4b48a5724c4a",
+    "out/stage-pan06-last-campaign-review/new.log": "0a973af4f08485c73de01f4d21e0ca0c38b9b04aea022033c632f7ef8e479ba7",
+    "out/stage-pan06-last-campaign-review/continue.log": "74b11e46dda2a34eca04a074e5a3addfbff5aea7c6f628d26c8dce9636fe91d2",
+    "out/stage-pan06-last-campaign-review/solo.log": "dfbfc5835617d23b79454c73adee07f7470bb0c89a1f1f5a7e9689dbfa834330",
+    "out/stage-pan06-release-ps1-reveal/emulator.log": "482b21cf82c7c7448e08132a2ccf8b76684cbec2d703d8dcf955534e179635ae",
+    "out/stage-pan06-last-ps1-overview/full/emulator.log": "e1c9648f177d6ed95a8c936097b8a4579143ac469c17c27ef4d47c76f0ddfcd1",
+    "out/stage-pan06-last-ps1-overview/skip/emulator.log": "7f40bb674a00f6a376ef6d5879303667e08f62988158fb766b328ca6767fd2f7",
+    "out/stage-pan06-final-n64/ares/game.log": "10e49b49d9a6fc31c1ecec3e5ea71b87e0fd6ddae84be202e009f7b792ad2bd4"
   }
 }

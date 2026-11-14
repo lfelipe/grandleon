@@ -28,6 +28,10 @@ func _run() -> void:
 	skip.pressed = false
 	Input.parse_input_event(skip)
 	print("Normal Godot campaign launch and keyboard overview skip pass without changing the encounter")
+	player.session.stop()
+	player.session = null
 	player.queue_free()
 	await process_frame
+	await process_frame
+	await RenderingServer.frame_post_draw
 	quit(0)
