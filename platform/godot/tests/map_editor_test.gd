@@ -397,6 +397,23 @@ func _run() -> void:
 	await process_frame
 	_expect("grove placement and removal undo to the original source", editor.source, original_landmark_source)
 	_expect("landmark round trips leave no undo history", editor.undo_stack.size(), 0)
+	for kind: String in ["abandoned_cart", "village_well", "watchtower", "walled_garden"]:
+		var tool := "landmark_" + kind
+		_expect("the editor offers %s as one stamp" % kind, editor.tool_buttons.has(tool), true)
+		editor._select_tool(tool)
+		editor._paint_cell(16)
+		await process_frame
+		var stamped: Array = _parse(editor.source).maps[0].terrain
+		for index: int in [16, 17, 22, 23]:
+			_expect("%s authors its complete blocked footprint" % kind, stamped[index], "mountain_" + kind)
+		_expect("%s gets its own label" % kind, editor.grid.get_child(16).tooltip_text.contains(editor._t("map.landmark." + kind)), true)
+		editor._select_tool("landmark_remove")
+		editor._paint_cell(23)
+		editor._undo()
+		editor._undo()
+		await process_frame
+		_expect("%s stamp and removal undo together" % kind, editor.source, original_landmark_source)
+
 	editor._select_tool("landmark_house")
 	editor._paint_cell(0)
 	_expect("a blocked footprint cannot be stamped under a character", editor.source, original_landmark_source)
@@ -1155,7 +1172,7 @@ func _run() -> void:
 	if failures == 0:
 		print("map editor smoke passed")
 	localization.call("select_language", prior_language, false)
-	quit(1 if failures > 0 else 0)
+	root.get_node("PCAudio").request_quit(1 if failures > 0 else 0)
 
 
 func _parse(value: String) -> Dictionary:

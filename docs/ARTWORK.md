@@ -223,6 +223,14 @@ their authored rendering. A graphics profile can also select
 `landscapeRenderer: "authored"` to use its terrain scenes throughout.
 Creator previews and more thematic scenery families remain in progress.
 
+Gate Village's well, walled vegetable garden and abandoned cart, plus
+Deepwood's watchtower, use generated Godot meshes. They share the existing
+2×2 obstacle footprints, so this pass changes scenery without changing routes
+or starting armies. In the map editor, choose a landmark stamp to place the
+whole object; Remove clears the whole footprint. These four new models still
+need console versions. Their source is
+[`settlement_scenery.gd`](../platform/godot/project/scripts/settlement_scenery.gd).
+
 Twin Gate's keep has round stone towers, battlements and a flat stone upper
 terrace. Its upper storey cuts away on entry to reveal the existing room.
 Godot and both consoles use geometry exported from the same keep; the

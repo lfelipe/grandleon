@@ -15,6 +15,10 @@ const TERRAIN_PALETTE := [
 	"ruins", "farmland", "snow", "swamp", "hills", "bamboo", "paved",
 ]
 const LANDMARKS := {
+	"landmark_abandoned_cart": {"kind": "abandoned_cart", "source_id": "mountain_abandoned_cart", "label_key": "map.landmark.abandoned_cart", "clear_terrain": "paved"},
+	"landmark_village_well": {"kind": "village_well", "source_id": "mountain_village_well", "label_key": "map.landmark.village_well", "clear_terrain": "paved"},
+	"landmark_watchtower": {"kind": "watchtower", "source_id": "mountain_watchtower", "label_key": "map.landmark.watchtower", "clear_terrain": "paved"},
+	"landmark_walled_garden": {"kind": "walled_garden", "source_id": "mountain_walled_garden", "label_key": "map.landmark.walled_garden", "clear_terrain": "grass"},
 	"landmark_house": {
 		"kind": "village_house",
 		"source_id": "mountain_village_house",
@@ -960,7 +964,9 @@ func _landmark_cells_by_index(width: int, height: int, terrain: Array) -> Dictio
 func _add_landmark_badge(cell: Button, kind: String, tile_size: int) -> void:
 	var label := Label.new()
 	label.text = _t(
-		"map.landmark.grove_badge" if kind == "ancient_grove" else "map.landmark.house_badge"
+		"map.landmark.grove_badge" if kind == "ancient_grove" else
+		"map.landmark.house_badge" if kind == "village_house" else
+		"map.landmark." + kind
 	)
 	label.add_theme_font_size_override("font_size", clampi(tile_size / 6, 8, 13))
 	label.add_theme_color_override("font_color", Color("fff0b0"))
@@ -4399,10 +4405,12 @@ func _build_interface() -> void:
 	patrol_cancel.pressed.connect(_cancel_patrol_edit)
 	patrol_actions.add_child(patrol_cancel)
 	tools_column.add_child(_label(_t("map.landmarks"), 17, Color("69d9ff")))
-	var landmark_row := HBoxContainer.new()
-	landmark_row.add_theme_constant_override("separation", 6)
+	var landmark_row := GridContainer.new()
+	landmark_row.columns = 3
+	landmark_row.add_theme_constant_override("h_separation", 6)
+	landmark_row.add_theme_constant_override("v_separation", 6)
 	tools_column.add_child(landmark_row)
-	for landmark_tool: String in ["landmark_house", "landmark_grove", "landmark_remove"]:
+	for landmark_tool: String in LANDMARKS.keys() + ["landmark_remove"]:
 		var landmark_button := _button(_t("map.tool." + landmark_tool), 102, 46)
 		landmark_button.add_theme_font_size_override("font_size", 12)
 		landmark_button.tooltip_text = _t("map.tool." + landmark_tool + "_tooltip")
@@ -6267,6 +6275,7 @@ func _tool_label(tool: String, compact := false) -> String:
 		"remove_unit", "deployment", "ownership", "scaling", "talk",
 		"visibility",
 		"surroundings", "landmark_house", "landmark_grove", "landmark_remove",
+		"landmark_abandoned_cart", "landmark_village_well", "landmark_watchtower", "landmark_walled_garden",
 		"patrol",
 	]
 	if not known.has(tool):

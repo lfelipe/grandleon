@@ -1,0 +1,76 @@
+{
+  "date": "2026-11-14",
+  "renderer": "Godot",
+  "referenceRevision": "95fc1d9f2db11bafff8f17406a644c6da6d48ec4",
+  "landmarks": [
+    "abandoned_cart",
+    "village_well",
+    "watchtower",
+    "walled_garden"
+  ],
+  "campaignPlacement": {
+    "gate_village": {
+      "village_well": [
+        5,
+        4
+      ],
+      "abandoned_cart": [
+        9,
+        9
+      ],
+      "walled_garden": [
+        9,
+        1
+      ]
+    },
+    "cedar_deepwood": {
+      "watchtower": [
+        6,
+        2
+      ]
+    }
+  },
+  "footprint": [
+    2,
+    2
+  ],
+  "checks": [
+    "All five native encounters retain their terrain kinds and starting armies.",
+    "Every solid mesh stays within its footprint.",
+    "Editor stamp, whole-footprint removal and undo round-trip pass for all four props.",
+    "Campaign editor 1P, 2P and survival setup pass.",
+    "Five focused and five overview captures pass.",
+    "Eight seasonal captures pass after the campaign scenery update."
+  ],
+  "sourceSha256": {
+    "platform/godot/project/scripts/settlement_scenery.gd": "c9822e7e331ee30607013bad1fdba810c7546dc8f0fd00c962f4168036484acb",
+    "platform/godot/project/scripts/board_view_3d.gd": "2f288e4cc41952d819611f3f0642b08978539cfeaa633f030e91c0cba538d672",
+    "platform/godot/src/grandleon_session.cpp": "48680602e77ebeb8d63b20616234777cc35652a2cde5ce6881865717b6112d53",
+    "games/steel_and_cedar/source/project.json": "591d2458f7dd39a4b65129a955ac10ed41f8d9f6f446b5a4fb8b3c5ace43befd"
+  },
+  "logsSha256": {
+    "out/settlement06-rules-checked.log": "61e611195952bb26380cb72b6607fed90ba7269fda2e09620aee4ddfc1a1d19e",
+    "out/settlement06-editor-checked.log": "7cb5a5ec6b24382da82f22e938a5d64d019e79e917b24ed21035d1d472cf23c3",
+    "out/settlement06-campaign-editor.log": "289c1d4b288904f88f0b9dcc45fef4d28ffc45c9bb5046e1cff6d69934a7e0f4",
+    "out/settlement06-reviewed.log": "1fc746d7b020ce6af6e2d85ac7011363089c151ade8e86c17640c648fb41d8fa",
+    "out/settlement06-full-reviewed.log": "1fc746d7b020ce6af6e2d85ac7011363089c151ade8e86c17640c648fb41d8fa",
+    "out/settlement06-seasons-reviewed.log": "b214c2d3d8a843dc8cedb94cf9abe50eeab4bf28cdf52bcbb23620d2708b23eb"
+  },
+  "capturesSha256": {
+    "out/settlement06-full-reviewed/steel-cedar-bell-orchard.png": "dfa679dd30359aa6d235f5306c263eeb39b154db8eca315b5a6b970ed308c534",
+    "out/settlement06-full-reviewed/steel-cedar-deepwood.png": "a2a2bd861e8870755ea72168b3ce96e94b0b9bc672e2c656ca49700b5d90cafc",
+    "out/settlement06-full-reviewed/steel-cedar-gate-village.png": "b99ad25e9d40716bca442b43df48900cd78f4f5a8d00bc96895040d109b35032",
+    "out/settlement06-full-reviewed/steel-cedar-twin-gate.png": "329ec757b84d1b342f1d92ce275440f1647289e1e2c4ecc0f626b6466e19173a",
+    "out/settlement06-full-reviewed/steel-cedar-watch.png": "e10732a244fa0babfc3887cb9a8915d089b547fa86d00eea6ce52ce30b7c08c3",
+    "out/settlement06-reviewed/steel-cedar-bell-orchard.png": "d6eb71cdaeb3c842924ff7bd4fec640040ca37bfb926cd643cd83e2a621618c5",
+    "out/settlement06-reviewed/steel-cedar-deepwood.png": "2f83208b16b00e77867a4603dd9e6c659ccae41f59c56e86bf0e2eba33d7c67f",
+    "out/settlement06-reviewed/steel-cedar-gate-village.png": "184dde38ff5deea63053a41d2c3c9d0f3bd3829d378846402ea95b44921cc5d9",
+    "out/settlement06-reviewed/steel-cedar-twin-gate.png": "f546bb07e17504884ddc787895142ba0cc8eefdab706d6911dbb5ea245ab890f",
+    "out/settlement06-reviewed/steel-cedar-watch.png": "d4a40b50dc072a2482fd9ebf9a323eefec0a130431cffa5beaa589a7d5fbdefb"
+  },
+  "limitations": [
+    "Godot only; both console engines still need the four new landmark models.",
+    "Desktop software-rendered captures; Android performance is not measured.",
+    "This initial scenery pass preserves existing tactical footprints rather than redesigning campaign routes."
+  ]
+}

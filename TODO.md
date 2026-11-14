@@ -202,6 +202,15 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   Ancient-grove foliage follows the season. Explicit custom scene bindings
   retain their authored rendering. Extend creator previews and thematic
   scenery families, then review the new scenery's performance on Android.
+- [ ] Develop the campaign's scenery as coherent places, reviewing full maps
+  after each art pass. Gate Village now uses a well, walled vegetable garden
+  and abandoned cart; Deepwood has a watchtower. Godot renders these as 3D
+  landmarks and the editor places/removes each complete 2×2 footprint. The
+  native terrain kinds, starting armies and existing routes are preserved.
+  Port these landmarks to both console engines next. Continue with connected
+  courtyard walls, roadside fences, orchard varieties, market stalls, ruined
+  outbuildings and castle approach details. Keep clear walkable boundaries,
+  thematic materials and scenery fading; avoid scattering props at random.
 - [ ] Expand thematic multi-tile landmark art beyond the current Medieval
   houses and keep: Sengoku, pirate, sci-fi and the other scenario styles need
   their own families. Add corresponding console variants, fences, gates,

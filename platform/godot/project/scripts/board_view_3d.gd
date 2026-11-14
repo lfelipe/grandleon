@@ -11,6 +11,7 @@ const TerrainSceneSelector = preload("res://scripts/terrain_scene_selector.gd")
 const NaturalGround = preload("res://scripts/natural_ground.gd")
 const NaturalScenery = preload("res://scripts/natural_scenery.gd")
 const GraphicsProfiles = preload("res://scripts/graphics_profiles.gd")
+const SettlementScenery = preload("res://scripts/settlement_scenery.gd")
 const StoneKeep = preload("res://scripts/stone_keep.gd")
 const TerrainMarkerShader = preload("res://shaders/terrain_marker.gdshader")
 const VisualVisibility = preload("res://scripts/visual_visibility.gd")
@@ -130,6 +131,7 @@ var _ambient_motion_enabled := true
 var _scenery_occluders: Array[Dictionary] = []
 var _natural_ground
 var _natural_scenery
+var _settlement_scenery = SettlementScenery.new()
 var _has_custom_terrain_bindings := false
 var _occlusion_elapsed := 0.0
 var _ambient_props: Array[Dictionary] = []
@@ -895,7 +897,7 @@ func _detect_cluster_landmarks() -> void:
 				str(terrain_features[anchor_index])
 				if anchor_index < terrain_features.size() else ""
 			)
-			if landmark_kind not in ["village_house", "ancient_grove"]:
+			if landmark_kind not in ["village_house", "ancient_grove", "abandoned_cart", "village_well", "watchtower", "walled_garden"]:
 				continue
 			for cell: Vector2i in cells:
 				var index := cell.y * width + cell.x
@@ -919,8 +921,13 @@ func _build_cluster_landmarks() -> void:
 		var anchor: Vector2i = anchor_value
 		if str(_landmark_anchors[anchor]) == "ancient_grove":
 			_build_ancient_grove(anchor)
-		else:
+		elif str(_landmark_anchors[anchor]) == "village_house":
 			_build_village_house(anchor)
+		else:
+			var kind := str(_landmark_anchors[anchor])
+			var prop: Node3D = _settlement_scenery.build(_terrain_root, kind, _village_house_variation(anchor))
+			prop.position = _landmark_centre(anchor) + Vector3(0, 0.20, 0)
+			_scenery_occluders.append({"node": prop, "alpha": 1.0, "blocked": false, "materials": []})
 
 
 func _detect_castle_landmark() -> void:

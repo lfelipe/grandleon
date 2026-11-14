@@ -13,8 +13,8 @@ const MAPS := [
 	{
 		"node": "cedar_deepwood", "file": "steel-cedar-deepwood.png",
 		"id": "a6b11e9ea987638a", "size": Vector2i(14, 9),
-		"focus": Vector2i(10, 6), "feature": "ancient_grove", "feature_count": 8,
-		"visuals": {"ancient_grove": 2},
+		"focus": Vector2i(10, 6), "feature": "ancient_grove", "feature_count": 4,
+		"visuals": {"ancient_grove": 1, "watchtower": 1},
 	},
 	{
 		"node": "cedar_watch", "file": "steel-cedar-watch.png",
@@ -25,8 +25,8 @@ const MAPS := [
 	{
 		"node": "gate_village", "file": "steel-cedar-gate-village.png",
 		"id": "07cb9d097af3a9a1", "size": Vector2i(18, 12),
-		"focus": Vector2i(12, 6), "feature": "village_house", "feature_count": 24,
-		"visuals": {"medieval": 6},
+		"focus": Vector2i(12, 6), "feature": "village_house", "feature_count": 12,
+		"visuals": {"medieval": 3, "abandoned_cart": 1, "village_well": 1, "walled_garden": 1},
 	},
 	{
 		"node": "twin_gate", "file": "steel-cedar-twin-gate.png",
@@ -174,8 +174,15 @@ func _verify_and_capture(
 			"Twin Gate capture uses the exact keep",
 			board.castle_presentation_state().bounds, Rect2i(13, 4, 6, 6)
 		)
+	var overview := _argument("--overview=") == "true"
+	if overview:
+		board._camera.size = maxf(float(expected_size.x), float(expected_size.y)) * 1.10
+		board._camera.position -= board._camera_focus_current
+		board._camera_focus_current = Vector3.ZERO
+		board._camera_focus_target = Vector3.ZERO
+		board._camera.look_at(Vector3.ZERO)
 	var focus_state: Dictionary = board.tactical_camera_state()
-	if expected_size.x >= 16:
+	if expected_size.x >= 16 and not overview:
 		_expect_true(
 			"%s capture exercises camera scrolling" % spec.node,
 			absf(float((focus_state.target as Vector3).x)) > 0.1

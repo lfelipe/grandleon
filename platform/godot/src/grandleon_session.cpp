@@ -68,6 +68,16 @@ const char* terrain_feature_name(std::uint64_t terrain_id) {
         core::stable_content_id_v1("paved_signal_beacon");
     static const std::uint64_t road_signal_beacon =
         core::stable_content_id_v1("road_signal_beacon");
+    struct Feature { std::uint64_t id; const char* name; };
+    static constexpr Feature settlement_features[] = {
+        {core::stable_content_id_v1("mountain_abandoned_cart"), "abandoned_cart"},
+        {core::stable_content_id_v1("mountain_village_well"), "village_well"},
+        {core::stable_content_id_v1("mountain_watchtower"), "watchtower"},
+        {core::stable_content_id_v1("mountain_walled_garden"), "walled_garden"},
+    };
+    for (const Feature& feature : settlement_features) {
+        if (terrain_id == feature.id) return feature.name;
+    }
     if (terrain_id == village_house) return "village_house";
     if (terrain_id == ancient_grove) return "ancient_grove";
     if (terrain_id == castle_wall) return "castle_wall";
