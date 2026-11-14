@@ -92,6 +92,8 @@
     "ps1_rock_vertices_before": 15,
     "ps1_rock_vertices_after": 12,
     "ps1_rock_triangles_before": 12,
-    "ps1_rock_triangles_after": 12
+    "ps1_rock_triangles_after": 12,
+    "ps1_resident_bytes": 1127340,
+    "ps1_max_cached_vertices": 535
   }
 }

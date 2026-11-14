@@ -185,6 +185,10 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   PS1 reeds, shrubs and outcrops also vary in size. Neutral texture detail
   preserves authored colours. Nintendo 64 has varied crown sway; PS1 foliage
   motion remains pending and must preserve static terrain caching.
+  Steel and Cedar's Godot landscape now has connected height meshes, shaped
+  banks, branched trees, crops and leafy bamboo. Extend this treatment to the
+  other built-in themes and creator previews while preserving custom scenes;
+  review the new scenery's performance on Android after the visual pass.
 - [ ] Expand thematic multi-tile landmark art beyond the current Medieval
   houses and keep: Sengoku, pirate, sci-fi and the other scenario styles need
   their own families. Add corresponding console variants, fences, gates,

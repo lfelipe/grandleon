@@ -161,6 +161,11 @@ func _verify_and_capture(
 	print("%s terrain: %d primitive instances, %d shared meshes" % [
 		spec.node, int(geometry.instances), geometry.resources.size()
 	])
+	var batches := {"instances": 0, "resources": {}}
+	_count_scenery_batches(board._terrain_root, batches)
+	if int(batches.instances) > 20:
+		_expect_true("%s shares detailed foliage and stem meshes" % spec.node,
+			batches.resources.size() * 2 < int(batches.instances))
 	board._focus_tactical_camera(spec.focus)
 	board._update_tactical_camera(10.0)
 	board.set_process(false)
@@ -184,6 +189,14 @@ func _verify_and_capture(
 		captures_written += 1
 	board.queue_free()
 	await process_frame
+
+
+func _count_scenery_batches(node: Node, counts: Dictionary) -> void:
+	if node is MultiMeshInstance3D:
+		counts.instances += 1
+		counts.resources[node.multimesh.mesh.get_instance_id()] = true
+	for child: Node in node.get_children():
+		_count_scenery_batches(child, counts)
 
 
 func _count_primitive_meshes(node: Node, counts: Dictionary) -> void:

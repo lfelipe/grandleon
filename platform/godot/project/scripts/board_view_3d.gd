@@ -8,6 +8,9 @@ const AmbientMotion = preload("res://scripts/ambient_motion.gd")
 const MotionPath = preload("res://scripts/motion_path.gd")
 const PresentationFacing = preload("res://scripts/presentation_facing.gd")
 const TerrainSceneSelector = preload("res://scripts/terrain_scene_selector.gd")
+const NaturalGround = preload("res://scripts/natural_ground.gd")
+const NaturalScenery = preload("res://scripts/natural_scenery.gd")
+const TerrainMarkerShader = preload("res://shaders/terrain_marker.gdshader")
 const VisualVisibility = preload("res://scripts/visual_visibility.gd")
 const MobileLayout = preload("res://scripts/mobile_layout.gd")
 const CURSOR_COLOURS := [Color("69d9ff"), Color("ffca63")]
@@ -129,6 +132,8 @@ var _combat_camera_target_id := 0
 var _pulse := 0.0
 var _ambient_motion_enabled := true
 var _scenery_occluders: Array[Dictionary] = []
+var _natural_ground
+var _natural_scenery
 var _occlusion_elapsed := 0.0
 var _ambient_props: Array[Dictionary] = []
 var _ambient_water_materials: Dictionary = {}
@@ -140,6 +145,10 @@ func is_unit_moving(unit_id: int) -> bool:
 
 func set_ambient_motion_enabled(value: bool) -> void:
 	_ambient_motion_enabled = value
+	if _natural_ground != null:
+		_natural_ground.set_motion_enabled(value)
+	if _natural_scenery != null:
+		_natural_scenery.set_motion_enabled(value)
 	for material: ShaderMaterial in _ambient_water_materials.values():
 		material.set_shader_parameter("ambient_strength", 1.0 if value else 0.0)
 
@@ -809,6 +818,8 @@ func _rebuild_terrain() -> void:
 	var width := int(snapshot.width)
 	var height := int(snapshot.height)
 	var depth := _surrounding_depth()
+	if _uses_medieval_campaign_terrain():
+		_prepare_natural_terrain(width, height, depth)
 	_box(
 		_terrain_root, Vector3(0, -0.30, 0),
 		Vector3(
@@ -1128,7 +1139,11 @@ func _configure_visual_visibility() -> void:
 
 
 func _landmark_centre(anchor: Vector2i) -> Vector3:
-	return (_cell_position(anchor.x, anchor.y) + _cell_position(anchor.x + 1, anchor.y + 1)) * 0.5
+	var centre := (_cell_position(anchor.x, anchor.y) + _cell_position(anchor.x + 1, anchor.y + 1)) * 0.5
+	if _uses_medieval_campaign_terrain() and _natural_ground != null:
+		# Existing cutouts were grounded on the old 0.20-high landmark pads.
+		centre.y = _natural_ground.height_at(anchor) - 0.20
+	return centre
 
 
 func _build_village_house(anchor: Vector2i) -> void:
@@ -1408,6 +1423,32 @@ func _build_diorama_tile(x: int, y: int, kind: int) -> void:
 		_cone(_terrain_root, centre + Vector3(0.24, slab_height + 0.10, -0.22), 0.06, 0.0, 0.20, _material("grass_tip", _palette("grassTip", Color("80a95b")), 0.84), 4)
 
 
+func _prepare_natural_terrain(width: int, height: int, depth: int) -> void:
+	_natural_ground = NaturalGround.new()
+	if _natural_scenery == null:
+		_natural_scenery = NaturalScenery.new()
+	var configured_heights: Dictionary = profile_config.get("surfaceHeights", {})
+	for kind in TERRAIN_NAMES.size():
+		_natural_ground.heights[kind] = float(configured_heights.get(TERRAIN_NAMES[kind], configured_heights.get("default", 0.10)))
+	var outside_index := 0
+	for y in range(-depth, height + depth):
+		for x in range(-depth, width + depth):
+			var kind := 9
+			if x >= 0 and y >= 0 and x < width and y < height:
+				kind = int(terrain[y * width + x])
+			else:
+				kind = _surrounding_kind(x, y, outside_index)
+				outside_index += 1
+			_natural_ground.cells[Vector2i(x, y)] = 9 if kind == 255 else kind
+			var feature := _terrain_feature_at(x, y)
+			if not feature.is_empty() and feature not in ["orchard_tree", "none"]:
+				for dz in range(-1, 2):
+					for dx in range(-1, 2):
+						_natural_ground.flattened[Vector2i(x + dx, y + dz)] = true
+	_natural_ground.set_motion_enabled(_ambient_motion_enabled)
+	_natural_scenery.set_motion_enabled(_ambient_motion_enabled)
+
+
 func _build_medieval_campaign_tile(x: int, y: int, kind: int) -> void:
 	var cell := Node3D.new()
 	cell.set_meta("terrain_family", "medieval_temperate")
@@ -1416,20 +1457,15 @@ func _build_medieval_campaign_tile(x: int, y: int, kind: int) -> void:
 	_terrain_root.add_child(cell)
 	var variation: int = absi(x * 17 + y * 31 + kind * 13)
 	cell.set_meta("terrain_variant", variation % 4)
-	var edge := _material(
-		"medieval_keep_edge", Color("55564f"), 1.0
-	)
-	# The broad foundation retains a readable board silhouette, while the nearly
-	# touching top faces avoid the thick black atlas grid of the old demo tiles.
-	_box(cell, Vector3(0, -0.14, 0), Vector3(0.999, 0.26, 0.999), edge)
-	var top := 0.20 if kind == 3 else 0.10
-	_box(
-		cell, Vector3(0, top * 0.5, 0), Vector3(0.998, top, 0.998),
-		_medieval_keep_surface_material(kind, variation % 4)
-	)
-	var width := int(snapshot.get("width", 0))
-	var index := y * width + x
-	var feature := str(terrain_features[index]) if index >= 0 and index < terrain_features.size() else ""
+	var ground := MeshInstance3D.new()
+	ground.name = "NaturalGround"
+	ground.mesh = _natural_ground.mesh_for(Vector2i(x, y))
+	ground.material_override = _natural_ground.material_for(kind)
+	cell.add_child(ground)
+	var top: float = _natural_ground.height_at(Vector2i(x, y))
+	var height_sampler := func(uv: Vector2) -> float:
+		return _natural_ground.sample_height(Vector2i(x, y), uv)
+	var feature := _terrain_feature_at(x, y)
 	if feature.begins_with("castle_"):
 		_build_medieval_castle_cell(cell, feature, top, variation)
 		return
@@ -1450,25 +1486,19 @@ func _build_medieval_campaign_tile(x: int, y: int, kind: int) -> void:
 		"watch_ruin":
 			_build_medieval_watch_ruin(cell, top, x, y, variation)
 			return
+	if _landmark_cells.has(Vector2i(x, y)):
+		# Multi-cell source art already includes its roots and foundation stones.
+		# Ordinary outcrops on these cells would grow through the authored prop.
+		return
 	match kind:
 		2:
-			var trunk := _material("medieval_campaign_trunk", Color("59402d"), 1.0)
-			var leaves := _material("medieval_campaign_leaves", Color("496f3d"), 0.96)
-			var tree := Node3D.new()
+			var tree: Node3D = _natural_scenery.tree(cell, variation)
 			tree.position.y = top
-			tree.set_meta("ambient_tree", true)
-			cell.add_child(tree)
-			_cylinder(tree, Vector3(0.04, 0.27, 0), 0.075, 0.54, trunk, 8)
-			_sphere(tree, Vector3(-0.08, 0.58, 0.03), Vector3(0.34, 0.27, 0.31), leaves)
-			_sphere(tree, Vector3(0.16, 0.55, -0.08), Vector3(0.27, 0.23, 0.26), leaves)
+			_scenery_occluders.append({"node": tree, "alpha": 1.0, "blocked": false, "materials": []})
 			_register_ambient_terrain(tree, kind)
 		3:
-			var stone := _material("medieval_keep_stone", Color("777269"), 1.0)
-			var stone_dark := _material("medieval_keep_stone_dark", Color("55534f"), 1.0)
-			_sphere(cell, Vector3(-0.16, top + 0.13, 0.10), Vector3(0.29, 0.20, 0.24), stone)
-			_sphere(cell, Vector3(0.20, top + 0.10, -0.14), Vector3(0.23, 0.16, 0.20), stone_dark)
-			if variation % 3 == 0:
-				_sphere(cell, Vector3(0.08, top + 0.22, 0.05), Vector3(0.20, 0.24, 0.18), stone)
+			_natural_scenery.rock(cell, Vector3(-0.15, top + 0.20, 0.05), Vector3(0.67, 0.65, 0.57), variation)
+			_natural_scenery.rock(cell, Vector3(0.22, top + 0.10, -0.18), Vector3(0.39, 0.36, 0.35), variation + 1)
 		8:
 			if variation % 3 == 0:
 				var ruin := _material("medieval_keep_ruin", Color("81786a"), 1.0)
@@ -1477,22 +1507,11 @@ func _build_medieval_campaign_tile(x: int, y: int, kind: int) -> void:
 				fallen.rotation.y = 0.35 if variation % 2 == 0 else -0.35
 		9:
 			if variation % 4 == 0:
-				var grass := _material("medieval_keep_grass", Color("587349"), 0.94)
-				for offset: Vector3 in [Vector3(-0.20, top + 0.08, 0.14), Vector3(0.18, top + 0.07, -0.18)]:
-					_cone(cell, offset, 0.035, 0.0, 0.16, grass, 5)
-		1:
-			if variation % 2 == 0:
-				var rut := _material("medieval_keep_rut", Color("72583c"), 1.0)
-				_box(cell, Vector3(-0.20, top + 0.008, 0), Vector3(0.055, 0.012, 0.70), rut)
-				_box(cell, Vector3(0.20, top + 0.008, 0), Vector3(0.055, 0.012, 0.70), rut)
+				_natural_scenery.grass(cell, variation, top, false, height_sampler)
 		10:
-			var furrow := _material("medieval_campaign_furrow", Color("765437"), 1.0)
-			for offset in [-0.26, 0.0, 0.26]:
-				_box(cell, Vector3(float(offset), top + 0.010, 0), Vector3(0.055, 0.015, 0.72), furrow)
+			_natural_scenery.grass(cell, variation, top, true, height_sampler)
 		11:
-			var bamboo := _material("medieval_campaign_bamboo", Color("557742"), 0.92)
-			for offset: Vector3 in [Vector3(-0.18, top + 0.28, 0.12), Vector3(0.14, top + 0.34, -0.12), Vector3(0.24, top + 0.24, 0.18)]:
-				_cylinder(cell, offset, 0.035, (offset.y - top) * 2.0, bamboo, 7)
+			_natural_scenery.bamboo(cell, variation, top, height_sampler)
 
 
 func _terrain_feature_at(x: int, y: int) -> String:
@@ -1549,8 +1568,8 @@ func _update_scenery_occlusion(delta: float) -> void:
 		if entry.materials.is_empty():
 			# Materials are normally shared across the map. Duplicate only this
 			# prop's overrides on first fade; distant matching props stay opaque.
-			for child in prop.get_children():
-				if child is MeshInstance3D and child.material_override is StandardMaterial3D:
+			for child: GeometryInstance3D in _scenery_geometries(prop):
+				if child.material_override is StandardMaterial3D:
 					var material: StandardMaterial3D = child.material_override.duplicate()
 					child.material_override = material
 					entry.materials.append(material)
@@ -1560,15 +1579,25 @@ func _update_scenery_occlusion(delta: float) -> void:
 
 
 func _scenery_blocks_rays(prop: Node3D, rays: Array) -> bool:
-	for child in prop.get_children():
-		if not child is MeshInstance3D or not child.is_visible_in_tree():
+	for child: GeometryInstance3D in _scenery_geometries(prop):
+		if not child.is_visible_in_tree():
 			continue
 		var inverse: Transform3D = child.global_transform.affine_inverse()
-		var bounds: AABB = child.get_aabb()
+		var bounds: AABB = child.get_aabb() if child is MeshInstance3D else (child as MultiMeshInstance3D).multimesh.get_aabb()
 		for ray: Array in rays:
 			if bounds.intersects_segment(inverse * Vector3(ray[0]), inverse * Vector3(ray[1])) != null:
 				return true
 	return false
+
+
+func _scenery_geometries(prop: Node3D) -> Array[GeometryInstance3D]:
+	var result: Array[GeometryInstance3D] = []
+	for child in prop.get_children():
+		if child is MeshInstance3D or child is MultiMeshInstance3D:
+			result.append(child)
+		if child is Node3D:
+			result.append_array(_scenery_geometries(child))
+	return result
 
 
 func _build_medieval_castle_cell(
@@ -1647,17 +1676,11 @@ func _build_medieval_orchard_tree(parent: Node3D, top: float, variation: int) ->
 		Vector3(-0.17, 0, -0.18), Vector3(0.20, 0, 0.16),
 	]
 	var offset: Vector3 = offsets[variation % offsets.size()]
-	var trunk := _material("medieval_orchard_trunk", Color("65452e"), 1.0)
-	var leaves := _material(
-		"medieval_orchard_leaves_%d" % (variation % 2),
-		Color("567a43") if variation % 2 == 0 else Color("607f47"), 0.96
-	)
+	var crown: Node3D = _natural_scenery.tree(tree, variation, true)
+	crown.position = offset + Vector3(0, top, 0)
 	var fruit := _material("medieval_orchard_fruit", Color("a55238"), 0.90)
-	_cylinder(tree, offset + Vector3(0, top + 0.23, 0), 0.055, 0.46, trunk, 8)
-	_sphere(tree, offset + Vector3(-0.07, top + 0.50, 0.02), Vector3(0.25, 0.20, 0.23), leaves)
-	_sphere(tree, offset + Vector3(0.12, top + 0.48, -0.06), Vector3(0.20, 0.17, 0.19), leaves)
-	_sphere(tree, offset + Vector3(-0.13, top + 0.49, -0.11), Vector3(0.026, 0.026, 0.026), fruit)
-	_sphere(tree, offset + Vector3(0.14, top + 0.45, 0.08), Vector3(0.022, 0.022, 0.022), fruit)
+	_sphere(crown, Vector3(-0.22, 0.68, -0.11), Vector3(0.065, 0.065, 0.065), fruit)
+	_sphere(crown, Vector3(0.23, 0.62, 0.15), Vector3(0.055, 0.055, 0.055), fruit)
 	_register_ambient_terrain(tree, 2)
 
 
@@ -1720,77 +1743,6 @@ func _build_medieval_watch_ruin(
 		Vector3(0.22, 0.12, 0.18), stone
 	)
 	fragment.rotation.y = 0.22 if variation % 2 == 0 else -0.22
-
-
-func _medieval_keep_surface_material(kind: int, variation: int) -> Material:
-	var key := "medieval_keep_surface_%d_%d_%d" % [terrain_theme, kind, variation]
-	if _materials.has(key):
-		return _materials[key]
-	var colours := [
-		Color("47798b"), Color("78644e"), Color("526c4d"), Color("68655f"),
-		Color("a58558"), Color("cbd2cf"), Color("576b59"), Color("6e795f"),
-		Color("6d685f"), Color("556a4b"), Color("806a4d"), Color("58704d"),
-		Color("777268"),
-	]
-	var shader := Shader.new()
-	shader.code = """
-shader_type spatial;
-render_mode diffuse_burley;
-uniform vec3 base_colour;
-uniform int pattern = 0;
-uniform float variation_tint = 1.0;
-varying vec3 world_vertex;
-float random_value(vec2 value) {
-	return fract(sin(dot(value, vec2(12.9898, 78.233))) * 43758.5453);
-}
-void vertex() {
-	world_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-}
-void fragment() {
-	vec2 uv = world_vertex.xz;
-	vec3 colour = base_colour * variation_tint;
-	float noise = random_value(floor(uv * 8.0));
-	if (pattern == 1 || pattern == 2) {
-		// Large continuous slabs read as one authored courtyard instead of the
-		// same miniature brick texture restarting inside every tactical cell.
-		float rows = pattern == 1 ? 1.55 : 1.25;
-		float row = floor(uv.y * rows);
-		vec2 stone_uv = fract(vec2(uv.x * rows + mod(row, 2.0) * 0.5, uv.y * rows));
-		float edge = min(min(stone_uv.x, 1.0 - stone_uv.x), min(stone_uv.y, 1.0 - stone_uv.y));
-		float stone = smoothstep(0.018, 0.052, edge);
-		vec3 mortar = base_colour * variation_tint * (pattern == 1 ? 0.82 : 0.78);
-		vec3 face = base_colour * variation_tint * (0.94 + noise * 0.07);
-		colour = mix(mortar, face, stone);
-	} else if (pattern == 3) {
-		float worn = smoothstep(0.32, 0.76, random_value(floor(uv * 7.0)));
-		colour = base_colour * variation_tint * mix(0.95, 1.025, worn);
-	} else if (pattern == 4) {
-		float stripe = smoothstep(0.40, 0.54, abs(fract(uv.x * 4.0) - 0.5));
-		colour = mix(base_colour * variation_tint * 0.78, base_colour * variation_tint, stripe);
-	}
-	ALBEDO = colour;
-	ROUGHNESS = 1.0;
-}
-"""
-	var material := ShaderMaterial.new()
-	material.shader = shader
-	var colour: Color = colours[clampi(kind, 0, colours.size() - 1)]
-	material.set_shader_parameter("base_colour", Vector3(colour.r, colour.g, colour.b))
-	material.set_shader_parameter(
-		"variation_tint", [0.985, 0.995, 1.01, 1.0][clampi(variation, 0, 3)]
-	)
-	var pattern := 0
-	if kind == 12:
-		pattern = 1
-	elif kind == 8:
-		pattern = 2
-	elif kind in [1, 2, 3, 7, 9, 11]:
-		pattern = 3
-	elif kind == 10:
-		pattern = 4
-	material.set_shader_parameter("pattern", pattern)
-	_materials[key] = material
-	return material
 
 
 func _build_voxel_tile(x: int, y: int, kind: int) -> void:
@@ -2103,6 +2055,21 @@ func _marker_at(
 	outlined := false
 ) -> void:
 	var at := _cell_position(x, y)
+	if _uses_medieval_campaign_terrain() and _natural_ground != null:
+		var marker := MeshInstance3D.new()
+		marker.position = at
+		marker.mesh = _natural_ground.mesh_for(Vector2i(x, y), 6, scale_value, 0.045)
+		var key := "natural_marker_%s_%0.2f_%s" % [colour.to_html(), alpha, outlined]
+		if not _materials.has(key):
+			var material := ShaderMaterial.new()
+			material.shader = TerrainMarkerShader
+			material.set_shader_parameter("tint", Color(colour, alpha))
+			material.set_shader_parameter("outlined", outlined)
+			_materials[key] = material
+		marker.material_override = _materials[key]
+		marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_marker_root.add_child(marker)
+		return
 	at.y = _surface_height(x, y) + 0.035
 	var tinted := colour
 	tinted.a = alpha
@@ -2168,12 +2135,18 @@ func _motion_world_position(sampled: Dictionary) -> Vector3:
 	at.y = lerpf(
 		from_height, to_height, float(sampled.segment_progress)
 	) + 0.04
+	if _uses_medieval_campaign_terrain() and _natural_ground != null:
+		var cell := Vector2i(roundi(position.x), roundi(position.y))
+		var uv := position - Vector2(cell) + Vector2(0.5, 0.5)
+		at.y = _natural_ground.sample_height(cell, uv) + 0.04
 	return at
 
 
 func _surface_height(x: int, y: int) -> float:
 	if snapshot.is_empty() or terrain.is_empty():
 		return 0.1
+	if _uses_medieval_campaign_terrain() and _natural_ground != null:
+		return _natural_ground.height_at(Vector2i(x, y))
 	var index := y * int(snapshot.width) + x
 	if index < 0 or index >= terrain.size():
 		return 0.1
@@ -2759,6 +2732,10 @@ func _register_ambient_terrain(node: Node3D, kind: int) -> void:
 
 
 func _update_ambient_terrain() -> void:
+	if _natural_ground != null:
+		_natural_ground.set_animation_time(_pulse)
+	if _natural_scenery != null:
+		_natural_scenery.set_animation_time(_pulse)
 	for prop: Dictionary in _ambient_props:
 		var node: Node3D = prop.node
 		if not is_instance_valid(node):

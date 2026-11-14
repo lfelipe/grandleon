@@ -1,0 +1,44 @@
+{
+  "schema": "grandleon.godot-landscape-review.v1",
+  "baseline_commit": "475e9d24",
+  "scope": "Steel and Cedar Medieval campaign terrain; other themes and creator previews retain their authored scenes.",
+  "captures": [
+    "bell_orchard",
+    "cedar_deepwood",
+    "cedar_watch",
+    "gate_village",
+    "twin_gate"
+  ],
+  "changes": [
+    "Connected subdivided ground with shared edges, world-space rolling heights and feathered natural material boundaries.",
+    "Level river water, shaped banks and flat pads with a buffer around authored landmarks.",
+    "Unit footing, live movement and selection overlays follow the shaped terrain.",
+    "Branched trees and textured foliage, weathered rocks, rooted grass and crops, bamboo stem joints and narrow leaves.",
+    "Shared foliage, stem and grass geometry rendered with MultiMesh instancing.",
+    "Recursive scenery occlusion includes instanced trees and preserves shared source materials.",
+    "Vegetation and water animation follow the same board clock, including controlled captures and disabled motion."
+  ],
+  "validation": {
+    "real_campaign_views": 5,
+    "shared_mesh_edges": true,
+    "upward_normals": true,
+    "unit_footing": true,
+    "level_water": true,
+    "flat_landmark_pads": true,
+    "terrain_following_markers": true,
+    "real_bell_route_and_mesh_clearance": true,
+    "scenery_fading": true,
+    "castle_threshold_reveal_and_camera_framing": true,
+    "combat_camera_restoration": true,
+    "live_quality_settings": true,
+    "controlled_motion_frames": 150,
+    "controlled_motion_rate": 30,
+    "stationary_idle_unit_positions": true,
+    "motion_toggle": true
+  },
+  "limits": [
+    "Local software-rendered captures are not hardware FPS measurements.",
+    "New-scene Android and desktop hardware performance is pending a later profiling pass.",
+    "Other built-in themes and creator previews still need this landscape treatment."
+  ]
+}

@@ -1,0 +1,120 @@
+# SPDX-License-Identifier: MIT
+extends RefCounted
+
+const SHADER = preload("res://shaders/natural_ground.gdshader")
+const COLOURS := [
+	Color("47798b"), Color("78644e"), Color("526c4d"), Color("68655f"),
+	Color("a58558"), Color("cbd2cf"), Color("576b59"), Color("6e795f"),
+	Color("6d685f"), Color("556a4b"), Color("806a4d"), Color("58704d"), Color("777268"),
+]
+const NATURAL := [1, 2, 6, 7, 9, 10, 11]
+var cells: Dictionary = {}
+var materials: Dictionary = {}
+var heights: Dictionary = {}
+var motion_enabled := true
+var flattened: Dictionary = {}
+var landform_noise := FastNoiseLite.new()
+
+
+func _init() -> void:
+	landform_noise.seed = 917
+	landform_noise.frequency = 0.16
+
+
+func kind_at(cell: Vector2i) -> int:
+	return clampi(int(cells.get(cell, 9)), 0, 12)
+
+
+func height_at(cell: Vector2i) -> float:
+	var kind := kind_at(cell)
+	var base := float(heights.get(kind, 0.10))
+	if kind == 0 or flattened.has(cell):
+		return base
+	return base + 0.10 + landform_noise.get_noise_2d(cell.x + 0.5, cell.y + 0.5) * 0.14
+
+
+func corner_height(corner: Vector2i) -> float:
+	var total := 0.0
+	var flat_height := 0.0
+	var flat_count := 0
+	for offset: Vector2i in [Vector2i(-1, -1), Vector2i(0, -1), Vector2i(-1, 0), Vector2i.ZERO]:
+		var cell := corner + offset
+		# Water stays level; the adjacent ground slopes down to its bank.
+		if kind_at(cell) == 0:
+			return float(heights.get(0, 0.05))
+		total += height_at(cell)
+		if flattened.has(cell):
+			flat_height += height_at(cell)
+			flat_count += 1
+	return flat_height / float(flat_count) if flat_count > 0 else total * 0.25
+
+
+func corner_colour(corner: Vector2i, kind: int) -> Color:
+	if kind not in NATURAL:
+		return COLOURS[kind]
+	var colour := Color(0, 0, 0, 0)
+	var count := 0
+	for offset: Vector2i in [Vector2i(-1, -1), Vector2i(0, -1), Vector2i(-1, 0), Vector2i.ZERO]:
+		var adjacent := kind_at(corner + offset)
+		if adjacent in NATURAL:
+			colour += COLOURS[adjacent]
+			count += 1
+	return colour / float(count) if count > 0 else COLOURS[kind]
+
+
+func sample_height(cell: Vector2i, uv: Vector2) -> float:
+	var a := corner_height(cell)
+	var b := corner_height(cell + Vector2i.RIGHT)
+	var c := corner_height(cell + Vector2i.DOWN)
+	var d := corner_height(cell + Vector2i.ONE)
+	var edge := lerpf(lerpf(a, b, uv.x), lerpf(c, d, uv.x), uv.y)
+	var weight := sin(PI * uv.x) * sin(PI * uv.y)
+	# Every cell centre retains the gameplay's existing unit footing. Shared
+	# edge samples are identical on both sides, including decorative terrain.
+	var height := edge + (height_at(cell) - (a + b + c + d) * 0.25) * weight
+	if kind_at(cell) not in [0, 1, 8, 12]:
+		height += sin(TAU * uv.x) * sin(TAU * uv.y) * 0.026
+	return height
+
+
+func mesh_for(cell: Vector2i, divisions := 6, extent := 1.0, lift := 0.0) -> ArrayMesh:
+	var kind := kind_at(cell)
+	var colours := [corner_colour(cell, kind), corner_colour(cell + Vector2i.RIGHT, kind),
+		corner_colour(cell + Vector2i.DOWN, kind), corner_colour(cell + Vector2i.ONE, kind)]
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for y in divisions:
+		for x in divisions:
+			for corner: Vector2i in [Vector2i(x, y), Vector2i(x + 1, y), Vector2i(x, y + 1),
+					Vector2i(x, y + 1), Vector2i(x + 1, y), Vector2i(x + 1, y + 1)]:
+				var uv := Vector2(corner) / float(divisions)
+				var surface_uv := (uv - Vector2(0.5, 0.5)) * extent + Vector2(0.5, 0.5)
+				surface.set_uv(uv)
+				var edge_colour: Color = colours[0].lerp(colours[1], uv.x).lerp(colours[2].lerp(colours[3], uv.x), uv.y)
+				var distance_to_edge := minf(minf(uv.x, 1.0 - uv.x), minf(uv.y, 1.0 - uv.y))
+				surface.set_color(edge_colour.lerp(COLOURS[kind], smoothstep(0.0, 0.22, distance_to_edge)))
+				surface.add_vertex(Vector3(surface_uv.x - 0.5, sample_height(cell, surface_uv) + lift, surface_uv.y - 0.5))
+	surface.generate_normals()
+	surface.index()
+	return surface.commit()
+
+
+func material_for(kind: int) -> ShaderMaterial:
+	if not materials.has(kind):
+		var material := ShaderMaterial.new()
+		material.shader = SHADER
+		material.set_shader_parameter("terrain_kind", kind)
+		material.set_shader_parameter("motion_strength", 1.0 if motion_enabled else 0.0)
+		materials[kind] = material
+	return materials[kind]
+
+
+func set_motion_enabled(enabled: bool) -> void:
+	motion_enabled = enabled
+	for material: ShaderMaterial in materials.values():
+		material.set_shader_parameter("motion_strength", 1.0 if enabled else 0.0)
+
+
+func set_animation_time(seconds: float) -> void:
+	for material: ShaderMaterial in materials.values():
+		material.set_shader_parameter("animation_time", seconds)
