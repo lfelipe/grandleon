@@ -23,6 +23,27 @@ def house_image(repo: Path, drawing: int, side: int) -> Image.Image:
         return source.convert("RGBA").resize((side, side), Image.Resampling.LANCZOS)
 
 
+def grove_image(repo: Path, side: int, theme: int = 0) -> Image.Image:
+    relative = document(repo)["ancientGrove"]["drawing"]
+    with Image.open(repo / "platform/godot/project" / relative) as source:
+        image = source.convert("RGBA")
+        image.thumbnail((side, side), Image.Resampling.LANCZOS)
+    if theme:
+        pixels = []
+        for r, g, b, alpha in image.getdata():
+            leaf = max(0.0, min(1.0, ((g - max(r, b)) / 255 - .005) / .065))
+            leaf = leaf * leaf * (3 - 2 * leaf)
+            light = (r * .299 + g * .587 + b * .114) / 255
+            foliage = ([light * 1.65, light * .94, light * .28] if theme == 1 else
+                       [light * .60 + .34, light * .65 + .36, light * .66 + .36] if theme == 2 else
+                       [light * .60, light * .55, light * .48])
+            pixels.append(tuple(round(max(0, min(255, original * (1 - leaf) + shaded * 255 * leaf))) for original, shaded in zip((r, g, b), foliage)) + (alpha,))
+        image.putdata(pixels)
+    canvas = Image.new("RGBA", (side, side))
+    canvas.paste(image, ((side - image.width) // 2, side - image.height))
+    return canvas
+
+
 @lru_cache(maxsize=8)
 def materials(repo: Path) -> dict:
     data = json.loads((repo / "platform/console_art/natural_materials/manifest.json").read_text())
@@ -39,28 +60,40 @@ def ground_image(repo: Path, kind: int, theme: int = 0) -> Image.Image:
     return Image.open(path).convert("RGB")
 
 
+def n64_ground_palette(repo: Path, theme: int = 0) -> list[list[int]]:
+    # The small CI4 luminance atlas cannot retain Godot's coloured grain or
+    # local lighting. Restore colour separation before neutral modulation.
+    result = []
+    for colour in materials(repo)["palettes"][theme]:
+        luminance = sum(value * weight for value, weight in zip(colour, (.2126, .7152, .0722)))
+        result.append([max(0, min(255, round((luminance + (v - luminance) * 1.4) * 255 / 238))) for v in colour])
+    return result
+
+
 def write_n64_header(repo: Path, output: Path, theme: int = 0) -> None:
     houses = document(repo)["houses"]
-    palette = materials(repo)["palettes"][theme]
+    palette = n64_ground_palette(repo, theme)
     lines = ["// Generated from Godot scenery_style.json and rendered ground materials.",
              "#pragma once", "#include <array>", "#include <cstdint>",
              "namespace grandleon::nintendo64::pyrite::scenery_style {",
              "struct House { std::uint8_t drawing; bool mirror; float x,z; };",
              f"inline constexpr float house_side = {houses['portableCanvasSide']}F;",
-             f"inline constexpr float house_centre = {houses['centreAboveGround']}F;",
+             f"inline constexpr float grove_side = {document(repo)['ancientGrove']['portableCanvasSide']}F;",
              f"inline constexpr std::array<House,{len(houses['placements'])}> houses = {{{{"]
     for h in houses["placements"]:
         lines.append(f"{{{h['drawing']},{str(h['mirror']).lower()},{h['offset'][0]}F,{h['offset'][1]}F}},")
     lines += ["}};", "inline House house_at(int x,int y) { const auto seed=x*17+y*31; return houses[(seed^(seed>>3))%houses.size()]; }",
               "inline constexpr std::uint8_t ground[13][3] = {"]
-    # The luminance atlas is centred at 238/255; compensate that modulation.
-    lines += ["{" + ",".join(str(min(255,round(v*255/238))) for v in colour) + "}," for colour in palette]
+    lines += ["{" + ",".join(map(str, colour)) + "}," for colour in palette]
     lines += ["};", "}", ""]
     output.write_text("\n".join(lines))
 
 
 def save_ci4_house(repo: Path, drawing: int, output: Path) -> None:
-    image = house_image(repo, drawing, 64)
+    save_ci4_image(house_image(repo, drawing, 64), output)
+
+
+def save_ci4_image(image: Image.Image, output: Path) -> None:
     pixels = list(image.getdata())
     opaque = [p[:3] for p in pixels if p[3] >= 128]
     sample = Image.new("RGB", (len(opaque), 1))

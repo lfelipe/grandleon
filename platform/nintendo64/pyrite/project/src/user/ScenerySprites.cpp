@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-#include "HouseScenery.hpp"
+#include "ScenerySprites.hpp"
 #include "GeneratedSceneryStyle.hpp"
 #include <cmath>
 #include <cstdio>
 
 namespace grandleon::nintendo64::pyrite {
-bool HouseScenery::add(int tile_x, int tile_y, int x, int floor, int z) {
+bool ScenerySprites::add_house(int tile_x, int tile_y, int x, int floor, int z) {
     if (count_ >= houses_.size()) return false;
     if (!vertices_) vertices_ = static_cast<T3DVertPacked*>(malloc_uncached(sizeof(T3DVertPacked)*houses_.size()*2U));
     if (!vertices_) return false;
@@ -16,10 +16,19 @@ bool HouseScenery::add(int tile_x, int tile_y, int x, int floor, int z) {
         sprites_[style.drawing] = sprite_load(path);
     }
     if (!sprites_[style.drawing]) return false;
-    houses_[count_++] = {x+static_cast<int>(std::round(style.x*52)),floor,z+static_cast<int>(std::round(style.z*52)),style.drawing,style.mirror};
+    houses_[count_++] = {x+static_cast<int>(std::round(style.x*52)),floor,z+static_cast<int>(std::round(style.z*52)),style.drawing,style.mirror,scenery_style::house_side};
     return true;
 }
-void HouseScenery::draw(float ex,float ey,float ez,float tx,float ty,float tz) {
+bool ScenerySprites::add_grove(int x, int floor, int z) {
+    if (count_ >= houses_.size()) return false;
+    if (!vertices_) vertices_ = static_cast<T3DVertPacked*>(malloc_uncached(sizeof(T3DVertPacked)*houses_.size()*2U));
+    if (!vertices_) return false;
+    if (!sprites_[4]) sprites_[4] = sprite_load("rom:/scenery_grove.sprite");
+    if (!sprites_[4]) return false;
+    houses_[count_++] = {x, floor, z, 4, false, scenery_style::grove_side};
+    return true;
+}
+void ScenerySprites::draw(float ex,float ey,float ez,float tx,float ty,float tz) {
     if (!count_) return;
     float fx=tx-ex, fy=ty-ey, fz=tz-ez;
     const float length=std::sqrt(fx*fx+fy*fy+fz*fz);
@@ -30,10 +39,10 @@ void HouseScenery::draw(float ex,float ey,float ez,float tx,float ty,float tz) {
     const float rx=-fz/horizontal, rz=fx/horizontal;
     const float ux=-rz*fy, uy=rz*fx-rx*fz, uz=rx*fy;
     if (dirty_ || std::fabs(fx-last_x_)+std::fabs(fy-last_y_)+std::fabs(fz-last_z_) > 0.0001F) {
-        const float half=scenery_style::house_side*26.0F;
         const fm_vec3_t normal={{0,0,1}};
         for (unsigned i=0;i<count_;++i) {
             const auto& h=houses_[i];
+            const float half = h.side * 26.0F;
             for (unsigned corner=0;corner<4;++corner) {
                 const float sx=(corner==0 || corner==3) ? -half : half;
                 const float sy=corner<2 ? -half : half;

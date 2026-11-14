@@ -435,61 +435,11 @@ namespace std {
 const nothrow_t nothrow{};
 }  // namespace std
 
-// `std::string`'s out-of-line members, for the same reason and by the other of
-// the two routes available.
-//
-// A machine that plays a campaign reaches `package_runtime::load_dialogue`,
-// which builds authored strings, and a machine that saves one reaches
-// `storage::ByteWindowSlotStorage`, which copies the slot names it parsed out
-// of a device. Between them they call four members of `std::string` that are
-// not in any header: libstdc++ declares `extern template class
-// basic_string<char>` and emits its out-of-line members into
-// `src/c++11/string-inst.cc`, so a caller gets an undefined reference rather
-// than an implicit instantiation. The whole archive here is compiled
-// `-mabicalls` against glibc and cannot be linked at all, which is why
-// `tree.cc` is compiled from source in
-// `platform/playstation/mipsync/runtime/CMakeLists.txt`.
-//
-// A second vendored source file would be the consistent answer and is the wrong
-// one: `string-inst.cc` instantiates *every* out-of-line member of two string
-// classes and pulls in the locale facets behind them, to satisfy a single
-// four-argument function. An explicit instantiation definition emits exactly
-// that function, from the header the caller already included, compiled with the
-// same flags as everything else here. Access control is deliberately not
-// applied to an explicit instantiation, so a private member can be named.
-//
-// There are five, and they are two chains and a leaf rather than five choices:
-// `_M_replace` calls `_M_mutate`, which calls `_M_create`; and `_M_assign`,
-// which the copy-assignment a slot directory does, calls `_M_create` as well
-// when the name it is taking is longer than the one it is replacing.
-// `_M_create` is where both end: what it needs is `operator new`, which this
-// file already answers. `_M_dispose` is the other side of it, a string going
-// out of scope in a campaign's session options, and needs only `operator
-// delete`. Its length check against `max_size()` is a comparison against a
-// compile-time constant that no reachable call can fail, so GCC folds the
-// `std::__throw_length_error` branch away. That is checked rather than
-// assumed: `nm` on the linked image finds no `__throw_` symbol at all.
-//
-// Vendoring `string-inst.cc` beside `tree.cc` is the consistent-looking
-// alternative and is worse: that file instantiates every out-of-line member of
-// two string classes and the locale facets behind them, to satisfy four
-// functions that share a leaf. The trade tips the day the list here stops
-// being a list of leaves and starts being a list of everything.
-template std::basic_string<char>& std::basic_string<char>::_M_replace(
-    std::basic_string<char>::size_type, std::basic_string<char>::size_type,
-    const char*, std::basic_string<char>::size_type
-);
-template void std::basic_string<char>::_M_mutate(
-    std::basic_string<char>::size_type, std::basic_string<char>::size_type,
-    const char*, std::basic_string<char>::size_type
-);
-template char* std::basic_string<char>::_M_create(
-    std::basic_string<char>::size_type&, std::basic_string<char>::size_type
-);
-template void std::basic_string<char>::_M_assign(
-    const std::basic_string<char>&
-);
-template void std::basic_string<char>::_M_dispose();
+// libstdc++ declares basic_string<char> as extern-template. Size-optimised
+// campaign code also calls its small out-of-line members, so instantiate the
+// class with our freestanding ABI. Section garbage collection retains only
+// members used by the game; no hosted libstdc++ archive is linked.
+template class std::basic_string<char>;
 
 // The C++ allocation interface, over the heap above. The nothrow forms are not
 // optional either, for the same reason.

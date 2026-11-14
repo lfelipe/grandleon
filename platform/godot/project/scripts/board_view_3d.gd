@@ -27,7 +27,6 @@ const ARCHETYPE_NAMES := [
 	"knight", "archer", "mage", "stormcaller", "healer", "commander",
 	"rogue", "beast"
 ]
-const ANCIENT_GROVE_TEXTURE := "res://art/map_features/ancient_tree_cluster_2x2.png"
 const TERRAIN_COLOURS := [
 	Color("287da3"), Color("a87a4f"), Color("316b45"), Color("65717a"),
 	Color("c39a60"), Color("dce7e8"), Color("496c58"), Color("78915b"),
@@ -1319,15 +1318,17 @@ func _build_ancient_grove(anchor: Vector2i) -> void:
 
 
 func _build_ancient_grove_cutout(centre: Vector3) -> bool:
-	if not ResourceLoader.exists(ANCIENT_GROVE_TEXTURE):
+	var style: Dictionary = SceneryStyle.document().ancientGrove
+	var path := "res://" + str(style.drawing)
+	if not ResourceLoader.exists(path):
 		return false
-	var resource: Resource = load(ANCIENT_GROVE_TEXTURE)
+	var resource: Resource = load(path)
 	if not resource is Texture2D:
 		return false
 	var grove := Sprite3D.new()
 	grove.texture = resource as Texture2D
-	grove.position = centre + Vector3(0, 0.82, 0)
-	grove.pixel_size = 0.00172
+	grove.position = centre + Vector3(0, float(style.centreAboveGround) + 0.20, 0)
+	grove.pixel_size = float(style.pixelSize)
 	grove.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	grove.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
 	grove.shaded = false
@@ -1335,7 +1336,7 @@ func _build_ancient_grove_cutout(centre: Vector3) -> bool:
 	if _uses_natural_terrain() and terrain_theme > 0:
 		grove.material_override = _natural_scenery.seasonal_cutout(grove.texture)
 	grove.set_meta("landmark_style", "ancient_grove")
-	grove.set_meta("landmark_asset", ANCIENT_GROVE_TEXTURE)
+	grove.set_meta("landmark_asset", path)
 	_terrain_root.add_child(grove)
 	return true
 

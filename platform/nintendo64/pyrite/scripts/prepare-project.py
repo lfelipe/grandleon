@@ -20,7 +20,7 @@ import sys
 from PIL import Image, ImageDraw
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "platform/console_art"))
-from scenery_style import write_n64_header as write_style_header, save_ci4_house, ground_image
+from scenery_style import write_n64_header as write_style_header, save_ci4_house, save_ci4_image, grove_image, ground_image
 from settlement_scenery import write_n64_header as write_settlement_header
 from stone_keep import write_n64_header
 
@@ -333,6 +333,8 @@ def prepare(project_path: Path, manifest_path: Path, project_root: Path,
         save_ci4_house(castle_source.parents[1], drawing, assets / f"{name}.png")
         write_asset_config(assets / f"{name}.png.conf", name, 4)
 
+    save_ci4_image(grove_image(castle_source.parents[1], 64, theme), assets / "scenery_grove.png")
+    write_asset_config(assets / "scenery_grove.png.conf", "scenery_grove", 4)
     dominant = max(
         kinds,
         key=lambda kind: sum(

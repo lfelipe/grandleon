@@ -207,6 +207,57 @@ def test_interior_terrain_pages_overlap_the_visible_window() -> None:
             assert min(ys) <= start_y - 2
 
 
+def test_continuous_floor_covers_every_playable_tile_outside_scenery_pages() -> None:
+    # Movement ranges can extend beyond the nearest scenery page. Floor
+    # triangles must cover the entire board, independently of that page.
+    cells = [(x, y, 9, True, 1, 1) for y in range(12) for x in range(18)]
+    lifts = {(x, y): 0 for y in range(12) for x in range(18)}
+    with tempfile.TemporaryDirectory() as folder:
+        SCENE.write_meshes(Path(folder), [((0, 0), cells)] + SCENE.page_cells(cells, 18, 12, 0),
+                           18, 12, [], {9: 1}, 0, "smooth", lifts, [], [], surface_count=1)
+        generated = (Path(folder) / "mesh_data.c").read_text()
+        body = generated.split("k_board_0_vertices[] = {")[1].split("};")[0]
+        points = [tuple(map(int, m)) for m in re.findall(r"\{\s*(-?\d+),\s*(-?\d+),\s*(-?\d+),\s*(-?\d+)\s*\}", body)]
+        faces = generated.split("k_board_0_triangles[] = {")[1].split("};")[0]
+        area = 0
+        for a, b, c in re.findall(r"\.i0=(\d+), \.i1=(\d+), \.i2=(\d+)", faces):
+            pa, pb, pc = (points[int(i)] for i in (a, b, c))
+            area += abs((pb[0] - pa[0]) * (pc[2] - pa[2]) - (pb[2] - pa[2]) * (pc[0] - pa[0])) / 2
+        assert area == 18 * 12 * 128 * 128
+        assert min(p[0] for p in points) == -18 * 64
+        assert max(p[0] for p in points) == 18 * 64
+        assert min(p[2] for p in points) == -12 * 64
+        assert max(p[2] for p in points) == 12 * 64
+
+
+def test_large_paved_floor_is_complete_without_an_oversized_mesh() -> None:
+    width, height = 32, 32
+    cells = [(x, y, 12, True, 1, 1) for y in range(height) for x in range(width)]
+    strips = SCENE.surface_strips(cells, width, height, 0)
+    assert len(strips) > 1
+    covered = []
+    for _origin, patch in strips:
+        corners = set()
+        for x, y, _kind, _authored, sx, sy in patch:
+            covered.extend((xx, yy) for yy in range(y, y + sy) for xx in range(x, x + sx))
+            corners.update(((x, y), (x + sx, y), (x, y + sy), (x + sx, y + sy)))
+        assert len(corners) <= SCENE.MAX_CACHE_VERTICES
+    assert len(covered) == width * height
+    assert set(covered) == {(x, y) for y in range(height) for x in range(width)}
+    with tempfile.TemporaryDirectory() as folder:
+        metadata = SCENE.write_meshes(Path(folder), strips, width, height, [], {12: 1}, 0, "smooth",
+                                      {(x, y): 0 for y in range(height) for x in range(width)}, [], [], surface_count=len(strips))
+        assert len(metadata[2]) == len(strips)
+
+
+def test_scenery_cache_counts_only_simultaneously_enabled_instances() -> None:
+    groups = {"test_prop": ([None] * 40, [], [None] * 20)}
+    far_apart = [(0, 0, "test_prop", 1), (19, 13, "test_prop", 1)]
+    assert SCENE.scenery_cache_peak(far_apart, groups, 20, 14) == (40, 20)
+    nearby = far_apart + [(1, 0, "test_prop", 1)]
+    assert SCENE.scenery_cache_peak(nearby, groups, 20, 14) == (80, 40)
+
+
 def test_forest_variation_preserves_topology_and_rooted_trunks() -> None:
     profiles = set()
     palettes = set()
@@ -271,6 +322,9 @@ if __name__ == "__main__":
     test_four_bit_material_packs_texels_and_owns_palette()
     test_hidden_cover_faces_the_same_way_as_the_floor()
     test_interior_terrain_pages_overlap_the_visible_window()
+    test_continuous_floor_covers_every_playable_tile_outside_scenery_pages()
+    test_large_paved_floor_is_complete_without_an_oversized_mesh()
+    test_scenery_cache_counts_only_simultaneously_enabled_instances()
     test_forest_variation_preserves_topology_and_rooted_trunks()
     test_fractured_rock_has_grounded_volume_and_outward_faces()
     print("Mipsync scene generator presentation passed.")

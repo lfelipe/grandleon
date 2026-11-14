@@ -1202,6 +1202,10 @@ void tick_camera() {
             closest_page = index;
         }
     }
+    for (unsigned index = 0; index < g_grandleon_board_surface_count; ++index) {
+        ps1_entity* surface = grandleon_scene_mutable_entity(g_grandleon_board_surface_entity_indices[index]);
+        if (surface) surface->mesh_enabled = !close_combat;
+    }
     s_active_terrain_chunks = g_grandleon_terrain_chunk_count ? 1U : 0U;
     for (unsigned index = 0; index < g_grandleon_terrain_chunk_count; ++index) {
         ps1_entity* chunk = grandleon_scene_mutable_entity(

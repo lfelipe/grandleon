@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from PIL import Image
-from scenery_style import document, ground_image, house_at, house_image, materials, save_ci4_house
+from scenery_style import document, ground_image, house_at, house_image, materials, n64_ground_palette, grove_image, save_ci4_house
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -43,6 +43,24 @@ class SceneryStyleTests(unittest.TestCase):
                     alpha = encoded.convert('RGBA').getchannel('A')
                     expected = source.getchannel('A').point(lambda value: 255 if value >= 128 else 0)
                     self.assertEqual(alpha.tobytes(), expected.tobytes())
+
+    def test_grove_retains_its_shape_and_transparent_background(self):
+        for theme in range(4):
+            image = grove_image(REPO, 96, theme)
+            self.assertEqual(image.size, (96, 96))
+            self.assertEqual(image.getchannel('A').getextrema(), (0, 255))
+            # The wide original is padded rather than squashed into a square.
+            self.assertIsNone(image.crop((0, 0, 96, 24)).getbbox())
+        self.assertNotEqual(grove_image(REPO, 96, 0).tobytes(), grove_image(REPO, 96, 1).tobytes())
+
+    def test_n64_palette_restores_colour_separation_within_rgb_bounds(self):
+        for theme in range(4):
+            colours = n64_ground_palette(REPO, theme)
+            self.assertEqual(len(colours), 13)
+            self.assertTrue(all(0 <= v <= 255 for rgb in colours for v in rgb))
+        original = materials(REPO)['palettes'][0][9]
+        grass = n64_ground_palette(REPO, 0)[9]
+        self.assertGreater(max(grass) - min(grass), max(original) - min(original))
 
     def test_all_seasonal_materials_have_current_sources_and_complete_tiles(self):
         manifest = materials(REPO)

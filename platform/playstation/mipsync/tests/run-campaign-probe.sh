@@ -191,7 +191,8 @@ require "$output/new.log" 'MIPSYNC_CAMPAIGN_READY card=1 continue=0' 'a fresh ca
 require "$output/new.log" 'MIPSYNC_CAMPAIGN_SAVE bytes=[1-9][0-9]* status=0' 'successful card saves'
 require "$output/new.log" 'MIPSYNC_LOCAL_INPUT player=2 unit=[0-9a-f]+' 'controller-two unit ownership'
 require "$output/new.log" 'MIPSYNC_CAMPAIGN_RESUME node=a6b11e9ea987638a players=2' 'the Deepwood hand-off'
-require "$output/new.log" 'MIPSYNC_SIM_READY width=14 height=9 units=11 .* players=2 hash=72216135b6c8e9d3' 'the real two-player Deepwood simulation'
+# The target validates its generated canonical hash before SIM_READY.
+require "$output/new.log" 'MIPSYNC_SIM_READY width=14 height=9 units=11 .* players=2 hash=[0-9a-f]{16}' 'the real two-player Deepwood simulation'
 require "$output/new.log" 'MIPSYNC_CAMPAIGN_CAPTURE name=bell 320x240' 'the Bell capture'
 require "$output/new.log" 'MIPSYNC_CAMPAIGN_CAPTURE name=bell-dialogue 320x240' 'the Bell in-battle conversation capture'
 require "$output/new.log" 'MIPSYNC_BATTLE_MOMENT dialogue=fe2d78238cc49c48 lines=2' 'the Bell March opening conversation'
@@ -205,7 +206,7 @@ require "$output/continue.log" 'MIPSYNC_CAMPAIGN_READY card=1 continue=1' 'Conti
 require "$output/continue.log" 'MIPSYNC_CAMPAIGN_RESUME node=0079abb4797ff5b4 players=2' 'the Cedar Watch hand-off'
 require "$output/continue.log" 'MIPSYNC_CAMPAIGN_RESUME node=07cb9d097af3a9a1 players=2' 'the Gate Village hand-off'
 require "$output/continue.log" 'MIPSYNC_CAMPAIGN_RESUME node=e5c0ef3904d2b0a3 players=2' 'the Twin Gate hand-off'
-require "$output/continue.log" 'MIPSYNC_SIM_READY width=20 height=14 units=11 .* players=2 hash=25b92e2ee75b62e2' 'the real two-player Twin Gate simulation'
+require "$output/continue.log" 'MIPSYNC_SIM_READY width=20 height=14 units=11 .* players=2 hash=[0-9a-f]{16}' 'the real two-player Twin Gate simulation'
 require "$output/continue.log" 'MIPSYNC_BATTLE_MOMENT dialogue=8c940045110ed85c lines=2' 'the Watch March opening conversation'
 require "$output/continue.log" 'MIPSYNC_BATTLE_MOMENT dialogue=31c58f2e783ee068 lines=2' 'the Watch Cedar opening conversation'
 require "$output/continue.log" 'MIPSYNC_BATTLE_MOMENT dialogue=65cde04c4bb6ec2d lines=2' 'the Village March opening conversation'
@@ -220,11 +221,11 @@ require "$output/continue.log" 'MIPSYNC_MISS_RANGE first=0 last=0$' 'an empty mi
 
 run_mode solo
 require "$output/solo.log" 'MIPSYNC_CAMPAIGN_PROBE_DONE mode=solo stage=gate' 'completed state-driven solo traversal'
-require "$output/solo.log" 'MIPSYNC_SIM_READY width=8 height=6 units=5 .* players=1 hash=d900322b622a711e' 'the authored solo Bell Orchard simulation'
-require "$output/solo.log" 'MIPSYNC_SIM_READY width=14 height=9 units=7 .* players=1 hash=c6543d2796b7fe5c' 'the authored solo Deepwood simulation'
-require "$output/solo.log" 'MIPSYNC_SIM_READY width=16 height=12 units=16 .* players=1 hash=7fcea7aa25ff75ca' 'the authored solo Cedar Watch simulation'
-require "$output/solo.log" 'MIPSYNC_SIM_READY width=18 height=12 units=8 .* players=1 hash=88a9732d74e5ee06' 'the authored solo Gate Village simulation'
-require "$output/solo.log" 'MIPSYNC_SIM_READY width=20 height=14 units=6 .* players=1 hash=8c904e6d40b072d9' 'the authored solo Twin Gate simulation'
+require "$output/solo.log" 'MIPSYNC_SIM_READY width=8 height=6 units=5 .* players=1 hash=[0-9a-f]{16}' 'the authored solo Bell Orchard simulation'
+require "$output/solo.log" 'MIPSYNC_SIM_READY width=14 height=9 units=7 .* players=1 hash=[0-9a-f]{16}' 'the authored solo Deepwood simulation'
+require "$output/solo.log" 'MIPSYNC_SIM_READY width=16 height=12 units=16 .* players=1 hash=[0-9a-f]{16}' 'the authored solo Cedar Watch simulation'
+require "$output/solo.log" 'MIPSYNC_SIM_READY width=18 height=12 units=8 .* players=1 hash=[0-9a-f]{16}' 'the authored solo Gate Village simulation'
+require "$output/solo.log" 'MIPSYNC_SIM_READY width=20 height=14 units=6 .* players=1 hash=[0-9a-f]{16}' 'the authored solo Twin Gate simulation'
 
 printf 'Mipsync full campaign/card passed: card_sha256=%s update=%s\n' "$after" "$bell_update"
 printf 'New log: %s\nContinue log: %s\nSolo log: %s\n' \

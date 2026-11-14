@@ -31,6 +31,8 @@ func _run() -> void:
 	# Export these landmarks from the same builders used by the playable board.
 	var board = load(BOARD_SOURCE).new()
 	root.add_child(board)
+	board.set_process(false)
+	board._natural_scenery = load("res://scripts/natural_scenery.gd").new()
 	var bell := Node3D.new()
 	world.add_child(bell)
 	board._build_medieval_orchard_bell(bell, 0.0)
@@ -55,9 +57,21 @@ func _run() -> void:
 			models[key] = []
 			_collect(ruin, models[key])
 			ruin.queue_free()
+	# Keep actual branching/crown placement, with deliberate console mesh detail.
+	board._natural_scenery.leaf_mesh = board._natural_scenery._weathered_sphere(0.12, 713, 6, 2)
+	board._natural_scenery.branch_mesh.radial_segments = 4
+	for variation in 4:
+		var tree := Node3D.new()
+		world.add_child(tree)
+		board._build_medieval_orchard_tree(tree, 0.0, variation)
+		var key := "orchard_tree_%d" % variation
+		models[key] = []
+		_collect(tree, models[key], true)
+		tree.queue_free()
+	var nature_hash := FileAccess.get_file_as_string("res://scripts/natural_scenery.gd").replace("\r\n", "\n").sha256_text()
 	var board_hash := FileAccess.get_file_as_string(BOARD_SOURCE).replace("\r\n", "\n").sha256_text()
 	board.queue_free()
-	var data := {"schema": "grandleon.settlement.v1", "source_sha256": FileAccess.get_file_as_string(source).replace("\r\n", "\n").sha256_text(), "board_sha256": board_hash, "models": models}
+	var data := {"schema": "grandleon.settlement.v1", "source_sha256": FileAccess.get_file_as_string(source).replace("\r\n", "\n").sha256_text(), "board_sha256": board_hash, "nature_sha256": nature_hash, "models": models}
 	var file := FileAccess.open(output, FileAccess.WRITE)
 	file.store_string(JSON.stringify(data) + "\n")
 	world.queue_free()
@@ -65,36 +79,45 @@ func _run() -> void:
 	print("Exported %d shared settlement models" % models.size())
 	quit()
 
-func _collect(node: Node, parts: Array) -> void:
+func _collect(node: Node, parts: Array, vegetation := false) -> void:
 	if node is MeshInstance3D:
-		var mesh: Mesh = node.mesh.duplicate()
-		if mesh is CylinderMesh: mesh.radial_segments = 8
-		if mesh is TorusMesh:
-			mesh.rings = 8
-			mesh.ring_segments = 3
-		if mesh is SphereMesh:
-			mesh.radial_segments = 6
-			mesh.rings = 4
-		var arrays := mesh.surface_get_arrays(0)
-		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-		var uvs: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
-		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
-		var clean_indices := PackedInt32Array()
-		for offset in range(0, indices.size(), 3):
-			var a := indices[offset]
-			var b := indices[offset + 1]
-			var c := indices[offset + 2]
-			if (vertices[b] - vertices[a]).cross(vertices[c] - vertices[a]).length_squared() > 0.0000000001:
-				clean_indices.append_array(PackedInt32Array([a, b, c]))
-		var material: StandardMaterial3D = node.material_override
-		var colour := material.albedo_color
-		var points := []
-		var uv_values := []
-		for index in vertices.size():
-			var p: Vector3 = node.global_transform * vertices[index]
-			points.append([snappedf(p.x, 0.00001), snappedf(p.y, 0.00001), snappedf(p.z, 0.00001)])
-			uv_values.append([snappedf(uvs[index].x, 0.00001), snappedf(uvs[index].y, 0.00001)])
-		parts.append({"vertices": points, "indices": Array(clean_indices), "uvs": uv_values,
-			"colour": [roundi(colour.r * 255), roundi(colour.g * 255), roundi(colour.b * 255)],
-			"masonry": material.albedo_texture != null})
-	for child in node.get_children(): _collect(child, parts)
+		_collect_mesh(node.mesh, node.global_transform, node.material_override, parts, vegetation)
+	elif node is MultiMeshInstance3D:
+		for index in node.multimesh.instance_count:
+			_collect_mesh(node.multimesh.mesh, node.global_transform * node.multimesh.get_instance_transform(index), node.material_override, parts, vegetation)
+	for child in node.get_children(): _collect(child, parts, vegetation)
+
+func _collect_mesh(source_mesh: Mesh, transform: Transform3D, material: StandardMaterial3D, parts: Array, vegetation: bool) -> void:
+	var mesh: Mesh = source_mesh.duplicate()
+	if mesh is CylinderMesh: mesh.radial_segments = 4 if vegetation else 8
+	if mesh is TorusMesh:
+		mesh.rings = 8
+		mesh.ring_segments = 3
+	if mesh is SphereMesh:
+		mesh.radial_segments = 4 if vegetation else 6
+		mesh.rings = 1 if vegetation else 4
+	var arrays := mesh.surface_get_arrays(0)
+	var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var uvs: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
+	var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+	var clean_indices := PackedInt32Array()
+	for offset in range(0, indices.size(), 3):
+		var a := indices[offset]
+		var b := indices[offset + 1]
+		var c := indices[offset + 2]
+		if (vertices[b] - vertices[a]).cross(vertices[c] - vertices[a]).length_squared() > 0.0000000001:
+			clean_indices.append_array(PackedInt32Array([a, b, c]))
+	var colour := material.albedo_color
+	if vegetation:
+		# Bake a little of the reference scene's ambient illumination while
+		# preserving leaf/bark chroma. Gamma lifting alone washes foliage grey.
+		colour *= Color(1.35, 1.35, 1.35, 1.0)
+	var points := []
+	var uv_values := []
+	for index in vertices.size():
+		var p: Vector3 = transform * vertices[index]
+		points.append([snappedf(p.x, 0.00001), snappedf(p.y, 0.00001), snappedf(p.z, 0.00001)])
+		uv_values.append([snappedf(uvs[index].x, 0.00001), snappedf(uvs[index].y, 0.00001)])
+	parts.append({"vertices": points, "indices": Array(clean_indices), "uvs": uv_values,
+		"colour": [roundi(colour.r * 255), roundi(colour.g * 255), roundi(colour.b * 255)],
+		"masonry": material.albedo_texture != null and not vegetation})

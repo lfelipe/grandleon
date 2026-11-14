@@ -31,7 +31,7 @@
 #include "BoardShadows.hpp"
 #include "StoneKeep.hpp"
 #include "SettlementScenery.hpp"
-#include "HouseScenery.hpp"
+#include "ScenerySprites.hpp"
 #include "GeneratedSceneryStyle.hpp"
 #include "ConsoleFont.hpp"
 #include "BoardCamera.hpp"
@@ -152,7 +152,7 @@ struct BoardResources final {
     std::size_t landmark_vertex_count{};
     gp::StoneKeep keep{};
     gp::SettlementScenery settlement{};
-    gp::HouseScenery houses{};
+    gp::ScenerySprites scenery_sprites{};
     std::size_t visibility_vertex_count{};
     std::array<bool, kMaxCells> visibility_revealed{};
     std::size_t unit_count{};
@@ -996,24 +996,30 @@ std::uint32_t environment_colour(
     std::int16_t z,
     int distance
 ) {
-    int red = 55;
-    int green = 83;
-    int blue = 43;
-    const std::uint8_t kind = terrain_kind(edge_terrain);
-    if (kind == 0U) { red = 35; green = 67; blue = 85; }
-    else if (kind == 1U) { red = 83; green = 77; blue = 49; }
-    else if (kind == 2U || kind == 11U) { red = 39; green = 75; blue = 38; }
-    else if (kind == 3U || kind == 7U) { red = 61; green = 72; blue = 44; }
-    else if (kind == 10U) { red = 82; green = 101; blue = 48; }
-    else if (kind == 8U || kind == 12U) { red = 74; green = 78; blue = 65; }
-    constexpr int spread = 5;
-    const int variation = static_cast<int>(environment_hash(x, z) % spread) -
-        spread / 2;
-    const int fade = std::max(0, distance - 1) * 5;
+    const auto& base = gp::scenery_style::ground[terrain_kind(edge_terrain)];
+    int colour[3] = {base[0], base[1], base[2]};
+    if (board.content->surroundings.mode == pr::MapSurroundingMode::automatic) {
+        int totals[3] = {};
+        const int width = board.content->definition.width;
+        const int height = board.content->definition.height;
+        for (int dz = -1; dz <= 1; ++dz) {
+            for (int dx = -1; dx <= 1; ++dx) {
+                const int sx = std::clamp<int>(x + dx, 0, width - 1);
+                const int sz = std::clamp<int>(z + dz, 0, height - 1);
+                const auto kind = terrain_kind(board.content->terrain[sz * width + sx]);
+                for (int channel = 0; channel < 3; ++channel) totals[channel] += gp::scenery_style::ground[kind][channel];
+            }
+        }
+        for (int channel = 0; channel < 3; ++channel) colour[channel] = totals[channel] / 9;
+    }
+    const int variation = static_cast<int>(environment_hash(x, z) % 5U) - 2;
+    // Continue the same landscape outside the tactical area. A modest fade
+    // separates the boundary without surrounding it with near-black tiles.
+    const int percent = std::max(58, 90 - std::max(0, distance - 1) * 3);
     return pack_rgba(
-        static_cast<std::uint8_t>(std::clamp(red + variation - fade, 22, 110)),
-        static_cast<std::uint8_t>(std::clamp(green + variation - fade, 28, 125)),
-        static_cast<std::uint8_t>(std::clamp(blue + variation / 2 - fade, 20, 90))
+        static_cast<std::uint8_t>(std::clamp(colour[0] * percent / 100 + variation, 0, 255)),
+        static_cast<std::uint8_t>(std::clamp(colour[1] * percent / 100 + variation, 0, 255)),
+        static_cast<std::uint8_t>(std::clamp(colour[2] * percent / 100 + variation, 0, 255))
     );
 }
 
@@ -1054,7 +1060,7 @@ void build_environment_vertices() {
             static_cast<std::uint8_t>((surroundings.colour >> 8U) & 0xFFU),
             static_cast<std::uint8_t>(surroundings.colour & 0xFFU)
         )
-        : pack_rgba(26U, 38U, 28U);
+        : environment_colour(surrounding_terrain_at(-1, -1), -1, -1, 14);
     set_vertex(board.ground, 0U, ground_x0, -9, ground_z0, distant, 0, 0, normal);
     set_vertex(board.ground, 1U, ground_x1, -9, ground_z0, distant, 0, 0, normal);
     set_vertex(board.ground, 2U, ground_x1, -9, ground_z1, distant, 0, 0, normal);
@@ -1094,24 +1100,20 @@ void build_environment_vertices() {
             const std::int16_t cz = world_z(static_cast<std::int16_t>(z), height);
             constexpr std::int16_t apron_half = kCell / 2;
             const std::int16_t floor = -4;
-            const std::int16_t colour_x = distance > 1
-                ? static_cast<std::int16_t>(x < 0 ? (x - 1) / 2 : x / 2)
-                : static_cast<std::int16_t>(x);
-            const std::int16_t colour_z = distance > 1
-                ? static_cast<std::int16_t>(z < 0 ? (z - 1) / 2 : z / 2)
-                : static_cast<std::int16_t>(z);
-            const std::uint32_t colour = environment_colour(
-                edge_terrain, colour_x, colour_z, distance
-            );
+            const auto tint = [&](int gx, int gz) {
+                return environment_colour(edge_terrain, static_cast<std::int16_t>(gx), static_cast<std::int16_t>(gz), distance);
+            };
+            std::int16_t s0, t0, s1, t1;
+            terrain_uv(edge_terrain, static_cast<std::size_t>((z + apron) * (width + 2 * apron) + x + apron), s0, t0, s1, t1);
             const std::size_t first = board.apron_cell_count * 4U;
             set_vertex(board.apron, first + 0U, cx - apron_half, floor,
-                cz - apron_half, colour, 0, 0, normal);
+                cz - apron_half, tint(x, z), s0, t0, normal);
             set_vertex(board.apron, first + 1U, cx + apron_half, floor,
-                cz - apron_half, colour, 0, 0, normal);
+                cz - apron_half, tint(x + 1, z), s1, t0, normal);
             set_vertex(board.apron, first + 2U, cx + apron_half, floor,
-                cz + apron_half, colour, 0, 0, normal);
+                cz + apron_half, tint(x + 1, z + 1), s1, t1, normal);
             set_vertex(board.apron, first + 3U, cx - apron_half, floor,
-                cz + apron_half, colour, 0, 0, normal);
+                cz + apron_half, tint(x, z + 1), s0, t1, normal);
             ++board.apron_cell_count;
         }
     }
@@ -1358,13 +1360,16 @@ int settlement_model(std::uint64_t id) {
     if (id == grandleon::core::stable_content_id_v1("paved_signal_beacon") ||
         id == grandleon::core::stable_content_id_v1("road_signal_beacon")) return 8;
     if (id == grandleon::core::stable_content_id_v1("ruins_watch_ruin")) return 14;
+    if (id == grandleon::core::stable_content_id_v1("farmland_orchard_tree") ||
+        id == grandleon::core::stable_content_id_v1("forest_orchard_tree")) return 22;
+    if (id == grandleon::core::stable_content_id_v1("mountain_ancient_grove")) return 26;
     return -1;
 }
 
 void build_landmark_vertices() {
     board.landmark_vertex_count = 0;
     board.settlement.begin();
-    board.houses.begin();
+    board.scenery_sprites.begin();
     const auto width = board.content->definition.width;
     const auto height = board.content->definition.height;
     constexpr std::uint64_t castle_wall =
@@ -1389,7 +1394,6 @@ void build_landmark_vertices() {
             (world_z(min_y, height) + world_z(max_y, height)) / 2, 13, 4),
             "Godot-derived stone keep failed to load");
     }
-    bool built_ruin = false;
     std::array<bool, kMaxCells> landmark_cells_seen{};
     for (std::size_t index = 0; index < board.content->terrain.size(); ++index) {
         const std::uint64_t terrain = board.content->terrain[index];
@@ -1400,7 +1404,7 @@ void build_landmark_vertices() {
         const std::int16_t floor = terrain_lift(terrain);
         const int model = settlement_model(terrain);
         if (model >= 0) {
-            const bool single = model >= 5;
+            const bool single = model >= 5 && model != 26;
             if (!landmark_cells_seen[index]) {
                 if (!single) {
                     assertf(x+1 < width && y+1 < height && board.content->terrain[index+1U] == terrain && board.content->terrain[index+width] == terrain && board.content->terrain[index+width+1U] == terrain, "Settlement footprint is incomplete");
@@ -1416,12 +1420,15 @@ void build_landmark_vertices() {
                     landmark_cells_seen[index+width] = true;
                     landmark_cells_seen[index+width+1U] = true;
                 }
-                if (model == 0) {
-                    assertf(board.houses.add(x,y,cx+kHalfCell,floor,cz+kHalfCell), "Godot house artwork could not be loaded");
+                if (model == 26) {
+                    assertf(board.scenery_sprites.add_grove(cx+kHalfCell,floor,cz+kHalfCell), "Godot ancient grove artwork could not be loaded");
+                } else if (model == 0) {
+                    assertf(board.scenery_sprites.add_house(x,y,cx+kHalfCell,floor,cz+kHalfCell), "Godot house artwork could not be loaded");
                 } else {
                     int variant = model;
                     if (model == 5 && x > 0 && board.content->terrain[index-1U] == grandleon::core::stable_content_id_v1("mountain_watchtower")) variant = 6;
                     if (model == 8) variant += std::abs(x*17+y*31+terrain_kind(terrain)*13)%6;
+                    if (model == 22) variant += std::abs(x*17+y*31+terrain_kind(terrain)*13)%4;
                     if (model == 14) {
                         const int edge = y == 3 ? 0 : y == 8 ? 1 : x == 5 ? 2 : 3;
                         variant += edge*2 + std::abs(x*17+y*31+8*13)%2;
@@ -1438,12 +1445,7 @@ void build_landmark_vertices() {
                 cx, floor, cz, kHalfCell - 4, 8, kHalfCell - 4,
                 pack_rgba(133U, 75U, 57U)
             );
-        } else if (!built_ruin && terrain_kind(terrain) == 8U) {
-            append_box(cx, floor, cz, 22, 10, 18, pack_rgba(145U, 157U, 161U));
-            append_box(cx - 16, floor + 10, cz, 5, 58, 5, pack_rgba(132U, 143U, 148U));
-            append_box(cx + 16, floor + 10, cz, 5, 58, 5, pack_rgba(132U, 143U, 148U));
-            append_box(cx, floor + 64, cz, 23, 8, 6, pack_rgba(103U, 115U, 121U));
-            built_ruin = true;
+
         }
     }
     assertf(board.settlement.finish(), "Settlement scenery exceeds available memory");
@@ -1591,7 +1593,7 @@ void build_tree_vertices() {
     for (std::size_t index = 0; index < board.content->terrain.size(); ++index) {
         const auto id = board.content->terrain[index];
         const std::uint8_t kind = terrain_kind(id);
-        if (kind != 2U) continue;
+        if (kind != 2U || settlement_model(id) >= 0) continue;
         const auto x = static_cast<std::int16_t>(index % width);
         const auto z = static_cast<std::int16_t>(index / width);
         const auto variation = environment_hash(x, z);
@@ -2839,6 +2841,11 @@ void draw_environment() {
     t3d_tri_draw(0, 1, 2);
     t3d_tri_draw(0, 2, 3);
     t3d_tri_sync();
+    rdpq_mode_combiner(RDPQ_COMBINER_TEX_SHADE);
+    rdpq_mode_tlut(TLUT_RGBA16);
+    rdpq_mode_filter(FILTER_BILINEAR);
+    rdpq_sprite_upload(TILE0, board.terrain, nullptr);
+    t3d_state_set_drawflags(static_cast<T3DDrawFlags>(T3D_FLAG_SHADED | T3D_FLAG_TEXTURED | T3D_FLAG_DEPTH));
     for (std::size_t begin = 0; begin < board.apron_cell_count;
          begin += kBatchCells) {
         const std::size_t count = std::min(
@@ -5695,7 +5702,7 @@ void onScenePreDraw3D() {
     const auto& hidden = board.content->visual_visibility.hidden_cells;
     board.keep.draw(!hidden.empty() && !board.visibility_revealed[hidden.front()]);
     draw_trees();
-    board.houses.draw(current_camera.eye_x,current_camera.eye_y,current_camera.eye_z,current_camera.target_x,current_camera.target_y,current_camera.target_z);
+    board.scenery_sprites.draw(current_camera.eye_x,current_camera.eye_y,current_camera.eye_z,current_camera.target_x,current_camera.target_y,current_camera.target_z);
     draw_visual_visibility();
     board.shadows.draw();
     draw_cursor();

@@ -15,9 +15,12 @@ terrace so its floor cannot draw over the roof.
 `settlement_scenery.json` contains simpler meshes exported from Godot's
 `settlement_scenery.gd`: a cart, well, garden, gate tower and wall
 junctions. It also exports the orchard bell, signal beacons and broken watch
-walls directly from the playable Godot board builders. Those remain passable:
+walls and branching orchard trees directly from the playable Godot board
+builders. Leaves and branches use deliberately smaller meshes; their native
+colours include a baked ambient lift while retaining their leaf and bark hues.
+The bell and low walls remain passable:
 the bell spans two adjacent cells, and low walls stay along cell edges.
-Both console generators check the scenery and board source hashes and reject
+Both console generators check the scenery, board and natural-scenery hashes and reject
 stale geometry. Regenerate with `platform/godot/tests/export_settlement_scenery.gd`.
 PS1 stores each model once and places it separately from terrain pages; its
 build audit still enforces main RAM and texture limits. Console prop animation
@@ -29,7 +32,9 @@ Houses use the same four drawings as Godot, rather than approximate building
 meshes. `scenery_style.json` in the Godot content folder defines their drawing,
 mirroring, small placement offsets and size. Nintendo 64 reduces each drawing
 to a transparent 64×64 CI4 sprite; PlayStation uses a 96×96 cutout in the stage
-palette. Changing the drawing or recipe updates all three builds.
+palette. Changing the drawing or recipe updates all three builds. The ancient grove
+uses the same source drawing too, with a transparent square canvas preserving
+its proportions and a seasonal foliage tint.
 
 `natural_materials/` contains 52 tiles rendered from Godot's real ground shader
 and scene lighting: thirteen terrain kinds across four seasons. The generators
@@ -37,7 +42,11 @@ check the shader, ground-script and graphics-profile hashes before using them.
 After changing those sources, regenerate with
 `platform/godot/tests/export_natural_materials.gd`, passing `--repo` and
 `--output` after `--`. Nintendo 64 uses a compact luminance atlas tinted with
-the sampled colours; PlayStation uses the tile images in its material atlas.
+the sampled colours with a modest saturation correction. Its non-playable
+surroundings share those textures and blend neighbouring colours instead of
+using dark solid squares. PlayStation uses the tile images in its material
+atlas; its continuous floor is independent of paged nearby scenery. Large
+floors are split into strips to respect the per-mesh vertex limit.
 Neither console runs Godot's shader, so this shares the artwork and palette
 without implying identical lighting or geometry.
 
@@ -108,3 +117,9 @@ Run the bank-format check with:
 ```sh
 python3 platform/console_art/check-directional-bank.py
 ```
+
+To capture a compiled PS1 scene for visual review, use
+`platform/playstation/mipsync/scripts/capture-scene-review.sh` with the scene
+manifest, direct-battle build directory and an empty output directory. It
+checks the actual map/state identity and records frame-budget misses; it is
+separate from the strict performance regression test.

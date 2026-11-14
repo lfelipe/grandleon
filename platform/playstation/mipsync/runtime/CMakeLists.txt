@@ -48,6 +48,15 @@ set_target_properties(grandleon_mipsync PROPERTIES OUTPUT_NAME grandleon_mipsync
 target_compile_features(grandleon_mipsync PRIVATE cxx_std_17)
 target_compile_options(grandleon_mipsync PRIVATE -O2)
 set_source_files_properties(runtime/render.c PROPERTIES COMPILE_OPTIONS "-O3")
+# Turn resolution and campaign/menu code run outside the renderer's hot loops.
+# Avoid duplicating inlined C++ helpers into every stage; retain the renderer's
+# speed settings and the full gameplay/audio/stack RAM reserves.
+get_target_property(grandleon_stage_sources grandleon_mipsync SOURCES)
+foreach(stage_source IN LISTS grandleon_stage_sources)
+    if(stage_source MATCHES "\\.cpp$")
+        set_source_files_properties("${stage_source}" PROPERTIES COMPILE_OPTIONS "-Os")
+    endif()
+endforeach()
 target_include_directories(grandleon_mipsync PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "$<$<COMPILE_LANGUAGE:C>:${PSN00BSDK_ROOT}/include/libpsn00b>"

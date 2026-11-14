@@ -227,9 +227,10 @@ Campaign scenery follows the [map direction](../games/steel_and_cedar/MAP_DIRECT
 Gate Village's houses face connected streets; its well, cottage garden, loading
 cart and gate tower belong to named districts. The tower joins a continuous
 town wall. Deepwood retains its ancient groves instead of an isolated tower.
-These landmarks have Godot meshes and whole-footprint editor stamps. Console
-models are exported from the same source, with simpler geometry and shared
-materials. Godot's hanging banner has restrained movement; console prop motion
+These landmarks have whole-footprint editor stamps. Houses and ancient groves
+share Godot's source drawings with both consoles. Carts, wells, gardens, towers,
+walls, branching orchard trees, the bell and watch details use simpler meshes
+exported from the same Godot builders. Godot's hanging banner has restrained movement; console prop motion
 still needs work. See
 [`settlement_scenery.gd`](../platform/godot/project/scripts/settlement_scenery.gd).
 
@@ -265,9 +266,11 @@ blocked footprint with one action, and **Remove** clears the whole landmark
 from any of its four cells. The editor keeps the exact portable source
 identities `mountain_village_house` and `mountain_ancient_grove` and refuses
 partial, overlapping, out-of-bounds, occupied, or deployment-area footprints.
-Nintendo 64 and PlayStation draw recognizable connected house and grove
-silhouettes over the same blocked mountain cells without spending additional
-texture memory.
+Nintendo 64 converts the house and grove drawings to transparent 64×64 CI4
+sprites; PlayStation uses 96×96 cutouts in its stage palette. The shared
+`scenery_style.json` defines drawing choices, mirroring and small house offsets.
+Both preserve the blocked footprint and build within their texture budgets.
+See the [console art notes](../platform/console_art/README.md) for regeneration.
 
 Twin Gate Keep uses distinct terrain identities for blocked walls, passable
 double doors, the walkable throne-room floor and the boss dais. Godot initially

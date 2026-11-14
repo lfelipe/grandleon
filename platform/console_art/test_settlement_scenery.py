@@ -32,6 +32,8 @@ class SettlementTests(unittest.TestCase):
             script.write_bytes(original.replace("\n", "\r\n").encode())
             board = script.with_name("board_view_3d.gd")
             board.write_bytes((REPO / "platform/godot/project/scripts/board_view_3d.gd").read_text().replace("\n", "\r\n").encode())
+            nature = script.with_name("natural_scenery.gd")
+            nature.write_bytes((REPO / "platform/godot/project/scripts/natural_scenery.gd").read_text().replace("\n", "\r\n").encode())
             self.assertEqual(load_models(root), load_models(REPO))
             script.write_text(original + "# A model changed.\n")
             with self.assertRaisesRegex(ValueError, "stale"):

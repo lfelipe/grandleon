@@ -5,9 +5,13 @@ local capture_pending = false
 local capture_motion = os.getenv('GRANDLEON_CAPTURE_MOTION') == '1'
 local motion_due = false
 local motion_index = 0
+local review = os.getenv('GRANDLEON_SCENE_REVIEW') == '1'
+local movement_start = review and 110 or 90
+local right_count = review and tonumber(os.getenv('GRANDLEON_REVIEW_RIGHT_COUNT') or '13') or 10
+local down_count = review and tonumber(os.getenv('GRANDLEON_REVIEW_DOWN_COUNT') or '4') or 6
 local actions = {}
-for _ = 1, 10 do actions[#actions + 1] = 0x0020 end -- right, x=3 to x=13
-for _ = 1, 6 do actions[#actions + 1] = 0x0040 end  -- down, y=2 to y=8
+for _ = 1, right_count do actions[#actions + 1] = 0x0020 end -- right, x=3 to x=13
+for _ = 1, down_count do actions[#actions + 1] = 0x0040 end  -- down, y=2 to y=8
 local opening = {
   [20] = 0x4000,
   [35] = 0x4000,
@@ -15,12 +19,17 @@ local opening = {
   [65] = 0x4000,
 }
 
+if review then
+  for _, at in ipairs({74, 82, 95, 105}) do opening[at] = 0x4000 end
+  if right_count > 13 or down_count > 4 then opening[108] = 0x2000 end
+end
+
 grandleon_scroll_breakpoint = PCSX.addBreakpoint(
     update_address, 'Exec', 4, 'Grandleon scrolling probe', function()
   runtime_frame = runtime_frame + 1
   local held = opening[runtime_frame] or 0
-  if runtime_frame >= 90 then
-    local action_frame = runtime_frame - 90
+  if runtime_frame >= movement_start then
+    local action_frame = runtime_frame - movement_start
     local index = math.floor(action_frame / 8) + 1
     if index <= #actions and action_frame % 8 == 0 then
       held = actions[index]

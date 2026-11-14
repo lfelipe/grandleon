@@ -17,7 +17,7 @@ import struct
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "platform/console_art"))
-from scenery_style import document as scenery_style, house_at, house_image, ground_image, materials as ground_materials
+from scenery_style import document as scenery_style, house_at, house_image, grove_image, ground_image, materials as ground_materials
 from settlement_scenery import load_models as load_settlement_models, placements as settlement_placements
 from stone_keep import load_keep, textured_part_mesh, face_normal, lit_colour
 
@@ -77,7 +77,7 @@ UNIT_POSES = (
 )
 UnitTextureIndices = tuple[int, int, int, int, int, int, int, int, int]
 MAX_CACHE_VERTICES = 1024
-MAX_CACHE_TOTAL = 1280  # Matches the runtime's already allocated static pools.
+MAX_CACHE_TOTAL = 1280  # Minimum pools; stage audits size them within hard limits.
 
 # Colour and proportions for the tiny low-poly forms embedded into each
 # terrain page. The same bounded topology reads as reeds, rubble, crops,
@@ -539,7 +539,7 @@ def unit_image(
 def write_textures(
     output: Path, repo: Path, terrain_kinds: list[int], units: list[dict[str, object]],
     map_id: str = "0", speakers: list[dict[str, object]] | None = None,
-    castle: bool = False, houses: bool = False, theme: int = 0,
+    castle: bool = False, houses: bool = False, theme: int = 0, grove: bool = False,
 ) -> tuple[
     dict[int, int], dict[tuple[int, int, int, int], UnitTextureIndices],
     int, dict[str, object], dict[int, int],
@@ -594,6 +594,10 @@ def write_textures(
         for drawing in range(4):
             textures.append((f"scenery_house_{drawing}", house_image(repo,drawing,96), True, 0, 0))
             terrain_indices[-10-drawing] = len(textures)
+
+    if grove:
+        textures.append(("scenery_grove", grove_image(repo, 96, theme), True, 0, 0))
+        terrain_indices[-14] = len(textures)
 
     for unit in units:
         key = (
@@ -863,6 +867,21 @@ def page_cells(
     return pages
 
 
+def surface_strips(cells: list[tuple], width: int, height: int, depth: int) -> list[tuple]:
+    """Continuous floor with each mesh below the engine's vertex limit."""
+    rows = max(1, MAX_CACHE_VERTICES // (width + depth * 2 + 1) - 1)
+    strips = []
+    for first_y in range(-depth, height + depth, rows):
+        last_y = min(height + depth, first_y + rows)
+        clipped = []
+        for x, y, kind, authored, span_x, span_y in cells:
+            top, bottom = max(y, first_y), min(y + span_y, last_y)
+            if top < bottom:
+                clipped.append((x, top, kind, authored, span_x, bottom - top))
+        strips.append(((0, first_y), clipped))
+    return strips
+
+
 def coalesce_vertical_runs(
     cells: list[tuple[int, int, int, bool, int, int]],
     cell_lifts: dict[tuple[int, int], int],
@@ -1111,11 +1130,11 @@ def append_keep_part(vertices: list, uvs: list, triangles: list, part: dict,
 
 def append_settlement_model(board_vertices, board_uvs, board_triangles, kind, settlement_models, terrain_indices):
     cx = cz = floor = 0
-    if kind.startswith("house_cutout_"):
-        _prefix,_cutout,drawing,mirror = kind.split("_")
+    if kind.startswith("house_cutout_") or kind == "grove_cutout":
+        _prefix,_cutout,drawing,mirror = kind.split("_") if kind != "grove_cutout" else ("grove", "cutout", "4", "0")
         # Same full camera-facing canvas as Godot Sprite3D, fixed board angle.
         angle = math.radians(40.0)
-        style = scenery_style(Path(__file__).resolve().parents[4])["houses"]
+        style = scenery_style(Path(__file__).resolve().parents[4])["ancientGrove" if kind == "grove_cutout" else "houses"]
         half = style["portableCanvasSide"] * 64
         centre = half * math.cos(angle)
         for x,y in [(-half,-half),(half,-half),(half,half),(-half,half)]:
@@ -1149,6 +1168,31 @@ def append_settlement_model(board_vertices, board_uvs, board_triangles, kind, se
                  *lit_colour(part["colour"], normal)))
 
 
+def scenery_position(repo: Path, x: int, y: int, kind: str, size: int, width: int, height: int) -> tuple[int, int]:
+    offset = house_at(repo, x, y)["offset"] if kind.startswith("house_cutout_") else (0, 0)
+    return ((x * 2 + size - width) * 64 + round(offset[0] * 128),
+            (height - y * 2 - size) * 64 - round(offset[1] * 128))
+
+
+def scenery_cache_peak(instances: list[tuple], groups: dict, width: int, height: int) -> tuple[int, int]:
+    # Match tick_camera's actual centre-based culling, including integer
+    # truncation during smooth camera movement. Exhaust all camera centres;
+    # invisible scenery cannot consume the transformed-geometry cache.
+    repo = Path(__file__).resolve().parents[4]
+    costs = []
+    for x, y, kind, size in instances:
+        px, pz = scenery_position(repo, x, y, kind, size, width, height)
+        costs.append((int(px / 64), int(pz / 64), len(groups[kind][0]), len(groups[kind][2])))
+    half_x, half_z = CAMERA_VIEW_TILES_X + 2, CAMERA_VIEW_TILES_Y + 2
+    peak_v = peak_t = 0
+    for focus_x in range(-width - half_x, width + half_x + 1):
+        for focus_z in range(-height - half_z, height + half_z + 1):
+            visible = [c for c in costs if abs(c[0] - focus_x) <= half_x and abs(c[1] - focus_z) <= half_z]
+            peak_v = max(peak_v, sum(c[2] for c in visible))
+            peak_t = max(peak_t, sum(c[3] for c in visible))
+    return peak_v, peak_t
+
+
 def write_meshes(
     output: Path,
     cell_groups: list[tuple[tuple[int, int], list[tuple[int, int, int, bool, int, int]]]],
@@ -1163,6 +1207,7 @@ def write_meshes(
     settlement_models: dict | None = None,
     mesh_vertex_limit: int = MAX_CACHE_VERTICES,
     scenery_metadata: list | None = None,
+    surface_count: int = 0,
 ) -> tuple[int, int, list[tuple[int, int, int, int, int, int, int]]]:
     keep_parts = keep_parts or []
     settlement_instances = settlement_instances or []
@@ -1178,8 +1223,9 @@ def write_meshes(
         tuple[int, int, int, int],
     ]] = []
     page_origins: list[tuple[int, int]] = []
-    for key, group_cells in cell_groups:
-        page_origins.append(key)
+    for group_index, (key, group_cells) in enumerate(cell_groups):
+        # The complete floor is drawn once. Near scenery remains paged.
+        floor_cells = group_cells if not surface_count or group_index < surface_count else []
         board_vertices: list[tuple[int, int, int, int]] = []
         board_uvs: list[tuple[int, int]] = []
         board_triangles: list[tuple[int, int, int, int, int, int, int, int]] = []
@@ -1195,7 +1241,7 @@ def write_meshes(
             relief_min_x = min(cell[0] for cell in cell_lifts)
             grid: dict[tuple[int, int], int] = {}
             corners = {
-                point for x, y, _kind, _authored, span_x, span_y in group_cells
+                point for x, y, _kind, _authored, span_x, span_y in floor_cells
                 for point in ((x, y), (x + span_x, y),
                               (x, y + span_y), (x + span_x, y + span_y))
             }
@@ -1211,7 +1257,7 @@ def write_meshes(
                     u_wave[(grid_x - relief_min_x) % len(u_wave)],
                     31 if grid_y & 1 else 0,
                 ))
-            for x, y, kind, authored, span_x, span_y in group_cells:
+            for x, y, kind, authored, span_x, span_y in floor_cells:
                 top_left = grid[(x, y)]
                 top_right = grid[(x + span_x, y)]
                 bottom_left = grid[(x, y + span_y)]
@@ -1231,7 +1277,7 @@ def write_meshes(
                      shade, 255, 255, 255),
                 ))
         else:
-            for x, y, kind, authored, span_x, span_y in group_cells:
+            for x, y, kind, authored, span_x, span_y in floor_cells:
                 left = (x * 2 - width) * 64
                 right = left + span_x * 128
                 top = (height - y * 2) * 64
@@ -1257,7 +1303,7 @@ def write_meshes(
                     (first + 2, first + 1, first + 3, texture, shade,
                      255, 255, 255),
                 ))
-        for x, y, kind in terrain_form_cells:
+        for x, y, kind in ([] if surface_count and group_index < surface_count else terrain_form_cells):
             if (x, y) in castle_cells or (x, y) in occupied:
                 continue
             if not (min_x <= x < max_x and min_y <= y < max_y):
@@ -1277,7 +1323,7 @@ def write_meshes(
                 kind, cx, floor, cz, roll,
                 terrain_indices,
             )
-        for part in keep_parts:
+        for part in ([] if surface_count and group_index < surface_count else keep_parts):
             if part["upper"]:
                 continue
             tile_x = (keep_centre_x / 64 + width - 1) / 2 + part["centre"][0]
@@ -1291,6 +1337,9 @@ def write_meshes(
                    for i in range(0, len(board_triangles), 2)]
         batches.sort(key=lambda pair: pair[0][3])
         board_triangles = [triangle for pair in batches for triangle in pair]
+        if not board_vertices:
+            continue
+        page_origins.append(key)
         board_groups.append((
             board_vertices, board_uvs, board_triangles,
             (min_x, min_y, max_x, max_y),
@@ -1395,8 +1444,12 @@ def write_meshes(
     # Only one terrain page is enabled by the camera at a time. All pages stay
     # in executable data, but the renderer's transformed-geometry cache must
     # hold the largest active page, not the sum of mutually exclusive pages.
-    vertex_count = max(len(group[0]) for group in board_groups)
-    triangle_count = max(len(group[2]) for group in board_groups)
+    if surface_count:
+        vertex_count = sum(len(g[0]) for g in board_groups[:surface_count]) + max((len(g[0]) for g in board_groups[surface_count:]), default=0)
+        triangle_count = sum(len(g[2]) for g in board_groups[:surface_count]) + max((len(g[2]) for g in board_groups[surface_count:]), default=0)
+    else:
+        vertex_count = max(len(group[0]) for group in board_groups)
+        triangle_count = max(len(group[2]) for group in board_groups)
     scenery_groups = {}
     for _x, _y, kind, _size in settlement_instances:
         if kind in scenery_groups:
@@ -1404,9 +1457,9 @@ def write_meshes(
         verts, uvs, tris = [], [], []
         append_settlement_model(verts, uvs, tris, kind, settlement_models, terrain_indices)
         scenery_groups[kind] = (verts, uvs, tris)
-    # Conservative all-instance bound; frustum culling usually admits fewer.
-    scenery_vertices = sum(len(scenery_groups[k][0]) for _x, _y, k, _size in settlement_instances)
-    scenery_triangles = sum(len(scenery_groups[k][2]) for _x, _y, k, _size in settlement_instances)
+    scenery_vertices, scenery_triangles = scenery_cache_peak(
+        settlement_instances, scenery_groups, width, height,
+    )
     if any(len(group[0]) > mesh_vertex_limit for group in scenery_groups.values()):
         raise ValueError("a settlement model exceeds its per-mesh cache")
     lines = ["/* Generated from a real Grandleon scene manifest. Do not edit. */", '#include "../runtime/scene.h"', ""]
@@ -1468,8 +1521,8 @@ def write_meshes(
     if scenery_metadata is not None:
         for x,y,kind,size in settlement_instances:
             floor = max(surface_relief(x+dx,y+dy,cell_lifts) for dy in range(size) for dx in range(size)) if relief_mode == "smooth" else 0
-            offset = house_at(Path(__file__).resolve().parents[4],x,y)["offset"] if kind.startswith("house_cutout_") else [0,0]
-            scenery_metadata.append((scenery_indices[kind], (x*2+size-width)*64+round(offset[0]*128), floor, (height-y*2-size)*64-round(offset[1]*128), kind.startswith("house_cutout_")))
+            px, pz = scenery_position(Path(__file__).resolve().parents[4], x, y, kind, size, width, height)
+            scenery_metadata.append((scenery_indices[kind], px, floor, pz, kind.startswith("house_cutout_") or kind == "grove_cutout"))
     lines += emit_vectors("k_combat_floor_vertices", combat_floor_vertices)
     lines += emit_vectors(
         "k_combat_floor_normals",
@@ -1557,7 +1610,7 @@ def write_meshes(
         *scenery_mesh_lines,
         "};", "const unsigned int g_ps1_mesh_count =", "    sizeof(g_ps1_meshes) / sizeof(g_ps1_meshes[0]);", ""))
     (output / "mesh_data.c").write_text("\n".join(lines), encoding="utf-8")
-    if max(vertex_count, len(visibility_vertices)) > mesh_vertex_limit:
+    if max(max(len(group[0]) for group in board_groups), len(visibility_vertices)) > mesh_vertex_limit:
         raise ValueError(f"terrain page needs {vertex_count} vertices; per-mesh limit is {mesh_vertex_limit}")
     return (
         max(vertex_count, len(combat_floor_vertices)) + scenery_vertices + 8 + (len(visibility_vertices) - len(hidden_cells) * 4 if keep_parts else 0),
@@ -1667,6 +1720,7 @@ def write_scene(
     surface_lifts: list[int], fog_colour: tuple[int, int, int],
     speaker_indices: dict[int, int] | None = None,
     scenery_metadata: list | None = None,
+    surface_count: int = 0,
 ) -> int:
     scenery_metadata = scenery_metadata or []
     width = int(document["width"])
@@ -1688,17 +1742,18 @@ def write_scene(
     entity_index = 0
     terrain_entity_indices: list[int] = []
     tree_entity_indices: list[int] = []
-    for mesh_index, _min_x, _min_y, _max_x, _max_y, _focus_x, _focus_z in terrain_chunks:
-        terrain_entity_indices.append(entity_index)
+    for chunk_index, (mesh_index, _min_x, _min_y, _max_x, _max_y, _focus_x, _focus_z) in enumerate(terrain_chunks):
+        if not surface_count or chunk_index >= surface_count:
+            terrain_entity_indices.append(entity_index)
         lines.append(
-            f"    {{ .id={next_id}u, .name=\"terrain_apron_chunk\", .parent_entity_index=-1, .scale={{65536,65536,65536}}, .mesh=PS1_MESH_CUSTOM, .mesh_index={mesh_index}, .mesh_size=65536, .mesh_enabled=1, .color_r=255, .color_g=255, .color_b=255, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_FLOOR, .seam_fill=1, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
+            f"    {{ .id={next_id}u, .name=\"terrain_apron_chunk\", .parent_entity_index=-1, .scale={{65536,65536,65536}}, .mesh=PS1_MESH_CUSTOM, .mesh_index={mesh_index}, .mesh_size=65536, .mesh_enabled={1 if chunk_index < max(1, surface_count) else 0}, .color_r=255, .color_g=255, .color_b=255, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_FLOOR, .seam_fill=1, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
         )
         next_id += 1
         entity_index += 1
     for mesh_index,x,y,z,is_house in scenery_metadata:
         tree_entity_indices.append(entity_index)
         preset = "PS1_RENDER_PRESET_CHARACTER" if is_house else "PS1_RENDER_PRESET_FLOOR"
-        lines.append(f"    {{.id={next_id}u,.name=\"settlement_landmark\",.parent_entity_index=-1,.position={{{fixed(x/64)},{fixed(y/64)},{fixed(z/64)}}},.scale={{65536,65536,65536}},.mesh=PS1_MESH_CUSTOM,.mesh_index={mesh_index},.mesh_size=65536,.mesh_enabled=1,.color_r=255,.color_g=255,.color_b=255,.texture_tiling_u_q8=256,.texture_tiling_v_q8=256,.render_unlit=1,.render_preset={preset},.rigid_root_entity_index=-1,.collider_shape=-1,.camera_shot_trigger_index=-1,.collider_camera_target_index=-1}},")
+        lines.append(f"    {{.id={next_id}u,.name=\"settlement_landmark\",.parent_entity_index=-1,.position={{{fixed(x/64)},{fixed(y/64)},{fixed(z/64)}}},.scale={{65536,65536,65536}},.mesh=PS1_MESH_CUSTOM,.mesh_index={mesh_index},.mesh_size=65536,.mesh_enabled=0,.color_r=255,.color_g=255,.color_b=255,.texture_tiling_u_q8=256,.texture_tiling_v_q8=256,.render_unlit=1,.render_preset={preset},.rigid_root_entity_index=-1,.collider_shape=-1,.camera_shot_trigger_index=-1,.collider_camera_target_index=-1}},")
         next_id += 1
         entity_index += 1
     combat_floor_index = entity_index
@@ -1830,14 +1885,18 @@ def write_scene(
         *(f"    {fixed(value / 64)}," for value in surface_lifts),
         "};",
         "const unsigned int g_grandleon_terrain_surface_count = sizeof(g_grandleon_terrain_surface_y_q16) / sizeof(g_grandleon_terrain_surface_y_q16[0]);",
+        "const unsigned int g_grandleon_board_surface_entity_indices[] = {",
+        *(f"    {index}u," for index in range(surface_count)),
+        "};",
+        f"const unsigned int g_grandleon_board_surface_count = {surface_count}u;",
         "const unsigned int g_grandleon_terrain_entity_indices[] = {",
         *(f"    {index}u," for index in terrain_entity_indices),
         "};",
         "const int16_t g_grandleon_terrain_chunk_bounds[][4] = {",
-        *(f"    {{{min_x},{min_y},{max_x},{max_y}}}," for _mesh, min_x, min_y, max_x, max_y, _focus_x, _focus_z in terrain_chunks),
+        *(f"    {{{min_x},{min_y},{max_x},{max_y}}}," for _mesh, min_x, min_y, max_x, max_y, _focus_x, _focus_z in terrain_chunks[surface_count:]),
         "};",
         "const int16_t g_grandleon_terrain_page_focus[][2] = {",
-        *(f"    {{{focus_x},{focus_z}}}," for _mesh, _min_x, _min_y, _max_x, _max_y, focus_x, focus_z in terrain_chunks),
+        *(f"    {{{focus_x},{focus_z}}}," for _mesh, _min_x, _min_y, _max_x, _max_y, focus_x, focus_z in terrain_chunks[surface_count:]),
         "};",
         "const unsigned int g_grandleon_terrain_chunk_count = sizeof(g_grandleon_terrain_entity_indices) / sizeof(g_grandleon_terrain_entity_indices[0]);",
         "const unsigned int g_grandleon_tree_entity_indices[] = {",
@@ -1888,6 +1947,8 @@ extern const unsigned int g_grandleon_terrain_surface_count;
 extern const unsigned int g_grandleon_terrain_entity_indices[];
 extern const int16_t g_grandleon_terrain_chunk_bounds[][4];
 extern const int16_t g_grandleon_terrain_page_focus[][2];
+extern const unsigned int g_grandleon_board_surface_entity_indices[];
+extern const unsigned int g_grandleon_board_surface_count;
 extern const unsigned int g_grandleon_terrain_chunk_count;
 extern const unsigned int g_grandleon_tree_entity_indices[];
 extern const unsigned int g_grandleon_tree_count;
@@ -2014,17 +2075,18 @@ def main() -> int:
         keep_parts = load_keep(repo, "ps1")
     settlement_instances = settlement_placements(document["terrain_ids"], width, height, content_id)
     settlement_models = load_settlement_models(repo) if settlement_instances else {}
-    settlement_instances = [(x,y,(f"house_cutout_{house_at(repo,x,y)['drawing']}_{int(house_at(repo,x,y)['mirror'])}" if kind == "village_house" else kind),size) for x,y,kind,size in settlement_instances]
+    settlement_instances = [(x,y,(f"house_cutout_{house_at(repo,x,y)['drawing']}_{int(house_at(repo,x,y)['mirror'])}" if kind == "village_house" else "grove_cutout" if kind == "ancient_grove" else kind),size) for x,y,kind,size in settlement_instances]
     all_kinds = [kind for _x, _y, kind, _authored, _span_x, _span_y in cells]
     terrain_indices, unit_indices, ui_texture, texture_metrics, speaker_indices = write_textures(
         output, repo, all_kinds, typed_units, str(document.get("map_id", "0")),
         document.get("speakers", []),
-        castle=bool(keep_parts), houses=any(k.startswith("house_cutout_") for _x,_y,k,_size in settlement_instances), theme=int(document.get("theme",0)),
+        castle=bool(keep_parts), houses=any(k.startswith("house_cutout_") for _x,_y,k,_size in settlement_instances), theme=int(document.get("theme",0)), grove=any(k == "grove_cutout" for _x,_y,k,_size in settlement_instances),
     )
     terrain_form_cells = select_terrain_form_cells(
         terrain, width, height, args.surroundings_seed,
     )
-    terrain_groups = page_cells(cells, width, height, depth)
+    floor_groups = surface_strips(cells, width, height, depth)
+    terrain_groups = floor_groups + page_cells(cells, width, height, depth)
     distant_kind = max(
         sorted({kind for kind in terrain if kind not in (1, 12)} or set(terrain)),
         key=terrain.count,
@@ -2045,14 +2107,14 @@ def main() -> int:
         terrain_indices, args.surroundings_seed,
         args.terrain_relief, cell_lifts, hidden_cells, castle_cells,
         keep_parts, settlement_instances, settlement_models,
-        MAX_CACHE_VERTICES, scenery_metadata,
+        MAX_CACHE_VERTICES, scenery_metadata, surface_count=len(floor_groups),
     )
     entities = write_scene(
         output, document, unit_indices, terrain_chunks,
         ui_texture,
         surface_lifts,
         shifted_colour(terrain_colours(repo, distant_kind, int(document.get("theme",0)))[0], 65),
-        speaker_indices, scenery_metadata,
+        speaker_indices, scenery_metadata, surface_count=len(floor_groups),
     )
     visible_units = visible_position_peak(
         [(int(unit["x"]), int(unit["y"])) for unit in typed_units],
@@ -2071,10 +2133,9 @@ def main() -> int:
     cache_triangles = board_triangles + (
         visible_units + visible_covers + deployment_markers
     ) * 2
-    authored_models = bool(settlement_instances)
-    cache_vertex_limit = max(MAX_CACHE_TOTAL, (cache_vertices + 63) // 64 * 64) if keep_parts or authored_models else MAX_CACHE_TOTAL
-    cache_triangle_limit = max(MAX_CACHE_TOTAL, (cache_triangles + 63) // 64 * 64) if authored_models else MAX_CACHE_TOTAL
-    if cache_vertex_limit > (4096 if authored_models else 1536) or cache_triangle_limit > 4096:
+    cache_vertex_limit = max(MAX_CACHE_TOTAL, (cache_vertices + 63) // 64 * 64)
+    cache_triangle_limit = max(MAX_CACHE_TOTAL, (cache_triangles + 63) // 64 * 64)
+    if cache_vertex_limit > 4096 or cache_triangle_limit > 4096:
         raise ValueError("authored scenery exceeds the bounded static geometry pools")
     if cache_vertices > cache_vertex_limit or cache_triangles > cache_triangle_limit:
         raise ValueError(

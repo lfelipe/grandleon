@@ -6,7 +6,7 @@ from stone_keep import face_normal, lit_colour
 
 SETTLEMENT_KINDS = ("village_house", "abandoned_cart", "village_well", "watchtower", "walled_garden", "town_wall", "town_wall_join")
 
-KINDS = SETTLEMENT_KINDS + ("orchard_bell",) + tuple(f"signal_beacon_{v}" for v in range(6)) + tuple(f"watch_ruin_{edge}_{v}" for edge in range(4) for v in range(2))
+KINDS = SETTLEMENT_KINDS + ("orchard_bell",) + tuple(f"signal_beacon_{v}" for v in range(6)) + tuple(f"watch_ruin_{edge}_{v}" for edge in range(4) for v in range(2)) + tuple(f"orchard_tree_{v}" for v in range(4))
 
 
 def load_models(repo: Path) -> dict:
@@ -17,12 +17,16 @@ def load_models(repo: Path) -> dict:
     board = repo / "platform/godot/project/scripts/board_view_3d.gd"
     if data.get("board_sha256") != hashlib.sha256(board.read_text(encoding="utf-8").encode()).hexdigest():
         raise ValueError("campaign landmarks are stale; regenerate with export_settlement_scenery.gd")
+    nature = repo / "platform/godot/project/scripts/natural_scenery.gd"
+    if data.get("nature_sha256") != hashlib.sha256(nature.read_text(encoding="utf-8").encode()).hexdigest():
+        raise ValueError("orchard models are stale; regenerate with export_settlement_scenery.gd")
     return data["models"]
 
 
 def placements(identities: list[int], width: int, height: int, content_id) -> list[tuple]:
     """Recognise complete footprints; never substitute mountain shapes."""
     by_id = {content_id("mountain_" + kind): kind for kind in SETTLEMENT_KINDS}
+    by_id[content_id("mountain_ancient_grove")] = "ancient_grove"
     consumed = set()
     result = []
     for y in range(height):
@@ -30,6 +34,11 @@ def placements(identities: list[int], width: int, height: int, content_id) -> li
             index = y * width + x
             identity = int(identities[index])
             if index in consumed:
+                continue
+            orchard_kind = next((k for k, prefix in ((10, "farmland"), (2, "forest")) if identity == content_id(prefix + "_orchard_tree")), None)
+            if orchard_kind is not None:
+                variation = abs(x * 17 + y * 31 + orchard_kind * 13) % 4
+                result.append((x, y, f"orchard_tree_{variation}", 1))
                 continue
             if identity == content_id("paved_orchard_bell"):
                 if x + 1 >= width or int(identities[index + 1]) != identity:
