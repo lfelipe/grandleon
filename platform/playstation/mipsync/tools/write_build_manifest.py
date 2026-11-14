@@ -19,6 +19,52 @@ def digest(path: Path) -> str:
     return hasher.hexdigest()
 
 
+def disc_contains_executable(path: Path, executable: bytes) -> bool:
+    """Check ISO file data, where raw-sector headers cannot split the marker."""
+    sectors = path.stat().st_size // 2352
+    with path.open("rb") as stream:
+        def sector(index: int) -> bytes:
+            if index < 0 or index >= sectors:
+                raise ValueError("disc extent is outside the image")
+            stream.seek(index * 2352)
+            raw = stream.read(2352)
+            if raw[:12] != b"\x00" + b"\xff" * 10 + b"\x00":
+                raise ValueError("disc extent is not a data sector")
+            if raw[15] == 1:
+                return raw[16:16 + 2048]
+            if raw[15] == 2 and raw[16:20] == raw[20:24] and not raw[18] & 0x20:
+                return raw[24:24 + 2048]
+            raise ValueError("disc extent is not a Mode 1 or Mode 2 Form 1 sector")
+
+        def extent(start: int, length: int) -> bytes:
+            count = (length + 2047) // 2048
+            if start + count > sectors:
+                raise ValueError("disc file extends outside the image")
+            return b"".join(sector(start + i) for i in range(count))[:length]
+
+        pvd = sector(16)
+        if pvd[:7] != b"\x01CD001\x01":
+            raise ValueError("disc has no ISO9660 primary volume")
+        root = pvd[156:190]
+        directory = extent(int.from_bytes(root[2:6], "little"), int.from_bytes(root[10:14], "little"))
+        cursor = 0
+        while cursor < len(directory):
+            size = directory[cursor]
+            if not size:
+                cursor = (cursor // 2048 + 1) * 2048
+                continue
+            record = directory[cursor:cursor + size]
+            if size < 34 or len(record) != size or 33 + record[32] > size:
+                raise ValueError("invalid disc directory record")
+            name = record[33:33 + record[32]]
+            length = int.from_bytes(record[10:14], "little")
+            if not record[25] & 2 and name.endswith(b".EXE;1") and length == len(executable):
+                if extent(int.from_bytes(record[2:6], "little"), length) == executable:
+                    return True
+            cursor += size
+    return False
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--elf", type=Path, required=True)
@@ -41,8 +87,11 @@ def main() -> int:
         if not path.is_file():
             raise ValueError(f"required build input is missing: {path}")
     marker = b"GRANDLEON_PS1_RENDERER=MIPSYNC"
-    if marker not in args.exe.read_bytes() or marker not in args.bin.read_bytes():
-        raise ValueError("Mipsync renderer identity is absent from the executable or disc")
+    executable = args.exe.read_bytes()
+    if marker not in executable:
+        raise ValueError("Mipsync renderer identity is absent from the executable")
+    if not disc_contains_executable(args.bin, executable):
+        raise ValueError("Mipsync disc does not contain the linked executable")
 
     size_output = subprocess.check_output(
         [str(args.size_tool), str(args.elf)], text=True

@@ -1344,6 +1344,10 @@ separate_arguments(grandleon_test_flags NATIVE_COMMAND "${CMAKE_CXX_FLAGS} ${CMA
 foreach(argument IN LISTS grandleon_test_flags)
     list(APPEND grandleon_test_compiler_args "--compiler-arg=${argument}")
 endforeach()
+add_test(NAME grandleon.ps1_disc_identity
+    COMMAND "${GRANDLEON_PYTHON_EXECUTABLE}"
+        "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/tests/disc_identity_test.py"
+)
 add_test(NAME grandleon.ps1_text_paging
     COMMAND "${GRANDLEON_PYTHON_EXECUTABLE}"
         "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/tests/text_paging_test.py"
