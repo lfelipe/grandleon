@@ -214,9 +214,13 @@ while [ "${elapsed}" -lt "${deadline}" ]; do
         # says it does: the checkpoint the ROM just printed is a state the
         # check asserts, so the scene is named in the run's own vocabulary and
         # cannot slide when the emulator has a slow day.
-        if [ -n "${film_after}" ] && [ "${checkpoint_name}" = "${film_after}" ]; then
+        # Several checkpoints can arrive between polls. The requested film
+        # marker must not disappear just because a later marker was printed
+        # before the latest trail screenshot was taken.
+        if [ -n "${film_after}" ] && awk -v requested="${film_after}" \
+            '$1 == "CHECKPOINT" && $2 == requested { found=1 } END { exit !found }' "${log}"; then
             mkdir -p "${film}"
-            echo "Filming from ${checkpoint_name} for ${film_seconds}s" \
+            echo "Filming after ${film_after} (latest: ${checkpoint_name}) for ${film_seconds}s" \
                 "with ${film_grabbers} grabbers"
             film_end=$(( $(date +%s) + film_seconds ))
             # One `import` costs about fifty milliseconds, nearly all of it
