@@ -167,17 +167,23 @@ grep -Fq 'TEAM' <<<"${battle}"
 # Use the same keyboard actions shown to a player. Cycle through the two
 # friendly characters until the lead hero beside the opponent is selected.
 selected=""
+hero_selected() {
+    python3 -c 'import json, sys
+state = json.load(sys.stdin)["game"]
+selected = state.get("selected", [0])[0]
+sys.exit(0 if any(unit["id"] == selected and unit["name"] == "Rowan"
+                  for unit in state["units"]) else 1)' <<<"${1}"
+}
 for _attempt in 1 2; do
     "${command[@]}" press e >/dev/null
     selected="$(${command[@]} inspect)"
-    grep -Fq 'Rowan' <<<"${selected}" && break
+    hero_selected "${selected}" && break
 done
 # The authoring half renamed this character. Seeing Rowan here proves that the
 # exported player is running the edited campaign rather than its starter data.
-grep -Fq 'Rowan' <<<"${selected}"
-# Switch to Attack, move the cursor onto the adjacent opponent, and confirm.
+hero_selected "${selected}"
+# Attack focuses a viable opponent automatically; confirm that target.
 "${command[@]}" press tab >/dev/null
-"${command[@]}" press right >/dev/null
 "${command[@]}" press enter >/dev/null
 
 result=""
