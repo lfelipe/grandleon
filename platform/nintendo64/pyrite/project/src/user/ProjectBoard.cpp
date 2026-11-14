@@ -98,6 +98,7 @@ struct UnitArt final {
     sprite_t* close_idle{};
     sprite_t* attack{};
     sprite_t* hurt{};
+    std::array<sprite_t*, 6> directional{};
 };
 
 struct BoardResources final {
@@ -127,6 +128,8 @@ struct BoardResources final {
     sprite_t* combat_backdrop{};
     sprite_t* combat_shadow{};
     std::array<UnitArt, grandleon_project_drawings.size()> art{};
+    std::array<view::BoardHeading, kMaxUnits> headings{};
+    std::array<bool, 4> directional_checkpoints{};
     wav64_t ambience{};
     std::array<wav64_t, 5> music{};
     std::array<wav64_t, 6> combat_cues{};
@@ -1625,12 +1628,30 @@ UnitArt* art_for_unit(const sim::UnitSnapshot& unit) {
     return nullptr;
 }
 
+view::BoardHeading& heading_for_unit(const sim::UnitSnapshot& unit) {
+    const auto& units = board.game.snapshot().units;
+    for (std::size_t index = 0; index < units.size(); ++index) {
+        if (units[index].id == unit.id) return board.headings[index];
+    }
+    assertf(false, "Presented unit is absent from the authored encounter");
+    return board.headings[0];
+}
+
 sprite_t* sprite_for_unit(
     const sim::UnitSnapshot& unit,
     VisualPose pose = VisualPose::idle
 ) {
     UnitArt* art = art_for_unit(unit);
     if (art == nullptr) return nullptr;
+    if ((pose == VisualPose::idle || pose == VisualPose::moving) && art->directional[0]) {
+        const auto heading = heading_for_unit(unit);
+        if (heading == view::BoardHeading::north || heading == view::BoardHeading::south) {
+            const std::size_t base = heading == view::BoardHeading::north ? 0U : 3U;
+            const bool walking = motion.active && motion.unit == unit.id;
+            const std::size_t cell = walking ? (pose == VisualPose::moving ? 2U : 1U) : 0U;
+            return art->directional[base + cell];
+        }
+    }
     switch (pose) {
         case VisualPose::idle: return art->idle;
         case VisualPose::moving: return art->moving;
@@ -1750,7 +1771,8 @@ void build_unit_vertices() {
         std::int16_t cx = world_x(unit.position.x, width);
         std::int16_t cz = world_z(unit.position.y, height);
         int walk_bob = 0;
-        bool facing_left = unit.id == motion.unit && motion.facing_left;
+        auto& facing = heading_for_unit(unit);
+        bool facing_left = view::board_heading_faces_left(facing, unit.id == motion.unit && motion.facing_left);
         if (motion.active && motion.unit == unit.id) {
             const std::uint32_t elapsed = frame_count - motion.started;
             const std::size_t route_index = std::min<std::size_t>(
@@ -1762,8 +1784,9 @@ void build_unit_vertices() {
             const sim::Position segment_to = motion.route[route_index];
             const view::BoardHeading heading = view::board_heading_between(
                 segment_from.x, segment_from.y,
-                segment_to.x, segment_to.y
+                segment_to.x, segment_to.y, facing
             );
+            facing = heading;
             motion.facing_left = view::board_heading_faces_left(
                 heading, motion.facing_left
             );
@@ -1828,6 +1851,10 @@ void build_unit_vertices() {
         );
         const std::size_t first = board.unit_count * kUnitVertexCount;
         const std::uint32_t white = pack_rgba(255U, 255U, 255U);
+        if (art_for_unit(unit)->directional[0] &&
+            (facing == view::BoardHeading::north || facing == view::BoardHeading::south)) {
+            facing_left = false;
+        }
         const std::int16_t left_u = facing_left ? uv_end : 0;
         const std::int16_t right_u = facing_left ? 0 : uv_end;
         set_vertex(board.units, first + 0U, cx - right_x, bottom, cz - right_z, white, left_u, uv_end, normal);
@@ -1974,6 +2001,13 @@ void load_runtime_board() {
             load("board_idle"), load("board_move"), load("close_idle"),
             load("close_attack"), load("close_hurt"),
         };
+        if (grandleon_project_drawings[index].directional) {
+            constexpr const char* poses[] = {"north_idle", "north_contact", "north_move", "south_idle", "south_contact", "south_move"};
+            for (std::size_t pose = 0; pose < board.art[index].directional.size(); ++pose) {
+                board.art[index].directional[pose] = load(poses[pose]);
+                assertf(board.art[index].directional[pose], "Generated compass sprite is missing");
+            }
+        }
     }
     wav64_open(&board.ambience, "rom:/ambience.wav64");
     wav64_open(&board.ui_cue, "rom:/ui_cue.wav64");
@@ -2096,6 +2130,7 @@ void queue_event_moments(const std::vector<sim::Event>& events) {
 
 void configure_campaign_board(const pr::EncounterLoadResult& content) {
     board.content = &content;
+    board.headings.fill(view::BoardHeading::east);
     board.rowan_id = 0U;
     board.tomas_id = 0U;
     assertf(
@@ -3007,6 +3042,18 @@ void draw_units() {
             ? VisualPose::idle : pose_for_unit(unit);
         sprite_t* sprite = sprite_for_unit(unit, board_pose);
         if (sprite == nullptr || visual_index >= board.unit_count) continue;
+        const auto heading = heading_for_unit(unit);
+        if (grandleon_project_review_driver && motion.active && motion.unit == unit.id &&
+            art_for_unit(unit)->directional[0] &&
+            (heading == view::BoardHeading::north || heading == view::BoardHeading::south)) {
+            const bool north = heading == view::BoardHeading::north;
+            const bool passing = board_pose == VisualPose::moving;
+            const std::size_t checkpoint = (north ? 0U : 2U) + (passing ? 1U : 0U);
+            if (!board.directional_checkpoints[checkpoint]) {
+                board.directional_checkpoints[checkpoint] = true;
+                debugf("CHECKPOINT PYRITE_WALK_%s_%s\n", north ? "NORTH" : "SOUTH", passing ? "PASS" : "CONTACT");
+            }
+        }
         // Keep the live 3D terrain/camera, but composite the 84px
         // Godot-derived close actors in screen space. A raw 84x84 CI4 upload
         // cannot fit beside its TLUT in TMEM; sprite_blit transparently bands

@@ -75,8 +75,17 @@ def main() -> None:
         assert count(steel_header, "grandleon_project_encounter_count") == 5
         assert "6 drawings, 6 terrain kinds" in demo_log
         assert "12 drawings, 9 terrain kinds" in steel_log
-        assert len(list((demo / "assets").glob("unit_*.png"))) == 30
-        assert len(list((steel / "assets").glob("unit_*.png"))) == 60
+        assert len(list((demo / "assets").glob("unit_*.png"))) == 66
+        assert len(list((steel / "assets").glob("unit_*.png"))) == 132
+        for staged in (demo, steel):
+            for identity in ("00", "05"):
+                poses = [staged / f"assets/unit_{identity}_{pose}.png" for pose in (
+                    "north_idle", "north_contact", "north_move",
+                    "south_idle", "south_contact", "south_move",
+                )]
+                assert len({digest(path) for path in poses}) == 6, "Compass views and walk phases must be genuinely different art"
+                for path in poses:
+                    assert json.loads(path.with_suffix(".png.conf").read_text())["format"] == 4
         assert digest(demo / "assets/material_atlas.png") != digest(
             steel / "assets/material_atlas.png"
         )
@@ -103,6 +112,8 @@ def main() -> None:
             "assets/combat_backdrop.png",
             "assets/unit_00_board_idle.png",
             "assets/unit_05_close_hurt.png",
+            "assets/unit_00_north_move.png",
+            "assets/unit_05_south_contact.png",
         ):
             assert digest(demo / relative) == digest(repeat / relative), relative
 

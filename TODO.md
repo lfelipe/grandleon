@@ -7,6 +7,9 @@ items below describe the existing foundation; they are not being reopened.
 
 ## 0.6
 
+The broader terrain, landmark, animation and editor improvements below remain
+part of 0.6, alongside performance work and platform validation.
+
 ### Windows builds
 
 - [x] Build the Windows x64 native extension and campaign compiler with
@@ -203,9 +206,11 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   authored footprint and the editor's placement and preview workflow.
 - [ ] Improve landmark silhouettes and terrain-matched backdrop variations on
   PlayStation, comparing equivalent views with Nintendo 64 and Godot.
-- [ ] Adopt the genuine north/south idle and walk banks on Nintendo 64 where
-  measured resident memory permits. The 112-body art foundation is complete;
-  finish runtime compass coverage rather than regenerating the roster.
+- [x] Use the genuine north/south idle, contact and passing poses on Nintendo
+  64. Stage six CI4 sprites per project drawing, retain each unit's facing
+  through route turns and rest, and keep the existing side view for custom
+  drawings without compass art. The five-battle 1P replay passes in base 4 MiB;
+  the final replay has about 762 KiB of free heap. Hardware review remains open.
 - [ ] Further polish movement, turns, planted feet, idle motion, attack,
   reaction and defeat animation on all three players. Preserve the accepted
   route, destination, event order and combat results.
@@ -243,8 +248,11 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   units, camera behaviour and test scenarios; do not change gameplay to pass
   a performance test or weaken the checks.
   The richer stone-keep candidate needs further profiling: the centred
-  two-player exterior capture misses 114 retraces over 600 simulation ticks
-  (300 rendered frames). It fits RAM/VRAM but does not meet the 30 fps gate.
+  two-player exterior capture improves from 114 to 111 missed retraces over
+  600 simulation ticks (300 rendered frames), with render time reduced from
+  515 to 499 HBlanks on average by skipping provably unnecessary fog work.
+  All 131 movement captures are pixel-identical. It fits RAM/VRAM but does not
+  meet the 30 fps gate.
 - [x] Prepare upstream Mipsync texture-bounds protection and batched world
   projection as separate commits/patches. Sanitizers cover the bounds cases;
   matched movement, scrolling and castle-reveal frames remain pixel-identical.
@@ -380,9 +388,9 @@ iOS exports remain later milestones; they are not part of the 0.6 scope.
   east/west travel follow the current authoritative route leg on Nintendo 64
   and PlayStation, matching Godot's existing camera-relative mirroring. The
   shared right-facing walk cells mirror at no texture-memory cost. PlayStation
-  now uses compact authored north/south walk frames; Nintendo 64 chooses its
-  left/right silhouette from the route's projected screen direction so a
-  vertical leg no longer appears to walk backwards.
+  uses compact authored north/south walk frames, and Nintendo 64 now includes
+  genuine north/south idle, contact and passing poses for project drawings
+  with compass art. Side-only custom drawings retain their mirrored fallback.
 - [x] Establish the genuine north/south art pipeline with matching team masks,
   explicit profile metadata, Godot route-driven selection, fallback behavior,
   source audits, and measured compact-console projection. The current set

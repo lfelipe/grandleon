@@ -27,11 +27,12 @@ All 112 curated bodies now have a separate authored 4×2 directional sheet:
 genuine north idle/walk on the top row and genuine south idle/walk on the
 bottom row. They span all seven styles. The matching team mask and explicit
 `directionalSheet` profile binding keep the same faction-colour workflow.
-Godot uses these views on vertical route legs. Missing or invalid optional
-metadata still falls back safely to the side walk. The compact-console
-generator reports which project drawings have source coverage and their
-projected CI4 cost; console runtime integration remains deliberately disabled
-until the active renderer-specific visual/performance gate is complete.
+Godot uses these views on vertical route legs. Nintendo 64 now stages six
+64×64 CI4 sprites per project drawing: north/south idle, planted contact and
+passing poses. Units retain their facing after movement and turn with the
+accepted route. Steel and Cedar's full five-battle replay fits base 4 MiB
+memory with these sprites resident. PlayStation uses paged north/south walking
+poses. Drawings without optional compass art keep their side view.
 
 Run the focused source audit with:
 
@@ -66,10 +67,10 @@ only the body/team-colour drawings that project can name: Sevenfold's 56 are
 
 The Nintendo 64 build puts the bank at `rom:/art/directional.gdb` in DragonFS.
 The PlayStation build stages it at `build-playstation/console-art/` and a disc
-stores it as `DIRART.BIN`. Neither production renderer opens the bank yet, so
-the runtime switch remains off and current executable, RDRAM, RAM, TMEM and
-VRAM behaviour is unchanged. The next phase is a bounded four-frame moving-unit
-cache on each console.
+stores it as `DIRART.BIN`. Neither production renderer opens this packed bank
+yet. The active N64 sprite and PS1 pose-paging paths above use the same source
+art independently. A bounded reader for the packed bank remains a possible
+way to reduce resident memory later.
 
 Run the bank-format check with:
 

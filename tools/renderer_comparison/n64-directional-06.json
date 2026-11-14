@@ -1,0 +1,26 @@
+{
+  "date": "2026-11-14",
+  "renderer": "Pyrite/Tiny3D",
+  "campaign": "Steel and Cedar",
+  "localPlayers": 1,
+  "romSha256": "3f32bb93d438762bf2bcc4969a5368ec14d2eb5c80b33109aa9f141ac8bc6576",
+  "drawings": 12,
+  "directionalSprites": 72,
+  "poseOrder": [
+    "north_idle",
+    "north_contact",
+    "north_move",
+    "south_idle",
+    "south_contact",
+    "south_move"
+  ],
+  "serialEvidence": [
+    "CHECKPOINT PYRITE_WALK_NORTH_PASS",
+    "CHECKPOINT PYRITE_WALK_NORTH_CONTACT",
+    "CHECKPOINT PYRITE_WALK_SOUTH_PASS",
+    "CHECKPOINT PYRITE_WALK_SOUTH_CONTACT",
+    "GRANDLEON_PYRITE_GAMEPLAY frames=120 avg_frame_us=33341 min_frame_us=23318 max_frame_us=34002 fps_x100=2999 heap_used=1752824 heap_total=2533192 heap_free=780368 rdram=4194304 battles=5 commands=290 enemy_commands=170 combat=5 trees=82 forms=147 slot_bytes=1340 hash=11460780795836040227",
+    "RESULT PASS PYRITE_GAMEPLAY"
+  ],
+  "note": "Full normal-input campaign replay in pinned ares, base 4 MiB memory. Facing changes presentation only; final canonical hash matches the preceding campaign replay. Physical console review remains pending."
+}

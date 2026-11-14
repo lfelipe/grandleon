@@ -67,6 +67,10 @@ DIRECTIONAL_POSES = (
     ("south_idle", 4),
     ("south_move", 6),
 )
+N64_DIRECTIONAL_POSES = (
+    ("north_idle", 0), ("north_contact", 2), ("north_move", 3),
+    ("south_idle", 4), ("south_contact", 6), ("south_move", 7),
+)
 DIRECTIONAL_BANK = "directional_art.gdb"
 DIRECTIONAL_INDEX = "directional_art.json"
 
@@ -445,6 +449,12 @@ def write_n64(
                 filename = f"{view}_{drawing.stem}_{pose_name}.png"
                 rendered_frame(binding, drawing, pose_index, side).save(output / filename, optimize=True)
                 assets[view][pose_name] = filename
+        if binding.has_north_south:
+            assets["directional"] = {}
+            for pose_name, pose_index in N64_DIRECTIONAL_POSES:
+                filename = f"board_{drawing.stem}_{pose_name}.png"
+                rendered_directional_frame(binding, drawing, pose_index).save(output / filename, optimize=True)
+                assets["directional"][pose_name] = filename
         records.append({
             "style": STYLES.index(drawing.style),
             "figure": FIGURES.index(drawing.figure),
@@ -466,7 +476,8 @@ def write_n64(
             "eastWest": "mirrored-native-right",
             "northSouth": "profile-authored",
             "availableDrawingCount": directional_count,
-            "generatedRuntimeEnabled": False,
+            "generatedRuntimeEnabled": True,
+            "runtimeEncoding": "project-resident-ci4-sprites",
             "projectedCi4Bytes": directional_bytes,
             "projectedFramesPerDrawing": DIRECTIONAL_POSE_COUNT,
             "bankFile": DIRECTIONAL_BANK,

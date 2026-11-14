@@ -289,10 +289,12 @@ def prepare(project_path: Path, manifest_path: Path, project_root: Path,
     staged_sprites: list[str] = []
     drawing_rows: list[str] = []
     for index, drawing in enumerate(drawings):
+        directional = drawing["assets"].get("directional", {})
         drawing_rows.append(
-            "    {%dU,%dU,%dU,%dU}," % (
+            "    {%dU,%dU,%dU,%dU,%s}," % (
                 int(drawing["style"]), int(drawing["figure"]),
                 int(drawing["archetype"]), int(drawing["colour"]),
+                "true" if directional else "false",
             )
         )
         assets_by_view = drawing["assets"]
@@ -310,6 +312,15 @@ def prepare(project_path: Path, manifest_path: Path, project_root: Path,
             shutil.copyfile(source, assets / f"{name}.png")
             write_asset_config(assets / f"{name}.png.conf", name, 4)
             staged_sprites.append(f"filesystem/{name}.sprite")
+        if directional:
+            for pose in ("north_idle", "north_contact", "north_move", "south_idle", "south_contact", "south_move"):
+                source = source_art / str(directional.get(pose, ""))
+                if not source.is_file():
+                    raise ProjectError(f"generated directional asset is missing: {pose}")
+                name = f"unit_{index:02d}_{pose}"
+                shutil.copyfile(source, assets / f"{name}.png")
+                write_asset_config(assets / f"{name}.png.conf", name, 4)
+                staged_sprites.append(f"filesystem/{name}.sprite")
 
     slot_by_kind = [255] * (len(TERRAIN_KINDS) + 1)
     for slot, kind in enumerate(kinds):
@@ -399,6 +410,7 @@ inline constexpr std::uint8_t grandleon_project_default_style = {int(manifest['d
 inline constexpr std::uint8_t grandleon_project_default_figure = {int(manifest['defaultFigure'])}U;
 struct GrandleonProjectDrawing final {{
     std::uint8_t style, figure, archetype, colour;
+    bool directional;
 }};
 inline constexpr std::array<GrandleonProjectDrawing, {len(drawings)}> grandleon_project_drawings{{{{
 {chr(10).join(drawing_rows)}
