@@ -176,10 +176,14 @@ if [ -n "${saves_dir}" ]; then
     save_mount=(--volume "${saves_dir}:/saves")
 fi
 
-# headless.sh is mounted rather than baked into the image so that changing the
-# run procedure does not require rebuilding the emulator. The outer timeout is
+# Snapshot the mounted helpers so edits in the workspace cannot change a
+# running shell's input beneath its current file offset. The outer timeout is
 # a hard ceiling over headless.sh's own bounded waits: even a bug there cannot
 # hang a CI run.
+runner_snapshot="$(mktemp -d "${out_dir}/.runner.XXXXXX")"
+trap 'rm -rf -- "${runner_snapshot}"' EXIT
+cp "${repository_root}/platform/nintendo64/ares/headless.sh" "${runner_snapshot}/headless.sh"
+cp "${repository_root}/platform/nintendo64/ares/send-x11-input.py" "${runner_snapshot}/send-x11-input.py"
 set +e
 "${docker}" run --rm \
     --user "$(id -u):$(id -g)" \
@@ -200,8 +204,8 @@ set +e
     --env "ARES_AUDIO_DRIVER=${GRANDLEON_N64_ARES_AUDIO_DRIVER:-None}" \
     "${save_mount[@]}" \
     --volume "${rom_dir}:/rom:ro" \
-    --volume "${repository_root}/platform/nintendo64/ares/headless.sh:/headless.sh:ro" \
-    --volume "${repository_root}/platform/nintendo64/ares/send-x11-input.py:/send-x11-input.py:ro" \
+    --volume "${runner_snapshot}/headless.sh:/headless.sh:ro" \
+    --volume "${runner_snapshot}/send-x11-input.py:/send-x11-input.py:ro" \
     --volume "${out_dir}:/out" \
     --workdir /tmp \
     "${image}" \
