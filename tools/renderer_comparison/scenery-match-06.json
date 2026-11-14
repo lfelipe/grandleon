@@ -1,0 +1,49 @@
+{
+  "schema": "grandleon.scenery-review.v1",
+  "scope": "Staggered Gate Village and shared Godot house/ground artwork; other map compositions remain open.",
+  "hashes": {
+    "games/steel_and_cedar/source/project.json": "de5bd31600514b8e8fb19f1b8e435d4c11f7cef73da441a021be663eea821122",
+    "platform/godot/project/content/scenery_style.json": "95d6d006516751522a45b01bfc5b5a5ff264058c0ba76ac3403b821cc92e4d7d",
+    "platform/console_art/natural_materials/manifest.json": "afb836991a1d898a27b4084388e8c7dc99c8190f6d0a310721cc000d77d3b29f",
+    "platform/playstation/mipsync/tools/generate_scene.py": "78ac7bd3b3bdc006e3ab5c21624ebb128af9701912612ac5cf884cf91f750fca",
+    "platform/nintendo64/pyrite/project/src/user/HouseScenery.cpp": "becae4766b0a2ef11cdda43dd3ec28fa48a203aab1fdff3bfa435fe9d64add81",
+    "out/scenery-match06-n64-review/ares/game.log": "9fdcf70ceedb2f8d7a1d020454e5b58886d5e04163fa3136469440cc99b1051d",
+    "out/scenery-match06-ps1/paving-review/emulator.log": "23c0e9259adeacc4305297899fc99007295f576b8395e27312e865dd3af6633c",
+    "out/scenery-match06-balance.log": "61221f55d4797e4a574a857c5239cb70c64bda4864208712e72e4e89c068e506",
+    "out/scenery-match06-godot.log": "6b8b84f163f473183ad7522bca517eed2d0e2013960ed9bc659091aef95404d0"
+  },
+  "native_campaign": "Full suite passes; village solo/co-op finish in 8 rounds each.",
+  "n64": {
+    "campaign_battles": 5,
+    "castle_reveal": true,
+    "rdram_bytes": 4194304,
+    "final_heap_free_bytes": 598048,
+    "final_sample_fps": 30.0,
+    "fps_scope": "Final 120-frame replay sample; not a village-specific benchmark."
+  },
+  "ps1": {
+    "main_ram": {
+      "text_bytes": 429224,
+      "data_bytes": 774964,
+      "bss_bytes": 231424,
+      "resident_bytes": 1435612,
+      "end_address": "0x8016e000",
+      "renderer_probe_budget_bytes": 524288,
+      "platform_audio_reserve_bytes": 65536,
+      "stack_reserve_bytes": 32768,
+      "minimum_gameplay_heap_bytes": 524288,
+      "main_ram_bytes": 2097152,
+      "renderer_and_audio_reserve_bytes": 1501148,
+      "passes_renderer_only_probe_budget": false,
+      "playable_slice_committed_bytes": 2058204,
+      "passes_playable_slice_budget": true
+    },
+    "simulation_ticks": 600,
+    "rendered_frames": 300,
+    "missed_retraces": 113,
+    "render_hbl_average": 511,
+    "render_hbl_maximum": 1138,
+    "status": "Does not consistently meet 30 FPS. Emulator data, not hardware."
+  },
+  "capture_limit": "The temporary camera-capture wrapper still expects the Deepwood map, so its final map assertion fails for Village. Actual emulator log identifies the expected 18x12 map, 13 units, 2 players and hash 7cf83a37104d0a89; captures and metrics are retained, not reported as a passed Deepwood test."
+}

@@ -20,6 +20,7 @@ import sys
 from PIL import Image, ImageDraw
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "platform/console_art"))
+from scenery_style import write_n64_header as write_style_header, save_ci4_house, ground_image
 from settlement_scenery import write_n64_header as write_settlement_header
 from stone_keep import write_n64_header
 
@@ -163,7 +164,7 @@ def selected_maps(project: dict, encounters: list[dict]) -> list[dict]:
     return result
 
 
-def draw_atlas(path: Path, kinds: list[int]) -> None:
+def draw_atlas(path: Path, kinds: list[int], theme: int = 0) -> None:
     rows = 3
     image = Image.new(
         "RGB", (ATLAS_COLUMNS * ATLAS_CELL, rows * ATLAS_CELL), (237, 237, 237)
@@ -173,25 +174,13 @@ def draw_atlas(path: Path, kinds: list[int]) -> None:
         # double tinting and shares all sixteen luminance levels across kinds.
         x0 = (slot % ATLAS_COLUMNS) * ATLAS_CELL
         y0 = (slot // ATLAS_COLUMNS) * ATLAS_CELL
+        tile = ground_image(Path(__file__).resolve().parents[4], kind, theme).resize((ATLAS_CELL, ATLAS_CELL), RESAMPLING.BOX).convert("L")
+        values = list(tile.getdata())
+        mean = max(1.0, sum(values) / len(values))
         for y in range(ATLAS_CELL):
             for x in range(ATLAS_CELL):
-                grain = ((x * 73 + y * 151 + x * y * 17 + kind * 31) % 13) - 6
-                value = 237 + grain
-                if kind == 0:  # Broken ripples, rather than a dotted grid.
-                    value += 7 if (y + x // 7) % 7 == 0 else 0
-                elif kind in (1, 12):
-                    value -= 16 if y % 9 == 0 or (x + y // 9 * 7) % 13 == 0 else 0
-                elif kind == 10:
-                    value -= 13 if x % 6 == 0 else 0
-                elif kind in (2, 6, 9, 11):
-                    value -= 10 if (x * 11 + y * 7) % 23 < 3 else 0
-                    if kind == 2:
-                        # Soft contact shade under the central tree canopy.
-                        value -= max(0, 32 - ((x - 10) ** 2 + (y - 11) ** 2))
-                elif kind in (3, 8):
-                    value -= 12 if (x + y * 3) % 17 == 0 else 0
-                value = max(0, min(255, value))
-                image.putpixel((x0 + x, y0 + y), (value, value, value))
+                value = max(0,min(255,round(values[y*ATLAS_CELL+x] * 238 / mean)))
+                image.putpixel((x0+x,y0+y),(value,value,value))
     image.quantize(colors=16, method=QUANTIZE.MEDIANCUT).convert("RGBA").save(path)
 
 
@@ -326,7 +315,8 @@ def prepare(project_path: Path, manifest_path: Path, project_root: Path,
     slot_by_kind = [255] * (len(TERRAIN_KINDS) + 1)
     for slot, kind in enumerate(kinds):
         slot_by_kind[kind] = slot
-    draw_atlas(assets / "material_atlas.png", kinds)
+    theme = ["temperate", "autumn", "winter", "ashland"].index(project.get("themeId", "temperate"))
+    draw_atlas(assets / "material_atlas.png", kinds, theme)
     write_asset_config(assets / "material_atlas.png.conf", "material_atlas", 4)
     draw_surface_detail(assets / "surface_detail.png")
     write_asset_config(assets / "surface_detail.png.conf", "surface_detail", 0)
@@ -337,6 +327,12 @@ def prepare(project_path: Path, manifest_path: Path, project_root: Path,
     write_n64_header(castle_source.parents[1], project_root / "src/user/GeneratedStoneKeep.hpp",
                      any("castle_wall" in str(cell) for map_value in maps for cell in map_value.get("terrain", [])))
     write_settlement_header(castle_source.parents[1], project_root / "src/user/GeneratedSettlement.hpp")
+    write_style_header(castle_source.parents[1], project_root / "src/user/GeneratedSceneryStyle.hpp", theme)
+    for drawing in range(4):
+        name = f"scenery_house_{drawing}"
+        save_ci4_house(castle_source.parents[1], drawing, assets / f"{name}.png")
+        write_asset_config(assets / f"{name}.png.conf", name, 4)
+
     dominant = max(
         kinds,
         key=lambda kind: sum(

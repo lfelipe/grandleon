@@ -82,8 +82,10 @@ def village_rows() -> tuple[str, ...]:
     area(6, 4, 7, 4, "P") # Market square, with room around the well.
     area(13, 4, 3, 4, "P") # Loading yard beside the gate.
     area(17, 0, 1, 12, "P") # The road continues towards the keep.
-    for x, y in [(3, 1), (7, 1), (11, 1), (3, 8), (7, 8), (11, 8)]:
+    for x, y in [(3, 1), (7, 2), (11, 1), (3, 8), (7, 9), (11, 8)]:
         area(x, y, 2, 2, "V")
+    # The rear lane bends behind the recessed middle cottage.
+    area(6, 11, 4, 1, "R")
     area(8, 5, 2, 2, "w")
     area(5, 8, 2, 2, "g") # Adjoins the southern cottages.
     area(13, 5, 2, 2, "c") # Leaves a clear route to the gate.

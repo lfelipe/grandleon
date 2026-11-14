@@ -11,6 +11,7 @@ const TerrainSceneSelector = preload("res://scripts/terrain_scene_selector.gd")
 const NaturalGround = preload("res://scripts/natural_ground.gd")
 const NaturalScenery = preload("res://scripts/natural_scenery.gd")
 const GraphicsProfiles = preload("res://scripts/graphics_profiles.gd")
+const SceneryStyle = preload("res://scripts/scenery_style.gd")
 const SettlementScenery = preload("res://scripts/settlement_scenery.gd")
 const StoneKeep = preload("res://scripts/stone_keep.gd")
 const TerrainMarkerShader = preload("res://shaders/terrain_marker.gdshader")
@@ -26,14 +27,6 @@ const ARCHETYPE_NAMES := [
 	"knight", "archer", "mage", "stormcaller", "healer", "commander",
 	"rogue", "beast"
 ]
-const MEDIEVAL_HOUSE_TEXTURES := [
-	"res://art/map_features/medieval_house_townhouse.png",
-	"res://art/map_features/medieval_house_thatched.png",
-	"res://art/map_features/medieval_house_inn.png",
-	"res://art/map_features/medieval_house_craftsperson.png",
-]
-const MEDIEVAL_HOUSE_PIXEL_SIZE := 0.00320
-const MEDIEVAL_HOUSE_CENTRE_HEIGHT := 0.79
 const ANCIENT_GROVE_TEXTURE := "res://art/map_features/ancient_tree_cluster_2x2.png"
 const TERRAIN_COLOURS := [
 	Color("287da3"), Color("a87a4f"), Color("316b45"), Color("65717a"),
@@ -1143,6 +1136,8 @@ func _landmark_centre(anchor: Vector2i) -> Vector3:
 
 func _build_village_house(anchor: Vector2i) -> void:
 	var centre := _landmark_centre(anchor)
+	var placement := SceneryStyle.house_at(anchor)
+	centre += Vector3(float(placement.offset[0]), 0, float(placement.offset[1]))
 	var style := _landmark_visual_style("village_house")
 	var variation := _village_house_variation(anchor)
 	# Steel and Cedar currently authors a Medieval border settlement. Keeping the
@@ -1151,7 +1146,7 @@ func _build_village_house(anchor: Vector2i) -> void:
 	# tactical four-cell footprint.
 	match style:
 		_:
-			_build_medieval_village_house(centre, variation)
+			_build_medieval_village_house(centre, variation, bool(placement.mirror))
 
 
 func _landmark_visual_style(kind: String) -> String:
@@ -1166,11 +1161,11 @@ func _landmark_visual_style(kind: String) -> String:
 
 
 func _village_house_variation(anchor: Vector2i) -> int:
-	return posmod(anchor.x * 17 + anchor.y * 31, 4)
+	return int(SceneryStyle.house_at(anchor).drawing)
 
 
-func _build_medieval_village_house(centre: Vector3, variation: int) -> void:
-	if _build_medieval_house_cutout(centre, variation):
+func _build_medieval_village_house(centre: Vector3, variation: int, mirror := false) -> void:
+	if _build_medieval_house_cutout(centre, variation, mirror):
 		return
 	var house := Node3D.new()
 	house.position = centre
@@ -1287,8 +1282,9 @@ func _build_medieval_village_house(centre: Vector3, variation: int) -> void:
 		annex_roof.rotation_degrees.z = side * -12.0
 
 
-func _build_medieval_house_cutout(centre: Vector3, variation: int) -> bool:
-	var path: String = MEDIEVAL_HOUSE_TEXTURES[variation % MEDIEVAL_HOUSE_TEXTURES.size()]
+func _build_medieval_house_cutout(centre: Vector3, variation: int, mirror := false) -> bool:
+	var style: Dictionary = SceneryStyle.document().houses
+	var path: String = "res://" + str(style.drawings[variation % style.drawings.size()])
 	if not ResourceLoader.exists(path):
 		return false
 	var resource: Resource = load(path)
@@ -1299,8 +1295,9 @@ func _build_medieval_house_cutout(centre: Vector3, variation: int) -> bool:
 	# Keep the broadest roof and side bay inside the blocked 2x2 footprint. The
 	# lower centre preserves the building's planted foundation after scaling the
 	# whole cutout down, instead of making it appear to hover over the paving.
-	house.position = centre + Vector3(0, MEDIEVAL_HOUSE_CENTRE_HEIGHT, 0)
-	house.pixel_size = MEDIEVAL_HOUSE_PIXEL_SIZE
+	house.position = centre + Vector3(0, float(style.centreAboveGround) + 0.20, 0)
+	house.pixel_size = float(style.pixelSize)
+	house.flip_h = mirror
 	house.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	house.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
 	house.shaded = false

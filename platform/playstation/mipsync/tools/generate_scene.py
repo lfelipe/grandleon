@@ -17,6 +17,7 @@ import struct
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "platform/console_art"))
+from scenery_style import document as scenery_style, house_at, house_image, ground_image, materials as ground_materials
 from settlement_scenery import load_models as load_settlement_models, placements as settlement_placements
 from stone_keep import load_keep, textured_part_mesh, face_normal, lit_colour
 
@@ -478,88 +479,22 @@ def blended_colour(
     )
 
 
-def relay_colours(repo: Path, kind: int) -> tuple[tuple[int, int, int], ...]:
-    """Read the palette from the Godot terrain scene used as our reference."""
-    scene = repo / "platform/godot/project/art/terrain" / (
-        f"relay_{TERRAIN_NAMES[kind]}.tscn"
-    )
-    values = re.findall(
-        r"albedo_color = Color\(([^,]+), ([^,]+), ([^,]+), [^)]+\)",
-        scene.read_text(encoding="utf-8"),
-    )
-    colours = tuple(
-        tuple(round(float(channel) * 255) for channel in value)
-        for value in values
-    )
-    if len(colours) < 2:
-        raise ValueError(f"Godot terrain scene has no surface palette: {scene}")
-    return colours[1:]
+def terrain_colours(repo: Path, kind: int, theme: int = 0) -> tuple:
+    base = tuple(ground_materials(repo)["palettes"][theme][kind])
+    return base, shifted_colour(base, 90), shifted_colour(base, 110)
 
 
-def relay_terrain_image(repo: Path, kind: int) -> Image.Image:
-    """Make a restrained ground material from the matching Godot palette.
-
-    Terrain identity comes primarily from native geometry.  The material is
-    deliberately broad and low-contrast so the board does not turn back into
-    a repeated icon sheet when viewed from the tactical camera.
-    """
-    colours = relay_colours(repo, kind)
-    base = colours[0]
-    accent = colours[-1]
-    dark = blended_colour(base, shifted_colour(accent, 72), 28)
-    light = blended_colour(base, shifted_colour(accent, 122), 24)
-    image = Image.new("RGB", (128, 32), base)
-    draw = ImageDraw.Draw(image)
+def terrain_image(repo: Path, kind: int, theme: int = 0) -> Image.Image:
+    source = ground_image(repo, kind, theme)
+    image = Image.new("RGB", (128, 32))
+    tile = source.resize((32, 32), Image.Resampling.LANCZOS)
     for variant in range(4):
-        x0 = variant * 32
-        tile_base = shifted_colour(base, 96 + variant * 2)
-        draw.rectangle((x0, 0, x0 + 31, 31), fill=tile_base)
-        if kind == 0:  # water
-            for y, offset in ((10, 2), (24, 9)):
-                start = x0 + (offset + variant * 3) % 12
-                draw.line((start, y, min(x0 + 28, start + 15), y), fill=light)
-        elif kind in (1, 12):  # road / paved
-            for row, y in enumerate((6, 21)):
-                shift = 7 if (row + variant) & 1 else 0
-                draw.line((x0, y, x0 + 31, y), fill=dark)
-                for x in range(x0 + shift, x0 + 32, 16):
-                    draw.line((x, y - 5, x, y + 5), fill=dark)
-        elif kind in (3, 8):  # mountain / ruins
-            draw.polygon(
-                ((x0, 23), (x0 + 10 + variant, 13),
-                 (x0 + 22, 16), (x0 + 31, 8), (x0 + 31, 31), (x0, 31)),
-                fill=dark,
-            )
-            draw.line((x0 + 9, 13, x0 + 20, 16), fill=light)
-        elif kind in (4, 5):  # sand / snow
-            for y, length in ((11, 18), (26, 14)):
-                start = x0 + (variant * 7 + y) % 11
-                draw.arc(
-                    (start, y - 4, min(x0 + 30, start + length), y + 3),
-                    190, 350, fill=light,
-                )
-        elif kind == 6:  # swamp
-            draw.ellipse((x0 + 3, 8, x0 + 25, 24), fill=dark)
-            draw.arc((x0 + 6, 10, x0 + 22, 21), 20, 160, fill=light)
-        elif kind == 10:  # farmland
-            for y in (7, 17, 27):
-                draw.line((x0, y, x0 + 31, y), fill=dark)
-                draw.line((x0, y + 1, x0 + 31, y + 1), fill=light)
-        elif kind == 11:  # bamboo
-            draw.line((x0 + 8, 31, x0 + 9, 12), fill=dark)
-            draw.line((x0 + 24, 24, x0 + 23, 5), fill=light)
-        else:  # forest, hills, grass: leaf litter and broad dappled light
-            for y in range(32):
-                for x in range(32):
-                    grain = hash_cell(x + variant * 32, y, kind + 31) % 9 - 4
-                    patch = hash_cell(x // 6 + variant * 7, y // 6, kind) % 13 - 6
-                    shade = 100 + grain + patch
-                    if kind == 2:
-                        # A soft ground-contact shade beneath the canopy.
-                        dx, dy = x - (14 + variant), y - 18
-                        shade -= max(0, 17 - (dx * dx + dy * dy) // 5)
-                    image.putpixel((x0 + x, y), shifted_colour(tile_base, shade))
-    return image.convert("RGBA")
+        # Keep the full Godot tile: quarter crops magnify paving fourfold.
+        rotated = tile.transpose((Image.Transpose.FLIP_LEFT_RIGHT,
+                                  Image.Transpose.FLIP_TOP_BOTTOM,
+                                  Image.Transpose.ROTATE_180)[variant - 1]) if variant else tile
+        image.paste(rotated, (variant * 32, 0))
+    return image
 
 
 def unit_image(
@@ -604,7 +539,7 @@ def unit_image(
 def write_textures(
     output: Path, repo: Path, terrain_kinds: list[int], units: list[dict[str, object]],
     map_id: str = "0", speakers: list[dict[str, object]] | None = None,
-    castle: bool = False,
+    castle: bool = False, houses: bool = False, theme: int = 0,
 ) -> tuple[
     dict[int, int], dict[tuple[int, int, int, int], UnitTextureIndices],
     int, dict[str, object], dict[int, int],
@@ -619,7 +554,7 @@ def write_textures(
     ] = {}
 
     for kind in sorted(set(terrain_kinds)):
-        texture = relay_terrain_image(repo, kind)
+        texture = terrain_image(repo, kind, theme)
         textures.append((f"terrain_{TERRAIN_NAMES[kind]}", texture, False, 0, 0))
         terrain_indices[kind] = len(textures)
 
@@ -654,6 +589,11 @@ def write_textures(
                 masonry.paste(stone, (x, y))
         textures.append(("form_material_4", masonry, False, 0, 0))
         terrain_indices[-4] = len(textures)
+
+    if houses:
+        for drawing in range(4):
+            textures.append((f"scenery_house_{drawing}", house_image(repo,drawing,96), True, 0, 0))
+            terrain_indices[-10-drawing] = len(textures)
 
     for unit in units:
         key = (
@@ -942,7 +882,7 @@ def coalesce_vertical_runs(
         if key in consumed:
             continue
         below = (x, y + 1, kind, authored, span_x)
-        can_merge = span_y == 1 and below in lookup and below not in consumed
+        can_merge = kind not in (8, 12) and span_y == 1 and below in lookup and below not in consumed
         if can_merge:
             for edge_x in (x, x + span_x):
                 top = corner_relief(edge_x, y, cell_lifts)
@@ -1171,6 +1111,19 @@ def append_keep_part(vertices: list, uvs: list, triangles: list, part: dict,
 
 def append_settlement_model(board_vertices, board_uvs, board_triangles, kind, settlement_models, terrain_indices):
     cx = cz = floor = 0
+    if kind.startswith("house_cutout_"):
+        _prefix,_cutout,drawing,mirror = kind.split("_")
+        # Same full camera-facing canvas as Godot Sprite3D, fixed board angle.
+        angle = math.radians(40.0)
+        style = scenery_style(Path(__file__).resolve().parents[4])["houses"]
+        half = style["portableCanvasSide"] * 64
+        centre = half * math.cos(angle)
+        for x,y in [(-half,-half),(half,-half),(half,half),(-half,half)]:
+            board_vertices.append((round(x),round(centre + y*math.cos(angle)),round(-y*math.sin(angle)),0))
+        board_uvs.extend([(95 if mirror == "1" else 0,95),(0 if mirror == "1" else 95,95),(0 if mirror == "1" else 95,0),(95 if mirror == "1" else 0,0)])
+        texture = terrain_indices[-10-int(drawing)]
+        board_triangles.extend([(0,1,2,texture,255,255,255,255),(0,2,3,texture,255,255,255,255)])
+        return
     for part in settlement_models[kind]:
         source_indices = part["indices"]
         remap = {}
@@ -1515,7 +1468,8 @@ def write_meshes(
     if scenery_metadata is not None:
         for x,y,kind,size in settlement_instances:
             floor = max(surface_relief(x+dx,y+dy,cell_lifts) for dy in range(size) for dx in range(size)) if relief_mode == "smooth" else 0
-            scenery_metadata.append((scenery_indices[kind], (x*2+size-width)*64, floor, (height-y*2-size)*64))
+            offset = house_at(Path(__file__).resolve().parents[4],x,y)["offset"] if kind.startswith("house_cutout_") else [0,0]
+            scenery_metadata.append((scenery_indices[kind], (x*2+size-width)*64+round(offset[0]*128), floor, (height-y*2-size)*64-round(offset[1]*128), kind.startswith("house_cutout_")))
     lines += emit_vectors("k_combat_floor_vertices", combat_floor_vertices)
     lines += emit_vectors(
         "k_combat_floor_normals",
@@ -1741,9 +1695,10 @@ def write_scene(
         )
         next_id += 1
         entity_index += 1
-    for mesh_index,x,y,z in scenery_metadata:
+    for mesh_index,x,y,z,is_house in scenery_metadata:
         tree_entity_indices.append(entity_index)
-        lines.append(f"    {{.id={next_id}u,.name=\"settlement_landmark\",.parent_entity_index=-1,.position={{{fixed(x/64)},{fixed(y/64)},{fixed(z/64)}}},.scale={{65536,65536,65536}},.mesh=PS1_MESH_CUSTOM,.mesh_index={mesh_index},.mesh_size=65536,.mesh_enabled=1,.color_r=255,.color_g=255,.color_b=255,.texture_tiling_u_q8=256,.texture_tiling_v_q8=256,.render_unlit=1,.render_preset=PS1_RENDER_PRESET_FLOOR,.rigid_root_entity_index=-1,.collider_shape=-1,.camera_shot_trigger_index=-1,.collider_camera_target_index=-1}},")
+        preset = "PS1_RENDER_PRESET_CHARACTER" if is_house else "PS1_RENDER_PRESET_FLOOR"
+        lines.append(f"    {{.id={next_id}u,.name=\"settlement_landmark\",.parent_entity_index=-1,.position={{{fixed(x/64)},{fixed(y/64)},{fixed(z/64)}}},.scale={{65536,65536,65536}},.mesh=PS1_MESH_CUSTOM,.mesh_index={mesh_index},.mesh_size=65536,.mesh_enabled=1,.color_r=255,.color_g=255,.color_b=255,.texture_tiling_u_q8=256,.texture_tiling_v_q8=256,.render_unlit=1,.render_preset={preset},.rigid_root_entity_index=-1,.collider_shape=-1,.camera_shot_trigger_index=-1,.collider_camera_target_index=-1}},")
         next_id += 1
         entity_index += 1
     combat_floor_index = entity_index
@@ -2007,7 +1962,7 @@ def main() -> int:
                     minimum_x + ((x - minimum_x) // 4 + 1) * 4,
                 )
                 span = 1
-                while x + span < anchor_end:
+                while kind not in (8, 12) and x + span < anchor_end:
                     next_authored = (
                         0 <= x + span < width and 0 <= y < height
                     )
@@ -2028,7 +1983,7 @@ def main() -> int:
                 kind = terrain[y * width + x]
                 span = 1
                 while (
-                    span < 4 and x + span < width
+                    kind not in (8, 12) and span < 4 and x + span < width
                     and terrain[y * width + x + span] == kind
                 ):
                     span += 1
@@ -2059,11 +2014,12 @@ def main() -> int:
         keep_parts = load_keep(repo, "ps1")
     settlement_instances = settlement_placements(document["terrain_ids"], width, height, content_id)
     settlement_models = load_settlement_models(repo) if settlement_instances else {}
+    settlement_instances = [(x,y,(f"house_cutout_{house_at(repo,x,y)['drawing']}_{int(house_at(repo,x,y)['mirror'])}" if kind == "village_house" else kind),size) for x,y,kind,size in settlement_instances]
     all_kinds = [kind for _x, _y, kind, _authored, _span_x, _span_y in cells]
     terrain_indices, unit_indices, ui_texture, texture_metrics, speaker_indices = write_textures(
         output, repo, all_kinds, typed_units, str(document.get("map_id", "0")),
         document.get("speakers", []),
-        castle=bool(keep_parts),
+        castle=bool(keep_parts), houses=any(k.startswith("house_cutout_") for _x,_y,k,_size in settlement_instances), theme=int(document.get("theme",0)),
     )
     terrain_form_cells = select_terrain_form_cells(
         terrain, width, height, args.surroundings_seed,
@@ -2095,7 +2051,7 @@ def main() -> int:
         output, document, unit_indices, terrain_chunks,
         ui_texture,
         surface_lifts,
-        shifted_colour(relay_colours(repo, distant_kind)[0], 65),
+        shifted_colour(terrain_colours(repo, distant_kind, int(document.get("theme",0)))[0], 65),
         speaker_indices, scenery_metadata,
     )
     visible_units = visible_position_peak(

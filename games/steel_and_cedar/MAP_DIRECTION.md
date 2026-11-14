@@ -59,10 +59,11 @@ must stay subtle enough that movement ranges and unit actions remain clear.
 
 Gate Village now has the first revised layout, with initial models in all three
 renderers. The other four rows describe planned composition work, not finished
-maps. Console prop animation and PS1 village performance still need work. Current automated village traces
-finish in 13 solo rounds and 6 co-op rounds; the earlier solo pacing/attrition
-baseline flags this change for further playtesting. Do not force casualties or
-change combat rules to satisfy an old trace.
+maps. The houses have varied setbacks, roof drawings and facing directions; the rear
+lane bends around the recessed cottage. All three renderers use the same house
+art and placement recipe. The full native campaign suite passes, including both
+village traces in eight rounds. Human playtesting, console prop animation and
+PS1 village performance remain open.
 
 The redesigned layout uses campaign content revision `0.2.0`. Checkpoints from
 revision `0.1.0` are incompatible: their saved positions can fall inside the new

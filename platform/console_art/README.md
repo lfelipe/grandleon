@@ -13,12 +13,30 @@ terrace so its floor cannot draw over the roof.
 ## Settlement scenery
 
 `settlement_scenery.json` contains simpler meshes exported from Godot's
-`settlement_scenery.gd`: houses, a cart, well, garden, gate tower and wall
+`settlement_scenery.gd`: a cart, well, garden, gate tower and wall
 junctions. Both console generators check the source hash and reject stale
 geometry. Regenerate with `platform/godot/tests/export_settlement_scenery.gd`.
 PS1 stores each model once and places it separately from terrain pages; its
 build audit still enforces main RAM and texture limits. Console prop animation
 and the busier village's frame budget remain open work.
+
+## Shared houses and ground
+
+Houses use the same four drawings as Godot, rather than approximate building
+meshes. `scenery_style.json` in the Godot content folder defines their drawing,
+mirroring, small placement offsets and size. Nintendo 64 reduces each drawing
+to a transparent 64×64 CI4 sprite; PlayStation uses a 96×96 cutout in the stage
+palette. Changing the drawing or recipe updates all three builds.
+
+`natural_materials/` contains 52 tiles rendered from Godot's real ground shader
+and scene lighting: thirteen terrain kinds across four seasons. The generators
+check the shader, ground-script and graphics-profile hashes before using them.
+After changing those sources, regenerate with
+`platform/godot/tests/export_natural_materials.gd`, passing `--repo` and
+`--output` after `--`. Nintendo 64 uses a compact luminance atlas tinted with
+the sampled colours; PlayStation uses the tile images in its material atlas.
+Neither console runs Godot's shader, so this shares the artwork and palette
+without implying identical lighting or geometry.
 
 ## Characters
 

@@ -31,6 +31,8 @@
 #include "BoardShadows.hpp"
 #include "StoneKeep.hpp"
 #include "SettlementScenery.hpp"
+#include "HouseScenery.hpp"
+#include "GeneratedSceneryStyle.hpp"
 #include "ConsoleFont.hpp"
 #include "BoardCamera.hpp"
 #include "BoardSurroundings.hpp"
@@ -150,6 +152,7 @@ struct BoardResources final {
     std::size_t landmark_vertex_count{};
     gp::StoneKeep keep{};
     gp::SettlementScenery settlement{};
+    gp::HouseScenery houses{};
     std::size_t visibility_vertex_count{};
     std::array<bool, kMaxCells> visibility_revealed{};
     std::size_t unit_count{};
@@ -911,13 +914,7 @@ void terrain_uv(
 
 std::uint32_t terrain_tint(std::uint64_t id, std::size_t index) {
     const std::uint8_t variation = static_cast<std::uint8_t>((index * 19U) & 0x0FU);
-    constexpr std::uint8_t colours[13][3] = {
-        {104, 166, 196}, {207, 178, 122}, {111, 164, 91},
-        {169, 172, 158}, {224, 194, 126}, {225, 238, 239},
-        {118, 132, 83}, {170, 181, 116}, {176, 162, 145},
-        {147, 190, 105}, {199, 175, 98}, {115, 170, 85},
-        {194, 197, 184},
-    };
+    const auto& colours = gp::scenery_style::ground;
     const std::uint8_t kind = terrain_kind(id);
     return pack_rgba(
         static_cast<std::uint8_t>(colours[kind][0] - variation / 2U),
@@ -1363,6 +1360,7 @@ int settlement_model(std::uint64_t id) {
 void build_landmark_vertices() {
     board.landmark_vertex_count = 0;
     board.settlement.begin();
+    board.houses.begin();
     const auto width = board.content->definition.width;
     const auto height = board.content->definition.height;
     constexpr std::uint64_t castle_wall =
@@ -1409,8 +1407,12 @@ void build_landmark_vertices() {
                     landmark_cells_seen[index+width] = true;
                     landmark_cells_seen[index+width+1U] = true;
                 }
-                const int variant = single && x > 0 && board.content->terrain[index-1U] == grandleon::core::stable_content_id_v1("mountain_watchtower") ? 6 : model;
-                board.settlement.add(static_cast<std::uint8_t>(variant),cx+(single ? 0 : kHalfCell),floor,cz+(single ? 0 : kHalfCell));
+                if (model == 0) {
+                    assertf(board.houses.add(x,y,cx+kHalfCell,floor,cz+kHalfCell), "Godot house artwork could not be loaded");
+                } else {
+                    const int variant = single && x > 0 && board.content->terrain[index-1U] == grandleon::core::stable_content_id_v1("mountain_watchtower") ? 6 : model;
+                    board.settlement.add(static_cast<std::uint8_t>(variant),cx+(single ? 0 : kHalfCell),floor,cz+(single ? 0 : kHalfCell));
+                }
             }
             continue;
         }
@@ -5678,6 +5680,7 @@ void onScenePreDraw3D() {
     const auto& hidden = board.content->visual_visibility.hidden_cells;
     board.keep.draw(!hidden.empty() && !board.visibility_revealed[hidden.front()]);
     draw_trees();
+    board.houses.draw(current_camera.eye_x,current_camera.eye_y,current_camera.eye_z,current_camera.target_x,current_camera.target_y,current_camera.target_z);
     draw_visual_visibility();
     board.shadows.draw();
     draw_cursor();

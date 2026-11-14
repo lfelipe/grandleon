@@ -1,0 +1,25 @@
+{
+  "schema": "grandleon.scenery_style.v1",
+  "houses": {
+    "pixelSize": 0.0032,
+    "centreAboveGround": 0.59,
+    "sourceSide": 768,
+    "portableCanvasSide": 1.92,
+    "drawings": [
+      "art/map_features/medieval_house_townhouse.png",
+      "art/map_features/medieval_house_thatched.png",
+      "art/map_features/medieval_house_inn.png",
+      "art/map_features/medieval_house_craftsperson.png"
+    ],
+    "placements": [
+      {"drawing": 0, "mirror": false, "offset": [-0.035, 0.025]},
+      {"drawing": 1, "mirror": true, "offset": [0.025, -0.035]},
+      {"drawing": 2, "mirror": false, "offset": [-0.020, -0.030]},
+      {"drawing": 3, "mirror": true, "offset": [0.035, 0.020]},
+      {"drawing": 1, "mirror": false, "offset": [-0.030, 0.035]},
+      {"drawing": 3, "mirror": false, "offset": [0.030, -0.020]},
+      {"drawing": 0, "mirror": true, "offset": [0.020, 0.030]},
+      {"drawing": 2, "mirror": true, "offset": [-0.025, -0.025]}
+    ]
+  }
+}

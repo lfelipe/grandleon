@@ -63,8 +63,8 @@
 <rect x="180" y="236" width="33.2" height="33.2" rx="0" fill="#c6a678"/>
 <rect x="213" y="236" width="33.2" height="33.2" rx="0" fill="#c6a678"/>
 <rect x="246" y="236" width="33.2" height="33.2" rx="0" fill="#c6a678"/>
-<rect x="279" y="236" width="33.2" height="33.2" rx="0" fill="#c6a678"/>
-<rect x="312" y="236" width="33.2" height="33.2" rx="0" fill="#c6a678"/>
+<rect x="279" y="236" width="33.2" height="33.2" rx="0" fill="#b7c38d"/>
+<rect x="312" y="236" width="33.2" height="33.2" rx="0" fill="#b7c38d"/>
 <rect x="345" y="236" width="33.2" height="33.2" rx="0" fill="#c6a678"/>
 <rect x="378" y="236" width="33.2" height="33.2" rx="0" fill="#c6a678"/>
 <rect x="411" y="236" width="33.2" height="33.2" rx="0" fill="#c6a678"/>
@@ -189,8 +189,8 @@
 <rect x="180" y="467" width="33.2" height="33.2" rx="0" fill="#c6a678"/>
 <rect x="213" y="467" width="33.2" height="33.2" rx="0" fill="#c6a678"/>
 <rect x="246" y="467" width="33.2" height="33.2" rx="0" fill="#c6a678"/>
-<rect x="279" y="467" width="33.2" height="33.2" rx="0" fill="#c6a678"/>
-<rect x="312" y="467" width="33.2" height="33.2" rx="0" fill="#c6a678"/>
+<rect x="279" y="467" width="33.2" height="33.2" rx="0" fill="#b7c38d"/>
+<rect x="312" y="467" width="33.2" height="33.2" rx="0" fill="#b7c38d"/>
 <rect x="345" y="467" width="33.2" height="33.2" rx="0" fill="#c6a678"/>
 <rect x="378" y="467" width="33.2" height="33.2" rx="0" fill="#c6a678"/>
 <rect x="411" y="467" width="33.2" height="33.2" rx="0" fill="#c6a678"/>
@@ -206,9 +206,9 @@
 <rect x="147" y="500" width="33.2" height="33.2" rx="0" fill="#b1a06b"/>
 <rect x="180" y="500" width="33.2" height="33.2" rx="0" fill="#b1a06b"/>
 <rect x="213" y="500" width="33.2" height="33.2" rx="0" fill="#b1a06b"/>
-<rect x="246" y="500" width="33.2" height="33.2" rx="0" fill="#b1a06b"/>
-<rect x="279" y="500" width="33.2" height="33.2" rx="0" fill="#b1a06b"/>
-<rect x="312" y="500" width="33.2" height="33.2" rx="0" fill="#b1a06b"/>
+<rect x="246" y="500" width="33.2" height="33.2" rx="0" fill="#c6a678"/>
+<rect x="279" y="500" width="33.2" height="33.2" rx="0" fill="#c6a678"/>
+<rect x="312" y="500" width="33.2" height="33.2" rx="0" fill="#c6a678"/>
 <rect x="345" y="500" width="33.2" height="33.2" rx="0" fill="#c6a678"/>
 <rect x="378" y="500" width="33.2" height="33.2" rx="0" fill="#b1a06b"/>
 <rect x="411" y="500" width="33.2" height="33.2" rx="0" fill="#b1a06b"/>
@@ -220,14 +220,14 @@
 <rect x="609" y="500" width="33.2" height="33.2" rx="0" fill="#d0c8ae"/>
 <rect x="154" y="179" width="52" height="45" rx="2" fill="#d1c2a1"/>
 <path d="M151,182 L180.0,167 L209,182 L206,194 L154,194 Z" fill="#9d624a"/>
-<rect x="286" y="179" width="52" height="45" rx="2" fill="#d1c2a1"/>
-<path d="M283,182 L312.0,167 L341,182 L338,194 L286,194 Z" fill="#9d624a"/>
+<rect x="286" y="212" width="52" height="45" rx="2" fill="#d1c2a1"/>
+<path d="M283,215 L312.0,200 L341,215 L338,227 L286,227 Z" fill="#9d624a"/>
 <rect x="418" y="179" width="52" height="45" rx="2" fill="#d1c2a1"/>
 <path d="M415,182 L444.0,167 L473,182 L470,194 L418,194 Z" fill="#9d624a"/>
 <rect x="154" y="410" width="52" height="45" rx="2" fill="#d1c2a1"/>
 <path d="M151,413 L180.0,398 L209,413 L206,425 L154,425 Z" fill="#9d624a"/>
-<rect x="286" y="410" width="52" height="45" rx="2" fill="#d1c2a1"/>
-<path d="M283,413 L312.0,398 L341,413 L338,425 L286,425 Z" fill="#9d624a"/>
+<rect x="286" y="443" width="52" height="45" rx="2" fill="#d1c2a1"/>
+<path d="M283,446 L312.0,431 L341,446 L338,458 L286,458 Z" fill="#9d624a"/>
 <rect x="418" y="410" width="52" height="45" rx="2" fill="#d1c2a1"/>
 <path d="M415,413 L444.0,398 L473,413 L470,425 L418,425 Z" fill="#9d624a"/>
 <circle cx="345" cy="335" r="22" fill="#8c8d7e"/>
@@ -268,5 +268,4 @@
 <text x="710" y="490" text-anchor="start" font-size="14" fill="#8ccef2">P1  Rowan</text>
 <text x="710" y="516" text-anchor="start" font-size="14" fill="#f3c777">P2  Akari / co-op</text>
 <text x="710" y="551" text-anchor="start" font-size="13" fill="#b5beb1">Composition plan</text>
-<circle cx="295" cy="318" r="15" fill="#89c7e9"/><text x="295" y="322" text-anchor="middle" font-size="10" fill="#102333">Solo</text>
 </svg>

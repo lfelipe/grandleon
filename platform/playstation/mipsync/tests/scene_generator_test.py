@@ -41,6 +41,18 @@ def test_stone_keep_exports_solid_terrace_with_local_sorting_faces() -> None:
     assert area == expected, "stone terrace must cover its whole footprint without holes"
 
 
+def test_masonry_keeps_one_texture_tile_per_board_cell() -> None:
+    # Paving and ruins must not stretch across merged rows. Plain ground can.
+    for kind in (8, 12):
+        cells = [(0, 0, kind, True, 1, 1), (0, 1, kind, True, 1, 1)]
+        assert SCENE.coalesce_vertical_runs(cells, {(x, y): 0 for x in range(2) for y in range(3)}) == cells
+    grass = [(0, 0, 9, True, 1, 1), (0, 1, 9, True, 1, 1)]
+    assert SCENE.coalesce_vertical_runs(grass, {(x, y): 0 for x in range(2) for y in range(3)}) == [(0, 0, 9, True, 1, 2)]
+    source = SCENE.ground_image(ROOT.parents[2], 12)
+    image = SCENE.terrain_image(ROOT.parents[2], 12)
+    assert image.crop((0, 0, 32, 32)).tobytes() == source.resize((32, 32), Image.Resampling.LANCZOS).tobytes()
+
+
 def test_console_font_has_complete_pixel_cells() -> None:
     atlas = Image.open(ROOT.parents[2] / "assets/fonts/spleen/console-6x12.png").convert("RGBA")
     assert atlas.size == (64, 96)
@@ -250,6 +262,7 @@ def test_fractured_rock_has_grounded_volume_and_outward_faces() -> None:
 
 if __name__ == "__main__":
     test_stone_keep_exports_solid_terrace_with_local_sorting_faces()
+    test_masonry_keeps_one_texture_tile_per_board_cell()
     test_console_font_has_complete_pixel_cells()
     test_accented_font_uses_complete_cells_and_dedicated_four_bit_clut()
     test_cutout_keeps_grounding_inside_existing_texture()
