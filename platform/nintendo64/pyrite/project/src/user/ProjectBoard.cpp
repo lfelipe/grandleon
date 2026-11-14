@@ -30,6 +30,7 @@
 #include "audio/audioManager.h"
 #include "BoardShadows.hpp"
 #include "StoneKeep.hpp"
+#include "SettlementScenery.hpp"
 #include "ConsoleFont.hpp"
 #include "BoardCamera.hpp"
 #include "BoardSurroundings.hpp"
@@ -148,6 +149,7 @@ struct BoardResources final {
     std::array<std::int8_t, kMaxTrees> tree_sway{};
     std::size_t landmark_vertex_count{};
     gp::StoneKeep keep{};
+    gp::SettlementScenery settlement{};
     std::size_t visibility_vertex_count{};
     std::array<bool, kMaxCells> visibility_revealed{};
     std::size_t unit_count{};
@@ -1251,12 +1253,15 @@ void append_terrain_form(
     ++board.terrain_form_count;
 }
 
+int settlement_model(std::uint64_t id);
+
 void build_terrain_form_vertices() {
     board.terrain_form_count = 0U;
     const auto width = board.content->definition.width;
     const auto height = board.content->definition.height;
     for (std::size_t index = 0; index < board.content->terrain.size(); ++index) {
         const auto id = board.content->terrain[index];
+        if (settlement_model(id) >= 0) continue;
         const std::uint8_t kind = terrain_kind(id);
         const auto x = static_cast<std::int16_t>(index % width);
         const auto z = static_cast<std::int16_t>(index / width);
@@ -1349,8 +1354,15 @@ void append_box(
     board.landmark_vertex_count += 8U;
 }
 
+int settlement_model(std::uint64_t id) {
+    constexpr const char* names[] = {"mountain_village_house", "mountain_abandoned_cart", "mountain_village_well", "mountain_watchtower", "mountain_walled_garden", "mountain_town_wall"};
+    for (std::size_t i=0; i<6U; ++i) if (id == grandleon::core::stable_content_id_v1(names[i])) return static_cast<int>(i);
+    return -1;
+}
+
 void build_landmark_vertices() {
     board.landmark_vertex_count = 0;
+    board.settlement.begin();
     const auto width = board.content->definition.width;
     const auto height = board.content->definition.height;
     constexpr std::uint64_t castle_wall =
@@ -1376,6 +1388,7 @@ void build_landmark_vertices() {
             "Godot-derived stone keep failed to load");
     }
     bool built_ruin = false;
+    std::array<bool, kMaxCells> landmark_cells_seen{};
     for (std::size_t index = 0; index < board.content->terrain.size(); ++index) {
         const std::uint64_t terrain = board.content->terrain[index];
         const auto x = static_cast<std::int16_t>(index % width);
@@ -1383,6 +1396,24 @@ void build_landmark_vertices() {
         const std::int16_t cx = world_x(x, width);
         const std::int16_t cz = world_z(y, height);
         const std::int16_t floor = terrain_lift(terrain);
+        const int model = settlement_model(terrain);
+        if (model >= 0) {
+            const bool single = model == 5;
+            if (!landmark_cells_seen[index]) {
+                if (!single) {
+                    assertf(x+1 < width && y+1 < height && board.content->terrain[index+1U] == terrain && board.content->terrain[index+width] == terrain && board.content->terrain[index+width+1U] == terrain, "Settlement footprint is incomplete");
+                }
+                landmark_cells_seen[index] = true;
+                if (!single) {
+                    landmark_cells_seen[index+1U] = true;
+                    landmark_cells_seen[index+width] = true;
+                    landmark_cells_seen[index+width+1U] = true;
+                }
+                const int variant = single && x > 0 && board.content->terrain[index-1U] == grandleon::core::stable_content_id_v1("mountain_watchtower") ? 6 : model;
+                board.settlement.add(static_cast<std::uint8_t>(variant),cx+(single ? 0 : kHalfCell),floor,cz+(single ? 0 : kHalfCell));
+            }
+            continue;
+        }
         if (terrain == castle_wall) {
             continue; // The shared Godot model supplies the complete masonry.
         } else if (terrain == castle_dais) {
@@ -1398,6 +1429,7 @@ void build_landmark_vertices() {
             built_ruin = true;
         }
     }
+    assertf(board.settlement.finish(), "Settlement scenery exceeds available memory");
 }
 
 bool visibility_hidden(std::size_t index) {
@@ -5642,6 +5674,7 @@ void onScenePreDraw3D() {
     draw_board_cells();
     draw_terrain_forms();
     draw_landmark();
+    board.settlement.draw();
     const auto& hidden = board.content->visual_visibility.hidden_cells;
     board.keep.draw(!hidden.empty() && !board.visibility_revealed[hidden.front()]);
     draw_trees();

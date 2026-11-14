@@ -1,8 +1,8 @@
 # Steel and Cedar
 
-Steel and Cedar is the candidate campaign for Grandleon's future shared demo.
-It is intentionally separate from the included games while its pacing and
-difficulty are playtested. Nothing launches it by default yet.
+Steel and Cedar is Grandleon's built-in demonstration campaign. Its maps,
+scenery and pacing are being reworked for 0.6; the current layouts remain
+playtest material.
 
 A false treaty signal sends Commander Rowan Vale to stop the March and Cedar
 from stumbling into war. The one-player campaign is Rowan's complete story,
@@ -30,45 +30,20 @@ without creating a second copy of the character.
 
 ## Environment direction
 
-Cedar Deepwood and Gate Village deliberately reserve coherent tactical
-footprints with the terrain art that exists today. They are playable layouts,
-but not the final environment presentation.
+The campaign follows one road from orchard country through Cedar forest and
+its old watch fort, then into Gate Village and the keep above it. See the
+[map direction](MAP_DIRECTION.md) for each place's layout, scenery and solo/co-op
+role.
 
-- Deepwood now uses two-cell-by-two-cell blocked ancient-grove footprints,
-  connected clearings, and separate winding trails. The Godot player groups
-  those footprints into large trees instead of four unrelated obstacles.
-- Gate Village now uses six deliberate two-cell-by-two-cell house footprints,
-  two cross streets, narrow alleys, a paved square, a wall with three entries,
-  and a defended court. The houses occupy real impassable cells, so an archer
-  cannot shoot a visual prop that everybody else walks through.
+Gate Village is the first composition prototype: homes face connected streets,
+a market square surrounds the well, cottage gardens adjoin the southern lane,
+and the tower joins the wall at the eastern gate. Deepwood retains its ancient
+groves. New Godot landmark models and editor stamps are available; their console
+versions are being prepared. The other maps still need the planned composition
+pass. More detail alone does not make those layouts finished.
 
-Twin Gate Keep adds a connected 6×6 castle footprint: blocked outer walls,
-two passable doors, a walkable chamber and a boss dais. Entering the keep
-reveals the room beneath its exterior cutout at the doorway without moving the
-board, camera, or units. The room stays open once explored, so the live units
-and boss remain readable during the fight. See the
-[short reveal](../../docs/screenshots/godot/twin-gate-keep-reveal.gif),
-[closed exterior](../../docs/screenshots/godot/twin-gate-keep-exterior.png),
-and [revealed room](../../docs/screenshots/godot/twin-gate-keep-interior.png).
-
-All five exact Steel and Cedar maps use the same warm Medieval terrain family
-in Godot. Muted grass, earth roads, farmland, continuous stonework, forest,
-mountain and ruins replace the unrelated cyan Relay demonstration art while
-preserving every authored terrain kind, feature and tactical cell. The binding
-requires the campaign's exact stage and map identity; unrelated projects keep
-their configured terrain presentation.
-
-Bell Orchard and Cedar Watch also carry named, walkable landmark identities
-for their orchard rows, bell, ruins, and signal beacons. These retain the exact
-farmland, forest, paved, ruins, and road movement rules while letting Godot use
-the reviewed environment-specific close views for both combat and on-map
-conversations. An exact map route and a nearby landmark are both required, so
-unrelated maps with similar terrain keep the safe generic presentation.
-
-The current Godot grouping is a campaign prototype. These should become named,
-portable map features that an author can place and preview in one action and
-that every renderer draws consistently; the console fallback still reads the
-same blocked footprints as high ground until that portable feature work lands.
+Twin Gate's connected 6×6 keep covers a playable chamber. Entering reveals that
+room without moving the board or units; it stays open once explored.
 
 ## Current status
 
@@ -105,22 +80,16 @@ the 1P preview excludes Akari's company, the 2P preview uses the separated
 western/eastern starts without duplicating roster members, and all 23 staggered
 arrivals remain visible and editable with their intended player scaling.
 
-That unattended run is a repeatable balance baseline, not proof that a map is
-fun. It now completes all ten 1P/2P traces for the Concord instead of losing all
-ten to the War Host. The opening preserves every deployed protagonist and
-finishes by round four; Deepwood takes seven to nine rounds; both Watch defenses
-reach round twenty; and Village and Twin Gate take eight to twelve rounds. The
-late traces finish with only one or two Concord survivors, while Masatora keeps
-his original 27 health and can only be reached through the keep's two doors.
-That is intentional evidence that the tuning removed automatic losses, empty
-walking turns, and a long co-op finale without erasing attrition. It is also the
-clearest remaining warning: human players still need to judge whether the late
-battles feel tense or merely punishing.
+The unattended traces are a balance baseline, not proof that a map is fun.
+The redesigned village currently finishes in thirteen solo rounds and six
+co-op rounds. Its earlier solo pacing and attrition assertions flag the change
+for review; the map has not been tuned to force those old results. Human
+playtests should judge the approaches, enemy pressure, retreats and whether
+both co-op companies have worthwhile jobs.
 
-It is not ready to replace the current included campaigns until real 1P and 2P
-playtests cover difficulty, duration, instructions, retries, saves,
-continuation, dead turns, and dominant strategies. Regenerate its repeatable
-source with:
+The campaign still needs real solo and co-op playtests for difficulty,
+instructions, retries, saves and dominant strategies. Maintainers can regenerate
+its repeatable source below; authored campaign translations are retained:
 
 ```sh
 python3 games/steel_and_cedar/generate_project.py

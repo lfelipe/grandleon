@@ -202,15 +202,19 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   Ancient-grove foliage follows the season. Explicit custom scene bindings
   retain their authored rendering. Extend creator previews and thematic
   scenery families, then review the new scenery's performance on Android.
-- [ ] Develop the campaign's scenery as coherent places, reviewing full maps
-  after each art pass. Gate Village now uses a well, walled vegetable garden
-  and abandoned cart; Deepwood has a watchtower. Godot renders these as 3D
-  landmarks and the editor places/removes each complete 2×2 footprint. The
-  native terrain kinds, starting armies and existing routes are preserved.
-  Port these landmarks to both console engines next. Continue with connected
-  courtyard walls, roadside fences, orchard varieties, market stalls, ruined
-  outbuildings and castle approach details. Keep clear walkable boundaries,
-  thematic materials and scenery fading; avoid scattering props at random.
+- [ ] Compose the campaign as connected places before adding more props. Follow
+  [the map direction](games/steel_and_cedar/MAP_DIRECTION.md): orchard, woodland,
+  ruined watch fort, market village and grounded keep. Gate Village now has a
+  main street, market square, cottage gardens, loading yard and connected gate
+  wall; the isolated Deepwood tower has been removed. Review full maps, both
+  player modes, sightlines and pacing. Then expand related orchard varieties,
+  fences, service buildings and fortifications, with restrained foliage,
+  cloth, water and signal-fire motion. Both console engines now draw shared
+  settlement models; N64 completes all five encounters in base 4 MiB. PS1 fits
+  RAM by storing models once, but its busier village misses the 30 FPS budget
+  during scrolling. Improve that cost and review matching views. The new
+  village's solo pacing and
+  attrition differ from its previous autoplay baseline; human review is open.
 - [ ] Expand thematic multi-tile landmark art beyond the current Medieval
   houses and keep: Sengoku, pirate, sci-fi and the other scenario styles need
   their own families. Add corresponding console variants, fences, gates,

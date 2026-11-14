@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 600" role="img" aria-label="III · Cedar Watch: a damaged defensive position"><style>text{font-family:system-ui,sans-serif;font-weight:550}</style>
+<rect x="0" y="0" width="1000" height="600" rx="0" fill="#172820"/>
+<rect x="26" y="76" width="660" height="490" rx="20" fill="#b7c38d"/>
+<text x="30" y="43" text-anchor="start" font-size="26" fill="#f4eddb">III · Cedar Watch: a damaged defensive position</text>
+<rect x="115" y="105" width="480" height="85" rx="30" fill="#9eaa7b"/>
+<text x="210" y="147" text-anchor="start" font-size="15" fill="#243127">Ridge and old signal road</text>
+<rect x="220" y="200" width="280" height="210" rx="8" fill="#d0c8ae"/>
+<polyline points="230,270 230,210 335,210" fill="none" stroke="#8c8d7e" stroke-width="15" stroke-linecap="round" stroke-linejoin="round" />
+<polyline points="395,210 490,210 490,290" fill="none" stroke="#8c8d7e" stroke-width="15" stroke-linecap="round" stroke-linejoin="round" />
+<polyline points="490,345 490,400 390,400" fill="none" stroke="#8c8d7e" stroke-width="15" stroke-linecap="round" stroke-linejoin="round" />
+<polyline points="320,400 230,400 230,335" fill="none" stroke="#8c8d7e" stroke-width="15" stroke-linecap="round" stroke-linejoin="round" />
+<polyline points="55,300 225,300" fill="none" stroke="#c6a678" stroke-width="23" stroke-linecap="round" stroke-linejoin="round" />
+<polyline points="495,315 650,315" fill="none" stroke="#c6a678" stroke-width="23" stroke-linecap="round" stroke-linejoin="round" />
+<polyline points="350,405 350,535" fill="none" stroke="#c6a678" stroke-width="23" stroke-linecap="round" stroke-linejoin="round" />
+<circle cx="360" cy="244" r="20" fill="#8c8d7e"/>
+<circle cx="360" cy="244" r="9" fill="#c18b4c"/>
+<text x="292" y="184" text-anchor="start" font-size="15" fill="#243127">Signal platform</text>
+<rect x="298" y="327" width="110" height="47" rx="5" fill="#b7a784"/>
+<text x="302" y="356" text-anchor="start" font-size="13" fill="#243127">Supply court</text>
+<circle cx="265" cy="290" r="15" fill="#89c7e9"/>
+<text x="265" y="295" text-anchor="middle" font-size="12" fill="#102333">P1</text>
+<circle cx="455" cy="320" r="15" fill="#edc574"/>
+<text x="455" y="325" text-anchor="middle" font-size="12" fill="#102333">P2</text>
+<circle cx="70" cy="300" r="9" fill="#ac6255"/>
+<circle cx="640" cy="315" r="9" fill="#ac6255"/>
+<circle cx="350" cy="520" r="9" fill="#ac6255"/>
+<text x="710" y="122" text-anchor="start" font-size="20" fill="#f2ead5">Hold real approaches</text>
+<text x="710" y="159" text-anchor="start" font-size="15" fill="#cbd0c7">Walls explain the fort.</text>
+<text x="710" y="186" text-anchor="start" font-size="15" fill="#cbd0c7">Rubble follows their ruins.</text>
+<text x="710" y="213" text-anchor="start" font-size="15" fill="#cbd0c7">Supply court stays open.</text>
+<text x="710" y="240" text-anchor="start" font-size="15" fill="#cbd0c7">Solo holds the inner fort.</text>
+<text x="710" y="267" text-anchor="start" font-size="15" fill="#cbd0c7">Co-op splits road / steps.</text>
+<text x="710" y="294" text-anchor="start" font-size="15" fill="#cbd0c7">Waves arrive along visible</text>
+<text x="710" y="321" text-anchor="start" font-size="15" fill="#cbd0c7">approach roads.</text>
+<text x="710" y="490" text-anchor="start" font-size="14" fill="#8ccef2">P1  Rowan</text>
+<text x="710" y="516" text-anchor="start" font-size="14" fill="#f3c777">P2  Akari / co-op</text>
+<text x="710" y="551" text-anchor="start" font-size="13" fill="#b5beb1">Composition plan</text>
+</svg>

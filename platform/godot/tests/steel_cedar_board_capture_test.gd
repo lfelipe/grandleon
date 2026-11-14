@@ -13,8 +13,8 @@ const MAPS := [
 	{
 		"node": "cedar_deepwood", "file": "steel-cedar-deepwood.png",
 		"id": "a6b11e9ea987638a", "size": Vector2i(14, 9),
-		"focus": Vector2i(10, 6), "feature": "ancient_grove", "feature_count": 4,
-		"visuals": {"ancient_grove": 1, "watchtower": 1},
+		"focus": Vector2i(10, 6), "feature": "ancient_grove", "feature_count": 8,
+		"visuals": {"ancient_grove": 2},
 	},
 	{
 		"node": "cedar_watch", "file": "steel-cedar-watch.png",
@@ -25,8 +25,8 @@ const MAPS := [
 	{
 		"node": "gate_village", "file": "steel-cedar-gate-village.png",
 		"id": "07cb9d097af3a9a1", "size": Vector2i(18, 12),
-		"focus": Vector2i(12, 6), "feature": "village_house", "feature_count": 12,
-		"visuals": {"medieval": 3, "abandoned_cart": 1, "village_well": 1, "walled_garden": 1},
+		"focus": Vector2i(12, 6), "feature": "village_house", "feature_count": 24,
+		"visuals": {"medieval": 6, "abandoned_cart": 1, "village_well": 1, "walled_garden": 1, "watchtower": 1, "town_wall": 9},
 	},
 	{
 		"node": "twin_gate", "file": "steel-cedar-twin-gate.png",

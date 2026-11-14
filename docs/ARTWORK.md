@@ -223,12 +223,14 @@ their authored rendering. A graphics profile can also select
 `landscapeRenderer: "authored"` to use its terrain scenes throughout.
 Creator previews and more thematic scenery families remain in progress.
 
-Gate Village's well, walled vegetable garden and abandoned cart, plus
-Deepwood's watchtower, use generated Godot meshes. They share the existing
-2×2 obstacle footprints, so this pass changes scenery without changing routes
-or starting armies. In the map editor, choose a landmark stamp to place the
-whole object; Remove clears the whole footprint. These four new models still
-need console versions. Their source is
+Campaign scenery follows the [map direction](../games/steel_and_cedar/MAP_DIRECTION.md).
+Gate Village's houses face connected streets; its well, cottage garden, loading
+cart and gate tower belong to named districts. The tower joins a continuous
+town wall. Deepwood retains its ancient groves instead of an isolated tower.
+These landmarks have Godot meshes and whole-footprint editor stamps. Console
+models are exported from the same source, with simpler geometry and shared
+materials. Godot's hanging banner has restrained movement; console prop motion
+still needs work. See
 [`settlement_scenery.gd`](../platform/godot/project/scripts/settlement_scenery.gd).
 
 Twin Gate's keep has round stone towers, battlements and a flat stone upper

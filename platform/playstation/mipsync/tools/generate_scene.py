@@ -17,6 +17,7 @@ import struct
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "platform/console_art"))
+from settlement_scenery import load_models as load_settlement_models, placements as settlement_placements
 from stone_keep import load_keep, textured_part_mesh, face_normal, lit_colour
 
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageOps
@@ -1168,6 +1169,33 @@ def append_keep_part(vertices: list, uvs: list, triangles: list, part: dict,
                           *lit_colour(part["colour"], normal)))
 
 
+def append_settlement_model(board_vertices, board_uvs, board_triangles, kind, settlement_models, terrain_indices):
+    cx = cz = floor = 0
+    for part in settlement_models[kind]:
+        source_indices = part["indices"]
+        remap = {}
+        for offset in range(0, len(source_indices), 3):
+            face = source_indices[offset:offset + 3]
+            normal = face_normal(part["vertices"], face)
+            # The board uses a fixed camera direction. Drop buried and
+            # rear faces exactly as the shared keep path already does.
+            if normal[1] < -0.5 or (normal[2] > 0.2 and normal[1] < 0.4):
+                continue
+            mapped = []
+            for old in face:
+                point, uv = part["vertices"][old], part["uvs"][old]
+                key = (tuple(point), tuple(uv) if part["masonry"] else ())
+                if key not in remap:
+                    px, py, pz = point
+                    remap[key] = len(board_vertices)
+                    board_vertices.append((cx + round(px * 128), floor + round(py * 128), cz - round(pz * 128), 0))
+                    board_uvs.append((max(0, min(31, round(uv[0] * 31))), max(0, min(31, round(uv[1] * 31)))))
+                mapped.append(remap[key])
+            board_triangles.append(tuple(mapped) +
+                (terrain_indices[-3] if part["masonry"] else 0, 255,
+                 *lit_colour(part["colour"], normal)))
+
+
 def write_meshes(
     output: Path,
     cell_groups: list[tuple[tuple[int, int], list[tuple[int, int, int, bool, int, int]]]],
@@ -1178,8 +1206,15 @@ def write_meshes(
     hidden_cells: list[int],
     castle_cells: list[tuple[int, int]],
     keep_parts: list[dict] | None = None,
+    settlement_instances: list[tuple] | None = None,
+    settlement_models: dict | None = None,
+    mesh_vertex_limit: int = MAX_CACHE_VERTICES,
+    scenery_metadata: list | None = None,
 ) -> tuple[int, int, list[tuple[int, int, int, int, int, int, int]]]:
     keep_parts = keep_parts or []
+    settlement_instances = settlement_instances or []
+    settlement_models = settlement_models or {}
+    occupied = {(x + dx, y + dy) for x, y, _kind, size in settlement_instances for dy in range(size) for dx in range(size)}
     keep_centre_x = keep_centre_z = 0
     if keep_parts and castle_cells:
         keep_centre_x = (min(x for x, _ in castle_cells) + max(x for x, _ in castle_cells) + 1 - width) * 64
@@ -1270,7 +1305,7 @@ def write_meshes(
                      255, 255, 255),
                 ))
         for x, y, kind in terrain_form_cells:
-            if (x, y) in castle_cells:
+            if (x, y) in castle_cells or (x, y) in occupied:
                 continue
             if not (min_x <= x < max_x and min_y <= y < max_y):
                 continue
@@ -1409,6 +1444,18 @@ def write_meshes(
     # hold the largest active page, not the sum of mutually exclusive pages.
     vertex_count = max(len(group[0]) for group in board_groups)
     triangle_count = max(len(group[2]) for group in board_groups)
+    scenery_groups = {}
+    for _x, _y, kind, _size in settlement_instances:
+        if kind in scenery_groups:
+            continue
+        verts, uvs, tris = [], [], []
+        append_settlement_model(verts, uvs, tris, kind, settlement_models, terrain_indices)
+        scenery_groups[kind] = (verts, uvs, tris)
+    # Conservative all-instance bound; frustum culling usually admits fewer.
+    scenery_vertices = sum(len(scenery_groups[k][0]) for _x, _y, k, _size in settlement_instances)
+    scenery_triangles = sum(len(scenery_groups[k][2]) for _x, _y, k, _size in settlement_instances)
+    if any(len(group[0]) > mesh_vertex_limit for group in scenery_groups.values()):
+        raise ValueError("a settlement model exceeds its per-mesh cache")
     lines = ["/* Generated from a real Grandleon scene manifest. Do not edit. */", '#include "../runtime/scene.h"', ""]
     lines += emit_vectors("k_billboard_vertices", billboard_vertices)
     lines += emit_vectors("k_billboard_normals", [(0, 0, 4096, 0)] * 4)
@@ -1448,6 +1495,27 @@ def write_meshes(
         focus_x = start_x + end_x - width
         focus_z = height - start_y - end_y
         chunk_descriptors.append((chunk_index + 2, *bounds, focus_x, focus_z))
+    scenery_mesh_lines = []
+    scenery_indices = {}
+    scenery_mesh_start = len(board_groups) + 7 + (1 if hidden_cells else 0)
+    for model_index, (kind, (verts, uvs, tris)) in enumerate(scenery_groups.items()):
+        scenery_indices[kind] = scenery_mesh_start + model_index
+        name = "k_scenery_" + kind
+        lines += emit_vectors(name + "_vertices", verts)
+        lines += emit_vectors(name + "_normals", [(0,4096,0,0)] * len(verts))
+        lines.append("static const ps1_uv8 " + name + "_uvs[] = {")
+        lines += [f"    {{{u},{v}}}," for u,v in uvs]
+        lines += ["};", "static const ps1_mesh_tri " + name + "_triangles[] = {"]
+        for i0,i1,i2,texture,shade,r,g,b in tris:
+            lines.append(f"    {{.i0={i0},.i1={i1},.i2={i2},.ny=4096,.shade={shade},.color_r={r},.color_g={g},.color_b={b},.texture_index={texture}}},")
+        lines.append("};")
+        centre_y = (min(v[1] for v in verts)+max(v[1] for v in verts))//2
+        radius = math.ceil(max(math.sqrt(v[0]**2+(v[1]-centre_y)**2+v[2]**2) for v in verts))
+        scenery_mesh_lines.append(f"    {{.verts={name}_vertices,.norms={name}_normals,.vert_count={len(verts)},.uvs={name}_uvs,.tris={name}_triangles,.tri_count={len(tris)},.scale_q12=4096,.bounds_center_y={centre_y},.bounds_radius={radius},.flags=PS1_MESH_FLAG_TERRAIN}},")
+    if scenery_metadata is not None:
+        for x,y,kind,size in settlement_instances:
+            floor = max(surface_relief(x+dx,y+dy,cell_lifts) for dy in range(size) for dx in range(size)) if relief_mode == "smooth" else 0
+            scenery_metadata.append((scenery_indices[kind], (x*2+size-width)*64, floor, (height-y*2-size)*64))
     lines += emit_vectors("k_combat_floor_vertices", combat_floor_vertices)
     lines += emit_vectors(
         "k_combat_floor_normals",
@@ -1532,13 +1600,14 @@ def write_meshes(
         "    { .verts=k_billboard_vertices, .norms=k_billboard_normals, .vert_count=4, .uvs=k_billboard_mirrored_uvs, .tris=k_billboard_triangles, .tri_count=2, .scale_q12=256, .bounds_center_y=512, .bounds_radius=724 },",
         "    { .verts=k_billboard_vertices, .norms=k_billboard_normals, .vert_count=4, .uvs=k_directional_billboard_uvs, .tris=k_billboard_triangles, .tri_count=2, .scale_q12=256, .bounds_center_y=512, .bounds_radius=724 },",
         "    { .verts=k_billboard_vertices, .norms=k_billboard_normals, .vert_count=4, .uvs=k_directional_billboard_mirrored_uvs, .tris=k_billboard_triangles, .tri_count=2, .scale_q12=256, .bounds_center_y=512, .bounds_radius=724 },",
+        *scenery_mesh_lines,
         "};", "const unsigned int g_ps1_mesh_count =", "    sizeof(g_ps1_meshes) / sizeof(g_ps1_meshes[0]);", ""))
     (output / "mesh_data.c").write_text("\n".join(lines), encoding="utf-8")
-    if max(vertex_count, len(visibility_vertices)) > MAX_CACHE_VERTICES:
-        raise ValueError("castle or terrain page exceeds the per-mesh vertex cache")
+    if max(vertex_count, len(visibility_vertices)) > mesh_vertex_limit:
+        raise ValueError(f"terrain page needs {vertex_count} vertices; per-mesh limit is {mesh_vertex_limit}")
     return (
-        max(vertex_count, len(combat_floor_vertices)) + 8 + (len(visibility_vertices) - len(hidden_cells) * 4 if keep_parts else 0),
-        max(triangle_count, len(combat_floor_triangles)) + 4 + (len(visibility_triangles) - len(hidden_cells) * 2 if keep_parts else 0),
+        max(vertex_count, len(combat_floor_vertices)) + scenery_vertices + 8 + (len(visibility_vertices) - len(hidden_cells) * 4 if keep_parts else 0),
+        max(triangle_count, len(combat_floor_triangles)) + scenery_triangles + 4 + (len(visibility_triangles) - len(hidden_cells) * 2 if keep_parts else 0),
         chunk_descriptors,
     )
 
@@ -1643,7 +1712,9 @@ def write_scene(
     ui_texture_index: int,
     surface_lifts: list[int], fog_colour: tuple[int, int, int],
     speaker_indices: dict[int, int] | None = None,
+    scenery_metadata: list | None = None,
 ) -> int:
+    scenery_metadata = scenery_metadata or []
     width = int(document["width"])
     height = int(document["height"])
     units = document["units"]
@@ -1668,6 +1739,11 @@ def write_scene(
         lines.append(
             f"    {{ .id={next_id}u, .name=\"terrain_apron_chunk\", .parent_entity_index=-1, .scale={{65536,65536,65536}}, .mesh=PS1_MESH_CUSTOM, .mesh_index={mesh_index}, .mesh_size=65536, .mesh_enabled=1, .color_r=255, .color_g=255, .color_b=255, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_FLOOR, .seam_fill=1, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
         )
+        next_id += 1
+        entity_index += 1
+    for mesh_index,x,y,z in scenery_metadata:
+        tree_entity_indices.append(entity_index)
+        lines.append(f"    {{.id={next_id}u,.name=\"settlement_landmark\",.parent_entity_index=-1,.position={{{fixed(x/64)},{fixed(y/64)},{fixed(z/64)}}},.scale={{65536,65536,65536}},.mesh=PS1_MESH_CUSTOM,.mesh_index={mesh_index},.mesh_size=65536,.mesh_enabled=1,.color_r=255,.color_g=255,.color_b=255,.texture_tiling_u_q8=256,.texture_tiling_v_q8=256,.render_unlit=1,.render_preset=PS1_RENDER_PRESET_FLOOR,.rigid_root_entity_index=-1,.collider_shape=-1,.camera_shot_trigger_index=-1,.collider_camera_target_index=-1}},")
         next_id += 1
         entity_index += 1
     combat_floor_index = entity_index
@@ -1737,6 +1813,7 @@ def write_scene(
     cursor_y = int(first_unit["y"])
     cursor_world_x = (cursor_x + 0.5 - width / 2) * 2
     cursor_world_z = (height / 2 - cursor_y - 0.5) * 2
+    scenery_model_count = len({entry[0] for entry in scenery_metadata})
     camera_focus_x = camera_focus(cursor_x, width, CAMERA_VIEW_TILES_X)
     camera_focus_z = -camera_focus(cursor_y, height, CAMERA_VIEW_TILES_Y)
     cursor_world_y = fixed(surface_lifts[cursor_y * width + cursor_x] / 64)
@@ -1757,7 +1834,7 @@ def write_scene(
         "};", "", "const ps1_scene g_ps1_scene = {", "    .entities=k_ps1_entities,", "    .entity_count=sizeof(k_ps1_entities)/sizeof(k_ps1_entities[0]),", f"    .camera_entity_index={camera_index},", "    .light={ .enabled=1, .dir_x=-1024, .dir_y=3072, .dir_z=2048, .color_r=255, .color_g=244, .color_b=220, .ambient_r=96, .ambient_g=96, .ambient_b=112 },", f"    .fog_enabled=1, .fog_r={fog_colour[0]}, .fog_g={fog_colour[1]}, .fog_b={fog_colour[2]},",
         # Keep foreground terrain legible; haze belongs beyond the near board.
         f"    .fog_start={fixed(24)}, .fog_end={fixed(36)},",
-        f"    .meshes=g_ps1_meshes, .mesh_count={cursor_mesh_index + (1 if hidden_cells else 0) + 3},", "};", "",
+        f"    .meshes=g_ps1_meshes, .mesh_count={cursor_mesh_index + (1 if hidden_cells else 0) + 3 + scenery_model_count},", "};", "",
         "const uint64_t g_grandleon_unit_ids[] = {",
         *(f"    {int(unit['id'])}ULL," for unit in units if isinstance(unit, dict)),
         "};",
@@ -1980,6 +2057,8 @@ def main() -> int:
         if len(castle_cells) != 18 or max(x for x, _ in castle_cells) - min(x for x, _ in castle_cells) != 5 or max(y for _, y in castle_cells) - min(y for _, y in castle_cells) != 5:
             raise ValueError("stone keep requires the authored six-by-six castle footprint")
         keep_parts = load_keep(repo, "ps1")
+    settlement_instances = settlement_placements(document["terrain_ids"], width, height, content_id)
+    settlement_models = load_settlement_models(repo) if settlement_instances else {}
     all_kinds = [kind for _x, _y, kind, _authored, _span_x, _span_y in cells]
     terrain_indices, unit_indices, ui_texture, texture_metrics, speaker_indices = write_textures(
         output, repo, all_kinds, typed_units, str(document.get("map_id", "0")),
@@ -2004,18 +2083,20 @@ def main() -> int:
         ]
         if args.terrain_relief == "smooth" else [0] * (width * height)
     )
+    scenery_metadata = []
     board_vertices, board_triangles, terrain_chunks = write_meshes(
         output, terrain_groups, width, height, terrain_form_cells,
         terrain_indices, args.surroundings_seed,
         args.terrain_relief, cell_lifts, hidden_cells, castle_cells,
-        keep_parts,
+        keep_parts, settlement_instances, settlement_models,
+        MAX_CACHE_VERTICES, scenery_metadata,
     )
     entities = write_scene(
         output, document, unit_indices, terrain_chunks,
         ui_texture,
         surface_lifts,
         shifted_colour(relay_colours(repo, distant_kind)[0], 65),
-        speaker_indices,
+        speaker_indices, scenery_metadata,
     )
     visible_units = visible_position_peak(
         [(int(unit["x"]), int(unit["y"])) for unit in typed_units],
@@ -2034,13 +2115,15 @@ def main() -> int:
     cache_triangles = board_triangles + (
         visible_units + visible_covers + deployment_markers
     ) * 2
-    cache_vertex_limit = max(MAX_CACHE_TOTAL, (cache_vertices + 63) // 64 * 64) if keep_parts else MAX_CACHE_TOTAL
-    if cache_vertex_limit > 1536:
-        raise ValueError("castle exceeds the maximum profiled static vertex pool")
-    if cache_vertices > cache_vertex_limit or cache_triangles > MAX_CACHE_TOTAL:
+    authored_models = bool(settlement_instances)
+    cache_vertex_limit = max(MAX_CACHE_TOTAL, (cache_vertices + 63) // 64 * 64) if keep_parts or authored_models else MAX_CACHE_TOTAL
+    cache_triangle_limit = max(MAX_CACHE_TOTAL, (cache_triangles + 63) // 64 * 64) if authored_models else MAX_CACHE_TOTAL
+    if cache_vertex_limit > (4096 if authored_models else 1536) or cache_triangle_limit > 4096:
+        raise ValueError("authored scenery exceeds the bounded static geometry pools")
+    if cache_vertices > cache_vertex_limit or cache_triangles > cache_triangle_limit:
         raise ValueError(
             f"visible scene exceeds Mipsync static pools: {cache_vertices}/{cache_vertex_limit} vertices, "
-            f"{cache_triangles}/{MAX_CACHE_TOTAL} triangles; production paging must split this view"
+            f"{cache_triangles}/{cache_triangle_limit} triangles; production paging must split this view"
         )
     metadata = {
         "schema": "grandleon.mipsync.generated.v2", "renderer": "mipsync",
@@ -2058,7 +2141,7 @@ def main() -> int:
         },
         "deployment_markers": deployment_markers,
         "visible": {"units": visible_units, "covers": visible_covers},
-        "cache": {"vertices": cache_vertices, "vertex_limit": cache_vertex_limit, "triangles": cache_triangles, "triangle_limit": MAX_CACHE_TOTAL, "mesh_vertex_limit": MAX_CACHE_VERTICES},
+        "cache": {"vertices": cache_vertices, "vertex_limit": cache_vertex_limit, "triangles": cache_triangles, "triangle_limit": cache_triangle_limit, "mesh_vertex_limit": MAX_CACHE_VERTICES},
         "vram": texture_metrics,
         "camera": {
             "clamp": "viewport_aware_playable_bounds", "static_probe": False,

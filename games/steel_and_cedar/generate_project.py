@@ -15,6 +15,9 @@ TERRAIN_CODES = {
     # Keeping "mountain" in each landmark identity makes all four cells
     # impassable on every target, including a renderer that has no landmark art.
     "T": "mountain_ancient_grove", "V": "mountain_village_house",
+    "c": "mountain_abandoned_cart", "w": "mountain_village_well",
+    "t": "mountain_watchtower", "g": "mountain_walled_garden",
+    "l": "mountain_town_wall",
     # The final keep is terrain, not a non-interactive decoration. Its walls
     # stay blocked while the doors, chamber and dais retain paved movement.
     "K": "mountain_castle_wall", "D": "paved_castle_door",
@@ -46,12 +49,7 @@ MAP_ROWS = {
         "RRGPPPPPPPPGGRRH", "RRGPPOPPPOPPGRRH", "RRRGPPOOOPPGRERH",
         "HGRRGPPPPGGRRHFF", "CCGRRRGPSGRRGCFF", "CCCHHRRERRHHCCCF",
     ),
-    "gate_village": (
-        "HHRHHHHHRHHHHHUHHH", "AARGVVGGRVVGGGUGCC", "AARGVVGGRVVGGGUGCC",
-        "RRRRRRRRRRRRRRRRRR", "GGRGGVVGPPPVVGUPPP", "GGRGGVVGPPPVVGUPPP",
-        "RRRRRRGGRRRGGRRPPP", "GGRGGGGGPPPGGGUPPP", "RRRRRRRRRRRRRRRRRR",
-        "AARGVVGGRVVGGGUGCC", "AARGVVGGRVVGGGUGCC", "HHRHHHHHRHHHHHUHHH",
-    ),
+    "gate_village": (), # Filled from the settlement plan below.
     "twin_gate": (
         "MMMUURRRRPPPRRRRUUMM", "MMURRGGGRPPPRGGGRRUM",
         "MURRGPPPPUUUPPPPGRRU", "URRGPPUUPPPPPUUPPGRR",
@@ -62,6 +60,42 @@ MAP_ROWS = {
         "MMURRGGGRPPPRGGGRRUM", "MMMUURRRRPPPRRRRUUMM",
     ),
 }
+
+
+def village_rows() -> tuple[str, ...]:
+    """Homes face streets; the market and loading yard lead to the east gate."""
+    cells = [["G"] * 18 for _ in range(12)]
+    def area(x: int, y: int, width: int, height: int, code: str) -> None:
+        for row in range(y, y + height):
+            for column in range(x, x + width):
+                cells[row][column] = code
+    # Fields lie outside the settlement, rather than between every house.
+    area(0, 0, 2, 3, "F")
+    area(2, 0, 12, 1, "A")
+    area(0, 5, 2, 3, "A")
+    area(3, 11, 11, 1, "A")
+    # A main street, a quieter southern lane, and a connecting western alley.
+    area(0, 3, 17, 1, "R")
+    area(0, 10, 16, 1, "R")
+    area(2, 3, 1, 8, "R")
+    area(9, 7, 1, 5, "R")
+    area(6, 4, 7, 4, "P") # Market square, with room around the well.
+    area(13, 4, 3, 4, "P") # Loading yard beside the gate.
+    area(17, 0, 1, 12, "P") # The road continues towards the keep.
+    for x, y in [(3, 1), (7, 1), (11, 1), (3, 8), (7, 8), (11, 8)]:
+        area(x, y, 2, 2, "V")
+    area(8, 5, 2, 2, "w")
+    area(5, 8, 2, 2, "g") # Adjoins the southern cottages.
+    area(13, 5, 2, 2, "c") # Leaves a clear route to the gate.
+    for y in [0, 1, 2, 3, 4, 8, 9, 10, 11]:
+        area(16, y, 1, 1, "l")
+    area(14, 1, 2, 2, "t") # Joins the east wall, guarding the main street.
+    for y in [5, 6, 7]:
+        area(15, y, 3, 1, "P")
+    return tuple("".join(row) for row in cells)
+
+
+MAP_ROWS["gate_village"] = village_rows()
 
 
 def stat_block(health: int, movement: int, strength: int, defense: int,
@@ -461,10 +495,10 @@ def build_project() -> dict:
             placement("rowan_village", "rowan_vale", "first", 7, 5, member="rowan", two_position=(2, 3)),
             placement("tomas_village", "tomas_reed", "first", 7, 6, member="tomas", two_position=(2, 4)),
             placement("akari_village", "akari_mori", "first", 2, 8, member="akari", player=2, coop=True),
-            placement("ren_village", "ren_sato", "first", 3, 9, member="ren", player=2, coop=True),
+            placement("ren_village", "ren_sato", "first", 2, 9, member="ren", player=2, coop=True),
             placement("castellan_vere", "castellan_vere_unit", "second", 15, 5, behavior="hold", name="Castellan Vere"),
             placement("village_north_flank", "court_knife", "second", 6, 2, behavior="pursue"),
-            placement("village_south_flank", "march_sword", "second", 6, 9, behavior="pursue"),
+            placement("village_south_flank", "march_sword", "second", 6, 7, behavior="pursue"),
             placement("village_square_guard", "red_retainer", "second", 10, 5, behavior="pursue"),
             placement("village_north_bow", "cedar_archer", "second", 13, 1, behavior="hold"),
             placement("village_south_bow", "march_archer", "second", 13, 10, behavior="hold"),
@@ -614,7 +648,13 @@ def main() -> None:
     project = build_project()
     output = root / "source" / "project.json"
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(project, indent=2) + "\n", encoding="utf-8")
+    # Translations are authored in the project/editor, independently of map
+    # generation. Retain those authored strings when rebuilding the campaign.
+    if output.is_file():
+        authored = json.loads(output.read_text(encoding="utf-8"))
+        if "translations" in authored:
+            project["translations"] = authored["translations"]
+    output.write_text(json.dumps(project, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"wrote {output}")
 
 

@@ -4,6 +4,7 @@ extends RefCounted
 # Two-cell-square scenery shares the house footprint. Keep every solid part
 # inside that footprint; neighbouring roads remain clear.
 const StoneKeep = preload("res://scripts/stone_keep.gd")
+var console_detail := false
 var materials := {}
 var meshes := {}
 
@@ -17,6 +18,7 @@ func build(parent: Node3D, kind: String, variation: int) -> Node3D:
 		"village_well": _well(root)
 		"watchtower": _tower(root, variation)
 		"walled_garden": _garden(root, variation)
+		"village_house": _house(root, variation)
 	return root
 
 func _material(name: String, colour: String, masonry := false) -> StandardMaterial3D:
@@ -120,10 +122,12 @@ func _well(root: Node3D) -> void:
 	var stone := _material("stone", "a79b86", true)
 	var wood := _material("dark_wood", "503c2c")
 	_cylinder(root, Vector3(0, 0.025, 0), 0.51, 0.05, _material("well_depth", "172729"))
-	for layer in 3:
-		for index in 12:
-			var angle := (index + 0.5 * (layer % 2)) * TAU / 12.0
-			var block := _box(root, Vector3(cos(angle) * 0.40, 0.10 + layer * 0.15, sin(angle) * 0.40), Vector3(0.205, 0.14, 0.15), stone)
+	var courses := 2 if console_detail else 3
+	var stones := 8 if console_detail else 12
+	for layer in courses:
+		for index in stones:
+			var angle := (index + 0.5 * (layer % 2)) * TAU / float(stones)
+			var block := _box(root, Vector3(cos(angle) * 0.40, 0.12 + layer * (0.22 if console_detail else 0.15), sin(angle) * 0.40), Vector3(0.30 if console_detail else 0.205, 0.20 if console_detail else 0.14, 0.15), stone)
 			block.rotation.y = -angle + PI * 0.5
 	for x in [-0.57, 0.57]:
 		_box(root, Vector3(x, 0.70, 0), Vector3(0.095, 1.40, 0.095), wood)
@@ -143,6 +147,10 @@ func _tower(root: Node3D, variation: int) -> void:
 	var stone := _material("stone", "a79b86", true)
 	_cylinder(root, Vector3(0, 0.70, 0), 0.65, 1.40, stone)
 	_ring(root, Vector3(0, 1.42, 0), 0.50, 0.72, stone)
+	# Short curtains physically join this gate tower to the adjoining east wall.
+	for z in [-0.50, 0.50]:
+		_box(root, Vector3(0.69, 0.35, z), Vector3(0.58, 0.70, 0.16), stone)
+
 	_cylinder(root, Vector3(0, 1.43, 0), 0.48, 0.035, _material("floor", "62584a"))
 	for index in 8:
 		var angle := index * TAU / 8.0
@@ -151,8 +159,11 @@ func _tower(root: Node3D, variation: int) -> void:
 	# Recesses read as slits rather than large modern windows.
 	_box(root, Vector3(0, 0.92, 0.653), Vector3(0.08, 0.30, 0.008), _material("slit", "2c2c2a"))
 	_box(root, Vector3(0.653, 0.87, 0), Vector3(0.008, 0.25, 0.08), _material("slit", "2c2c2a"))
-	var banner := _box(root, Vector3(-0.23, 1.12, 0.66), Vector3(0.19, 0.42, 0.025), _material("banner_%d" % (variation % 2), "6b4538" if variation % 2 == 0 else "586b55"))
-	banner.rotation.z = 0.03
+	var banner := Node3D.new()
+	banner.position = Vector3(-0.23, 1.33, 0.66)
+	banner.set_meta("ambient_cloth", true)
+	root.add_child(banner)
+	_box(banner, Vector3(0, -0.21, 0), Vector3(0.19, 0.42, 0.025), _material("banner_%d" % (variation % 2), "6b4538" if variation % 2 == 0 else "586b55"))
 
 func _garden(root: Node3D, variation: int) -> void:
 	var stone := _material("garden_stone", "8b8776", true)
@@ -165,10 +176,10 @@ func _garden(root: Node3D, variation: int) -> void:
 		leaf.radial_segments = 12
 		leaf.rings = 6
 		meshes["leaf"] = leaf
-	for row in 3:
+	for row in (2 if console_detail else 3):
 		_box(root, Vector3(0, 0.055, (row - 1) * 0.42), Vector3(1.30, 0.04, 0.27), _material("soil", "463d30"))
 		for column in 3:
-			for layer in 3:
+			for layer in (1 if console_detail else 3):
 				var leaf := MeshInstance3D.new()
 				leaf.mesh = meshes["leaf"]
 				leaf.material_override = _material("crop_%d" % (layer % 2), "83945d" if layer % 2 else "566c44")
@@ -181,3 +192,54 @@ func _garden(root: Node3D, variation: int) -> void:
 		_box(root, Vector3(x, 0.41, -0.63), Vector3(0.045, 0.76, 0.045), wood)
 	for y in [0.35, 0.63]:
 		_box(root, Vector3(0, y, -0.63), Vector3(1.32, 0.035, 0.035), wood)
+
+func build_wall(parent: Node3D, neighbours: Array[bool]) -> Node3D:
+	var wall := Node3D.new()
+	wall.set_meta("landmark_style", "town_wall")
+	parent.add_child(wall)
+	var stone := _material("wall_stone", "948d7b", true)
+	_box(wall, Vector3(0, 0.39, 0), Vector3(0.23, 0.78, 0.23), stone)
+	if not neighbours.has(true): neighbours = [true, false, true, false]
+	for index in 4:
+		if not neighbours[index]: continue
+		var direction := Vector3(0, 0, -1).rotated(Vector3.UP, -index * PI * 0.5)
+		var size := Vector3(0.16, 0.70, 0.50) if index % 2 == 0 else Vector3(0.50, 0.70, 0.16)
+		_box(wall, direction * 0.25 + Vector3(0, 0.35, 0), size, stone)
+		_box(wall, direction * 0.25 + Vector3(0, 0.73, 0), Vector3(size.x + (0.05 if index % 2 == 0 else 0.0), 0.08, size.z + (0.05 if index % 2 else 0.0)), stone)
+	return wall
+
+func _house(root: Node3D, variation: int) -> void:
+	var plaster := _material("plaster", "c5b597")
+	var timber := _material("dark_wood", "503c2c")
+	var roof := _material("house_roof_%d" % variation, "86543c" if variation % 2 == 0 else "78553d")
+	_box(root, Vector3(0, 0.65, 0), Vector3(1.42, 1.30, 1.24), plaster)
+	var gable := MeshInstance3D.new()
+	var prism := PrismMesh.new()
+	prism.size = Vector3(1.42, 0.45, 1.24)
+	gable.mesh = prism
+	gable.position.y = 1.49
+	gable.material_override = plaster
+	root.add_child(gable)
+
+	for x in [-0.67, 0.0, 0.67]:
+		_box(root, Vector3(x, 0.64, 0.635), Vector3(0.065, 1.28, 0.05), timber)
+	for y in [0.10, 0.68, 1.27]:
+		_box(root, Vector3(0, y, 0.635), Vector3(1.42, 0.065, 0.05), timber)
+	for side in [-1.0, 1.0]:
+		var tile := _box(root, Vector3(side * 0.40, 1.49, 0), Vector3(0.94, 0.08, 1.55), roof)
+		tile.rotation.z = -side * 0.48
+	_box(root, Vector3(-0.29, 0.30, 0.65), Vector3(0.27, 0.58, 0.04), timber)
+	for x in [-0.31, 0.31]:
+		_box(root, Vector3(x, 0.98, 0.65), Vector3(0.22, 0.26, 0.04), _material("window", "374747"))
+	_box(root, Vector3(0.39, 1.62, -0.28), Vector3(0.21, 0.62, 0.23), _material("chimney", "9b917d", true))
+	# The fixed console cameras see the opposite facade to Godot's cutouts.
+	# Give every visible wall architectural detail instead of a blank box.
+	for x in [-0.67, 0.0, 0.67]:
+		_box(root, Vector3(x, 0.64, -0.635), Vector3(0.065, 1.28, 0.05), timber)
+	for y in [0.10, 0.68, 1.27]:
+		_box(root, Vector3(0, y, -0.635), Vector3(1.42, 0.065, 0.05), timber)
+	for x in [-0.31, 0.31]:
+		_box(root, Vector3(x, 0.98, -0.65), Vector3(0.22, 0.26, 0.04), _material("window", "374747"))
+	for side in [-1.0, 1.0]:
+		_box(root, Vector3(side * 0.72, 0.96, 0.15), Vector3(0.04, 0.26, 0.22), _material("window", "374747"))
+		_box(root, Vector3(side * 0.72, 0.68, 0), Vector3(0.04, 0.06, 1.24), timber)

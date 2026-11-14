@@ -1,0 +1,101 @@
+{
+  "date": "2026-11-14",
+  "status": "layout_and_console_prototype_not_release_ready",
+  "direction": "games/steel_and_cedar/MAP_DIRECTION.md",
+  "implementedLayout": "gate_village",
+  "otherMaps": "Composition diagrams describe pending layout work; Deepwood has its groves restored.",
+  "sourceSha256": {
+    "games/steel_and_cedar/generate_project.py": "575f9c228e3fe5955013d34a3a6f1a6bfb651890acaeae9f850b4f24048a0024",
+    "games/steel_and_cedar/source/project.json": "4ec8b58676203f5cda1c331ae3ed4e423d84d6e61eba12770457ec48fa11ff3e",
+    "platform/godot/project/scripts/settlement_scenery.gd": "bfb48d875da245bf1b5eddd26a8ff88ef18300af77dff88fce7139eb0fa90444",
+    "platform/console_art/settlement_scenery.json": "c0edf14ec9a12f929918db326995c83317370ef9acd7e51101a026e4e96eb0b9",
+    "platform/console_art/settlement_scenery.py": "f31582412d9439fb5ed448dfeadb4aea1ecc2ebfa899ec2dc5b1e935b930522a",
+    "platform/nintendo64/pyrite/project/src/user/ProjectBoard.cpp": "b9a201fa048f2ba4b1a0fa53ee8ca6d80e5fb893e0ddb7ec3d21f98570bd961f",
+    "platform/nintendo64/pyrite/project/src/user/SettlementScenery.cpp": "0ab598287132db9b634e516a855cb8f63497810b48e27bc6ce0832d00020c92b",
+    "platform/playstation/mipsync/tools/generate_scene.py": "35be5dcb047a5c903b804efef4c89dac7a28090a992ffba424c5c0aa7cd44999",
+    "platform/playstation/mipsync/runtime/game_bridge.cpp": "0fda7959ad274f882434bc7df4cd675e78907105118b7ab6ebc4414f7e856fb0",
+    "platform/playstation/mipsync/runtime/CMakeLists.txt": "df241e8c7d9aa8d45e8399958f788ed21879641a44e991966f9861d1be40cf8b"
+  },
+  "checks": {
+    "portable_and_source_roundtrip": 5,
+    "godot_campaign_editor": "real 1P, 2P and survival setup pass",
+    "godot_views": 5,
+    "seasonal_views": 8,
+    "n64": "all five 1P encounters and 18-cell castle reveal pass in base 4 MiB",
+    "campaign_balance": "2 earlier solo village assertions remain failing: 13-round pacing and expected attrition. All ten encounter traces win, but human balance review remains open."
+  },
+  "n64": {
+    "reviewDriver": true,
+    "romSha256": "a96d19052cc29838545ce69f0cc289a8aae3b720758fcb4d25c693427d1dcf1c",
+    "rdramBytes": 4194304,
+    "finalHeapFree": 558464,
+    "finalReplayFpsSample": 29.99,
+    "fpsScope": "Final 120-frame replay sample, not a village benchmark or hardware result.",
+    "commands": 318,
+    "enemyCommands": 181,
+    "finalHash": "11460780795836040227",
+    "modelsMatchCurrentSharedSource": true,
+    "logSha256": "9704261bc23d20fae4b34a33487e94d39d1a810513e617cd95b84b2652186264",
+    "viewportCrop": [
+      116,
+      80,
+      760,
+      570
+    ]
+  },
+  "ps1": {
+    "mode": 2,
+    "buildManifestSha256": "611c314f14c7c962a25457caf944c77e77abd2bf33f482aadab61178f5917a7e",
+    "mainRam": {
+      "text_bytes": 429208,
+      "data_bytes": 736052,
+      "bss_bytes": 281488,
+      "resident_bytes": 1446748,
+      "end_address": "0x80170b90",
+      "renderer_probe_budget_bytes": 524288,
+      "platform_audio_reserve_bytes": 65536,
+      "stack_reserve_bytes": 32768,
+      "minimum_gameplay_heap_bytes": 524288,
+      "main_ram_bytes": 2097152,
+      "renderer_and_audio_reserve_bytes": 1512284,
+      "passes_renderer_only_probe_budget": false,
+      "playable_slice_committed_bytes": 2069340,
+      "passes_playable_slice_budget": true
+    },
+    "cache": {
+      "vertices": 3616,
+      "vertex_limit": 3648,
+      "triangles": 3118,
+      "triangle_limit": 3136,
+      "mesh_vertex_limit": 1024
+    },
+    "runtime": {
+      "simulationTicks": 600,
+      "renderedFrames": 300,
+      "missedRetraces": 133,
+      "maxElapsedRetraces": 6,
+      "renderHblAverage": 553,
+      "renderHblMaximum": 1309
+    },
+    "performance": "Busier village does not consistently meet 30 FPS; remaining work.",
+    "logSha256": "d635a9e9ff54245e35f2cb9d2c91418d0a2c1f3b92437efff3389b5d7ad4d628"
+  },
+  "logsSha256": {
+    "out/settlement-plan06-portable-tests-final.log": "b3fbc5cfcbff7a2289fbc0c81762ddfac07196d398010c360b09e9b3cf295179",
+    "out/settlement-plan06-model-tests.log": "21d8af00462a8e5b0cc5711d85df179f1e0d6660384949875800c66b52f7e0dc",
+    "out/settlement-plan06-editor.log": "289c1d4b288904f88f0b9dcc45fef4d28ffc45c9bb5046e1cff6d69934a7e0f4",
+    "out/settlement-plan06-godot-final.log": "6b8b84f163f473183ad7522bca517eed2d0e2013960ed9bc659091aef95404d0",
+    "out/settlement-plan06-seasons.log": "d5c7dbd001e3d91d8881279e9179316a098e39d344e5eff0296d5bd22930e0bb",
+    "out/settlement-plan06-ps1-generator-checked.log": "451a6b1bee0fef1b5964a58f5033fa665b5f18a23fd1e6eae492b054e3cf9454",
+    "out/settlement-plan06-n64-prepare-tests.log": "78d8f10609de5bfc382f7269a8e5913ba874063f04119dbe4863c6abb24f377f"
+  },
+  "limitations": [
+    "Emulator evidence; physical consoles have not been tested.",
+    "Current N64 review uses 1P; PS1 capture uses 2P, same map at different moments.",
+    "Console prop animation, PS1 frame budget, further terrain detail and the other four composition passes remain pending.",
+    "Only 27,812 bytes remain above the PS1 minimum audio, stack and gameplay-heap reserves; further changes need another RAM audit."
+  ],
+  "campaignPackageSha256": "28bd961f2953ff6bbe87446ddfa744741bddf742071bb96b9f680f9262ff5d36",
+  "sameCampaignPackageOnBothConsoles": true,
+  "campaignBalanceLogSha256": "5a38083d28b326880981b5f7dd80dc34fb436c2c83edadb376596837d2674c4f"
+}

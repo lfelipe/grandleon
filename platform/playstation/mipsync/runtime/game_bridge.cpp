@@ -1236,9 +1236,9 @@ void tick_camera() {
         if (!tree) continue;
         const std::int32_t tree_x = tree->position[0] / 65536;
         const std::int32_t tree_z = tree->position[2] / 65536;
-        tree->mesh_enabled = !close_combat && s_camera_settle_frames >= 2 &&
-            tree_x >= camera_x - half_x && tree_x <= camera_x + half_x &&
-            tree_z >= camera_focus_z - half_z && tree_z <= camera_focus_z + half_z;
+        tree->mesh_enabled = !close_combat &&
+            tree_x >= camera_x - half_x - 2 && tree_x <= camera_x + half_x + 2 &&
+            tree_z >= camera_focus_z - half_z - 2 && tree_z <= camera_focus_z + half_z + 2;
     }
     sync_visibility_entities(close_combat);
     animate_combat_units(snapshot);

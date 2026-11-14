@@ -927,6 +927,7 @@ func _build_cluster_landmarks() -> void:
 			var kind := str(_landmark_anchors[anchor])
 			var prop: Node3D = _settlement_scenery.build(_terrain_root, kind, _village_house_variation(anchor))
 			prop.position = _landmark_centre(anchor) + Vector3(0, 0.20, 0)
+			_register_ambient_terrain(prop, 9)
 			_scenery_occluders.append({"node": prop, "alpha": 1.0, "blocked": false, "materials": []})
 
 
@@ -1471,6 +1472,13 @@ func _build_natural_tile(x: int, y: int, kind: int) -> void:
 	# the props edge-weighted or overhead so they explain the place without
 	# pretending that a portable passable cell is blocked.
 	match feature:
+		"town_wall":
+			var neighbours: Array[bool] = []
+			for offset: Vector2i in [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]:
+				neighbours.append(_terrain_feature_at(x + offset.x, y + offset.y) in ["town_wall", "watchtower"])
+			var wall: Node3D = _settlement_scenery.build_wall(cell, neighbours)
+			wall.position.y = top
+			return
 		"orchard_tree":
 			_build_medieval_orchard_tree(cell, top, variation)
 			return
@@ -2706,7 +2714,8 @@ func _register_ambient_terrain(node: Node3D, kind: int) -> void:
 	var label := String(node.name)
 	var whole_tree := label in ["TreeA", "TreeB"] or bool(node.get_meta("ambient_tree", false)) or String(node.get_meta("landmark_style", "")) == "orchard_tree"
 	var loose_foliage := label.begins_with("Leaf") or label.begins_with("Grass")
-	if kind != 0 and (whole_tree or loose_foliage):
+	var cloth := bool(node.get_meta("ambient_cloth", false))
+	if kind != 0 and (whole_tree or loose_foliage or cloth):
 		var world := node.position
 		var ancestor := node.get_parent()
 		while ancestor is Node3D and ancestor != _terrain_root:
@@ -2715,7 +2724,7 @@ func _register_ambient_terrain(node: Node3D, kind: int) -> void:
 		_ambient_props.append({
 			"node": node, "rotation": node.rotation, "position": node.position,
 			"phase": world.x * 0.73 + world.z * 1.17 + float(_ambient_props.size()) * 0.31,
-			"tree": whole_tree,
+			"tree": whole_tree, "cloth": cloth,
 		})
 		if whole_tree:
 			return
@@ -2737,7 +2746,9 @@ func _update_ambient_terrain() -> void:
 		var breeze := (sin(_pulse * 0.88 + phase) + sin(_pulse * 0.39 + phase * 0.7) * 0.35)
 		if not _ambient_motion_enabled:
 			breeze = 0.0
-		if bool(prop.tree):
+		if bool(prop.get("cloth", false)):
+			node.rotation = Vector3(prop.rotation) + Vector3(breeze * 0.025, 0, breeze * 0.012)
+		elif bool(prop.tree):
 			node.rotation = Vector3(prop.rotation) + Vector3(breeze * 0.010, 0, breeze * 0.018)
 		else:
 			node.position = Vector3(prop.position) + Vector3(breeze * 0.016, 0, breeze * 0.008)

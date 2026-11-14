@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 600" role="img" aria-label="V · Twin Gate Keep: a court beneath the ridge"><style>text{font-family:system-ui,sans-serif;font-weight:550}</style>
+<rect x="0" y="0" width="1000" height="600" rx="0" fill="#172820"/>
+<rect x="26" y="76" width="660" height="490" rx="20" fill="#b7c38d"/>
+<text x="30" y="43" text-anchor="start" font-size="26" fill="#f4eddb">V · Twin Gate Keep: a court beneath the ridge</text>
+<rect x="390" y="90" width="270" height="100" rx="30" fill="#939a7c"/>
+<rect x="600" y="180" width="60" height="320" rx="25" fill="#939a7c"/>
+<text x="440" y="132" text-anchor="start" font-size="15" fill="#243127">Rocky ridge</text>
+<rect x="230" y="210" width="350" height="245" rx="8" fill="#d0c8ae"/>
+<polyline points="225,260 225,185 570,185 570,450 425,450" fill="none" stroke="#8c8d7e" stroke-width="15" stroke-linecap="round" stroke-linejoin="round" />
+<polyline points="350,450 225,450 225,340" fill="none" stroke="#8c8d7e" stroke-width="15" stroke-linecap="round" stroke-linejoin="round" />
+<circle cx="225" cy="185" r="20" fill="#8c8d7e"/>
+<circle cx="570" cy="185" r="20" fill="#8c8d7e"/>
+<circle cx="570" cy="450" r="20" fill="#8c8d7e"/>
+<circle cx="225" cy="450" r="20" fill="#8c8d7e"/>
+<rect x="435" y="218" width="115" height="120" rx="5" fill="#8c8d7e"/>
+<rect x="450" y="232" width="85" height="92" rx="3" fill="#aaa58c"/>
+<text x="460" y="269" text-anchor="start" font-size="18" fill="#243127">Keep</text>
+<text x="452" y="300" text-anchor="start" font-size="11" fill="#243127">Hidden room</text>
+<polyline points="55,290 210,290 310,290 430,275" fill="none" stroke="#c6a678" stroke-width="25" stroke-linecap="round" stroke-linejoin="round" />
+<polyline points="65,490 260,490 385,430 390,355 435,300" fill="none" stroke="#c6a678" stroke-width="19" stroke-linecap="round" stroke-linejoin="round" />
+<rect x="290" y="370" width="70" height="40" rx="2" fill="#d1c2a1"/>
+<path d="M287,373 L325.0,358 L363,373 L360,385 L290,385 Z" fill="#9d624a"/>
+<text x="277" y="432" text-anchor="start" font-size="13" fill="#243127">Service yard</text>
+<text x="290" y="248" text-anchor="start" font-size="13" fill="#243127">Upper approach</text>
+<circle cx="170" cy="290" r="15" fill="#89c7e9"/>
+<text x="170" y="295" text-anchor="middle" font-size="12" fill="#102333">P1</text>
+<circle cx="200" cy="490" r="15" fill="#edc574"/>
+<text x="200" y="495" text-anchor="middle" font-size="12" fill="#102333">P2</text>
+<text x="710" y="122" text-anchor="start" font-size="20" fill="#f2ead5">A connected fortress</text>
+<text x="710" y="159" text-anchor="start" font-size="15" fill="#cbd0c7">Gatehouse and curtain wall.</text>
+<text x="710" y="186" text-anchor="start" font-size="15" fill="#cbd0c7">Towers reinforce corners.</text>
+<text x="710" y="213" text-anchor="start" font-size="15" fill="#cbd0c7">Service yard below the keep.</text>
+<text x="710" y="240" text-anchor="start" font-size="15" fill="#cbd0c7">Stone terrace meets ground.</text>
+<text x="710" y="267" text-anchor="start" font-size="15" fill="#cbd0c7">Room reveals on entry.</text>
+<text x="710" y="294" text-anchor="start" font-size="15" fill="#cbd0c7">Both co-op approaches</text>
+<text x="710" y="321" text-anchor="start" font-size="15" fill="#cbd0c7">lead into the final chamber.</text>
+<text x="710" y="490" text-anchor="start" font-size="14" fill="#8ccef2">P1  Rowan</text>
+<text x="710" y="516" text-anchor="start" font-size="14" fill="#f3c777">P2  Akari / co-op</text>
+<text x="710" y="551" text-anchor="start" font-size="13" fill="#b5beb1">Composition plan</text>
+</svg>
