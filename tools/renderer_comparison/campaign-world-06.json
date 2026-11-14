@@ -275,7 +275,7 @@
         "deferred_frames": 0,
         "missed_vblanks": 140,
         "max_elapsed_vblanks": 5,
-        "render_hbl_avg": 551,
+        "render_hbl_avg": 552,
         "render_hbl_max": 1293
       },
       "scope": "Emulator visual review. Frame-budget misses are recorded, not treated as a passed performance test."
@@ -348,7 +348,15 @@
     "out/campaign-world06-visibility-final.log": "090b9387f887be060bc324953630e531ad1d9608812f9df8a6134abbe2be265b",
     "out/campaign-world06-ps1-combat/emulator.log": "754819ac36d9fd35eb0b69b068bc1a7fa28a45e684b5e09065374fa867ebac06",
     "out/campaign-world06-ps1-generator-final.log": "451a6b1bee0fef1b5964a58f5033fa665b5f18a23fd1e6eae492b054e3cf9454",
-    "out/campaign-world06-n64-prepare-tests-final.log": "78d8f10609de5bfc382f7269a8e5913ba874063f04119dbe4863c6abb24f377f"
+    "out/campaign-world06-n64-prepare-tests-final.log": "78d8f10609de5bfc382f7269a8e5913ba874063f04119dbe4863c6abb24f377f",
+    "out/campaign-world06-visibility-complete.log": "80e341fe4b7e498d67b039079acb26f33f69d24f992abae0219968c130bdcf60",
+    "out/campaign-world06-visibility-complete/emulator.log": "c76a2b2211b28b6029ca7d278464e612d6e66940c4d9860829614111b50b1c57",
+    "out/campaign-world06-range-complete/review.json": "af67619d05cf3795d37e024598e6b435f6d2c32c9a94936bb9df88f7b7ec3028",
+    "out/campaign-world06-large-floor/review/review.json": "347c8325a3963ff9a5dd209a02451020e7150c51aa41901c25c0838d6e450a06",
+    "out/campaign-world06-large-floor/build/final-build-manifest.json": "38c07dcd862c8800c5c30b2a275c00352abb3fffbf9fa765652922ecf32b2e77",
+    "platform/playstation/mipsync/scripts/capture-scene-review.sh": "43564746418d494c86187d4f7499bca84ed214b626381f0aaa7f15c93255fcf1",
+    "platform/playstation/mipsync/tests/scene_generator_test.py": "faf68886aff6902e68eeb49c77eb0d77a45a91bfd79cf2f7038a9513fbaa3300",
+    "tests/game_content/steel_and_cedar_campaign_test.cpp": "8a2aa81f22c2d315ecf29d801cd8836e8db3282bc4ab51f8b6910c0c3a93a8b1"
   },
   "rendering_commit": "3c5e3d0a"
 }
