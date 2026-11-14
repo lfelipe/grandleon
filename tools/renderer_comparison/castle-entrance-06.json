@@ -1,0 +1,42 @@
+{
+  "schema": "grandleon.castle-cue-review.v1",
+  "source_base": "d6a44c79",
+  "entrance": "Paired amber gatepost lanterns, a warm keystone and a short gold pennant above the arch. Shared Godot geometry exported to both consoles.",
+  "n64": {
+    "rom": "out/castle-cue06-n64/game.z64",
+    "rom_sha256": "cbf951376381ea8b9876726d8af03a7cc295ed2109b165b128f4ad0dd25c10e7",
+    "log": "out/castle-cue06-n64/ares/game.log",
+    "five_stage_solo_replay": "PASS",
+    "castle_reveal_cells": 18,
+    "memory": "Base 4 MiB; final 120-frame sample about 30 FPS, not a per-stage benchmark.",
+    "hardware_tested": false
+  },
+  "ps1": {
+    "build": "out/castle-cue06-ps1-compact/current-build-manifest.json",
+    "before_resident_bytes": 1183956,
+    "after_resident_bytes": 1179860,
+    "captured_frames_compared": 253,
+    "frame_comparison": "All byte-identical; includes both castle states and all 251 controller-driven movement frames.",
+    "before_log": "out/castle-cue06-ps1-reveal/emulator.log",
+    "after_log": "out/castle-cue06-ps1-compact-reveal/emulator.log",
+    "before_log_sha256": "f812e9c24c7a42d2bfa910169c4d41628ad44e8019fb4c9e7f073003675ac77d",
+    "after_log_sha256": "136273848819c65b3810cd5c6036a9f41752b54ceb66217e06fb55be4bbb3cbd",
+    "before_render_hbl_avg": 487,
+    "after_render_hbl_avg": 485,
+    "before_missed_vblanks": 150,
+    "after_missed_vblanks": 149,
+    "timing_scope": "First 600 simulation ticks in the same real one-player Twin Gate visibility probe. Small gain, not a 30 FPS pass.",
+    "hardware_tested": false
+  },
+  "checks": {
+    "godot": "out/castle-entry-test.log: real footprint, doorway clearance, threshold reveal and stable framing pass.",
+    "portable_scenery": "out/castle-entry-model-test.log: six tests pass. Export requires a compatibility rendering backend for MultiMesh transforms.",
+    "ps1_generator": "out/castle-cue06-compact-tests.log: presentation tests plus exact drawn-face/UV/material preservation on all exported scenery pass.",
+    "all_ps1_modes": "All ten real campaign scene exports pass geometry-cache and VRAM gates; out/castle-cue06-scene-checks/report.json. This does not replace a complete linked RAM audit or controller replay for each mode."
+  },
+  "source_sha256": {
+    "platform/playstation/mipsync/tools/generate_scene.py": "2e3978169c1349791d95ab421447acc90f27872e9b9882fe0a520b80a04accd9",
+    "platform/playstation/mipsync/tests/scene_generator_test.py": "9135d19e6f319e02b3bf4cdf941d0a19d042e34384fc720244c8d5fa3253fb49",
+    "platform/console_art/stone_keep.json": "cc3696cdeb4acf3d1bb96a93b1f8e277bcc14e32e236805de58e792d55eb52a6"
+  }
+}

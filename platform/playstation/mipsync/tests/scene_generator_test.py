@@ -311,7 +311,35 @@ def test_fractured_rock_has_grounded_volume_and_outward_faces() -> None:
             assert normal_y > 0
 
 
+def test_scenery_compaction_preserves_drawn_faces_and_texture_seams() -> None:
+    def drawn_faces(vertices, uvs, triangles):
+        return [(tuple((vertices[i], uvs[i] if face[3] else None)
+                       for i in face[:3]), face[3:]) for face in triangles]
+
+    models = SCENE.load_settlement_models(ROOT.parents[2])
+    savings = 0
+    for kind in models:
+        vertices, uvs, triangles = [], [], []
+        SCENE.append_settlement_model(vertices, uvs, triangles, kind, models, {-3: 7})
+        compact = SCENE.compact_flat_mesh(vertices, uvs, triangles)
+        assert drawn_faces(*compact) == drawn_faces(vertices, uvs, triangles), kind
+        savings += len(vertices) - len(compact[0])
+    assert savings > 0, "the real scenery should project fewer vertices"
+
+    # Coincident textured vertices with different UVs remain distinct, while
+    # differing per-face colours survive sharing untextured positions.
+    vertices = [(0, 0, 0, 0), (10, 0, 0, 0), (0, 10, 0, 0)] * 2
+    uvs = [(0, 0), (31, 0), (0, 31), (64, 0), (95, 0), (64, 31)]
+    for texture in (0, 7):
+        triangles = [(0, 1, 2, texture, 255, 90, 80, 70),
+                     (3, 4, 5, texture, 255, 10, 20, 30)]
+        compact = SCENE.compact_flat_mesh(vertices, uvs, triangles)
+        assert drawn_faces(*compact) == drawn_faces(vertices, uvs, triangles)
+        assert len(compact[0]) == (3 if texture == 0 else 6)
+
+
 if __name__ == "__main__":
+    test_scenery_compaction_preserves_drawn_faces_and_texture_seams()
     test_stone_keep_exports_solid_terrace_with_local_sorting_faces()
     test_masonry_keeps_one_texture_tile_per_board_cell()
     test_console_font_has_complete_pixel_cells()

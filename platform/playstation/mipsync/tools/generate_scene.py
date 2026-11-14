@@ -1128,6 +1128,29 @@ def append_keep_part(vertices: list, uvs: list, triangles: list, part: dict,
                           *lit_colour(part["colour"], normal)))
 
 
+def compact_flat_mesh(vertices: list, uvs: list, triangles: list) -> tuple[list, list, list]:
+    """Share identical exported vertices without changing faces or materials.
+
+    Flat scenery has per-face baked colour and one unused up normal. Texture
+    seams must stay separate; untextured faces need only the same position.
+    Work on final integer coordinates, as those are what the console projects.
+    """
+    points, coordinates, faces = [], [], []
+    remap = {}
+    for face in triangles:
+        mapped = []
+        for index in face[:3]:
+            uv = uvs[index] if face[3] else (0, 0)
+            key = (vertices[index], uv)
+            if key not in remap:
+                remap[key] = len(points)
+                points.append(vertices[index])
+                coordinates.append(uv)
+            mapped.append(remap[key])
+        faces.append(tuple(mapped) + face[3:])
+    return points, coordinates, faces
+
+
 def append_settlement_model(board_vertices, board_uvs, board_triangles, kind, settlement_models, terrain_indices):
     cx = cz = floor = 0
     if kind.startswith("house_cutout_") or kind == "grove_cutout":
@@ -1339,6 +1362,8 @@ def write_meshes(
         board_triangles = [triangle for pair in batches for triangle in pair]
         if not board_vertices:
             continue
+        board_vertices, board_uvs, board_triangles = compact_flat_mesh(
+            board_vertices, board_uvs, board_triangles)
         page_origins.append(key)
         board_groups.append((
             board_vertices, board_uvs, board_triangles,
@@ -1397,6 +1422,8 @@ def write_meshes(
             (first, first + 1, first + 2, 0, 255, *colour),
             (first + 2, first + 1, first + 3, 0, 255, *colour),
         ))
+    visibility_vertices, visibility_uvs, visibility_triangles = compact_flat_mesh(
+        visibility_vertices, visibility_uvs, visibility_triangles)
     # The close view used to expose the edge of one small quad, making its
     # actors look as though they stood on a card in empty space. A modest grid
     # reaches past the camera frustum, repeats a readable material instead of
@@ -1456,6 +1483,7 @@ def write_meshes(
             continue
         verts, uvs, tris = [], [], []
         append_settlement_model(verts, uvs, tris, kind, settlement_models, terrain_indices)
+        verts, uvs, tris = compact_flat_mesh(verts, uvs, tris)
         scenery_groups[kind] = (verts, uvs, tris)
     scenery_vertices, scenery_triangles = scenery_cache_peak(
         settlement_instances, scenery_groups, width, height,

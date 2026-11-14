@@ -213,6 +213,9 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   Extend related orchard varieties, fences, service buildings and fortifications
   where the design calls for them. Add restrained foliage, cloth, water and
   signal-fire motion, and continue console visual/performance work toward 30 FPS.
+- [x] Mark the keep's entrance with restrained amber gatepost lanterns and a
+  gold pennant above the arch. Share the geometry across all three players;
+  preserve the doorway clearance and reveal only when a unit enters.
 - [ ] Expand thematic multi-tile landmark art beyond the current Medieval
   houses and keep: Sengoku, pirate, sci-fi and the other scenario styles need
   their own families. Add corresponding console variants, fences, gates,
@@ -261,6 +264,11 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   views so the existing strict 30 fps checks pass. Retain the full terrain,
   units, camera behaviour and test scenarios; do not change gameplay to pass
   a performance test or weaken the checks.
+  Exported flat scenery now shares duplicate projected vertices while keeping
+  texture seams, face order and baked colour. The one-player keep saves 4 KiB
+  of resident memory; all 253 reveal-sequence captures remain byte-identical.
+  Its small timing gain does not close the frame-rate gap.
+  [Entrance and vertex-sharing checks](tools/renderer_comparison/castle-entrance-06.json)
   The richer stone-keep candidate needs further profiling: the centred
   two-player exterior capture improves from 114 to 111 missed retraces over
   600 simulation ticks (300 rendered frames), with render time reduced from
