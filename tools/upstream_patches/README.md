@@ -27,9 +27,10 @@ the small demo and Steel and Cedar built and booted in the PS1 emulator, followe
 by the CD-audio and independent volume-setting checks. This does not replace
 upstream's full desktop editor validation.
 
-The local series now contains three separate runtime changes:
+The local series contains three separate runtime changes, proposed together in
+[upstream PR #2](https://github.com/KasaBranca/Mipsync/pull/2):
 
-- reuse certified visibility for cached flat draws ([upstream PR #2](https://github.com/KasaBranca/Mipsync/pull/2));
+- reuse certified visibility for cached flat draws;
 - reject texture indices and residency slots beyond the fixed arrays;
 - batch safe world projection, retaining exact scalar clipping at boundaries.
 
