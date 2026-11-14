@@ -543,9 +543,17 @@ def relay_terrain_image(repo: Path, kind: int) -> Image.Image:
         elif kind == 11:  # bamboo
             draw.line((x0 + 8, 31, x0 + 9, 12), fill=dark)
             draw.line((x0 + 24, 24, x0 + 23, 5), fill=light)
-        else:  # forest, hills, grass
-            draw.ellipse((x0 + 4 + variant, 8, x0 + 17 + variant, 16), fill=dark)
-            draw.ellipse((x0 + 18, 21, x0 + 28, 27), fill=light)
+        else:  # forest, hills, grass: leaf litter and broad dappled light
+            for y in range(32):
+                for x in range(32):
+                    grain = hash_cell(x + variant * 32, y, kind + 31) % 9 - 4
+                    patch = hash_cell(x // 6 + variant * 7, y // 6, kind) % 13 - 6
+                    shade = 100 + grain + patch
+                    if kind == 2:
+                        # A soft ground-contact shade beneath the canopy.
+                        dx, dy = x - (14 + variant), y - 18
+                        shade -= max(0, 17 - (dx * dx + dy * dy) // 5)
+                    image.putpixel((x0 + x, y), shifted_colour(tile_base, shade))
     return image.convert("RGBA")
 
 
@@ -969,10 +977,10 @@ def append_terrain_form(
                     ((y - floor + z - cz) // 4) % 32))
         return index
 
-    def face(a: int, b: int, c: int, face_colour: tuple[int, int, int]) -> None:
-        material = -2 if kind in (0, 2, 6, 10, 11) else -3
-        if face_colour == (102, 70, 42):
-            material = -1
+    def face(a: int, b: int, c: int, face_colour: tuple[int, int, int],
+             material: int | None = None) -> None:
+        if material is None:
+            material = -2 if kind in (0, 2, 6, 10, 11) else -3
         # Neutral texture modulation preserves the form's authored palette.
         triangles.append((a, b, c, materials[material], 255, *face_colour))
 
@@ -985,10 +993,15 @@ def append_terrain_form(
         back_right = vertex(x + radius_x, floor + bottom, z - radius_z)
         back_left = vertex(x - radius_x, floor + bottom, z - radius_z)
         apex = vertex(x, floor + bottom + height, z)
-        face(front_left, front_right, apex, light)
-        face(front_right, back_right, apex, face_colour)
-        face(back_right, back_left, apex, shifted_colour(face_colour, 82))
-        face(back_left, front_left, apex, shifted_colour(face_colour, 92))
+        if kind == 2:
+            for index, uv in zip((front_left, front_right, back_right, back_left, apex),
+                                 ((0, 31), (31, 31), (31, 0), (0, 0), (16, 16))):
+                uvs[index] = uv
+        material = -1 if face_colour == (102, 70, 42) else None
+        face(front_left, front_right, apex, shifted_colour(face_colour, 114), material)
+        face(front_right, back_right, apex, face_colour, material)
+        face(back_right, back_left, apex, shifted_colour(face_colour, 82), material)
+        face(back_left, front_left, apex, shifted_colour(face_colour, 92), material)
 
     def box(
         x: int, z: int, radius_x: int, radius_z: int, height: int,
@@ -1004,30 +1017,44 @@ def append_terrain_form(
         top_front_right = vertex(x + radius_x, top, z + radius_z)
         top_back_right = vertex(x + radius_x, top, z - radius_z)
         top_back_left = vertex(x - radius_x, top, z - radius_z)
-        face(front_left, front_right, top_front_right, light)
-        face(front_left, top_front_right, top_front_left, light)
-        face(front_right, back_right, top_back_right, face_colour)
-        face(front_right, top_back_right, top_front_right, face_colour)
+        material = -1 if face_colour == (102, 70, 42) else None
+        front_colour = shifted_colour(face_colour, 114)
+        face(front_left, front_right, top_front_right, front_colour, material)
+        face(front_left, top_front_right, top_front_left, front_colour, material)
+        face(front_right, back_right, top_back_right, face_colour, material)
+        face(front_right, top_back_right, top_front_right, face_colour, material)
         face(top_front_left, top_front_right, top_back_right,
-             shifted_colour(face_colour, 128))
+             shifted_colour(face_colour, 128), material)
         face(top_front_left, top_back_right, top_back_left,
-             shifted_colour(face_colour, 128))
+             shifted_colour(face_colour, 128), material)
 
     if castle_wall:
         stone = (157, 147, 130)
         box(cx, cz, 62, 62, 84, stone)
         box(cx, cz, 21, 60, 18, light, 84)
     elif kind == 2:  # forest: trunk plus a layered, faceted canopy
-        canopy_height = 72 + int((roll >> 5) % 41)
+        canopy_height = 60 + int((roll >> 5) % 37)
         canopy_width = 33 + int((roll >> 18) % 18)
         canopy_depth = canopy_width - 8 + int((roll >> 23) % 13)
         lean = int((roll >> 9) % 13) - 6
         trunk_height = 35 + canopy_height // 10
-        box(cx, cz, 6, 6, trunk_height, (102, 70, 42))
-        pyramid(cx - 5 + lean, cz + 2, canopy_width, canopy_depth,
-                canopy_height, colour, 22)
-        pyramid(cx + 15 - lean, cz - 9, canopy_width - 12, canopy_depth - 11,
-                canopy_height - 19, light, 37)
+        # The sheltered trunk needs no top cap. Its tapered four-face mesh
+        # leaves the same triangle budget for a rounder six-sided main crown.
+        pyramid(cx, cz, 6, 6, trunk_height, (102, 70, 42))
+        ring = [vertex(cx - 5 + lean + dx, floor + 22, cz + 2 + dz)
+                for dx, dz in ((-canopy_width, 0), (-canopy_width // 2, -canopy_depth),
+                               (canopy_width // 2, -canopy_depth), (canopy_width, 0),
+                               (canopy_width // 2, canopy_depth), (-canopy_width // 2, canopy_depth))]
+        apex = vertex(cx - 5 + lean, floor + 22 + canopy_height, cz + 2)
+        for index, uv in zip(ring + [apex],
+                             ((0, 16), (8, 0), (24, 0), (31, 16),
+                              (24, 31), (8, 31), (16, 16))):
+            uvs[index] = uv
+        for side, brightness in enumerate((100, 86, 78, 92, 114, 122)):
+            face(ring[(side + 1) % 6], ring[side], apex,
+                 shifted_colour(colour, brightness))
+        pyramid(cx + lean, cz - 3, canopy_width * 2 // 3, canopy_depth * 2 // 3,
+                canopy_height // 2, colour, 22 + canopy_height * 3 // 4)
     elif kind == 3:  # mountain: a small range, not one isolated pyramid
         pyramid(cx - 12, cz + 7, 48, 42, 108, colour)
         pyramid(cx + 32, cz - 17, 31, 29, 76, light)

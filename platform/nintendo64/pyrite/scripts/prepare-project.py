@@ -181,6 +181,9 @@ def draw_atlas(path: Path, kinds: list[int]) -> None:
                     value -= 13 if x % 6 == 0 else 0
                 elif kind in (2, 6, 9, 11):
                     value -= 10 if (x * 11 + y * 7) % 23 < 3 else 0
+                    if kind == 2:
+                        # Soft contact shade under the central tree canopy.
+                        value -= max(0, 32 - ((x - 10) ** 2 + (y - 11) ** 2))
                 elif kind in (3, 8):
                     value -= 12 if (x + y * 3) % 17 == 0 else 0
                 value = max(0, min(255, value))

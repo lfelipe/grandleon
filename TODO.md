@@ -168,6 +168,10 @@ tracked above.
 
 ### Graphics and animation
 
+Prioritize visibly richer console scenes, then profile and recover performance.
+Keep 30 FPS as the goal; a temporary frame-rate regression can be accepted for
+a worthwhile visual improvement. RAM and VRAM allocations must still fit.
+
 - [x] In Godot, gently fade Medieval mesh props such as the bell when they
   obstruct a unit, following its animated position and restoring opacity
   when it comes back into view. Shared scenery materials stay unchanged.

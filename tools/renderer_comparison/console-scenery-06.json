@@ -1,0 +1,70 @@
+{
+  "schema": "grandleon.console-scenery-review.v1",
+  "references": [
+    {
+      "url": "https://github.com/HailToDodongo/pyrite64/tree/main/n64/examples/baked_light",
+      "reviewed": "Pinned Pyrite 0.10.0 example GLB attributes COLOR_0, NORMAL, POSITION, TEXCOORD_0 and material configuration. Texture detail combined with stored vertex colours."
+    },
+    {
+      "url": "https://github.com/HailToDodongo/pyrite64#showcase",
+      "reviewed": "Published showcase/editor images; rounded silhouettes, consistent light direction and authored material composition."
+    },
+    {
+      "url": "https://github.com/HailToDodongo/tiny3d#readme",
+      "reviewed": "Official example clips and documented colour/normal support. Existing runtime remains on Pyrite/Tiny3D."
+    },
+    {
+      "url": "https://github.com/KasaBranca/Mipsync#see-mipsync-in-action",
+      "reviewed": "Published real PS1 runtime screenshot and local native example fixtures. Screenshot is a platform/texture test scene, not a finished forest environment."
+    }
+  ],
+  "changes": [
+    "Layered six-sided N64 crowns, baked directional vertex colours and explicit foliage UVs replace the diamond canopy and wrapped world UVs.",
+    "PS1 six-sided main canopy and separate upper tip; tapered trunk removes hidden cap geometry. All bark faces retain bark material under baked shading.",
+    "Dappled PS1 ground detail replaces repeated ellipse symbols; both forest materials include soft contact shade."
+  ],
+  "budgets": {
+    "n64_tree_vertices_before": 12,
+    "n64_tree_vertices_after": 20,
+    "n64_tree_triangles_before": 12,
+    "n64_tree_triangles_after": 22,
+    "n64_max_trees": 176,
+    "n64_additional_reserved_tree_vertex_bytes": 22528,
+    "ps1_tree_vertices_before": 18,
+    "ps1_tree_vertices_after": 17,
+    "ps1_tree_triangles_before": 14,
+    "ps1_tree_triangles_after": 14,
+    "ps1_deepwood_max_cached_vertices_before": 565,
+    "ps1_deepwood_max_cached_vertices_after": 544,
+    "ps1_deepwood_max_cached_triangles": 486,
+    "ps1_deepwood_resident_bytes": 1129388
+  },
+  "ps1_deepwood_emulator_scroll": {
+    "rendered_frames": 300,
+    "missed_vblanks": 0,
+    "deferred_frames": 0,
+    "render_hbl_average": 233,
+    "render_hbl_maximum": 473
+  },
+  "limits": [
+    "Emulator measurements, not hardware measurements.",
+    "PS1 foliage remains static.",
+    "Opening N64 and Deepwood PS1 gallery views are different maps; compare each platform against its own prior capture.",
+    "N64 timing is the final 120-frame sample, not a distribution over the whole campaign."
+  ],
+  "n64_full_campaign_emulator": {
+    "battles": 5,
+    "commands": 290,
+    "enemy_commands": 170,
+    "combats": 5,
+    "castle_cells_revealed": 18,
+    "final_sample_frames": 120,
+    "final_sample_average_frame_us": 33339,
+    "final_sample_maximum_frame_us": 34004,
+    "final_sample_fps": 30,
+    "heap_used_bytes": 1556448,
+    "heap_free_bytes": 1022360,
+    "rdram_bytes": 4194304,
+    "canonical_hash": "11460780795836040227"
+  }
+}

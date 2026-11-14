@@ -188,12 +188,25 @@ def test_forest_variation_preserves_topology_and_rooted_trunks() -> None:
         assert all(vertex[1] == 8 for vertex in vertices[:4])
         assert all(abs(vertex[0]) == 6 and abs(vertex[2]) == 6
                    for vertex in vertices[:4])
+        # Baked lighting must keep every trunk face on the bark material,
+        # including its brighter facets. The upper crown forms a tip.
+        assert all(face[3] == 1 and face[5] > face[6]
+                   for face in triangles[:4])
+        assert vertices[16][1] > vertices[11][1]
+        for triangle in triangles:
+            if triangle[3] != 2:
+                continue
+            a, b, c = (vertices[index] for index in triangle[:3])
+            # Both crowns must face outward/upward after changing topology;
+            # reversed winding makes foliage disappear under backface culling.
+            normal_y = (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2])
+            assert normal_y > 0
         assert all(0 <= component < 32 for uv in uvs for component in uv)
     assert len(profiles) > 6
     assert len(palettes) >= 3
     # Variation uses the existing trunk and two canopies, with no additional
     # vertices, texture references or triangles in a resident terrain page.
-    assert counts == {(18, 18, 14)}
+    assert counts == {(17, 17, 14)}
 
 
 if __name__ == "__main__":

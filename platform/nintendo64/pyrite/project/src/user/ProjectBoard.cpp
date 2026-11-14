@@ -71,7 +71,7 @@ constexpr std::size_t kBatchCells = 15U;
 constexpr std::size_t kMaxElevationVertices = kMaxCells * 8U;
 constexpr std::size_t kGroundVertexCount = 4U;
 constexpr std::size_t kMaxApronCells = 800U;
-constexpr std::size_t kTreeVertexCount = 12U;
+constexpr std::size_t kTreeVertexCount = 20U;
 constexpr std::size_t kMaxTrees = 176U;
 constexpr std::size_t kTerrainFormVertexCount = 8U;
 constexpr std::size_t kMaxTerrainForms = 144U;
@@ -727,7 +727,7 @@ void set_vertex(
     auto* uv = t3d_vertbuffer_get_uv(buffer, static_cast<int>(index));
     uv[0] = u;
     uv[1] = v;
-    if (buffer == board.terrain_forms || buffer == board.trees ||
+    if (buffer == board.terrain_forms ||
         buffer == board.landmark || buffer == board.elevation) {
         // World-anchored grain remains fixed when the camera scrolls.
         uv[0] = static_cast<std::int16_t>(((x + z + 32768) / 3 % 32) * 32);
@@ -1434,13 +1434,34 @@ void append_tree(
     set_vertex(board.trees, first + 2U, cx + trunk, floor, cz + trunk, bark_a, 0, 0, normal);
     set_vertex(board.trees, first + 3U, cx - trunk, floor, cz + trunk, bark_b, 0, 0, normal);
     set_vertex(board.trees, first + 4U, cx + lean, floor + scaled(34, scale), cz, bark_a, 0, 0, normal);
-    set_vertex(board.trees, first + 5U, cx, floor + scaled(24, scale), cz, bark_a, 0, 0, normal);
-    set_vertex(board.trees, first + 6U, cx + lean, floor + scaled(74, scale), cz, leaf_b, 0, 0, normal);
-    set_vertex(board.trees, first + 7U, cx - crown, floor + shoulder, cz, leaf_a, 0, 0, normal);
-    set_vertex(board.trees, first + 8U, cx, floor + shoulder, cz - depth, leaf_b, 0, 0, normal);
-    set_vertex(board.trees, first + 9U, cx + crown, floor + shoulder, cz, leaf_a, 0, 0, normal);
-    set_vertex(board.trees, first + 10U, cx, floor + shoulder, cz + depth, leaf_b, 0, 0, normal);
-    set_vertex(board.trees, first + 11U, cx + lean, floor + scaled(25, scale), cz, leaf_a, 0, 0, normal);
+    // Two overlapping crowns mirror the layered Godot conifers. Store the
+    // sunlight and sheltered undersides in vertex colours, as a baked pass;
+    // there is no per-frame lighting or additional texture allocation.
+    const auto ring = [&](std::size_t base, std::int16_t radius_x,
+                          std::int16_t radius_z, std::int16_t bottom,
+                          std::int16_t top, std::uint32_t colour) {
+        const std::int16_t xs[6] = {static_cast<std::int16_t>(-radius_x), static_cast<std::int16_t>(-radius_x / 2),
+            static_cast<std::int16_t>(radius_x / 2), radius_x,
+            static_cast<std::int16_t>(radius_x / 2), static_cast<std::int16_t>(-radius_x / 2)};
+        const std::int16_t zs[6] = {0, static_cast<std::int16_t>(-radius_z),
+            static_cast<std::int16_t>(-radius_z), 0, radius_z, radius_z};
+        constexpr std::int16_t us[6] = {0, 8, 24, 31, 24, 8};
+        constexpr std::int16_t vs[6] = {16, 0, 0, 16, 31, 31};
+        const std::uint32_t shades[6] = {leaf_b, colour, darken(colour, 215U),
+            darken(colour, 175U), darken(colour, 190U), colour};
+        for (std::size_t vertex = 0; vertex < 6U; ++vertex) {
+            set_vertex(board.trees, first + base + vertex, cx + xs[vertex],
+                floor + bottom, cz + zs[vertex], shades[vertex],
+                us[vertex] * 32, vs[vertex] * 32, normal);
+        }
+        set_vertex(board.trees, first + base + 6U, cx + lean, floor + top, cz,
+            leaf_b, 16 * 32, 16 * 32, normal);
+    };
+    ring(5U, crown, depth, scaled(28, scale), shoulder + scaled(23, scale), leaf_a);
+    ring(12U, crown * 2 / 3, depth * 2 / 3, shoulder + scaled(2, scale),
+         scaled(82, scale), leaf_a);
+    set_vertex(board.trees, first + 19U, cx, floor + scaled(24, scale), cz,
+        darken(leaf_a, 130U), 16 * 32, 16 * 32, normal);
     ++board.tree_count;
 }
 
@@ -2877,21 +2898,23 @@ void draw_trees() {
         const auto sway = static_cast<std::int8_t>(breeze * amplitude / 4096);
         const int shift = sway - board.tree_sway[index];
         if (shift != 0) {
-            for (std::size_t crown = 6U; crown < kTreeVertexCount; ++crown) {
+            for (std::size_t crown = 5U; crown < kTreeVertexCount; ++crown) {
                 auto* position = t3d_vertbuffer_get_pos(board.trees,
                     static_cast<int>(index * kTreeVertexCount + crown));
                 // The apex catches more wind; the lower crown stays rooted.
-                position[0] += crown == 6U ? shift * 2 : shift;
+                position[0] += (crown >= 12U && crown <= 18U) ? shift * 2 : shift;
             }
             board.tree_sway[index] = sway;
         }
         t3d_vert_load(board.trees + index * (kTreeVertexCount / 2U), 0, kTreeVertexCount);
         t3d_tri_draw(0, 1, 4); t3d_tri_draw(1, 2, 4);
         t3d_tri_draw(2, 3, 4); t3d_tri_draw(3, 0, 4);
-        t3d_tri_draw(6, 7, 8); t3d_tri_draw(6, 8, 9);
-        t3d_tri_draw(6, 9, 10); t3d_tri_draw(6, 10, 7);
-        t3d_tri_draw(11, 8, 7); t3d_tri_draw(11, 9, 8);
-        t3d_tri_draw(11, 10, 9); t3d_tri_draw(11, 7, 10);
+        for (std::uint8_t side = 0; side < 6U; ++side) {
+            const std::uint8_t next = (side + 1U) % 6U;
+            t3d_tri_draw(11, 5 + side, 5 + next);
+            t3d_tri_draw(18, 12 + side, 12 + next);
+            t3d_tri_draw(19, 5 + next, 5 + side);
+        }
         t3d_tri_sync();
     }
 }
