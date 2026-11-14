@@ -18,6 +18,8 @@ end
 
 -- Read both authored opening conversations, including the co-op line
 -- that wraps onto a second page, before driving the board.
+-- Confirm skips the opening sweep before paging the actual conversation.
+actions[10] = 0x4000
 actions[20] = 0x4000
 actions[40] = 0x4000
 actions[60] = 0x4000

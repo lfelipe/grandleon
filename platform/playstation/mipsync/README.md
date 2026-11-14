@@ -159,14 +159,22 @@ and recognizable silhouettes without turning every cell into a separate
 object. Characters and the cursor follow the same surface. The distant fog
 colour follows the dominant natural terrain, and clustered surroundings plus
 opt-in seam fill keep the board from reading as a noisy grid floating in a blue
-void. The player presents at a measured 30 fps while controller polling and
-tactical rules continue at 60 Hz. Alternating retraces hold the completed front
+void. The player targets 30 fps while controller polling and tactical rules
+continue at 60 Hz. Richer scenery still exceeds that rendering budget in some
+views; see the current measurements in [TODO](../../../TODO.md#performance-and-memory). Alternating retraces hold the completed front
 buffer, giving shaped terrain and close combat a predictable two-VBlank render
 budget without changing game speed. The close view repeats its dominant
 terrain material across a floor that extends beyond the camera, so it no
 longer exposes the edge of a small floating quad. The generated surroundings
 policy stays portable across renderers (`natural_blend`, `extend_edges` or
 `fixed_terrain`).
+
+Unchanged world frames reuse GPU commands from the existing double buffers.
+Exact entity snapshots invalidate them when the camera, visibility, pose or
+material changes; moving units and combat render normally, and UI is rebuilt
+every frame. The cache adds no third command arena. Generated geometry budgets
+include both complete cursor outlines and automatically refresh CMake when
+regenerated.
 
 Release validation checks the following on the exact CUE/BIN:
 

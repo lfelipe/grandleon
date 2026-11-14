@@ -2416,6 +2416,17 @@ extern "C" void grandleon_game_set_fps(uint16_t fps) {
     s_measured_fps = fps;
 }
 
+extern "C" int grandleon_game_world_packets_stable(void) {
+    return s_campaign_mode == CampaignMode::battle && s_created && *s_created &&
+        !s_stage_overview.active() && !s_motion.active && !s_result_frames &&
+        !s_camera_return_frames && s_camera_settle_frames >= 2;
+}
+
+extern "C" void grandleon_game_log_world_packets(uint32_t hits, uint32_t misses, uint32_t bytes) {
+    psx::Line().text("MIPSYNC_WORLD_PACKETS hits=").decimal(hits)
+        .text(" misses=").decimal(misses).text(" bytes=").decimal(bytes).flush();
+}
+
 int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
     ++s_ambient_ticks;
     std::uint16_t pressed = player_one;

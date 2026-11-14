@@ -23,7 +23,9 @@ grandleon_combat_audio = PCSX.addBreakpoint(cue_address, 'Exec', 4, 'Combat soun
 end)
 local quit = PCSX.quit
 PCSX.quit = function(code)
-  assert(#launches >= 2 and #impacts >= 2, 'attack and counterattack must both play')
+  assert(#launches >= 2 and #impacts >= 2, string.format(
+      'attack and counterattack must both play (launches=%d, impacts=%d)',
+      #launches, #impacts))
   assert(launches[1] == 28 and impacts[1] == 37, 'first attack audio is out of phase')
   assert(launches[2] == 68 and impacts[2] == 77, 'counterattack audio is out of phase')
   print('MIPSYNC_COMBAT_AUDIO_PASS launch=28 impact=37 counter_launch=68 counter_impact=77')

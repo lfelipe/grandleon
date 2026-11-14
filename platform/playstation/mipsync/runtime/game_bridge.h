@@ -6,6 +6,11 @@
 extern "C" {
 #endif
 
+int grandleon_game_world_packets_stable(void);
+void grandleon_world_packet_cache_capture(uint32_t* ot, char** next_packet);
+void grandleon_game_log_world_packets(uint32_t hits, uint32_t misses, uint32_t bytes);
+void ps1_ui_render(uint32_t* ot, char** next_packet, const char* packet_end);
+
 enum grandleon_ui_mode {
     GRANDLEON_UI_BROWSE = 0,
     GRANDLEON_UI_MOVE,

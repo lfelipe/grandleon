@@ -51,18 +51,20 @@ update_address=$(
             print "0x" substr($1, length($1) - 7); found = 1
         } END { if (!found) exit 1 }'
 ) || { echo "grandleon_game_update is missing from $elf" >&2; exit 1; }
+# Some nm builds sign-extend symbols to 64 bits. Keep the real 32-bit PS1
+# address so Lua numbers do not round breakpoint and observation addresses.
 audio_address=$(
-    "$nm" -n "$elf" | awk '$3 == "grandleon_audio_cue" {print "0x" $1; found=1} END {if (!found) exit 1}'
+    "$nm" -n "$elf" | awk '$3 == "grandleon_audio_cue" {print "0x" substr($1, length($1) - 7); found=1} END {if (!found) exit 1}'
 )
 duration_address=$(
-    "$nm" -n "$elf" | awk '$3 ~ /s_result_durationE$/ {print "0x" $1; found=1} END {if (!found) exit 1}'
+    "$nm" -n "$elf" | awk '$3 ~ /s_result_durationE$/ {print "0x" substr($1, length($1) - 7); found=1} END {if (!found) exit 1}'
 )
 remaining_address=$(
-    "$nm" -n "$elf" | awk '$3 ~ /s_result_framesE$/ {print "0x" $1; found=1} END {if (!found) exit 1}'
+    "$nm" -n "$elf" | awk '$3 ~ /s_result_framesE$/ {print "0x" substr($1, length($1) - 7); found=1} END {if (!found) exit 1}'
 )
-cursor_address=$("$nm" -n "$elf" | awk '$3 ~ /8s_cursorE$/ {print "0x" $1; found=1} END {if (!found) exit 1}')
-players_address=$("$nm" -n "$elf" | awk '$3 ~ /16s_player_cursorsE$/ {print "0x" $1; found=1} END {if (!found) exit 1}')
-ai_address=$("$nm" -n "$elf" | awk '$3 ~ /11s_ai_activeE$/ {print "0x" $1; found=1} END {if (!found) exit 1}')
+cursor_address=$("$nm" -n "$elf" | awk '$3 ~ /8s_cursorE$/ {print "0x" substr($1, length($1) - 7); found=1} END {if (!found) exit 1}')
+players_address=$("$nm" -n "$elf" | awk '$3 ~ /16s_player_cursorsE$/ {print "0x" substr($1, length($1) - 7); found=1} END {if (!found) exit 1}')
+ai_address=$("$nm" -n "$elf" | awk '$3 ~ /11s_ai_activeE$/ {print "0x" substr($1, length($1) - 7); found=1} END {if (!found) exit 1}')
 
 log=$output/emulator.log
 set +e
@@ -102,14 +104,15 @@ require() {
     }
 }
 require 'GRANDLEON_PS1_RENDERER=MIPSYNC' 'the Mipsync renderer identity'
-require 'MIPSYNC_SIM_READY width=8 height=6 units=8 .*hash=ab6ddf2e9a634fa0' 'the real Bell Orchard simulation'
+require 'MIPSYNC_SIM_READY width=8 height=6 units=8 .*players=2 hash=ab6ddf2e9a634fa0' 'the real Bell Orchard simulation'
 require 'MIPSYNC_SIM_PROOF .*p_attack=1 p_ability=1 .*' 'player attack and equipped ability commands plus opposing turn'
-require 'MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=300 scheduled_frames=300 deferred_frames=0 missed_vblanks=0 max_elapsed_vblanks=2$' 'the stable 30 fps combat frame result'
 require 'MIPSYNC_COMBAT_FORECAST_CAPTURE 320x240 bytes=153600' 'the live attack forecast frame'
 require 'MIPSYNC_COMBAT_CLOSE_CAPTURE 320x240 bytes=153600' 'the close-combat camera frame'
 require 'MIPSYNC_COMBAT_FINAL_CAPTURE 320x240 bytes=153600' 'the completed-turn frame'
 require 'MIPSYNC_COMBAT_AUDIO_PASS launch=28 impact=37 counter_launch=68 counter_impact=77' 'synchronized attack and counterattack sounds'
 require 'MIPSYNC_PLAYER_CAMERA_PASS player=2 ' 'camera focus returned to Player 2 after the opposing turn'
+printf 'Mipsync combat controls, camera and audio checks passed; strict frame-pacing check follows\n'
+require 'MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=300 scheduled_frames=300 deferred_frames=0 missed_vblanks=0 max_elapsed_vblanks=2$' 'the stable 30 fps combat frame result'
 metrics=$(grep 'MIPSYNC_GRANDLEON_METRICS frames=600 ' "$log" | tail -n 1)
 proof=$(grep 'MIPSYNC_SIM_PROOF ' "$log" | tail -n 1)
 printf 'Mipsync Bell Orchard combat passed: %s\n%s\n' "$metrics" "$proof"

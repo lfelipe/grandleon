@@ -1644,8 +1644,8 @@ def write_meshes(
     if max(max(len(group[0]) for group in board_groups), len(visibility_vertices)) > mesh_vertex_limit:
         raise ValueError(f"terrain page needs {vertex_count} vertices; per-mesh limit is {mesh_vertex_limit}")
     return (
-        max(vertex_count, len(combat_floor_vertices)) + scenery_vertices + 8 + (len(visibility_vertices) - len(hidden_cells) * 4 if keep_parts else 0),
-        max(triangle_count, len(combat_floor_triangles)) + scenery_triangles + 4 + (len(visibility_triangles) - len(hidden_cells) * 2 if keep_parts else 0),
+        max(vertex_count, len(combat_floor_vertices)) + scenery_vertices + 2 * len(cursor_vertices) + (len(visibility_vertices) - len(hidden_cells) * 4 if keep_parts else 0),
+        max(triangle_count, len(combat_floor_triangles)) + scenery_triangles + 2 * len(cursor_triangles) + (len(visibility_triangles) - len(hidden_cells) * 2 if keep_parts else 0),
         chunk_descriptors,
     )
 

@@ -338,7 +338,23 @@ def test_scenery_compaction_preserves_drawn_faces_and_texture_seams() -> None:
         assert len(compact[0]) == (3 if texture == 0 else 6)
 
 
+def test_geometry_pool_covers_both_complete_cursor_outlines() -> None:
+    with tempfile.TemporaryDirectory() as folder:
+        output = Path(folder)
+        counts = SCENE.write_meshes(output, [((0, 0), [(0, 0, 9, True, 2, 2)])],
+                                    2, 2, [], {9: 1}, 0, "smooth",
+                                    {(x, y): 0 for y in range(2) for x in range(2)}, [], [])
+        emitted = (output / 'mesh_data.c').read_text()
+        def count(name):
+            body = emitted.split(name + '[] = {')[1].split('};')[0]
+            return len(re.findall(r'^\s*\{', body, re.MULTILINE))
+        for index, suffix in enumerate(('vertices', 'triangles')):
+            world = max(count('k_board_0_' + suffix), count('k_combat_floor_' + suffix))
+            assert counts[index] >= world + 2 * count('k_cursor_' + suffix)
+
+
 if __name__ == "__main__":
+    test_geometry_pool_covers_both_complete_cursor_outlines()
     test_scenery_compaction_preserves_drawn_faces_and_texture_seams()
     test_stone_keep_exports_solid_terrace_with_local_sorting_faces()
     test_masonry_keeps_one_texture_tile_per_board_cell()

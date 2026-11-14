@@ -11,6 +11,7 @@
 #include "runtime/render.h"
 #include "runtime/scene.h"
 #include "runtime/textures.h"
+#include "packet_relocation.h"
 
 #define SCREEN_WIDTH 320
 #define SCREEN_HEIGHT 240
@@ -38,6 +39,187 @@ __attribute__((noinline)) int grandleon_runtime_update(
     uint16_t player_one, uint16_t player_two
 ) {
     return grandleon_game_update(player_one, player_two);
+}
+
+/* Reuse world commands only for this explicit-state Grandleon adapter.
+ * Mipsync still draws every changing frame. UI is always rebuilt, and exact
+ * entity snapshots (not a hash) invalidate camera, pose and material changes.
+ * Templates stay in the existing opposite packet buffer, not a third arena. */
+_Static_assert(sizeof(ps1_entity) % sizeof(uint32_t) == 0, "entity snapshots need whole words");
+static uint32_t s_world_entities[GRANDLEON_WORLD_ENTITY_CAPACITY * sizeof(ps1_entity) / sizeof(uint32_t)];
+#define WORLD_CACHE_HEAD_CAPACITY 512
+static struct { uint32_t tag; uint16_t bucket; } s_world_heads[WORLD_CACHE_HEAD_CAPACITY];
+static unsigned s_world_head_count;
+static struct { char* base; uint32_t generation; } s_world_arenas[2];
+static uint32_t s_world_generation;
+static const char* s_world_packets;
+static uint32_t* s_world_source_ot;
+static char* s_world_pending_start;
+static uint32_t s_world_bytes;
+static uint32_t s_world_hits, s_world_misses;
+static int s_world_ready, s_world_recording, s_world_replaying;
+static uint16_t s_world_render_started, s_world_ui_started, s_world_ui_ticks;
+
+/* Generated meshes/materials are immutable. Future mutable mesh data must
+ * invalidate this cache; engine-driven animation and VM bindings opt out. */
+static int world_cache_supported(void) {
+    unsigned i;
+    if (!grandleon_game_world_packets_stable() ||
+        g_ps1_scene.entity_count > GRANDLEON_WORLD_ENTITY_CAPACITY ||
+        g_ps1_scene.binding_count || g_ps1_scene.rigid_anim_frame_count ||
+        g_ps1_scene.transform_anim_key_count || g_ps1_scene.background_texture_index)
+        return 0;
+    for (i = 0; i < g_ps1_scene.entity_count; ++i) {
+        const ps1_entity* entity = &g_ps1_scene.entities[i];
+        if (entity->vertex_anim_frame_count || entity->rigid_anim_frame_count ||
+            entity->transform_anim_key_count || entity->prerender_occluder)
+            return 0;
+    }
+    return 1;
+}
+
+/* Read object representations through memcpy to preserve strict aliasing.
+ * Constant-size copies become word loads instead of the CRT's byte loop. */
+static int world_entities_match(void) {
+    const unsigned char* source = (const unsigned char*)g_ps1_scene.entities;
+    const size_t words = g_ps1_scene.entity_count * sizeof(ps1_entity) / sizeof(uint32_t);
+    for (size_t i = 0; i < words; ++i) {
+        uint32_t value;
+        __builtin_memcpy(&value, source + i * sizeof(uint32_t), sizeof(value));
+        if (s_world_entities[i] != value) return 0;
+    }
+    return 1;
+}
+
+static void world_entities_capture(void) {
+    const unsigned char* source = (const unsigned char*)g_ps1_scene.entities;
+    const size_t words = g_ps1_scene.entity_count * sizeof(ps1_entity) / sizeof(uint32_t);
+    for (size_t i = 0; i < words; ++i)
+        __builtin_memcpy(&s_world_entities[i], source + i * sizeof(uint32_t), sizeof(uint32_t));
+}
+
+static uint32_t dma_address(const void* pointer) {
+    return (uint32_t)(uintptr_t)pointer & 0xffffffu;
+}
+
+static int world_arena_slot(char* base) {
+    int i;
+    for (i = 0; i < 2; ++i) {
+        if (s_world_arenas[i].base == base) return i;
+        if (!s_world_arenas[i].base) {
+            s_world_arenas[i].base = base;
+            return i;
+        }
+    }
+    return -1;
+}
+
+static void capture_world_packets(uint32_t* ot, char** next_packet) {
+    grandleon_packet_ranges ranges;
+    unsigned i;
+    int arena;
+    if (s_world_replaying || !s_world_recording) return;
+    s_world_recording = 0;
+    s_world_ready = 0;
+    /* Avoid adding cache construction to an already full frame. The normal
+     * renderer warms its own projection caches first; retry on a cheap frame.
+     * Allow for the previous UI cost and an estimated snapshot/link-scan cost. */
+    {
+        const unsigned world_ticks = (uint16_t)((uint16_t)TIMER_VALUE(1) - s_world_render_started);
+        const unsigned ui_budget = s_world_ui_ticks > 64u ? s_world_ui_ticks : 64u;
+        if (world_ticks + ui_budget + 56u > 526u) return;
+    }
+    arena = world_arena_slot(s_world_pending_start);
+    if (arena < 0 || *next_packet < s_world_pending_start ||
+        *next_packet - s_world_pending_start > PACKET_BYTES_PER_FRAME)
+        return;
+    ranges.source_packets = ranges.target_packets = dma_address(s_world_pending_start);
+    ranges.packet_bytes = (uint32_t)(*next_packet - s_world_pending_start);
+    /* A nearly full arena may have stopped a draw at the packet boundary.
+     * Do not retain a potentially partial world as a persistent template. */
+    if (ranges.packet_bytes > PACKET_BYTES_PER_FRAME - PS1_UI_PACKET_RESERVE - 64u) return;
+    ranges.source_ot = ranges.target_ot = dma_address(ot);
+    ranges.ot_bytes = sizeof(s_ordering_table[0]);
+    if (!grandleon_gpu_stream_valid((const uint32_t*)s_world_pending_start,
+            ranges.packet_bytes / sizeof(uint32_t), &ranges)) return;
+    s_world_head_count = 0;
+    for (i = 0; i < ORDERING_TABLE_LENGTH; ++i) {
+        const uint32_t empty = i ? ranges.source_ot + (i - 1u) * 4u : 0xffffffu;
+        const uint32_t address = ot[i] & 0xffffffu;
+        if (ot[i] == empty) continue;
+        if ((address & 3u) || address < ranges.source_packets ||
+            address - ranges.source_packets >= ranges.packet_bytes ||
+            s_world_head_count == WORLD_CACHE_HEAD_CAPACITY) return;
+        s_world_heads[s_world_head_count].tag = ot[i];
+        s_world_heads[s_world_head_count++].bucket = (uint16_t)i;
+    }
+    world_entities_capture();
+    s_world_packets = s_world_pending_start;
+    s_world_source_ot = ot;
+    s_world_bytes = ranges.packet_bytes;
+    if (++s_world_generation == 0) {
+        s_world_generation = 1;
+        s_world_arenas[0].generation = s_world_arenas[1].generation = 0;
+    }
+    s_world_arenas[arena].generation = s_world_generation;
+    s_world_ready = 1;
+}
+
+void grandleon_world_packet_cache_capture(uint32_t* ot, char** next_packet) {
+    capture_world_packets(ot, next_packet);
+    s_world_ui_started = (uint16_t)TIMER_VALUE(1);
+}
+
+static void render_world_and_ui(uint32_t* ot, char** next_packet, const char* end) {
+    grandleon_packet_ranges ranges;
+    unsigned i;
+    const int supported = world_cache_supported();
+    const int arena = world_arena_slot(*next_packet);
+    if (supported && s_world_ready && arena >= 0 &&
+        s_world_bytes <= (uint32_t)(end - *next_packet) &&
+        world_entities_match()) {
+        ranges.source_packets = dma_address(s_world_packets);
+        ranges.target_packets = dma_address(*next_packet);
+        ranges.packet_bytes = s_world_bytes;
+        ranges.source_ot = dma_address(s_world_source_ot);
+        ranges.target_ot = dma_address(ot);
+        ranges.ot_bytes = sizeof(s_ordering_table[0]);
+        if (!grandleon_gpu_ranges_valid(&ranges)) goto redraw;
+        /* Each arena retains its world prefix; UI only appends after it.
+         * Copy/rebase once per changed world, not on every buffer swap. */
+        if (s_world_arenas[arena].generation != s_world_generation) {
+            if (!grandleon_gpu_stream_valid((const uint32_t*)s_world_packets,
+                    s_world_bytes / sizeof(uint32_t), &ranges)) goto redraw;
+            grandleon_gpu_copy_stream((uint32_t*)*next_packet,
+                (const uint32_t*)s_world_packets, s_world_bytes / sizeof(uint32_t), &ranges);
+            s_world_arenas[arena].generation = s_world_generation;
+        }
+        /* present() has already cleared the table. Restore only occupied
+         * world buckets; never retain a previous conversation/menu panel. */
+        for (i = 0; i < s_world_head_count; ++i) {
+            uint32_t tag;
+            if (!grandleon_gpu_rebase_valid_ranges(s_world_heads[i].tag, &ranges, &tag)) {
+                ClearOTagR(ot, ORDERING_TABLE_LENGTH);
+                goto redraw;
+            }
+            ot[s_world_heads[i].bucket] = tag;
+        }
+        *next_packet += s_world_bytes;
+        ++s_world_hits;
+        s_world_replaying = 1;
+        ps1_ui_render(ot, next_packet, end);
+        s_world_ui_ticks = (uint16_t)((uint16_t)TIMER_VALUE(1) - s_world_ui_started);
+        s_world_replaying = 0;
+        return;
+    }
+redraw:
+    ++s_world_misses;
+    s_world_ready = 0;
+    s_world_recording = supported;
+    s_world_pending_start = *next_packet;
+    s_world_render_started = (uint16_t)TIMER_VALUE(1);
+    ps1_render_frame(ot, next_packet, end);
+    s_world_ui_ticks = (uint16_t)((uint16_t)TIMER_VALUE(1) - s_world_ui_started);
 }
 
 void grandleon_platform_card_begin(void) {
@@ -244,7 +426,7 @@ int main(void) {
         }
 
         render_start = (uint16_t)TIMER_VALUE(1);
-        ps1_render_frame(
+        render_world_and_ui(
             s_ordering_table[s_buffer], &s_next_packet,
             s_packets[s_buffer] + PACKET_BYTES_PER_FRAME
         );
@@ -264,6 +446,7 @@ int main(void) {
 
 report_metrics:
         if (measured_frames == 600) {
+            grandleon_game_log_world_packets(s_world_hits, s_world_misses, s_world_bytes);
             grandleon_game_log_metrics(
                 measured_frames, rendered_frames, scheduled_frames,
                 deferred_frames,

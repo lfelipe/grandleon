@@ -303,13 +303,21 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   change to their round silhouette. One fully instanced tree uses 3,608
   triangles in temperate/autumn, 2,840 in winter and 1,240 in ashland.
 
-The first 0.6 PS1 optimization reduces average scenery rendering cost by
-about 5%. In matched 600-update probes, the scrolling case still misses one
-display deadline; the solo castle case improves from 36 misses to 32, with
-three deferred renders unchanged. The strict 30 fps checks remain open.
-All five campaign memory checks pass; 382 scrolling/castle comparison frames
-are byte-identical. [Measurements and build identities](tools/renderer_comparison/ps1-performance-06.json)
-retain the separate normal-game capture timing caveat.
+The latest PS1 pass reuses unchanged world commands while rebuilding UI every
+frame. In matched emulator probes, average CPU rendering cost falls from 461
+to 238 HBlanks for keep scrolling, and from 277 to 182 for the Deepwood sample.
+All 385 scrolling and castle-reveal comparison frames remain byte-identical.
+All five campaign RAM/VRAM checks retain the full audio, stack and gameplay-heap
+reserves; solo/co-op UI traversal, save/Continue, combat and audio checks pass.
+
+This does not finish frame pacing. The two-player keep's average cost falls
+from 559 to 441 HBlanks, but missed retraces rise from 183 to 185 over its first
+600 simulation ticks, including the opening sweep. The direct doorway probe
+retains 151 misses. Profile changing-world frames next; the strict 30 FPS gates
+remain unchanged and open. These are emulator measurements, not hardware results.
+[Current measurements and build identities](tools/renderer_comparison/ps1-world-packets-06.json).
+Earlier projection measurements remain in
+[the initial performance review](tools/renderer_comparison/ps1-performance-06.json).
 
 ### Review and release checks
 

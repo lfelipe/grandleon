@@ -352,6 +352,7 @@ static void draw_menu_row(
 void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* packet_end) {
     grandleon_ui_state state;
     int x;
+    grandleon_world_packet_cache_capture(ordering_table, next_packet);
     grandleon_game_ui_state(&state);
     draw_movement_range(ordering_table, next_packet, packet_end, &state);
     if (state.mode == GRANDLEON_UI_MOVE || state.mode == GRANDLEON_UI_ACTION ||
