@@ -1,0 +1,338 @@
+From 6a62d4856dd1510f6f19a30847eb98c1ea219ee4 Mon Sep 17 00:00:00 2001
+From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
+Date: Fri, 13 Nov 2026 19:46:53 -0800
+Subject: [PATCH] Reject out-of-range PS1 texture indices and residency slots
+
+Share the fixed texture-cache bounds across metadata access and uploads. Reject invalid residency slots before GPU work while preserving zero-slot fallback and the last valid slot. Cover oversized tables, invalid requests and shared-slot boundary behavior in the portable palette tests.
+---
+ templates/ps1/starter/runtime/textures.c | 81 ++++++++++++---------
+ tests/Ps1TexturePaletteTests.c           | 93 ++++++++++++++++++++++--
+ 2 files changed, 132 insertions(+), 42 deletions(-)
+
+diff --git a/templates/ps1/starter/runtime/textures.c b/templates/ps1/starter/runtime/textures.c
+index 269f995..f4acdf6 100644
+--- a/templates/ps1/starter/runtime/textures.c
++++ b/templates/ps1/starter/runtime/textures.c
+@@ -3,14 +3,29 @@
+ #include <psxgpu.h>
+ #include <stdint.h>
+ 
+-static uint16_t s_tpages[256];
+-static uint16_t s_cluts[256];
+-static uint16_t s_widths[256];
+-static uint16_t s_heights[256];
+-static uint16_t s_vram_x[256];
+-static uint16_t s_vram_y[256];
+-static uint8_t s_modes[256];
+-static uint16_t s_slot_texture[256];
++#define PS1_TEXTURE_CAPACITY 256u
++
++static uint16_t s_tpages[PS1_TEXTURE_CAPACITY];
++static uint16_t s_cluts[PS1_TEXTURE_CAPACITY];
++static uint16_t s_widths[PS1_TEXTURE_CAPACITY];
++static uint16_t s_heights[PS1_TEXTURE_CAPACITY];
++static uint16_t s_vram_x[PS1_TEXTURE_CAPACITY];
++static uint16_t s_vram_y[PS1_TEXTURE_CAPACITY];
++static uint8_t s_modes[PS1_TEXTURE_CAPACITY];
++static uint16_t s_slot_texture[PS1_TEXTURE_CAPACITY];
++
++static int ps1_texture_index_valid(unsigned int texture_index) {
++    return texture_index != 0 && texture_index <= g_ps1_texture_count &&
++        texture_index <= PS1_TEXTURE_CAPACITY;
++}
++
++static unsigned int ps1_texture_residency_slot(unsigned int texture_index) {
++    unsigned int slot;
++    if (!ps1_texture_index_valid(texture_index)) return 0;
++    slot = g_ps1_textures[texture_index - 1u].residency_slot;
++    if (!slot) slot = texture_index;
++    return slot <= PS1_TEXTURE_CAPACITY ? slot : 0;
++}
+ 
+ static uint16_t ps1_texture_pixel_width(const TIM_IMAGE* tim) {
+     const unsigned int mode = (unsigned int)(tim->mode & 3u);
+@@ -28,7 +43,7 @@ static void ps1_texture_flush_gpu_cache(void) {
+ 
+ static int ps1_texture_get_tim(unsigned int texture_index, TIM_IMAGE* tim) {
+     const ps1_texture_desc* t;
+-    if (texture_index == 0 || texture_index > g_ps1_texture_count || texture_index > 256u)
++    if (!ps1_texture_index_valid(texture_index))
+         return 0;
+     t = &g_ps1_textures[texture_index - 1u];
+     if (!t->tim || t->tim_word_count < 5)
+@@ -43,7 +58,8 @@ static int ps1_texture_get_tim(unsigned int texture_index, TIM_IMAGE* tim) {
+ /* Resolve descriptor metadata rather than partially initialized s_cluts.
+  * A shared palette owner may appear later in the generated table. */
+ static uint16_t ps1_texture_resolve_clut(unsigned int texture_index) {
+-    unsigned int remaining = g_ps1_texture_count < 256u ? g_ps1_texture_count : 256u;
++    unsigned int remaining = g_ps1_texture_count < PS1_TEXTURE_CAPACITY
++        ? g_ps1_texture_count : PS1_TEXTURE_CAPACITY;
+     while (remaining-- && texture_index) {
+         TIM_IMAGE tim;
+         if (!ps1_texture_get_tim(texture_index, &tim)) return 0;
+@@ -56,10 +72,10 @@ static uint16_t ps1_texture_resolve_clut(unsigned int texture_index) {
+ 
+ void ps1_texture_load_to_vram(unsigned int texture_index) {
+     TIM_IMAGE tim;
+-    const ps1_texture_desc* t;
+-    if (!ps1_texture_get_tim(texture_index, &tim))
++    const unsigned int slot = ps1_texture_residency_slot(texture_index);
++    /* Reject invalid destinations before queuing any image or palette upload. */
++    if (!slot || !ps1_texture_get_tim(texture_index, &tim))
+         return;
+-    t = &g_ps1_textures[texture_index - 1u];
+     if (tim.mode & 0x8)
+         ps1_gpu_load_image(tim.crect, tim.caddr);
+     ps1_gpu_load_image(tim.prect, tim.paddr);
+@@ -71,17 +87,12 @@ void ps1_texture_load_to_vram(unsigned int texture_index) {
+     s_modes[texture_index - 1u] = (uint8_t)(tim.mode & 3u);
+     s_widths[texture_index - 1u] = ps1_texture_pixel_width(&tim);
+     s_cluts[texture_index - 1u] = ps1_texture_resolve_clut(texture_index);
+-    s_slot_texture[(t->residency_slot ? t->residency_slot : texture_index) - 1u] =
+-        (uint16_t)texture_index;
++    s_slot_texture[slot - 1u] = (uint16_t)texture_index;
+ }
+ 
+ void ps1_texture_ensure_resident(unsigned int texture_index) {
+-    unsigned int slot;
+-    if (!texture_index || texture_index > g_ps1_texture_count || texture_index > 256u)
+-        return;
+-    slot = g_ps1_textures[texture_index - 1u].residency_slot;
+-    if (!slot) slot = texture_index;
+-    if (slot > 256u) return;
++    const unsigned int slot = ps1_texture_residency_slot(texture_index);
++    if (!slot) return;
+     if (s_slot_texture[slot - 1u] != texture_index)
+         ps1_texture_load_to_vram(texture_index);
+ }
+@@ -100,14 +111,14 @@ void ps1_textures_init(void) {
+         s_slot_texture[i] = 0;
+     }
+ 
+-    for (i = 0; i < g_ps1_texture_count && i < 256u; ++i) {
+-        const ps1_texture_desc* t = &g_ps1_textures[i];
++    for (i = 0; i < g_ps1_texture_count && i < PS1_TEXTURE_CAPACITY; ++i) {
++        const unsigned int slot = ps1_texture_residency_slot(i + 1u);
+         TIM_IMAGE tim;
+ 
+-        if (!ps1_texture_get_tim(i + 1u, &tim))
++        if (!slot || !ps1_texture_get_tim(i + 1u, &tim))
+             continue;
+ 
+-        if (!t->residency_slot || t->residency_slot == i + 1u) {
++        if (slot == i + 1u) {
+             if (tim.mode & 0x8)
+                 ps1_gpu_load_image(tim.crect, tim.caddr);
+             ps1_gpu_load_image(tim.prect, tim.paddr);
+@@ -133,43 +144,43 @@ void ps1_textures_init(void) {
+ }
+ 
+ uint16_t ps1_texture_tpage(unsigned int texture_index) {
+-    if (texture_index == 0 || texture_index > g_ps1_texture_count)
++    if (!ps1_texture_index_valid(texture_index))
+         return 0;
+     return s_tpages[texture_index - 1];
+ }
+ 
+ uint16_t ps1_texture_clut(unsigned int texture_index) {
+-    if (texture_index == 0 || texture_index > g_ps1_texture_count)
++    if (!ps1_texture_index_valid(texture_index))
+         return 0;
+     return s_cluts[texture_index - 1];
+ }
+ 
+ uint16_t ps1_texture_width(unsigned int texture_index) {
+-    if (texture_index == 0 || texture_index > g_ps1_texture_count)
++    if (!ps1_texture_index_valid(texture_index))
+         return 0;
+     return s_widths[texture_index - 1];
+ }
+ 
+ uint16_t ps1_texture_height(unsigned int texture_index) {
+-    if (texture_index == 0 || texture_index > g_ps1_texture_count)
++    if (!ps1_texture_index_valid(texture_index))
+         return 0;
+     return s_heights[texture_index - 1];
+ }
+ 
+ uint16_t ps1_texture_vram_x(unsigned int texture_index) {
+-    if (texture_index == 0 || texture_index > g_ps1_texture_count)
++    if (!ps1_texture_index_valid(texture_index))
+         return 0;
+     return s_vram_x[texture_index - 1];
+ }
+ 
+ uint16_t ps1_texture_vram_y(unsigned int texture_index) {
+-    if (texture_index == 0 || texture_index > g_ps1_texture_count)
++    if (!ps1_texture_index_valid(texture_index))
+         return 0;
+     return s_vram_y[texture_index - 1];
+ }
+ 
+ uint8_t ps1_texture_u_offset(unsigned int texture_index) {
+-    if (texture_index == 0 || texture_index > g_ps1_texture_count)
++    if (!ps1_texture_index_valid(texture_index))
+         return 0;
+     /* VRAM X is measured in 16-bit words. One word stores four 4-bpp,
+        two 8-bpp, or one 16-bpp texel inside a 64-word texture page. */
+@@ -179,7 +190,7 @@ uint8_t ps1_texture_u_offset(unsigned int texture_index) {
+ }
+ 
+ uint8_t ps1_texture_v_offset(unsigned int texture_index) {
+-    if (texture_index == 0 || texture_index > g_ps1_texture_count)
++    if (!ps1_texture_index_valid(texture_index))
+         return 0;
+     /* Texture page Y is 0 or 256; textures packed lower inside the page need
+        this offset or they sample whatever was uploaded at the page origin. */
+@@ -187,11 +198,11 @@ uint8_t ps1_texture_v_offset(unsigned int texture_index) {
+ }
+ 
+ uint8_t ps1_texture_is_background(unsigned int texture_index) {
+-    if (texture_index == 0 || texture_index > g_ps1_texture_count)
++    if (!ps1_texture_index_valid(texture_index))
+         return 0;
+     return g_ps1_textures[texture_index - 1].is_background;
+ }
+ uint8_t ps1_texture_has_cutout(unsigned int texture_index) {
+-    if (texture_index == 0 || texture_index > g_ps1_texture_count) return 0;
++    if (!ps1_texture_index_valid(texture_index)) return 0;
+     return g_ps1_textures[texture_index - 1].has_cutout;
+ }
+diff --git a/tests/Ps1TexturePaletteTests.c b/tests/Ps1TexturePaletteTests.c
+index 73388f7..6e29f59 100644
+--- a/tests/Ps1TexturePaletteTests.c
++++ b/tests/Ps1TexturePaletteTests.c
+@@ -1,23 +1,43 @@
+ #include <stdio.h>
++#include <limits.h>
+ #include <stdlib.h>
+ #include <string.h>
+ #include <psxgpu.h>
+ #include "../templates/ps1/starter/runtime/textures.h"
+ 
+ static const uint32_t images[6][5] = {{1}, {2}, {3}, {4}, {5}, {6}};
+-const ps1_texture_desc g_ps1_textures[] = {
++#ifndef MIPSYNC_TEST_TEXTURE_COUNT
++#define MIPSYNC_TEST_TEXTURE_COUNT 257u
++#endif
++/* Pad the fixtures to the runtime boundary without designated initializers,
++ * so this test also compiles with the Windows editor's C compiler. */
++#define EMPTY_TEXTURES_2 {0}, {0}
++#define EMPTY_TEXTURES_4 EMPTY_TEXTURES_2, EMPTY_TEXTURES_2
++#define EMPTY_TEXTURES_8 EMPTY_TEXTURES_4, EMPTY_TEXTURES_4
++#define EMPTY_TEXTURES_16 EMPTY_TEXTURES_8, EMPTY_TEXTURES_8
++#define EMPTY_TEXTURES_32 EMPTY_TEXTURES_16, EMPTY_TEXTURES_16
++#define EMPTY_TEXTURES_64 EMPTY_TEXTURES_32, EMPTY_TEXTURES_32
++const ps1_texture_desc g_ps1_textures[257] = {
+     {images[0], 5, 0, 0, 2, 0}, /* Forward reference. */
+     {images[1], 5, 0, 0, 0, 0}, /* Palette owner. */
+     {images[2], 5, 0, 0, 1, 1}, /* Chained reference and shared residency. */
+     {images[3], 5, 0, 0, 5, 0}, /* Cycle must terminate. */
+     {images[4], 5, 0, 0, 4, 0},
+-    {images[5], 5, 0, 0, 99, 0} /* Invalid owner must be rejected. */
++    {images[5], 5, 0, 0, 99, 0}, /* Invalid owner must be rejected. */
++    {images[1], 5, 0, 0, 0, 257}, /* Invalid slot with both image and palette data. */
++    {images[0], 5, 0, 0, 2, 256}, /* Alias the last valid slot. */
++    /* Eight fixtures plus 247 empty entries put the next descriptor at 256. */
++    EMPTY_TEXTURES_64, EMPTY_TEXTURES_64, EMPTY_TEXTURES_64,
++    EMPTY_TEXTURES_32, EMPTY_TEXTURES_16, EMPTY_TEXTURES_4, EMPTY_TEXTURES_2, {0},
++    {images[0], 5, 1, 1, 2, 0}, /* Slot zero falls back to descriptor 256. */
++    {images[0], 5, 1, 1, 2, 0} /* Descriptor exists beyond the runtime limit. */
+ };
+-const unsigned int g_ps1_texture_count = 6;
++const unsigned int g_ps1_texture_count = MIPSYNC_TEST_TEXTURE_COUNT;
+ static RECT image_rect = {528, 32, 16, 64};
+ static RECT palette_rect = {512, 480, 256, 1};
+ static uint32_t pixels[512];
+ static unsigned uploads;
++static unsigned gpu_commands;
+ 
+ int GetTimInfo(const uint32_t* tim, TIM_IMAGE* out) {
+     memset(out, 0, sizeof(*out));
+@@ -28,13 +48,31 @@ int GetTimInfo(const uint32_t* tim, TIM_IMAGE* out) {
+     return 0;
+ }
+ void ps1_gpu_load_image(const RECT* rect, const uint32_t* data) {
+-    (void)rect; (void)data; ++uploads;
++    (void)rect; (void)data; ++uploads; ++gpu_commands;
+ }
+-int DrawSync(int mode) { (void)mode; return 0; }
+-void DrawPrim(const uint32_t* packet) { (void)packet; }
++int DrawSync(int mode) { (void)mode; ++gpu_commands; return 0; }
++void DrawPrim(const uint32_t* packet) { (void)packet; ++gpu_commands; }
+ static void check(int condition, const char* message) {
+     if (!condition) { fprintf(stderr, "%s\n", message); exit(1); }
+ }
++static void check_invalid_index(unsigned int index) {
++    const unsigned initial_gpu_commands = gpu_commands;
++    check(ps1_texture_tpage(index) == 0, "Invalid texture must not expose a tpage");
++    check(ps1_texture_clut(index) == 0, "Invalid texture must not expose a CLUT");
++    check(ps1_texture_width(index) == 0 && ps1_texture_height(index) == 0,
++          "Invalid texture must not expose dimensions");
++    check(ps1_texture_vram_x(index) == 0 && ps1_texture_vram_y(index) == 0,
++          "Invalid texture must not expose VRAM coordinates");
++    check(ps1_texture_u_offset(index) == 0 && ps1_texture_v_offset(index) == 0,
++          "Invalid texture must not expose UV offsets");
++    check(ps1_texture_is_background(index) == 0 && ps1_texture_has_cutout(index) == 0,
++          "Invalid texture must not expose descriptor flags");
++    ps1_texture_load_to_vram(index);
++    ps1_texture_ensure_resident(index);
++    check(gpu_commands == initial_gpu_commands,
++          "Invalid texture must not upload, synchronize or flush the GPU");
++}
++
+ int main(void) {
+     ps1_textures_init();
+     const uint16_t expected = getClut(palette_rect.x, palette_rect.y);
+@@ -52,6 +90,47 @@ int main(void) {
+     check(uploads == initial + 1, "Resident image must not upload again");
+     ps1_texture_ensure_resident(1);
+     check(uploads == initial + 2, "Switching shared slot back must upload its owner");
+-    puts("PS1 palette and residency checks passed.");
++    check_invalid_index(0);
++    check_invalid_index(g_ps1_texture_count + 1u);
++    check_invalid_index(257);
++    check_invalid_index(UINT_MAX);
++
++    if (g_ps1_texture_count >= 7u) {
++        const unsigned before_invalid_slot = gpu_commands;
++        ps1_texture_load_to_vram(7);
++        ps1_texture_ensure_resident(7);
++        check(gpu_commands == before_invalid_slot,
++              "Invalid residency slot must be rejected before palette or image uploads");
++        check(ps1_texture_width(7) == 0,
++              "Initialization must leave invalid-slot metadata unset");
++    }
++    if (g_ps1_texture_count >= 256u) {
++        check(ps1_texture_tpage(256) == ps1_texture_tpage(1) &&
++              ps1_texture_clut(256) == expected,
++              "Last valid descriptor retains its tpage and shared palette");
++        check(ps1_texture_width(256) == 32 && ps1_texture_height(256) == 64 &&
++              ps1_texture_vram_x(256) == 528 && ps1_texture_vram_y(256) == 32 &&
++              ps1_texture_u_offset(256) == 32 && ps1_texture_v_offset(256) == 32,
++              "Last valid descriptor retains dimensions and offsets");
++        check(ps1_texture_is_background(256) && ps1_texture_has_cutout(256),
++              "Last valid descriptor retains its flags");
++        const unsigned boundary_uploads = uploads;
++        ps1_texture_ensure_resident(256);
++        check(uploads == boundary_uploads,
++              "Slot-zero fallback must retain the initialized last descriptor");
++        ps1_texture_ensure_resident(8);
++        check(uploads == boundary_uploads + 1,
++              "Alias can upload into the last valid residency slot");
++        ps1_texture_ensure_resident(8);
++        check(uploads == boundary_uploads + 1,
++              "Last-slot alias remains resident without another upload");
++        ps1_texture_ensure_resident(256);
++        check(uploads == boundary_uploads + 2,
++              "Slot-zero fallback can restore the last descriptor after an alias");
++        ps1_texture_load_to_vram(256);
++        check(uploads == boundary_uploads + 3,
++              "Direct loader accepts the last valid descriptor and slot");
++    }
++    puts("PS1 palette, residency and texture bounds checks passed.");
+     return 0;
+ }
+-- 
+2.53.0
+

@@ -1,0 +1,229 @@
+{
+  "date": "2026-11-13",
+  "upstreamBase": "ce1e489f3135039cdad8e81da7b4b0a24cf55870",
+  "upstreamCommits": [
+    "6a62d4856dd1510f6f19a30847eb98c1ea219ee4",
+    "2cf1e3c652d2811f69914a9c91bea1de9a388734"
+  ],
+  "baselinePatches": [
+    "Reuse certified PS1 visibility in cached flat draws"
+  ],
+  "candidatePatches": [
+    "Reject out-of-range PS1 texture indices and residency slots",
+    "Batch safe static-world vertex projection"
+  ],
+  "emulatorRevision": "a415a98e6c347b41ca5a1d3f23bbc4eb26059687",
+  "measurementNote": "Emulated PS1 HBlank counts, not host wall time. Same campaign, terrain, units, input, 30Hz rendering schedule, packet buffers and memory limits. No test thresholds or game rules changed.",
+  "cases": [
+    {
+      "map": "Cedar Deepwood",
+      "mapSize": [
+        14,
+        9
+      ],
+      "players": 2,
+      "units": 11,
+      "canonicalHash": "72216135b6c8e9d3",
+      "baseline": {
+        "discSha256": "dc70672afd094da82eb8210957459d775a6fc1ff1307b26203e03a55b93bcca0",
+        "metrics": {
+          "frames": 600,
+          "rendered_frames": 300,
+          "scheduled_frames": 300,
+          "deferred_frames": 0,
+          "missed_vblanks": 1,
+          "max_elapsed_vblanks": 3,
+          "render_hbl_avg": 244,
+          "render_hbl_max": 518,
+          "ready_hbl_avg": 246,
+          "ready_hbl_max": 521,
+          "mutation_hbl_max": 0,
+          "first": 123,
+          "last": 123,
+          "min_x": -6,
+          "max_x": 6,
+          "min_z": 11,
+          "max_z": 17,
+          "current_x": 6,
+          "current_z": 11,
+          "chunks": 1
+        },
+        "serialEvidence": [
+          "MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=300 scheduled_frames=300 deferred_frames=0 missed_vblanks=1 max_elapsed_vblanks=3",
+          "MIPSYNC_FRAME_BUDGET render_hbl_avg=244 render_hbl_max=518 ready_hbl_avg=246 ready_hbl_max=521 mutation_hbl_max=0",
+          "MIPSYNC_MISS_RANGE first=123 last=123",
+          "MIPSYNC_CAMERA_PROOF min_x=-6 max_x=6 min_z=11 max_z=17 current_x=6 current_z=11 chunks=1"
+        ],
+        "strict30Fps": false
+      },
+      "candidate": {
+        "discSha256": "4cf61429e03f4a5e485a3e2cbd2fff0a06dcd9e99e16c4ebda68dc9a6e74c454",
+        "metrics": {
+          "frames": 600,
+          "rendered_frames": 300,
+          "scheduled_frames": 300,
+          "deferred_frames": 0,
+          "missed_vblanks": 0,
+          "max_elapsed_vblanks": 2,
+          "render_hbl_avg": 239,
+          "render_hbl_max": 483,
+          "ready_hbl_avg": 241,
+          "ready_hbl_max": 486,
+          "mutation_hbl_max": 0,
+          "first": 0,
+          "last": 0,
+          "min_x": -6,
+          "max_x": 6,
+          "min_z": 11,
+          "max_z": 17,
+          "current_x": 6,
+          "current_z": 11,
+          "chunks": 1
+        },
+        "serialEvidence": [
+          "MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=300 scheduled_frames=300 deferred_frames=0 missed_vblanks=0 max_elapsed_vblanks=2",
+          "MIPSYNC_FRAME_BUDGET render_hbl_avg=239 render_hbl_max=483 ready_hbl_avg=241 ready_hbl_max=486 mutation_hbl_max=0",
+          "MIPSYNC_MISS_RANGE first=0 last=0",
+          "MIPSYNC_CAMERA_PROOF min_x=-6 max_x=6 min_z=11 max_z=17 current_x=6 current_z=11 chunks=1"
+        ],
+        "strict30Fps": true
+      },
+      "pixelIdenticalCaptures": 132,
+      "inputNote": "Original Deepwood scrolling probe."
+    },
+    {
+      "map": "Twin Gate",
+      "mapSize": [
+        20,
+        14
+      ],
+      "players": 2,
+      "units": 11,
+      "canonicalHash": "25b92e2ee75b62e2",
+      "baseline": {
+        "discSha256": "f32847a7066d6e0729bb64457baaeb7793ca3b7882436d3a068b65e4125eacd7",
+        "metrics": {
+          "frames": 600,
+          "rendered_frames": 300,
+          "scheduled_frames": 300,
+          "deferred_frames": 0,
+          "missed_vblanks": 9,
+          "max_elapsed_vblanks": 3,
+          "render_hbl_avg": 320,
+          "render_hbl_max": 773,
+          "ready_hbl_avg": 323,
+          "ready_hbl_max": 776,
+          "mutation_hbl_max": 0,
+          "first": 193,
+          "last": 231,
+          "min_x": -12,
+          "max_x": 7,
+          "min_z": 7,
+          "max_z": 19,
+          "current_x": 7,
+          "current_z": 7,
+          "chunks": 1
+        },
+        "serialEvidence": [
+          "MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=300 scheduled_frames=300 deferred_frames=0 missed_vblanks=9 max_elapsed_vblanks=3",
+          "MIPSYNC_FRAME_BUDGET render_hbl_avg=320 render_hbl_max=773 ready_hbl_avg=323 ready_hbl_max=776 mutation_hbl_max=0",
+          "MIPSYNC_MISS_RANGE first=193 last=231",
+          "MIPSYNC_CAMERA_PROOF min_x=-12 max_x=7 min_z=7 max_z=19 current_x=7 current_z=7 chunks=1"
+        ],
+        "strict30Fps": false
+      },
+      "candidate": {
+        "discSha256": "a97e926588198628c15dbc9504c02ed7eaa799a66d004c935f8d9b75a71a6470",
+        "metrics": {
+          "frames": 600,
+          "rendered_frames": 300,
+          "scheduled_frames": 300,
+          "deferred_frames": 0,
+          "missed_vblanks": 6,
+          "max_elapsed_vblanks": 3,
+          "render_hbl_avg": 315,
+          "render_hbl_max": 741,
+          "ready_hbl_avg": 318,
+          "ready_hbl_max": 744,
+          "mutation_hbl_max": 0,
+          "first": 193,
+          "last": 231,
+          "min_x": -12,
+          "max_x": 7,
+          "min_z": 7,
+          "max_z": 19,
+          "current_x": 7,
+          "current_z": 7,
+          "chunks": 1
+        },
+        "serialEvidence": [
+          "MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=300 scheduled_frames=300 deferred_frames=0 missed_vblanks=6 max_elapsed_vblanks=3",
+          "MIPSYNC_FRAME_BUDGET render_hbl_avg=315 render_hbl_max=741 ready_hbl_avg=318 ready_hbl_max=744 mutation_hbl_max=0",
+          "MIPSYNC_MISS_RANGE first=193 last=231",
+          "MIPSYNC_CAMERA_PROOF min_x=-12 max_x=7 min_z=7 max_z=19 current_x=7 current_z=7 chunks=1"
+        ],
+        "strict30Fps": false
+      },
+      "pixelIdenticalCaptures": 132,
+      "inputNote": "Eight real dialogue confirmations, then the same 10-right/6-down cursor sequence starting at update110. This is a separate case from the older Twin Gate case in ps1-performance-06.json."
+    }
+  ],
+  "castleReveal": {
+    "players": 1,
+    "pixelIdenticalCaptures": 253,
+    "checks": "Covered approach, cursor inspection stays covered, whole18-cell region reveals on entry, movement settles."
+  },
+  "campaignMemoryBudgets": [
+    {
+      "stage": "bell",
+      "committedBytes": 1831452,
+      "limitBytes": 2097152,
+      "remainingBytes": 265700,
+      "textureBytes": 213312
+    },
+    {
+      "stage": "deep",
+      "committedBytes": 1882636,
+      "limitBytes": 2097152,
+      "remainingBytes": 214516,
+      "textureBytes": 168768
+    },
+    {
+      "stage": "gate",
+      "committedBytes": 2046492,
+      "limitBytes": 2097152,
+      "remainingBytes": 50660,
+      "textureBytes": 242976
+    },
+    {
+      "stage": "village",
+      "committedBytes": 2095628,
+      "limitBytes": 2097152,
+      "remainingBytes": 1524,
+      "textureBytes": 281984
+    },
+    {
+      "stage": "watch",
+      "committedBytes": 2077196,
+      "limitBytes": 2097152,
+      "remainingBytes": 19956,
+      "textureBytes": 264544
+    }
+  ],
+  "upstreamValidation": {
+    "minGwReleaseBuild": true,
+    "runnableTestsPassed": 38,
+    "registeredTests": 44,
+    "unverifiedTests": 6,
+    "unverifiedReason": "Windows PowerShell fails its independent execution health check under Wine. Native Windows validation remains required.",
+    "portableSanitizerTestsPassed": 5
+  },
+  "cacheRetentionExperiment": {
+    "shipped": false,
+    "baselineAverageHBlank": 244,
+    "prototypeAverageHBlank": 244,
+    "baselinePeakHBlank": 518,
+    "prototypePeakHBlank": 520,
+    "reason": "No measured frame-time gain; pinning every enabled mesh could starve newly visible topology in small pools. Pressure-aware eviction needs its own fixture."
+  }
+}

@@ -20,3 +20,8 @@ supply the current README captures.
 [android-performance-06.json](android-performance-06.json) records 30-second
 phone/tablet LAN samples at each graphics setting. These use the two-player
 opening with eight units; they are separate from the one-player README clips.
+
+[mipsync-followups-06.json](mipsync-followups-06.json) records the texture-safety
+and projection follow-ups, matched PS1 frame comparisons and unchanged campaign
+memory limits. Deepwood meets the strict frame-pacing gate; the heavier castle
+scroll still has missed frames.

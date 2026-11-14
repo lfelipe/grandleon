@@ -27,8 +27,17 @@ the small demo and Steel and Cedar built and booted in the PS1 emulator, followe
 by the CD-audio and independent volume-setting checks. This does not replace
 upstream's full desktop editor validation.
 
-One later optimization remains local: reusing certified visibility when drawing
-cached flat meshes. It is kept as a separate patch for a future upstream review.
+The local series now contains three separate runtime changes:
+
+- reuse certified visibility for cached flat draws ([upstream PR #2](https://github.com/KasaBranca/Mipsync/pull/2));
+- reject texture indices and residency slots beyond the fixed arrays;
+- batch safe world projection, retaining exact scalar clipping at boundaries.
+
+The last two changes have portable sanitizer coverage. The full Mipsync Windows
+Release cross-build succeeds and 38 tests run successfully under Wine; six
+PowerShell integration tests still require native Windows validation. Grandleon
+performance and image comparisons are recorded in
+[the renderer evidence](../renderer_comparison/mipsync-followups-06.json).
 
 ## Making an engine fix
 
