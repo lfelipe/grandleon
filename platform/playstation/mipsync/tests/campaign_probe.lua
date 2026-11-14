@@ -1,133 +1,156 @@
+-- Exercise the production campaign UI; observe its existing C output rather
+-- than assuming that a story line always occupies one screenful of text.
+local ffi = require('ffi')
+local bit = require('bit')
+dofile('/out/campaign-ui-abi.lua')
 local update_address = assert(tonumber(os.getenv('GRANDLEON_UPDATE_ADDRESS')),
                               'GRANDLEON_UPDATE_ADDRESS is required')
+local ui_address = assert(tonumber(os.getenv('GRANDLEON_UI_ADDRESS')),
+                          'GRANDLEON_UI_ADDRESS is required')
 local mode = os.getenv('GRANDLEON_CAMPAIGN_MODE') or 'new'
-local frame = 0
-local pending_capture = nil
-local actions = {}
-local player_two_actions = {}
-local captures = {}
+assert(mode == 'new' or mode == 'continue' or mode == 'solo', 'unknown campaign mode')
+local UI = {browse=0, move=1, deployment=6, moment=13, title=14, players=15,
+            story=16, objective=17, aftermath=18, save_error=19, name=22}
+local frame, next_input, state_since = 0, 30, 0
+local observed, current_stage = nil, nil
+local captured, returns = {}, {}
+local pending_capture, pending_quit = nil, nil
+local ui_output, ui_return = nil, nil
+local p2_phase, p2_since = 0, 0
+local final_stage = mode == 'new' and 'deepwood' or 'gate'
 
-if mode == 'new' then
-  actions[30] = 0x4000 -- New Game
-  actions[50] = 0x0040 -- 2 Players
-  actions[70] = 0x4000
-  actions[100] = 0x4000 -- prologue
-  actions[130] = 0x4000 -- play Bell Orchard
-  actions[140] = 0x4000 -- Rowan opening, line two
-  actions[150] = 0x4000 -- Akari opening, line one
-  actions[160] = 0x4000 -- Akari opening, line two
-  actions[170] = 0x4000 -- close the authored opening
-  player_two_actions[180] = 0x4000 -- player two selects their authored unit
-  player_two_actions[190] = 0x2000 -- and can cancel independently
-  actions[200] = 0x8000 -- complete Bell from the live board
-  actions[230] = 0x4000 -- story, persist and LoadExec Deepwood
-  actions[290] = 0x4000 -- play Deepwood
-  actions[300] = 0x4000 -- advance both authored two-player scenes
-  actions[310] = 0x4000
-  actions[320] = 0x4000
-  actions[330] = 0x4000
-  captures[20] = 'title'
-  captures[145] = 'bell-dialogue'
-  captures[195] = 'bell'
-  captures[340] = 'deepwood'
-elseif mode == 'continue' then
-  actions[30] = 0x0040 -- Continue row
-  actions[50] = 0x4000 -- LoadExec saved Deepwood stage
-  actions[110] = 0x4000 -- play Deepwood
-  actions[120] = 0x4000 -- advance both authored two-player scenes
-  actions[130] = 0x4000
-  actions[140] = 0x4000
-  actions[150] = 0x4000
-  actions[170] = 0x8000 -- complete Deepwood from the live board
-  actions[200] = 0x4000 -- story, LoadExec Cedar Watch
-  actions[260] = 0x4000 -- play Cedar Watch
-  actions[270] = 0x4000 -- advance both authored two-player scenes
-  actions[280] = 0x4000
-  actions[290] = 0x4000
-  actions[300] = 0x4000
-  actions[320] = 0x8000 -- complete Cedar Watch from the live board
-  actions[350] = 0x4000 -- story, LoadExec Gate Village
-  actions[410] = 0x4000 -- play Gate Village
-  actions[420] = 0x4000 -- advance both authored two-player scenes
-  actions[430] = 0x4000
-  actions[440] = 0x4000
-  actions[450] = 0x4000
-  actions[470] = 0x8000 -- complete Gate Village from the live board
-  actions[500] = 0x4000 -- village story
-  actions[530] = 0x4000 -- parley story, LoadExec Twin Gate
-  actions[590] = 0x4000 -- play the real Twin Gate encounter
-  actions[600] = 0x4000 -- advance both authored two-player scenes
-  actions[610] = 0x4000
-  actions[620] = 0x4000
-  actions[630] = 0x4000
-  captures[20] = 'title'
-  captures[150] = 'deepwood'
-  captures[300] = 'watch'
-  captures[450] = 'village'
-  captures[650] = 'gate'
-else
-  -- A separate fresh card exercises the authored solo definitions, including
-  -- their distinct starts and enemy scaling, through all five executables.
-  actions[30] = 0x4000 -- New Game
-  actions[50] = 0x4000 -- 1 Player
-  actions[80] = 0x4000 -- prologue
-  actions[110] = 0x4000 -- Bell Orchard
-  actions[120] = 0x4000 -- advance the authored solo scene
-  actions[130] = 0x4000
-  actions[170] = 0x8000 -- complete Bell
-  actions[200] = 0x4000 -- story, Deepwood
-  actions[260] = 0x4000 -- play Deepwood
-  actions[270] = 0x4000 -- advance the authored solo scene
-  actions[280] = 0x4000
-  actions[320] = 0x8000 -- complete Deepwood
-  actions[350] = 0x4000 -- story, Cedar Watch
-  actions[410] = 0x4000 -- play Cedar Watch
-  actions[420] = 0x4000 -- advance the authored solo scene
-  actions[430] = 0x4000
-  actions[470] = 0x8000 -- complete Watch
-  actions[500] = 0x4000 -- story, Gate Village
-  actions[560] = 0x4000 -- play Village
-  actions[570] = 0x4000 -- advance the authored solo scene
-  actions[580] = 0x4000
-  actions[620] = 0x8000 -- complete Village
-  actions[650] = 0x4000 -- village story
-  actions[680] = 0x4000 -- parley, Twin Gate
-  actions[740] = 0x4000 -- play Twin Gate
-  actions[750] = 0x4000 -- advance the authored solo scene
-  actions[760] = 0x4000
-  captures[150] = 'solo-bell'
-  captures[300] = 'solo-deepwood'
-  captures[450] = 'solo-watch'
-  captures[600] = 'solo-village'
-  captures[790] = 'solo-gate'
+local function pointer(address, kind)
+  return ffi.cast(kind, PCSX.getMemPtr() + bit.band(address, 0x1fffff))
+end
+local function text(address)
+  if address < 0x80000000 or address >= 0x80200000 then return '' end
+  return ffi.string(pointer(address, 'const char*'),
+                    math.min(192, 0x80200000 - address)):match('^[^%z]*')
+end
+local function stage_for(headline)
+  local lower = headline:lower()
+  if lower:find('orchard', 1, true) then return 'bell' end
+  if lower:find('deepwood', 1, true) then return 'deepwood' end
+  if lower:find('watch', 1, true) then return 'watch' end
+  if lower:find('village', 1, true) then return 'village' end
+  if lower:find('keep', 1, true) or lower:find('twin gate', 1, true) then return 'gate' end
+  return nil
+end
+local function fail(reason)
+  if not pending_quit then
+    print('MIPSYNC_CAMPAIGN_PROBE_FAIL ' .. reason)
+    pending_quit = 1
+  end
+end
+local function capture(name)
+  if captured[name] or pending_capture then return end
+  -- Let the UI's completed draw reach the front buffer before readback.
+  pending_capture = {name=name, after=frame + 4}
 end
 
-local function update()
+-- The UI is called normally by ps1_ui_render. Read the populated output only
+-- when that real call returns; never invoke it or write any game state.
+grandleon_campaign_ui = PCSX.addBreakpoint(
+    ui_address, 'Exec', 4, 'Observe campaign UI call', function()
+  local registers = PCSX.getRegisters().GPR.n
+  ui_output, ui_return = tonumber(registers.a0), tonumber(registers.ra)
+  assert(ui_output >= 0x80000000 and ui_output < 0x80200000 - ffi.sizeof('grandleon_ui_state'),
+         'UI output must be inside main RAM')
+  if not returns[ui_return] then
+    local address = ui_return
+    returns[address] = PCSX.addBreakpoint(address, 'Exec', 4,
+        'Observe completed campaign UI', function()
+      if ui_return == address then
+        local output = pointer(ui_output, 'const grandleon_ui_state*')[0]
+        local previous = observed and observed.mode or -1
+        observed = {mode=tonumber(output.mode), menu=tonumber(output.campaign_menu_index),
+                    settled=output.camera_settled ~= 0, headline=text(tonumber(output.headline))}
+        if observed.mode ~= previous then state_since = frame end
+        if observed.mode == UI.objective then
+          local stage = stage_for(observed.headline)
+          if not stage then fail('unrecognized objective: ' .. observed.headline)
+          elseif current_stage ~= stage then
+            current_stage = stage
+            print('MIPSYNC_CAMPAIGN_OBSERVED stage=' .. stage .. ' headline=' .. observed.headline)
+          end
+        end
+        if observed.mode ~= previous then
+          print(string.format('MIPSYNC_CAMPAIGN_UI frame=%d mode=%d stage=%s',
+                              frame, observed.mode, current_stage or 'title'))
+        end
+        ui_return = nil
+      end
+      return true
+    end)
+  end
+  return true
+end)
+grandleon_campaign_returns = returns
+
+grandleon_campaign_update = PCSX.addBreakpoint(
+    update_address, 'Exec', 4, 'Grandleon campaign update', function()
   frame = frame + 1
-  local held = actions[frame] or 0
-  local player_two = player_two_actions[frame] or 0
+  local held, player_two = 0, 0
+  if observed and not pending_quit then
+    local ui = observed.mode
+    if ui == UI.save_error then fail('production UI reported a memory-card/save error') end
+    if ui == UI.title then capture('title') end
+    if ui == UI.moment and mode == 'new' and current_stage == 'bell' and
+       frame - state_since >= 6 then capture('bell-dialogue') end
+    if ui == UI.browse and current_stage and observed.settled and
+       frame - state_since >= 12 then
+      capture((mode == 'solo' and 'solo-' or '') .. current_stage)
+    end
+    if frame >= next_input and not pending_capture then
+      if ui == UI.title then
+        local row = mode == 'continue' and 1 or 0
+        held = observed.menu == row and 0x4000 or 0x0040
+      elseif ui == UI.players then
+        local row = mode == 'solo' and 0 or 1
+        held = observed.menu == row and 0x4000 or 0x0040
+      elseif ui == UI.name then
+        held = 0x1000 -- Keep the authored default name through the normal editor.
+      elseif ui == UI.story or ui == UI.objective or ui == UI.aftermath or ui == UI.moment then
+        held = 0x4000 -- Advance exactly one real page/line; poll UI again afterwards.
+      elseif ui == UI.deployment then
+        held = 0x0008 -- Normal Begin battle, only if deployment is actually present.
+      elseif current_stage and (ui == UI.browse or ui == UI.move) then
+        local name = (mode == 'solo' and 'solo-' or '') .. current_stage
+        if captured[name] then
+          if mode == 'new' and current_stage == 'bell' and p2_phase < 2 then
+            if p2_phase == 0 then
+              player_two, p2_phase, p2_since = 0x4000, 1, frame
+            elseif ui == UI.move then
+              player_two, p2_phase = 0x2000, 2
+            elseif frame - p2_since > 40 then fail('controller two did not select its army') end
+          elseif current_stage == final_stage then
+            if frame - state_since >= 900 then
+              print('MIPSYNC_CAMPAIGN_PROBE_DONE mode=' .. mode .. ' stage=' .. current_stage)
+              pending_quit = 0
+            end
+          elseif ui == UI.browse and frame - state_since >= 60 then
+            held = 0x8000 -- Existing supported debug completion, from the live board only.
+          end
+        end
+      end
+      if held ~= 0 or player_two ~= 0 then next_input = frame + 10 end
+    end
+  end
   PCSX.getRegisters().GPR.n.a0 = held
   PCSX.getRegisters().GPR.n.a1 = player_two
   if held ~= 0 then
     print(string.format('MIPSYNC_CAMPAIGN_INPUT frame=%d held=%04x', frame, held))
   end
   if player_two ~= 0 then
-    print(string.format('MIPSYNC_CAMPAIGN_INPUT player=2 frame=%d held=%04x',
-                        frame, player_two))
+    print(string.format('MIPSYNC_CAMPAIGN_INPUT player=2 frame=%d held=%04x', frame, player_two))
   end
-  if captures[frame] then pending_capture = captures[frame] end
-  if frame >= (mode == 'new' and 1000 or mode == 'continue' and 1350 or 900) then
-    PCSX.quit(0)
-  end
+  if frame > 6000 then fail('campaign traversal did not reach its final live stage') end
   return true
-end
-
-grandleon_campaign_update = PCSX.addBreakpoint(
-    update_address, 'Exec', 4, 'Grandleon campaign update', update)
+end)
 
 grandleon_campaign_listener = PCSX.Events.createEventListener('GPU::Vsync', function()
-  if pending_capture then
-    local name = pending_capture
+  if pending_capture and frame >= pending_capture.after then
+    local name = pending_capture.name
     pending_capture = nil
     local shot = PCSX.GPU.takeScreenShot()
     local bytes = shot.data.size
@@ -135,10 +158,12 @@ grandleon_campaign_listener = PCSX.Events.createEventListener('GPU::Vsync', func
     local output = Support.File.open('/out/' .. mode .. '-' .. name .. '.bin', 'TRUNCATE')
     output:writeMoveSlice(shot.data)
     output:close()
+    captured[name] = true
     print(string.format('MIPSYNC_CAMPAIGN_CAPTURE name=%s %dx%d bytes=%d',
                         name, tonumber(shot.width), tonumber(shot.height), bytes))
   end
+  if pending_quit ~= nil then PCSX.quit(pending_quit) end
 end)
 
-print(string.format('MIPSYNC_CAMPAIGN_PROBE_READY mode=%s update=%08x',
-                    mode, update_address))
+print(string.format('MIPSYNC_CAMPAIGN_PROBE_READY mode=%s update=%08x ui=%08x',
+                    mode, update_address, ui_address))

@@ -20,7 +20,7 @@ for stage in bell deep watch village gate; do
     done
 done
 
-# The campaign proof is only useful if the two executable stages leave the
+# The campaign proof is only useful if the five executable stages leave the
 # reserves the production player still needs. Keep these checks beside the
 # runtime hand-off so a visually green disc cannot hide an over-budget build.
 python3 - \
@@ -87,10 +87,10 @@ else
 fi
 output=$(CDPATH= cd -- "$output" && pwd)
 
+nm=$PSN00BSDK_ROOT/bin/mipsel-none-elf-nm
 if test -n "${GRANDLEON_UPDATE_ADDRESS:-}"; then
     bell_update=$GRANDLEON_UPDATE_ADDRESS
 else
-    nm=$PSN00BSDK_ROOT/bin/mipsel-none-elf-nm
     address_of() {
         "$nm" -n "$1" | awk '$3 == "grandleon_runtime_update" {
             print "0x" substr($1, length($1) - 7); found = 1
@@ -106,7 +106,35 @@ else
     done
 fi
 
+ui_address_of() {
+    "$nm" -n "$1" | awk '$3 == "grandleon_game_ui_state" {
+        print "0x" substr($1, length($1) - 7); found = 1
+    } END { if (!found) exit 1 }'
+}
+bell_ui=$(ui_address_of "$build/bell-build/grandleon_mipsync.elf")
+for stage in deep watch village gate; do
+    stage_ui=$(ui_address_of "$build/$stage-build/grandleon_mipsync.elf")
+    test "$bell_ui" = "$stage_ui" || {
+        echo "campaign UI observation seam differs: $bell_ui vs $stage_ui ($stage)" >&2
+        exit 1
+    }
+done
+
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+# LuaJIT runs on a 64-bit host; preserve the actual PS1 UI ABI by replacing
+# only its C pointers with explicit 32-bit addresses. The probe reads the
+# production function's real output after its normal render call returns.
+python3 - "$script_dir/../runtime/game_bridge.h" "$output/campaign-ui-abi.lua" <<'PYABI'
+from pathlib import Path
+import re
+import sys
+header = Path(sys.argv[1]).read_text()
+state = re.search(r"typedef struct grandleon_ui_state \{.*?\} grandleon_ui_state;", header, re.S)
+if state is None:
+    raise SystemExit("production UI ABI is missing")
+abi = re.sub(r"const char\s*\*", "uint32_t", state.group())
+Path(sys.argv[2]).write_text("require('ffi').cdef[[\n" + abi + "\n]]\n")
+PYABI
 docker=${GRANDLEON_DOCKER:-docker}
 revision=a415a98e6c347b41ca5a1d3f23bbc4eb26059687
 image=${GRANDLEON_PLAYSTATION_EMULATOR_IMAGE:-grandleon/playstation-emulator:$revision}
@@ -125,6 +153,7 @@ run_mode() {
             --env HOME=/tmp \
             --env "GRANDLEON_UPDATE_ADDRESS=$bell_update" \
             --env "GRANDLEON_CAMPAIGN_MODE=$mode" \
+            --env "GRANDLEON_UI_ADDRESS=$bell_ui" \
             --volume "$build:/disc:ro" \
             --volume "$script_dir:/probe:ro" \
             --volume "$output:/out" \
@@ -157,6 +186,7 @@ require() {
         exit 1
     }
 }
+require "$output/new.log" 'MIPSYNC_CAMPAIGN_PROBE_DONE mode=new stage=deepwood' 'completed state-driven new campaign traversal'
 require "$output/new.log" 'MIPSYNC_CAMPAIGN_READY card=1 continue=0' 'a fresh card'
 require "$output/new.log" 'MIPSYNC_CAMPAIGN_SAVE bytes=[1-9][0-9]* status=0' 'successful card saves'
 require "$output/new.log" 'MIPSYNC_LOCAL_INPUT player=2 unit=[0-9a-f]+' 'controller-two unit ownership'
@@ -170,6 +200,7 @@ require "$output/new.log" 'MIPSYNC_CAMPAIGN_CAPTURE name=deepwood 320x240' 'the 
 require "$output/new.log" 'MIPSYNC_BATTLE_MOMENT dialogue=b46de5c083313842 lines=2' 'the Deepwood March opening conversation'
 require "$output/new.log" 'MIPSYNC_BATTLE_MOMENT dialogue=35a3ea52846d6bf2 lines=2' 'the Deepwood Cedar opening conversation'
 require "$output/new.log" 'MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=300 scheduled_frames=300 deferred_frames=0 missed_vblanks=0 max_elapsed_vblanks=[12]$' 'the Deepwood 30 fps result'
+require "$output/continue.log" 'MIPSYNC_CAMPAIGN_PROBE_DONE mode=continue stage=gate' 'completed state-driven Continue traversal'
 require "$output/continue.log" 'MIPSYNC_CAMPAIGN_READY card=1 continue=1' 'Continue from a later process'
 require "$output/continue.log" 'MIPSYNC_CAMPAIGN_RESUME node=0079abb4797ff5b4 players=2' 'the Cedar Watch hand-off'
 require "$output/continue.log" 'MIPSYNC_CAMPAIGN_RESUME node=07cb9d097af3a9a1 players=2' 'the Gate Village hand-off'
@@ -188,6 +219,7 @@ require "$output/continue.log" 'MIPSYNC_GRANDLEON_METRICS frames=600 rendered_fr
 require "$output/continue.log" 'MIPSYNC_MISS_RANGE first=0 last=0$' 'an empty missed-frame range'
 
 run_mode solo
+require "$output/solo.log" 'MIPSYNC_CAMPAIGN_PROBE_DONE mode=solo stage=gate' 'completed state-driven solo traversal'
 require "$output/solo.log" 'MIPSYNC_SIM_READY width=8 height=6 units=5 .* players=1 hash=d900322b622a711e' 'the authored solo Bell Orchard simulation'
 require "$output/solo.log" 'MIPSYNC_SIM_READY width=14 height=9 units=7 .* players=1 hash=c6543d2796b7fe5c' 'the authored solo Deepwood simulation'
 require "$output/solo.log" 'MIPSYNC_SIM_READY width=16 height=12 units=16 .* players=1 hash=7fcea7aa25ff75ca' 'the authored solo Cedar Watch simulation'
