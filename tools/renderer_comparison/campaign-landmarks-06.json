@@ -1,0 +1,94 @@
+{
+  "schema": "grandleon.campaign-landmarks-review.v1",
+  "scope": "Godot-derived orchard bell, signal beacons and broken watch walls; orchard trees, ancient groves and remaining map compositions are unfinished.",
+  "n64": {
+    "campaign_battles": 5,
+    "castle_reveal_cells": 18,
+    "rdram_bytes": 4194304,
+    "final_heap_free_bytes": 508968,
+    "final_sample_fps": 30.0,
+    "fps_scope": "Final 120-frame replay sample, not a per-stage benchmark or hardware measurement."
+  },
+  "ps1": {
+    "orchard": {
+      "main_ram": {
+        "text_bytes": 425352,
+        "data_bytes": 469556,
+        "bss_bytes": 189376,
+        "resident_bytes": 1084284,
+        "end_address": "0x801183c0",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1149820,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 1706876,
+        "passes_playable_slice_budget": true
+      },
+      "runtime": {
+        "frames": 600,
+        "rendered_frames": 299,
+        "scheduled_frames": 300,
+        "deferred_frames": 1,
+        "missed_vblanks": 0,
+        "max_elapsed_vblanks": 2,
+        "render_hbl_avg": 322,
+        "render_hbl_max": 414
+      },
+      "canonical_hash": "12352774744198827936",
+      "width": 8,
+      "height": 6,
+      "units": 8,
+      "players": 2,
+      "scene_verified": true
+    },
+    "watch": {
+      "main_ram": {
+        "text_bytes": 438872,
+        "data_bytes": 697716,
+        "bss_bytes": 207232,
+        "resident_bytes": 1343820,
+        "end_address": "0x80157980",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1409356,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 1966412,
+        "passes_playable_slice_budget": true
+      },
+      "runtime": {
+        "frames": 600,
+        "rendered_frames": 299,
+        "scheduled_frames": 300,
+        "deferred_frames": 1,
+        "missed_vblanks": 68,
+        "max_elapsed_vblanks": 4,
+        "render_hbl_avg": 428,
+        "render_hbl_max": 804
+      },
+      "canonical_hash": "10900028895224365241",
+      "width": 16,
+      "height": 12,
+      "units": 29,
+      "players": 2,
+      "scene_verified": true
+    }
+  },
+  "capture_limit": "The temporary camera wrapper retains a Deepwood-specific final assertion. Its exit status is not a pass here. Independently checked actual map dimensions, unit count, local players, canonical state hash and framebuffer size from each emulator log against its exported scene; performance misses are retained.",
+  "hashes": {
+    "platform/console_art/settlement_scenery.json": "bb24ffb718bf89ac13bebd10480a6ae389319021725fe09aea0196f62e7225a4",
+    "platform/console_art/settlement_scenery.py": "6e95787e91536ae8ce45f2e4962756ee2fedf7cceb8b5d21b1007708f6d3503f",
+    "platform/godot/tests/export_settlement_scenery.gd": "534f0313c6757500f0a3f59cef2686f22304eebd625c0df034778d7bc3a5e5c8",
+    "platform/nintendo64/pyrite/project/src/user/ProjectBoard.cpp": "59a08d8100d042e133f276d3742be7b67d77fc2c44067a7cb157ac75a91be2ee",
+    "out/scenery-match06-extra/n64-review/ares/game.log": "3c768b262ed726c97e72013bccfbce5665d94f92dab2c409e788d08cef9489ac",
+    "out/scenery-match06-extra/orchard.json": "5e8350919477e4906821985059981d29581126e05af1dc79fe3f394ad87e08d2",
+    "out/scenery-match06-extra/orchard-review/emulator.log": "cc73d5ebacd4aa998e0f5d582975d2a83791a7c538cd4618fdeae16091637e78",
+    "out/scenery-match06-extra/watch.json": "b350bc9819e5961eebf88b93f3d2ff1e3e9831c8c2ef0dd71c3576f10241feb1",
+    "out/scenery-match06-extra/watch-review/emulator.log": "eff19a4cdc93ee61e68bd0e6b44dd14ac925d85b997f015f0c4ce01fcb38576b"
+  }
+}

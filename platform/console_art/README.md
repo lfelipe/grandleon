@@ -14,8 +14,11 @@ terrace so its floor cannot draw over the roof.
 
 `settlement_scenery.json` contains simpler meshes exported from Godot's
 `settlement_scenery.gd`: a cart, well, garden, gate tower and wall
-junctions. Both console generators check the source hash and reject stale
-geometry. Regenerate with `platform/godot/tests/export_settlement_scenery.gd`.
+junctions. It also exports the orchard bell, signal beacons and broken watch
+walls directly from the playable Godot board builders. Those remain passable:
+the bell spans two adjacent cells, and low walls stay along cell edges.
+Both console generators check the scenery and board source hashes and reject
+stale geometry. Regenerate with `platform/godot/tests/export_settlement_scenery.gd`.
 PS1 stores each model once and places it separately from terrain pages; its
 build audit still enforces main RAM and texture limits. Console prop animation
 and the busier village's frame budget remain open work.

@@ -210,13 +210,16 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   player modes, sightlines and pacing. Then expand related orchard varieties,
   fences, service buildings and fortifications, with restrained foliage,
   cloth, water and signal-fire motion. Both console engines now draw shared
-  settlement models, the actual Godot house drawings, and ground materials
+  settlement models, the actual Godot house drawings, orchard bell, watch
+  beacons and broken walls, plus ground materials
   sampled through Godot’s current shader; N64 completes all five encounters in
   base 4 MiB. PS1 fits
   RAM by storing models once, but its busier village misses the 30 FPS budget
   during scrolling. Improve that cost and review matching views. The staggered
   village passes the full campaign suite, with both village traces finishing
-  in eight rounds; human review is open.
+  in eight rounds; human review is open. Bring the actual orchard-tree and
+  ancient-grove presentations across next; these still differ substantially
+  from Godot.
 - [ ] Expand thematic multi-tile landmark art beyond the current Medieval
   houses and keep: Sengoku, pirate, sci-fi and the other scenario styles need
   their own families. Add corresponding console variants, fences, gates,

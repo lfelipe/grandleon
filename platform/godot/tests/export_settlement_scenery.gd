@@ -3,6 +3,7 @@ extends SceneTree
 
 const KINDS := ["village_house", "abandoned_cart", "village_well", "watchtower", "walled_garden", "town_wall", "town_wall_join"]
 var models := {}
+const BOARD_SOURCE := "res://scripts/board_view_3d.gd"
 
 func _init() -> void:
 	call_deferred("_run")
@@ -27,7 +28,36 @@ func _run() -> void:
 		models[kind] = []
 		_collect(prop, models[kind])
 		prop.queue_free()
-	var data := {"schema": "grandleon.settlement.v1", "source_sha256": FileAccess.get_file_as_string(source).replace("\r\n", "\n").sha256_text(), "models": models}
+	# Export these landmarks from the same builders used by the playable board.
+	var board = load(BOARD_SOURCE).new()
+	root.add_child(board)
+	var bell := Node3D.new()
+	world.add_child(bell)
+	board._build_medieval_orchard_bell(bell, 0.0)
+	models.orchard_bell = []
+	_collect(bell, models.orchard_bell)
+	bell.queue_free()
+	for variation in 6:
+		var beacon := Node3D.new()
+		world.add_child(beacon)
+		board._build_medieval_signal_beacon(beacon, 0.0, variation)
+		var key := "signal_beacon_%d" % variation
+		models[key] = []
+		_collect(beacon, models[key])
+		beacon.queue_free()
+	var edges := [Vector2i(6, 3), Vector2i(6, 8), Vector2i(5, 4), Vector2i(10, 4)]
+	for edge in edges.size():
+		for variation in 2:
+			var ruin := Node3D.new()
+			world.add_child(ruin)
+			board._build_medieval_watch_ruin(ruin, 0.0, edges[edge].x, edges[edge].y, variation)
+			var key := "watch_ruin_%d_%d" % [edge, variation]
+			models[key] = []
+			_collect(ruin, models[key])
+			ruin.queue_free()
+	var board_hash := FileAccess.get_file_as_string(BOARD_SOURCE).replace("\r\n", "\n").sha256_text()
+	board.queue_free()
+	var data := {"schema": "grandleon.settlement.v1", "source_sha256": FileAccess.get_file_as_string(source).replace("\r\n", "\n").sha256_text(), "board_sha256": board_hash, "models": models}
 	var file := FileAccess.open(output, FileAccess.WRITE)
 	file.store_string(JSON.stringify(data) + "\n")
 	world.queue_free()

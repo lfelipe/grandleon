@@ -1354,6 +1354,10 @@ void append_box(
 int settlement_model(std::uint64_t id) {
     constexpr const char* names[] = {"mountain_village_house", "mountain_abandoned_cart", "mountain_village_well", "mountain_watchtower", "mountain_walled_garden", "mountain_town_wall"};
     for (std::size_t i=0; i<6U; ++i) if (id == grandleon::core::stable_content_id_v1(names[i])) return static_cast<int>(i);
+    if (id == grandleon::core::stable_content_id_v1("paved_orchard_bell")) return 7;
+    if (id == grandleon::core::stable_content_id_v1("paved_signal_beacon") ||
+        id == grandleon::core::stable_content_id_v1("road_signal_beacon")) return 8;
+    if (id == grandleon::core::stable_content_id_v1("ruins_watch_ruin")) return 14;
     return -1;
 }
 
@@ -1396,12 +1400,17 @@ void build_landmark_vertices() {
         const std::int16_t floor = terrain_lift(terrain);
         const int model = settlement_model(terrain);
         if (model >= 0) {
-            const bool single = model == 5;
+            const bool single = model >= 5;
             if (!landmark_cells_seen[index]) {
                 if (!single) {
                     assertf(x+1 < width && y+1 < height && board.content->terrain[index+1U] == terrain && board.content->terrain[index+width] == terrain && board.content->terrain[index+width+1U] == terrain, "Settlement footprint is incomplete");
                 }
                 landmark_cells_seen[index] = true;
+                if (model == 7) {
+                    assertf(x+1 < width && board.content->terrain[index+1U] == terrain,
+                            "Orchard bell requires two adjacent passable cells");
+                    landmark_cells_seen[index+1U] = true;
+                }
                 if (!single) {
                     landmark_cells_seen[index+1U] = true;
                     landmark_cells_seen[index+width] = true;
@@ -1410,7 +1419,13 @@ void build_landmark_vertices() {
                 if (model == 0) {
                     assertf(board.houses.add(x,y,cx+kHalfCell,floor,cz+kHalfCell), "Godot house artwork could not be loaded");
                 } else {
-                    const int variant = single && x > 0 && board.content->terrain[index-1U] == grandleon::core::stable_content_id_v1("mountain_watchtower") ? 6 : model;
+                    int variant = model;
+                    if (model == 5 && x > 0 && board.content->terrain[index-1U] == grandleon::core::stable_content_id_v1("mountain_watchtower")) variant = 6;
+                    if (model == 8) variant += std::abs(x*17+y*31+terrain_kind(terrain)*13)%6;
+                    if (model == 14) {
+                        const int edge = y == 3 ? 0 : y == 8 ? 1 : x == 5 ? 2 : 3;
+                        variant += edge*2 + std::abs(x*17+y*31+8*13)%2;
+                    }
                     board.settlement.add(static_cast<std::uint8_t>(variant),cx+(single ? 0 : kHalfCell),floor,cz+(single ? 0 : kHalfCell));
                 }
             }

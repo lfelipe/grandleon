@@ -14,7 +14,7 @@ REPO = Path(__file__).resolve().parents[2]
 class SettlementTests(unittest.TestCase):
     def test_models_fit_their_authored_footprints(self):
         for kind, parts in load_models(REPO).items():
-            radius = 0.50001 if kind.startswith("town_wall") else 1.00001
+            radius = 1.53001 if kind == "orchard_bell" else 0.50001 if kind.startswith(("town_wall", "signal_beacon", "watch_ruin")) else 1.00001
             for part in parts:
                 points = part["vertices"]
                 self.assertTrue(all(abs(p[0]) <= radius and abs(p[2]) <= radius for p in points), kind)
@@ -30,6 +30,8 @@ class SettlementTests(unittest.TestCase):
             script.parent.mkdir(parents=True)
             original = (REPO / "platform/godot/project/scripts/settlement_scenery.gd").read_text()
             script.write_bytes(original.replace("\n", "\r\n").encode())
+            board = script.with_name("board_view_3d.gd")
+            board.write_bytes((REPO / "platform/godot/project/scripts/board_view_3d.gd").read_text().replace("\n", "\r\n").encode())
             self.assertEqual(load_models(root), load_models(REPO))
             script.write_text(original + "# A model changed.\n")
             with self.assertRaisesRegex(ValueError, "stale"):
@@ -41,6 +43,18 @@ class SettlementTests(unittest.TestCase):
         self.assertEqual([(0, 0, "village_house", 2), (2, 0, "village_house", 2)], instances)
         with self.assertRaisesRegex(ValueError, "incomplete"):
             placements([ids["mountain_village_house"]] * 6, 3, 2, ids.get)
+
+    def test_passable_landmarks_preserve_their_real_footprints(self):
+        ids = {name: i + 1 for i, name in enumerate(("grass", "paved_orchard_bell", "paved_signal_beacon", "ruins_watch_ruin"))}
+        terrain = [ids["paved_orchard_bell"], ids["paved_orchard_bell"], ids["grass"], ids["paved_signal_beacon"], ids["grass"], ids["ruins_watch_ruin"]]
+        result = placements(terrain, 3, 2, ids.get)
+        self.assertEqual(result[0], (0, 0, "orchard_bell", 1))
+        self.assertEqual(len(result), 3)
+        self.assertTrue(result[1][2].startswith("signal_beacon_"))
+        self.assertTrue(result[2][2].startswith("watch_ruin_"))
+        self.assertTrue(all(size == 1 for _x, _y, _kind, size in result))
+        with self.assertRaisesRegex(ValueError, "incomplete orchard bell"):
+            placements([ids["grass"], ids["paved_orchard_bell"]], 2, 1, ids.get)
 
     def test_n64_batches_fit_rsp_load_constraints(self):
         with tempfile.TemporaryDirectory() as folder:

@@ -4,7 +4,9 @@ import json
 from pathlib import Path
 from stone_keep import face_normal, lit_colour
 
-KINDS = ("village_house", "abandoned_cart", "village_well", "watchtower", "walled_garden", "town_wall", "town_wall_join")
+SETTLEMENT_KINDS = ("village_house", "abandoned_cart", "village_well", "watchtower", "walled_garden", "town_wall", "town_wall_join")
+
+KINDS = SETTLEMENT_KINDS + ("orchard_bell",) + tuple(f"signal_beacon_{v}" for v in range(6)) + tuple(f"watch_ruin_{edge}_{v}" for edge in range(4) for v in range(2))
 
 
 def load_models(repo: Path) -> dict:
@@ -12,19 +14,42 @@ def load_models(repo: Path) -> dict:
     source = repo / "platform/godot/project/scripts/settlement_scenery.gd"
     if data.get("schema") != "grandleon.settlement.v1" or data.get("source_sha256") != hashlib.sha256(source.read_text(encoding="utf-8").encode()).hexdigest():
         raise ValueError("settlement models are stale; regenerate with export_settlement_scenery.gd")
+    board = repo / "platform/godot/project/scripts/board_view_3d.gd"
+    if data.get("board_sha256") != hashlib.sha256(board.read_text(encoding="utf-8").encode()).hexdigest():
+        raise ValueError("campaign landmarks are stale; regenerate with export_settlement_scenery.gd")
     return data["models"]
 
 
 def placements(identities: list[int], width: int, height: int, content_id) -> list[tuple]:
     """Recognise complete footprints; never substitute mountain shapes."""
-    by_id = {content_id("mountain_" + kind): kind for kind in KINDS}
+    by_id = {content_id("mountain_" + kind): kind for kind in SETTLEMENT_KINDS}
     consumed = set()
     result = []
     for y in range(height):
         for x in range(width):
             index = y * width + x
-            kind = by_id.get(int(identities[index]))
-            if not kind or index in consumed:
+            identity = int(identities[index])
+            if index in consumed:
+                continue
+            if identity == content_id("paved_orchard_bell"):
+                if x + 1 >= width or int(identities[index + 1]) != identity:
+                    raise ValueError(f"incomplete orchard bell at {x},{y}")
+                consumed.update((index, index + 1))
+                # The model includes its half-cell offset from the left anchor.
+                result.append((x, y, "orchard_bell", 1))
+                continue
+            beacon_kind = next((k for k, prefix in ((12, "paved"), (1, "road")) if identity == content_id(prefix + "_signal_beacon")), None)
+            if beacon_kind is not None:
+                variation = abs(x * 17 + y * 31 + beacon_kind * 13) % 6
+                result.append((x, y, f"signal_beacon_{variation}", 1))
+                continue
+            if identity == content_id("ruins_watch_ruin"):
+                edge = 0 if y == 3 else 1 if y == 8 else 2 if x == 5 else 3
+                variation = abs(x * 17 + y * 31 + 8 * 13) % 2
+                result.append((x, y, f"watch_ruin_{edge}_{variation}", 1))
+                continue
+            kind = by_id.get(identity)
+            if not kind:
                 continue
             size = 1 if kind.startswith("town_wall") else 2
             cells = [(y + dy) * width + x + dx for dy in range(size) for dx in range(size)]
