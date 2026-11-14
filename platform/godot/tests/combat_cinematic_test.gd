@@ -514,10 +514,10 @@ func _test_castle_reveal(board) -> void:
 			and board._castle_roof.get_meta("grounded_bounds") == Rect2i(2, 0, 6, 6)
 	)
 	_expect_true(
-		"the roof owns one blendable material",
+		"the closed roof writes depth as an opaque volume",
 		board._castle_roof_material is StandardMaterial3D
 			and board._castle_roof_material.transparency
-				== BaseMaterial3D.TRANSPARENCY_ALPHA
+				== BaseMaterial3D.TRANSPARENCY_DISABLED
 	)
 	var inside := outside.duplicate(true)
 	inside.units[0].x = 2
@@ -533,6 +533,9 @@ func _test_castle_reveal(board) -> void:
 	_expect("crossing the rendered doorway arms its reveal", board._castle_reveal_target, 1.0)
 	board._update_castle_reveal(0.35)
 	var reveal_state: Dictionary = board.castle_presentation_state()
+	for material: StandardMaterial3D in board._castle_upper_materials:
+		_expect("every upper-storey material blends during reveal", material.transparency, BaseMaterial3D.TRANSPARENCY_ALPHA)
+		_expect_true("upper-storey materials share the cutaway opacity", is_equal_approx(material.albedo_color.a, float(reveal_state.roof_alpha)))
 	_expect_true(
 		"the keep roof dissolves smoothly instead of popping",
 		reveal_state.roof_alpha < 1.0 and reveal_state.roof_alpha > 0.0
