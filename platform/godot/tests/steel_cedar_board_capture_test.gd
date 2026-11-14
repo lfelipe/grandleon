@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: MIT
 extends SceneTree
 
-const BoardView3D = preload("res://scripts/board_view_3d.gd")
 const GraphicsProfiles = preload("res://scripts/graphics_profiles.gd")
 const CAPTURE_SIZE := Vector2i(1280, 720)
 const MAPS := [
@@ -38,6 +37,7 @@ const MAPS := [
 ]
 
 var failures := 0
+var captures_written := 0
 
 
 func _init() -> void:
@@ -58,6 +58,7 @@ func _run() -> void:
 		if battle.is_empty():
 			continue
 		await _verify_and_capture(battle, spec, output_dir.path_join(String(spec.file)))
+	_expect("every real campaign view writes a capture", captures_written, MAPS.size())
 	if failures == 0:
 		print("five real Steel and Cedar Godot board captures passed")
 	quit(1 if failures > 0 else 0)
@@ -121,7 +122,13 @@ func _verify_and_capture(
 			feature_count += 1
 	_expect("%s landmark footprint" % spec.node, feature_count, int(spec.feature_count))
 
-	var board = BoardView3D.new()
+	# Autoloads are available after _run begins. Preloading this dependency
+	# before SceneTree startup fails to resolve the RenderQuality singleton.
+	var board_script: GDScript = load("res://scripts/board_view_3d.gd")
+	if board_script == null or not board_script.can_instantiate():
+		_fail("board renderer must compile before capturing %s" % spec.node)
+		return
+	var board = board_script.new()
 	board.set_profile("voxel-sprites", GraphicsProfiles.new().profile("voxel-sprites"))
 	get_root().add_child(board)
 	await process_frame
@@ -173,6 +180,8 @@ func _verify_and_capture(
 	await RenderingServer.frame_post_draw
 	var error := get_root().get_viewport().get_texture().get_image().save_png(output_path)
 	_expect("%s capture writes a frame" % spec.node, error, OK)
+	if error == OK:
+		captures_written += 1
 	board.queue_free()
 	await process_frame
 
