@@ -235,6 +235,9 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   views so the existing strict 30 fps checks pass. Retain the full terrain,
   units, camera behaviour and test scenarios; do not change gameplay to pass
   a performance test or weaken the checks.
+  The richer stone-keep candidate needs further profiling: the centred
+  two-player exterior capture misses 114 retraces over 600 simulation ticks
+  (300 rendered frames). It fits RAM/VRAM but does not meet the 30 fps gate.
 - [x] Prepare upstream Mipsync texture-bounds protection and batched world
   projection as separate commits/patches. Sanitizers cover the bounds cases;
   matched movement, scrolling and castle-reveal frames remain pixel-identical.

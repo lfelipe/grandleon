@@ -1,4 +1,16 @@
-# Shared console character art
+# Shared console art
+
+## Castle
+
+The stone keep comes from Godot's `stone_keep.gd` and castle-cell geometry.
+`stone_keep.json` and `stone_keep_masonry.png` are its portable source assets;
+`stone_keep.py` builds console meshes from them. Exports check their source
+hashes and refuse stale geometry. After editing the keep, regenerate them with
+`platform/godot/tests/export_stone_keep.gd`, using the staged Godot project and
+the Steel and Cedar source. PS1 simplifies small details and subdivides the
+terrace so its floor cannot draw over the roof.
+
+## Characters
 
 The Nintendo 64 and PlayStation builds generate their character cutouts from
 the same curated high-resolution sheets and team-colour masks as Godot. Run

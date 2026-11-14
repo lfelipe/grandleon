@@ -19,6 +19,9 @@ import sys
 
 from PIL import Image, ImageDraw
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "platform/console_art"))
+from stone_keep import write_n64_header
+
 # The pinned builder uses Pillow 9.0; filter values are unchanged across APIs.
 RESAMPLING = getattr(Image, "Resampling", Image)
 QUANTIZE = getattr(Image, "Quantize", Image)
@@ -315,6 +318,12 @@ def prepare(project_path: Path, manifest_path: Path, project_root: Path,
     write_asset_config(assets / "material_atlas.png.conf", "material_atlas", 4)
     draw_surface_detail(assets / "surface_detail.png")
     write_asset_config(assets / "surface_detail.png.conf", "surface_detail", 0)
+    castle_source = Path(__file__).resolve().parents[4] / "platform/console_art"
+    masonry = Image.open(castle_source / "stone_keep_masonry.png").convert("RGBA")
+    masonry.resize((32, 32), RESAMPLING.BOX).save(assets / "castle_masonry.png")
+    write_asset_config(assets / "castle_masonry.png.conf", "castle_masonry", 0)
+    write_n64_header(castle_source.parents[1], project_root / "src/user/GeneratedStoneKeep.hpp",
+                     any("castle_wall" in str(cell) for map_value in maps for cell in map_value.get("terrain", [])))
     dominant = max(
         kinds,
         key=lambda kind: sum(

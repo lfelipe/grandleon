@@ -29,6 +29,7 @@
 #include "debug/debugDraw.h"
 #include "audio/audioManager.h"
 #include "BoardShadows.hpp"
+#include "StoneKeep.hpp"
 #include "ConsoleFont.hpp"
 #include "BoardCamera.hpp"
 #include "BoardSurroundings.hpp"
@@ -143,6 +144,7 @@ struct BoardResources final {
     std::size_t tree_count{};
     std::array<std::int8_t, kMaxTrees> tree_sway{};
     std::size_t landmark_vertex_count{};
+    gp::StoneKeep keep{};
     std::size_t visibility_vertex_count{};
     std::array<bool, kMaxCells> visibility_revealed{};
     std::size_t unit_count{};
@@ -286,6 +288,8 @@ struct BattleMomentState final {
 };
 
 struct ReplayState final {
+    bool castle_exterior_aimed{};
+    bool castle_exterior_checkpoint{};
     bool castle_review_aimed{};
     bool castle_review_checkpoint{};
     ReplayPhase phase{ReplayPhase::explore_northwest};
@@ -1350,6 +1354,24 @@ void build_landmark_vertices() {
         grandleon::core::stable_content_id_v1("mountain_castle_wall");
     constexpr std::uint64_t castle_dais =
         grandleon::core::stable_content_id_v1("paved_castle_dais");
+    board.keep.clear();
+    int min_x = width, max_x = -1, min_y = height, max_y = -1, walls = 0;
+    for (std::size_t index = 0; index < board.content->terrain.size(); ++index) {
+        if (board.content->terrain[index] != castle_wall) continue;
+        const int x = static_cast<int>(index % width);
+        const int y = static_cast<int>(index / width);
+        min_x = std::min(min_x, x); max_x = std::max(max_x, x);
+        min_y = std::min(min_y, y); max_y = std::max(max_y, y);
+        ++walls;
+    }
+    if (walls > 0) {
+        assertf(walls == 18 && max_x - min_x == 5 && max_y - min_y == 5,
+                "Stone keep requires the authored six-by-six footprint");
+        assertf(board.keep.build(
+            (world_x(min_x, width) + world_x(max_x, width)) / 2,
+            (world_z(min_y, height) + world_z(max_y, height)) / 2, 13, 4),
+            "Godot-derived stone keep failed to load");
+    }
     bool built_ruin = false;
     for (std::size_t index = 0; index < board.content->terrain.size(); ++index) {
         const std::uint64_t terrain = board.content->terrain[index];
@@ -1359,16 +1381,7 @@ void build_landmark_vertices() {
         const std::int16_t cz = world_z(y, height);
         const std::int16_t floor = terrain_lift(terrain);
         if (terrain == castle_wall) {
-            append_box(
-                cx, floor, cz, kHalfCell - 2, 42, kHalfCell - 2,
-                pack_rgba(143U, 132U, 119U)
-            );
-            // Broken-up battlements identify masonry at board scale without
-            // hiding the doorway or placing an oversized building on it.
-            for (const int offset : {-12, 12}) {
-                append_box(cx + offset, floor + 42, cz, 5, 9,
-                           kHalfCell - 3, pack_rgba(166U, 155U, 137U));
-            }
+            continue; // The shared Godot model supplies the complete masonry.
         } else if (terrain == castle_dais) {
             append_box(
                 cx, floor, cz, kHalfCell - 4, 8, kHalfCell - 4,
@@ -1419,6 +1432,7 @@ void update_visual_visibility() {
 
 void build_visibility_vertices() {
     board.visibility_vertex_count = 0U;
+    if (board.keep.active()) return;
     const int width = board.content->definition.width;
     const int height = board.content->definition.height;
     const fm_vec3_t up = {{0.0F, 1.0F, 0.0F}};
@@ -4194,12 +4208,39 @@ void update_replay() {
     // its cursor at a previous fight. Use the same cursor navigation as play
     // and wait for camera follow to settle; no visibility state is changed.
     const auto& covered = board.content->visual_visibility.hidden_cells;
+    const auto review_focus = [&]() -> sim::Position {
+        const int width = board.content->definition.width;
+        int left = width, right = 0, top = board.content->definition.height, bottom = 0;
+        for (const auto cell : covered) {
+            left = std::min(left, static_cast<int>(cell % width));
+            right = std::max(right, static_cast<int>(cell % width));
+            top = std::min(top, static_cast<int>(cell / width));
+            bottom = std::max(bottom, static_cast<int>(cell / width));
+        }
+        return {static_cast<std::int16_t>((left + right + 1) / 2),
+                static_cast<std::int16_t>((top + bottom + 1) / 2)};
+    };
+    if (!covered.empty() && !board.visibility_revealed[covered.front()] &&
+        !replay.castle_exterior_checkpoint) {
+        const auto focus = review_focus();
+        if (!replay.castle_exterior_aimed) {
+            if (board.game.cursor() == focus) {
+                replay.castle_exterior_aimed = true;
+                replay.next_frame = frame_count + 90U;
+            } else {
+                nudge_toward(focus);
+                replay.next_frame = frame_count + 3U;
+            }
+        } else {
+            replay.castle_exterior_checkpoint = true;
+            debugf("CHECKPOINT PYRITE_CASTLE_EXTERIOR_REVIEW\n");
+            replay.next_frame = frame_count + 90U;
+        }
+        return;
+    }
     if (!covered.empty() && board.visibility_revealed[covered.front()] &&
         !replay.castle_review_checkpoint) {
-        const int width = board.content->definition.width;
-        const auto cell = covered[covered.size() / 2U];
-        const sim::Position focus{static_cast<std::int16_t>(cell % width),
-                                  static_cast<std::int16_t>(cell / width)};
+        const auto focus = review_focus();
         if (!replay.castle_review_aimed) {
             if (board.game.cursor() == focus) {
                 replay.castle_review_aimed = true;
@@ -5554,6 +5595,8 @@ void onScenePreDraw3D() {
     draw_board_cells();
     draw_terrain_forms();
     draw_landmark();
+    const auto& hidden = board.content->visual_visibility.hidden_cells;
+    board.keep.draw(!hidden.empty() && !board.visibility_revealed[hidden.front()]);
     draw_trees();
     draw_visual_visibility();
     board.shadows.draw();

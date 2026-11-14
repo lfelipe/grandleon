@@ -83,6 +83,8 @@ func _run() -> void:
 	board._focus_tactical_camera(Vector2i(15, 7))
 	board._update_tactical_camera(10.0)
 	board.set_process(false)
+	_verify_fortress_geometry(board)
+	_verify_gate_clearance(board)
 	board._update_castle_unit_presentation()
 	var state: Dictionary = board.castle_presentation_state()
 	_expect("real source resolves the exact keep footprint", state.bounds, KEEP_BOUNDS)
@@ -175,6 +177,47 @@ func _run() -> void:
 	if failures == 0:
 		print("Twin Gate real source, threshold reveal, stable framing, and safe fallback passed")
 	quit(1 if failures > 0 else 0)
+
+
+func _verify_fortress_geometry(board) -> void:
+	var towers := 0
+	var terrace := false
+	for geometry: GeometryInstance3D in board._scenery_geometries(board._castle_roof):
+		if not geometry is MeshInstance3D:
+			continue
+		var mesh: Mesh = geometry.mesh
+		if mesh is CylinderMesh and mesh.height > 0.5:
+			towers += 1
+			var local: Vector3 = geometry.global_position - board._castle_roof.global_position
+			_expect_true("round towers occupy the four blocked corners", absf(absf(local.x) - 2.5) < 0.01 and absf(absf(local.z) - 2.5) < 0.01)
+		if mesh is BoxMesh and mesh.size.x > 4.0 and mesh.size.z > 4.0:
+			terrace = mesh.size.y < 0.3 and absf(geometry.rotation.x) < 0.001 and absf(geometry.rotation.z) < 0.001
+	_expect("the keep has four substantial round towers", towers, 4)
+	_expect_true("the upper storey has a level stone terrace", terrace)
+	_expect_true("the stone terrace has masonry texture", board._castle_roof_material.albedo_texture != null)
+	for material: StandardMaterial3D in board._castle_upper_materials:
+		_expect("closed castle volumes write depth as opaque geometry", material.transparency, BaseMaterial3D.TRANSPARENCY_DISABLED)
+
+
+func _verify_gate_clearance(board) -> void:
+	var geometry: Array[GeometryInstance3D] = board._scenery_geometries(board._castle_roof)
+	for child: Node in board._terrain_root.get_children():
+		if child is Node3D and str(child.get_meta("landmark_style", "")) in ["medieval_castle_wall", "medieval_castle_door"]:
+			geometry.append_array(board._scenery_geometries(child))
+	var sprite: Dictionary = board.profile_config.get("sprite", {})
+	var animation: Dictionary = board.profile_config.get("animation", {})
+	var body_height := float(sprite.get("worldHeight", 0.8)) + float(sprite.get("groundOffset", 0.118)) + float(animation.get("moveBobHeight", 0.045))
+	var centre: Vector3 = board._castle_roof.global_position
+	var hits := 0
+	for z in [-0.5, 0.5]:
+		for step in 21:
+			var position := centre + Vector3(-3.35 + float(step) * 0.12, 0.14, z)
+			var body := AABB(position + Vector3(-0.25, 0, -0.25), Vector3(0.5, body_height, 0.5))
+			for mesh: GeometryInstance3D in geometry:
+				if mesh is MeshInstance3D and mesh.mesh is PrimitiveMesh:
+					if body.intersects(mesh.global_transform * mesh.get_aabb()):
+						hits += 1
+	_expect("both authored gate lanes clear the walking silhouette", hits, 0)
 
 
 func _verify_portable_visibility_model() -> void:

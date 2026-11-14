@@ -17,6 +17,30 @@ SCENE = module_from_spec(SPEC)
 SPEC.loader.exec_module(SCENE)
 
 
+def test_stone_keep_exports_solid_terrace_with_local_sorting_faces() -> None:
+    # Exercise the exported Godot keep through the actual PS1 mesh builder.
+    # Large roof triangles otherwise let courtyard tiles paint over the roof.
+    parts = SCENE.load_keep(ROOT.parents[2], "ps1")
+    terrace = next(part for part in parts if min(part["size"][0], part["size"][2]) > 4)
+    vertices, uvs, triangles = [], [], []
+    lifts = {(x, y): 0 for y in range(14) for x in range(20)}
+    SCENE.append_keep_part(vertices, uvs, triangles, terrace, 0, 0, 4, lifts, 20, 14)
+    top = max(point[1] for point in vertices)
+    top_faces = [face for face in triangles if all(vertices[i][1] == top for i in face[:3])]
+    area = 0
+    for face in top_faces:
+        a, b, c = [vertices[i] for i in face[:3]]
+        cross = (b[0] - a[0]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[0] - a[0])
+        assert cross < 0, "terrace must face upward after the PS1 Z conversion"
+        area += abs(cross) / 2
+        for axis in (0, 2):
+            assert max(vertices[i][axis] for i in face[:3]) - min(vertices[i][axis] for i in face[:3]) <= 132
+        uv = [uvs[i] for i in face[:3]]
+        assert (uv[1][0] - uv[0][0]) * (uv[2][1] - uv[0][1]) != (uv[1][1] - uv[0][1]) * (uv[2][0] - uv[0][0]), "roof UVs must span an area rather than a diagonal stripe"
+    expected = (round(terrace["size"][0] * 64) * 2) ** 2
+    assert area == expected, "stone terrace must cover its whole footprint without holes"
+
+
 def test_console_font_has_complete_pixel_cells() -> None:
     atlas = Image.open(ROOT.parents[2] / "assets/fonts/spleen/console-6x12.png").convert("RGBA")
     assert atlas.size == (64, 96)
@@ -225,6 +249,7 @@ def test_fractured_rock_has_grounded_volume_and_outward_faces() -> None:
 
 
 if __name__ == "__main__":
+    test_stone_keep_exports_solid_terrace_with_local_sorting_faces()
     test_console_font_has_complete_pixel_cells()
     test_accented_font_uses_complete_cells_and_dedicated_four_bit_clut()
     test_cutout_keeps_grounding_inside_existing_texture()

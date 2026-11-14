@@ -10,6 +10,7 @@ const PresentationFacing = preload("res://scripts/presentation_facing.gd")
 const TerrainSceneSelector = preload("res://scripts/terrain_scene_selector.gd")
 const NaturalGround = preload("res://scripts/natural_ground.gd")
 const NaturalScenery = preload("res://scripts/natural_scenery.gd")
+const StoneKeep = preload("res://scripts/stone_keep.gd")
 const TerrainMarkerShader = preload("res://shaders/terrain_marker.gdshader")
 const VisualVisibility = preload("res://scripts/visual_visibility.gd")
 const MobileLayout = preload("res://scripts/mobile_layout.gd")
@@ -99,6 +100,7 @@ var _landmark_anchors: Dictionary = {}
 var _castle_bounds := Rect2i()
 var _castle_roof: Node3D
 var _castle_roof_material: StandardMaterial3D
+var _castle_upper_materials: Array[StandardMaterial3D] = []
 var _castle_reveal_progress := 0.0
 var _castle_reveal_target := 0.0
 var _castle_revealed := false
@@ -928,6 +930,7 @@ func _detect_castle_landmark() -> void:
 	_castle_bounds = Rect2i()
 	_castle_roof = null
 	_castle_roof_material = null
+	_castle_upper_materials.clear()
 	_castle_reveal_progress = 0.0
 	_castle_reveal_target = 0.0
 	_castle_revealed = false
@@ -992,38 +995,21 @@ func _build_castle_landmark() -> void:
 	_castle_roof.set_meta("grounded_bounds", _castle_bounds)
 	_terrain_root.add_child(_castle_roof)
 	_castle_roof_material = StandardMaterial3D.new()
-	_castle_roof_material.albedo_color = Color("5d332d")
+	_castle_roof_material.albedo_color = Color("aaa191")
+	_castle_roof_material.albedo_texture = StoneKeep.masonry_texture()
 	_castle_roof_material.roughness = 0.92
-	_castle_roof_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_castle_roof_material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	# Two shallow planes meet at a raised ridge. Their eaves rest on the wall
-	# tops, so the closed state reads as a roofed keep rather than a floating
-	# opaque plate. Every piece shares one fade material.
-	var left_plane := _box(
-		_castle_roof, Vector3(-1.0, 1.20, 0), Vector3(2.12, 0.14, 4.08),
-		_castle_roof_material
-	)
-	left_plane.rotation.z = 0.25
-	var right_plane := _box(
-		_castle_roof, Vector3(1.0, 1.20, 0), Vector3(2.12, 0.14, 4.08),
-		_castle_roof_material
-	)
-	right_plane.rotation.z = -0.25
-	for z_offset in [-1.55, -0.78, 0.0, 0.78, 1.55]:
-		var left_row := _box(
-			_castle_roof, Vector3(-1.0, 1.25, float(z_offset)),
-			Vector3(2.08, 0.055, 0.065), _castle_roof_material
-		)
-		left_row.rotation.z = 0.25
-		var right_row := _box(
-			_castle_roof, Vector3(1.0, 1.25, float(z_offset)),
-			Vector3(2.08, 0.055, 0.065), _castle_roof_material
-		)
-		right_row.rotation.z = -0.25
-	_box(
-		_castle_roof, Vector3(0, 1.47, 0), Vector3(0.18, 0.18, 4.16),
-		_castle_roof_material
-	)
+	_castle_roof_material.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+	_castle_roof_material.cull_mode = BaseMaterial3D.CULL_BACK
+	var light: StandardMaterial3D = _castle_roof_material.duplicate()
+	light.albedo_color = Color("b9b09d")
+	var dark: StandardMaterial3D = _castle_roof_material.duplicate()
+	dark.albedo_color = Color("323b39")
+	dark.albedo_texture = null
+	var banner: StandardMaterial3D = _castle_roof_material.duplicate()
+	banner.albedo_color = Color("8e3631")
+	banner.albedo_texture = null
+	_castle_upper_materials.assign([_castle_roof_material, light, dark, banner])
+	_castle_upper_materials.append(StoneKeep.upper_storey(_castle_roof, _castle_roof_material, light, dark, banner))
 	_update_castle_reveal_target()
 
 
@@ -1055,7 +1041,11 @@ func _update_castle_reveal(delta: float) -> void:
 	var eased := smoothstep(0.0, 1.0, _castle_reveal_progress)
 	var roof_colour := _castle_roof_material.albedo_color
 	roof_colour.a = 1.0 - eased
-	_castle_roof_material.albedo_color = roof_colour
+	for material: StandardMaterial3D in _castle_upper_materials:
+		var colour := material.albedo_color
+		colour.a = roof_colour.a
+		material.albedo_color = colour
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA if colour.a < 0.999 else BaseMaterial3D.TRANSPARENCY_DISABLED
 	_castle_roof.visible = roof_colour.a > 0.01
 	_castle_roof.set_meta("castle_reveal", _castle_reveal_progress)
 
@@ -1601,7 +1591,7 @@ func _scenery_geometries(prop: Node3D) -> Array[GeometryInstance3D]:
 
 
 func _build_medieval_castle_cell(
-	parent: Node3D, feature: String, top: float, variation: int
+	parent: Node3D, feature: String, top: float, _variation: int
 ) -> void:
 	var stone := _material("medieval_castle_stone", Color("756c60"), 0.94)
 	var stone_light := _material(
@@ -1616,40 +1606,39 @@ func _build_medieval_castle_cell(
 	match feature:
 		"castle_wall":
 			parent.set_meta("landmark_style", "medieval_castle_wall")
-			_box(
-				parent, Vector3(0, top + 0.36, 0), Vector3(0.94, 0.72, 0.94),
-				stone
-			)
-			# Alternating corner merlons keep the wall silhouette legible without
-			# turning every cell into an excessively noisy miniature tower.
-			var corners := [
-				Vector3(-0.34, top + 0.81, -0.34),
-				Vector3(0.34, top + 0.81, 0.34),
-			]
-			if variation % 2 != 0:
-				corners = [
-					Vector3(0.34, top + 0.81, -0.34),
-					Vector3(-0.34, top + 0.81, 0.34),
-				]
-			for corner: Vector3 in corners:
-				_box(parent, corner, Vector3(0.20, 0.20, 0.20), stone_light)
+			stone.albedo_texture = StoneKeep.masonry_texture()
+			stone_light.albedo_texture = StoneKeep.masonry_texture()
+			var cell := Vector2i(_cell_from_world(parent.position))
+			var local := cell - _castle_bounds.position
+			if local.x in [0, 5] and local.y in [0, 5]:
+				StoneKeep.column(parent, Vector3(0, 0.67, 0), 0.47, 0.90, stone)
+			else:
+				var at := Vector3(0, top + 0.34, 0)
+				var size := Vector3(0.998, 0.68, 0.56)
+				if local.x in [0, 5]:
+					at.x = -0.20 if local.x == 0 else 0.20
+					size = Vector3(0.56, 0.68, 0.998)
+				else:
+					at.z = -0.20 if local.y == 0 else 0.20
+				StoneKeep.box(parent, at, size, stone)
+			_scenery_occluders.append({"node": parent, "alpha": 1.0, "blocked": false, "materials": []})
 		"castle_door":
 			parent.set_meta("landmark_style", "medieval_castle_door")
-			# The two west-facing cells form one broad gate. Posts stay at the cell
-			# edges so the live unit can visibly cross the playable centre.
-			for z_offset in [-0.38, 0.38]:
-				_box(
-					parent, Vector3(0, top + 0.39, float(z_offset)),
-					Vector3(0.26, 0.78, 0.18), stone
-				)
-			_box(
-				parent, Vector3(0, top + 0.80, 0), Vector3(0.26, 0.18, 0.94),
-				stone_light
-			)
-			_box(
-				parent, Vector3(0, top + 0.015, 0), Vector3(0.78, 0.03, 0.76),
-				stone_dark
-			)
+			var cell := Vector2i(_cell_from_world(parent.position))
+			if _terrain_feature_at(cell.x, cell.y - 1) == "castle_door":
+				return
+			stone.albedo_texture = StoneKeep.masonry_texture()
+			stone_light.albedo_texture = StoneKeep.masonry_texture()
+			for offset in [-0.45, 1.45]:
+				StoneKeep.box(parent, Vector3(0, top + 0.66, offset), Vector3(0.48, 1.32, 0.18), stone)
+			for i in 9:
+				var z := float(i - 4) * 0.20
+				var arch_y := 1.18 + sqrt(maxf(0, 1.0 - z * z / 0.81)) * 0.28
+				StoneKeep.box(parent, Vector3(0, arch_y, z + 0.5), Vector3(0.50, 0.16, 0.19), stone_light)
+			var iron := _material("castle_raised_portcullis", Color("353c39"), 0.8)
+			for i in 7:
+				StoneKeep.box(parent, Vector3(-0.04, 1.46, float(i - 3) * 0.23 + 0.5), Vector3(0.035, 0.32, 0.035), iron)
+			StoneKeep.box(parent, Vector3(-0.04, 1.36, 0.5), Vector3(0.04, 0.035, 1.62), iron)
 		"castle_dais":
 			parent.set_meta("landmark_style", "medieval_castle_interior")
 			_box(
@@ -1662,11 +1651,6 @@ func _build_medieval_castle_cell(
 			)
 		"castle_floor":
 			parent.set_meta("landmark_style", "medieval_castle_interior")
-			var line_offset := -0.22 if variation % 2 == 0 else 0.22
-			_box(
-				parent, Vector3(line_offset, top + 0.012, 0),
-				Vector3(0.025, 0.018, 0.82), floor_inlay
-			)
 
 
 func _build_medieval_orchard_tree(parent: Node3D, top: float, variation: int) -> void:

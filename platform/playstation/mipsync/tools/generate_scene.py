@@ -14,6 +14,10 @@ import math
 from pathlib import Path
 import re
 import struct
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "platform/console_art"))
+from stone_keep import load_keep, textured_part_mesh, face_normal, lit_colour
 
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageOps
 
@@ -71,7 +75,7 @@ UNIT_POSES = (
 )
 UnitTextureIndices = tuple[int, int, int, int, int, int, int, int, int]
 MAX_CACHE_VERTICES = 1024
-MAX_CACHE_TRIANGLES = 1024
+MAX_CACHE_TOTAL = 1280  # Matches the runtime's already allocated static pools.
 
 # Colour and proportions for the tiny low-poly forms embedded into each
 # terrain page. The same bounded topology reads as reeds, rubble, crops,
@@ -599,6 +603,7 @@ def unit_image(
 def write_textures(
     output: Path, repo: Path, terrain_kinds: list[int], units: list[dict[str, object]],
     map_id: str = "0", speakers: list[dict[str, object]] | None = None,
+    castle: bool = False,
 ) -> tuple[
     dict[int, int], dict[tuple[int, int, int, int], UnitTextureIndices],
     int, dict[str, object], dict[int, int],
@@ -638,6 +643,16 @@ def write_textures(
                 pixels[x, y] = tuple(max(0, min(255, c + grain)) for c in base) + (255,)
         textures.append((f"form_material_{-material}", swatch, False, 0, 0))
         terrain_indices[material] = len(textures)
+
+    if castle:
+        stone = Image.open(repo / "platform/console_art/stone_keep_masonry.png").convert("RGBA")
+        stone = stone.resize((32, 32), Image.Resampling.BOX)
+        masonry = Image.new("RGBA", (128, 128))
+        for y in range(0, 128, 32):
+            for x in range(0, 128, 32):
+                masonry.paste(stone, (x, y))
+        textures.append(("form_material_4", masonry, False, 0, 0))
+        terrain_indices[-4] = len(textures)
 
     for unit in units:
         key = (
@@ -948,11 +963,10 @@ def append_terrain_form(
     triangles: list[tuple[int, int, int, int, int, int, int, int]],
     kind: int, cx: int, floor: int, cz: int, roll: int,
     materials: dict[int, int],
-    castle_wall: bool = False,
 ) -> None:
     """Append one small native low-poly landmark for a terrain cell."""
     colour, scale = TERRAIN_FORM_STYLES[kind]
-    if kind in (0, 2, 6, 9, 10, 11) and not castle_wall:
+    if kind in (0, 2, 6, 9, 10, 11):
         # Stable per-cell variation survives scrolling and scene reloads.
         # The narrow palette stays within the terrain's own visual identity.
         foliage_tints = ((100, 100, 100), (112, 103, 84),
@@ -965,7 +979,7 @@ def append_terrain_form(
     height_percent = 90 + int((roll >> 25) % 21)
 
     def vertex(x: int, y: int, z: int) -> int:
-        if not castle_wall and kind != 2:
+        if kind != 2:
             # Vary reeds, outcrops and shrubs too; authored castle walls and
             # the forest's independently varied canopies retain their shape.
             x = cx + (x - cx) * width_percent // 100
@@ -1045,11 +1059,7 @@ def append_terrain_form(
             face(indices[a], indices[b], indices[c],
                  shifted_colour(face_colour, brightness))
 
-    if castle_wall:
-        stone = (157, 147, 130)
-        box(cx, cz, 62, 62, 84, stone)
-        box(cx, cz, 21, 60, 18, light, 84)
-    elif kind == 2:  # forest: trunk plus a layered, faceted canopy
+    if kind == 2:  # forest: trunk plus a layered, faceted canopy
         canopy_height = 60 + int((roll >> 5) % 37)
         canopy_width = 33 + int((roll >> 18) % 18)
         canopy_depth = canopy_width - 8 + int((roll >> 23) % 13)
@@ -1110,6 +1120,54 @@ def append_terrain_form(
         pyramid(cx + 24, cz - 13, 18, 16, round(38 * scale[1]), light)
 
 
+def append_keep_part(vertices: list, uvs: list, triangles: list, part: dict,
+                     centre_x: int, centre_z: int, texture: int,
+                     cell_lifts: dict, width: int, height: int) -> None:
+    points, faces, source_uvs = textured_part_mesh(part, 8)
+    if part["shape"] == "box" and min(part["size"][0], part["size"][2]) > 4:
+        # A single roof-sized triangle crosses many floor ordering buckets.
+        # Split its top into tile-sized faces so the PS1 painter's ordering
+        # cannot draw nearer courtyard tiles over the raised stone terrace.
+        faces = [face for face in faces if face_normal(points, face)[1] < 0.5]
+        first_top = len(points)
+        cx, cy, cz = part["centre"]
+        sx, sy, sz = part["size"]
+        for z in range(6):
+            for x in range(6):
+                px, pz = cx + (x / 5 - 0.5) * sx, cz + (z / 5 - 0.5) * sz
+                points.append((px, cy + sy / 2, pz))
+                source_uvs.append((px * 10 + 64, pz * 10 + 64))
+        for z in range(5):
+            for x in range(5):
+                i = first_top + z * 6 + x
+                faces.extend(((i, i + 1, i + 7), (i, i + 7, i + 6)))
+    faces = [face for face in faces
+             if not (face_normal(points, face)[1] < -0.5 or
+                     face_normal(points, face)[2] > 0.2 and face_normal(points, face)[1] < 0.4)]
+    if not part["masonry"] and part["size"][0] < 0.02 and part["colour"][0] > part["colour"][1] * 2:
+        faces = [face for face in faces if face_normal(points, face)[0] < -0.5]
+    used = sorted({index for face in faces for index in face})
+    first = len(vertices)
+    indices = {old: first + new for new, old in enumerate(used)}
+    bottom = min(point[1] for point in points)
+    tile_x = round((centre_x / 64 + width - 1) / 2 + part["centre"][0])
+    tile_y = round((height - 1 - centre_z / 64) / 2 + part["centre"][2])
+    floor = surface_relief(tile_x, tile_y, cell_lifts) - 4
+    for old in used:
+        x, y, z = points[old]
+        elevation = round(y * 128)
+        if part["grounded"] and abs(y - bottom) < 0.0001:
+            elevation = min(elevation, floor)
+        vertices.append((centre_x + round(x * 128), elevation, centre_z - round(z * 128), 0))
+        u, v = source_uvs[old]
+        uvs.append((max(0, min(127, round(u))), max(0, min(127, round(v)))))
+    for face in faces:
+        normal = face_normal(points, face)
+        triangles.append(tuple(indices[index] for index in face) +
+                         (texture if part["masonry"] else 0, 255,
+                          *lit_colour(part["colour"], normal)))
+
+
 def write_meshes(
     output: Path,
     cell_groups: list[tuple[tuple[int, int], list[tuple[int, int, int, bool, int, int]]]],
@@ -1119,7 +1177,13 @@ def write_meshes(
     relief_mode: str, cell_lifts: dict[tuple[int, int], int],
     hidden_cells: list[int],
     castle_cells: list[tuple[int, int]],
+    keep_parts: list[dict] | None = None,
 ) -> tuple[int, int, list[tuple[int, int, int, int, int, int, int]]]:
+    keep_parts = keep_parts or []
+    keep_centre_x = keep_centre_z = 0
+    if keep_parts and castle_cells:
+        keep_centre_x = (min(x for x, _ in castle_cells) + max(x for x, _ in castle_cells) + 1 - width) * 64
+        keep_centre_z = (height - min(y for _, y in castle_cells) - max(y for _, y in castle_cells) - 1) * 64
     board_groups: list[tuple[
         list[tuple[int, int, int, int]], list[tuple[int, int]],
         list[tuple[int, int, int, int, int, int, int, int]],
@@ -1225,14 +1289,14 @@ def write_meshes(
                 kind, cx, floor, cz, roll,
                 terrain_indices,
             )
-        for x, y in castle_cells:
-            if min_x <= x < max_x and min_y <= y < max_y:
-                append_terrain_form(
-                    board_vertices, board_uvs, board_triangles, 3,
-                    (x * 2 + 1 - width) * 64,
-                    surface_relief(x, y, cell_lifts),
-                    (height - y * 2 - 1) * 64, 0, terrain_indices, True,
-                )
+        for part in keep_parts:
+            if part["upper"]:
+                continue
+            tile_x = (keep_centre_x / 64 + width - 1) / 2 + part["centre"][0]
+            tile_y = (height - 1 - keep_centre_z / 64) / 2 + part["centre"][2]
+            if min_x - 0.5 <= tile_x < max_x + 0.5 and min_y - 0.5 <= tile_y < max_y + 0.5:
+                append_keep_part(board_vertices, board_uvs, board_triangles, part,
+                                 keep_centre_x, keep_centre_z, terrain_indices[-4], cell_lifts, width, height)
         # Keep native triangle pairs together for the cached quad fast path,
         # and group their material descriptors to reduce texture switches.
         batches = [board_triangles[i:i + 2]
@@ -1272,8 +1336,12 @@ def write_meshes(
     )
     visibility_vertices: list[tuple[int, int, int, int]] = []
     visibility_uvs: list[tuple[int, int]] = []
-    visibility_triangles: list[tuple[int, int, int, int, int, int]] = []
-    for order, cell in enumerate(hidden_cells):
+    visibility_triangles: list[tuple] = []
+    for part in keep_parts:
+        if part["upper"]:
+            append_keep_part(visibility_vertices, visibility_uvs, visibility_triangles, part,
+                             keep_centre_x, keep_centre_z, terrain_indices[-4], cell_lifts, width, height)
+    for order, cell in enumerate([] if keep_parts else hidden_cells):
         x = cell % width
         y = cell // width
         left = (x * 2 - width) * 64
@@ -1289,8 +1357,8 @@ def write_meshes(
         visibility_uvs.extend(((0, 0), (0, 0), (0, 0), (0, 0)))
         colour = (109, 59, 49) if order % 2 == 0 else (91, 48, 43)
         visibility_triangles.extend((
-            (first, first + 1, first + 2, *colour),
-            (first + 2, first + 1, first + 3, *colour),
+            (first, first + 1, first + 2, 0, 255, *colour),
+            (first + 2, first + 1, first + 3, 0, 255, *colour),
         ))
     # The close view used to expose the edge of one small quad, making its
     # actors look as though they stood on a card in empty space. A modest grid
@@ -1410,10 +1478,10 @@ def write_meshes(
         lines.extend((
             "};", "", "static const ps1_mesh_tri k_visibility_triangles[] = {",
         ))
-        for i0, i1, i2, red, green, blue in visibility_triangles:
+        for i0, i1, i2, texture, shade, red, green, blue in visibility_triangles:
             lines.append(
                 f"    {{ .i0={i0}, .i1={i1}, .i2={i2}, .ny=4096, "
-                f".shade=255, .color_r={red}, .color_g={green}, .color_b={blue} }},"
+                f".shade={shade}, .color_r={red}, .color_g={green}, .color_b={blue}, .texture_index={texture} }},"
             )
         lines.extend(("};", ""))
         centre_x = (
@@ -1466,9 +1534,11 @@ def write_meshes(
         "    { .verts=k_billboard_vertices, .norms=k_billboard_normals, .vert_count=4, .uvs=k_directional_billboard_mirrored_uvs, .tris=k_billboard_triangles, .tri_count=2, .scale_q12=256, .bounds_center_y=512, .bounds_radius=724 },",
         "};", "const unsigned int g_ps1_mesh_count =", "    sizeof(g_ps1_meshes) / sizeof(g_ps1_meshes[0]);", ""))
     (output / "mesh_data.c").write_text("\n".join(lines), encoding="utf-8")
+    if max(vertex_count, len(visibility_vertices)) > MAX_CACHE_VERTICES:
+        raise ValueError("castle or terrain page exceeds the per-mesh vertex cache")
     return (
-        max(vertex_count, len(combat_floor_vertices)) + 8,
-        max(triangle_count, len(combat_floor_triangles)) + 4,
+        max(vertex_count, len(combat_floor_vertices)) + 8 + (len(visibility_vertices) - len(hidden_cells) * 4 if keep_parts else 0),
+        max(triangle_count, len(combat_floor_triangles)) + 4 + (len(visibility_triangles) - len(hidden_cells) * 2 if keep_parts else 0),
         chunk_descriptors,
     )
 
@@ -1902,10 +1972,19 @@ def main() -> int:
     units = document["units"]
     assert isinstance(units, list)
     typed_units = [unit for unit in units if isinstance(unit, dict)]
+    castle_cells = [(index % width, index // width)
+                    for index, value in enumerate(document.get("terrain_ids", []))
+                    if int(value) == content_id("mountain_castle_wall")]
+    keep_parts = []
+    if castle_cells:
+        if len(castle_cells) != 18 or max(x for x, _ in castle_cells) - min(x for x, _ in castle_cells) != 5 or max(y for _, y in castle_cells) - min(y for _, y in castle_cells) != 5:
+            raise ValueError("stone keep requires the authored six-by-six castle footprint")
+        keep_parts = load_keep(repo, "ps1")
     all_kinds = [kind for _x, _y, kind, _authored, _span_x, _span_y in cells]
     terrain_indices, unit_indices, ui_texture, texture_metrics, speaker_indices = write_textures(
         output, repo, all_kinds, typed_units, str(document.get("map_id", "0")),
         document.get("speakers", []),
+        castle=bool(keep_parts),
     )
     terrain_form_cells = select_terrain_form_cells(
         terrain, width, height, args.surroundings_seed,
@@ -1918,9 +1997,6 @@ def main() -> int:
     visibility = document["visual_visibility"]
     assert isinstance(visibility, dict)
     hidden_cells = [int(value) for value in visibility["hidden_cells"]]
-    castle_cells = [(index % width, index // width)
-                    for index, value in enumerate(document.get("terrain_ids", []))
-                    if int(value) == content_id("mountain_castle_wall")]
     surface_lifts = (
         [
             surface_relief(x, y, cell_lifts)
@@ -1932,6 +2008,7 @@ def main() -> int:
         output, terrain_groups, width, height, terrain_form_cells,
         terrain_indices, args.surroundings_seed,
         args.terrain_relief, cell_lifts, hidden_cells, castle_cells,
+        keep_parts,
     )
     entities = write_scene(
         output, document, unit_indices, terrain_chunks,
@@ -1957,10 +2034,13 @@ def main() -> int:
     cache_triangles = board_triangles + (
         visible_units + visible_covers + deployment_markers
     ) * 2
-    if cache_vertices > MAX_CACHE_VERTICES or cache_triangles > MAX_CACHE_TRIANGLES:
+    cache_vertex_limit = max(MAX_CACHE_TOTAL, (cache_vertices + 63) // 64 * 64) if keep_parts else MAX_CACHE_TOTAL
+    if cache_vertex_limit > 1536:
+        raise ValueError("castle exceeds the maximum profiled static vertex pool")
+    if cache_vertices > cache_vertex_limit or cache_triangles > MAX_CACHE_TOTAL:
         raise ValueError(
-            f"visible scene exceeds trimmed Mipsync caches: {cache_vertices}/{MAX_CACHE_VERTICES} vertices, "
-            f"{cache_triangles}/{MAX_CACHE_TRIANGLES} triangles; production paging must split this view"
+            f"visible scene exceeds Mipsync static pools: {cache_vertices}/{cache_vertex_limit} vertices, "
+            f"{cache_triangles}/{MAX_CACHE_TOTAL} triangles; production paging must split this view"
         )
     metadata = {
         "schema": "grandleon.mipsync.generated.v2", "renderer": "mipsync",
@@ -1978,7 +2058,7 @@ def main() -> int:
         },
         "deployment_markers": deployment_markers,
         "visible": {"units": visible_units, "covers": visible_covers},
-        "cache": {"vertices": cache_vertices, "vertex_limit": MAX_CACHE_VERTICES, "triangles": cache_triangles, "triangle_limit": MAX_CACHE_TRIANGLES},
+        "cache": {"vertices": cache_vertices, "vertex_limit": cache_vertex_limit, "triangles": cache_triangles, "triangle_limit": MAX_CACHE_TOTAL, "mesh_vertex_limit": MAX_CACHE_VERTICES},
         "vram": texture_metrics,
         "camera": {
             "clamp": "viewport_aware_playable_bounds", "static_probe": False,
