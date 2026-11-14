@@ -116,7 +116,7 @@ borrowed() {
 }
 art_python="$(borrowed tools/placeholder_art/.venv)/bin/python"
 
-workspace="$(mktemp -d /tmp/grandleon-ci.XXXXXX)"
+workspace="$(mktemp -d "${TMPDIR:-/tmp}/grandleon-ci.XXXXXX")"
 trap 'rm -rf "${workspace}"' EXIT
 clone="${workspace}/repo"
 
