@@ -1,0 +1,95 @@
+{
+  "date": "2026-11-14",
+  "change": "Skip per-face fog work for static custom meshes wholly before the fog start plane",
+  "upstreamBase": "ce1e489f3135039cdad8e81da7b4b0a24cf55870",
+  "upstreamTopicCommit": "a8a57ee",
+  "map": "Twin Gate Keep",
+  "players": 2,
+  "mapSize": [
+    20,
+    14
+  ],
+  "cameraInput": "13 steps east and four south from the authored cursor; normal navigation and camera follow",
+  "measurementNote": "PS1 HBlank timing in the pinned emulator, not host wall time. Same geometry, materials, source campaign, inputs, memory pools and 30Hz rendering schedule. No thresholds or game rules changed. This centred capture is not the existing strict scrolling test.",
+  "emulatorRevision": "a415a98e6c347b41ca5a1d3f23bbc4eb26059687",
+  "cases": {
+    "baseline": {
+      "discSha256": "6519ea255546395d13b1801669a79d9edd3580f66904bc951ff1233b20634dfb",
+      "elfResidentBytes": 1335724,
+      "metrics": {
+        "frames": 600,
+        "rendered_frames": 300,
+        "scheduled_frames": 300,
+        "deferred_frames": 0,
+        "missed_vblanks": 114,
+        "max_elapsed_vblanks": 4,
+        "render_hbl_avg": 515,
+        "render_hbl_max": 1021,
+        "ready_hbl_avg": 517,
+        "ready_hbl_max": 1023,
+        "mutation_hbl_max": 0,
+        "first": 121,
+        "last": 257,
+        "min_x": -12,
+        "max_x": 12,
+        "min_z": 11,
+        "max_z": 19,
+        "current_x": 12,
+        "current_z": 11,
+        "chunks": 1
+      },
+      "serialEvidence": [
+        "MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=300 scheduled_frames=300 deferred_frames=0 missed_vblanks=114 max_elapsed_vblanks=4",
+        "MIPSYNC_FRAME_BUDGET render_hbl_avg=515 render_hbl_max=1021 ready_hbl_avg=517 ready_hbl_max=1023 mutation_hbl_max=0",
+        "MIPSYNC_MISS_RANGE first=121 last=257",
+        "MIPSYNC_CAMERA_PROOF min_x=-12 max_x=12 min_z=11 max_z=19 current_x=12 current_z=11 chunks=1"
+      ],
+      "strict30Fps": false
+    },
+    "candidate": {
+      "discSha256": "e1e3e4beba721dd37b475591135b1d944b757365a55ef60b5a13b6e0cc365ed0",
+      "elfResidentBytes": 1335692,
+      "metrics": {
+        "frames": 600,
+        "rendered_frames": 300,
+        "scheduled_frames": 300,
+        "deferred_frames": 0,
+        "missed_vblanks": 111,
+        "max_elapsed_vblanks": 4,
+        "render_hbl_avg": 499,
+        "render_hbl_max": 1023,
+        "ready_hbl_avg": 501,
+        "ready_hbl_max": 1025,
+        "mutation_hbl_max": 0,
+        "first": 121,
+        "last": 257,
+        "min_x": -12,
+        "max_x": 12,
+        "min_z": 11,
+        "max_z": 19,
+        "current_x": 12,
+        "current_z": 11,
+        "chunks": 1
+      },
+      "serialEvidence": [
+        "MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=300 scheduled_frames=300 deferred_frames=0 missed_vblanks=111 max_elapsed_vblanks=4",
+        "MIPSYNC_FRAME_BUDGET render_hbl_avg=499 render_hbl_max=1023 ready_hbl_avg=501 ready_hbl_max=1025 mutation_hbl_max=0",
+        "MIPSYNC_MISS_RANGE first=121 last=257",
+        "MIPSYNC_CAMERA_PROOF min_x=-12 max_x=12 min_z=11 max_z=19 current_x=12 current_z=11 chunks=1"
+      ],
+      "strict30Fps": false
+    }
+  },
+  "motionFrames": 131,
+  "pixelIdenticalFrames": 131,
+  "finalFrameIdentical": true,
+  "portableSanitizerTests": [
+    "Ps1ViewmodelProjection",
+    "Ps1ClipMath",
+    "Ps1GpuClipping",
+    "Ps1WorldProjection",
+    "Ps1TexturePalette",
+    "Ps1FogBounds"
+  ],
+  "realDoorwayRevealPassed": true
+}

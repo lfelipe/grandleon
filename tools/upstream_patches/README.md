@@ -27,7 +27,7 @@ the small demo and Steel and Cedar built and booted in the PS1 emulator, followe
 by the CD-audio and independent volume-setting checks. This does not replace
 upstream's full desktop editor validation.
 
-The local series contains three separate runtime changes, proposed together in
+The first three local runtime changes are proposed together in
 [upstream PR #2](https://github.com/KasaBranca/Mipsync/pull/2):
 
 - reuse certified visibility for cached flat draws;
@@ -39,6 +39,13 @@ Release cross-build succeeds and 38 tests run successfully under Wine; six
 PowerShell integration tests still require native Windows validation. Grandleon
 performance and image comparisons are recorded in
 [the renderer evidence](../renderer_comparison/mipsync-followups-06.json).
+
+A fourth local patch skips per-face fog work for static custom meshes entirely
+before the fog range. It has a portable boundary/overflow test and remains
+separate from that PR. The richer castle capture improves average render time
+from 515 to 499 HBlanks, with all 131 movement frames pixel-identical. This is
+an incremental gain; the castle still misses its 30 FPS target. See the
+[castle measurements](../renderer_comparison/ps1-castle-fog-06.json).
 
 ## Making an engine fix
 
