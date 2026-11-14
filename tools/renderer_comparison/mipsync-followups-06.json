@@ -225,5 +225,11 @@
     "baselinePeakHBlank": 518,
     "prototypePeakHBlank": 520,
     "reason": "No measured frame-time gain; pinning every enabled mesh could starve newly visible topology in small pools. Pressure-aware eviction needs its own fixture."
+  },
+  "functionalValidation": {
+    "fullCampaign": "pass: new two-player Bell to Deepwood, saved Continue through Watch/Village/Twin Gate, fresh-card solo through all five stages",
+    "originalCampaignAssertions": "retained: canonical hashes, authored dialogue, controller ownership, card changes, full captures, memory/VRAM budgets and stationary frame pacing",
+    "combatPresentation": "pass: player and enemy exchanges, attack/counterattack audio timing, stable sides, camera restoration; normal non-lethal fixture",
+    "discIdentity": "seven unit cases plus a real co-op executable whose marker crosses raw CD sector headers; full linked executable bytes verified"
   }
 }

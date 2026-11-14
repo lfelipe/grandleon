@@ -95,6 +95,13 @@ items below describe the existing foundation; they are not being reopened.
   mesh buffers. Bell Orchard uses 16 unique primitive meshes instead of 735;
   matched static captures are pixel-identical. Check all five demo maps,
   including the village and castle, for repeated geometry sharing.
+- [x] Add Low, Medium and High graphics choices with a conservative automatic
+  hardware recommendation and a persistent manual override. Changes apply
+  during play; 3D sampling and shadows change while text and touch targets stay
+  sharp. Thirty-second LAN board samples on a Moto G Play (2024) measured
+  43.8 / 27.4 / 17.7 FPS; an ONN 13 Pro measured 90.0 / 90.0 / 81.8 FPS.
+  Auto chooses Low and Medium respectively. These are opening-map samples;
+  larger maps and sustained thermal testing remain part of device validation.
 - [ ] Validate accented Android filenames, interrupted writes and save/resume
   after suspension and process termination. Emulator tests cover pausing and
   resuming the running battle; they do not prove recovery of unsaved progress
@@ -114,6 +121,9 @@ coverage on one tablet; wider device, audio and controller checks remain open.
 Tablet-to-PC LAN discovery, a touch command accepted by the host, app restart
 and rejoining the same army with its completed action preserved, and
 background/resume behind the pause menu have also passed on this device.
+Phone-to-tablet discovery, independent army ownership, touch movement and
+attacks from both armies, a counterattack, and guest app restart/rejoin with
+completed actions preserved now pass on the Moto G Play (2024) and ONN 13 Pro.
 
 ### Downloadable campaigns
 
@@ -213,6 +223,17 @@ tracked above.
   views so the existing strict 30 fps checks pass. Retain the full terrain,
   units, camera behaviour and test scenarios; do not change gameplay to pass
   a performance test or weaken the checks.
+- [x] Prepare upstream Mipsync texture-bounds protection and batched world
+  projection as separate commits/patches. Sanitizers cover the bounds cases;
+  matched movement, scrolling and castle-reveal frames remain pixel-identical.
+  Solo/co-op five-stage traversal, save/continue and combat/camera checks pass;
+  the replay follows the actual UI instead of assuming dialogue page counts.
+  Deepwood now passes its strict frame-pacing check (one missed frame to zero);
+  the heavier two-army castle scroll improves from nine misses to six and still
+  needs work. All five campaign RAM/VRAM gates retain their original limits.
+- [ ] Investigate pressure-aware topology-cache eviction with a small-pool
+  regression fixture. The enabled-mesh retention prototype showed no frame-time
+  gain and could starve newly visible pages, so it was not retained.
 - [ ] Improve console texture/palette residency and streaming where it buys
   visible quality. Measure upload, cache, geometry and memory costs before
   spending the recovered budget on richer scenery, characters or effects.
