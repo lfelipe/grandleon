@@ -16,7 +16,7 @@ func _run() -> void:
 	if battle.is_empty():
 		quit(1)
 		return
-	var board = BoardView3D.new()
+	var board = load("res://scripts/board_view_3d.gd").new()
 	board.set_profile("voxel-sprites", GraphicsProfiles.new().profile("voxel-sprites"))
 	get_root().add_child(board)
 	await process_frame

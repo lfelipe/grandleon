@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: MIT
 extends SceneTree
 
-const BoardView3D = preload("res://scripts/board_view_3d.gd")
 const GraphicsProfiles = preload("res://scripts/graphics_profiles.gd")
 const VisualVisibility = preload("res://scripts/visual_visibility.gd")
 const CAPTURE_SIZE := Vector2i(1280, 720)
@@ -31,7 +30,12 @@ func _run() -> void:
 		return
 	_verify_real_footprint(battle)
 	get_root().size = CAPTURE_SIZE
-	var board = BoardView3D.new()
+	var board_script: GDScript = load("res://scripts/board_view_3d.gd")
+	if board_script == null or not board_script.can_instantiate():
+		_fail("board renderer must compile before its presentation checks")
+		quit(1)
+		return
+	var board = board_script.new()
 	board.set_profile("voxel-sprites", GraphicsProfiles.new().profile("voxel-sprites"))
 	get_root().add_child(board)
 	await process_frame

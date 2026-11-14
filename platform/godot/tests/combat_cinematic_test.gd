@@ -4,7 +4,6 @@ extends SceneTree
 const CombatCinematic = preload("res://scripts/combat_cinematic.gd")
 const CombatPresentationPlan = preload("res://scripts/combat_presentation_plan.gd")
 const GraphicsProfiles = preload("res://scripts/graphics_profiles.gd")
-const BoardView3D = preload("res://scripts/board_view_3d.gd")
 
 var failures := 0
 var finished := 0
@@ -351,7 +350,12 @@ func _test_multi_target(
 
 
 func _test_real_board_camera(before: Dictionary, terrain: Array) -> void:
-	var board = BoardView3D.new()
+	var board_script: GDScript = load("res://scripts/board_view_3d.gd")
+	if board_script == null or not board_script.can_instantiate():
+		_expect_true("board renderer must compile before its presentation checks", false)
+		quit(1)
+		return
+	var board = board_script.new()
 	board.set_profile(
 		"voxel-sprites", GraphicsProfiles.new().profile("voxel-sprites")
 	)
@@ -375,8 +379,8 @@ func _test_real_board_camera(before: Dictionary, terrain: Array) -> void:
 		float(midway.current_size) < float(tactical.current_size)
 	)
 	board.set_combat_focus_progress(1.0)
-	var actor_screen := board.screen_position_for_cell(Vector2i(0, 1))
-	var target_screen := board.screen_position_for_cell(Vector2i(3, 2))
+	var actor_screen: Vector2 = board.screen_position_for_cell(Vector2i(0, 1))
+	var target_screen: Vector2 = board.screen_position_for_cell(Vector2i(3, 2))
 	_expect_true(
 		"arbitrary pair orientation settles actor left and target right",
 		actor_screen.x < target_screen.x
