@@ -47,6 +47,13 @@ from 515 to 499 HBlanks, with all 131 movement frames pixel-identical. This is
 an incremental gain; the castle still misses its 30 FPS target. See the
 [castle measurements](../renderer_comparison/ps1-castle-fog-06.json).
 
+A fifth local patch adds optional PS1 entity-packet reuse hooks and a portable
+DMA-fragment helper. Hooks are disabled by default. The helper preserves live
+ordering-table predecessors when a caller reuses a static mesh's commands;
+portable tests cover ownership, bounds, malformed chains, overlap and buffer
+swaps. Grandleon's cache policy stays in its platform adapter. This patch has
+not been added to the public upstream PR.
+
 ## Making an engine fix
 
 1. Clone the upstream repository (or your fork) separately.

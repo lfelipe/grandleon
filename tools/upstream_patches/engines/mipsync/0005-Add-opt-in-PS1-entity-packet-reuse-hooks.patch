@@ -1,0 +1,301 @@
+From b47cef960aa9cb6f9cf251dc589e5994c6b55197 Mon Sep 17 00:00:00 2001
+From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
+Date: Sat, 14 Nov 2026 21:45:20 -0800
+Subject: [PATCH] Add opt-in PS1 entity packet reuse hooks
+
+Let applications retain immutable entity commands while preserving the renderer's existing submission order. Keep hooks disabled by default and leave cache keys and source lifetimes with the caller.
+
+Provide a portable fragment helper that rebases internal DMA links and joins each bucket to its current predecessor. Cover malformed chains, shared ownership, overlapping copies, payload preservation and repeated buffer swaps with a portable PS1 test.
+---
+ src/CMakeLists.txt                            |  3 +
+ .../ps1/starter/runtime/packet_fragment.h     | 93 ++++++++++++++++++
+ templates/ps1/starter/runtime/render.c        | 19 ++++
+ templates/ps1/starter/runtime/render.h        | 18 ++++
+ tests/Ps1PacketFragmentTests.c                | 95 +++++++++++++++++++
+ 5 files changed, 228 insertions(+)
+ create mode 100644 templates/ps1/starter/runtime/packet_fragment.h
+ create mode 100644 tests/Ps1PacketFragmentTests.c
+
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 69a3c86..dafe141 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -371,6 +371,9 @@ add_test(NAME MipsyncPs1ClipMath COMMAND MipsyncPs1ClipMathTests)
+ add_executable(MipsyncPs1GpuClippingTests
+     ${CMAKE_SOURCE_DIR}/tests/Ps1GpuClippingTests.c)
+ add_test(NAME MipsyncPs1GpuClipping COMMAND MipsyncPs1GpuClippingTests)
++add_executable(MipsyncPs1PacketFragmentTests
++    ${CMAKE_SOURCE_DIR}/tests/Ps1PacketFragmentTests.c)
++add_test(NAME MipsyncPs1PacketFragment COMMAND MipsyncPs1PacketFragmentTests)
+ add_executable(MipsyncPs1FogBoundsTests
+     ${CMAKE_SOURCE_DIR}/tests/Ps1FogBoundsTests.c)
+ add_test(NAME MipsyncPs1FogBounds COMMAND MipsyncPs1FogBoundsTests)
+diff --git a/templates/ps1/starter/runtime/packet_fragment.h b/templates/ps1/starter/runtime/packet_fragment.h
+new file mode 100644
+index 0000000..2444bd9
+--- /dev/null
++++ b/templates/ps1/starter/runtime/packet_fragment.h
+@@ -0,0 +1,93 @@
++// SPDX-License-Identifier: MIT
++#ifndef MIPSYNC_PACKET_FRAGMENT_H
++#define MIPSYNC_PACKET_FRAGMENT_H
++#include <stddef.h>
++#include <stdint.h>
++#define PS1_PACKET_FRAGMENT_MAX_WORDS 65536u
++static inline int ps1_packet_fragment_range(uint32_t base, uint32_t bytes) {
++    return !(base & 3u) && !(bytes & 3u) &&
++        base <= 0xffffffu && bytes <= 0x1000000u - base;
++}
++typedef struct { uint16_t bucket, head, tail; } ps1_packet_fragment_bucket;
++
++/* Find every bucket-local chain owned by one contiguous emitted mesh. Links
++ * to earlier entities terminate the fragment; never follow foreign memory.
++ * A caller-owned bitset (ceil(words / 32) words) rejects payload links, cycles
++ * and multiply owned headers. Failure leaves entry contents unspecified. */
++static inline int ps1_packet_fragment_capture(const uint32_t* source,
++    size_t words, uint32_t source_address, const uint32_t* ot, size_t buckets,
++    ps1_packet_fragment_bucket* entries, size_t capacity, uint32_t* unvisited, size_t scratch_words,
++    size_t* entry_count) {
++    size_t index = 0, nodes = 0, visited = 0, count = 0;
++    if (!source || !ot || !entries || !unvisited || !entry_count) return 0;
++    *entry_count = 0;
++    if (!words || words > PS1_PACKET_FRAGMENT_MAX_WORDS || buckets > 65536u ||
++        scratch_words < (words + 31u) / 32u ||
++        !ps1_packet_fragment_range(source_address, (uint32_t)words * 4u)) return 0;
++    for (size_t i = 0; i < (words + 31u) / 32u; ++i) unvisited[i] = 0;
++    while (index < words) {
++        const size_t length = 1u + (source[index] >> 24);
++        if (length > words - index) return 0;
++        unvisited[index / 32u] |= 1u << (index % 32u);
++        ++nodes;
++        index += length;
++    }
++    for (size_t bucket = 0; bucket < buckets; ++bucket) {
++        uint32_t address = ot[bucket] & 0xffffffu;
++        size_t head, tail;
++        if (address == 0xffffffu || address < source_address || address - source_address >= words * 4u) continue;
++        if (count == capacity) return 0;
++        head = (address - source_address) / 4u;
++        for (;;) {
++            size_t offset;
++            uint32_t mask;
++            if (address & 3u) return 0;
++            offset = (address - source_address) / 4u;
++            mask = 1u << (offset % 32u);
++            if (!(unvisited[offset / 32u] & mask)) return 0;
++            unvisited[offset / 32u] &= ~mask;
++            ++visited;
++            tail = offset;
++            address = source[offset] & 0xffffffu;
++            if (address == 0xffffffu || address < source_address || address - source_address >= words * 4u) {
++                if (address != 0xffffffu && (address & 3u)) return 0;
++                break;
++            }
++        }
++        entries[count].bucket = (uint16_t)bucket;
++        entries[count].head = (uint16_t)head;
++        entries[count++].tail = (uint16_t)tail;
++    }
++    if (visited != nodes) return 0;
++    *entry_count = count;
++    return 1;
++}
++
++/* Validated immutable fragments may move downwards in the same packet arena.
++ * Rebase internal tags while copying forwards, before overlap can overwrite a
++ * source header. Attach each tail to THIS frame's preceding entity chain.
++ * The caller retains immutable validated source/entries, checks destination
++ * capacity and 24-bit ranges, and forbids upwards overlapping copies. */
++static inline void ps1_packet_fragment_copy(uint32_t* target,
++    const uint32_t* source, size_t words, uint32_t source_address,
++    uint32_t target_address, uint32_t* ot,
++    const ps1_packet_fragment_bucket* entries, size_t entry_count) {
++    size_t index = 0;
++    while (index < words) {
++        const uint32_t tag = source[index];
++        const uint32_t address = tag & 0xffffffu;
++        const size_t length = 1u + (tag >> 24);
++        const uint32_t link = address != 0xffffffu && address >= source_address &&
++            address - source_address < words * 4u
++            ? target_address + address - source_address : 0xffffffu;
++        for (size_t i = 1; i < length; ++i) target[index + i] = source[index + i];
++        target[index] = (tag & 0xff000000u) | link;
++        index += length;
++    }
++    for (size_t i = 0; i < entry_count; ++i) {
++        const ps1_packet_fragment_bucket entry = entries[i];
++        target[entry.tail] = (target[entry.tail] & 0xff000000u) | (ot[entry.bucket] & 0xffffffu);
++        ot[entry.bucket] = (ot[entry.bucket] & 0xff000000u) | (target_address + entry.head * 4u);
++    }
++}
++#endif
+diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c
+index 4899d45..1dc9e0e 100644
+--- a/templates/ps1/starter/runtime/render.c
++++ b/templates/ps1/starter/runtime/render.c
+@@ -3209,6 +3209,9 @@ static void __attribute__((noinline)) cache_world_visibility(
+ 
+ }
+ 
++#if PS1_RENDER_ENTITY_PACKET_HOOKS
++#define draw_entity draw_entity_uncached
++#endif
+ static int draw_entity(char** pri, const char* packet_end, uint32_t* ot, const ps1_entity* ent,
+                        int view_model_soft) {
+     SVECTOR rotvec;
+@@ -6192,6 +6195,22 @@ int ps1_render_project_world(int32_t x_q16, int32_t y_q16, int32_t z_q16,
+         x_q16, y_q16, z_q16, screen_x, screen_y, depth);
+ }
+ 
++#if PS1_RENDER_ENTITY_PACKET_HOOKS
++#undef draw_entity
++static int __attribute__((noinline)) draw_entity(char** pri, const char* packet_end, uint32_t* ot,
++                       const ps1_entity* ent, int is_viewmodel) {
++    const char* begin = *pri;
++    int added = ps1_render_entity_packet_replay(
++        ot, pri, packet_end, ent, is_viewmodel);
++    if (added >= 0)
++        return added;
++    added = draw_entity_uncached(pri, packet_end, ot, ent, is_viewmodel);
++    ps1_render_entity_packet_capture(
++        ot, begin, *pri, packet_end, ent, is_viewmodel, added);
++    return added;
++}
++#endif
++
+ void ps1_render_frame(uint32_t* ot, char** nextpri, const char* packet_end) {
+     char* pri;
+     unsigned int i, count;
+diff --git a/templates/ps1/starter/runtime/render.h b/templates/ps1/starter/runtime/render.h
+index 3635b45..e6a3eb8 100644
+--- a/templates/ps1/starter/runtime/render.h
++++ b/templates/ps1/starter/runtime/render.h
+@@ -4,6 +4,24 @@
+ #include <stdint.h>
+ #define PS1_RENDER_OT_LEN 2048
+ 
++/* Opt-in application-owned packet reuse. No hook calls are emitted by default.
++ * Replay returns a negative value for a miss, leaving packet/OT state untouched,
++ * or a nonnegative primitive count after appending a complete cached fragment.
++ * Capture observes the exact packet range emitted by a normal entity draw.
++ * Applications own cache keys, source lifetimes, packet bounds and OT ordering.
++ */
++#ifndef PS1_RENDER_ENTITY_PACKET_HOOKS
++#define PS1_RENDER_ENTITY_PACKET_HOOKS 0
++#endif
++#if PS1_RENDER_ENTITY_PACKET_HOOKS
++struct ps1_entity;
++int ps1_render_entity_packet_replay(uint32_t* ot, char** nextpri,
++    const char* packet_end, const struct ps1_entity* entity, int viewmodel);
++void ps1_render_entity_packet_capture(uint32_t* ot, const char* begin,
++    const char* nextpri, const char* packet_end,
++    const struct ps1_entity* entity, int viewmodel, int primitives);
++#endif
++
+ void ps1_render_init(int screen_w, int screen_h);
+ /* nextpri points into the caller's packet buffer; packet_end must be the first byte after it. */
+ void ps1_render_frame(uint32_t* ot, char** nextpri, const char* packet_end);
+diff --git a/tests/Ps1PacketFragmentTests.c b/tests/Ps1PacketFragmentTests.c
+new file mode 100644
+index 0000000..ea23a1a
+--- /dev/null
++++ b/tests/Ps1PacketFragmentTests.c
+@@ -0,0 +1,95 @@
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include "../templates/ps1/starter/runtime/packet_fragment.h"
++
++static void check(int condition, const char* message) {
++    if (!condition) { fprintf(stderr, "%s\n", message); exit(1); }
++}
++
++int main(void) {
++    uint32_t packets[6] = {0x01001000u,0x004004u,0x01004000u,0x002008u,0x01002000u,0xffffffu};
++    uint32_t ot[4] = {0xffffffu,0x4008u,0x2004u,0x4010u};
++    ps1_packet_fragment_bucket entries[4];
++    uint32_t scratch[2] = {0,0xfeedfaceu};
++    size_t count = 0;
++#define CAPTURE(source, words, address, table, capacity) \
++    ps1_packet_fragment_capture(source,words,address,table,4,entries,capacity,scratch,2,&count)
++    check(CAPTURE(packets,6,0x4000u,ot,4), "A fragment owns two independent bucket chains");
++    check(count==2 && entries[0].bucket==1 && entries[0].head==2 && entries[0].tail==0,
++          "The first chain retains its head and last owned header");
++    check(entries[1].bucket==3 && entries[1].head==4 && entries[1].tail==4,
++          "The second chain terminates at an earlier OT entry");
++    check(scratch[1]==0xfeedfaceu, "Capture touches only the required scratch words");
++    {
++        uint32_t target[8] = {0}, current[4] = {0xffffffu,0x00b000u,0x009004u,0x00b100u};
++        target[6]=0xfeedfaceu;
++        ps1_packet_fragment_copy(target,packets,6,0x4000u,0x8000u,current,entries,count);
++        check(target[0]==0x0100b000u && target[2]==0x01008000u && target[4]==0x0100b100u,
++              "Internal links relocate; tails attach to the current frame's earlier entities");
++        check(current[1]==0x8008u && current[3]==0x8010u, "Only owned buckets receive new heads");
++        check(current[0]==0xffffffu && current[2]==0x009004u, "Unowned OT buckets stay unchanged");
++        check(target[1]==packets[1] && target[3]==packets[3] && target[5]==packets[5],
++              "Address-shaped payload words are never relocated");
++        check(target[6]==0xfeedfaceu, "The next entity's packet memory stays untouched");
++    }
++    {
++        uint32_t malformed[6], badot[4];
++        memcpy(malformed,packets,sizeof packets); malformed[2]=0x01004008u;
++        check(!CAPTURE(malformed,6,0x4000u,ot,4) && count==0, "A self-cycle is rejected");
++        memcpy(malformed,packets,sizeof packets); malformed[2]=0x01004004u;
++        check(!CAPTURE(malformed,6,0x4000u,ot,4), "Links into command payload are rejected");
++        memcpy(malformed,packets,sizeof packets); malformed[0]=0xff001000u;
++        check(!CAPTURE(malformed,6,0x4000u,ot,4), "Truncated packet lengths are rejected");
++        memcpy(malformed,packets,sizeof packets); malformed[0]=0x01001001u;
++        check(!CAPTURE(malformed,6,0x4000u,ot,4), "Misaligned foreign links are rejected");
++        memcpy(badot,ot,sizeof ot); badot[2]=badot[1];
++        check(!CAPTURE(packets,6,0x4000u,badot,4), "Multiple buckets cannot own one chain");
++        memcpy(badot,ot,sizeof ot); badot[3]=0x2008u;
++        check(!CAPTURE(packets,6,0x4000u,badot,4), "Unreachable packets are rejected");
++        memcpy(badot,ot,sizeof ot); badot[1]=0x4004u;
++        check(!CAPTURE(packets,6,0x4000u,badot,4), "A bucket cannot start in payload");
++    }
++    check(!CAPTURE(packets,6,0x4000u,ot,1), "Insufficient bucket storage is rejected");
++    check(!CAPTURE(packets,6,0xfffffcu,ot,4), "24-bit source overflow is rejected");
++    check(!CAPTURE(packets,6,0x4001u,ot,4), "A source must be word-aligned");
++    check(!CAPTURE(packets,65537u,0x4000u,ot,4), "Offsets must fit the compact representation");
++    check(!ps1_packet_fragment_capture(packets,6,0x4000u,ot,4,entries,4,scratch,0,&count),
++          "Insufficient caller-owned scratch is rejected");
++    check(CAPTURE(packets,6,0x4000u,ot,4), "The valid source remains reusable after failures");
++    {
++        uint32_t a[6], b[6];
++        memcpy(a,packets,sizeof packets);
++        for (unsigned frame=0;frame<100;++frame) {
++            const uint32_t previous=0xc000u+frame*4;
++            uint32_t heads[4]={0xffffffu,previous,0x9004u,previous+0x1000u};
++            ps1_packet_fragment_copy(b,a,6,0x4000u,0x8000u,heads,entries,count);
++            check((b[0]&0xffffffu)==previous && (b[4]&0xffffffu)==previous+0x1000u,
++                  "Every frame merges its own dynamic predecessor");
++            heads[1]=previous; heads[3]=previous+0x1000u;
++            ps1_packet_fragment_copy(a,b,6,0x8000u,0x4000u,heads,entries,count);
++            check((a[2]&0xffffffu)==0x4000u && a[1]==packets[1] && a[3]==packets[3] && a[5]==packets[5],
++                  "Repeated buffer swaps preserve internal links and payload");
++        }
++    }
++    {
++        uint32_t overlap[8]={0}, overlap_ot[4], current[4]={0xffffffu,0xb000u,0x9004u,0xb100u};
++        uint32_t untouched;
++        memcpy(overlap+2,packets,sizeof packets); overlap[4]=0x01004008u;
++        memcpy(overlap_ot,ot,sizeof ot); overlap_ot[1]+=8; overlap_ot[3]+=8;
++        check(CAPTURE(overlap+2,6,0x4008u,overlap_ot,4), "An overlapping source is captured normally");
++        untouched=overlap[6];
++        ps1_packet_fragment_copy(overlap,overlap+2,6,0x4008u,0x4000u,current,entries,count);
++        check(overlap[0]==0x0100b000u && overlap[2]==0x01004000u && overlap[4]==0x0100b100u,
++              "Downward overlapping copies relocate each source header before overwrite");
++        check(overlap[1]==packets[1] && overlap[3]==packets[3] && overlap[5]==packets[5] && overlap[6]==untouched,
++              "Overlapping copies preserve payload and following memory");
++    }
++    {
++        uint32_t packet=0x00ffffffu, table[1]={0xfffffcu};
++        check(ps1_packet_fragment_capture(&packet,1,0xfffffcu,table,1,entries,4,scratch,2,&count),
++              "The DMA terminator stays a terminator at the 24-bit boundary");
++    }
++    puts("PS1 packet-fragment tests passed");
++    return 0;
++}
+-- 
+2.53.0
+
