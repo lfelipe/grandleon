@@ -1,0 +1,547 @@
+{
+  "schema": "grandleon.n64.bell-busy-review.v1",
+  "production_base": "1b2e44d8",
+  "decision": "Retain the current renderer. Keep the quad-index prototype isolated; do not add normal instrumentation or geometry changes.",
+  "finding": "All 57 late Bell VI samples in the current renderer show SP running and RDP pipe/command busy. CPU is outside user hooks in 53 samples and in board submission in 4; none samples gameplay update or UI. Average gameplay update is 0.617 ms versus 4.778 ms board submission and 1.382 ms UI. Rendering/queue completion is the main observed pressure.",
+  "limitations": [
+    "Read-only coarse VI status samples do not isolate RSP cost from RDP work, measure complete GPU time, or prove earlier mutation spikes irrelevant. SP not halted is not a count of useful instructions. Engine phase includes waits and engine work.",
+    "CPU submission spans include asynchronous queue backpressure. Lower local ground-command time cannot be claimed as total-frame savings.",
+    "Emulator-only, base 4 MiB, same legal native review input and unchanged tests/thresholds. No hardware FPS claim. Nominal FPS uses 60 VIs/s; real native VI clock is approximately 59.826 Hz.",
+    "Additional review observation can slightly perturb cycle/buffer phase. Two fewer four-VI holds do not establish a material presentation improvement."
+  ],
+  "observer": {
+    "script": "out/n64-bell-phases06/stage-profile.py",
+    "scope": "Separate ignored staged build only; no engine/upstream edits, new fences, counter resets, markers or per-frame serial.",
+    "registers": {
+      "SP_STATUS": "read-only 0xA4040010; bit0=halt",
+      "DP_STATUS": "read-only 0xA410000C; bit4=TMEM busy, bit5=pipe busy, bit6=command busy",
+      "definitions": "pinned SDK mips64-elf/include/rsp.inc"
+    },
+    "late": "unchanged VI origin more than two retraces after presentation, matched active stage; excludes stage transitions",
+    "cpu_scopes": "RAII timers around complete user update, board3D and UI callbacks; other phase is engine/wait."
+  },
+  "results": {
+    "current": {
+      "log": "out/n64-bell-phases06/ares/phases.log",
+      "staged_source_sha256": "0f76bcba229c3ca6750f4a6798f576f75cba51923030be8c667906c53752c92e",
+      "stages": {
+        "1": {
+          "cpu_scopes": {
+            "gameplay_update": {
+              "calls": 695,
+              "avg_us": 617,
+              "max_us": 11082
+            },
+            "board_submission": {
+              "calls": 695,
+              "avg_us": 4778,
+              "max_us": 35524
+            },
+            "ui_submission": {
+              "calls": 695,
+              "avg_us": 1382,
+              "max_us": 4693
+            }
+          },
+          "busy_samples": {
+            "samples": 1499,
+            "late": 57,
+            "phase_engine": 1269,
+            "phase_update": 28,
+            "phase_3d": 165,
+            "phase_ui": 37,
+            "late_engine": 53,
+            "late_update": 0,
+            "late_3d": 4,
+            "late_ui": 0,
+            "rsp_running": 1301,
+            "rdp_pipe": 1285,
+            "rdp_commands": 1285,
+            "rdp_tmem": 0,
+            "late_rsp": 57,
+            "late_pipe": 57,
+            "late_commands": 57,
+            "late_tmem": 0
+          },
+          "presentation": {
+            "frames": 694,
+            "total_vi": 1502,
+            "fps_nominal_x100": 2772,
+            "max_vi": 4,
+            "hold2": 637,
+            "hold4": 57
+          }
+        },
+        "2": {
+          "cpu_scopes": {
+            "gameplay_update": {
+              "calls": 871,
+              "avg_us": 586,
+              "max_us": 11419
+            },
+            "board_submission": {
+              "calls": 871,
+              "avg_us": 6973,
+              "max_us": 15502
+            },
+            "ui_submission": {
+              "calls": 871,
+              "avg_us": 1214,
+              "max_us": 5580
+            }
+          },
+          "busy_samples": {
+            "samples": 1736,
+            "late": 0,
+            "phase_engine": 1693,
+            "phase_update": 26,
+            "phase_3d": 0,
+            "phase_ui": 17,
+            "late_engine": 0,
+            "late_update": 0,
+            "late_3d": 0,
+            "late_ui": 0,
+            "rsp_running": 658,
+            "rdp_pipe": 698,
+            "rdp_commands": 698,
+            "rdp_tmem": 0,
+            "late_rsp": 0,
+            "late_pipe": 0,
+            "late_commands": 0,
+            "late_tmem": 0
+          },
+          "presentation": {
+            "frames": 870,
+            "total_vi": 1740,
+            "fps_nominal_x100": 3000,
+            "max_vi": 2,
+            "hold2": 870,
+            "hold4": 0
+          }
+        },
+        "3": {
+          "cpu_scopes": {
+            "gameplay_update": {
+              "calls": 1410,
+              "avg_us": 710,
+              "max_us": 13064
+            },
+            "board_submission": {
+              "calls": 1410,
+              "avg_us": 8229,
+              "max_us": 17581
+            },
+            "ui_submission": {
+              "calls": 1410,
+              "avg_us": 1047,
+              "max_us": 9279
+            }
+          },
+          "busy_samples": {
+            "samples": 2814,
+            "late": 0,
+            "phase_engine": 2687,
+            "phase_update": 6,
+            "phase_3d": 7,
+            "phase_ui": 114,
+            "late_engine": 0,
+            "late_update": 0,
+            "late_3d": 0,
+            "late_ui": 0,
+            "rsp_running": 1398,
+            "rdp_pipe": 1407,
+            "rdp_commands": 1407,
+            "rdp_tmem": 0,
+            "late_rsp": 0,
+            "late_pipe": 0,
+            "late_commands": 0,
+            "late_tmem": 0
+          },
+          "presentation": {
+            "frames": 1409,
+            "total_vi": 2818,
+            "fps_nominal_x100": 3000,
+            "max_vi": 2,
+            "hold2": 1409,
+            "hold4": 0
+          }
+        },
+        "4": {
+          "cpu_scopes": {
+            "gameplay_update": {
+              "calls": 1013,
+              "avg_us": 657,
+              "max_us": 12245
+            },
+            "board_submission": {
+              "calls": 1013,
+              "avg_us": 21563,
+              "max_us": 26374
+            },
+            "ui_submission": {
+              "calls": 1013,
+              "avg_us": 1194,
+              "max_us": 6085
+            }
+          },
+          "busy_samples": {
+            "samples": 2020,
+            "late": 0,
+            "phase_engine": 1102,
+            "phase_update": 4,
+            "phase_3d": 904,
+            "phase_ui": 10,
+            "late_engine": 0,
+            "late_update": 0,
+            "late_3d": 0,
+            "late_ui": 0,
+            "rsp_running": 1014,
+            "rdp_pipe": 1014,
+            "rdp_commands": 1014,
+            "rdp_tmem": 0,
+            "late_rsp": 0,
+            "late_pipe": 0,
+            "late_commands": 0,
+            "late_tmem": 0
+          },
+          "presentation": {
+            "frames": 1012,
+            "total_vi": 2024,
+            "fps_nominal_x100": 3000,
+            "max_vi": 2,
+            "hold2": 1012,
+            "hold4": 0
+          }
+        },
+        "5": {
+          "cpu_scopes": {
+            "gameplay_update": {
+              "calls": 1300,
+              "avg_us": 552,
+              "max_us": 12291
+            },
+            "board_submission": {
+              "calls": 1300,
+              "avg_us": 20926,
+              "max_us": 24666
+            },
+            "ui_submission": {
+              "calls": 1300,
+              "avg_us": 1089,
+              "max_us": 6182
+            }
+          },
+          "busy_samples": {
+            "samples": 2594,
+            "late": 0,
+            "phase_engine": 1297,
+            "phase_update": 0,
+            "phase_3d": 1297,
+            "phase_ui": 0,
+            "late_engine": 0,
+            "late_update": 0,
+            "late_3d": 0,
+            "late_ui": 0,
+            "rsp_running": 1297,
+            "rdp_pipe": 1298,
+            "rdp_commands": 1298,
+            "rdp_tmem": 0,
+            "late_rsp": 0,
+            "late_pipe": 0,
+            "late_commands": 0,
+            "late_tmem": 0
+          },
+          "presentation": {
+            "frames": 1299,
+            "total_vi": 2598,
+            "fps_nominal_x100": 3000,
+            "max_vi": 2,
+            "hold2": 1299,
+            "hold4": 0
+          }
+        }
+      },
+      "functional": {
+        "battles": 5,
+        "commands": 287,
+        "enemy_commands": 165,
+        "hash": 600017321675168062,
+        "rdram": 4194304,
+        "heap_free": 222248
+      }
+    },
+    "quad_experiment": {
+      "log": "out/n64-quad-list06/ares/quads.log",
+      "staged_source_sha256": "7d64b325850e48c565e5d08993ef2d368c2df61cce5ef80e67162877c6577b13",
+      "stages": {
+        "1": {
+          "cpu_scopes": {
+            "gameplay_update": {
+              "calls": 695,
+              "avg_us": 647,
+              "max_us": 11301
+            },
+            "board_submission": {
+              "calls": 695,
+              "avg_us": 4490,
+              "max_us": 35571
+            },
+            "ui_submission": {
+              "calls": 695,
+              "avg_us": 1261,
+              "max_us": 4722
+            }
+          },
+          "busy_samples": {
+            "samples": 1495,
+            "late": 55,
+            "phase_engine": 1283,
+            "phase_update": 23,
+            "phase_3d": 159,
+            "phase_ui": 30,
+            "late_engine": 51,
+            "late_update": 0,
+            "late_3d": 4,
+            "late_ui": 0,
+            "rsp_running": 1288,
+            "rdp_pipe": 1277,
+            "rdp_commands": 1277,
+            "rdp_tmem": 0,
+            "late_rsp": 55,
+            "late_pipe": 55,
+            "late_commands": 55,
+            "late_tmem": 0
+          },
+          "presentation": {
+            "frames": 694,
+            "total_vi": 1498,
+            "fps_nominal_x100": 2779,
+            "max_vi": 4,
+            "hold2": 639,
+            "hold4": 55
+          }
+        },
+        "2": {
+          "cpu_scopes": {
+            "gameplay_update": {
+              "calls": 871,
+              "avg_us": 618,
+              "max_us": 11617
+            },
+            "board_submission": {
+              "calls": 871,
+              "avg_us": 6788,
+              "max_us": 15336
+            },
+            "ui_submission": {
+              "calls": 871,
+              "avg_us": 1129,
+              "max_us": 5464
+            }
+          },
+          "busy_samples": {
+            "samples": 1736,
+            "late": 0,
+            "phase_engine": 1695,
+            "phase_update": 24,
+            "phase_3d": 0,
+            "phase_ui": 17,
+            "late_engine": 0,
+            "late_update": 0,
+            "late_3d": 0,
+            "late_ui": 0,
+            "rsp_running": 604,
+            "rdp_pipe": 646,
+            "rdp_commands": 646,
+            "rdp_tmem": 0,
+            "late_rsp": 0,
+            "late_pipe": 0,
+            "late_commands": 0,
+            "late_tmem": 0
+          },
+          "presentation": {
+            "frames": 870,
+            "total_vi": 1740,
+            "fps_nominal_x100": 3000,
+            "max_vi": 2,
+            "hold2": 870,
+            "hold4": 0
+          }
+        },
+        "3": {
+          "cpu_scopes": {
+            "gameplay_update": {
+              "calls": 1410,
+              "avg_us": 743,
+              "max_us": 13247
+            },
+            "board_submission": {
+              "calls": 1410,
+              "avg_us": 7791,
+              "max_us": 8669
+            },
+            "ui_submission": {
+              "calls": 1410,
+              "avg_us": 974,
+              "max_us": 9142
+            }
+          },
+          "busy_samples": {
+            "samples": 2814,
+            "late": 0,
+            "phase_engine": 2696,
+            "phase_update": 4,
+            "phase_3d": 0,
+            "phase_ui": 114,
+            "late_engine": 0,
+            "late_update": 0,
+            "late_3d": 0,
+            "late_ui": 0,
+            "rsp_running": 1399,
+            "rdp_pipe": 1408,
+            "rdp_commands": 1408,
+            "rdp_tmem": 0,
+            "late_rsp": 0,
+            "late_pipe": 0,
+            "late_commands": 0,
+            "late_tmem": 0
+          },
+          "presentation": {
+            "frames": 1409,
+            "total_vi": 2818,
+            "fps_nominal_x100": 3000,
+            "max_vi": 2,
+            "hold2": 1409,
+            "hold4": 0
+          }
+        },
+        "4": {
+          "cpu_scopes": {
+            "gameplay_update": {
+              "calls": 1013,
+              "avg_us": 680,
+              "max_us": 12233
+            },
+            "board_submission": {
+              "calls": 1013,
+              "avg_us": 21161,
+              "max_us": 26034
+            },
+            "ui_submission": {
+              "calls": 1013,
+              "avg_us": 1144,
+              "max_us": 6108
+            }
+          },
+          "busy_samples": {
+            "samples": 2021,
+            "late": 0,
+            "phase_engine": 1109,
+            "phase_update": 1,
+            "phase_3d": 899,
+            "phase_ui": 12,
+            "late_engine": 0,
+            "late_update": 0,
+            "late_3d": 0,
+            "late_ui": 0,
+            "rsp_running": 1013,
+            "rdp_pipe": 1013,
+            "rdp_commands": 1013,
+            "rdp_tmem": 0,
+            "late_rsp": 0,
+            "late_pipe": 0,
+            "late_commands": 0,
+            "late_tmem": 0
+          },
+          "presentation": {
+            "frames": 1012,
+            "total_vi": 2024,
+            "fps_nominal_x100": 3000,
+            "max_vi": 2,
+            "hold2": 1012,
+            "hold4": 0
+          }
+        },
+        "5": {
+          "cpu_scopes": {
+            "gameplay_update": {
+              "calls": 1300,
+              "avg_us": 564,
+              "max_us": 12505
+            },
+            "board_submission": {
+              "calls": 1300,
+              "avg_us": 20349,
+              "max_us": 24101
+            },
+            "ui_submission": {
+              "calls": 1300,
+              "avg_us": 1018,
+              "max_us": 6098
+            }
+          },
+          "busy_samples": {
+            "samples": 2594,
+            "late": 0,
+            "phase_engine": 1295,
+            "phase_update": 0,
+            "phase_3d": 1299,
+            "phase_ui": 0,
+            "late_engine": 0,
+            "late_update": 0,
+            "late_3d": 0,
+            "late_ui": 0,
+            "rsp_running": 1300,
+            "rdp_pipe": 1301,
+            "rdp_commands": 1301,
+            "rdp_tmem": 0,
+            "late_rsp": 0,
+            "late_pipe": 0,
+            "late_commands": 0,
+            "late_tmem": 0
+          },
+          "presentation": {
+            "frames": 1299,
+            "total_vi": 2598,
+            "fps_nominal_x100": 3000,
+            "max_vi": 2,
+            "hold2": 1299,
+            "hold4": 0
+          }
+        }
+      },
+      "functional": {
+        "battles": 5,
+        "commands": 287,
+        "enemy_commands": 165,
+        "hash": 600017321675168062,
+        "rdram": 4194304,
+        "heap_free": 221672
+      }
+    }
+  },
+  "quad_experiment": {
+    "decision": "Rejected for shipping in this pass. Bell changes only27.72 to27.79 nominal FPS (57 to55 four-VI holds); later stages stay30.00.",
+    "change": "One184-byte immutable aligned restart list replaces individual triangle command calls for quad batches in ground apron, board cells, elevation walls and visibility. Same local indices, winding, exact triangle order, vertex loads, materials and per-batch synchronization.",
+    "script": "out/n64-quad-list06/stage-quads.py",
+    "normal_candidate_rom": "out/n64-quad-normal06/project/grandleon_pyrite_game.z64",
+    "normal_candidate_status": "Built for memory audit only; isolated and not the recommended normal ROM.",
+    "resident_bytes_before": 1862662,
+    "resident_bytes_after": 1863430,
+    "resident_delta": 768,
+    "text_delta": 576,
+    "bss_delta": 192,
+    "extra_heap_allocations": 0,
+    "ground_submission_us_before": 2185,
+    "ground_submission_us_after": 499,
+    "host_proof": "out/n64-quad-list06/proof/result.txt",
+    "host_proof_scope": "All partial batch sizes1\u201315; identical ordered triangles and final sync. Largest184-byte padded index DMA fits the360 DMEM bytes left by60 transformed vertices; padding initialized. Host restart-contract proof is not GPU emulation.",
+    "visual_review": [
+      "out/n64-quad-list06/ares/quads-trail/012-PYRITE_SELECTED.png",
+      "out/n64-quad-list06/ares/quads-trail/108-PYRITE_CASTLE_EXTERIOR_REVIEW.png",
+      "out/n64-quad-list06/ares/quads-trail/124-PYRITE_CASTLE_ROOM_REVIEW.png"
+    ],
+    "visual_scope": "Actual native Bell, Keep exterior and revealed room. No geometry loss observed. Checkpoint captures are asynchronous: no whole-frame pixel equality claim."
+  },
+  "shipping_normal_rom": "out/n64-settlement-no-empty-normal06/project/grandleon_pyrite_game.z64"
+}
