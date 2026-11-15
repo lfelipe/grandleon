@@ -10,9 +10,9 @@ character-fall conversations come from the game package and remain localized.
 In two-player battles each physical controller
 keeps its own visible cursor and can command only its authored units; choosing
 two players is not merely a larger roster driven by controller one. A compact
-forecast and result UI plus the optional close-combat camera use the same disc
-and rules. The 0.5 gameplay-parity paths are in place; audio, real-hardware
-review, and continued graphics and control polish remain. Mipsync is never
+forecast and the optional close-combat camera use the same disc and rules.
+Music and weapon effects are supported. Real-hardware review and continued
+graphics, frame-pacing and control polish remain. Mipsync is never
 used as a fallback, and the removed renderer is not retained as one.
 
 Solo and co-op are generated from their complete authored encounter variants,
@@ -44,11 +44,14 @@ When a game authors a deployment area, its tiles are marked on the live board.
 Cross selects or places a character through the shared simulation and Start
 begins battle. A fixed ready-to-play formation skips this step completely.
 
-Help is available from the title and the in-battle Start menu. Close view,
-reduced motion and FPS display can be changed there and are kept on the memory
-card; retail play starts with FPS hidden.
+Help is available from the title and the in-battle Start menu. Settings include
+close view, FPS display, music volume and sound-effects volume. A language
+selector appears when the game includes translations. Settings are kept on the
+memory card; play starts with FPS hidden.
 
-Mipsync is pinned to commit `866f405a0e34b5925a8d832272fe52c657688430`.
+Mipsync is pinned to `v1.0.0f1` (`ce1e489`);
+[`upstream.env`](../../../tools/upstream_patches/engines/mipsync/upstream.env)
+records the full revision.
 The upstream source is not vendored in the Grandleon repository. Release
 packaging puts the pinned source and its licence inside the optional offline
 builder. Generic engine fixes live as replayable `git format-patch` files under
