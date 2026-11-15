@@ -1,0 +1,157 @@
+{
+  "schema": "grandleon.n64.native-movement-capture.v1",
+  "renderer_source_commit": "361d8f6c",
+  "scope": "Native Ares movement and forest-wind recording of the retained-indexed N64 renderer. Diagnostic source changes affect only a separate staged review copy; normal runtime sources and builds are unchanged.",
+  "method": {
+    "origin_observer": "Read VI_ORIGIN from an installed vblank handler, associate its buffer address with the frame ID assigned to that actual attached framebuffer. Record bounded presentation observations in memory; emit one bounded trace after capture. No GPU fences, frame waits or per-frame serial logging. The observer does not write VI registers or engine queue state.",
+    "marker": "Review-only encoded frame ID in the upper four framebuffer rows. Captured host screenshots decode that ID; window chrome and the marker are cropped. The marker adds rendering overhead, so this is an instrumented emulator observation, not an uninstrumented/hardware benchmark.",
+    "coverage": "All 241 native presentation IDs match actual host screenshots. The first 240 pictures form the clip; the last picture supplies the timing endpoint. No missing images, interpolation, synthetic walking or milestone-frame duplication.",
+    "timing": "Every consecutive presented buffer holds for 2 VIs. The clip uses their measured 8.023242 second duration at a constant observed VI cadence. Interrupt callback timestamp jitter is at most 29.25 microseconds around that cadence. Callback ordering may produce a constant observation offset; only relative holds are used, not submission-to-display latency.",
+    "qualification": "This Deepwood segment sustains the nominal 30 fps target in Ares. It establishes neither other-stage frame rates nor physical hardware performance. Existing pre-pacing update intervals are not display timestamps."
+  },
+  "presentation": {
+    "origin_records": 241,
+    "encoded_frames": 240,
+    "unique_cropped_frames": 240,
+    "matched_native_ids": 241,
+    "missing_native_ids": [],
+    "duration_vi": 480,
+    "hold_vi_histogram": {
+      "2": 240
+    },
+    "duration_us": 8023242,
+    "measured_frames_per_second": 29.91309498080701,
+    "mp4_rate": "40000000/1337207",
+    "unit_moving_frames": 120,
+    "unit_moving_without_camera_frames": 95,
+    "camera_moving_frames": 34,
+    "settled_frames": 111
+  },
+  "wind_check": {
+    "crown": {
+      "crop": [
+        160,
+        230,
+        280,
+        310
+      ],
+      "settled_frames": 111,
+      "unique_pixels": 20
+    },
+    "ground": {
+      "crop": [
+        160,
+        190,
+        240,
+        210
+      ],
+      "settled_frames": 111,
+      "unique_pixels": 1
+    }
+  },
+  "encoding": {
+    "mp4": {
+      "frames": 240,
+      "width": 750,
+      "height": 566,
+      "duration_us": 8023242,
+      "native_hold_vi": 2,
+      "max_encoded_pts_error_us": 0.5000000005139782
+    },
+    "gif": {
+      "frames": 240,
+      "width": 640,
+      "height": 483,
+      "duration_ms": 8020,
+      "frame_durations_ms": [
+        30,
+        40
+      ],
+      "temporal_downsampling": false,
+      "spatial_downsampling": "750x566 captured crop to640x483 with Lanczos;256colour GIF palette."
+    }
+  },
+  "gif_qualification": "Spatial preview scaled from 750x566 to 640x483 and quantized to 256 colours. All 240 actual pictures remain; no temporal downsampling. GIF delays are 30 or 40 ms because the format uses centiseconds: total 8.020s, maximum start timestamp error 4.99505ms. MP4 retains the measured 8.023242s duration. Both are silent.",
+  "crop": "Actual 1024x768 Ares window; game crop (118,91)-(868,657), removing menu/borders and the diagnostic marker. Source N64 framebuffer 320x240 passes through Ares VI presentation/scaling; crop is not a higher native render resolution.",
+  "artifacts": {
+    "mp4": {
+      "path": "out/n64-presentation-final06/n64-forest-native.mp4",
+      "bytes": 761210,
+      "sha256": "4d1df7a38b388bbf43ae301269ad4e8b84652518b5693fb54382ecf961b60ae1"
+    },
+    "gif": {
+      "path": "out/n64-presentation-final06/n64-forest-preview.gif",
+      "bytes": 4631024,
+      "sha256": "e83dc77e9f4f20f5db81cb9ca9f2916691be617ad0d8dd49957de463943215ed"
+    },
+    "poster": {
+      "path": "out/n64-presentation-final06/n64-forest-poster.png",
+      "bytes": 103342,
+      "sha256": "112e6fa358ab3685db6cf4f3f074dd7649f55661bde4609213a04be51fb035b6"
+    },
+    "diagnostic_rom": {
+      "path": "out/n64-presentation-final06/project/grandleon_pyrite_game.z64",
+      "bytes": 8306688,
+      "sha256": "c9f0a40b3fb9fc859de9c2fa78620a7dabd2b29a3a91800966af6d2f70459a8b"
+    },
+    "diagnostic_source": {
+      "path": "out/n64-presentation-final06/project/src/user/ProjectBoard.cpp",
+      "bytes": 258638,
+      "sha256": "02b659d41abe91d053c8b066de1b3ee38ff77b276a4f859c98da0c8091c9d050"
+    },
+    "diagnostic_source_patch": {
+      "path": "out/n64-presentation-final06/capture-probe.patch",
+      "bytes": 6022,
+      "sha256": "019323a8c2f7336d4698894d17b8da6878764bd3cb7693b4ee62eab513d9ac5d"
+    },
+    "native_log": {
+      "path": "out/n64-presentation-final06/ares/final.log",
+      "bytes": 19573,
+      "sha256": "0d1951b5596fe77adfaff4b6f3a8f23b0e4f28a75d62767f0957ec7ab3251051"
+    },
+    "coverage_and_full_trace": {
+      "path": "out/n64-presentation-final06/coverage.json",
+      "bytes": 21470,
+      "sha256": "a1fe0a9ad3ea49b9019937b7e58cf594c8e5941d75950fe42a5aefe0a9754075"
+    },
+    "frame_to_raw_capture_map": {
+      "path": "out/n64-presentation-final06/selection.json",
+      "bytes": 85603,
+      "sha256": "5411b855758d1bb09ff93b317cc84e86bce06f87cd76c394b34b995bd0c2579f"
+    },
+    "encoding_proof": {
+      "path": "out/n64-presentation-final06/encoding-proof.json",
+      "bytes": 464,
+      "sha256": "7fb229c7d853bc326960b3c545f515c53c81207e9b950214bc0673e5225dfd87"
+    },
+    "wind_pixels_proof": {
+      "path": "out/n64-presentation-final06/wind-proof.json",
+      "bytes": 269,
+      "sha256": "0461badb176eca25cacfb05417e7862310a1eeb87b95a81daccfada1e065e3b2"
+    },
+    "missing_frame_rejection_proof": {
+      "path": "out/n64-presentation-final06/missing-frame-proof.json",
+      "bytes": 184,
+      "sha256": "a746cb27a42bdd583e7b97ffb87c7ba4bf049fae73b41d5a801e36ff443bf9fe"
+    },
+    "normal_runtime_source": {
+      "path": "platform/nintendo64/pyrite/project/src/user/ProjectBoard.cpp",
+      "bytes": 253764,
+      "sha256": "0d8b812b21f29b086844b1f56ec5ba5cd754b05a68e30b27bf7a5b1596fa1020"
+    },
+    "reusable_decoder": {
+      "path": "platform/nintendo64/pyrite/tests/extract_presented_frames.py",
+      "bytes": 4719,
+      "sha256": "60ab951b7e5eaf9df8e7143d38622ec6a13cabbca3fd925e3b5f1ab6f6064540"
+    }
+  },
+  "validation": [
+    "Full instrumented five-battle native review passes with 287 accepted commands, 165 enemy commands, complete 18-cell castle reveal and unchanged canonical hash 600017321675168062.",
+    "Reusable decoder reproduces every selected source and cropped-pixel hash from the initial extraction.",
+    "Removing the only raw screenshot for one presented frame makes the decoder refuse extraction before creating output.",
+    "MP4 has 240 frames and 8.023242s duration; encoded PTS differ by at most 0.5 microseconds from the measured constant VI cadence.",
+    "GIF has 240 frames and 8.020s duration; native-cadence and spatial/palette/timing qualifications are explicit.",
+    "Actual unit movement and crown wind verified from image sequences. Across 111 settled frames a crown crop has 20 distinct pixel states while a ground crop has one; the wind proof records both regions.",
+    "git diff --check passes. Hardware checks are pending."
+  ]
+}
