@@ -65,10 +65,9 @@ static uint16_t s_world_render_started, s_world_ui_started, s_world_ui_ticks;
 
 /* Generated meshes/materials are immutable. Future mutable mesh data must
  * invalidate this cache; engine-driven animation and VM bindings opt out. */
-static int world_cache_supported(void) {
+static int scene_cache_supported(void) {
     unsigned i;
-    if (!grandleon_game_world_packets_stable() ||
-        g_ps1_scene.entity_count > GRANDLEON_WORLD_ENTITY_CAPACITY ||
+    if (g_ps1_scene.entity_count > GRANDLEON_WORLD_ENTITY_CAPACITY ||
         g_ps1_scene.binding_count || g_ps1_scene.rigid_anim_frame_count ||
         g_ps1_scene.transform_anim_key_count || g_ps1_scene.background_texture_index)
         return 0;
@@ -423,7 +422,10 @@ void grandleon_world_packet_cache_capture(uint32_t* ot, char** next_packet) {
 }
 
 static void render_world_and_ui(uint32_t* ot, char** next_packet, const char* end) {
-    const int supported = world_cache_supported();
+    const int scene_supported = scene_cache_supported();
+    /* Moving actors invalidate a whole-world template. Static fragments have
+     * independent exact entity/camera keys and can survive those movements. */
+    const int supported = scene_supported && grandleon_game_world_packets_stable();
     if (supported && s_world_ready && *next_packet == grandleon_packet_arena &&
         s_world_bytes <= (uint32_t)(end - *next_packet) && world_entities_match()) {
         /* The retained prefix and table always have the same addresses. Only
@@ -444,7 +446,7 @@ static void render_world_and_ui(uint32_t* ot, char** next_packet, const char* en
     s_world_recording = supported;
     s_world_pending_start = *next_packet;
     s_world_render_started = (uint16_t)TIMER_VALUE(1);
-    static_packets_begin_frame(supported);
+    static_packets_begin_frame(scene_supported && grandleon_game_static_packets_stable());
     ps1_render_frame(ot, next_packet, end);
     s_world_ui_ticks = (uint16_t)((uint16_t)TIMER_VALUE(1) - s_world_ui_started);
 }

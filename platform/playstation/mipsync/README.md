@@ -171,12 +171,15 @@ policy stays portable across renderers (`natural_blend`, `extend_edges` or
 `fixed_terrain`).
 
 Unchanged world frames reuse their GPU commands. Static ground and nearby
-landmarks can also retain commands as one group while idle units and foliage
+landmarks can also retain commands as one group while units and foliage
 animate. Houses drawn with character priority stay separate, as does the
 unrevealed castle cover. Exact snapshots track camera, mesh, visibility and
 material state; moving units and combat render normally, and UI is rebuilt
 every frame. Group and whole-world caches share snapshot storage with explicit
-invalidation, keeping both keys exact without another entity array.
+invalidation, keeping both keys exact without another entity array. Static
+reuse also works during unit movement when the camera has settled. Camera
+pans and opening sweeps skip fragment capture, avoiding templates that would
+need rebuilding immediately.
 
 One 56 KiB command arena and one ordering table replace two smaller pairs,
 leaving more room for complete scenery within the same storage budget. The

@@ -1,0 +1,318 @@
+{
+  "schema": "grandleon.ps1-camera-gate.v1",
+  "source_base": "025721ff834bef990dc1205900836fbe3938e82a",
+  "sources": {
+    "TODO.md": "c30cf3026a2bfdb5db2b9b936962289427dfcc7a78d129d2d6cb8344674e26e3",
+    "platform/playstation/mipsync/README.md": "2fef80e2bfbedc7e8d4084eeef7a29b71fcd352bb5631ed4820c4ab33f0a7aa3",
+    "platform/playstation/mipsync/runtime/main.c": "ae2205cf4aa2310bc1dd32c811bcd2b8bf5352d9c0f3a9607cbfe69b199dd2d4",
+    "platform/playstation/mipsync/runtime/game_bridge.cpp": "073adfce4eb5593a587ad316cdd48920e70c8c93d44745eb8d07549b5b0aa22d",
+    "platform/playstation/mipsync/runtime/game_bridge.h": "ca5dc56efc5890415038424258e4caf5c9d279bfdf9e83b90906e7be7d12197e"
+  },
+  "design": "Separate immutable-scene support from settled-camera eligibility. Whole-world reuse still requires stationary actors; exact-key static fragments may survive actor movement. Opening sweeps, camera returns, unsettled cameras and unsupported scenes remain on normal drawing. No simulation, controller, audio, scenario or test-threshold changes.",
+  "comparisons": [
+    {
+      "name": "combat",
+      "before": "out/ps1-static-group06-combat",
+      "after": "out/ps1-camera-gate06-combat",
+      "identical_frames": 409
+    },
+    {
+      "name": "scroll",
+      "before": "out/ps1-static-group06-scroll",
+      "after": "out/ps1-camera-gate06-scroll",
+      "identical_frames": 132
+    },
+    {
+      "name": "castle",
+      "before": "out/ps1-static-group06-visibility",
+      "after": "out/ps1-camera-gate06-visibility",
+      "identical_frames": 2
+    },
+    {
+      "name": "campaign_ui",
+      "before": "out/ps1-static-group06-campaign-probe",
+      "after": "out/ps1-camera-gate06-campaign-probe",
+      "identical_frames": 15
+    }
+  ],
+  "identical_frames": 558,
+  "checks": {
+    "campaign_functional_passed": true,
+    "strict_keep_fps_passed": false,
+    "deepwood_zero_misses_preserved": true,
+    "combat_controls_audio_camera_passed": true,
+    "strict_combat_fps_passed": false,
+    "watch_pages": {
+      "entities": 68,
+      "pages": 9,
+      "drawn_canopy_entities": [
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
+        66
+      ],
+      "scope": "Actual controller traversal and renderer draw calls; no entity, camera or simulation state writes."
+    }
+  },
+  "timing": {
+    "orchard_before": {
+      "MIPSYNC_STATIC_PACKETS": {
+        "hits": 53,
+        "misses": 3,
+        "bytes": 43972,
+        "heads": 84,
+        "rejects": 0,
+        "world_free_min": 8380,
+        "world_near_limit_frames": 0
+      },
+      "MIPSYNC_GRANDLEON_METRICS": {
+        "frames": 600,
+        "rendered_frames": 300,
+        "scheduled_frames": 300,
+        "deferred_frames": 0,
+        "missed_vblanks": 68,
+        "max_elapsed_vblanks": 5
+      },
+      "MIPSYNC_FRAME_BUDGET": {
+        "render_hbl_avg": 217,
+        "render_hbl_max": 1166,
+        "ready_hbl_avg": 220,
+        "ready_hbl_max": 1170,
+        "mutation_hbl_max": 263
+      },
+      "MIPSYNC_MISS_RANGE": {
+        "first": 125,
+        "last": 365
+      }
+    },
+    "orchard_after": {
+      "MIPSYNC_STATIC_PACKETS": {
+        "hits": 83,
+        "misses": 2,
+        "bytes": 43972,
+        "heads": 84,
+        "rejects": 0,
+        "world_free_min": 8380,
+        "world_near_limit_frames": 0
+      },
+      "MIPSYNC_GRANDLEON_METRICS": {
+        "frames": 600,
+        "rendered_frames": 300,
+        "scheduled_frames": 300,
+        "deferred_frames": 0,
+        "missed_vblanks": 5,
+        "max_elapsed_vblanks": 5
+      },
+      "MIPSYNC_FRAME_BUDGET": {
+        "render_hbl_avg": 140,
+        "render_hbl_max": 1122,
+        "ready_hbl_avg": 144,
+        "ready_hbl_max": 1127,
+        "mutation_hbl_max": 263
+      },
+      "MIPSYNC_MISS_RANGE": {
+        "first": 363,
+        "last": 365
+      }
+    },
+    "deepwood_after": {
+      "MIPSYNC_STATIC_PACKETS": {
+        "hits": 52,
+        "misses": 1,
+        "bytes": 3968,
+        "heads": 36,
+        "rejects": 0,
+        "world_free_min": 45224,
+        "world_near_limit_frames": 0
+      },
+      "MIPSYNC_GRANDLEON_METRICS": {
+        "frames": 600,
+        "rendered_frames": 300,
+        "scheduled_frames": 300,
+        "deferred_frames": 0,
+        "missed_vblanks": 0,
+        "max_elapsed_vblanks": 2
+      },
+      "MIPSYNC_FRAME_BUDGET": {
+        "render_hbl_avg": 171,
+        "render_hbl_max": 448,
+        "ready_hbl_avg": 174,
+        "ready_hbl_max": 452,
+        "mutation_hbl_max": 0
+      },
+      "MIPSYNC_MISS_RANGE": {
+        "first": 0,
+        "last": 0
+      }
+    },
+    "keep_after": {
+      "MIPSYNC_STATIC_PACKETS": {
+        "hits": 53,
+        "misses": 55,
+        "bytes": 16496,
+        "heads": 64,
+        "rejects": 0,
+        "world_free_min": 27824,
+        "world_near_limit_frames": 0
+      },
+      "MIPSYNC_GRANDLEON_METRICS": {
+        "frames": 600,
+        "rendered_frames": 300,
+        "scheduled_frames": 300,
+        "deferred_frames": 0,
+        "missed_vblanks": 185,
+        "max_elapsed_vblanks": 6
+      },
+      "MIPSYNC_FRAME_BUDGET": {
+        "render_hbl_avg": 339,
+        "render_hbl_max": 1308,
+        "ready_hbl_avg": 342,
+        "ready_hbl_max": 1312,
+        "mutation_hbl_max": 0
+      },
+      "MIPSYNC_MISS_RANGE": {
+        "first": 61,
+        "last": 243
+      }
+    }
+  },
+  "rejected_experiments": [
+    {
+      "root": "out/ps1-motion-cache06-experiment",
+      "reason": "Unconditional scene eligibility reduces orchard misses to3 but adds repeated capture work during opening sweeps. Deepwood regresses from0 to1missedretraces; rejected in favor of the camera gate."
+    },
+    {
+      "root": "out/ps1-close-reserve06-experiment",
+      "reason": "Additional128vertex/64triangle cache entries preserve409images but do not reduce the remaining close-return misses. Extra RAM not adopted."
+    }
+  ],
+  "stages": {
+    "bell": {
+      "main_ram": {
+        "text_bytes": 421704,
+        "data_bytes": 493684,
+        "bss_bytes": 330064,
+        "resident_bytes": 1245452,
+        "packet_bytes_per_frame": 57344,
+        "packet_arena_bytes": 57344,
+        "packet_arena_count": 1,
+        "ordering_table_bytes": 8192,
+        "end_address": "0x8013f950",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1310988,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 1868044,
+        "passes_playable_slice_budget": true
+      },
+      "elf_sha256": "60bf354892fa840b3456ceb02b0ae6fcaf481e787d7445af9db36b6156d76fae"
+    },
+    "deep": {
+      "main_ram": {
+        "text_bytes": 424248,
+        "data_bytes": 493236,
+        "bss_bytes": 240960,
+        "resident_bytes": 1158444,
+        "packet_bytes_per_frame": 57344,
+        "packet_arena_bytes": 57344,
+        "packet_arena_count": 1,
+        "ordering_table_bytes": 8192,
+        "end_address": "0x8012a540",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1223980,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 1781036,
+        "passes_playable_slice_budget": true
+      },
+      "elf_sha256": "97dded62633d930d4bd88d9524894a12c48d8236b83c7c17f98a5207bca88411"
+    },
+    "watch": {
+      "main_ram": {
+        "text_bytes": 434248,
+        "data_bytes": 667508,
+        "bss_bytes": 255256,
+        "resident_bytes": 1357012,
+        "packet_bytes_per_frame": 57344,
+        "packet_arena_bytes": 57344,
+        "packet_arena_count": 1,
+        "ordering_table_bytes": 8192,
+        "end_address": "0x8015ad18",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1422548,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 1979604,
+        "passes_playable_slice_budget": true
+      },
+      "elf_sha256": "7409704f8441ba54981881f3a38525cfceb06f0b0bc170f24881964df436982f"
+    },
+    "village": {
+      "main_ram": {
+        "text_bytes": 426024,
+        "data_bytes": 751540,
+        "bss_bytes": 288680,
+        "resident_bytes": 1466244,
+        "packet_bytes_per_frame": 57344,
+        "packet_arena_bytes": 57344,
+        "packet_arena_count": 1,
+        "ordering_table_bytes": 8192,
+        "end_address": "0x801757a8",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1531780,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 2088836,
+        "passes_playable_slice_budget": true
+      },
+      "elf_sha256": "85d4bd8632b87bbc420aa7848878d91abd5f8d1d6d9d031287060f68b4191999"
+    },
+    "gate": {
+      "main_ram": {
+        "text_bytes": 424440,
+        "data_bytes": 714228,
+        "bss_bytes": 289832,
+        "resident_bytes": 1428500,
+        "packet_bytes_per_frame": 57344,
+        "packet_arena_bytes": 57344,
+        "packet_arena_count": 1,
+        "ordering_table_bytes": 8192,
+        "end_address": "0x8016c428",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1494036,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 2051092,
+        "passes_playable_slice_budget": true
+      },
+      "elf_sha256": "4353b6826e97c2fd1cdedd050b8f32c79431e9c48ed314db6d707b5662d5e4a0"
+    }
+  },
+  "limits": [
+    "Emulator results, not hardware validation. Orchard still records5missedretraces at the close return, down from68; strict keep/combat frame-pacing gates still fail.",
+    "All compared native framebuffers match at the existing legal-action/camera/menu checkpoints. Campaign traversal uses supported stage skip; separate combat and castle probes use legal gameplay.",
+    "A separate native VSync/GP1 observer records about29.5display flips/s in a short orchard clip but also one-/three-VI alternation and two long holds. Average FPS alone does not establish steady pacing.",
+    "The render interval includes GPU completion wait and table clear in both versions. More geometry-cache reserve was measured and rejected rather than used to hide the remaining hitch."
+  ],
+  "upstream": "Application-only cache eligibility change. Existing local optional Mipsync hooks unchanged; no public PR update."
+}

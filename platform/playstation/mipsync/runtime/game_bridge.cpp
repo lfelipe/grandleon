@@ -2433,10 +2433,14 @@ extern "C" void grandleon_game_set_fps(uint16_t fps) {
     s_measured_fps = fps;
 }
 
-extern "C" int grandleon_game_world_packets_stable(void) {
+extern "C" int grandleon_game_static_packets_stable(void) {
     return s_campaign_mode == CampaignMode::battle && s_created && *s_created &&
-        !s_stage_overview.active() && !s_motion.active && !s_result_frames &&
+        !s_stage_overview.active() && !s_result_frames &&
         !s_camera_return_frames && s_camera_settle_frames >= 2;
+}
+
+extern "C" int grandleon_game_world_packets_stable(void) {
+    return grandleon_game_static_packets_stable() && !s_motion.active;
 }
 
 extern "C" void grandleon_game_log_static_packets(

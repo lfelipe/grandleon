@@ -277,9 +277,11 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   gameplay or weaken checks to meet a performance gate. Static scenery now
   needs less CPU time when unit poses or foliage change, but camera-motion
   bursts and the strict keep frame-pacing check remain open.
-  [Current measurements](tools/renderer_comparison/ps1-scenery-groups-06.json)
-- [ ] Reuse unchanged PS1 scenery safely during unit movement when the camera
-  remains still; retain exact camera invalidation and normal actor drawing.
+  [Current measurements](tools/renderer_comparison/ps1-camera-gate-06.json)
+- [x] Reuse unchanged PS1 scenery during unit movement when the camera remains
+  still; retain exact camera invalidation and normal actor drawing.
+- [ ] Make PS1 frames arrive evenly and remove the close-up return hitch.
+  Native display-swap recordings reveal uneven pacing that average FPS hides.
 - [x] Reuse the complete static PS1 ground/landmark group while idle units and
   foliage animate. Keep house drawing priority and castle reveals; native
   comparisons preserve every captured pixel while reducing orchard render cost.
