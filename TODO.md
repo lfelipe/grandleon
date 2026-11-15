@@ -113,8 +113,10 @@ part of 0.6, alongside performance work and platform validation.
 - [ ] Validate accented Android filenames and active-battle recovery after
   suspension and process termination on Android itself. Desktop process-kill
   tests and emulator checks do not complete this physical-device check. An
-  Android 15 x86_64 emulator restores a real solo move and Wait action after
-  `am force-stop`, retaining the Portuguese language and exact native snapshot.
+  Android 15 x86_64 emulator restores solo movement/Wait and a second army's
+  co-op action after `am force-stop`, retaining Portuguese and exact native
+  snapshots. An in-place app update preserves recovery; solo and co-op remain
+  isolated. See the [recovery checks](tools/renderer_comparison/android-local-recovery-06.json).
 - [ ] Test installation, updates, audio, graphics, translations, controllers,
   background/resume and create → save → reopen → play on actual devices.
   Measure memory, cold shader/asset loading, APK size and performance before

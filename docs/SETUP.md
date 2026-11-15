@@ -241,6 +241,6 @@ platform/godot/scripts/smoke-local-recovery.sh build-godot
 
 These checks kill desktop Godot processes without shutdown callbacks. They
 also exercise accented save paths, compatible campaign updates, interrupted
-file replacement and damaged-file fallback. An Android 15 x86_64 emulator also restores a solo game after a force-stop
-through the normal menus. Physical-device termination and update checks remain
-on the release checklist.
+file replacement and damaged-file fallback. An Android 15 x86_64 emulator also restores solo and same-device co-op after
+a force-stop through the normal menus, including across an in-place app update.
+Physical-device termination and update checks remain on the release checklist.

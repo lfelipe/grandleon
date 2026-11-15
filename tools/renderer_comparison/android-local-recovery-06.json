@@ -1,0 +1,33 @@
+{
+  "schema": "grandleon.android.local-recovery.v1",
+  "source_revision": "9b663ac67fa9dff1e94c31dae3c587d59862ccd3",
+  "scope": "Android 15 API 35 x86_64 emulator, 1280 by 800, ANGLE with SwiftShader. Normal exported application, campaign menus and touch input; no test-only gameplay or injected session state.",
+  "checks": {
+    "solo": "Move Rowan to (4,2), Wait, force-stop, relaunch and reopen the same campaign; exact snapshot and accepted commands preserved.",
+    "same_device_coop": "Wait with Akari in the second army, force-stop, relaunch and reopen co-op; exact eight-unit snapshot and accepted command preserved.",
+    "mode_isolation": "Co-op never overwrites the saved solo actions or snapshot.",
+    "compatible_app_update": "Install the final APK over the first recovery build without clearing application data; recover the same solo state.",
+    "presentation": "Portuguese language and restored stage title remain; completed opening dialogue and camera pan do not repeat."
+  },
+  "apk": {
+    "original": "out/grandleon-android06-recovery-final/grandleon-android-development.apk",
+    "sha256": "9a3d8d4a503fc3f9dadcdaa0b2c4a1cf8d89a9c58c7453f1895e49dacaeb7cc8",
+    "emulator_update": "out/android-recovery06-update.apk",
+    "emulator_update_sha256": "b282290f381ee4f11bb4b02765dad87f517508df4b01918fec741a6dfcb27d50",
+    "signing_note": "Final APK re-signed with the first emulator build debug key solely for an in-place update check. Every non-signature ZIP entry is byte-identical to the original."
+  },
+  "evidence": {
+    "solo": "out/android-recovery06-compare.log",
+    "coop": "out/android-recovery06-coop-compare.log",
+    "update": "out/android-recovery06-update-compare.log",
+    "mode_isolation": "out/android-recovery06-modes-isolated.log",
+    "solo_image": "out/android-recovery06-updated-restored.png",
+    "coop_image": "out/android-recovery06-coop-restored.png",
+    "logcat": "out/android-recovery06-final-logcat.txt"
+  },
+  "limitations": [
+    "No physical Android device was used. Accented Android file-picker names and OEM lifecycle behavior remain to check.",
+    "Software-emulated graphics are used for functional checks, not device FPS claims. Direct SwiftShader GLES failed to link Godot canvas shaders; ANGLE with SwiftShader renders normally.",
+    "Desktop forced-process checks separately cover combat and enemy turns, damaged recovery files, interrupted replacements and compatible campaign package updates."
+  ]
+}
