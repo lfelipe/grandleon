@@ -94,7 +94,10 @@ static int world_entities_match(void) {
     return 1;
 }
 
+static void static_group_before_world_snapshot(void);
+
 static void world_entities_capture(void) {
+    static_group_before_world_snapshot();
     const unsigned char* source = (const unsigned char*)g_ps1_scene.entities;
     const size_t words = g_ps1_scene.entity_count * sizeof(ps1_entity) / sizeof(uint32_t);
     for (size_t i = 0; i < words; ++i)
@@ -124,6 +127,8 @@ static uint32_t s_static_packet_hits, s_static_packet_misses, s_static_packet_re
 static int s_static_packets_supported;
 static uint32_t s_static_packet_marks[MAX_PACKET_BYTES_PER_FRAME / 4u / 32u];
 
+static void static_group_begin_frame(void);
+
 static void static_packets_begin_frame(int supported) {
     /* Attached point lights need a wider cache key than these immutable,
      * unlit generated meshes. Leave them on the normal renderer path. */
@@ -149,6 +154,7 @@ static void static_packets_begin_frame(int supported) {
         if (!s_static_packets_supported || !s_static_targets[i])
             s_static_fragments[i].ready = 0;
     }
+    static_group_begin_frame();
 }
 
 static struct static_fragment* static_packet_fragment_for(const ps1_entity* entity) {
@@ -176,7 +182,7 @@ static int static_packet_entity_matches(const uint32_t* snapshot, const void* en
     return 1;
 }
 
-int ps1_render_entity_packet_replay(uint32_t* ot, char** next,
+static int individual_packet_replay(uint32_t* ot, char** next,
     const char* end, const ps1_entity* entity, int viewmodel) {
     struct static_fragment* cache;
     const ps1_entity* camera;
@@ -207,7 +213,7 @@ int ps1_render_entity_packet_replay(uint32_t* ot, char** next,
     return cache->added;
 }
 
-void ps1_render_entity_packet_capture(uint32_t* ot, const char* begin,
+static void individual_packet_capture(uint32_t* ot, const char* begin,
     const char* next, const char* end, const ps1_entity* entity, int viewmodel, int primitives) {
     struct static_fragment* cache;
     const ps1_entity* camera;
@@ -231,6 +237,136 @@ void ps1_render_entity_packet_capture(uint32_t* ot, const char* begin,
     cache->packets = (const uint32_t*)begin;
     cache->added = primitives;
     cache->ready = 1;
+}
+
+
+/* Generated floors and landmarks form a contiguous custom-mesh prefix.
+ * Character-preset houses are submitted before it and remain separate.
+ *
+ * Exact entity keys share the whole-world snapshot allocation to stay within
+ * RAM. A group write invalidates the whole-world template. A whole-world write
+ * invalidates this group unless the prefix keys are unchanged. Camera keys
+ * remain independent. Neither writer may silently replace the other's keys. */
+static unsigned s_group_count, s_group_last;
+static int s_group_active, s_group_skip, s_group_record;
+static int s_group_primitives;
+static const char* s_group_begin;
+
+static int group_keys_match(void) {
+    const unsigned char* source = (const unsigned char*)g_ps1_scene.entities;
+    const size_t words = s_group_count * sizeof(ps1_entity) / 4u;
+    for (size_t i = 0; i < words; ++i) {
+        uint32_t word;
+        __builtin_memcpy(&word, source + i * 4u, 4u);
+        if (s_world_entities[i] != word) return 0;
+    }
+    return 1;
+}
+
+static void static_group_before_world_snapshot(void) {
+    if (s_group_active && s_static_fragments[0].ready && !group_keys_match())
+        s_static_fragments[0].ready = 0;
+}
+
+static void static_group_begin_frame(void) {
+    unsigned count = 0, last = 0;
+    int active = s_static_packets_supported;
+    const int previous = s_group_active;
+    for (unsigned i = 0; i < g_grandleon_tree_count; ++i) {
+        const unsigned next = g_grandleon_tree_entity_indices[i] + 1u;
+        if (next > count) count = next;
+    }
+    for (unsigned i = 0; i < g_grandleon_terrain_chunk_count; ++i) {
+        const unsigned next = g_grandleon_terrain_entity_indices[i] + 1u;
+        if (next > count) count = next;
+    }
+    for (unsigned i = 0; i < g_grandleon_board_surface_count; ++i) {
+        const unsigned next = g_grandleon_board_surface_entity_indices[i] + 1u;
+        if (next > count) count = next;
+    }
+    if (!count || count > g_ps1_scene.entity_count || count > GRANDLEON_WORLD_ENTITY_CAPACITY)
+        active = 0;
+    if (active) {
+        for (unsigned i = 0; i < count; ++i) {
+            const ps1_entity* entity = &g_ps1_scene.entities[i];
+            /* Generated prefix contains only static floors/landmarks.
+             * Character-preset houses are submitted earlier, never skipped. */
+            if (entity->mesh != PS1_MESH_CUSTOM || !entity->render_unlit ||
+                entity->parent_entity_index >= 0 ||
+                (entity->render_preset != PS1_RENDER_PRESET_FLOOR &&
+                 entity->render_preset != PS1_RENDER_PRESET_CHARACTER)) {
+                active = 0;
+                break;
+            }
+            if (entity->mesh_enabled && entity->render_preset == PS1_RENDER_PRESET_FLOOR)
+                last = i;
+        }
+    }
+    if (active && (!g_ps1_scene.entities[0].mesh_enabled ||
+                  g_ps1_scene.entities[0].render_preset != PS1_RENDER_PRESET_FLOOR))
+        active = 0;
+    s_group_count = count;
+    s_group_last = last;
+    s_group_active = active;
+    s_group_skip = s_group_record = 0;
+    if (previous != active) s_static_fragments[0].ready = 0;
+    if (active) {
+        s_static_targets[1] = 0;
+        s_static_fragments[1].ready = 0;
+    }
+}
+
+int ps1_render_entity_packet_replay(uint32_t* ot, char** next, const char* end,
+    const ps1_entity* entity, int viewmodel) {
+    const uintptr_t offset = (uintptr_t)entity - (uintptr_t)g_ps1_scene.entities;
+    const unsigned index = offset < g_ps1_scene.entity_count * sizeof(ps1_entity) &&
+        offset % sizeof(ps1_entity) == 0 ? offset / sizeof(ps1_entity) : s_group_count;
+    if (!viewmodel && s_group_active && index < s_group_count &&
+        entity->render_preset == PS1_RENDER_PRESET_FLOOR) {
+        int result;
+        if (s_group_skip) return 0;
+        if (index) return -1;
+        s_group_begin = *next;
+        s_group_record = 1;
+        s_group_primitives = 0;
+        if (s_static_fragments[0].ready && !group_keys_match())
+            s_static_fragments[0].ready = 0;
+        result = individual_packet_replay(ot, next, end, entity, viewmodel);
+        if (result >= 0) {
+            s_group_skip = 1;
+            s_group_record = 0;
+        } else {
+            /* A partial rebuild cannot survive into another frame. */
+            s_static_fragments[0].ready = 0;
+        }
+        return result;
+    }
+    return individual_packet_replay(ot, next, end, entity, viewmodel);
+}
+
+void ps1_render_entity_packet_capture(uint32_t* ot, const char* begin, const char* next,
+    const char* end, const ps1_entity* entity, int viewmodel, int primitives) {
+    const uintptr_t offset = (uintptr_t)entity - (uintptr_t)g_ps1_scene.entities;
+    const unsigned index = offset < g_ps1_scene.entity_count * sizeof(ps1_entity) &&
+        offset % sizeof(ps1_entity) == 0 ? offset / sizeof(ps1_entity) : s_group_count;
+    if (!viewmodel && s_group_active && index < s_group_count &&
+        entity->render_preset == PS1_RENDER_PRESET_FLOOR) {
+        if (!s_group_record) return;
+        s_group_primitives += primitives;
+        if (index != s_group_last) return;
+        s_group_record = 0;
+        individual_packet_capture(ot, s_group_begin, next, end,
+            &g_ps1_scene.entities[0], 0, s_group_primitives);
+        if (s_static_fragments[0].ready) {
+            const unsigned char* source = (const unsigned char*)g_ps1_scene.entities;
+            const size_t words = s_group_count * sizeof(ps1_entity) / 4u;
+            s_world_ready = 0;
+            for (size_t i = 0; i < words; ++i)
+                __builtin_memcpy(&s_world_entities[i], source + i * 4u, 4u);
+        }
+        return;
+    }
+    individual_packet_capture(ot, begin, next, end, entity, viewmodel, primitives);
 }
 
 static void capture_world_packets(uint32_t* ot, char** next_packet) {

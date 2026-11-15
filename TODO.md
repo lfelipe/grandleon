@@ -277,7 +277,12 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   gameplay or weaken checks to meet a performance gate. Static scenery now
   needs less CPU time when unit poses or foliage change, but camera-motion
   bursts and the strict keep frame-pacing check remain open.
-  [Current measurements](tools/renderer_comparison/ps1-retained-arena-06.json)
+  [Current measurements](tools/renderer_comparison/ps1-scenery-groups-06.json)
+- [ ] Reuse unchanged PS1 scenery safely during unit movement when the camera
+  remains still; retain exact camera invalidation and normal actor drawing.
+- [x] Reuse the complete static PS1 ground/landmark group while idle units and
+  foliage animate. Keep house drawing priority and castle reveals; native
+  comparisons preserve every captured pixel while reducing orchard render cost.
 - [ ] Continue checking PS1 command headroom on larger creator maps. The
   orchard combat probe exposed missing board scenery, while its sampled
   close view was unchanged. Keep future buffers and geometry within real RAM.

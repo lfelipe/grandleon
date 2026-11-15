@@ -1,0 +1,389 @@
+{
+  "schema": "grandleon.ps1-scenery-groups.v1",
+  "source_base": "361d8f6cc32fe14ca4495182ea981dd41a399bbb",
+  "sources": {
+    "TODO.md": "987878c30f45b05fbdec73308a4bdc8de2d22d3152f91da7bd8ad5c3c484c013",
+    "platform/playstation/mipsync/README.md": "d68c1cff0445826b33f7555e697b39500c65e09c9a66d3ef7299c8194874be54",
+    "platform/playstation/mipsync/runtime/main.c": "6d5487ac3b134b12026b8adf96940d2cd2ffc5dd00424f2dca05b1273c7159d8"
+  },
+  "design": "Retain the contiguous custom-mesh ground/landmark prefix as one command fragment. Character-preset houses keep their original earlier submission priority. Dynamic units, moving foliage, UI and uncovered-room changes remain independent. Replay preserves original primitive order and merges bucket tails into current-frame actor chains. Partial or unsupported draws use normal rendering; no renderer fallback or gameplay changes.",
+  "key_storage": "Exact prefix entity keys share the existing whole-world snapshot allocation. Group writes invalidate the whole-world template. Before a whole-world write, group readiness is invalidated unless existing prefix keys still match exactly. Camera snapshots remain independent; no hashes or extra full-entity array.",
+  "checks": {
+    "campaign_functional_passed": true,
+    "strict_campaign_fps_passed": false,
+    "combat_audio_camera_counter_passed": true,
+    "strict_combat_fps_passed": false,
+    "combat_simulation_hash": "2ea20447a61b5d9a",
+    "castle_reveal_cells": 18,
+    "scenery_pages": {
+      "entities": 68,
+      "pages": 9,
+      "drawn_canopy_entities": [
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
+        66
+      ],
+      "scope": "Actual controller traversal and renderer draw calls; no entity, camera or simulation state writes."
+    }
+  },
+  "comparisons": [
+    {
+      "name": "orchard_combat",
+      "before": "out/ps1-retained-arena06-combat",
+      "after": "out/ps1-static-group06-combat",
+      "identical_captures": 409,
+      "capture_hashes_sha256": "4ddd511b046a888094230a4012fe7949f0e6075b93478b76db89cbcb65001530"
+    },
+    {
+      "name": "keep_scroll",
+      "before": "out/ps1-retained-arena06-scroll",
+      "after": "out/ps1-static-group06-scroll",
+      "identical_captures": 132,
+      "capture_hashes_sha256": "f2a84055d4d7a72a9cf7558c1d5c6822fa5b8d5e8bf811a9f1da2cf8c57b62fb"
+    },
+    {
+      "name": "castle_entry",
+      "before": "out/ps1-retained-arena06-visibility",
+      "after": "out/ps1-static-group06-visibility",
+      "identical_captures": 2,
+      "capture_hashes_sha256": "b291513d03433d2ee29d8850304da82e9a271e5b60a495b9a6cdeee7faeafa36"
+    },
+    {
+      "name": "campaign_ui",
+      "before": "out/ps1-retained-arena06-campaign-probe",
+      "after": "out/ps1-static-group06-campaign-probe",
+      "identical_captures": 15,
+      "capture_hashes_sha256": "cd2f89c3a9fdc44578cb495a6be363fdfb923862abe4705ef58df4e5d15166cf"
+    }
+  ],
+  "identical_captures": 558,
+  "timing": {
+    "orchard_combat": {
+      "before": {
+        "MIPSYNC_WORLD_PACKETS": {
+          "hits": 0,
+          "misses": 330,
+          "bytes": 0
+        },
+        "MIPSYNC_STATIC_PACKETS": {
+          "hits": 350,
+          "misses": 6,
+          "bytes": 3812,
+          "heads": 22,
+          "rejects": 0,
+          "world_free_min": 8380,
+          "world_near_limit_frames": 0
+        },
+        "MIPSYNC_GRANDLEON_METRICS": {
+          "frames": 600,
+          "rendered_frames": 300,
+          "scheduled_frames": 300,
+          "deferred_frames": 0,
+          "missed_vblanks": 372,
+          "max_elapsed_vblanks": 5
+        },
+        "MIPSYNC_FRAME_BUDGET": {
+          "render_hbl_avg": 598,
+          "render_hbl_max": 1089,
+          "ready_hbl_avg": 602,
+          "ready_hbl_max": 1093,
+          "mutation_hbl_max": 263
+        }
+      },
+      "after": {
+        "MIPSYNC_WORLD_PACKETS": {
+          "hits": 122,
+          "misses": 208,
+          "bytes": 44868
+        },
+        "MIPSYNC_STATIC_PACKETS": {
+          "hits": 53,
+          "misses": 3,
+          "bytes": 43972,
+          "heads": 84,
+          "rejects": 0,
+          "world_free_min": 8380,
+          "world_near_limit_frames": 0
+        },
+        "MIPSYNC_GRANDLEON_METRICS": {
+          "frames": 600,
+          "rendered_frames": 300,
+          "scheduled_frames": 300,
+          "deferred_frames": 0,
+          "missed_vblanks": 68,
+          "max_elapsed_vblanks": 5
+        },
+        "MIPSYNC_FRAME_BUDGET": {
+          "render_hbl_avg": 217,
+          "render_hbl_max": 1166,
+          "ready_hbl_avg": 220,
+          "ready_hbl_max": 1170,
+          "mutation_hbl_max": 263
+        }
+      }
+    },
+    "keep_scroll": {
+      "before": {
+        "MIPSYNC_WORLD_PACKETS": {
+          "hits": 181,
+          "misses": 149,
+          "bytes": 23704
+        },
+        "MIPSYNC_STATIC_PACKETS": {
+          "hits": 175,
+          "misses": 17,
+          "bytes": 23348,
+          "heads": 128,
+          "rejects": 0,
+          "world_free_min": 17368,
+          "world_near_limit_frames": 0
+        },
+        "MIPSYNC_GRANDLEON_METRICS": {
+          "frames": 600,
+          "rendered_frames": 300,
+          "scheduled_frames": 300,
+          "deferred_frames": 0,
+          "missed_vblanks": 219,
+          "max_elapsed_vblanks": 6
+        },
+        "MIPSYNC_FRAME_BUDGET": {
+          "render_hbl_avg": 345,
+          "render_hbl_max": 1535,
+          "ready_hbl_avg": 348,
+          "ready_hbl_max": 1539,
+          "mutation_hbl_max": 0
+        }
+      },
+      "after": {
+        "MIPSYNC_WORLD_PACKETS": {
+          "hits": 181,
+          "misses": 149,
+          "bytes": 23704
+        },
+        "MIPSYNC_STATIC_PACKETS": {
+          "hits": 113,
+          "misses": 15,
+          "bytes": 23472,
+          "heads": 121,
+          "rejects": 0,
+          "world_free_min": 17368,
+          "world_near_limit_frames": 0
+        },
+        "MIPSYNC_GRANDLEON_METRICS": {
+          "frames": 600,
+          "rendered_frames": 300,
+          "scheduled_frames": 300,
+          "deferred_frames": 0,
+          "missed_vblanks": 219,
+          "max_elapsed_vblanks": 6
+        },
+        "MIPSYNC_FRAME_BUDGET": {
+          "render_hbl_avg": 342,
+          "render_hbl_max": 1536,
+          "ready_hbl_avg": 344,
+          "ready_hbl_max": 1540,
+          "mutation_hbl_max": 0
+        }
+      }
+    },
+    "keep_campaign": {
+      "before": {
+        "MIPSYNC_WORLD_PACKETS": {
+          "hits": 155,
+          "misses": 180,
+          "bytes": 18496
+        },
+        "MIPSYNC_STATIC_PACKETS": {
+          "hits": 106,
+          "misses": 56,
+          "bytes": 7816,
+          "heads": 55,
+          "rejects": 0,
+          "world_free_min": 27824,
+          "world_near_limit_frames": 0
+        },
+        "MIPSYNC_GRANDLEON_METRICS": {
+          "frames": 600,
+          "rendered_frames": 300,
+          "scheduled_frames": 300,
+          "deferred_frames": 0,
+          "missed_vblanks": 185,
+          "max_elapsed_vblanks": 6
+        },
+        "MIPSYNC_FRAME_BUDGET": {
+          "render_hbl_avg": 356,
+          "render_hbl_max": 1307,
+          "ready_hbl_avg": 359,
+          "ready_hbl_max": 1310,
+          "mutation_hbl_max": 0
+        }
+      },
+      "after": {
+        "MIPSYNC_WORLD_PACKETS": {
+          "hits": 155,
+          "misses": 180,
+          "bytes": 18496
+        },
+        "MIPSYNC_STATIC_PACKETS": {
+          "hits": 53,
+          "misses": 55,
+          "bytes": 16496,
+          "heads": 64,
+          "rejects": 0,
+          "world_free_min": 27824,
+          "world_near_limit_frames": 0
+        },
+        "MIPSYNC_GRANDLEON_METRICS": {
+          "frames": 600,
+          "rendered_frames": 300,
+          "scheduled_frames": 300,
+          "deferred_frames": 0,
+          "missed_vblanks": 185,
+          "max_elapsed_vblanks": 6
+        },
+        "MIPSYNC_FRAME_BUDGET": {
+          "render_hbl_avg": 339,
+          "render_hbl_max": 1308,
+          "ready_hbl_avg": 342,
+          "ready_hbl_max": 1311,
+          "mutation_hbl_max": 0
+        }
+      }
+    }
+  },
+  "stages": {
+    "bell": {
+      "main_ram": {
+        "text_bytes": 421704,
+        "data_bytes": 493684,
+        "bss_bytes": 330064,
+        "resident_bytes": 1245452,
+        "packet_bytes_per_frame": 57344,
+        "packet_arena_bytes": 57344,
+        "packet_arena_count": 1,
+        "ordering_table_bytes": 8192,
+        "end_address": "0x8013f950",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1310988,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 1868044,
+        "passes_playable_slice_budget": true
+      },
+      "elf_sha256": "effceb102b246ebf4577b15ccca0ca27fef214dff0340c21c8c30e5bcebe3e5c",
+      "vram_texture_bytes": 213312
+    },
+    "deep": {
+      "main_ram": {
+        "text_bytes": 424232,
+        "data_bytes": 493236,
+        "bss_bytes": 240960,
+        "resident_bytes": 1158428,
+        "packet_bytes_per_frame": 57344,
+        "packet_arena_bytes": 57344,
+        "packet_arena_count": 1,
+        "ordering_table_bytes": 8192,
+        "end_address": "0x8012a540",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1223964,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 1781020,
+        "passes_playable_slice_budget": true
+      },
+      "elf_sha256": "e59fdbafbc3e9ac93e918b14f7b8b0e52555d922a32c46331880b4e42d5ddd74",
+      "vram_texture_bytes": 175904
+    },
+    "watch": {
+      "main_ram": {
+        "text_bytes": 434232,
+        "data_bytes": 667572,
+        "bss_bytes": 255256,
+        "resident_bytes": 1357060,
+        "packet_bytes_per_frame": 57344,
+        "packet_arena_bytes": 57344,
+        "packet_arena_count": 1,
+        "ordering_table_bytes": 8192,
+        "end_address": "0x8015ad18",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1422596,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 1979652,
+        "passes_playable_slice_budget": true
+      },
+      "elf_sha256": "b61256d5ab87e7e8a83e3223d343ea74d6f77d6705058fdfa542550224f2b068",
+      "vram_texture_bytes": 262464
+    },
+    "village": {
+      "main_ram": {
+        "text_bytes": 426008,
+        "data_bytes": 751540,
+        "bss_bytes": 288680,
+        "resident_bytes": 1466228,
+        "packet_bytes_per_frame": 57344,
+        "packet_arena_bytes": 57344,
+        "packet_arena_count": 1,
+        "ordering_table_bytes": 8192,
+        "end_address": "0x801757a8",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1531764,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 2088820,
+        "passes_playable_slice_budget": true
+      },
+      "elf_sha256": "03d7f6c6e6707c29902c006d2abcafd38d3661481066fc7f0704586d882f08b8",
+      "vram_texture_bytes": 316736
+    },
+    "gate": {
+      "main_ram": {
+        "text_bytes": 424424,
+        "data_bytes": 714228,
+        "bss_bytes": 289832,
+        "resident_bytes": 1428484,
+        "packet_bytes_per_frame": 57344,
+        "packet_arena_bytes": 57344,
+        "packet_arena_count": 1,
+        "ordering_table_bytes": 8192,
+        "end_address": "0x8016c428",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1494020,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 2051076,
+        "passes_playable_slice_budget": true
+      },
+      "elf_sha256": "53a6e6469d11673aca271e7e9da81568472b94f5a6fca846e64e09c66cde53db",
+      "vram_texture_bytes": 255360
+    }
+  },
+  "limits": [
+    "Emulator observations, not hardware validation. Strict keep and combat frame-pacing gates still fail. Camera/moving-unit contexts remain expensive.",
+    "The render interval includes the pre-render GPU completion wait and table clear in both versions. Its reduction is not a measurement of isolated CPU instructions or completed GPU time.",
+    "Campaign menu/save traversal uses supported stage skip, not a full battle playthrough; separate combat and castle-entry probes use legal actions.",
+    "Generated mesh data is immutable under this adapter contract. Future mutable static geometry must invalidate the cache or opt out."
+  ],
+  "upstream": "Uses existing local optional Mipsync hooks; no additional engine patch or public PR update."
+}
