@@ -18,12 +18,10 @@
 #define SCREEN_WIDTH 320
 #define SCREEN_HEIGHT 240
 #define ORDERING_TABLE_LENGTH PS1_RENDER_OT_LEN
-/* Sized at build time from scene content; both arenas remain static and are
- * included in the linked RAM audit. Keep executable code common to stages. */
-extern const unsigned int grandleon_packet_bytes_per_frame;
-extern char grandleon_packet_arena[];
-#define PACKET_BYTES_PER_FRAME grandleon_packet_bytes_per_frame
-#define MAX_PACKET_BYTES_PER_FRAME 40960
+/* One larger command arena and ordering table fit in the space previously
+ * split between two smaller pairs. VRAM presentation stays double buffered. */
+#define PACKET_BYTES_PER_FRAME 57344
+#define MAX_PACKET_BYTES_PER_FRAME PACKET_BYTES_PER_FRAME
 #define TARGET_RENDER_FPS 30
 
 /* Artifact audit marker: release/export must fail closed if this is absent. */
@@ -32,10 +30,8 @@ static const char k_renderer_identity[] = "GRANDLEON_PS1_RENDERER=MIPSYNC";
 
 static DISPENV s_display[2];
 static DRAWENV s_draw[2];
-static uint32_t s_ordering_table[2][ORDERING_TABLE_LENGTH];
-static char* frame_packets(unsigned index) {
-    return grandleon_packet_arena + index * PACKET_BYTES_PER_FRAME;
-}
+static uint32_t s_ordering_table[1][ORDERING_TABLE_LENGTH];
+static __attribute__((aligned(4))) char grandleon_packet_arena[PACKET_BYTES_PER_FRAME];
 static char* s_next_packet;
 static int s_buffer;
 static uint16_t s_gpu_ready_tick;
@@ -53,16 +49,12 @@ __attribute__((noinline)) int grandleon_runtime_update(
 /* Reuse world commands only for this explicit-state Grandleon adapter.
  * Mipsync still draws every changing frame. UI is always rebuilt, and exact
  * entity snapshots (not a hash) invalidate camera, pose and material changes.
- * Templates stay in the existing opposite packet buffer, not a third arena. */
+ * Templates remain in the same retained command arena. */
 _Static_assert(sizeof(ps1_entity) % sizeof(uint32_t) == 0, "entity snapshots need whole words");
 static uint32_t s_world_entities[GRANDLEON_WORLD_ENTITY_CAPACITY * sizeof(ps1_entity) / sizeof(uint32_t)];
 #define WORLD_CACHE_HEAD_CAPACITY 512
 static struct { uint32_t tag; uint16_t bucket; } s_world_heads[WORLD_CACHE_HEAD_CAPACITY];
 static unsigned s_world_head_count;
-static struct { char* base; uint32_t generation; } s_world_arenas[2];
-static uint32_t s_world_generation;
-static const char* s_world_packets;
-static uint32_t* s_world_source_ot;
 static char* s_world_pending_start;
 static uint32_t s_world_bytes;
 static uint32_t s_world_hits, s_world_misses;
@@ -113,21 +105,9 @@ static uint32_t dma_address(const void* pointer) {
     return (uint32_t)(uintptr_t)pointer & 0xffffffu;
 }
 
-static int world_arena_slot(char* base) {
-    int i;
-    for (i = 0; i < 2; ++i) {
-        if (s_world_arenas[i].base == base) return i;
-        if (!s_world_arenas[i].base) {
-            s_world_arenas[i].base = base;
-            return i;
-        }
-    }
-    return -1;
-}
-
 /* Retain immutable board and architecture commands at their original positions
  * in the submission order. Unit, cursor and foliage commands stay dynamic.
- * Source commands live in the existing packet arenas, never a third buffer. */
+ * Source commands live in the retained arena; no separate template buffer. */
 #define STATIC_PACKET_HEAD_CAPACITY 256
 struct static_fragment {
     ps1_packet_fragment_bucket heads[STATIC_PACKET_HEAD_CAPACITY];
@@ -256,7 +236,6 @@ void ps1_render_entity_packet_capture(uint32_t* ot, const char* begin,
 static void capture_world_packets(uint32_t* ot, char** next_packet) {
     grandleon_packet_ranges ranges;
     unsigned i;
-    int arena;
     if (s_world_replaying || !s_world_recording) return;
     s_world_recording = 0;
     s_world_ready = 0;
@@ -268,8 +247,8 @@ static void capture_world_packets(uint32_t* ot, char** next_packet) {
         const unsigned ui_budget = s_world_ui_ticks > 64u ? s_world_ui_ticks : 64u;
         if (world_ticks + ui_budget + 56u > 526u) return;
     }
-    arena = world_arena_slot(s_world_pending_start);
-    if (arena < 0 || *next_packet < s_world_pending_start ||
+    if (s_world_pending_start != grandleon_packet_arena ||
+        *next_packet < s_world_pending_start ||
         *next_packet - s_world_pending_start > PACKET_BYTES_PER_FRAME)
         return;
     ranges.source_packets = ranges.target_packets = dma_address(s_world_pending_start);
@@ -293,19 +272,12 @@ static void capture_world_packets(uint32_t* ot, char** next_packet) {
         s_world_heads[s_world_head_count++].bucket = (uint16_t)i;
     }
     world_entities_capture();
-    s_world_packets = s_world_pending_start;
-    s_world_source_ot = ot;
     s_world_bytes = ranges.packet_bytes;
-    if (++s_world_generation == 0) {
-        s_world_generation = 1;
-        s_world_arenas[0].generation = s_world_arenas[1].generation = 0;
-    }
-    s_world_arenas[arena].generation = s_world_generation;
     s_world_ready = 1;
 }
 
 void grandleon_world_packet_cache_capture(uint32_t* ot, char** next_packet) {
-    const ptrdiff_t remaining = frame_packets(s_buffer) + PACKET_BYTES_PER_FRAME
+    const ptrdiff_t remaining = grandleon_packet_arena + PACKET_BYTES_PER_FRAME
         - PS1_UI_PACKET_RESERVE - *next_packet;
     const uint32_t free_bytes = remaining > 0 ? (uint32_t)remaining : 0;
     if (free_bytes < s_world_free_min) s_world_free_min = free_bytes;
@@ -315,39 +287,14 @@ void grandleon_world_packet_cache_capture(uint32_t* ot, char** next_packet) {
 }
 
 static void render_world_and_ui(uint32_t* ot, char** next_packet, const char* end) {
-    grandleon_packet_ranges ranges;
-    unsigned i;
     const int supported = world_cache_supported();
-    const int arena = world_arena_slot(*next_packet);
-    if (supported && s_world_ready && arena >= 0 &&
-        s_world_bytes <= (uint32_t)(end - *next_packet) &&
-        world_entities_match()) {
-        ranges.source_packets = dma_address(s_world_packets);
-        ranges.target_packets = dma_address(*next_packet);
-        ranges.packet_bytes = s_world_bytes;
-        ranges.source_ot = dma_address(s_world_source_ot);
-        ranges.target_ot = dma_address(ot);
-        ranges.ot_bytes = sizeof(s_ordering_table[0]);
-        if (!grandleon_gpu_ranges_valid(&ranges)) goto redraw;
-        /* Each arena retains its world prefix; UI only appends after it.
-         * Copy/rebase once per changed world, not on every buffer swap. */
-        if (s_world_arenas[arena].generation != s_world_generation) {
-            if (!grandleon_gpu_stream_valid((const uint32_t*)s_world_packets,
-                    s_world_bytes / sizeof(uint32_t), &ranges)) goto redraw;
-            grandleon_gpu_copy_stream((uint32_t*)*next_packet,
-                (const uint32_t*)s_world_packets, s_world_bytes / sizeof(uint32_t), &ranges);
-            s_world_arenas[arena].generation = s_world_generation;
-        }
-        /* present() has already cleared the table. Restore only occupied
-         * world buckets; never retain a previous conversation/menu panel. */
-        for (i = 0; i < s_world_head_count; ++i) {
-            uint32_t tag;
-            if (!grandleon_gpu_rebase_valid_ranges(s_world_heads[i].tag, &ranges, &tag)) {
-                ClearOTagR(ot, ORDERING_TABLE_LENGTH);
-                goto redraw;
-            }
-            ot[s_world_heads[i].bucket] = tag;
-        }
+    if (supported && s_world_ready && *next_packet == grandleon_packet_arena &&
+        s_world_bytes <= (uint32_t)(end - *next_packet) && world_entities_match()) {
+        /* The retained prefix and table always have the same addresses. Only
+         * UI commands append beyond it. Restore the validated world heads;
+         * previous conversation and menu commands are never retained. */
+        for (unsigned i = 0; i < s_world_head_count; ++i)
+            ot[s_world_heads[i].bucket] = s_world_heads[i].tag;
         *next_packet += s_world_bytes;
         ++s_world_hits;
         s_world_replaying = 1;
@@ -356,7 +303,6 @@ static void render_world_and_ui(uint32_t* ot, char** next_packet, const char* en
         s_world_replaying = 0;
         return;
     }
-redraw:
     ++s_world_misses;
     s_world_ready = 0;
     s_world_recording = supported;
@@ -402,8 +348,7 @@ static void setup_display(void) {
     s_draw[0].isbg = 1;
     s_draw[1].isbg = 1;
     ClearOTagR(s_ordering_table[0], ORDERING_TABLE_LENGTH);
-    ClearOTagR(s_ordering_table[1], ORDERING_TABLE_LENGTH);
-    s_next_packet = frame_packets(0);
+    s_next_packet = grandleon_packet_arena;
     PutDispEnv(&s_display[0]);
     PutDrawEnv(&s_draw[0]);
     SetDispMask(1);
@@ -414,13 +359,12 @@ static void present(void) {
     s_gpu_ready_tick = (uint16_t)TIMER_VALUE(1);
     VSync(0);
     s_buffer ^= 1;
-    ClearOTagR(s_ordering_table[s_buffer], ORDERING_TABLE_LENGTH);
     PutDispEnv(&s_display[s_buffer]);
     PutDrawEnv(&s_draw[s_buffer]);
     SetDispMask(1);
-    s_next_packet = frame_packets(s_buffer);
+    s_next_packet = grandleon_packet_arena;
     ps1_render_submit(
-        s_ordering_table[1 - s_buffer], s_draw[s_buffer].clip.x,
+        s_ordering_table[0], s_draw[s_buffer].clip.x,
         s_draw[s_buffer].clip.y, SCREEN_WIDTH, SCREEN_HEIGHT, 0
     );
 }
@@ -571,9 +515,14 @@ int main(void) {
         }
 
         render_start = (uint16_t)TIMER_VALUE(1);
+        /* GPU DMA still reads the previous commands until completion. Retire
+         * those reads before clearing the shared table or overwriting packets;
+         * the front/back VRAM display buffers remain independent. */
+        DrawSync(0);
+        ClearOTagR(s_ordering_table[0], ORDERING_TABLE_LENGTH);
         render_world_and_ui(
-            s_ordering_table[s_buffer], &s_next_packet,
-            frame_packets(s_buffer) + PACKET_BYTES_PER_FRAME
+            s_ordering_table[0], &s_next_packet,
+            grandleon_packet_arena + PACKET_BYTES_PER_FRAME
         );
         render_ticks = (uint16_t)((uint16_t)TIMER_VALUE(1) - render_start);
         present();

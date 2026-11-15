@@ -80,16 +80,6 @@ endif()
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/generated/scene-metrics.json")
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/generated/scene-metrics.json" GRANDLEON_SCENE_METRICS)
-# Covered rooms add a substantial roof mesh. Reserve enough command space for
-# it without charging the larger arenas to texture-heavy open village stages.
-string(JSON GRANDLEON_HIDDEN_CELLS GET "${GRANDLEON_SCENE_METRICS}" visibility cells)
-set(GRANDLEON_PACKET_BYTES_PER_FRAME 24576)
-if(GRANDLEON_HIDDEN_CELLS GREATER 0)
-    set(GRANDLEON_PACKET_BYTES_PER_FRAME 40960)
-endif()
-file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/packet_arena.c" CONTENT
-    "/* Generated scene command storage; included in the ELF RAM audit. */\nconst unsigned int grandleon_packet_bytes_per_frame = ${GRANDLEON_PACKET_BYTES_PER_FRAME}u;\n__attribute__((aligned(4))) char grandleon_packet_arena[2u * ${GRANDLEON_PACKET_BYTES_PER_FRAME}u];\n")
-target_sources(grandleon_mipsync PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/packet_arena.c")
 string(JSON GRANDLEON_STATIC_VERTEX_POOL GET "${GRANDLEON_SCENE_METRICS}" cache vertex_limit)
 string(JSON GRANDLEON_STATIC_TRI_POOL GET "${GRANDLEON_SCENE_METRICS}" cache triangle_limit)
 string(JSON GRANDLEON_STATIC_MESH_POOL GET "${GRANDLEON_SCENE_METRICS}" cache mesh_vertex_limit)

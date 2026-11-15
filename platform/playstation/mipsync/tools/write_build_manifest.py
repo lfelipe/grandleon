@@ -109,18 +109,21 @@ def main() -> int:
     ).splitlines()
     end_address = None
     packet_arena_bytes = None
+    ordering_table_bytes = None
     for line in nm_output:
         fields = line.split()
         if len(fields) >= 3 and fields[-1] in ("_end", "__heap_base"):
             end_address = int(fields[0], 16) & 0xFFFFFFFF
         if len(fields) == 4 and fields[-1] == "grandleon_packet_arena":
             packet_arena_bytes = int(fields[1], 16)
+        if len(fields) == 4 and fields[-1] == "s_ordering_table":
+            ordering_table_bytes = int(fields[1], 16)
     if end_address is None:
         raise ValueError("ELF has no _end or __heap_base symbol")
 
     scene = json.loads(args.scene_metrics.read_text(encoding="utf-8"))
-    packet_bytes_per_frame = 40960 if scene["visibility"]["cells"] else 24576
-    if packet_arena_bytes != 2 * packet_bytes_per_frame:
+    packet_bytes_per_frame = 57344
+    if packet_arena_bytes != packet_bytes_per_frame or ordering_table_bytes != 8192:
         raise ValueError("linked packet arenas do not match the scene command budget")
     audio_reserve_bytes = 65536
     renderer_probe_budget_bytes = 524288
@@ -150,6 +153,8 @@ def main() -> int:
             "resident_bytes": resident_bytes,
             "packet_bytes_per_frame": packet_bytes_per_frame,
             "packet_arena_bytes": packet_arena_bytes,
+            "packet_arena_count": 1,
+            "ordering_table_bytes": ordering_table_bytes,
             "end_address": f"0x{end_address:08x}",
             "renderer_probe_budget_bytes": renderer_probe_budget_bytes,
             "platform_audio_reserve_bytes": audio_reserve_bytes,

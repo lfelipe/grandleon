@@ -170,17 +170,19 @@ longer exposes the edge of a small floating quad. The generated surroundings
 policy stays portable across renderers (`natural_blend`, `extend_edges` or
 `fixed_terrain`).
 
-Unchanged world frames reuse GPU commands from the existing double buffers.
-The board, nearby architecture and unrevealed castle cover can also keep their
-commands when only idle poses or foliage change. Exact snapshots track the camera, mesh, visibility
-and material state; moving units and combat render normally, and UI is rebuilt
-every frame. Both caches use the existing command arenas and preserve drawing
-order. Generated geometry budgets include both complete cursor outlines and
-automatically refresh CMake when regenerated. Stages with covered rooms use two
-40 KiB command arenas; open stages use two 24 KiB arenas. These are static ELF
-storage, included in the RAM audit rather than taken from the gameplay-heap
-reserve. The manifest verifies the linked arena size, and serial measurements
-report the minimum free world-command space to expose clipping under pressure.
+Unchanged world frames reuse their GPU commands. The board, nearby architecture
+and unrevealed castle cover can also retain commands when only idle poses or
+foliage change. Exact snapshots track camera, mesh, visibility and material
+state; moving units and combat render normally, and UI is rebuilt every frame.
+
+One 56 KiB command arena and one ordering table replace two smaller pairs,
+leaving more room for complete scenery within the same storage budget. The
+renderer waits for previous GPU reads to finish before rebuilding either one;
+the front and back display images in VRAM remain separate. This trades some
+CPU/GPU overlap for drawing capacity. Both allocations are static ELF storage,
+counted in the RAM audit, and do not consume the gameplay-heap reserve. Serial
+measurements report minimum free world-command space. Generated geometry
+budgets include both complete cursor outlines and refresh CMake automatically.
 
 Release validation checks the following on the exact CUE/BIN:
 

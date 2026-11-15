@@ -1,0 +1,329 @@
+{
+  "schema": "grandleon.ps1-retained-arena.v1",
+  "source_base": "6a9879b7e08de6fd2d877dc9a674fda0ab9a16e5",
+  "sources": {
+    "TODO.md": "1a403bd0bc6140728fe20db2c7e5b3d7c902feab26c2a894379bafc9634e2a69",
+    "platform/playstation/mipsync/README.md": "282eb2d7b6b67ea9ecde91dd16b7497facf5ffa31e64598be71d0e449e9075e3",
+    "platform/playstation/mipsync/runtime/main.c": "85cf86b00ec10636981e3cff308342339155bbf93392856fd58484e1f579a0c8",
+    "platform/playstation/mipsync/runtime/CMakeLists.txt": "12aa6699295ed9e833009db42190140e81de52502ab7d96be7b29df3e7cc137a",
+    "platform/playstation/mipsync/tools/write_build_manifest.py": "e4c3f52ae87af104525c1dd5c325111970e0cb7e14c43cc467de2cf0347b3800",
+    "platform/playstation/mipsync/tests/run-campaign-probe.sh": "01383490609525600d3fee24713de5627d28003a7f8bbeb452939c759d172d9a"
+  },
+  "design": "One 56 KiB command arena and one 8 KiB ordering table replace two 24 KiB arenas and two 8 KiB tables: the same 65,536 bytes of command/table storage. A GPU completion fence precedes every clear or overwrite. Front/back display images in VRAM stay separate. Whole-world commands retain their addresses; cross-arena relocation and generation bookkeeping are removed. Immutable fragments retain exact keys and original drawing order.",
+  "checks": {
+    "campaign_functional_passed": true,
+    "strict_campaign_fps_passed": false,
+    "combat_controls_audio_camera_counter_passed": true,
+    "strict_combat_fps_passed": false,
+    "combat_simulation_hash": "2ea20447a61b5d9a",
+    "castle_reveal_cells": 18,
+    "scenery_pages": {
+      "entities": 68,
+      "pages": 9,
+      "drawn_canopy_entities": [
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
+        66
+      ],
+      "scope": "Actual controller traversal and renderer draw calls; no entity, camera or simulation state writes."
+    },
+    "disc_identity_tests_passed": 7
+  },
+  "comparisons": [
+    {
+      "name": "complete_orchard",
+      "current": "out/ps1-retained-arena06-combat",
+      "reference": "out/ps1-single-arena06-review",
+      "identical_captures": 409,
+      "capture_hashes_sha256": "4ddd511b046a888094230a4012fe7949f0e6075b93478b76db89cbcb65001530"
+    },
+    {
+      "name": "complete_keep",
+      "current": "out/ps1-retained-arena06-scroll",
+      "reference": "out/ps1-packets40-06-review",
+      "identical_captures": 132,
+      "capture_hashes_sha256": "f2a84055d4d7a72a9cf7558c1d5c6822fa5b8d5e8bf811a9f1da2cf8c57b62fb"
+    },
+    {
+      "name": "legal_castle_entry",
+      "current": "out/ps1-retained-arena06-visibility",
+      "reference": "out/ps1-packet-capacity06-visibility",
+      "identical_captures": 2,
+      "capture_hashes_sha256": "b291513d03433d2ee29d8850304da82e9a271e5b60a495b9a6cdeee7faeafa36"
+    }
+  ],
+  "total_complete_reference_matches": 543,
+  "old_partial_orchard": {
+    "baseline": "out/ps1-static06-combat-after",
+    "changed_captures": 284,
+    "captures": 409,
+    "close_keyframe_unchanged": true,
+    "description": "Extra command capacity restores orchard board tree crowns and stone court geometry. Earlier near-limit telemetry occurred on the board during the combat probe; do not attribute it to the sampled close-combat floor."
+  },
+  "timing": {
+    "orchard_combat": {
+      "MIPSYNC_WORLD_PACKETS": {
+        "hits": 0,
+        "misses": 330,
+        "bytes": 0
+      },
+      "MIPSYNC_STATIC_PACKETS": {
+        "hits": 350,
+        "misses": 6,
+        "bytes": 3812,
+        "heads": 22,
+        "rejects": 0,
+        "world_free_min": 8380,
+        "world_near_limit_frames": 0
+      },
+      "MIPSYNC_GRANDLEON_METRICS": {
+        "frames": 600,
+        "rendered_frames": 300,
+        "scheduled_frames": 300,
+        "deferred_frames": 0,
+        "missed_vblanks": 372,
+        "max_elapsed_vblanks": 5
+      },
+      "MIPSYNC_FRAME_BUDGET": {
+        "render_hbl_avg": 598,
+        "render_hbl_max": 1089,
+        "ready_hbl_avg": 602,
+        "ready_hbl_max": 1093,
+        "mutation_hbl_max": 263
+      }
+    },
+    "keep_scroll": {
+      "MIPSYNC_WORLD_PACKETS": {
+        "hits": 181,
+        "misses": 149,
+        "bytes": 23704
+      },
+      "MIPSYNC_STATIC_PACKETS": {
+        "hits": 175,
+        "misses": 17,
+        "bytes": 23348,
+        "heads": 128,
+        "rejects": 0,
+        "world_free_min": 17368,
+        "world_near_limit_frames": 0
+      },
+      "MIPSYNC_GRANDLEON_METRICS": {
+        "frames": 600,
+        "rendered_frames": 300,
+        "scheduled_frames": 300,
+        "deferred_frames": 0,
+        "missed_vblanks": 219,
+        "max_elapsed_vblanks": 6
+      },
+      "MIPSYNC_FRAME_BUDGET": {
+        "render_hbl_avg": 345,
+        "render_hbl_max": 1535,
+        "ready_hbl_avg": 348,
+        "ready_hbl_max": 1539,
+        "mutation_hbl_max": 0
+      }
+    },
+    "keep_campaign": {
+      "MIPSYNC_WORLD_PACKETS": {
+        "hits": 155,
+        "misses": 180,
+        "bytes": 18496
+      },
+      "MIPSYNC_STATIC_PACKETS": {
+        "hits": 106,
+        "misses": 56,
+        "bytes": 7816,
+        "heads": 55,
+        "rejects": 0,
+        "world_free_min": 27824,
+        "world_near_limit_frames": 0
+      },
+      "MIPSYNC_GRANDLEON_METRICS": {
+        "frames": 600,
+        "rendered_frames": 300,
+        "scheduled_frames": 300,
+        "deferred_frames": 0,
+        "missed_vblanks": 185,
+        "max_elapsed_vblanks": 6
+      },
+      "MIPSYNC_FRAME_BUDGET": {
+        "render_hbl_avg": 356,
+        "render_hbl_max": 1307,
+        "ready_hbl_avg": 359,
+        "ready_hbl_max": 1310,
+        "mutation_hbl_max": 0
+      }
+    },
+    "deepwood_campaign": {
+      "MIPSYNC_WORLD_PACKETS": {
+        "hits": 156,
+        "misses": 179,
+        "bytes": 7992
+      },
+      "MIPSYNC_STATIC_PACKETS": {
+        "hits": 104,
+        "misses": 2,
+        "bytes": 3968,
+        "heads": 36,
+        "rejects": 0,
+        "world_free_min": 45224,
+        "world_near_limit_frames": 0
+      },
+      "MIPSYNC_GRANDLEON_METRICS": {
+        "frames": 600,
+        "rendered_frames": 300,
+        "scheduled_frames": 300,
+        "deferred_frames": 0,
+        "missed_vblanks": 0,
+        "max_elapsed_vblanks": 2
+      },
+      "MIPSYNC_FRAME_BUDGET": {
+        "render_hbl_avg": 169,
+        "render_hbl_max": 447,
+        "ready_hbl_avg": 171,
+        "ready_hbl_max": 451,
+        "mutation_hbl_max": 0
+      }
+    }
+  },
+  "stages": {
+    "bell": {
+      "manifest": "out/ps1-retained-arena06-campaign/bell-build-manifest.json",
+      "main_ram": {
+        "text_bytes": 419976,
+        "data_bytes": 493364,
+        "bss_bytes": 330032,
+        "resident_bytes": 1243372,
+        "packet_bytes_per_frame": 57344,
+        "packet_arena_bytes": 57344,
+        "packet_arena_count": 1,
+        "ordering_table_bytes": 8192,
+        "end_address": "0x8013f130",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1308908,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 1865964,
+        "passes_playable_slice_budget": true
+      },
+      "vram_texture_bytes": 213312,
+      "elf_sha256": "046b23cfdedbe305dd2702cc3f6e72be543d7f18a3a0f3ca172f67de415ff134"
+    },
+    "deep": {
+      "manifest": "out/ps1-retained-arena06-campaign/deep-build-manifest.json",
+      "main_ram": {
+        "text_bytes": 422504,
+        "data_bytes": 494964,
+        "bss_bytes": 240936,
+        "resident_bytes": 1158404,
+        "packet_bytes_per_frame": 57344,
+        "packet_arena_bytes": 57344,
+        "packet_arena_count": 1,
+        "ordering_table_bytes": 8192,
+        "end_address": "0x8012a528",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1223940,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 1780996,
+        "passes_playable_slice_budget": true
+      },
+      "vram_texture_bytes": 175904,
+      "elf_sha256": "0471f9d3524d2ea9031407e95e13fd1e4b92021c850febbe4136a92a7110ac20"
+    },
+    "watch": {
+      "manifest": "out/ps1-retained-arena06-campaign/watch-build-manifest.json",
+      "main_ram": {
+        "text_bytes": 432504,
+        "data_bytes": 667252,
+        "bss_bytes": 255232,
+        "resident_bytes": 1354988,
+        "packet_bytes_per_frame": 57344,
+        "packet_arena_bytes": 57344,
+        "packet_arena_count": 1,
+        "ordering_table_bytes": 8192,
+        "end_address": "0x8015a500",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1420524,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 1977580,
+        "passes_playable_slice_budget": true
+      },
+      "vram_texture_bytes": 262464,
+      "elf_sha256": "2811d5f06efba39bc6678941e5e8b01e533d914448566a8eb5559c0390b4ab64"
+    },
+    "village": {
+      "manifest": "out/ps1-retained-arena06-campaign/village-build-manifest.json",
+      "main_ram": {
+        "text_bytes": 424280,
+        "data_bytes": 753268,
+        "bss_bytes": 288648,
+        "resident_bytes": 1466196,
+        "packet_bytes_per_frame": 57344,
+        "packet_arena_bytes": 57344,
+        "packet_arena_count": 1,
+        "ordering_table_bytes": 8192,
+        "end_address": "0x80175788",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1531732,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 2088788,
+        "passes_playable_slice_budget": true
+      },
+      "vram_texture_bytes": 316736,
+      "elf_sha256": "e0a41e69eeab179d32a7e94bb64bac56befadc5a376a2e8657a8144a58d83caf"
+    },
+    "gate": {
+      "manifest": "out/ps1-retained-arena06-campaign/gate-build-manifest.json",
+      "main_ram": {
+        "text_bytes": 422712,
+        "data_bytes": 715956,
+        "bss_bytes": 289808,
+        "resident_bytes": 1428476,
+        "packet_bytes_per_frame": 57344,
+        "packet_arena_bytes": 57344,
+        "packet_arena_count": 1,
+        "ordering_table_bytes": 8192,
+        "end_address": "0x8016c410",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1494012,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 2051068,
+        "passes_playable_slice_budget": true
+      },
+      "vram_texture_bytes": 255360,
+      "elf_sha256": "f745589f4efc506341a04294b2e3a9d81903db3b1f04ad2f2e70c8b5775607ae"
+    }
+  },
+  "limits": [
+    "Full scenery takes priority over previously partial frames. Strict orchard combat and keep 30 FPS checks still fail; orchard records 372 missed retraces versus 185 with the prior 24 KiB partial-board build.",
+    "The new render_hbl interval includes the pre-render GPU completion wait and table clear; it is not an isolated CPU-only comparison against earlier render_hbl measurements.",
+    "Emulator results, not physical hardware validation. Campaign menu/save tests use supported stage skip; separate combat and reveal probes use legal gameplay.",
+    "The 543 matches compare complete-geometry references, not pixel identity to the old clipped orchard. Larger creator scenes still require command-space and RAM audits."
+  ],
+  "upstream": "Application-only allocation/synchronization changes. Existing optional packet hooks remain local; no additional Mipsync patch or public PR update."
+}
