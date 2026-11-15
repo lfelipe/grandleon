@@ -36,7 +36,7 @@ timeout 120s "${godot_binary}" --editor --headless --quiet --path "${stage_dir}"
 "${build_dir}/grandleon_content_compile" "${repo_root}/games/steel_and_cedar/source/project.json" "${state_dir}/steel.gpk"
 mkdir -p "${stage_dir}/content/included"
 cp "${state_dir}/steel.gpk" "${stage_dir}/content/included/steel_and_cedar.gpk"
-for test in mobile_input mobile_home mobile_creator_layout mobile_campaign_forms game_language_layout mobile_player; do
+for test in mobile_input mobile_home mobile_creator_layout mobile_campaign_forms mobile_advanced_forms game_language_layout mobile_player; do
     log="${state_dir}/${test}.log"
     arguments=()
     if [[ "${test}" == mobile_player ]]; then arguments+=("--package=${state_dir}/steel.gpk"); fi

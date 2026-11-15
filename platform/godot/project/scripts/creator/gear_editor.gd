@@ -1550,7 +1550,8 @@ func _build_new_layer() -> void:
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.custom_minimum_size.y = 56
 	column.add_child(note)
-	var actions := HBoxContainer.new()
+	var actions := BoxContainer.new()
+	actions.set_meta("mobile_wrap_actions", true)
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
 	new_create_button = _button(_t("gear.create"), 300, 64)
@@ -1597,7 +1598,8 @@ func _build_family_layer() -> void:
 	family_name.custom_minimum_size = Vector2(880, 64)
 	family_name.add_theme_font_size_override("font_size", 22)
 	column.add_child(family_name)
-	var actions := HBoxContainer.new()
+	var actions := BoxContainer.new()
+	actions.set_meta("mobile_wrap_actions", true)
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
 	family_create_button = _button(_t("gear.family.create_use"), 320, 64)
@@ -1657,7 +1659,8 @@ func _build_dependency_layer() -> void:
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.custom_minimum_size.y = 42
 	column.add_child(note)
-	var actions := HBoxContainer.new()
+	var actions := BoxContainer.new()
+	actions.set_meta("mobile_wrap_actions", true)
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
 	dependency_delete_button = _button(_t("gear.delete.cannot"), 360, 62)

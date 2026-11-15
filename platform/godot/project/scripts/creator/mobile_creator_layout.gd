@@ -55,6 +55,13 @@ static func apply_tree(node: Node, sizes: Dictionary) -> void:
 			popup.add_theme_font_size_override("font_size", sizes.font)
 			popup.add_theme_constant_override("v_separation", roundi(32 * sizes.unit))
 	elif node is Label or node is RichTextLabel:
+		var parent := node.get_parent()
+		if node is Label and parent != null and (parent is VBoxContainer or parent.get_meta("mobile_wrap_actions", false)):
+			# Headings and helper text must wrap with the form rather than set
+			# an unbounded minimum width when text grows for a dense display.
+			node.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			if parent.get_meta("mobile_wrap_actions", false):
+				node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		node.add_theme_font_size_override("font_size" if node is Label else "normal_font_size", maxi(int(_original(node, "font", node.get_theme_font_size("font_size" if node is Label else "normal_font_size"))), sizes.body))
 		if node is RichTextLabel:
 			for variant: String in ["bold_font_size", "italics_font_size", "bold_italics_font_size", "mono_font_size"]:

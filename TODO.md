@@ -67,6 +67,10 @@ part of 0.6, alongside performance work and platform validation.
   stay within their selectors; crowded campaign-dialog actions stack instead
   of widening the form. Local English/Portuguese layout checks cover chapter
   reordering, scrolling to the final action, and restoring the wider layout.
+  Equipment, story and role creation now share the same bounded action rows;
+  headings wrap without making their dialogs wider. Local tests create and
+  compile all three using accented names in English and Portuguese, check
+  their final actions at three densities, and restore smaller text afterward.
   These density checks do not replace Android keyboard and mouse validation.
 - [x] Make the phone player board-first with contextual controls. Show legal
   unit actions after selection, target details during targeting, and compact

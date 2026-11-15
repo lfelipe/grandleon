@@ -2592,7 +2592,8 @@ func _build_add_layer() -> void:
 	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	guidance.custom_minimum_size.y = 70
 	column.add_child(guidance)
-	var actions := HBoxContainer.new()
+	var actions := BoxContainer.new()
+	actions.set_meta("mobile_wrap_actions", true)
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
 	create_button = _button(_t("army.add.create"), 340, 66)
@@ -2652,7 +2653,8 @@ func _build_new_role_layer() -> void:
 	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	guidance.custom_minimum_size.y = 48
 	column.add_child(guidance)
-	var actions := HBoxContainer.new()
+	var actions := BoxContainer.new()
+	actions.set_meta("mobile_wrap_actions", true)
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
 	new_role_create_button = _button(_t("army.new_role.create"), 340, 66)
@@ -2751,7 +2753,8 @@ func _build_guided_character_layer() -> void:
 	)
 	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(guidance)
-	var actions := HBoxContainer.new()
+	var actions := BoxContainer.new()
+	actions.set_meta("mobile_wrap_actions", true)
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
 	guide_create_button = _button(_t("army.guide.create"), 410, 64)
@@ -3066,7 +3069,8 @@ func _build_dependency_layer() -> void:
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.custom_minimum_size.y = 44
 	column.add_child(note)
-	var actions := HBoxContainer.new()
+	var actions := BoxContainer.new()
+	actions.set_meta("mobile_wrap_actions", true)
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
 	dependency_delete_button = _button(_t("army.delete.cannot"), 380, 64)
@@ -3129,7 +3133,8 @@ func _build_side_layer() -> void:
 		side_colour.add_item(str(choice.label))
 		side_colour.set_item_metadata(side_colour.item_count - 1, choice.id)
 	column.add_child(side_colour)
-	var actions := HBoxContainer.new()
+	var actions := BoxContainer.new()
+	actions.set_meta("mobile_wrap_actions", true)
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
 	var create := _button(_t("army.side.create_use"), 320, 64)
@@ -3334,7 +3339,8 @@ func _build_loadout_layer() -> void:
 	loadout_value_label.custom_minimum_size = Vector2(1100, 48)
 	loadout_value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(loadout_value_label)
-	var actions := HBoxContainer.new()
+	var actions := BoxContainer.new()
+	actions.set_meta("mobile_wrap_actions", true)
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
 	loadout_toggle_button = _button(_t("army.loadout.add"), 360, 64)

@@ -1795,7 +1795,8 @@ func _build_new_scene_layer() -> void:
 	new_scene_title.max_length = 160
 	new_scene_title.add_theme_font_size_override("font_size", 20)
 	column.add_child(new_scene_title)
-	var pickers := HBoxContainer.new()
+	var pickers := BoxContainer.new()
+	pickers.set_meta("mobile_wrap_actions", true)
 	pickers.add_theme_constant_override("separation", 18)
 	column.add_child(pickers)
 	var target_column := VBoxContainer.new()
@@ -1833,7 +1834,8 @@ func _build_new_scene_layer() -> void:
 	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	guidance.custom_minimum_size.y = 42
 	column.add_child(guidance)
-	var actions := HBoxContainer.new()
+	var actions := BoxContainer.new()
+	actions.set_meta("mobile_wrap_actions", true)
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
 	create_scene_button = _button(_t("story.new_scene.create"), 340, 62)
@@ -1904,7 +1906,8 @@ func _build_sequence_layer() -> void:
 	sequence_attached_select.add_theme_font_size_override("font_size", 18)
 	sequence_attached_select.item_selected.connect(_refresh_sequence_actions)
 	order_column.add_child(sequence_attached_select)
-	var order_actions := HBoxContainer.new()
+	var order_actions := BoxContainer.new()
+	order_actions.set_meta("mobile_wrap_actions", true)
 	order_actions.add_theme_constant_override("separation", 8)
 	order_column.add_child(order_actions)
 	sequence_earlier_button = _button(_t("story.sequence.earlier"), 175, 56)
@@ -2002,7 +2005,8 @@ func _build_delete_scene_layer() -> void:
 	)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(note)
-	var actions := HBoxContainer.new()
+	var actions := BoxContainer.new()
+	actions.set_meta("mobile_wrap_actions", true)
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
 	confirm_delete_scene_button = _button(_t("story.delete.confirm"), 360, 62)

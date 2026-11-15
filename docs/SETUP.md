@@ -238,8 +238,10 @@ platform/godot/scripts/smoke-mobile.sh build-godot
 ```
 
 The campaign checks include long chapter names, larger text, scrolling to the
-last action, and reordering chapters in English and Portuguese. Desktop layout
-checks complement Android emulator and physical-device testing.
+last action, and reordering chapters in English and Portuguese. The suite also
+creates equipment, story scenes and roles with accented names and compiles the
+results. Desktop layout checks complement Android emulator and physical-device
+testing.
 
 ### Checking interrupted local games
 
