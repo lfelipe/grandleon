@@ -1,0 +1,62 @@
+{
+  "schema": "grandleon.ps1-native-movement-review.v1",
+  "source_base": "c915332ae2b50663f5ab81b89fb49f3c0a41fd4a",
+  "sources": {
+    "tools/renderer_comparison/playstation_native_motion.py": "1cdeaa36aebb9a551fe2943abfc4cd2fe317ce183a43a874225a286a3ad59eed",
+    "tools/renderer_comparison/ps1_native_motion_observer.lua": "8651aee8c033ebecfc280eeb2fd1c20485f4ea2a7a76c609e097630f49d957e5",
+    "tools/renderer_comparison/test_playstation_native_motion.py": "bf5815e5235d5fca753b10bf8c36b44e54c56e950606b31898d38be35808c1b5"
+  },
+  "capture": "out/ps1-native-motion06-capture3",
+  "coverage": {
+    "path": "out/ps1-native-motion06-verified/coverage.json",
+    "sha256": "3e679f5a06897a8ae7f1aa3720d263e5574105308f9503ac39c4dd1562558b94"
+  },
+  "native_vsync_samples": 398,
+  "duration_seconds": 6.615705929941421,
+  "encoded_vsync_frames": 397,
+  "observed_display_flip_fps": 29.472635947460883,
+  "complete_frame_hold_histogram_vis": {
+    "2": 141,
+    "3": 26,
+    "1": 25,
+    "5": 2
+  },
+  "presentation_is_even_two_vi": false,
+  "uniform_clock_error_max_us": 2.730271894640639,
+  "same_origin_pixel_changes": 0,
+  "artifacts": {
+    "out/ps1-native-motion06-verified/playstation-native-poster.png": {
+      "bytes": 50555,
+      "sha256": "77ff5f27b56989242ff8a2f60d3248fc1bf75db20ec12b08b795d8d2396dbf19"
+    },
+    "out/ps1-native-motion06-verified/playstation-native-motion.mp4": {
+      "bytes": 491645,
+      "sha256": "acf5149f39b13f0ec50f912f2e3dddbe61f3a1ce2d25d880c2de58febe5a9d03"
+    },
+    "out/ps1-native-motion06-verified/playstation-motion-preview.gif": {
+      "bytes": 3529462,
+      "sha256": "f6b2a7c1fb2db02757732fb1338f0673923daf024a1f5b695762848954bcf063"
+    }
+  },
+  "native_build": {
+    "executable": "out/ps1-camera-gate06-bell/build/grandleon_mipsync.exe",
+    "sha256": "c55cb4c065ac4b9e2e0480dee2e0383a68039bb44ba58440c1f2ccb48b0a9079",
+    "fragment_helper_sha256": "d8ba10d079fad3171a539a50d0ef6070d2291ad57c0b0853c607e004416094da"
+  },
+  "validation": [
+    "Original legal combat, audio and Player 2 camera assertions pass with canonical result 2ea20447a61b5d9a.",
+    "The observer makes no target writes; only the original input probe supplies controls. Every VSync image is present, and an unchanged observed front buffer always remains pixel-identical.",
+    "Playback rate comes from emulated CPU cycles. The uniform VSync approximation stays within 2.74 microseconds across the clip.",
+    "All 397 encoded snapshots are observed images, including held frames. Encoding near 60 VSyncs per second is not a 60 FPS game claim.",
+    "All five offline capture-integrity tests pass. The GIF is a 15 FPS preview, not a frame-rate benchmark."
+  ],
+  "limits": [
+    "This Bell Orchard two-player clip is not the one-player README exchange or a matched-scene comparison with the N64 Deepwood clip.",
+    "Short emulator recording, not hardware or whole-game performance. The average of about 29.5 FPS masks one-/three-VI alternation and two long holds; presentation is not evenly paced.",
+    "Strict keep/combat frame-pacing checks remain failures. Native timing is preserved rather than normalized to 30 FPS."
+  ],
+  "references": [
+    "https://pcsx-redux.consoledev.net/Lua/redux-basics/",
+    "https://pcsx-redux.consoledev.net/Lua/playbook-scripted-session/"
+  ]
+}

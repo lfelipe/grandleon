@@ -29,3 +29,14 @@ scroll still has missed frames.
 [ps1-compiler-06.json](ps1-compiler-06.json) compares renderer compiler settings
 on the richer castle. `-O2` and `-Os` preserve the captures but run slower;
 the production renderer keeps `-O3`.
+
+For a PS1 movement review with measured display timing, run
+`PSN00BSDK_ROOT=/path/to/sdk python3 tools/renderer_comparison/playstation_native_motion.py record BUILD OUTPUT`
+against the two-player Bell Orchard probe build. It preserves the original
+combat/audio checks, observes native display changes and records their timing.
+The output includes a silent MP4, a 15 FPS GIF preview and capture provenance.
+Original frame-pacing failures remain recorded; a valid movie is not a passed
+performance gate. `encode CAPTURE OUTPUT` validates an existing trace before
+encoding it. The N64 equivalent and current clips are documented in
+[n64-native-movement-06.json](n64-native-movement-06.json) and
+[ps1-native-movement-06.json](ps1-native-movement-06.json).
