@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 extends Control
 
+const SceneryStyle = preload("res://scripts/scenery_style.gd")
 const ArtLibrary = preload("res://scripts/art_library.gd")
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
 const ProjectContentDependencyIndex = preload(
@@ -15,6 +16,11 @@ const TERRAIN_PALETTE := [
 	"ruins", "farmland", "snow", "swamp", "hills", "bamboo", "paved",
 ]
 const LANDMARKS := {
+	"landmark_scifi_house": {"kind": "scifi_house", "source_id": "mountain_scifi_house", "label_key": "map.landmark.scifi_house", "clear_terrain": "paved"},
+	"landmark_mythical_house": {"kind": "mythical_house", "source_id": "mountain_mythical_house", "label_key": "map.landmark.mythical_house", "clear_terrain": "paved"},
+	"landmark_nature_house": {"kind": "nature_house", "source_id": "mountain_nature_house", "label_key": "map.landmark.nature_house", "clear_terrain": "grass"},
+	"landmark_undead_house": {"kind": "undead_house", "source_id": "mountain_undead_house", "label_key": "map.landmark.undead_house", "clear_terrain": "ruins"},
+
 	"landmark_sengoku_house": {"kind": "sengoku_house", "source_id": "mountain_sengoku_house", "label_key": "map.landmark.sengoku_house", "clear_terrain": "paved"},
 	"landmark_pirates_house": {"kind": "pirates_house", "source_id": "mountain_pirates_house", "label_key": "map.landmark.pirates_house", "clear_terrain": "paved"},
 	"landmark_abandoned_cart": {"kind": "abandoned_cart", "source_id": "mountain_abandoned_cart", "label_key": "map.landmark.abandoned_cart", "clear_terrain": "paved"},
@@ -112,6 +118,8 @@ var map_select: OptionButton
 var encounter_select: OptionButton
 var experience_select: OptionButton
 var tool_buttons: Dictionary = {}
+var landmark_select: OptionButton
+var selected_landmark_tool := "landmark_house"
 var palette_list: Container
 var palette_buttons: Dictionary = {}
 var mobile_pan_pointer := -1
@@ -682,6 +690,13 @@ func _select_tool(name: String) -> void:
 		_reset_deployment_edit()
 	if patrol_editing and name != "patrol":
 		_reset_patrol_edit()
+	if LANDMARKS.has(name):
+		selected_landmark_tool = name
+		if landmark_select != null:
+			for index in landmark_select.item_count:
+				if str(landmark_select.get_item_metadata(index)) == name:
+					landmark_select.select(index)
+					landmark_select.tooltip_text = _t(str(LANDMARKS[name].label_key))
 	active_tool = name
 	rectangle_anchor = -1
 	selected_placement_id = ""
@@ -700,7 +715,10 @@ func _select_tool(name: String) -> void:
 func _update_tool_selection() -> void:
 	for name: String in tool_buttons:
 		var button: Button = tool_buttons[name]
-		var display := _tool_label(name)
+		var landmark := LANDMARKS.has(name)
+		if landmark and name != selected_landmark_tool:
+			continue # Landmark types share one stamp button.
+		var display := _t("map.landmark.place") if landmark else _tool_label(name)
 		button.text = ("● " if name == active_tool else "  ") + display
 	if setup_button != null:
 		var setup_names := [
@@ -967,7 +985,7 @@ func _add_landmark_badge(cell: Button, kind: String, tile_size: int) -> void:
 	var label := Label.new()
 	label.text = _t(
 		"map.landmark.grove_badge" if kind == "ancient_grove" else
-		"map.landmark.house_badge" if kind in ["village_house", "sengoku_house", "pirates_house"] else
+		"map.landmark.house_badge" if SceneryStyle.is_house_kind(kind) else
 		"map.landmark." + kind
 	)
 	label.add_theme_font_size_override("font_size", clampi(tile_size / 6, 8, 13))
@@ -4407,18 +4425,37 @@ func _build_interface() -> void:
 	patrol_cancel.pressed.connect(_cancel_patrol_edit)
 	patrol_actions.add_child(patrol_cancel)
 	tools_column.add_child(_label(_t("map.landmarks"), 17, Color("69d9ff")))
-	var landmark_row := GridContainer.new()
-	landmark_row.columns = 3
-	landmark_row.add_theme_constant_override("h_separation", 6)
-	landmark_row.add_theme_constant_override("v_separation", 6)
+	# One chooser keeps the terrain palette visible as landmark families grow.
+	var landmark_row := HBoxContainer.new()
+	landmark_row.add_theme_constant_override("separation", 6)
 	tools_column.add_child(landmark_row)
-	for landmark_tool: String in LANDMARKS.keys() + ["landmark_remove"]:
-		var landmark_button := _button(_t("map.tool." + landmark_tool), 102, 46)
-		landmark_button.add_theme_font_size_override("font_size", 12)
-		landmark_button.tooltip_text = _t("map.tool." + landmark_tool + "_tooltip")
-		landmark_button.pressed.connect(_select_tool.bind(landmark_tool))
-		landmark_row.add_child(landmark_button)
-		tool_buttons[landmark_tool] = landmark_button
+	landmark_select = OptionButton.new()
+	landmark_select.custom_minimum_size = Vector2(170, 44)
+	landmark_select.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	landmark_select.fit_to_longest_item = false
+	landmark_select.clip_text = true
+	landmark_select.tooltip_text = _t("map.landmarks")
+	landmark_row.add_child(landmark_select)
+	for tool: String in ["landmark_house"] + LANDMARKS.keys():
+		if tool == "landmark_house" and landmark_select.item_count > 0:
+			continue
+		landmark_select.add_item(_t(str(LANDMARKS[tool].label_key)))
+		landmark_select.set_item_metadata(landmark_select.item_count - 1, tool)
+	landmark_select.item_selected.connect(func(index: int) -> void:
+		_select_tool(str(landmark_select.get_item_metadata(index))))
+	var stamp := _button(_t("map.landmark.place"), 90, 44)
+	stamp.add_theme_font_size_override("font_size", 12)
+	stamp.tooltip_text = _t("map.tool.landmark_stamp_tooltip")
+	stamp.pressed.connect(func() -> void: _select_tool(selected_landmark_tool))
+	landmark_row.add_child(stamp)
+	for tool: String in LANDMARKS:
+		tool_buttons[tool] = stamp
+	var remove_stamp := _button(_t("map.tool.landmark_remove"), 90, 44)
+	remove_stamp.add_theme_font_size_override("font_size", 12)
+	remove_stamp.tooltip_text = _t("map.tool.landmark_remove_tooltip")
+	remove_stamp.pressed.connect(_select_tool.bind("landmark_remove"))
+	landmark_row.add_child(remove_stamp)
+	tool_buttons["landmark_remove"] = remove_stamp
 	_update_tool_selection()
 	var terrain_label := _label(_t("map.terrain_label"), 17, Color("69d9ff"))
 	tools_column.add_child(terrain_label)
@@ -6278,7 +6315,8 @@ func _tool_label(tool: String, compact := false) -> String:
 		"visibility",
 		"surroundings", "landmark_house", "landmark_grove", "landmark_remove",
 		"landmark_abandoned_cart", "landmark_village_well", "landmark_watchtower", "landmark_walled_garden",
-		"landmark_sengoku_house", "landmark_pirates_house", "patrol",
+		"landmark_sengoku_house", "landmark_pirates_house",
+		"landmark_scifi_house", "landmark_mythical_house", "landmark_nature_house", "landmark_undead_house", "patrol",
 	]
 	if not known.has(tool):
 		return tool.replace("_", " ").to_upper()

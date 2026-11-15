@@ -221,15 +221,16 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   allow normal controller, keyboard or touch input to skip the sweep.
   Orchard soil basins and supports, cart cargo, fuller garden beds, weathered
   wall feet and broader console undergrowth add another shared scenery pass.
-- [ ] Expand thematic multi-tile landmark art beyond the current Medieval
-  houses and keep: Sengoku, pirate, sci-fi and the other scenario styles need
-  their own families. Add corresponding console variants, fences, gates,
-  civic buildings, walls, bridges and other multi-cell features. Preserve the
-  authored footprint and the editor's placement and preview workflow.
-  Sengoku and pirate-port houses now each have two coherent drawings, selectable
-  editor stamps and shared Godot/N64/PS1 artwork. Godot house canvases now match
-  console scale and keep foundations above the ground. The other styles and
-  complete themed civic buildings, gates and fortifications remain open.
+- [x] Provide houses for all seven art themes. Sixteen shared drawings cover
+  Medieval, Sengoku, pirates, sci-fi, mythical, nature and undead. Whole-plot
+  editor stamps, stable drawing variation, mirroring and small offsets work
+  across Godot, Nintendo 64 and PlayStation; Godot foundations match the
+  console canvas scale and sit above the ground. A single landmark chooser
+  with Place and Remove actions keeps the editor's terrain palette visible.
+- [ ] Extend complete thematic landmark families beyond houses: gates,
+  fortifications, towers, civic buildings, walls and bridges need corresponding
+  art outside the current Medieval coverage. Keep footprints and editor
+  placement straightforward, and build cohesive themed maps for review.
 - [ ] Improve landmark silhouettes and terrain-matched backdrop variations on
   PlayStation, comparing equivalent views with Nintendo 64 and Godot.
 - [x] Use the genuine north/south idle, contact and passing poses on Nintendo
@@ -297,7 +298,10 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   gain and could starve newly visible pages, so it was not retained.
 - [ ] Improve console texture/palette residency and streaming where it buys
   visible quality. Measure upload, cache, geometry and memory costs before
-  spending the recovered budget on richer scenery, characters or effects.
+  spending the recovered budget on richer scenery, characters or effects. Review N64
+  house palettes at gameplay size: cyan and violet material accents lose
+  separation in CI4. Compare palette selection and higher-colour texture
+  strips without dropping the shared artwork or memory checks.
 - [ ] Maintain the 30 fps console target and explicit memory limits, including
   base 4 MiB Nintendo 64 support. Improve quality within those limits rather
   than restoring retired renderers or adding silent fallbacks.

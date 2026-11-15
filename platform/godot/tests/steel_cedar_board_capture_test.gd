@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 extends SceneTree
 
+const SceneryStyle = preload("res://scripts/scenery_style.gd")
 const GraphicsProfiles = preload("res://scripts/graphics_profiles.gd")
 const CAPTURE_SIZE := Vector2i(1280, 720)
 const MAPS := [
@@ -56,7 +57,7 @@ func _run() -> void:
 	var capture_specs := MAPS.duplicate(true)
 	var family := _argument("--house-family=")
 	if not family.is_empty():
-		if family not in ["sengoku", "pirates"]:
+		if family == "medieval" or not SceneryStyle.document().houses.families.has(family):
 			_fail("unknown house family")
 			quit(1)
 			return
@@ -86,7 +87,7 @@ func _load_real_battle(source_path: String, spec: Dictionary) -> Dictionary:
 		_fail("Steel and Cedar source must be readable")
 		return {}
 	var family := _argument("--house-family=")
-	if family in ["sengoku", "pirates"]:
+	if not family.is_empty():
 		source = source.replace('"mountain_village_house"', '"mountain_%s_house"' % family)
 	var entry := '"entryNodeId": "prologue"'
 	if not source.contains(entry):

@@ -17,7 +17,7 @@ import struct
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "platform/console_art"))
-from scenery_style import document as scenery_style, house_at, house_image, grove_image, ground_image, materials as ground_materials
+from scenery_style import HOUSE_FAMILIES, document as scenery_style, house_at, house_image, grove_image, ground_image, materials as ground_materials
 from settlement_scenery import load_models as load_settlement_models, placements as settlement_placements
 from stone_keep import load_keep, textured_part_mesh, face_normal, lit_colour
 
@@ -2109,7 +2109,7 @@ def main() -> int:
     settlement_models = load_settlement_models(repo) if settlement_instances else {}
     house_instances = []
     for x, y, kind, size in settlement_instances:
-        if kind in ("village_house", "sengoku_house", "pirates_house"):
+        if kind == "village_house" or kind in tuple(f"{family}_house" for family in HOUSE_FAMILIES[1:]):
             family = "medieval" if kind == "village_house" else kind.removesuffix("_house")
             drawing = house_at(repo, x, y, family)
             kind = f"house_cutout_{drawing['drawing']}_{int(drawing['mirror'])}"

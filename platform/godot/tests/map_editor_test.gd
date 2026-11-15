@@ -397,17 +397,26 @@ func _run() -> void:
 	await process_frame
 	_expect("grove placement and removal undo to the original source", editor.source, original_landmark_source)
 	_expect("landmark round trips leave no undo history", editor.undo_stack.size(), 0)
-	for kind: String in ["abandoned_cart", "village_well", "watchtower", "walled_garden", "sengoku_house", "pirates_house"]:
+	for kind: String in ["abandoned_cart", "village_well", "watchtower", "walled_garden", "sengoku_house", "pirates_house", "scifi_house", "mythical_house", "nature_house", "undead_house"]:
 		var tool := "landmark_" + kind
 		_expect("the editor offers %s as one stamp" % kind, editor.tool_buttons.has(tool), true)
-		editor._select_tool(tool)
+		if kind.ends_with("_house"):
+			_expect("all house themes share one stamp button", editor.tool_buttons[tool], editor.tool_buttons["landmark_house"])
+			_expect("the landmark chooser offers all twelve complete props", editor.landmark_select.item_count, 12)
+			for index in editor.landmark_select.item_count:
+				if str(editor.landmark_select.get_item_metadata(index)) == tool:
+					editor.landmark_select.select(index)
+					editor.landmark_select.item_selected.emit(index)
+			_expect("the family chooser selects the real tool", editor.active_tool, tool)
+		else:
+			editor._select_tool(tool)
 		editor._paint_cell(16)
 		await process_frame
 		var stamped: Array = _parse(editor.source).maps[0].terrain
 		for index: int in [16, 17, 22, 23]:
 			_expect("%s authors its complete blocked footprint" % kind, stamped[index], "mountain_" + kind)
 		_expect("%s gets its own label" % kind, editor.grid.get_child(16).tooltip_text.contains(editor._t("map.landmark." + kind)), true)
-		if kind in ["sengoku_house", "pirates_house"]:
+		if kind in ["sengoku_house", "pirates_house", "scifi_house", "mythical_house", "nature_house", "undead_house"]:
 			var themed_package: Dictionary = editor.compiler.compile_source_json(editor.source)
 			_expect("%s stamp exports a playable package" % kind, themed_package.get("ok", false), true)
 		editor._select_tool("landmark_remove")

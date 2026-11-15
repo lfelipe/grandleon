@@ -929,7 +929,7 @@ func _detect_cluster_landmarks() -> void:
 				str(terrain_features[anchor_index])
 				if anchor_index < terrain_features.size() else ""
 			)
-			if landmark_kind not in ["village_house", "sengoku_house", "pirates_house", "ancient_grove", "abandoned_cart", "village_well", "watchtower", "walled_garden"]:
+			if not SceneryStyle.is_house_kind(landmark_kind) and landmark_kind not in ["ancient_grove", "abandoned_cart", "village_well", "watchtower", "walled_garden"]:
 				continue
 			for cell: Vector2i in cells:
 				var index := cell.y * width + cell.x
@@ -953,7 +953,7 @@ func _build_cluster_landmarks() -> void:
 		var anchor: Vector2i = anchor_value
 		if str(_landmark_anchors[anchor]) == "ancient_grove":
 			_build_ancient_grove(anchor)
-		elif str(_landmark_anchors[anchor]) in ["village_house", "sengoku_house", "pirates_house"]:
+		elif SceneryStyle.is_house_kind(str(_landmark_anchors[anchor])):
 			_build_village_house(anchor, str(_landmark_anchors[anchor]))
 		else:
 			var kind := str(_landmark_anchors[anchor])

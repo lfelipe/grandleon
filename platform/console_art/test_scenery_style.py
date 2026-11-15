@@ -4,8 +4,9 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import subprocess
 from PIL import Image
-from scenery_style import document, ground_image, house_at, house_image, materials, n64_ground_palette, grove_image, save_ci4_house
+from scenery_style import HOUSE_FAMILIES, write_n64_header, document, ground_image, house_at, house_image, materials, n64_ground_palette, grove_image, save_ci4_house
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -31,13 +32,32 @@ class SceneryStyleTests(unittest.TestCase):
     def test_themed_house_choices_share_placement_but_never_mix_families(self):
         anchors = [(x, y) for y in range(0, 16, 3) for x in range(0, 16, 3)]
         for family, expected in [("medieval", {0, 1, 2, 3}),
-                                 ("sengoku", {4, 5}), ("pirates", {6, 7})]:
+                                 ("sengoku", {4, 5}), ("pirates", {6, 7}),
+                                 ("scifi", {8, 9}), ("mythical", {10, 11}),
+                                 ("nature", {12, 13}), ("undead", {14, 15})]:
             choices = [house_at(REPO, x, y, family) for x, y in anchors]
             self.assertEqual({c["drawing"] for c in choices}, expected)
             for (x, y), choice in zip(anchors, choices):
                 original = house_at(REPO, x, y)
                 self.assertEqual(choice["offset"], original["offset"])
                 self.assertEqual(choice["mirror"], original["mirror"])
+
+    def test_generated_n64_family_ids_and_drawings_match_the_authoring_catalog(self):
+        self.assertEqual(HOUSE_FAMILIES, ("medieval", "sengoku", "pirates", "scifi", "mythical", "nature", "undead"))
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            write_n64_header(REPO, folder / "style.hpp")
+            rows = []
+            for family, name in enumerate(HOUSE_FAMILIES):
+                terrain = "mountain_village_house" if name == "medieval" else f"mountain_{name}_house"
+                rows.append(f'if (s::house_family(grandleon::core::stable_content_id_v1("{terrain}")) != {family}) return 1;')
+                for x, y in [(0, 0), (3, 1), (7, 2), (11, 8)]:
+                    expected = house_at(REPO, x, y, name)["drawing"]
+                    rows.append(f'if (s::house_at({x},{y},{family}).drawing != {expected}) return 2;')
+            rows.append('if (s::house_family(grandleon::core::stable_content_id_v1("grass")) != -1) return 3;')
+            (folder / "main.cpp").write_text('#include "style.hpp"\nnamespace s = grandleon::nintendo64::pyrite::scenery_style;\nint main() {\n' + '\n'.join(rows) + '\n}\n')
+            subprocess.run(["c++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-I" + str(REPO / "engine/core/include"), str(folder / "main.cpp"), "-o", str(folder / "check")], check=True)
+            subprocess.run([str(folder / "check")], check=True)
 
     def test_house_payload_preserves_transparency_and_ci4_budget(self):
         with tempfile.TemporaryDirectory() as folder:

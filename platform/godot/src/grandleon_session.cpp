@@ -70,6 +70,11 @@ const char* terrain_feature_name(std::uint64_t terrain_id) {
         core::stable_content_id_v1("road_signal_beacon");
     struct Feature { std::uint64_t id; const char* name; };
     static constexpr Feature settlement_features[] = {
+        {core::stable_content_id_v1("mountain_scifi_house"), "scifi_house"},
+        {core::stable_content_id_v1("mountain_mythical_house"), "mythical_house"},
+        {core::stable_content_id_v1("mountain_nature_house"), "nature_house"},
+        {core::stable_content_id_v1("mountain_undead_house"), "undead_house"},
+
         {core::stable_content_id_v1("mountain_sengoku_house"), "sengoku_house"},
         {core::stable_content_id_v1("mountain_pirates_house"), "pirates_house"},
         {core::stable_content_id_v1("mountain_town_wall"), "town_wall"},

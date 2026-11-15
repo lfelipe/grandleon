@@ -78,9 +78,10 @@ recolouring faces, hair, equipment, or effects. A separate lower-resolution
 pixel library supplies shared previews and interface art; console exports
 require the curated sheets shown here.
 
-The Map Editor includes 2×2 Village House, Sengoku House and Pirate House
-stamps. Each family has varied buildings, shared by Godot, Nintendo 64 and
-PlayStation, so you can build a settlement without placing its parts by hand.
+The Map Editor includes 2×2 house stamps for all seven themes, with sixteen
+building drawings shared by Godot, Nintendo 64 and PlayStation. Choose a family
+in the landmark selector, then use **Place 2×2**; each house's appearance varies
+naturally across the settlement.
 
 ![Examples of Grandleon's seven art themes and eight unit roles](docs/screenshots/art-roster/readme-art-sampler.png)
 

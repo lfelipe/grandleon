@@ -172,3 +172,19 @@ Generated on 2026-11-14 using the built-in image-generation tool, with
 service did not expose a model-version identifier. The transparent results
 were resampled to 768×768 without changing their subjects. Full prompts and
 asset hashes are in [house-generation-06.json](house-generation-06.json).
+
+## The remaining house families
+
+Each theme now has a selectable 2×2 stamp in the Map Editor. These drawings
+share the same scale, lighting and camera direction as the earlier families:
+
+- Sci-fi: an ivory-and-gunmetal habitat and workshop with cyan light strips.
+- Mythical: a wizard's observatory and apothecary with teal/violet roofs.
+- Nature: a living-wood bower and root lodge with overlapping leaf shingles.
+- Undead: a weathered crypt dwelling and manor with slate roofs and purple glass.
+
+All eight use the same generation process, date and source reference documented
+above. Their exact prompts and hashes are also in
+[house-generation-06.json](house-generation-06.json). The accepted artwork is
+shared by all three players. Towers, walls and other settlement buildings still
+need matching families; the house previews do not represent finished new maps.

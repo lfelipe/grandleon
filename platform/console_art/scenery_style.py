@@ -5,6 +5,9 @@ from pathlib import Path
 from functools import lru_cache
 from PIL import Image
 
+# Stable portable family indices; append new families without reordering.
+HOUSE_FAMILIES = ("medieval", "sengoku", "pirates", "scifi", "mythical", "nature", "undead")
+
 
 @lru_cache(maxsize=8)
 def document(repo: Path) -> dict:
@@ -78,20 +81,25 @@ def write_n64_header(repo: Path, output: Path, theme: int = 0) -> None:
     palette = n64_ground_palette(repo, theme)
     lines = ["// Generated from Godot scenery_style.json and rendered ground materials.",
              "#pragma once", "#include <array>", "#include <cstdint>",
+             "#include <grandleon/core/content_identity.hpp>",
              "namespace grandleon::nintendo64::pyrite::scenery_style {",
              "struct House { std::uint8_t drawing; bool mirror; float x,z; };",
-             f"inline constexpr unsigned house_drawing_count = {len(houses["drawings"])};",
+             f"inline constexpr unsigned house_drawing_count = {len(houses['drawings'])};",
              f"inline constexpr float house_side = {houses['portableCanvasSide']}F;",
              f"inline constexpr float grove_side = {document(repo)['ancientGrove']['portableCanvasSide']}F;",
              f"inline constexpr std::array<House,{len(houses['placements'])}> houses = {{{{"]
     for h in houses["placements"]:
         lines.append(f"{{{h['drawing']},{str(h['mirror']).lower()},{h['offset'][0]}F,{h['offset'][1]}F}},")
     lines += ["}};", "inline House house_at(int x,int y,unsigned family=0) { const auto seed=x*17+y*31; auto house=houses[(seed^(seed>>3))%houses.size()];"]
-    for family, name in enumerate(("medieval", "sengoku", "pirates")):
+    for family, name in enumerate(HOUSE_FAMILIES):
         drawings = houses["families"][name]
         mapped = [drawings[i % len(drawings)] for i in range(4)]
         lines.append(f"if (family=={family}U) {{ constexpr unsigned drawings[4]={{{','.join(map(str,mapped))}}}; house.drawing=drawings[house.drawing]; }}")
-    lines += ["return house; }",
+    lines += ["return house; }", f"inline constexpr std::array<std::uint64_t,{len(HOUSE_FAMILIES)}> house_terrain_ids = {{{{"]
+    for name in HOUSE_FAMILIES:
+        terrain = "mountain_village_house" if name == "medieval" else f"mountain_{name}_house"
+        lines.append(f'grandleon::core::stable_content_id_v1("{terrain}"),')
+    lines += ["}};", "inline int house_family(std::uint64_t id) { for(unsigned i=0;i<house_terrain_ids.size();++i) if(house_terrain_ids[i]==id) return static_cast<int>(i); return -1; }",
               "inline constexpr std::uint8_t ground[13][3] = {"]
     lines += ["{" + ",".join(map(str, colour)) + "}," for colour in palette]
     lines += ["};", "}", ""]

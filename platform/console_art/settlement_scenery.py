@@ -3,6 +3,7 @@ import hashlib
 import json
 from pathlib import Path
 from stone_keep import face_normal, lit_colour
+from scenery_style import HOUSE_FAMILIES
 
 SETTLEMENT_KINDS = ("village_house", "abandoned_cart", "village_well", "watchtower", "walled_garden", "town_wall", "town_wall_join")
 
@@ -26,8 +27,8 @@ def load_models(repo: Path) -> dict:
 def placements(identities: list[int], width: int, height: int, content_id) -> list[tuple]:
     """Recognise complete footprints; never substitute mountain shapes."""
     by_id = {content_id("mountain_" + kind): kind for kind in SETTLEMENT_KINDS}
-    by_id[content_id("mountain_sengoku_house")] = "sengoku_house"
-    by_id[content_id("mountain_pirates_house")] = "pirates_house"
+    for family in HOUSE_FAMILIES[1:]:
+        by_id[content_id(f"mountain_{family}_house")] = f"{family}_house"
     by_id[content_id("mountain_ancient_grove")] = "ancient_grove"
     consumed = set()
     result = []

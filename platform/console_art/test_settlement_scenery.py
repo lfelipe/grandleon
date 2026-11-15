@@ -53,6 +53,14 @@ class SettlementTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "incomplete"):
             placements([1, 1, 2, 1], 2, 2, ids.get)
 
+    def test_remaining_families_keep_the_whole_plot(self):
+        ids = {f"mountain_{name}_house": i + 1 for i, name in enumerate(("scifi", "mythical", "nature", "undead"))}
+        for key, identity in ids.items():
+            kind = key.removeprefix("mountain_")
+            self.assertEqual(placements([identity] * 4, 2, 2, ids.get), [(0, 0, kind, 2)])
+            with self.assertRaisesRegex(ValueError, "incomplete"):
+                placements([identity] * 3 + [99], 2, 2, ids.get)
+
     def test_passable_landmarks_preserve_their_real_footprints(self):
         ids = {name: i + 1 for i, name in enumerate(("grass", "paved_orchard_bell", "paved_signal_beacon", "ruins_watch_ruin"))}
         terrain = [ids["paved_orchard_bell"], ids["paved_orchard_bell"], ids["grass"], ids["paved_signal_beacon"], ids["grass"], ids["ruins_watch_ruin"]]

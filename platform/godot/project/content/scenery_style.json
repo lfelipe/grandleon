@@ -11,7 +11,15 @@
       "art/map_features/sengoku_house_merchant.png",
       "art/map_features/sengoku_house_farmstead.png",
       "art/map_features/pirates_house_chandler.png",
-      "art/map_features/pirates_house_tavern.png"
+      "art/map_features/pirates_house_tavern.png",
+      "art/map_features/scifi_house_habitat.png",
+      "art/map_features/scifi_house_workshop.png",
+      "art/map_features/mythical_house_observatory.png",
+      "art/map_features/mythical_house_apothecary.png",
+      "art/map_features/nature_house_bower.png",
+      "art/map_features/nature_house_rootlodge.png",
+      "art/map_features/undead_house_crypt.png",
+      "art/map_features/undead_house_manor.png"
     ],
     "placements": [
       {
@@ -93,6 +101,22 @@
       "pirates": [
         6,
         7
+      ],
+      "scifi": [
+        8,
+        9
+      ],
+      "mythical": [
+        10,
+        11
+      ],
+      "nature": [
+        12,
+        13
+      ],
+      "undead": [
+        14,
+        15
       ]
     }
   },

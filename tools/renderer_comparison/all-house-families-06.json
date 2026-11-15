@@ -1,0 +1,612 @@
+{
+  "schema": "grandleon.all-house-families-review.v1",
+  "source_base": "709615cd",
+  "scope": "Eight additional drawings complete first house coverage for all seven themes. The selected family is explicit in the authored terrain. Preview projects change houses on the existing village layout; they are not finished themed stages, and the built-in campaign remains unchanged.",
+  "sources": {
+    "README.md": "6d9639ddac575a886b037bde250bcb477a35aca3200b59ce5963a478df91acfd",
+    "TODO.md": "71b90b09f406d2a67bc70d8b5a5092df93913d549a0fc30c8881786e335b0927",
+    "platform/console_art/README.md": "e0789c4b3f84d56fcac04bf6c4a457321c6d7d50cc4883877c1c6b373df4f791",
+    "platform/console_art/scenery_style.py": "e9f73afaa093cda6c87c94294b0f2d0a29b069dce3c41413dfa67d83d47ca864",
+    "platform/console_art/settlement_scenery.json": "49904371f9a9fecb600d5cbfb3008afe2cabec4e6d14506f0f3b2a14db8353b1",
+    "platform/console_art/settlement_scenery.py": "013707e5f70dc420fc1e38451419ceb8aea076d7f00ad4ce30156b23348b933f",
+    "platform/console_art/test_scenery_style.py": "d83f690f4f14a2872e4ec09a98b532646eb0d38e55c230e5e14c7fec2711a073",
+    "platform/console_art/test_settlement_scenery.py": "b78f12873663333578a792f745ca90d9bd7c684b6deb058101a6681ae22e504b",
+    "platform/godot/project/art/map_features/README.md": "df169ab4c1ed361a56e5fdfbd3cee68d5d839a359b7f7980ec25fcfd509749f7",
+    "platform/godot/project/art/map_features/house-generation-06.json": "d46baaafc0f78c27c49851c3b78af50eacbadaf98f0af3d543607a7aefaac9ef",
+    "platform/godot/project/content/scenery_style.json": "7999929949c23c1108ed414892c413fcfe53787cbaa109948af1047119bd57b4",
+    "platform/godot/project/localization/en.json": "095137d76cc155574dc899337b0115bbb3d8d1c17964b19714c44213e2d2415c",
+    "platform/godot/project/localization/es.json": "7f0551e3c4266d2bd35545b7a20b16cdca4e84c951dbd017d218d5195f7be349",
+    "platform/godot/project/localization/pt-BR.json": "95ea46b3607558d06f1310be6f13eb63a683c7068d58f01f0e8c3d92a2ab950a",
+    "platform/godot/project/scripts/board_view_3d.gd": "a30fe7dbe88395be1ed23c12318a49d5c6a74259265e6fc54cb5641a826016aa",
+    "platform/godot/project/scripts/creator/map_editor.gd": "ca5e7801b6f398aa7a6052d1fea5a9b70099ea0b11b0e5682b21ff8ad1ff30eb",
+    "platform/godot/project/scripts/scenery_style.gd": "3b8f367bbbb3c3ac20b1dc47d194b23872ead3a5b38427dfb75ed5ef0d119588",
+    "platform/godot/src/grandleon_session.cpp": "7f5a615bdf6fc5f71d4e558d354309d10c894f6e93fd99242894454156cf665f",
+    "platform/godot/tests/map_editor_test.gd": "b298d33ae444b17b7d7048d031cd8b7319dbc2f5a2a904dc75b7f2b3a3950f7a",
+    "platform/godot/tests/steel_cedar_board_capture_test.gd": "dda39d19343154405180ebee8457ed5ac264bcfdc28d8b8e16745892062f6cbc",
+    "platform/nintendo64/pyrite/project/src/user/ProjectBoard.cpp": "96f97a611f896a15c9087a228dc0d9c19fce44868d5e5f3f48e477f2471ccfac",
+    "platform/playstation/mipsync/tests/scene_generator_test.py": "d9a640b07ce929b822ecde704c28083077e8528299eb7d39e9f3959aba0f8d96",
+    "platform/playstation/mipsync/tools/generate_scene.py": "56da1c324da04fe2795c60d09c1272fd64e572143877fe84a895491a2954ff4a"
+  },
+  "new_art": [
+    {
+      "path": "platform/godot/project/art/map_features/scifi_house_habitat.png",
+      "sha256": "60b1f2a6584c29efc56483c99f7a3bc6fe07232808b47b1891e1f6df372b1146"
+    },
+    {
+      "path": "platform/godot/project/art/map_features/scifi_house_workshop.png",
+      "sha256": "497b91aea180854123c70b7c252a83de0c3c11f64796d34d188c4ae5faddd52f"
+    },
+    {
+      "path": "platform/godot/project/art/map_features/mythical_house_observatory.png",
+      "sha256": "b2c1e929cec0ab1afd7af02103cba2a7818410829d2638eeb74d1f6f77481659"
+    },
+    {
+      "path": "platform/godot/project/art/map_features/mythical_house_apothecary.png",
+      "sha256": "bad44e9605113fbd6a0fccc506a4a390d7a71320091cad405bd6b4fb6d94fb24"
+    },
+    {
+      "path": "platform/godot/project/art/map_features/nature_house_rootlodge.png",
+      "sha256": "10dd716cce827048783e89cd388cf7fa5bd86890ced9563107692fe60a9b0faf"
+    },
+    {
+      "path": "platform/godot/project/art/map_features/nature_house_bower.png",
+      "sha256": "5ddd248bb8ac6e08d16693583d0b7f18a846d004d29433ad9312b7324a4ef1db"
+    },
+    {
+      "path": "platform/godot/project/art/map_features/undead_house_manor.png",
+      "sha256": "8aefd8b8b83fa6ca166d3fa2ccae899dbe901cd1ceaa4edac6d8e27955051793"
+    },
+    {
+      "path": "platform/godot/project/art/map_features/undead_house_crypt.png",
+      "sha256": "f8ed0c1453d446d014bdb02f8b36fa3adae7d5ac63575cf96aee8435ec8a8122"
+    }
+  ],
+  "catalog": {
+    "sourceSide": 768,
+    "portableCanvasSide": 1.92,
+    "drawings": [
+      "art/map_features/medieval_house_townhouse.png",
+      "art/map_features/medieval_house_thatched.png",
+      "art/map_features/medieval_house_inn.png",
+      "art/map_features/medieval_house_craftsperson.png",
+      "art/map_features/sengoku_house_merchant.png",
+      "art/map_features/sengoku_house_farmstead.png",
+      "art/map_features/pirates_house_chandler.png",
+      "art/map_features/pirates_house_tavern.png",
+      "art/map_features/scifi_house_habitat.png",
+      "art/map_features/scifi_house_workshop.png",
+      "art/map_features/mythical_house_observatory.png",
+      "art/map_features/mythical_house_apothecary.png",
+      "art/map_features/nature_house_bower.png",
+      "art/map_features/nature_house_rootlodge.png",
+      "art/map_features/undead_house_crypt.png",
+      "art/map_features/undead_house_manor.png"
+    ],
+    "placements": [
+      {
+        "drawing": 0,
+        "mirror": false,
+        "offset": [
+          -0.035,
+          0.025
+        ]
+      },
+      {
+        "drawing": 1,
+        "mirror": true,
+        "offset": [
+          0.025,
+          -0.035
+        ]
+      },
+      {
+        "drawing": 2,
+        "mirror": false,
+        "offset": [
+          -0.02,
+          -0.03
+        ]
+      },
+      {
+        "drawing": 3,
+        "mirror": true,
+        "offset": [
+          0.035,
+          0.02
+        ]
+      },
+      {
+        "drawing": 1,
+        "mirror": false,
+        "offset": [
+          -0.03,
+          0.035
+        ]
+      },
+      {
+        "drawing": 3,
+        "mirror": false,
+        "offset": [
+          0.03,
+          -0.02
+        ]
+      },
+      {
+        "drawing": 0,
+        "mirror": true,
+        "offset": [
+          0.02,
+          0.03
+        ]
+      },
+      {
+        "drawing": 2,
+        "mirror": true,
+        "offset": [
+          -0.025,
+          -0.025
+        ]
+      }
+    ],
+    "families": {
+      "medieval": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "sengoku": [
+        4,
+        5
+      ],
+      "pirates": [
+        6,
+        7
+      ],
+      "scifi": [
+        8,
+        9
+      ],
+      "mythical": [
+        10,
+        11
+      ],
+      "nature": [
+        12,
+        13
+      ],
+      "undead": [
+        14,
+        15
+      ]
+    }
+  },
+  "generation": {
+    "path": "platform/godot/project/art/map_features/house-generation-06.json",
+    "sha256": "d46baaafc0f78c27c49851c3b78af50eacbadaf98f0af3d543607a7aefaac9ef"
+  },
+  "checks": {
+    "portable": {
+      "passed": true,
+      "tests": 15,
+      "log": {
+        "path": "out/all-house-families06-portable-tests.log",
+        "sha256": "f47d300e4a7df10ab0c49cd9c7e30f3b32366c64995562d4e41f3e7e2b3c7af7"
+      }
+    },
+    "editor": {
+      "passed": true,
+      "scope": "One compact chooser contains all twelve landmarks, including seven house families; shared stamp button; complete plot placement/removal/undo; native package compilation of every new family. Portuguese UI captures show the terrain palette remains visible.",
+      "log": {
+        "path": "out/all-house-families06-compact-chooser-test.log",
+        "sha256": "7cb5a5ec6b24382da82f22e938a5d64d019e79e917b24ed21035d1d472cf23c3"
+      }
+    },
+    "ps1_generator": {
+      "passed": true,
+      "scope": "All sixteen house textures and the ancient grove have distinct bindings, plus the existing geometry/presentation checks.",
+      "log": {
+        "path": "out/all-house-families06-ps1-generator-tests.log",
+        "sha256": "451a6b1bee0fef1b5964a58f5033fa665b5f18a23fd1e6eae492b054e3cf9454"
+      }
+    },
+    "hardware_tested": false
+  },
+  "previews": {
+    "scifi": {
+      "project": {
+        "path": "out/all-house-families06-scifi.json",
+        "sha256": "1fc094afd6d69f3ca672247d31d3202b5783a80d93c803d707cee8f4d9e05bcf"
+      },
+      "package": {
+        "path": "out/all-house-families06-scifi.gpk",
+        "sha256": "64a153c1a43a0e9e2093a2eaec7df2360a4f4cabd7b661434712ce13caa1a54b"
+      },
+      "godot": {
+        "capture": {
+          "path": "out/all-house-families06-godot/scifi-village.png",
+          "sha256": "d61e233df8e34af3cb4e443fb9882d69e7b4611ff1e570ba037e62f82948a434"
+        },
+        "log": {
+          "path": "out/all-house-families06-godot-scifi.log",
+          "sha256": "d7ca9f41d8adaf026f24f9ba9bd81eaca8253336706f5dd593c87cb785bb3717"
+        }
+      },
+      "n64": {
+        "rom": {
+          "path": "out/all-house-families06-n64-scifi/project/grandleon_pyrite_game.z64",
+          "sha256": "50cf37258138644598d335919d205f50840e16ec8bc34b3343fe7f287a6123cd"
+        },
+        "parallel_log": {
+          "path": "out/all-house-families06-n64-scifi/ares/grandleon_pyrite_game.log",
+          "sha256": "23415a32374f151b279006553b86046e10ad84a6b5505c7eac3b80d6473fef3a"
+        },
+        "parallel_run_pass": false,
+        "village_capture": {
+          "path": "out/all-house-families06-n64-scifi/ares/trail-grandleon_pyrite_game/084-PYRITE_CAMERA_HORIZONTAL.png",
+          "sha256": "4b6f5bcc300afc3016b7abb3e1363def8a37df7a3febc3e15f584cf362ff123b"
+        },
+        "viewport_crop": [
+          116,
+          80,
+          760,
+          570
+        ],
+        "standalone_run": {
+          "passed": true,
+          "log": {
+            "path": "out/all-house-families06-n64-scifi/ares/serial.log",
+            "sha256": "910824ff67596230e79000982fec9b5402b399c015641125c4a1b565f75566e2"
+          },
+          "scope": "Fresh standalone run, unchanged 300-second wall-clock limit",
+          "final_timing_and_memory_sample": "GRANDLEON_PYRITE_GAMEPLAY frames=120 avg_frame_us=33340 min_frame_us=23115 max_frame_us=34075 fps_x100=3000 heap_used=1983936 heap_total=2282136 heap_free=298200 rdram=4194304 battles=5 commands=287 enemy_commands=165 combat=5 trees=122 forms=194 slot_bytes=1340 hash=600017321675168062"
+        }
+      },
+      "ps1": {
+        "bin": {
+          "bytes": 95251296,
+          "sha256": "f66dcb895e1ac419f7103913259a5fbbbf2f5c48907789859b15fd884e095346"
+        },
+        "main_ram": {
+          "text_bytes": 366328,
+          "data_bytes": 729332,
+          "bss_bytes": 248080,
+          "resident_bytes": 1343740,
+          "end_address": "0x80157910",
+          "renderer_probe_budget_bytes": 524288,
+          "platform_audio_reserve_bytes": 65536,
+          "stack_reserve_bytes": 32768,
+          "minimum_gameplay_heap_bytes": 524288,
+          "main_ram_bytes": 2097152,
+          "renderer_and_audio_reserve_bytes": 1409276,
+          "passes_renderer_only_probe_budget": false,
+          "playable_slice_committed_bytes": 1966332,
+          "passes_playable_slice_budget": true
+        },
+        "vram": {
+          "texture_count": 116,
+          "texture_depth_bits": 8,
+          "material_depth_bits": 4,
+          "font_depth_bits": 4,
+          "font_glyph_count": 96,
+          "font_clut_row": 508,
+          "palette_colours": 256,
+          "palette_strategy": "shared_stage_clut",
+          "residency_strategy": "resident_idle_combat_paged_walk",
+          "combat_plate": true,
+          "texture_bytes": 296256,
+          "embedded_texture_bytes": 524000,
+          "vram_reserved_bytes": 424640
+        },
+        "review": {
+          "schema": "grandleon.scene-review.v1",
+          "scene": "out/all-house-families06-scifi-scene.json",
+          "canonical_hash": "9005011463098403465",
+          "capture_verified": true,
+          "metrics": {
+            "frames": 600,
+            "rendered_frames": 300,
+            "scheduled_frames": 300,
+            "deferred_frames": 0,
+            "missed_vblanks": 71,
+            "max_elapsed_vblanks": 3,
+            "render_hbl_avg": 222,
+            "render_hbl_max": 551
+          },
+          "scope": "Emulator visual review. Frame-budget misses are recorded, not treated as a passed performance test."
+        }
+      }
+    },
+    "mythical": {
+      "project": {
+        "path": "out/all-house-families06-mythical.json",
+        "sha256": "bcb15a4ecba81e6560be3ea994ddfe9adff01d58a1a0f4aefd917c0b90d3da48"
+      },
+      "package": {
+        "path": "out/all-house-families06-mythical.gpk",
+        "sha256": "5729b0d88b56122fee0fa3c49cef9d646b75145d1d15ea6363de341fce1f087d"
+      },
+      "godot": {
+        "capture": {
+          "path": "out/all-house-families06-godot/mythical-village.png",
+          "sha256": "c9d98bd0ec0058eb9bcf45f77d6c0f20b0eb551c2e21c4aa16cbc3713e73ff68"
+        },
+        "log": {
+          "path": "out/all-house-families06-godot-mythical.log",
+          "sha256": "d7ca9f41d8adaf026f24f9ba9bd81eaca8253336706f5dd593c87cb785bb3717"
+        }
+      },
+      "n64": {
+        "rom": {
+          "path": "out/all-house-families06-n64-mythical/project/grandleon_pyrite_game.z64",
+          "sha256": "bfc228cb28f3e316eb93dfb91a3260202a15c9098f06a291cb34d53779aac495"
+        },
+        "parallel_log": {
+          "path": "out/all-house-families06-n64-mythical/ares/grandleon_pyrite_game.log",
+          "sha256": "548559bdb7d754cd191c3ffb9771ba97a52095c29d8b2c74b08ce82acd12714a"
+        },
+        "parallel_run_pass": false,
+        "village_capture": {
+          "path": "out/all-house-families06-n64-mythical/ares/trail-grandleon_pyrite_game/084-PYRITE_CAMERA_HORIZONTAL.png",
+          "sha256": "29b327e3523ad860254dfa8ff073466d2f246176745785d541e651795f01f9e2"
+        },
+        "viewport_crop": [
+          116,
+          80,
+          760,
+          570
+        ]
+      },
+      "ps1": {
+        "bin": {
+          "bytes": 95251296,
+          "sha256": "0428c70794bd0613b4ba81688c4f127b9b91c17f3ab8a5275b7bbb18229d86e3"
+        },
+        "main_ram": {
+          "text_bytes": 366328,
+          "data_bytes": 729332,
+          "bss_bytes": 248080,
+          "resident_bytes": 1343740,
+          "end_address": "0x80157910",
+          "renderer_probe_budget_bytes": 524288,
+          "platform_audio_reserve_bytes": 65536,
+          "stack_reserve_bytes": 32768,
+          "minimum_gameplay_heap_bytes": 524288,
+          "main_ram_bytes": 2097152,
+          "renderer_and_audio_reserve_bytes": 1409276,
+          "passes_renderer_only_probe_budget": false,
+          "playable_slice_committed_bytes": 1966332,
+          "passes_playable_slice_budget": true
+        },
+        "vram": {
+          "texture_count": 116,
+          "texture_depth_bits": 8,
+          "material_depth_bits": 4,
+          "font_depth_bits": 4,
+          "font_glyph_count": 96,
+          "font_clut_row": 508,
+          "palette_colours": 256,
+          "palette_strategy": "shared_stage_clut",
+          "residency_strategy": "resident_idle_combat_paged_walk",
+          "combat_plate": true,
+          "texture_bytes": 296256,
+          "embedded_texture_bytes": 524000,
+          "vram_reserved_bytes": 424640
+        },
+        "review": {
+          "schema": "grandleon.scene-review.v1",
+          "scene": "out/all-house-families06-mythical-scene.json",
+          "canonical_hash": "9005011463098403465",
+          "capture_verified": true,
+          "metrics": {
+            "frames": 600,
+            "rendered_frames": 300,
+            "scheduled_frames": 300,
+            "deferred_frames": 0,
+            "missed_vblanks": 71,
+            "max_elapsed_vblanks": 3,
+            "render_hbl_avg": 222,
+            "render_hbl_max": 551
+          },
+          "scope": "Emulator visual review. Frame-budget misses are recorded, not treated as a passed performance test."
+        }
+      }
+    },
+    "nature": {
+      "project": {
+        "path": "out/all-house-families06-nature.json",
+        "sha256": "044984a2f940152d3b144419aac740180d32f10257ea021391c5b8f097fb5930"
+      },
+      "package": {
+        "path": "out/all-house-families06-nature.gpk",
+        "sha256": "4949f8df9f7d7ed0c3e17da434798ada9572d5ea64aac70e026332739aa9b9e7"
+      },
+      "godot": {
+        "capture": {
+          "path": "out/all-house-families06-godot/nature-village.png",
+          "sha256": "2b6bdbda785115c4cee6c68ba3f5a3d09dfada043ff16bdbeb274ac3675a48a9"
+        },
+        "log": {
+          "path": "out/all-house-families06-godot-nature.log",
+          "sha256": "d7ca9f41d8adaf026f24f9ba9bd81eaca8253336706f5dd593c87cb785bb3717"
+        }
+      },
+      "n64": {
+        "rom": {
+          "path": "out/all-house-families06-n64-nature/project/grandleon_pyrite_game.z64",
+          "sha256": "6f5d4a03401e9e2ce992e2832c596349f488b8e184507ecad4690ae045b39f1a"
+        },
+        "parallel_log": {
+          "path": "out/all-house-families06-n64-nature/ares/grandleon_pyrite_game.log",
+          "sha256": "df3eadfc8b86ff960018373d999890cf992318f9c01d027a9886d64f6913ed6f"
+        },
+        "parallel_run_pass": false,
+        "village_capture": {
+          "path": "out/all-house-families06-n64-nature/ares/trail-grandleon_pyrite_game/084-PYRITE_CAMERA_HORIZONTAL.png",
+          "sha256": "6c276c2e10a6130c37d9451a6f3e94ee9ab80245703ea8aa448a6d548bf3b88f"
+        },
+        "viewport_crop": [
+          116,
+          80,
+          760,
+          570
+        ]
+      },
+      "ps1": {
+        "bin": {
+          "bytes": 95251296,
+          "sha256": "a6f2b8c6ddd76ecb80a9060fe3f6d70f8dbab8cb69a635e5e523da02a45f9b7e"
+        },
+        "main_ram": {
+          "text_bytes": 366328,
+          "data_bytes": 729332,
+          "bss_bytes": 248080,
+          "resident_bytes": 1343740,
+          "end_address": "0x80157910",
+          "renderer_probe_budget_bytes": 524288,
+          "platform_audio_reserve_bytes": 65536,
+          "stack_reserve_bytes": 32768,
+          "minimum_gameplay_heap_bytes": 524288,
+          "main_ram_bytes": 2097152,
+          "renderer_and_audio_reserve_bytes": 1409276,
+          "passes_renderer_only_probe_budget": false,
+          "playable_slice_committed_bytes": 1966332,
+          "passes_playable_slice_budget": true
+        },
+        "vram": {
+          "texture_count": 116,
+          "texture_depth_bits": 8,
+          "material_depth_bits": 4,
+          "font_depth_bits": 4,
+          "font_glyph_count": 96,
+          "font_clut_row": 508,
+          "palette_colours": 256,
+          "palette_strategy": "shared_stage_clut",
+          "residency_strategy": "resident_idle_combat_paged_walk",
+          "combat_plate": true,
+          "texture_bytes": 296256,
+          "embedded_texture_bytes": 524000,
+          "vram_reserved_bytes": 424640
+        },
+        "review": {
+          "schema": "grandleon.scene-review.v1",
+          "scene": "out/all-house-families06-nature-scene.json",
+          "canonical_hash": "9005011463098403465",
+          "capture_verified": true,
+          "metrics": {
+            "frames": 600,
+            "rendered_frames": 300,
+            "scheduled_frames": 300,
+            "deferred_frames": 0,
+            "missed_vblanks": 71,
+            "max_elapsed_vblanks": 3,
+            "render_hbl_avg": 222,
+            "render_hbl_max": 551
+          },
+          "scope": "Emulator visual review. Frame-budget misses are recorded, not treated as a passed performance test."
+        }
+      }
+    },
+    "undead": {
+      "project": {
+        "path": "out/all-house-families06-undead.json",
+        "sha256": "189c9966297b90ffaa1c0727351e7f82f7242964f439bf99520f427177b0dcbf"
+      },
+      "package": {
+        "path": "out/all-house-families06-undead.gpk",
+        "sha256": "abd628a3aaa3309e61b4ed4041ee842668a5c35696405ff84b17d9579e1dc645"
+      },
+      "godot": {
+        "capture": {
+          "path": "out/all-house-families06-godot/undead-village.png",
+          "sha256": "89659431e4d6e9c9a8e80b3c96abddeb6d2efef6df056eb9aa6bed41c681ef0e"
+        },
+        "log": {
+          "path": "out/all-house-families06-godot-undead.log",
+          "sha256": "d7ca9f41d8adaf026f24f9ba9bd81eaca8253336706f5dd593c87cb785bb3717"
+        }
+      },
+      "n64": {
+        "rom": {
+          "path": "out/all-house-families06-n64-undead/project/grandleon_pyrite_game.z64",
+          "sha256": "3ac045990b01bf91e26da1ac16a315d10a80a24c86e4c196fa07fda903755aae"
+        },
+        "parallel_log": {
+          "path": "out/all-house-families06-n64-undead/ares/grandleon_pyrite_game.log",
+          "sha256": "720966b7394a0bcbf2818e47122426db70b3291094745cc75f9f3478e8b01585"
+        },
+        "parallel_run_pass": false,
+        "village_capture": {
+          "path": "out/all-house-families06-n64-undead/ares/trail-grandleon_pyrite_game/084-PYRITE_CAMERA_HORIZONTAL.png",
+          "sha256": "4f3739e048da116a6d303de73970f94e3092df69bcf5ebc6b794e9e983b9b1b6"
+        },
+        "viewport_crop": [
+          116,
+          80,
+          760,
+          570
+        ]
+      },
+      "ps1": {
+        "bin": {
+          "bytes": 95251296,
+          "sha256": "ac2c5517dd6bcd2a20703ecd6c3f0c7731e1551714e9521a049989ef8d04f7e3"
+        },
+        "main_ram": {
+          "text_bytes": 366328,
+          "data_bytes": 729332,
+          "bss_bytes": 248080,
+          "resident_bytes": 1343740,
+          "end_address": "0x80157910",
+          "renderer_probe_budget_bytes": 524288,
+          "platform_audio_reserve_bytes": 65536,
+          "stack_reserve_bytes": 32768,
+          "minimum_gameplay_heap_bytes": 524288,
+          "main_ram_bytes": 2097152,
+          "renderer_and_audio_reserve_bytes": 1409276,
+          "passes_renderer_only_probe_budget": false,
+          "playable_slice_committed_bytes": 1966332,
+          "passes_playable_slice_budget": true
+        },
+        "vram": {
+          "texture_count": 116,
+          "texture_depth_bits": 8,
+          "material_depth_bits": 4,
+          "font_depth_bits": 4,
+          "font_glyph_count": 96,
+          "font_clut_row": 508,
+          "palette_colours": 256,
+          "palette_strategy": "shared_stage_clut",
+          "residency_strategy": "resident_idle_combat_paged_walk",
+          "combat_plate": true,
+          "texture_bytes": 296256,
+          "embedded_texture_bytes": 524000,
+          "vram_reserved_bytes": 424640
+        },
+        "review": {
+          "schema": "grandleon.scene-review.v1",
+          "scene": "out/all-house-families06-undead-scene.json",
+          "canonical_hash": "9005011463098403465",
+          "capture_verified": true,
+          "metrics": {
+            "frames": 600,
+            "rendered_frames": 300,
+            "scheduled_frames": 300,
+            "deferred_frames": 0,
+            "missed_vblanks": 71,
+            "max_elapsed_vblanks": 3,
+            "render_hbl_avg": 222,
+            "render_hbl_max": 551
+          },
+          "scope": "Emulator visual review. Frame-budget misses are recorded, not treated as a passed performance test."
+        }
+      }
+    }
+  },
+  "limitations": [
+    "Four simultaneous N64 replays reached the last battle but exceeded the unchanged 300-second wall-clock harness limit. Those runs are not passes. A fresh standalone replay of the same runtime completed in 234 seconds and passed all five battles and the castle reveal.",
+    "N64 timing is a final 120-frame emulator sample, not a per-stage hardware benchmark.",
+    "The PS1 scene reviews record missed deadlines and do not pass the strict 30 FPS gate.",
+    "Medieval support props remain in the architecture review map; other thematic civic buildings and coherent themed maps remain open."
+  ]
+}

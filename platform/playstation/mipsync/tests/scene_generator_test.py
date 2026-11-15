@@ -357,15 +357,15 @@ def test_themed_houses_and_grove_keep_distinct_texture_bindings() -> None:
     with tempfile.TemporaryDirectory() as folder:
         textures, _, _, _, _ = SCENE.write_textures(
             Path(folder), ROOT.parents[2], [9], [], houses=True, grove=True,
-            house_drawings=(4, 5, 6, 7))
+            house_drawings=tuple(range(16)))
         selected = []
-        for kind in ["house_cutout_4_0", "house_cutout_5_1", "house_cutout_6_0", "house_cutout_7_1", "grove_cutout"]:
+        for kind in [f"house_cutout_{drawing}_{drawing % 2}" for drawing in range(16)] + ["grove_cutout"]:
             vertices, uvs, faces = [], [], []
             SCENE.append_settlement_model(vertices, uvs, faces, kind, {}, textures)
             assert len(vertices) == 4 and len(faces) == 2
             assert max(u for u, _v in uvs) == 95
             selected.append(faces[0][3])
-        assert len(set(selected)) == 5, "a new house must never alias the grove texture"
+        assert len(set(selected)) == 17, "a new house must never alias the grove texture"
 
 
 if __name__ == "__main__":

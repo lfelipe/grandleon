@@ -33,8 +33,9 @@ and the busier village's frame budget remain open work.
 
 ## Shared houses and ground
 
-Houses share Godot’s four Medieval drawings, two Sengoku buildings and two
-pirate-port buildings. The editor authors each family explicitly; all retain
+Houses share Godot’s sixteen drawings: four Medieval buildings and two each
+for Sengoku, pirates, sci-fi, mythical, nature and undead. The editor authors
+each family explicitly; all retain
 the same blocked 2×2 footprint. `scenery_style.json` in the Godot content folder defines their drawing,
 mirroring, small placement offsets and size. Nintendo 64 reduces each drawing
 to a transparent 64×64 CI4 sprite; PlayStation uses a 96×96 cutout in the stage

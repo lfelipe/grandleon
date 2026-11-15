@@ -16,3 +16,6 @@ static func house_at(anchor: Vector2i, family := "medieval") -> Dictionary:
 	var drawings: Array = document().houses.families.get(family, document().houses.families.medieval)
 	choice.drawing = drawings[int(choice.drawing) % drawings.size()]
 	return choice
+
+static func is_house_kind(kind: String) -> bool:
+	return kind == "village_house" or (kind.ends_with("_house") and document().houses.families.has(kind.trim_suffix("_house")))
