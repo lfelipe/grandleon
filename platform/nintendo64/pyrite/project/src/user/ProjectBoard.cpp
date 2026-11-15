@@ -572,11 +572,12 @@ void display_glyphs(int x, int y, std::string_view latin1, color_t ink = kUiIvor
     rdpq_mode_end();
     P64::Debug::setColor(ink);
     P64::Debug::setBgColor();
+    constexpr unsigned glyphs_per_bank = font::bank_width / 8U;
     unsigned loaded_bank = 255U;
     for (const unsigned char encoded : latin1) {
         const unsigned code = encoded >= font::first ? encoded : '?';
         const unsigned slot = code - font::first;
-        const unsigned bank = slot / 16U;
+        const unsigned bank = slot / glyphs_per_bank;
         if (code != ' ' && code != 160U) {
             if (bank != loaded_bank) {
                 surface_t surface = surface_make(const_cast<std::uint8_t*>(font::banks[bank]),
@@ -584,7 +585,7 @@ void display_glyphs(int x, int y, std::string_view latin1, color_t ink = kUiIvor
                 rdpq_tex_upload(TILE0, &surface, nullptr);
                 loaded_bank = bank;
             }
-            const int texture_x = static_cast<int>(slot % 16U) * 8;
+            const int texture_x = static_cast<int>(slot % glyphs_per_bank) * 8;
             rdpq_texture_rectangle_raw(TILE0, x, y, x + 8 * scale, y + font::height * scale,
                 texture_x, 0, 1.0F / static_cast<float>(scale), 1.0F / static_cast<float>(scale));
         }

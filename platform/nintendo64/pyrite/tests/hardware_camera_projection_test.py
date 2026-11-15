@@ -254,8 +254,8 @@ class HardwareCameraProjection(unittest.TestCase):
             namespace font = grandleon::nintendo64::pyrite::console_font;
             unsigned pixel(unsigned code, unsigned x, unsigned y) {
                 const unsigned slot = code - font::first;
-                const unsigned offset = y * font::bank_width / 2 + (slot % 16) * 4 + x / 2;
-                const unsigned byte = font::banks[slot / 16][offset];
+                const unsigned offset = y * font::bank_width / 2 + (slot % (font::bank_width / 8)) * 4 + x / 2;
+                const unsigned byte = font::banks[slot / (font::bank_width / 8)][offset];
                 return x % 2 ? byte & 15 : byte >> 4;
             }
             unsigned row(unsigned code, unsigned y) {
@@ -266,6 +266,16 @@ class HardwareCameraProjection(unittest.TestCase):
             int main() {
                 static_assert(font::bank_bytes <= 4096);
                 static_assert(sizeof font::banks == 10752);
+                // Hash every decoded glyph against the pinned Spleen pixels,
+                // including both sides of every atlas-bank boundary.
+                std::uint64_t hash = 14695981039346656037ULL;
+                for (unsigned code = 32; code <= 255; ++code)
+                    for (unsigned y = 0; y < 12; ++y)
+                        for (unsigned x = 0; x < 8; ++x) {
+                            hash ^= pixel(code, x, y);
+                            hash *= 1099511628211ULL;
+                        }
+                assert(hash == 3434754778176060005ULL);
                 assert(row(0xe7, 10) + row(0xe7, 11) > row('c', 10) + row('c', 11));
                 assert(row(0xe3, 1) > row('a', 1));
                 assert(row(0xe9, 1) > row('e', 1));

@@ -32,12 +32,16 @@ def generate(repo: Path) -> str:
             glyphs[code] = pixels
         index = end + 1
     assert set(range(160, 256)) <= glyphs.keys()
+    glyphs_per_bank = 32
+    bank_count = (256 - 32) // glyphs_per_bank
+    bank_width = glyphs_per_bank * 8
+    bank_bytes = bank_width * 12 // 2
     atlas = []
-    for bank in range(14):
+    for bank in range(bank_count):
         pixels = []
         for y in range(12):
-            for column in range(16):
-                code = 32 + bank * 16 + column
+            for column in range(glyphs_per_bank):
+                code = 32 + bank * glyphs_per_bank + column
                 glyph = glyphs.get(code, glyphs[ord('?')])
                 pixels.extend(glyph[y * 8:y * 8 + 8])
         atlas.append([pixels[i] << 4 | pixels[i + 1] for i in range(0, len(pixels), 2)])
@@ -46,8 +50,8 @@ def generate(repo: Path) -> str:
               '// License: assets/fonts/spleen/LICENSE.', '#pragma once', '#include <cstdint>',
               'namespace grandleon::nintendo64::pyrite::console_font {',
               'inline constexpr unsigned first = 32, advance = 6, height = 12;',
-              'inline constexpr unsigned bank_width = 128, bank_bytes = 768;',
-              'alignas(8) inline constexpr std::uint8_t banks[14][bank_bytes] = {']
+              f'inline constexpr unsigned bank_width = {bank_width}, bank_bytes = {bank_bytes};',
+              f'alignas(8) inline constexpr std::uint8_t banks[{bank_count}][bank_bytes] = {{']
     for bank in atlas:
         output.append('    {')
         for offset in range(0, len(bank), 24):

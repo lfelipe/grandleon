@@ -1,0 +1,340 @@
+{
+  "schema": "grandleon.n64.font-banks-review.v1",
+  "source_base": "2571b408",
+  "change": "Pack 32 glyphs into each IA4 bank so ordinary lowercase ASCII stays together. Font glyphs, spacing, wording, wrapping, geometry and layout remain unchanged. Addressing derives from atlas width instead of a 16 glyph assumption.",
+  "sources": {
+    "platform/nintendo64/pyrite/project/src/user/ProjectBoard.cpp": "b7e50e7547ae663943685667e1c5530fbb8af6b373ad4469d213c674f452a4de",
+    "platform/nintendo64/pyrite/project/src/user/ConsoleFont.hpp": "05e8385648c3c781e91b1f4ccbebe74c5ef2e442edd0b0f227a7e0e338ef2921",
+    "platform/nintendo64/pyrite/scripts/generate-console-font.py": "33601218db6842434b9b59db84bee85ba9dfca32a278324987c8405a5213e25b",
+    "platform/nintendo64/pyrite/tests/hardware_camera_projection_test.py": "bed40cb81f1fb1002098516ab94c6b12e25b48bd5439b6472e8942dcb174fa52"
+  },
+  "glyph_pixels": {
+    "glyphs": 224,
+    "pixels_compared": 21504,
+    "all_equal": true,
+    "bitmap_sha256": "51bcdc769c23fead7bf9215345ea5939ea0a7c05b4ae1f8efb0e15adee8f5f9f",
+    "old_bank_count": 14,
+    "new_bank_count": 7,
+    "old_bank_bytes": 768,
+    "new_bank_bytes": 1536,
+    "total_bytes_unchanged": 10752,
+    "all_bank_boundaries_included": true
+  },
+  "memory": {
+    "old_banks": 14,
+    "old_bank_bytes": 768,
+    "new_banks": 7,
+    "new_bank_bytes": 1536,
+    "font_bytes_both": 10752,
+    "tmem_capacity_bytes": 4096,
+    "normal_elf_before": {
+      "text": 1712898,
+      "data": 82404,
+      "bss": 66128,
+      "total": 1861430
+    },
+    "normal_elf_after": {
+      "text": 1712898,
+      "data": 82404,
+      "bss": 66128,
+      "total": 1861430
+    },
+    "note": "Normal text, data and BSS sizes are exactly equal. No new dynamic font allocation, palette, framebuffer or gameplay/audio/stack reservation changes."
+  },
+  "first_stage_text": {
+    "before": {
+      "sample": {
+        "stage": 1,
+        "calls": 995,
+        "glyphs": 10814,
+        "uploads": 5470,
+        "bytes": 4200960,
+        "total_us": 164611
+      },
+      "source": {
+        "path": "out/n64-text-span06/before/project/src/user/ProjectBoard.cpp",
+        "bytes": 260514,
+        "sha256": "da264fe5067d7ae23ec3541266e2c3c78354601683fe4d152f69e235d2fbfb93"
+      },
+      "log": {
+        "path": "out/n64-text-span06/before/ares/text.log",
+        "bytes": 7253,
+        "sha256": "ac2c8692e7716df82717b914d577de5f080d7d56088042d2f086c9a6e2022cd6"
+      },
+      "scope": "Bounded first-stage text instrumentation run. Does not claim a completed campaign."
+    },
+    "after": {
+      "sample": {
+        "stage": 1,
+        "calls": 995,
+        "glyphs": 10814,
+        "uploads": 1930,
+        "bytes": 2964480,
+        "total_us": 82789
+      },
+      "source": {
+        "path": "out/n64-text-span06/after/project/src/user/ProjectBoard.cpp",
+        "bytes": 260602,
+        "sha256": "77337cdfe38f1bbaf620fc1f73fe3c0c94f1e7b942ec036ec4c8a7150f43077f"
+      },
+      "log": {
+        "path": "out/n64-text-span06/after/ares/text.log",
+        "bytes": 7354,
+        "sha256": "7ddc4b2e234a04c9c49fa9b270c34aa1b38a77788be4111a3524a4b1dc238273"
+      },
+      "scope": "Bounded first-stage text instrumentation run. Does not claim a completed campaign."
+    },
+    "upload_count_reduction_percent": 64.7166361974406,
+    "transfer_bytes_reduction_percent": 29.433272394881172,
+    "text_submission_reduction_percent": 49.70627722327183,
+    "saved_text_us_per_board_frame": 117.89913544668588,
+    "qualification": "995 text calls and 10814 glyphs match. Timing covers glyph submission including queue backpressure, not full GPU completion. Added counters are identical in both isolated probes. Total saving is about 0.12 ms per Bell frame; not a material whole-game speedup."
+  },
+  "actual_presentation": {
+    "before": [
+      {
+        "stage": 1,
+        "frames": 694,
+        "total_vi": 1582,
+        "max_vi": 4,
+        "total_us": 26443257,
+        "fps_nominal_x100": 2632,
+        "hold1": 0,
+        "hold2": 597,
+        "hold3": 0,
+        "hold4": 97,
+        "hold5": 0,
+        "hold6": 0,
+        "hold7": 0,
+        "hold8": 0,
+        "hold9plus": 0
+      },
+      {
+        "stage": 2,
+        "frames": 870,
+        "total_vi": 1740,
+        "max_vi": 2,
+        "total_us": 29084244,
+        "fps_nominal_x100": 3000,
+        "hold1": 0,
+        "hold2": 870,
+        "hold3": 0,
+        "hold4": 0,
+        "hold5": 0,
+        "hold6": 0,
+        "hold7": 0,
+        "hold8": 0,
+        "hold9plus": 0
+      },
+      {
+        "stage": 3,
+        "frames": 1409,
+        "total_vi": 2818,
+        "max_vi": 2,
+        "total_us": 47103105,
+        "fps_nominal_x100": 3000,
+        "hold1": 0,
+        "hold2": 1409,
+        "hold3": 0,
+        "hold4": 0,
+        "hold5": 0,
+        "hold6": 0,
+        "hold7": 0,
+        "hold8": 0,
+        "hold9plus": 0
+      },
+      {
+        "stage": 4,
+        "frames": 1012,
+        "total_vi": 2024,
+        "max_vi": 2,
+        "total_us": 33831323,
+        "fps_nominal_x100": 3000,
+        "hold1": 0,
+        "hold2": 1012,
+        "hold3": 0,
+        "hold4": 0,
+        "hold5": 0,
+        "hold6": 0,
+        "hold7": 0,
+        "hold8": 0,
+        "hold9plus": 0
+      },
+      {
+        "stage": 5,
+        "frames": 1299,
+        "total_vi": 2598,
+        "max_vi": 2,
+        "total_us": 43425804,
+        "fps_nominal_x100": 3000,
+        "hold1": 0,
+        "hold2": 1299,
+        "hold3": 0,
+        "hold4": 0,
+        "hold5": 0,
+        "hold6": 0,
+        "hold7": 0,
+        "hold8": 0,
+        "hold9plus": 0
+      }
+    ],
+    "after": [
+      {
+        "stage": 1,
+        "frames": 694,
+        "total_vi": 1578,
+        "max_vi": 4,
+        "total_us": 26376407,
+        "fps_nominal_x100": 2638,
+        "hold1": 0,
+        "hold2": 599,
+        "hold3": 0,
+        "hold4": 95,
+        "hold5": 0,
+        "hold6": 0,
+        "hold7": 0,
+        "hold8": 0,
+        "hold9plus": 0
+      },
+      {
+        "stage": 2,
+        "frames": 870,
+        "total_vi": 1740,
+        "max_vi": 2,
+        "total_us": 29084245,
+        "fps_nominal_x100": 3000,
+        "hold1": 0,
+        "hold2": 870,
+        "hold3": 0,
+        "hold4": 0,
+        "hold5": 0,
+        "hold6": 0,
+        "hold7": 0,
+        "hold8": 0,
+        "hold9plus": 0
+      },
+      {
+        "stage": 3,
+        "frames": 1409,
+        "total_vi": 2818,
+        "max_vi": 2,
+        "total_us": 47103116,
+        "fps_nominal_x100": 3000,
+        "hold1": 0,
+        "hold2": 1409,
+        "hold3": 0,
+        "hold4": 0,
+        "hold5": 0,
+        "hold6": 0,
+        "hold7": 0,
+        "hold8": 0,
+        "hold9plus": 0
+      },
+      {
+        "stage": 4,
+        "frames": 1012,
+        "total_vi": 2024,
+        "max_vi": 2,
+        "total_us": 33831314,
+        "fps_nominal_x100": 3000,
+        "hold1": 0,
+        "hold2": 1012,
+        "hold3": 0,
+        "hold4": 0,
+        "hold5": 0,
+        "hold6": 0,
+        "hold7": 0,
+        "hold8": 0,
+        "hold9plus": 0
+      },
+      {
+        "stage": 5,
+        "frames": 1299,
+        "total_vi": 2598,
+        "max_vi": 2,
+        "total_us": 43425805,
+        "fps_nominal_x100": 3000,
+        "hold1": 0,
+        "hold2": 1299,
+        "hold3": 0,
+        "hold4": 0,
+        "hold5": 0,
+        "hold6": 0,
+        "hold7": 0,
+        "hold8": 0,
+        "hold9plus": 0
+      }
+    ],
+    "qualification": "Same read-only VI observer and legal one-player review. Bell changes 97 to 95 four-VI holds, 26.32 to 26.38 nominal FPS. This is marginal and is not the reason for claiming a meaningful FPS gain; no such gain is claimed. The CPU/upload reduction above is the retained benefit. Later stages retain 2-VI holds throughout."
+  },
+  "native_artifacts": {
+    "review_rom": {
+      "path": "out/n64-font-bank06/project/grandleon_pyrite_game.z64",
+      "bytes": 8306688,
+      "sha256": "5af8ec42033e1c5e5b8bc77e3b8e8c15c52634ee7e6df90896bb64bc964b7c4d"
+    },
+    "review_source": {
+      "path": "out/n64-font-bank06/project/src/user/ProjectBoard.cpp",
+      "bytes": 259393,
+      "sha256": "e70504dcbf9c2d10d17229bd87945393952ebdc3f642cee37747f6809d62471a"
+    },
+    "review_log": {
+      "path": "out/n64-font-bank06/ares/font.log",
+      "bytes": 23079,
+      "sha256": "15574ccc78dc801d4f939625377d20becf6bf8b09e9861457d6c84bcc0415068"
+    },
+    "normal_rom": {
+      "path": "out/n64-font-bank06/normal/project/grandleon_pyrite_game.z64",
+      "bytes": 8290304,
+      "sha256": "db0c38c369db5f7a1ac8b5c0dc317a4c9fd4949c5d6002a74e89e67a2c179a12"
+    },
+    "normal_source": {
+      "path": "out/n64-font-bank06/normal/project/src/user/ProjectBoard.cpp",
+      "bytes": 253852,
+      "sha256": "b7e50e7547ae663943685667e1c5530fbb8af6b373ad4469d213c674f452a4de"
+    },
+    "title": {
+      "path": "out/n64-font-bank06/normal/ares/title.png",
+      "bytes": 72239,
+      "sha256": "9cb5e86fff8f746e0facf7dbb73b1bb5c80d13039b46ac0d5e06ac1a95863dc1"
+    },
+    "settings_ptbr": {
+      "path": "out/n64-font-bank06/settings-ptbr.png",
+      "bytes": 11326,
+      "sha256": "3c24e6e0383dc4ba8f20cd7fbee10c0a951451eaa1818c32c255b77f8b06c74e"
+    },
+    "battle_settings": {
+      "path": "out/n64-font-bank06/normal/ares/battle-settings-final.png",
+      "bytes": 53784,
+      "sha256": "88f3b5a62d0773eefa9553e83f9e0d3a66bdb7f353b49b946d3e1864fa9e03e1"
+    },
+    "unit_action_wait": {
+      "path": "out/n64-font-bank06/unit-action-wait.png",
+      "bytes": 96316,
+      "sha256": "b2295307fcd9e1403d9723d2f43314ff35c4528252c045f1519dcd6dd1f441b4"
+    },
+    "unit_action_ability": {
+      "path": "out/n64-font-bank06/unit-action-ability.png",
+      "bytes": 93241,
+      "sha256": "8b75ef34add4ead1092dbdab015346a66ff1687138ddfc59604a3af76647cccb"
+    },
+    "native_unit_ui_capture_log": {
+      "path": "out/n64-font-bank06/unit-film/ares/unit-film.log",
+      "bytes": 5253,
+      "sha256": "d26e1cfc3323cecac8494ad69ebca92e17b110673c607851194331c163e10677"
+    },
+    "host_test_log": {
+      "path": "out/n64-font-bank06/final-host-tests.log",
+      "bytes": 103,
+      "sha256": "3be119f611ce215afa58e2f5979871f4e051236927159244c6d60eae73596d3a"
+    }
+  },
+  "validation": [
+    "All 21504 logical pixels across 224 glyphs compare exactly to the previous atlas, including every bank boundary. The host regression now hashes all decoded pixels against the pinned Spleen bitmap while retaining explicit cedilla/tilde/accent checks.",
+    "Five camera/controller/font host tests pass. Generator --check passes. Tests decode actual atlas metadata and preserve the original glyph assertions rather than weakening them for the new packing.",
+    "Complete native five-battle campaign review passes in base 4 MiB, with 287 accepted commands, 165 enemy commands, complete 18-cell reveal and canonical hash 600017321675168062.",
+    "Native title, settings, Portuguese accented labels, dialogue and actual unit-action screens inspected. Settings show A\u00e7o, CONFIGURA\u00c7\u00d5ES and M\u00daSICA.",
+    "Separate normal ROM and ordinary controller settings captures remain review_driver=0. Unit-action stills come from the unchanged legal review input flow, captured continuously through the brief menus rather than relying on delayed milestone screenshots.",
+    "No new normal-build timing instrumentation or external engine changes. git diff --check passes."
+  ]
+}
