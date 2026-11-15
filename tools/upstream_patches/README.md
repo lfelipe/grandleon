@@ -54,6 +54,11 @@ portable tests cover ownership, bounds, malformed chains, overlap and buffer
 swaps. Grandleon's cache policy stays in its platform adapter. This patch has
 not been added to the public upstream PR.
 
+A sixth local patch avoids recopying a fragment when both its CPU storage and
+DMA address are unchanged. It still joins bucket tails to the current frame
+and retains copying and relocation for other callers. Portable sanitizer tests
+cover repeated reuse and both address edge cases. This patch is also local.
+
 ## Making an engine fix
 
 1. Clone the upstream repository (or your fork) separately.

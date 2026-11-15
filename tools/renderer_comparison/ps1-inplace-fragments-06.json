@@ -1,0 +1,271 @@
+{
+  "schema": "grandleon.ps1-inplace-fragments.v1",
+  "source_base": "7af8d7e67682da07721354f0c5852fc4da1ba8b7",
+  "upstream_commit": "09a44c8",
+  "patch": {
+    "path": "tools/upstream_patches/engines/mipsync/0006-Avoid-recopying-retained-PS1-packet-fragments-in-place.patch",
+    "sha256": "4ef3acbc57c9a2b6f69d4a89f92b5d5c45cc1c8ef9bf86b654e68482c022460b"
+  },
+  "design": "Reuse payload and internal links only when CPU storage and DMA bases are both unchanged. Always merge bucket tails into current-frame ordering-table predecessors. Distinct storage or changed DMA bases retain the original copy/relocation behavior. No application, geometry, asset, gameplay, input, audio, capacity or test-threshold changes.",
+  "portable_validation": {
+    "sanitizers": "AddressSanitizer and UndefinedBehaviorSanitizer at -O2",
+    "tests_passed": [
+      "Ps1ClipMathTests",
+      "Ps1WorldProjectionTests",
+      "Ps1ViewmodelProjectionTests",
+      "Ps1GpuClippingTests",
+      "Ps1FogBoundsTests",
+      "Ps1TexturePaletteTests",
+      "Ps1PacketFragmentTests"
+    ],
+    "fragment_warnings": "-Wall -Wextra -Werror",
+    "cases": "100 repeated in-place frames with changing predecessor heads; distinct CPU buffers with equal DMA bases; same CPU buffer with changed DMA base; all existing ownership, malformed-chain, payload and overlap cases.",
+    "series_clean_apply_passed": true
+  },
+  "comparisons": [
+    {
+      "name": "combat",
+      "before": "out/ps1-camera-gate06-combat",
+      "after": "out/ps1-inplace-helper06-review",
+      "identical_captures": 409,
+      "capture_hashes_sha256": "4b0192026156768a006f06c45f02a8fba9aa6ea62b53bef5e57a39e11ba2c912"
+    },
+    {
+      "name": "keep_scroll",
+      "before": "out/ps1-camera-gate06-scroll",
+      "after": "out/ps1-inplace-helper06-scroll",
+      "identical_captures": 132,
+      "capture_hashes_sha256": "2d9dea2ee354755285861e0d23c01b9f58a2dba53cb3134d0fbccdfcdb0bfda1"
+    },
+    {
+      "name": "castle_entry",
+      "before": "out/ps1-camera-gate06-visibility",
+      "after": "out/ps1-inplace-helper06-visibility",
+      "identical_captures": 2,
+      "capture_hashes_sha256": "634c70432e136216cf83a2c574d5bf5500cdb957449a5dff79a034c34ee3443e"
+    },
+    {
+      "name": "campaign_ui",
+      "before": "out/ps1-camera-gate06-campaign-probe",
+      "after": "out/ps1-inplace-helper06-campaign-probe",
+      "identical_captures": 15,
+      "capture_hashes_sha256": "deb15028813ea1e806e34bec35b8e60a5eff18faec0d1202eecf1b218ef3878d"
+    }
+  ],
+  "identical_captures": 558,
+  "native_checks": {
+    "campaign_new_continue_card_and_both_player_modes_passed": true,
+    "strict_campaign_fps_passed": false,
+    "combat_audio_counter_player2_camera_passed": true,
+    "combat_simulation_hash": "2ea20447a61b5d9a",
+    "strict_combat_fps_passed": false,
+    "legal_castle_reveal_cells": 18,
+    "scenery_pages_drawn": [
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66
+    ]
+  },
+  "timing": {
+    "orchard_before": {
+      "MIPSYNC_GRANDLEON_METRICS": {
+        "frames": 600,
+        "rendered_frames": 300,
+        "scheduled_frames": 300,
+        "deferred_frames": 0,
+        "missed_vblanks": 5,
+        "max_elapsed_vblanks": 5
+      },
+      "MIPSYNC_FRAME_BUDGET": {
+        "render_hbl_avg": 140,
+        "render_hbl_max": 1122,
+        "ready_hbl_avg": 144,
+        "ready_hbl_max": 1127,
+        "mutation_hbl_max": 263
+      }
+    },
+    "orchard_after": {
+      "MIPSYNC_GRANDLEON_METRICS": {
+        "frames": 600,
+        "rendered_frames": 300,
+        "scheduled_frames": 300,
+        "deferred_frames": 0,
+        "missed_vblanks": 5,
+        "max_elapsed_vblanks": 5
+      },
+      "MIPSYNC_FRAME_BUDGET": {
+        "render_hbl_avg": 110,
+        "render_hbl_max": 1122,
+        "ready_hbl_avg": 113,
+        "ready_hbl_max": 1127,
+        "mutation_hbl_max": 263
+      }
+    },
+    "keep_before": {
+      "MIPSYNC_GRANDLEON_METRICS": {
+        "frames": 600,
+        "rendered_frames": 300,
+        "scheduled_frames": 300,
+        "deferred_frames": 0,
+        "missed_vblanks": 185,
+        "max_elapsed_vblanks": 6
+      },
+      "MIPSYNC_FRAME_BUDGET": {
+        "render_hbl_avg": 339,
+        "render_hbl_max": 1308,
+        "ready_hbl_avg": 342,
+        "ready_hbl_max": 1312,
+        "mutation_hbl_max": 0
+      }
+    },
+    "keep_after": {
+      "MIPSYNC_GRANDLEON_METRICS": {
+        "frames": 600,
+        "rendered_frames": 300,
+        "scheduled_frames": 300,
+        "deferred_frames": 0,
+        "missed_vblanks": 185,
+        "max_elapsed_vblanks": 6
+      },
+      "MIPSYNC_FRAME_BUDGET": {
+        "render_hbl_avg": 332,
+        "render_hbl_max": 1308,
+        "ready_hbl_avg": 335,
+        "ready_hbl_max": 1312,
+        "mutation_hbl_max": 0
+      }
+    }
+  },
+  "native_presentation": {
+    "observed_display_flip_fps": 29.47263541865485,
+    "complete_frame_hold_histogram_vis": {
+      "2": 139,
+      "3": 27,
+      "1": 26,
+      "5": 2
+    },
+    "presentation_is_even_two_vi": false
+  },
+  "stages": {
+    "bell": {
+      "text_bytes": 421720,
+      "data_bytes": 493684,
+      "bss_bytes": 330064,
+      "resident_bytes": 1245468,
+      "packet_bytes_per_frame": 57344,
+      "packet_arena_bytes": 57344,
+      "packet_arena_count": 1,
+      "ordering_table_bytes": 8192,
+      "end_address": "0x8013f950",
+      "renderer_probe_budget_bytes": 524288,
+      "platform_audio_reserve_bytes": 65536,
+      "stack_reserve_bytes": 32768,
+      "minimum_gameplay_heap_bytes": 524288,
+      "main_ram_bytes": 2097152,
+      "renderer_and_audio_reserve_bytes": 1311004,
+      "passes_renderer_only_probe_budget": false,
+      "playable_slice_committed_bytes": 1868060,
+      "passes_playable_slice_budget": true
+    },
+    "deep": {
+      "text_bytes": 424248,
+      "data_bytes": 493236,
+      "bss_bytes": 240960,
+      "resident_bytes": 1158444,
+      "packet_bytes_per_frame": 57344,
+      "packet_arena_bytes": 57344,
+      "packet_arena_count": 1,
+      "ordering_table_bytes": 8192,
+      "end_address": "0x8012a540",
+      "renderer_probe_budget_bytes": 524288,
+      "platform_audio_reserve_bytes": 65536,
+      "stack_reserve_bytes": 32768,
+      "minimum_gameplay_heap_bytes": 524288,
+      "main_ram_bytes": 2097152,
+      "renderer_and_audio_reserve_bytes": 1223980,
+      "passes_renderer_only_probe_budget": false,
+      "playable_slice_committed_bytes": 1781036,
+      "passes_playable_slice_budget": true
+    },
+    "watch": {
+      "text_bytes": 434248,
+      "data_bytes": 667508,
+      "bss_bytes": 255256,
+      "resident_bytes": 1357012,
+      "packet_bytes_per_frame": 57344,
+      "packet_arena_bytes": 57344,
+      "packet_arena_count": 1,
+      "ordering_table_bytes": 8192,
+      "end_address": "0x8015ad18",
+      "renderer_probe_budget_bytes": 524288,
+      "platform_audio_reserve_bytes": 65536,
+      "stack_reserve_bytes": 32768,
+      "minimum_gameplay_heap_bytes": 524288,
+      "main_ram_bytes": 2097152,
+      "renderer_and_audio_reserve_bytes": 1422548,
+      "passes_renderer_only_probe_budget": false,
+      "playable_slice_committed_bytes": 1979604,
+      "passes_playable_slice_budget": true
+    },
+    "village": {
+      "text_bytes": 426024,
+      "data_bytes": 751540,
+      "bss_bytes": 288680,
+      "resident_bytes": 1466244,
+      "packet_bytes_per_frame": 57344,
+      "packet_arena_bytes": 57344,
+      "packet_arena_count": 1,
+      "ordering_table_bytes": 8192,
+      "end_address": "0x801757a8",
+      "renderer_probe_budget_bytes": 524288,
+      "platform_audio_reserve_bytes": 65536,
+      "stack_reserve_bytes": 32768,
+      "minimum_gameplay_heap_bytes": 524288,
+      "main_ram_bytes": 2097152,
+      "renderer_and_audio_reserve_bytes": 1531780,
+      "passes_renderer_only_probe_budget": false,
+      "playable_slice_committed_bytes": 2088836,
+      "passes_playable_slice_budget": true
+    },
+    "gate": {
+      "text_bytes": 424440,
+      "data_bytes": 714228,
+      "bss_bytes": 289832,
+      "resident_bytes": 1428500,
+      "packet_bytes_per_frame": 57344,
+      "packet_arena_bytes": 57344,
+      "packet_arena_count": 1,
+      "ordering_table_bytes": 8192,
+      "end_address": "0x8016c428",
+      "renderer_probe_budget_bytes": 524288,
+      "platform_audio_reserve_bytes": 65536,
+      "stack_reserve_bytes": 32768,
+      "minimum_gameplay_heap_bytes": 524288,
+      "main_ram_bytes": 2097152,
+      "renderer_and_audio_reserve_bytes": 1494036,
+      "passes_renderer_only_probe_budget": false,
+      "playable_slice_committed_bytes": 2051092,
+      "passes_playable_slice_budget": true
+    }
+  },
+  "limits": [
+    "CPU rendering improves from140 to110 HBlanks in the orchard sample, with5 missed retraces unchanged. Keep rendering improves339 to332 HBlanks, with185 missed retraces unchanged. These are emulator CPU measurements, not steady30FPS or hardware claims.",
+    "Native display holds remain uneven. The independently isolated submit-before-display-flip experiment has the same hold histogram and average rate; it is not adopted.",
+    "All reserves and VRAM budgets remain intact. Largest main-RAM commitment2088836 bytes. Patch6 remains local; no public PR update or engine submission was made."
+  ],
+  "artifacts": {
+    "campaign": "out/ps1-inplace-helper06-campaign",
+    "solo_keep": "out/ps1-inplace-helper06-1p",
+    "coop_keep": "out/ps1-inplace-helper06-2p",
+    "watch": "out/ps1-inplace-helper06-watch",
+    "bell_experiment": "out/ps1-inplace-helper06-experiment",
+    "native_trace": "out/ps1-inplace-helper06-native/media/coverage.json",
+    "rejected_submit_before_flip": "out/ps1-submit-before-flip06-native/media/coverage.json"
+  }
+}
