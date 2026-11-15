@@ -1,0 +1,541 @@
+{
+  "schema": "grandleon.n64.material-pass-review.v1",
+  "source_base": "c915332a",
+  "shipping_decision": "Skip only an absent first textured settlement pass. The untextured final pass still establishes the same active draw state. No geometry, asset, order, camera, gameplay or input changes.",
+  "method": "Identical review-only category timing and read-only VI-origin observer, unchanged legal review input. No fences, markers or per-frame serial added to normal builds. All figures are emulator-only, not hardware predictions. CPU submission includes queue backpressure and is not total frame time. Nominal FPS uses 60 VIs/s; actual native VI clock is approximately 59.826 Hz.",
+  "artifacts": {
+    "retained_baseline": "out/n64-settlement-commands06/ares/commands.log",
+    "empty_textured_pass": "out/n64-settlement-no-empty06/ares/empty.log",
+    "isolated_certified_culling": "out/n64-solid-front06/ares/cull.log"
+  },
+  "stages": {
+    "retained_baseline": {
+      "1": {
+        "cpu_submission": {
+          "stage": 1,
+          "context": "all",
+          "intervals": 694,
+          "interval_avg_us": 36197,
+          "interval_max_us": 69537,
+          "intervals_over_40ms": 28,
+          "submissions": 695,
+          "submit_avg_us": 4772,
+          "submit_max_us": 35444
+        },
+        "presentation": {
+          "stage": 1,
+          "context": "all",
+          "frames": 694,
+          "total_vi": 1502,
+          "max_vi": 4,
+          "total_us": 25106059,
+          "fps_nominal_x100": 2772,
+          "hold1": 0,
+          "hold2": 637,
+          "hold3": 0,
+          "hold4": 57,
+          "hold5": 0,
+          "hold6": 0,
+          "hold7": 0,
+          "hold8": 0,
+          "hold9plus": 0
+        }
+      },
+      "2": {
+        "cpu_submission": {
+          "stage": 2,
+          "context": "all",
+          "intervals": 870,
+          "interval_avg_us": 33398,
+          "interval_max_us": 43595,
+          "intervals_over_40ms": 50,
+          "submissions": 871,
+          "submit_avg_us": 6942,
+          "submit_max_us": 15502
+        },
+        "presentation": {
+          "stage": 2,
+          "context": "all",
+          "frames": 870,
+          "total_vi": 1740,
+          "max_vi": 2,
+          "total_us": 29084257,
+          "fps_nominal_x100": 3000,
+          "hold1": 0,
+          "hold2": 870,
+          "hold3": 0,
+          "hold4": 0,
+          "hold5": 0,
+          "hold6": 0,
+          "hold7": 0,
+          "hold8": 0,
+          "hold9plus": 0
+        }
+      },
+      "3": {
+        "cpu_submission": {
+          "stage": 3,
+          "context": "all",
+          "intervals": 1409,
+          "interval_avg_us": 33399,
+          "interval_max_us": 43666,
+          "intervals_over_40ms": 6,
+          "submissions": 1410,
+          "submit_avg_us": 8234,
+          "submit_max_us": 17850
+        },
+        "presentation": {
+          "stage": 3,
+          "context": "all",
+          "frames": 1409,
+          "total_vi": 2818,
+          "max_vi": 2,
+          "total_us": 47103125,
+          "fps_nominal_x100": 3000,
+          "hold1": 0,
+          "hold2": 1409,
+          "hold3": 0,
+          "hold4": 0,
+          "hold5": 0,
+          "hold6": 0,
+          "hold7": 0,
+          "hold8": 0,
+          "hold9plus": 0
+        }
+      },
+      "4": {
+        "cpu_submission": {
+          "stage": 4,
+          "context": "all",
+          "intervals": 1012,
+          "interval_avg_us": 33394,
+          "interval_max_us": 47831,
+          "intervals_over_40ms": 44,
+          "submissions": 1013,
+          "submit_avg_us": 21609,
+          "submit_max_us": 26651
+        },
+        "presentation": {
+          "stage": 4,
+          "context": "all",
+          "frames": 1012,
+          "total_vi": 2024,
+          "max_vi": 2,
+          "total_us": 33831350,
+          "fps_nominal_x100": 3000,
+          "hold1": 0,
+          "hold2": 1012,
+          "hold3": 0,
+          "hold4": 0,
+          "hold5": 0,
+          "hold6": 0,
+          "hold7": 0,
+          "hold8": 0,
+          "hold9plus": 0
+        }
+      },
+      "5": {
+        "cpu_submission": {
+          "stage": 5,
+          "context": "all",
+          "intervals": 1299,
+          "interval_avg_us": 33412,
+          "interval_max_us": 39660,
+          "intervals_over_40ms": 0,
+          "submissions": 1300,
+          "submit_avg_us": 20821,
+          "submit_max_us": 24545
+        },
+        "presentation": {
+          "stage": 5,
+          "context": "all",
+          "frames": 1299,
+          "total_vi": 2598,
+          "max_vi": 2,
+          "total_us": 43425803,
+          "fps_nominal_x100": 3000,
+          "hold1": 0,
+          "hold2": 1299,
+          "hold3": 0,
+          "hold4": 0,
+          "hold5": 0,
+          "hold6": 0,
+          "hold7": 0,
+          "hold8": 0,
+          "hold9plus": 0
+        }
+      }
+    },
+    "empty_textured_pass": {
+      "1": {
+        "cpu_submission": {
+          "stage": 1,
+          "context": "all",
+          "intervals": 694,
+          "interval_avg_us": 36098,
+          "interval_max_us": 69126,
+          "intervals_over_40ms": 28,
+          "submissions": 695,
+          "submit_avg_us": 4663,
+          "submit_max_us": 35406
+        },
+        "presentation": {
+          "stage": 1,
+          "context": "all",
+          "frames": 694,
+          "total_vi": 1500,
+          "max_vi": 4,
+          "total_us": 25072649,
+          "fps_nominal_x100": 2776,
+          "hold1": 0,
+          "hold2": 638,
+          "hold3": 0,
+          "hold4": 56,
+          "hold5": 0,
+          "hold6": 0,
+          "hold7": 0,
+          "hold8": 0,
+          "hold9plus": 0
+        }
+      },
+      "2": {
+        "cpu_submission": {
+          "stage": 2,
+          "context": "all",
+          "intervals": 870,
+          "interval_avg_us": 33386,
+          "interval_max_us": 48248,
+          "intervals_over_40ms": 45,
+          "submissions": 871,
+          "submit_avg_us": 6941,
+          "submit_max_us": 15496
+        },
+        "presentation": {
+          "stage": 2,
+          "context": "all",
+          "frames": 870,
+          "total_vi": 1740,
+          "max_vi": 2,
+          "total_us": 29084258,
+          "fps_nominal_x100": 3000,
+          "hold1": 0,
+          "hold2": 870,
+          "hold3": 0,
+          "hold4": 0,
+          "hold5": 0,
+          "hold6": 0,
+          "hold7": 0,
+          "hold8": 0,
+          "hold9plus": 0
+        }
+      },
+      "3": {
+        "cpu_submission": {
+          "stage": 3,
+          "context": "all",
+          "intervals": 1409,
+          "interval_avg_us": 33417,
+          "interval_max_us": 45030,
+          "intervals_over_40ms": 10,
+          "submissions": 1410,
+          "submit_avg_us": 8147,
+          "submit_max_us": 17630
+        },
+        "presentation": {
+          "stage": 3,
+          "context": "all",
+          "frames": 1409,
+          "total_vi": 2818,
+          "max_vi": 2,
+          "total_us": 47103120,
+          "fps_nominal_x100": 3000,
+          "hold1": 0,
+          "hold2": 1409,
+          "hold3": 0,
+          "hold4": 0,
+          "hold5": 0,
+          "hold6": 0,
+          "hold7": 0,
+          "hold8": 0,
+          "hold9plus": 0
+        }
+      },
+      "4": {
+        "cpu_submission": {
+          "stage": 4,
+          "context": "all",
+          "intervals": 1012,
+          "interval_avg_us": 33380,
+          "interval_max_us": 47458,
+          "intervals_over_40ms": 46,
+          "submissions": 1013,
+          "submit_avg_us": 21578,
+          "submit_max_us": 26345
+        },
+        "presentation": {
+          "stage": 4,
+          "context": "all",
+          "frames": 1012,
+          "total_vi": 2024,
+          "max_vi": 2,
+          "total_us": 33831351,
+          "fps_nominal_x100": 3000,
+          "hold1": 0,
+          "hold2": 1012,
+          "hold3": 0,
+          "hold4": 0,
+          "hold5": 0,
+          "hold6": 0,
+          "hold7": 0,
+          "hold8": 0,
+          "hold9plus": 0
+        }
+      },
+      "5": {
+        "cpu_submission": {
+          "stage": 5,
+          "context": "all",
+          "intervals": 1299,
+          "interval_avg_us": 33410,
+          "interval_max_us": 39238,
+          "intervals_over_40ms": 0,
+          "submissions": 1300,
+          "submit_avg_us": 20817,
+          "submit_max_us": 24547
+        },
+        "presentation": {
+          "stage": 5,
+          "context": "all",
+          "frames": 1299,
+          "total_vi": 2598,
+          "max_vi": 2,
+          "total_us": 43425804,
+          "fps_nominal_x100": 3000,
+          "hold1": 0,
+          "hold2": 1299,
+          "hold3": 0,
+          "hold4": 0,
+          "hold5": 0,
+          "hold6": 0,
+          "hold7": 0,
+          "hold8": 0,
+          "hold9plus": 0
+        }
+      }
+    },
+    "isolated_certified_culling": {
+      "1": {
+        "cpu_submission": {
+          "stage": 1,
+          "context": "all",
+          "intervals": 694,
+          "interval_avg_us": 35956,
+          "interval_max_us": 69182,
+          "intervals_over_40ms": 24,
+          "submissions": 695,
+          "submit_avg_us": 4775,
+          "submit_max_us": 35192
+        },
+        "presentation": {
+          "stage": 1,
+          "context": "all",
+          "frames": 694,
+          "total_vi": 1492,
+          "max_vi": 4,
+          "total_us": 24938908,
+          "fps_nominal_x100": 2790,
+          "hold1": 0,
+          "hold2": 642,
+          "hold3": 0,
+          "hold4": 52,
+          "hold5": 0,
+          "hold6": 0,
+          "hold7": 0,
+          "hold8": 0,
+          "hold9plus": 0
+        }
+      },
+      "2": {
+        "cpu_submission": {
+          "stage": 2,
+          "context": "all",
+          "intervals": 870,
+          "interval_avg_us": 33369,
+          "interval_max_us": 44300,
+          "intervals_over_40ms": 49,
+          "submissions": 871,
+          "submit_avg_us": 6968,
+          "submit_max_us": 15495
+        },
+        "presentation": {
+          "stage": 2,
+          "context": "all",
+          "frames": 870,
+          "total_vi": 1740,
+          "max_vi": 2,
+          "total_us": 29084255,
+          "fps_nominal_x100": 3000,
+          "hold1": 0,
+          "hold2": 870,
+          "hold3": 0,
+          "hold4": 0,
+          "hold5": 0,
+          "hold6": 0,
+          "hold7": 0,
+          "hold8": 0,
+          "hold9plus": 0
+        }
+      },
+      "3": {
+        "cpu_submission": {
+          "stage": 3,
+          "context": "all",
+          "intervals": 1409,
+          "interval_avg_us": 33407,
+          "interval_max_us": 42602,
+          "intervals_over_40ms": 6,
+          "submissions": 1410,
+          "submit_avg_us": 8191,
+          "submit_max_us": 17070
+        },
+        "presentation": {
+          "stage": 3,
+          "context": "all",
+          "frames": 1409,
+          "total_vi": 2818,
+          "max_vi": 2,
+          "total_us": 47103109,
+          "fps_nominal_x100": 3000,
+          "hold1": 0,
+          "hold2": 1409,
+          "hold3": 0,
+          "hold4": 0,
+          "hold5": 0,
+          "hold6": 0,
+          "hold7": 0,
+          "hold8": 0,
+          "hold9plus": 0
+        }
+      },
+      "4": {
+        "cpu_submission": {
+          "stage": 4,
+          "context": "all",
+          "intervals": 1012,
+          "interval_avg_us": 33398,
+          "interval_max_us": 47584,
+          "intervals_over_40ms": 43,
+          "submissions": 1013,
+          "submit_avg_us": 21348,
+          "submit_max_us": 25733
+        },
+        "presentation": {
+          "stage": 4,
+          "context": "all",
+          "frames": 1012,
+          "total_vi": 2024,
+          "max_vi": 2,
+          "total_us": 33831327,
+          "fps_nominal_x100": 3000,
+          "hold1": 0,
+          "hold2": 1012,
+          "hold3": 0,
+          "hold4": 0,
+          "hold5": 0,
+          "hold6": 0,
+          "hold7": 0,
+          "hold8": 0,
+          "hold9plus": 0
+        }
+      },
+      "5": {
+        "cpu_submission": {
+          "stage": 5,
+          "context": "all",
+          "intervals": 1299,
+          "interval_avg_us": 33399,
+          "interval_max_us": 39397,
+          "intervals_over_40ms": 0,
+          "submissions": 1300,
+          "submit_avg_us": 20434,
+          "submit_max_us": 24389
+        },
+        "presentation": {
+          "stage": 5,
+          "context": "all",
+          "frames": 1299,
+          "total_vi": 2598,
+          "max_vi": 2,
+          "total_us": 43425801,
+          "fps_nominal_x100": 3000,
+          "hold1": 0,
+          "hold2": 1299,
+          "hold3": 0,
+          "hold4": 0,
+          "hold5": 0,
+          "hold6": 0,
+          "hold7": 0,
+          "hold8": 0,
+          "hold9plus": 0
+        }
+      }
+    }
+  },
+  "proof": {
+    "all_model_geometry_and_state": "out/n64-settlement-no-empty06/proof",
+    "coverage": "26 models, two repeated instances and one mixed instance per model. Exact ordered vertex/triangle payload, active material state per batch, final active RDP/Tiny3D state, repeat draws and drained stage replacements. Only the unused masonry TMEM upload is omitted; subsequent renderers bind their own textures.",
+    "pixels": "The 1,400-pixel opaque Bell beam interior is identical; asynchronous checkpoint screenshots can differ in wind, dialogue and movement highlights, so no whole-image equality claim."
+  },
+  "normal_build": {
+    "rom": "out/n64-settlement-no-empty-normal06/project/grandleon_pyrite_game.z64",
+    "boot_log": "out/n64-settlement-no-empty-normal06/ares/normal.log",
+    "review_driver": false,
+    "elf_before": {
+      "text": 1714050,
+      "data": 82420,
+      "bss": 66128,
+      "total": 1862598
+    },
+    "elf_after": {
+      "text": 1714114,
+      "data": 82420,
+      "bss": 66128,
+      "total": 1862662
+    },
+    "resident_delta_bytes": 64,
+    "extra_heap_bytes": 0
+  },
+  "rejected_culling": {
+    "decision": "Not retained. Small measured gain does not justify additional certified-part metadata and general camera-inside/near-plane safeguards. The opposite winding mode visibly removes needed beam/post faces.",
+    "audit": "out/n64-settlement-commands06/solid-audit.json",
+    "audit_script": "out/n64-settlement-commands06/solid-audit.py",
+    "criteria": "Weld exact integer positions per model; every edge has precisely two opposite directed incidents; reject degenerate, open, nonmanifold and nonconvex components. Mark a batch eligible only when all its triangles belong to consistently wound certified components. No triangle reversal/reordering.",
+    "certified_source_triangles": 3336,
+    "source_triangles": 7304,
+    "certified_batches": 238,
+    "source_batches": 490,
+    "signed_volume": "All certified components are negative/inward under this coordinate convention; native CULL_FRONT preserves the exterior.",
+    "camera_safety": "This is an isolated experiment, not shipping code. No general inside-camera or near-plane certification was implemented.",
+    "visual_artifacts": [
+      "out/n64-solid-front06/bell-comparison.png",
+      "out/n64-solid-front06/ares/cull-trail/108-PYRITE_CASTLE_EXTERIOR_REVIEW.png",
+      "out/n64-solid-front06/ares/cull-trail/124-PYRITE_CASTLE_ROOM_REVIEW.png"
+    ],
+    "complete_review": "5 battles, 287 commands, 165 enemy commands, 18 revealed cells, canonical hash 600017321675168062; full native gameplay pass. Opposite-winding run stopped after visual rejection."
+  },
+  "source_sha256": {
+    "platform/nintendo64/pyrite/project/src/user/SettlementScenery.cpp": "c4fa373efb4fa299255073d6042cb2bd4ac7bcd23fdf615457b9d3035b369e03"
+  },
+  "result": {
+    "full_native_review": "PASS; 5 battles, 287 commands, 165 enemy commands, 18 revealed cells, canonical 600017321675168062",
+    "final_review_free_heap_bytes": 225152,
+    "retained_baseline_free_heap_bytes": 225216,
+    "performance_qualification": "Bell 27.72 to 27.76 nominal FPS, 57 to 56 four-VI holds. This tiny difference is not a meaningful frame-rate improvement claim. The change removes an unused material upload with an exact active-state contract; later four stages retain only two-VI holds.",
+    "native_visual_review": [
+      "out/n64-settlement-no-empty06/ares/empty-trail/012-PYRITE_SELECTED.png",
+      "out/n64-settlement-no-empty06/ares/empty-trail/108-PYRITE_CASTLE_EXTERIOR_REVIEW.png",
+      "out/n64-settlement-no-empty06/ares/empty-trail/124-PYRITE_CASTLE_ROOM_REVIEW.png"
+    ],
+    "visual_qualification": "Native Bell and exterior/interior Keep images reviewed. Checkpoint captures are asynchronous and may differ in animation, UI phase and RDP dither; no whole-frame pixel equality claim."
+  }
+}

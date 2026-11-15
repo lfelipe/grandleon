@@ -125,6 +125,9 @@ bool SettlementScenery::finish() {
 void SettlementScenery::draw() const {
     if (batches_.empty()) return;
     for (const bool textured : {true,false}) {
+        // There is no material consumer when the textured command block is
+        // absent. The final untextured pass still establishes the same state.
+        if (textured && !commands_[0]) continue;
         rdpq_mode_begin();
             rdpq_mode_zbuf(true,true);
             rdpq_mode_tlut(TLUT_NONE);
