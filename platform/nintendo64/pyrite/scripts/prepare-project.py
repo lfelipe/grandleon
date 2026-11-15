@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "platform/console_a
 from scenery_style import document as scenery_document, write_n64_header as write_style_header, save_ci8_house, save_ci4_image, grove_image, ground_image
 from settlement_scenery import write_n64_header as write_settlement_header
 from stone_keep import write_n64_header
+from keep_motion import write_n64_motion_header
 
 # The pinned builder uses Pillow 9.0; filter values are unchanged across APIs.
 RESAMPLING = getattr(Image, "Resampling", Image)
@@ -326,6 +327,8 @@ def prepare(project_path: Path, manifest_path: Path, project_root: Path,
     write_asset_config(assets / "castle_masonry.png.conf", "castle_masonry", 0)
     write_n64_header(castle_source.parents[1], project_root / "src/user/GeneratedStoneKeep.hpp",
                      any("castle_wall" in str(cell) for map_value in maps for cell in map_value.get("terrain", [])))
+    write_n64_motion_header(castle_source.parents[1], project_root / "src/user/GeneratedKeepMotion.hpp",
+                            any("castle_wall" in str(cell) for map_value in maps for cell in map_value.get("terrain", [])))
     write_settlement_header(castle_source.parents[1], project_root / "src/user/GeneratedSettlement.hpp")
     write_style_header(castle_source.parents[1], project_root / "src/user/GeneratedSceneryStyle.hpp", theme)
     for drawing in range(len(scenery_document(castle_source.parents[1])["houses"]["drawings"])):

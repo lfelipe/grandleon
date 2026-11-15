@@ -1,0 +1,222 @@
+{
+  "schema": "grandleon.n64.entrance-pennant-review.v1",
+  "renderer_base": "760282a4",
+  "decision": "Retain restrained movement of the existing gold entrance pennant. No new art, geometry, textures, material state, gameplay changes or per-frame allocation/fence.",
+  "sources": {
+    "platform/nintendo64/pyrite/project/src/user/ProjectBoard.cpp": "2d144086d5ffee18cd1ef4a7f6c452d25153015a0b0043de7b0b977ac633df7b",
+    "platform/nintendo64/pyrite/project/src/user/StoneKeep.cpp": "5a32822d10ab4ffd60e1085435a31fc3c67a8aedabf0482945c7c989ebd1e493",
+    "platform/nintendo64/pyrite/project/src/user/StoneKeep.hpp": "5b8e8437020d861f46d71a22f4dd6e2637f2708a55e9d34081fa2aa711b59e1a",
+    "platform/nintendo64/pyrite/scripts/prepare-project.py": "c49aaeffff4fb29c04ad9c9ed858acdb952f8e54dcc826bef6eb7040cc54ec72",
+    "platform/nintendo64/pyrite/scripts/keep_motion.py": "1af7e57759b4edf719f7551c0961c960dfae5215fab23a9cbb94c5eb558071d6"
+  },
+  "rig": {
+    "preparation": "N64-only keep_motion.py maps the exact authored entrance-pennant part signature to a named generated rig. The portable source currently lacks semantic IDs; this exact checked mapping avoids hard-coded part offsets or loose runtime geometry guesses. Missing/ambiguous/stale topology raises an actionable error. Castle-disabled exports receive an empty rig. Shared artwork/generators are unchanged.",
+    "current_descriptor": "GeneratedKeepMotion.hpp has four free-edge indices 1422, 1423, 1426, 1427, derived from the existing source geometry. Four hinge vertices and separate pole/lanterns/stonework are excluded.",
+    "movement": "Existing fixed-point ambient wave offsets only the free-edge X coordinates. Lower edge max 3 world units, upper max 2 with a small phase delay; original YZ, UV, colour and normals stay exact. Restoring neutral motion restores original X.",
+    "lifetime": "Existing uncached StoneKeep vertex arena stays in place. animate runs in pre-draw after SwapChain has retired the preceding pass; neither command/index ownership nor vertex allocation changes. No additional wait, fence or draw command.",
+    "primitive_counts": "Existing 8-vertex cloth, all original Keep parts/triangles and material passes retained."
+  },
+  "validation": {
+    "full_campaign": "out/n64-pennant06/ares/pennant.log",
+    "result": "PASS: five battles, 287 accepted commands, 165 enemy commands, 18 revealed Keep cells; canonical 600017321675168062, unchanged. Same legal review inputs and assertions.",
+    "normal_boot": "out/n64-pennant06-normal/ares/normal.log; review_driver=0 PASS",
+    "host_vertex_proof": "out/n64-pennant06/proof/result.txt: 512 ticks across all 1568 Keep vertices; only four free-edge X coordinates change within bounds; hinge/pole/stonework/YZ/UV/colour/normals remain fixed; neutral/clear/rebuild pass.",
+    "metadata_proof": "out/n64-pennant06/proof/metadata-proof.json: current descriptor regenerates byte-identically; disabled/missing/ambiguous cases pass. Preparation import/help and Python compilation pass.",
+    "existing_host_tests": "out/n64-pennant06/host-projection.log: all five camera/controller/font tests pass.",
+    "actual_presentation": [
+      {
+        "stage": 1,
+        "frames": 694,
+        "fps_nominal_x100": 2772,
+        "hold2": 637,
+        "hold4": 57
+      },
+      {
+        "stage": 2,
+        "frames": 870,
+        "fps_nominal_x100": 3000,
+        "hold2": 870,
+        "hold4": 0
+      },
+      {
+        "stage": 3,
+        "frames": 1409,
+        "fps_nominal_x100": 3000,
+        "hold2": 1409,
+        "hold4": 0
+      },
+      {
+        "stage": 4,
+        "frames": 1012,
+        "fps_nominal_x100": 3000,
+        "hold2": 1012,
+        "hold4": 0
+      },
+      {
+        "stage": 5,
+        "frames": 1299,
+        "fps_nominal_x100": 3000,
+        "hold2": 1299,
+        "hold4": 0
+      }
+    ],
+    "qualification": "Presentation histograms match the seam baseline: Bell 27.72 nominal FPS, other four stages 30.00. Emulator-only, not physical hardware results. Capture markers/trace exist only in separate ignored diagnostic builds.",
+    "excluded_capture": "Earlier cancel-key capture attempt did not take over autoplay and produced no movie. It completed the ordinary campaign instead; excluded from motion evidence. The successful retry uses ordinary Right input then waits three seconds of actual simulation before recording."
+  },
+  "memory": {
+    "normal_before": {
+      "text": 1715522,
+      "data": 82436,
+      "bss": 66128,
+      "total": 1864086
+    },
+    "normal_after": {
+      "text": 1716002,
+      "data": 82436,
+      "bss": 66128,
+      "total": 1864566
+    },
+    "resident_delta_bytes": 480,
+    "heap_allocations_added": 0,
+    "geometry_bytes_added": 0,
+    "texture_bytes_added": 0,
+    "review_final_free_heap_bytes": 223144,
+    "rdram_bytes": 4194304,
+    "reserves": "Existing gameplay/audio/stack reserves retained."
+  },
+  "clips": {
+    "pennant": {
+      "coverage": {
+        "trace_records": 121,
+        "matched_ids": 121,
+        "missing_ids": [],
+        "guard_rejects": 0,
+        "duration_us": 4011615,
+        "hold_vi_histogram": {
+          "2": 120
+        },
+        "constant_cadence_rate": "8000000/267441"
+      },
+      "motion_proof": {
+        "cloth": {
+          "crop": [
+            160,
+            148,
+            178,
+            183
+          ],
+          "settled_frames": 120,
+          "unique_states": 20
+        },
+        "pole": {
+          "crop": [
+            152,
+            115,
+            159,
+            145
+          ],
+          "settled_frames": 120,
+          "unique_states": 1
+        },
+        "stonework": {
+          "crop": [
+            300,
+            200,
+            500,
+            300
+          ],
+          "settled_frames": 120,
+          "unique_states": 1
+        },
+        "ground": {
+          "crop": [
+            280,
+            425,
+            380,
+            465
+          ],
+          "settled_frames": 120,
+          "unique_states": 1
+        }
+      },
+      "trace": "out/n64-current-pennant-retry-film06/ares/film.log",
+      "mapping": "out/n64-current-pennant-retry-film06/decoded/selection.json",
+      "controller": "out/n64-current-pennant-retry-film06/controller-proof.txt",
+      "artifacts": {
+        "n64-pennant-native.mp4": {
+          "path": "out/n64-current-pennant-retry-film06/n64-pennant-native.mp4",
+          "sha256": "c5488d3d53da0f416c5d21a8725dcc4cd52bb1cf47acc0abbaf6f9a1c69a9c97",
+          "bytes": 93776
+        },
+        "n64-pennant-detail.mp4": {
+          "path": "out/n64-current-pennant-retry-film06/n64-pennant-detail.mp4",
+          "sha256": "5c6913a1611766d704979ae95505829694f1a4d5fd62931538443e37d9a53539",
+          "bytes": 9599
+        },
+        "n64-pennant-poster.png": {
+          "path": "out/n64-current-pennant-retry-film06/n64-pennant-poster.png",
+          "sha256": "697d4aaa24a5cc1aa8d133de677d9e4b28a868a1bc598662825c9071a492911e",
+          "bytes": 82826
+        }
+      },
+      "presentation": "120 actual native pictures plus endpoint, 4.011615 seconds, all two-VI holds. All 120 pictures have settled camera. Full view is 750\u00d7566; detail is a 48\u00d772 crop enlarged 4\u00d7 with nearest-neighbour scaling, not higher native resolution.",
+      "independence": "Pole, stonework and ground crops each remain pixel-identical across 120 frames while cloth has 20 states. Existing character idle animations continue independently; this rig neither modifies unit placement nor changes unit animation."
+    },
+    "river": {
+      "coverage": {
+        "trace_records": 116,
+        "matched_ids": 116,
+        "missing_ids": [],
+        "guard_rejects": 0,
+        "duration_us": 3844471,
+        "hold_vi_histogram": {
+          "2": 115
+        },
+        "constant_cadence_rate": "115000000/3844471"
+      },
+      "motion_proof": {
+        "water": {
+          "crop": [
+            530,
+            345,
+            580,
+            393
+          ],
+          "settled_frames": 54,
+          "unique_states": 16
+        },
+        "road": {
+          "crop": [
+            275,
+            192,
+            303,
+            216
+          ],
+          "settled_frames": 54,
+          "unique_states": 1
+        }
+      },
+      "trace": "out/n64-current-river-film06/ares/film.log",
+      "mapping": "out/n64-current-river-film06/decoded/selection.json",
+      "controller": "out/n64-current-river-film06/controller-proof.txt",
+      "artifacts": {
+        "n64-river-current.mp4": {
+          "path": "out/n64-current-river-film06/n64-river-current.mp4",
+          "sha256": "1e2dbd73ddcc16d0345cb25181489668736aa58349770806de24e518677b4ac0",
+          "bytes": 349442
+        },
+        "n64-river-current-poster.png": {
+          "path": "out/n64-current-river-film06/n64-river-current-poster.png",
+          "sha256": "f4c705079aa38840fc9ed033f047bd648b28176f24d4310181cab9d5bb25c915",
+          "bytes": 97571
+        }
+      },
+      "trim": "Host collection missed the first five observations (IDs 362\u2013366). Published clip uses only the complete contiguous suffix 367\u2013482: 115 actual pictures plus endpoint, 3.844471 seconds. No internal gap, interpolation or frame padding. Original full trace retained; selected-trace.log and selection-provenance.json document the cut."
+    }
+  },
+  "normal_rom": {
+    "path": "out/n64-pennant06-normal/project/grandleon_pyrite_game.z64",
+    "sha256": "279b214b8d9f9b5932df45218f1438bb1d24dd5405456595b72553ed1803d57e"
+  },
+  "scope": "N64-only source/preparation/evidence. No shared assets, tests/assertions, upstream engine, TODO, hardware deployment or public pushes."
+}

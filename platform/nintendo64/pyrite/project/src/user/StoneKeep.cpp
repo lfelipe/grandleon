@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 #include "StoneKeep.hpp"
 #include "GeneratedStoneKeep.hpp"
+#include "GeneratedKeepMotion.hpp"
+#include <grandleon/view/ambient_motion.hpp>
 
 #include <algorithm>
 
@@ -41,8 +43,23 @@ bool StoneKeep::build(std::int16_t centre_x, std::int16_t centre_z,
             else packed.normB = normal;
         }
     }
+    centre_x_ = centre_x;
     active_ = true;
     return true;
+}
+
+void StoneKeep::animate(std::uint32_t tick, bool enabled) {
+    if (!active_) return;
+    // The generated rig names only the four free-edge cloth vertices. Its
+    // attachment edge, pole, lanterns and stonework retain their exact poses.
+    // Called after SwapChain retires the previous pass, before vertex loads.
+    for (const auto& cloth : castle_motion::entrance_pennant) {
+        const auto wave = enabled ? grandleon::view::ambient_wave_q12(tick, cloth.phase) : 0;
+        const int scaled = wave * cloth.amplitude;
+        const int offset = (scaled + (scaled < 0 ? -2048 : 2048)) / 4096;
+        auto* position = t3d_vertbuffer_get_pos(vertices_, cloth.index);
+        position[0] = centre_x_ + castle_art::vertices[cloth.index].x + offset;
+    }
 }
 
 void StoneKeep::draw(bool exterior) const {

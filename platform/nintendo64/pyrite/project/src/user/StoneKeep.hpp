@@ -12,9 +12,11 @@ public:
     void clear() { active_ = false; }
     bool active() const { return active_; }
     void draw(bool exterior) const;
+    void animate(std::uint32_t tick, bool enabled);
 private:
     T3DVertPacked* vertices_{};
     sprite_t* masonry_{};
     bool active_{};
+    std::int16_t centre_x_{};
 };
 }

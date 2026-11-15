@@ -5969,6 +5969,7 @@ void onScenePreDraw3D() {
     if (!board.loaded || shell.phase != ShellPhase::battle) return;
     board_timing_begin_submission();
     animate_water_vertices();
+    board.keep.animate(frame_count / 2U, !combat.reduced_motion);
     draw_environment();
     draw_elevation();
     draw_board_cells();
