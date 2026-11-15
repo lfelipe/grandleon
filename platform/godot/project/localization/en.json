@@ -2056,6 +2056,9 @@
     "catalog.update_fresh": "Update and start fresh",
     "catalog.keep_version": "Keep installed version",
     "catalog.updated_compatible": "Ready to play. Your existing saves remain compatible.",
-    "catalog.updated_fresh": "Updated. Start a new game; previous saves have been kept."
+    "catalog.updated_fresh": "Updated. Start a new game; previous saves have been kept.",
+    "player.recovery.restoring": "Restoring your battle…",
+    "player.recovery.unavailable": "The interrupted battle could not be restored. Its recovery file was kept; the campaign checkpoint will be loaded instead.",
+    "player.recovery.save_failed": "The current battle could not be saved. Earlier saves are unchanged."
   }
 }

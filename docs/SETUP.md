@@ -227,3 +227,19 @@ movement regressions with:
 ```sh
 platform/godot/scripts/smoke-lan.sh build-godot
 ```
+
+
+### Checking interrupted local games
+
+The Godot player keeps automatic recovery for local solo and same-device
+co-op separately. Manual save slots remain between-battle checkpoints.
+Run the native recovery, full-player pause/resume and forced-termination tests:
+
+```sh
+platform/godot/scripts/smoke-local-recovery.sh build-godot
+```
+
+These checks kill desktop Godot processes without shutdown callbacks. They
+also exercise accented save paths, compatible campaign updates, interrupted
+file replacement and damaged-file fallback. Android process termination still
+needs its own emulator or device check.

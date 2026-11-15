@@ -105,10 +105,15 @@ part of 0.6, alongside performance work and platform validation.
   43.8 / 27.4 / 17.7 FPS; an ONN 13 Pro measured 90.0 / 90.0 / 81.8 FPS.
   Auto chooses Low and Medium respectively. These are opening-map samples;
   larger maps and sustained thermal testing remain part of device validation.
-- [ ] Validate accented Android filenames, interrupted writes and save/resume
-  after suspension and process termination. Emulator tests cover pausing and
-  resuming the running battle; they do not prove recovery of unsaved progress
-  after Android kills the process.
+- [x] Recover active local solo and same-device co-op battles in the Godot
+  player. Replay only accepted actions through the native rules, isolate each
+  player mode, preserve explored rooms, and retain damaged recovery files.
+  Real desktop process-kill checks cover accented save paths, interrupted
+  replacements, compatible campaign updates and invalid recovery fallback.
+- [ ] Validate accented Android filenames and active-battle recovery after
+  suspension and process termination on Android itself. Desktop process-kill
+  tests and existing emulator pause/resume checks do not complete this device
+  lifecycle check.
 - [ ] Test installation, updates, audio, graphics, translations, controllers,
   background/resume and create → save → reopen → play on actual devices.
   Measure memory, cold shader/asset loading, APK size and performance before

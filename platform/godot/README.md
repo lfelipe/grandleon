@@ -92,6 +92,13 @@ Projects, imports, exports, recovery data, settings, and campaign saves live in
 the user's application-data directory. They are not written into the installed
 program folder.
 
+Local solo and same-device co-op automatically recover accepted battle actions
+when the campaign is reopened. Manual save slots still hold between-battle
+checkpoints. Recovery is separate for each player mode; damaged automatic
+files are kept aside before returning to the campaign checkpoint. The local
+recovery smoke command and Android verification limits are in
+[Setting up](../../docs/SETUP.md#checking-interrupted-local-games).
+
 A portable project contains its game source and project-owned assets. It does
 not include usernames, computer paths, credentials, controller identities,
 local settings, recovery data, or player saves.

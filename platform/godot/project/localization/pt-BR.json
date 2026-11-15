@@ -2056,6 +2056,9 @@
     "catalog.update_fresh": "Atualizar e começar de novo",
     "catalog.keep_version": "Manter versão instalada",
     "catalog.updated_compatible": "Pronto para jogar. Seus jogos salvos continuam compatíveis.",
-    "catalog.updated_fresh": "Atualizado. Comece um novo jogo; os jogos salvos anteriores foram mantidos."
+    "catalog.updated_fresh": "Atualizado. Comece um novo jogo; os jogos salvos anteriores foram mantidos.",
+    "player.recovery.restoring": "Restaurando sua batalha…",
+    "player.recovery.unavailable": "Não foi possível restaurar a batalha interrompida. O arquivo de recuperação foi preservado; o ponto de controle da campanha será carregado.",
+    "player.recovery.save_failed": "Não foi possível salvar a batalha atual. Os arquivos salvos anteriormente não foram alterados."
   }
 }

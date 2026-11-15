@@ -2056,6 +2056,9 @@
     "catalog.update_fresh": "Actualizar y empezar de nuevo",
     "catalog.keep_version": "Conservar versión instalada",
     "catalog.updated_compatible": "Listo para jugar. Tus partidas guardadas siguen siendo compatibles.",
-    "catalog.updated_fresh": "Actualizado. Empieza una nueva partida; se han conservado las partidas anteriores."
+    "catalog.updated_fresh": "Actualizado. Empieza una nueva partida; se han conservado las partidas anteriores.",
+    "player.recovery.restoring": "Restaurando la batalla…",
+    "player.recovery.unavailable": "No se pudo restaurar la batalla interrumpida. Se conservó su archivo de recuperación; se cargará el punto de control de la campaña.",
+    "player.recovery.save_failed": "No se pudo guardar la batalla actual. Las partidas guardadas anteriores no han cambiado."
   }
 }

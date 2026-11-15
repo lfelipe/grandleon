@@ -46,6 +46,10 @@ func configure(
 	for index: int in _hidden:
 		_progress[index] = 0.0
 
+	# Local recovery supplies positions reconstructed by the native replay.
+	reveal_from_positions(value.get("recovered_positions", []))
+	advance(1.0)
+
 
 func reveal_from_positions(positions: Array) -> bool:
 	var changed := false

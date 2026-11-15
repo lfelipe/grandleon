@@ -43,6 +43,12 @@ func _run() -> void:
 			proceeded = true
 	if not expect(player.snapshot.get("width", 0) == 8, "authored Bell Orchard reached through native story/company"):
 		return
+	# Opening overview consumes Confirm/taps to skip; wait for actual playable
+	# input before exercising selection and movement.
+	await process_frame
+	deadline = Time.get_ticks_msec() + 10000
+	while (player.stage_overview_pending or player._stage_overview_active()) and Time.get_ticks_msec() < deadline:
+		await process_frame
 	player._create_mobile_controls()
 	player._update_mobile_controls()
 	expect(player.mobile_buttons.menu.visible and player.mobile_buttons.end_turn.visible, "idle HUD offers Menu and End turn")

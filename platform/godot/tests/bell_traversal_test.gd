@@ -30,6 +30,12 @@ func _run() -> void:
 		await process_frame
 	check(not player.snapshot.is_empty(), "Real Bell Orchard campaign must start")
 	if player.snapshot.is_empty(): quit(1); return
+	# Opening overview consumes Confirm/taps to skip; wait for actual playable
+	# input before exercising selection and movement.
+	await process_frame
+	deadline = Time.get_ticks_msec() + 10000
+	while (player.stage_overview_pending or player._stage_overview_active()) and Time.get_ticks_msec() < deadline:
+		await process_frame
 	var board: Node = player.board
 	player.seats[0].cursor = Vector2i(1, 2)
 	player._accept_at(0)

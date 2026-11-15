@@ -315,6 +315,8 @@ func _ready() -> void:
 	if session == null:
 		_show_fatal(_ui("player.error.native_bridge"))
 		return
+	if not LANSession.active() and not campaign_save_root.is_empty():
+		session = load("res://scripts/local_campaign.gd").new(session)
 	var launch_package := PackedByteArray()
 	if staged.is_empty():
 		launch_package = FileAccess.get_file_as_bytes(
@@ -2925,7 +2927,7 @@ func _handle_event(event: Dictionary) -> void:
 			for seat in 2:
 				board.set_selected(seat, 0, "move")
 			_seed_cursors()
-			stage_overview_pending = true
+			stage_overview_pending = not bool(event.get("recovered", false))
 			_show_no_selection(LANSession.local_seat() if LANSession.active() else 0)
 			_update_status()
 			if fixed_formation_smoke:
@@ -2947,6 +2949,7 @@ func _handle_event(event: Dictionary) -> void:
 			battle_visual_visibility = {
 				"reveal_radius": int(event.get("reveal_radius", 2)),
 				"hidden_cells": event.get("hidden_cells", []).duplicate(),
+				"recovered_positions": event.get("recovered_positions", []).duplicate(true),
 			}
 			board.set_visual_visibility(battle_visual_visibility)
 		"network_resync":
@@ -2956,6 +2959,8 @@ func _handle_event(event: Dictionary) -> void:
 			# Reconnection must preserve the explicit Resume decision after an
 			# Android suspension, or a menu the player opened while waiting.
 			lan_waiting_for_host = false
+		"recovery_notice":
+			_show_toast(_ui(str(event.get("key", "player.recovery.unavailable"))))
 		"network_save_failed":
 			_show_toast(_ui("lan.storage_error"))
 		"network_language":
@@ -4733,6 +4738,8 @@ func _mobile_set_backgrounded(value: bool) -> void:
 	if combat_cinematic != null:
 		combat_cinematic.set_fast_forward(false)
 	mobile_backgrounded = value
+	if session != null and session.has_method("set_backgrounded"):
+		session.set_backgrounded(value)
 	if LANSession.active(): LANSession.set_host_paused(value)
 	var bus := AudioServer.get_bus_index("Master")
 	if value:

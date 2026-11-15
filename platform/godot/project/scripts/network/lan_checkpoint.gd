@@ -9,8 +9,10 @@ var root := ""
 var campaign := ""
 var package_hash := ""
 var error := ""
-func _init(path: String, key: String, hash_value: String) -> void:
-	root = path.path_join("network-" + key.sha256_text()) if not path.is_empty() else ""
+var extension := ".lan"
+func _init(path: String, key: String, hash_value: String, scope := "network") -> void:
+	root = path.path_join(scope + "-" + key.sha256_text()) if not path.is_empty() else ""
+	extension = ".lan" if scope == "network" else ".resume"
 	campaign = key
 	package_hash = hash_value
 static func hash_bytes(bytes: PackedByteArray) -> String:
@@ -19,7 +21,7 @@ static func hash_bytes(bytes: PackedByteArray) -> String:
 	hash.update(bytes)
 	return hash.finish().hex_encode()
 func exists(slot: int) -> bool: return not root.is_empty() and FileAccess.file_exists(_path(slot))
-func _path(slot: int) -> String: return root.path_join("auto.lan" if slot == 0 else "slot-%d.lan" % slot)
+func _path(slot: int) -> String: return root.path_join("auto" + extension if slot == 0 else "slot-%d%s" % [slot, extension])
 func read(slot: int) -> Dictionary:
 	error = ""
 	if not exists(slot): return {}
@@ -47,12 +49,20 @@ func read(slot: int) -> Dictionary:
 		if not command is Dictionary or command.get("kind") not in ["move", "attack", "ability", "talk", "wait", "deploy", "begin"]:
 			error = "lan.invalid_save"
 			return {}
+		for field: String in ["unit", "target", "x", "y", "content"]:
+			if typeof(command.get(field, 0)) != TYPE_INT:
+				error = "lan.invalid_save"
+				return {}
+	var units: Variant = value.snapshot.get("units", [])
+	if not units is Array or units.any(func(unit): return not unit is Dictionary):
+		error = "lan.invalid_save"
+		return {}
 	return value
 func write(slot: int, base: PackedByteArray, commands: Array, snapshot: Dictionary) -> bool:
 	error = ""
 	if root.is_empty() or base.is_empty(): return false
 	var payload := var_to_bytes({"version": VERSION, "campaign": campaign, "package_hash": package_hash, "base": base, "commands": commands, "snapshot": snapshot})
-	if payload.size() > MAX_BYTES or DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(root)) != OK:
+	if commands.size() > 100000 or payload.size() > MAX_BYTES or DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(root)) != OK:
 		error = "lan.storage_error"
 		return false
 	var path := _path(slot)
@@ -74,6 +84,17 @@ func write(slot: int, base: PackedByteArray, commands: Array, snapshot: Dictiona
 	return true
 func erase_auto() -> void:
 	if exists(0): DirAccess.remove_absolute(ProjectSettings.globalize_path(_path(0)))
+# Keep damaged/incompatible automatic recovery data for inspection rather
+# than overwriting it when returning to the durable campaign checkpoint.
+func keep_rejected_auto() -> bool:
+	if not exists(0): return true
+	var path := ProjectSettings.globalize_path(_path(0))
+	var backup := path + ".rejected-%d-%d" % [Time.get_unix_time_from_system(), Time.get_ticks_usec()]
+	var index := 0
+	while FileAccess.file_exists(backup):
+		index += 1
+		backup = path + ".rejected-%d-%d" % [Time.get_ticks_usec(), index]
+	return DirAccess.rename_absolute(path, backup) == OK
 static func same_state(first: Dictionary, second: Dictionary) -> bool:
 	var a := first.duplicate(true)
 	var b := second.duplicate(true)
