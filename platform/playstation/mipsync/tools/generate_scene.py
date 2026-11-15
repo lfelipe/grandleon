@@ -540,6 +540,7 @@ def write_textures(
     output: Path, repo: Path, terrain_kinds: list[int], units: list[dict[str, object]],
     map_id: str = "0", speakers: list[dict[str, object]] | None = None,
     castle: bool = False, houses: bool = False, theme: int = 0, grove: bool = False,
+    house_drawings: tuple[int, ...] = (),
 ) -> tuple[
     dict[int, int], dict[tuple[int, int, int, int], UnitTextureIndices],
     int, dict[str, object], dict[int, int],
@@ -591,13 +592,13 @@ def write_textures(
         terrain_indices[-4] = len(textures)
 
     if houses:
-        for drawing in range(4):
+        for drawing in (house_drawings or tuple(range(4))):
             textures.append((f"scenery_house_{drawing}", house_image(repo,drawing,96), True, 0, 0))
             terrain_indices[-10-drawing] = len(textures)
 
     if grove:
         textures.append(("scenery_grove", grove_image(repo, 96, theme), True, 0, 0))
-        terrain_indices[-14] = len(textures)
+        terrain_indices[-100] = len(textures)
 
     for unit in units:
         key = (
@@ -1166,7 +1167,7 @@ def append_settlement_model(board_vertices, board_uvs, board_triangles, kind, se
         for x,y in [(-half,-half),(half,-half),(half,half),(-half,half)]:
             board_vertices.append((round(x),round(centre + y*math.cos(angle)),round(-y*math.sin(angle)),0))
         board_uvs.extend([(95 if mirror == "1" else 0,95),(0 if mirror == "1" else 95,95),(0 if mirror == "1" else 95,0),(95 if mirror == "1" else 0,0)])
-        texture = terrain_indices[-10-int(drawing)]
+        texture = terrain_indices[-100 if kind == "grove_cutout" else -10-int(drawing)]
         board_triangles.extend([(0,1,2,texture,255,255,255,255),(0,2,3,texture,255,255,255,255)])
         return
     for part in settlement_models[kind]:
@@ -2106,12 +2107,22 @@ def main() -> int:
         keep_parts = load_keep(repo, "ps1")
     settlement_instances = settlement_placements(document["terrain_ids"], width, height, content_id)
     settlement_models = load_settlement_models(repo) if settlement_instances else {}
-    settlement_instances = [(x,y,(f"house_cutout_{house_at(repo,x,y)['drawing']}_{int(house_at(repo,x,y)['mirror'])}" if kind == "village_house" else "grove_cutout" if kind == "ancient_grove" else kind),size) for x,y,kind,size in settlement_instances]
+    house_instances = []
+    for x, y, kind, size in settlement_instances:
+        if kind in ("village_house", "sengoku_house", "pirates_house"):
+            family = "medieval" if kind == "village_house" else kind.removesuffix("_house")
+            drawing = house_at(repo, x, y, family)
+            kind = f"house_cutout_{drawing['drawing']}_{int(drawing['mirror'])}"
+        elif kind == "ancient_grove":
+            kind = "grove_cutout"
+        house_instances.append((x, y, kind, size))
+    settlement_instances = house_instances
     all_kinds = [kind for _x, _y, kind, _authored, _span_x, _span_y in cells]
     terrain_indices, unit_indices, ui_texture, texture_metrics, speaker_indices = write_textures(
         output, repo, all_kinds, typed_units, str(document.get("map_id", "0")),
         document.get("speakers", []),
         castle=bool(keep_parts), houses=any(k.startswith("house_cutout_") for _x,_y,k,_size in settlement_instances), theme=int(document.get("theme",0)), grove=any(k == "grove_cutout" for _x,_y,k,_size in settlement_instances),
+        house_drawings=tuple(sorted({int(k.split("_")[2]) for _x,_y,k,_size in settlement_instances if k.startswith("house_cutout_")})),
     )
     terrain_form_cells = select_terrain_form_cells(
         terrain, width, height, args.surroundings_seed,

@@ -929,7 +929,7 @@ func _detect_cluster_landmarks() -> void:
 				str(terrain_features[anchor_index])
 				if anchor_index < terrain_features.size() else ""
 			)
-			if landmark_kind not in ["village_house", "ancient_grove", "abandoned_cart", "village_well", "watchtower", "walled_garden"]:
+			if landmark_kind not in ["village_house", "sengoku_house", "pirates_house", "ancient_grove", "abandoned_cart", "village_well", "watchtower", "walled_garden"]:
 				continue
 			for cell: Vector2i in cells:
 				var index := cell.y * width + cell.x
@@ -953,8 +953,8 @@ func _build_cluster_landmarks() -> void:
 		var anchor: Vector2i = anchor_value
 		if str(_landmark_anchors[anchor]) == "ancient_grove":
 			_build_ancient_grove(anchor)
-		elif str(_landmark_anchors[anchor]) == "village_house":
-			_build_village_house(anchor)
+		elif str(_landmark_anchors[anchor]) in ["village_house", "sengoku_house", "pirates_house"]:
+			_build_village_house(anchor, str(_landmark_anchors[anchor]))
 		else:
 			var kind := str(_landmark_anchors[anchor])
 			var prop: Node3D = _settlement_scenery.build(_terrain_root, kind, _village_house_variation(anchor))
@@ -1173,19 +1173,15 @@ func _landmark_centre(anchor: Vector2i) -> Vector3:
 	return centre
 
 
-func _build_village_house(anchor: Vector2i) -> void:
+func _build_village_house(anchor: Vector2i, kind := "village_house") -> void:
 	var centre := _landmark_centre(anchor)
-	var placement := SceneryStyle.house_at(anchor)
+	var family := kind.trim_suffix("_house") if kind != "village_house" else _landmark_visual_style("village_house")
+	var placement := SceneryStyle.house_at(anchor, family)
 	centre += Vector3(float(placement.offset[0]), 0, float(placement.offset[1]))
-	var style := _landmark_visual_style("village_house")
-	var variation := _village_house_variation(anchor)
-	# Steel and Cedar currently authors a Medieval border settlement. Keeping the
-	# dispatch explicit lets future terrain features or graphics profiles select a
-	# Sengoku, pirate, science-fiction, or other family without changing the
-	# tactical four-cell footprint.
-	match style:
-		_:
-			_build_medieval_village_house(centre, variation, bool(placement.mirror))
+	if _build_house_cutout(centre, int(placement.drawing), bool(placement.mirror), family):
+		return
+	# Missing art keeps the footprint visible; exported builds include the assets.
+	_build_medieval_village_house(centre, _village_house_variation(anchor), bool(placement.mirror))
 
 
 func _landmark_visual_style(kind: String) -> String:
@@ -1204,7 +1200,7 @@ func _village_house_variation(anchor: Vector2i) -> int:
 
 
 func _build_medieval_village_house(centre: Vector3, variation: int, mirror := false) -> void:
-	if _build_medieval_house_cutout(centre, variation, mirror):
+	if _build_house_cutout(centre, variation, mirror):
 		return
 	var house := Node3D.new()
 	house.position = centre
@@ -1321,7 +1317,7 @@ func _build_medieval_village_house(centre: Vector3, variation: int, mirror := fa
 		annex_roof.rotation_degrees.z = side * -12.0
 
 
-func _build_medieval_house_cutout(centre: Vector3, variation: int, mirror := false) -> bool:
+func _build_house_cutout(centre: Vector3, variation: int, mirror := false, family := "medieval") -> bool:
 	var style: Dictionary = SceneryStyle.document().houses
 	var path: String = "res://" + str(style.drawings[variation % style.drawings.size()])
 	if not ResourceLoader.exists(path):
@@ -1331,17 +1327,18 @@ func _build_medieval_house_cutout(centre: Vector3, variation: int, mirror := fal
 		return false
 	var house := Sprite3D.new()
 	house.texture = resource as Texture2D
-	# Keep the broadest roof and side bay inside the blocked 2x2 footprint. The
-	# lower centre preserves the building's planted foundation after scaling the
-	# whole cutout down, instead of making it appear to hover over the paving.
-	house.position = centre + Vector3(0, float(style.centreAboveGround) + 0.20, 0)
-	house.pixel_size = float(style.pixelSize)
+	# Match the consoles' canvas and plant its lower edge on the plot. A fixed
+	# centre height buried the doorway and foundation when the camera tilted.
+	var side := float(style.portableCanvasSide)
+	var up_y := absf(_camera.global_basis.y.y) if _camera != null else cos(deg_to_rad(40.0))
+	house.position = centre + Vector3(0, 0.20 + side * 0.5 * up_y, 0)
+	house.pixel_size = side / float(house.texture.get_height())
 	house.flip_h = mirror
 	house.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	house.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
 	house.shaded = false
 	house.double_sided = true
-	house.set_meta("landmark_style", "medieval")
+	house.set_meta("landmark_style", family)
 	house.set_meta("landmark_variation", variation)
 	house.set_meta("landmark_asset", path)
 	_terrain_root.add_child(house)

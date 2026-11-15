@@ -1,0 +1,270 @@
+{
+  "schema": "grandleon.themed-settlements-review.v1",
+  "source_base": "d8538811",
+  "scope": "Two new house families and corrected Godot house grounding. Preview projects replace the village house family on the existing map; no built-in campaign or gameplay rules changed. These are architecture previews, not complete themed maps.",
+  "families": {
+    "medieval": {
+      "drawings": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "terrain": "mountain_village_house"
+    },
+    "sengoku": {
+      "drawings": [
+        4,
+        5
+      ],
+      "terrain": "mountain_sengoku_house"
+    },
+    "pirates": {
+      "drawings": [
+        6,
+        7
+      ],
+      "terrain": "mountain_pirates_house"
+    }
+  },
+  "sources": {
+    "README.md": "a51ffde1f2d6cb985222f171f29740b49112afde4892f4c7b6ab99b8b15ad516",
+    "TODO.md": "3e27c97e197ee64e031e77140217318348467a0a529f1716d43e7f0d4b64622f",
+    "platform/console_art/README.md": "317c7cdc65dd09b60f755473922b58a2f44f0d39f422f136ee69a6c23f50900c",
+    "platform/console_art/scenery_style.py": "e0fb23f1ff9a2c3431beebbc424d19c8217ef41afab1d7576204befac5cac0bb",
+    "platform/console_art/settlement_scenery.json": "d7f7cf34bd80d2282ef34b660b7b551082076a0d6dee356926a6323c457d74ad",
+    "platform/console_art/settlement_scenery.py": "9647ac620bcaa2f0f2aec8f7ef893b0250535b42f742c9949d1c9e9e7837787e",
+    "platform/console_art/test_scenery_style.py": "299bbe285b84ad84d1cf87abd2c2c6b67810c4a853a09f71edc7a8403f6ee3c0",
+    "platform/console_art/test_settlement_scenery.py": "ccf09659b8e765746d7abce73bc632a0fcf32dff0bfa052263a7db57be41ba3b",
+    "platform/godot/project/art/map_features/README.md": "1a9b3a700355faba79d78d4a98f4262c71563b9d1247c70a7d62d12f405c5e1a",
+    "platform/godot/project/content/scenery_style.json": "2d3f4b8ac447442925409dc428cc0aa209a38d85ea3c37523ef647b28cf1c1c9",
+    "platform/godot/project/localization/en.json": "e4eb4311451c37a033925897ef1979afd46b6fb561ffc9f6b552dad38a5558a1",
+    "platform/godot/project/localization/es.json": "193b2146e5466820a2ce2912d54c38974e358d62d6954826f4edb14e32572bc7",
+    "platform/godot/project/localization/pt-BR.json": "78e0fb9c22eb208053bd6849bde0b7f81496f3727511e0f7db163d2055081127",
+    "platform/godot/project/scripts/board_view_3d.gd": "74a974731abb82f0df6ec3516ff833d3ad28939c2ce82fa1771adec2a41b1497",
+    "platform/godot/project/scripts/creator/map_editor.gd": "a42669c51d54f8cd6833995aa986ffec42490e543f3f8f6ca7bd0b183877a577",
+    "platform/godot/project/scripts/scenery_style.gd": "54379a35d3dfdba27a106dbed75b66df196585750cf92cb50d414828c023ef5f",
+    "platform/godot/src/grandleon_session.cpp": "cc38cf76394df116b221051e1184f421e00390f777c05f88c47412069ac77b8b",
+    "platform/godot/tests/export_settlement_scenery.gd": "18edd1987b8a2a4c4ab4932789b1d1a0b39979473271a6303672befe26b6bee9",
+    "platform/godot/tests/map_editor_test.gd": "eafdcec00b362bd6cc68a7edaff82294a3f85e579db4b616411faab3af2aee5a",
+    "platform/godot/tests/steel_cedar_board_capture_test.gd": "6305e30a8ee00b5d7806e1844f427bb927f41a8f27e474363645c27da1da1c6f",
+    "platform/nintendo64/pyrite/project/src/user/ProjectBoard.cpp": "d121317a5a8f6b78abf14d92c7ebecf3999b09babef351d9a01e10aecb48076d",
+    "platform/nintendo64/pyrite/project/src/user/ScenerySprites.cpp": "1c8511c9871ab123da1d8ef5ee32b16b417c1360b058f3dc2da47281a9503e7f",
+    "platform/nintendo64/pyrite/project/src/user/ScenerySprites.hpp": "b6a95250cd201b55c17a9b9954c88dc54d5eaa2ec330fe1595696c9a5288f491",
+    "platform/nintendo64/pyrite/scripts/prepare-project.py": "71378eb4bc904d4f4b71acee1b3f8ab138f30b07f82c96b65ab063825dd7681c",
+    "platform/playstation/mipsync/tests/scene_generator_test.py": "4b36bf75b9c758d00af5906f446f3e80f97cc0f03fcf89005e939d203203d58f",
+    "platform/playstation/mipsync/tools/generate_scene.py": "f18b0e69f24338ebf3dca5e55104e88df6b728ee96e412eccc402049677aa84c"
+  },
+  "artwork": [
+    {
+      "path": "platform/godot/project/art/map_features/sengoku_house_farmstead.png",
+      "sha256": "1306538f458348cb5111499da2f8304bec25a31c43c21018ad4a5fc26e97b41c"
+    },
+    {
+      "path": "platform/godot/project/art/map_features/sengoku_house_merchant.png",
+      "sha256": "c2dd7ee51fda14c372ad2c844f9c28a1af77d6f6f2434fe3e7c8f6982664ccfc"
+    },
+    {
+      "path": "platform/godot/project/art/map_features/pirates_house_tavern.png",
+      "sha256": "f7732fa4aad0723494a8f8d499da585fd9ca56de39f16d8a4e2950bd12a3a87a"
+    },
+    {
+      "path": "platform/godot/project/art/map_features/pirates_house_chandler.png",
+      "sha256": "f8262ca3c488479373f606edadcfefc5929162e99a5841cca045839eb8cbff9d"
+    }
+  ],
+  "generation_provenance": {
+    "path": "platform/godot/project/art/map_features/house-generation-06.json",
+    "sha256": "39d84efc40732bb68ab2a6337dd216adc1df36144f635d467645aede2a12b0fe"
+  },
+  "checks": {
+    "portable": "13 authored-model, complete-footprint, family-selection and CI4-alpha/budget tests pass.",
+    "ps1_generator": "Full presentation suite passes, including distinct themed-house and grove texture bindings.",
+    "n64_export": "Generic demo/Steel project preparation and fail-closed unsupported-feature checks pass. Current exporter reproduces the exact tested generated house-style header.",
+    "editor": "Real Map Editor tests pass: whole-plot stamp/removal, labels, undo, and native playable-package compilation for both new families.",
+    "godot": "Five actual Medieval campaign boards and both themed village variants pass native session/capture assertions; all six village houses have the intended family.",
+    "regeneration": "Shared model geometry remains exactly equal to d8538811; its source hash is refreshed. The export now refuses the headless dummy renderer, which discards MultiMesh transforms.",
+    "hardware_tested": false
+  },
+  "godot_captures": {
+    "pirates-village.png": "6fa30f65e158529681cba8c1e8bdbe635392af1de1d0c477040edfd3a4076fb6",
+    "sengoku-village.png": "f83fecd4c5dbf2daf7956acd54a3f22da1631824c1f621b881d80af2f6deaf84",
+    "steel-cedar-bell-orchard.png": "d9fe51fe2d4a136aab726436143b2f7a1f1a8e9fd639cbca4f89abe931fa80a0",
+    "steel-cedar-deepwood.png": "fe8997df081957d2ca071453cd46b219f1339bb01565ec4a5ebb2ffad46e88ea",
+    "steel-cedar-gate-village.png": "cfee84b454cac6a784cd05bc51ae863d4b65ce082ba7a0762ad0b1148a98b812",
+    "steel-cedar-twin-gate.png": "7c0787ec87107d19ff9a3b42c55241a3c7281c0c272ad91213664105bd7773b3",
+    "steel-cedar-watch.png": "031a49d66a35498c291f9df5da20436abf0d5f252174af9d4644753ae9322d28"
+  },
+  "previews": {
+    "sengoku": {
+      "project": {
+        "path": "out/themed-settlements06-sengoku.json",
+        "sha256": "10827e7e369bbccc7f40d6a64badc7fb794f10f80a199b656d0407c0bfc81fd1"
+      },
+      "package": {
+        "path": "out/themed-settlements06-sengoku.gpk",
+        "sha256": "5bbda5327b7c9bb3448ddb56d450ec44cb994bf1635c388dffc9693ede0d1788"
+      },
+      "n64": {
+        "rom": {
+          "path": "out/themed-settlements06-n64/project/grandleon_pyrite_game.z64",
+          "sha256": "731acd4e30b1639f26b8a787773e01ba3e350d1bdc50adc4e185d8c4af274a73"
+        },
+        "log": {
+          "path": "out/themed-settlements06-n64-reviewed/sengoku.log",
+          "sha256": "e31f801b7071b920d8a88c8210135274ea427e85fd099a3ec7d189e2791e074e"
+        },
+        "final_timing_sample": "GRANDLEON_PYRITE_GAMEPLAY frames=120 avg_frame_us=33337 min_frame_us=22750 max_frame_us=34017 fps_x100=3000 heap_used=1983488 heap_total=2282632 heap_free=299144 rdram=4194304 battles=5 commands=287 enemy_commands=165 combat=5 trees=122 forms=194 slot_bytes=1340 hash=600017321675168062",
+        "five_battles_and_castle_reveal_pass": true,
+        "viewport_crop": [
+          116,
+          80,
+          760,
+          570
+        ]
+      },
+      "ps1": {
+        "bin": {
+          "bytes": 95251296,
+          "sha256": "8f9d4d2c1b52662ea62a81466061fe351d9c23b33a03c66009b74ee5fc42cd74"
+        },
+        "main_ram": {
+          "text_bytes": 366328,
+          "data_bytes": 729332,
+          "bss_bytes": 248080,
+          "resident_bytes": 1343740,
+          "end_address": "0x80157910",
+          "renderer_probe_budget_bytes": 524288,
+          "platform_audio_reserve_bytes": 65536,
+          "stack_reserve_bytes": 32768,
+          "minimum_gameplay_heap_bytes": 524288,
+          "main_ram_bytes": 2097152,
+          "renderer_and_audio_reserve_bytes": 1409276,
+          "passes_renderer_only_probe_budget": false,
+          "playable_slice_committed_bytes": 1966332,
+          "passes_playable_slice_budget": true
+        },
+        "vram": {
+          "texture_count": 116,
+          "texture_depth_bits": 8,
+          "material_depth_bits": 4,
+          "font_depth_bits": 4,
+          "font_glyph_count": 96,
+          "font_clut_row": 508,
+          "palette_colours": 256,
+          "palette_strategy": "shared_stage_clut",
+          "residency_strategy": "resident_idle_combat_paged_walk",
+          "combat_plate": true,
+          "texture_bytes": 296256,
+          "embedded_texture_bytes": 524000,
+          "vram_reserved_bytes": 424640
+        },
+        "review": {
+          "schema": "grandleon.scene-review.v1",
+          "scene": "out/themed-settlements06-sengoku-scene.json",
+          "canonical_hash": "9005011463098403465",
+          "capture_verified": true,
+          "metrics": {
+            "frames": 600,
+            "rendered_frames": 300,
+            "scheduled_frames": 300,
+            "deferred_frames": 0,
+            "missed_vblanks": 71,
+            "max_elapsed_vblanks": 3,
+            "render_hbl_avg": 222,
+            "render_hbl_max": 551
+          },
+          "scope": "Emulator visual review. Frame-budget misses are recorded, not treated as a passed performance test."
+        }
+      }
+    },
+    "pirates": {
+      "project": {
+        "path": "out/themed-settlements06-pirates.json",
+        "sha256": "fbf4dd3d1a7db349ff22cbf40ef6fd2e32a26df4a7ee70fb858b2eac3ca5d938"
+      },
+      "package": {
+        "path": "out/themed-settlements06-pirates.gpk",
+        "sha256": "18150191d70a6ccef0bc2e2c823e786656dd01e008f61e23cf4fe08c5da6ec49"
+      },
+      "n64": {
+        "rom": {
+          "path": "out/themed-settlements06-n64-pirates/project/grandleon_pyrite_game.z64",
+          "sha256": "dd662302286a4d1b20852812fe0197264004238a314c7cd801bcc69cfdf2d9ab"
+        },
+        "log": {
+          "path": "out/themed-settlements06-n64-reviewed/pirates.log",
+          "sha256": "6b70bc39124705c88a7e125602a223c6c2d8530914a683366037984f6d964b33"
+        },
+        "final_timing_sample": "GRANDLEON_PYRITE_GAMEPLAY frames=120 avg_frame_us=33337 min_frame_us=22733 max_frame_us=34010 fps_x100=3000 heap_used=1983488 heap_total=2282632 heap_free=299144 rdram=4194304 battles=5 commands=287 enemy_commands=165 combat=5 trees=122 forms=194 slot_bytes=1340 hash=600017321675168062",
+        "five_battles_and_castle_reveal_pass": true,
+        "viewport_crop": [
+          116,
+          80,
+          760,
+          570
+        ]
+      },
+      "ps1": {
+        "bin": {
+          "bytes": 95251296,
+          "sha256": "192786a7e79bf535983c62f6e2c98c0dbea45f6325f962369b147fb902265da7"
+        },
+        "main_ram": {
+          "text_bytes": 366328,
+          "data_bytes": 729332,
+          "bss_bytes": 248080,
+          "resident_bytes": 1343740,
+          "end_address": "0x80157910",
+          "renderer_probe_budget_bytes": 524288,
+          "platform_audio_reserve_bytes": 65536,
+          "stack_reserve_bytes": 32768,
+          "minimum_gameplay_heap_bytes": 524288,
+          "main_ram_bytes": 2097152,
+          "renderer_and_audio_reserve_bytes": 1409276,
+          "passes_renderer_only_probe_budget": false,
+          "playable_slice_committed_bytes": 1966332,
+          "passes_playable_slice_budget": true
+        },
+        "vram": {
+          "texture_count": 116,
+          "texture_depth_bits": 8,
+          "material_depth_bits": 4,
+          "font_depth_bits": 4,
+          "font_glyph_count": 96,
+          "font_clut_row": 508,
+          "palette_colours": 256,
+          "palette_strategy": "shared_stage_clut",
+          "residency_strategy": "resident_idle_combat_paged_walk",
+          "combat_plate": true,
+          "texture_bytes": 296256,
+          "embedded_texture_bytes": 524000,
+          "vram_reserved_bytes": 424640
+        },
+        "review": {
+          "schema": "grandleon.scene-review.v1",
+          "scene": "out/themed-settlements06-pirates-scene.json",
+          "canonical_hash": "9005011463098403465",
+          "capture_verified": true,
+          "metrics": {
+            "frames": 600,
+            "rendered_frames": 300,
+            "scheduled_frames": 300,
+            "deferred_frames": 0,
+            "missed_vblanks": 71,
+            "max_elapsed_vblanks": 3,
+            "render_hbl_avg": 222,
+            "render_hbl_max": 551
+          },
+          "scope": "Emulator visual review. Frame-budget misses are recorded, not treated as a passed performance test."
+        }
+      }
+    }
+  },
+  "limitations": [
+    "Other themed buildings, gates, towers and fortifications remain open.",
+    "PS1 review probes record deadline misses and do not pass the strict 30 FPS gate.",
+    "The N64 120-frame timing sample is not a per-stage or hardware benchmark.",
+    "Gallery viewpoints and player modes differ; these are not matched-frame platform comparisons."
+  ]
+}

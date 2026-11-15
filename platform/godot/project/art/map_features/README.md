@@ -153,3 +153,22 @@ stone throne chamber with a tiled floor, columns, warm wall torches, a short
 dais and one period chair. The result must align pixel-for-pixel with the closed
 exterior for a smooth gameplay dissolve. No units, people, text, grid, terrain
 base, modern objects, extra wings, or changed camera angle.”
+
+## Sengoku and pirate-port houses
+
+The Map Editor offers **Sengoku House** and **Pirate House** stamps alongside
+Village House. Each blocks the same 2×2 plot and chooses between two related
+buildings, with the existing small offsets and mirrored placements:
+
+- Sengoku: a tiled merchant house and a thatched farmstead.
+- Pirates: a teal ship chandler and a tavern with a small balcony and awning.
+
+Godot, Nintendo 64 and PlayStation use the same accepted drawings. These are
+building families; they do not replace the Medieval demo campaign or provide
+complete themed settlements yet.
+
+Generated on 2026-11-14 using the built-in image-generation tool, with
+`medieval_house_townhouse.png` as the art-direction and camera reference. The
+service did not expose a model-version identifier. The transparent results
+were resampled to 768×768 without changing their subjects. Full prompts and
+asset hashes are in [house-generation-06.json](house-generation-06.json).

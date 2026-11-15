@@ -53,14 +53,25 @@ func _run() -> void:
 		return
 	DirAccess.make_dir_recursive_absolute(output_dir)
 	get_root().size = CAPTURE_SIZE
-	for spec: Dictionary in MAPS:
+	var capture_specs := MAPS.duplicate(true)
+	var family := _argument("--house-family=")
+	if not family.is_empty():
+		if family not in ["sengoku", "pirates"]:
+			_fail("unknown house family")
+			quit(1)
+			return
+		capture_specs = capture_specs.filter(func(spec: Dictionary) -> bool: return spec.node == "gate_village")
+		capture_specs[0].feature = family + "_house"
+		capture_specs[0].visuals = {family: 6}
+		capture_specs[0].file = family + "-village.png"
+	for spec: Dictionary in capture_specs:
 		var battle := await _load_real_battle(source_path, spec)
 		if battle.is_empty():
 			continue
 		await _verify_and_capture(battle, spec, output_dir.path_join(String(spec.file)))
-	_expect("every real campaign view writes a capture", captures_written, MAPS.size())
+	_expect("every real campaign view writes a capture", captures_written, capture_specs.size())
 	if failures == 0:
-		print("five real Steel and Cedar Godot board captures passed")
+		print("%d real Steel and Cedar Godot board captures passed" % captures_written)
 	quit(1 if failures > 0 else 0)
 
 
@@ -74,6 +85,9 @@ func _load_real_battle(source_path: String, spec: Dictionary) -> Dictionary:
 	if source.is_empty():
 		_fail("Steel and Cedar source must be readable")
 		return {}
+	var family := _argument("--house-family=")
+	if family in ["sengoku", "pirates"]:
+		source = source.replace('"mountain_village_house"', '"mountain_%s_house"' % family)
 	var entry := '"entryNodeId": "prologue"'
 	if not source.contains(entry):
 		_fail("Steel and Cedar keeps its expected entry node")

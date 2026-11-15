@@ -5,11 +5,11 @@
 #include <cstdio>
 
 namespace grandleon::nintendo64::pyrite {
-bool ScenerySprites::add_house(int tile_x, int tile_y, int x, int floor, int z) {
+bool ScenerySprites::add_house(int tile_x, int tile_y, int x, int floor, int z, unsigned family) {
     if (count_ >= houses_.size()) return false;
     if (!vertices_) vertices_ = static_cast<T3DVertPacked*>(malloc_uncached(sizeof(T3DVertPacked)*houses_.size()*2U));
     if (!vertices_) return false;
-    const auto style = scenery_style::house_at(tile_x,tile_y);
+    const auto style = scenery_style::house_at(tile_x,tile_y,family);
     if (!sprites_[style.drawing]) {
         char path[64];
         snprintf(path,sizeof(path),"rom:/scenery_house_%u.sprite",style.drawing);
@@ -23,9 +23,9 @@ bool ScenerySprites::add_grove(int x, int floor, int z) {
     if (count_ >= houses_.size()) return false;
     if (!vertices_) vertices_ = static_cast<T3DVertPacked*>(malloc_uncached(sizeof(T3DVertPacked)*houses_.size()*2U));
     if (!vertices_) return false;
-    if (!sprites_[4]) sprites_[4] = sprite_load("rom:/scenery_grove.sprite");
-    if (!sprites_[4]) return false;
-    houses_[count_++] = {x, floor, z, 4, false, scenery_style::grove_side};
+    if (!sprites_[scenery_style::house_drawing_count]) sprites_[scenery_style::house_drawing_count] = sprite_load("rom:/scenery_grove.sprite");
+    if (!sprites_[scenery_style::house_drawing_count]) return false;
+    houses_[count_++] = {x, floor, z, scenery_style::house_drawing_count, false, scenery_style::grove_side};
     return true;
 }
 void ScenerySprites::draw(float ex,float ey,float ez,float tx,float ty,float tz) {

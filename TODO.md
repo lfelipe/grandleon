@@ -226,6 +226,10 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   their own families. Add corresponding console variants, fences, gates,
   civic buildings, walls, bridges and other multi-cell features. Preserve the
   authored footprint and the editor's placement and preview workflow.
+  Sengoku and pirate-port houses now each have two coherent drawings, selectable
+  editor stamps and shared Godot/N64/PS1 artwork. Godot house canvases now match
+  console scale and keep foundations above the ground. The other styles and
+  complete themed civic buildings, gates and fortifications remain open.
 - [ ] Improve landmark silhouettes and terrain-matched backdrop variations on
   PlayStation, comparing equivalent views with Nintendo 64 and Godot.
 - [x] Use the genuine north/south idle, contact and passing poses on Nintendo

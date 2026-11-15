@@ -1365,6 +1365,8 @@ void append_box(
 }
 
 int settlement_model(std::uint64_t id) {
+    if (id == grandleon::core::stable_content_id_v1("mountain_sengoku_house") ||
+        id == grandleon::core::stable_content_id_v1("mountain_pirates_house")) return 0;
     constexpr const char* names[] = {"mountain_village_house", "mountain_abandoned_cart", "mountain_village_well", "mountain_watchtower", "mountain_walled_garden", "mountain_town_wall"};
     for (std::size_t i=0; i<6U; ++i) if (id == grandleon::core::stable_content_id_v1(names[i])) return static_cast<int>(i);
     if (id == grandleon::core::stable_content_id_v1("paved_orchard_bell")) return 7;
@@ -1434,7 +1436,9 @@ void build_landmark_vertices() {
                 if (model == 26) {
                     assertf(board.scenery_sprites.add_grove(cx+kHalfCell,floor,cz+kHalfCell), "Godot ancient grove artwork could not be loaded");
                 } else if (model == 0) {
-                    assertf(board.scenery_sprites.add_house(x,y,cx+kHalfCell,floor,cz+kHalfCell), "Godot house artwork could not be loaded");
+                    assertf(board.scenery_sprites.add_house(x,y,cx+kHalfCell,floor,cz+kHalfCell,
+                        terrain == grandleon::core::stable_content_id_v1("mountain_sengoku_house") ? 1U :
+                        terrain == grandleon::core::stable_content_id_v1("mountain_pirates_house") ? 2U : 0U), "Godot house artwork could not be loaded");
                 } else {
                     int variant = model;
                     if (model == 5 && x > 0 && board.content->terrain[index-1U] == grandleon::core::stable_content_id_v1("mountain_watchtower")) variant = 6;

@@ -26,6 +26,8 @@ def load_models(repo: Path) -> dict:
 def placements(identities: list[int], width: int, height: int, content_id) -> list[tuple]:
     """Recognise complete footprints; never substitute mountain shapes."""
     by_id = {content_id("mountain_" + kind): kind for kind in SETTLEMENT_KINDS}
+    by_id[content_id("mountain_sengoku_house")] = "sengoku_house"
+    by_id[content_id("mountain_pirates_house")] = "pirates_house"
     by_id[content_id("mountain_ancient_grove")] = "ancient_grove"
     consumed = set()
     result = []

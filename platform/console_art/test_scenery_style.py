@@ -28,6 +28,17 @@ class SceneryStyleTests(unittest.TestCase):
                     self.assertEqual(village['terrain'][(y + dy) * 18 + x + dx],
                                      'mountain_village_house')
 
+    def test_themed_house_choices_share_placement_but_never_mix_families(self):
+        anchors = [(x, y) for y in range(0, 16, 3) for x in range(0, 16, 3)]
+        for family, expected in [("medieval", {0, 1, 2, 3}),
+                                 ("sengoku", {4, 5}), ("pirates", {6, 7})]:
+            choices = [house_at(REPO, x, y, family) for x, y in anchors]
+            self.assertEqual({c["drawing"] for c in choices}, expected)
+            for (x, y), choice in zip(anchors, choices):
+                original = house_at(REPO, x, y)
+                self.assertEqual(choice["offset"], original["offset"])
+                self.assertEqual(choice["mirror"], original["mirror"])
+
     def test_house_payload_preserves_transparency_and_ci4_budget(self):
         with tempfile.TemporaryDirectory() as folder:
             for drawing in range(len(document(REPO)['houses']['drawings'])):

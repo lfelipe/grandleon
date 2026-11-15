@@ -46,6 +46,13 @@ class SettlementTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "incomplete"):
             placements([ids["mountain_village_house"]] * 6, 3, 2, ids.get)
 
+    def test_themed_houses_keep_separate_complete_footprints(self):
+        ids = {"mountain_sengoku_house": 1, "mountain_pirates_house": 2}
+        self.assertEqual(placements([1, 1, 2, 2] * 2, 4, 2, ids.get),
+                         [(0, 0, "sengoku_house", 2), (2, 0, "pirates_house", 2)])
+        with self.assertRaisesRegex(ValueError, "incomplete"):
+            placements([1, 1, 2, 1], 2, 2, ids.get)
+
     def test_passable_landmarks_preserve_their_real_footprints(self):
         ids = {name: i + 1 for i, name in enumerate(("grass", "paved_orchard_bell", "paved_signal_beacon", "ruins_watch_ruin"))}
         terrain = [ids["paved_orchard_bell"], ids["paved_orchard_bell"], ids["grass"], ids["paved_signal_beacon"], ids["grass"], ids["ruins_watch_ruin"]]

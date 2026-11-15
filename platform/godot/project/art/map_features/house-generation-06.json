@@ -1,0 +1,31 @@
+{
+  "generated": "2026-11-14",
+  "tool": "Built-in image generation",
+  "model_version": null,
+  "model_note": "The service did not expose a model-version identifier.",
+  "reference": "medieval_house_townhouse.png",
+  "transparent_background": true,
+  "processing": "Resampled the complete RGBA canvas to 768x768 with Lanczos; no subject or background edit.",
+  "assets": [
+    {
+      "file": "sengoku_house_merchant.png",
+      "prompt": "Create ONE complete building cutout for Grandleon tactical RPG. The reference image is a STYLE/CAMERA reference only; generate a NEW building, not an edit of that house. Match its polished handcrafted stylized 3D rendering, crisp textured materials, soft warm upper-left lighting, three-quarter isometric camera FROM ABOVE showing front and right side, and readable silhouette at 64px. Entire building visible and centered with 6% transparent margin on all sides; square canvas; compact square 2x2 tactical-cell footprint. Genuine transparent background. Building only: no ground plane, scenery, people, detached props, labels, letters, signs, watermark, or modern suburban architecture. Roof, attached porch and steps must fit the same compact silhouette. A Sengoku Japanese merchant's two-story machiya, warm aged cedar framing, cream plaster, dark charcoal kawara tile roof with gently swept eaves, wooden lattice sliding doors, small latticed upper windows, attached narrow covered shopfront, an unmarked indigo noren curtain. Historically inspired, visibly Japanese, elegant and lived-in.",
+      "sha256": "c2dd7ee51fda14c372ad2c844f9c28a1af77d6f6f2434fe3e7c8f6982664ccfc"
+    },
+    {
+      "file": "sengoku_house_farmstead.png",
+      "prompt": "Create ONE complete building cutout for Grandleon tactical RPG. The reference image is a STYLE/CAMERA reference only; generate a NEW building, not an edit of that house. Match its polished handcrafted stylized 3D rendering, crisp textured materials, soft warm upper-left lighting, three-quarter isometric camera FROM ABOVE showing front and right side, and readable silhouette at 64px. Entire building visible and centered with 6% transparent margin on all sides; square canvas; compact square 2x2 tactical-cell footprint. Genuine transparent background. Building only: no ground plane, scenery, people, detached props, labels, letters, signs, watermark, or modern suburban architecture. Roof, attached porch and steps must fit the same compact silhouette. A Sengoku Japanese rural minka farmstead, low broad timber house, high and steep hipped thatched roof with clear thick layered straw and dark ridge ties, warm weathered cedar, cream clay infill, shaded wood veranda integrated into its square footprint, heavy sliding lattice entry. A distinct companion to a Japanese merchant house, with the same art direction.",
+      "sha256": "1306538f458348cb5111499da2f8304bec25a31c43c21018ad4a5fc26e97b41c"
+    },
+    {
+      "file": "pirates_house_chandler.png",
+      "prompt": "Create ONE complete building cutout for Grandleon tactical RPG. The reference image is a STYLE/CAMERA reference only; generate a NEW building, not an edit of that house. Match its polished handcrafted stylized 3D rendering, crisp textured materials, soft warm upper-left lighting, three-quarter isometric camera FROM ABOVE showing front and right side, and readable silhouette at 64px. Entire building visible and centered with 6% transparent margin on all sides; square canvas; compact square 2x2 tactical-cell footprint. Genuine transparent background. Building only: no ground plane, scenery, people, detached props, labels, letters, signs, watermark, or modern suburban architecture. Roof, attached porch and steps must fit the same compact silhouette. An age-of-sail pirate-port ship chandler's compact two-story waterfront house, rough limestone foundation, weathered teal-blue clapboard upper walls, crooked dark timber posts, warm rusty orange curved clay roof tiles, tiny leaded windows, stout plank door, an attached small rope-coil rack and covered work porch within the building silhouette. Maritime details grounded in working architecture, no skull emblem, no lettering, no water.",
+      "sha256": "f8262ca3c488479373f606edadcfefc5929162e99a5841cca045839eb8cbff9d"
+    },
+    {
+      "file": "pirates_house_tavern.png",
+      "prompt": "Create ONE complete building cutout for Grandleon tactical RPG. The reference image is a STYLE/CAMERA reference only; generate a NEW building, not an edit of that house. Match its polished handcrafted stylized 3D rendering, crisp textured materials, soft warm upper-left lighting, three-quarter isometric camera FROM ABOVE showing front and right side, and readable silhouette at 64px. Entire building visible and centered with 6% transparent margin on all sides; square canvas; compact square 2x2 tactical-cell footprint. Genuine transparent background. Building only: no ground plane, scenery, people, detached props, labels, letters, signs, watermark, or modern suburban architecture. Roof, attached porch and steps must fit the same compact silhouette. An age-of-sail pirate-port compact two-story tavern, sun-worn cream plaster over rough coral limestone, dark timber framing, asymmetrical intersecting reddish shingled roof with deep eaves, one small enclosed timber upper balcony, arched stout plank doorway, sea-green shutters, a built-in awning on one side within square footprint. Clearly a companion to a pirate-port ship chandler, no signs, skull emblems, lettering, palm trees or water.",
+      "sha256": "f7732fa4aad0723494a8f8d499da585fd9ca56de39f16d8a4e2950bd12a3a87a"
+    }
+  ]
+}

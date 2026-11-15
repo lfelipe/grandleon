@@ -9,6 +9,11 @@ func _init() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
+	# The dummy rendering server discards MultiMesh instance transforms.
+	if DisplayServer.get_name() == "headless":
+		push_error("Scenery export needs a real rendering server; use xvfb-run with --rendering-method gl_compatibility, without --headless")
+		quit(1)
+		return
 	var output := ""
 	var source := ""
 	for arg in OS.get_cmdline_user_args():

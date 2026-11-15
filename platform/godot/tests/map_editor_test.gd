@@ -397,7 +397,7 @@ func _run() -> void:
 	await process_frame
 	_expect("grove placement and removal undo to the original source", editor.source, original_landmark_source)
 	_expect("landmark round trips leave no undo history", editor.undo_stack.size(), 0)
-	for kind: String in ["abandoned_cart", "village_well", "watchtower", "walled_garden"]:
+	for kind: String in ["abandoned_cart", "village_well", "watchtower", "walled_garden", "sengoku_house", "pirates_house"]:
 		var tool := "landmark_" + kind
 		_expect("the editor offers %s as one stamp" % kind, editor.tool_buttons.has(tool), true)
 		editor._select_tool(tool)
@@ -407,6 +407,9 @@ func _run() -> void:
 		for index: int in [16, 17, 22, 23]:
 			_expect("%s authors its complete blocked footprint" % kind, stamped[index], "mountain_" + kind)
 		_expect("%s gets its own label" % kind, editor.grid.get_child(16).tooltip_text.contains(editor._t("map.landmark." + kind)), true)
+		if kind in ["sengoku_house", "pirates_house"]:
+			var themed_package: Dictionary = editor.compiler.compile_source_json(editor.source)
+			_expect("%s stamp exports a playable package" % kind, themed_package.get("ok", false), true)
 		editor._select_tool("landmark_remove")
 		editor._paint_cell(23)
 		editor._undo()

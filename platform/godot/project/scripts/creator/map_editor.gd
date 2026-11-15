@@ -15,6 +15,8 @@ const TERRAIN_PALETTE := [
 	"ruins", "farmland", "snow", "swamp", "hills", "bamboo", "paved",
 ]
 const LANDMARKS := {
+	"landmark_sengoku_house": {"kind": "sengoku_house", "source_id": "mountain_sengoku_house", "label_key": "map.landmark.sengoku_house", "clear_terrain": "paved"},
+	"landmark_pirates_house": {"kind": "pirates_house", "source_id": "mountain_pirates_house", "label_key": "map.landmark.pirates_house", "clear_terrain": "paved"},
 	"landmark_abandoned_cart": {"kind": "abandoned_cart", "source_id": "mountain_abandoned_cart", "label_key": "map.landmark.abandoned_cart", "clear_terrain": "paved"},
 	"landmark_village_well": {"kind": "village_well", "source_id": "mountain_village_well", "label_key": "map.landmark.village_well", "clear_terrain": "paved"},
 	"landmark_watchtower": {"kind": "watchtower", "source_id": "mountain_watchtower", "label_key": "map.landmark.watchtower", "clear_terrain": "paved"},
@@ -965,7 +967,7 @@ func _add_landmark_badge(cell: Button, kind: String, tile_size: int) -> void:
 	var label := Label.new()
 	label.text = _t(
 		"map.landmark.grove_badge" if kind == "ancient_grove" else
-		"map.landmark.house_badge" if kind == "village_house" else
+		"map.landmark.house_badge" if kind in ["village_house", "sengoku_house", "pirates_house"] else
 		"map.landmark." + kind
 	)
 	label.add_theme_font_size_override("font_size", clampi(tile_size / 6, 8, 13))
@@ -6276,7 +6278,7 @@ func _tool_label(tool: String, compact := false) -> String:
 		"visibility",
 		"surroundings", "landmark_house", "landmark_grove", "landmark_remove",
 		"landmark_abandoned_cart", "landmark_village_well", "landmark_watchtower", "landmark_walled_garden",
-		"patrol",
+		"landmark_sengoku_house", "landmark_pirates_house", "patrol",
 	]
 	if not known.has(tool):
 		return tool.replace("_", " ").to_upper()
@@ -6308,10 +6310,7 @@ func _field_label(field: String) -> String:
 
 
 func _landmark_kind_label(kind: String) -> String:
-	return _t(
-		"map.landmark.ancient_grove" if kind == "ancient_grove"
-		else "map.landmark.village_house"
-	)
+	return _t("map.landmark." + kind)
 
 
 func _presentation_label(field: String, value: String) -> String:

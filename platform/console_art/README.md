@@ -21,7 +21,10 @@ colours include a baked ambient lift while retaining their leaf and bark hues.
 The bell and low walls remain passable:
 the bell spans two adjacent cells, and low walls stay along cell edges.
 Both console generators check the scenery, board and natural-scenery hashes and reject
-stale geometry. Regenerate with `platform/godot/tests/export_settlement_scenery.gd`.
+stale geometry. Regenerate with `platform/godot/tests/export_settlement_scenery.gd`
+using a real rendering server (`xvfb-run` and `--rendering-method gl_compatibility`
+work locally). The headless dummy renderer discards instance transforms and is
+refused by this exporter.
 Use Godot's compatibility renderer for that export (with `xvfb-run` when no
 display is available); headless rendering does not preserve the tree instance transforms.
 PS1 stores each model once and places it separately from terrain pages; its
@@ -30,8 +33,9 @@ and the busier village's frame budget remain open work.
 
 ## Shared houses and ground
 
-Houses use the same four drawings as Godot, rather than approximate building
-meshes. `scenery_style.json` in the Godot content folder defines their drawing,
+Houses share Godot’s four Medieval drawings, two Sengoku buildings and two
+pirate-port buildings. The editor authors each family explicitly; all retain
+the same blocked 2×2 footprint. `scenery_style.json` in the Godot content folder defines their drawing,
 mirroring, small placement offsets and size. Nintendo 64 reduces each drawing
 to a transparent 64×64 CI4 sprite; PlayStation uses a 96×96 cutout in the stage
 palette. Changing the drawing or recipe updates all three builds. The ancient grove

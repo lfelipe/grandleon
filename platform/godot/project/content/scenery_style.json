@@ -1,15 +1,17 @@
 {
   "schema": "grandleon.scenery_style.v1",
   "houses": {
-    "pixelSize": 0.0032,
-    "centreAboveGround": 0.59,
     "sourceSide": 768,
     "portableCanvasSide": 1.92,
     "drawings": [
       "art/map_features/medieval_house_townhouse.png",
       "art/map_features/medieval_house_thatched.png",
       "art/map_features/medieval_house_inn.png",
-      "art/map_features/medieval_house_craftsperson.png"
+      "art/map_features/medieval_house_craftsperson.png",
+      "art/map_features/sengoku_house_merchant.png",
+      "art/map_features/sengoku_house_farmstead.png",
+      "art/map_features/pirates_house_chandler.png",
+      "art/map_features/pirates_house_tavern.png"
     ],
     "placements": [
       {
@@ -76,7 +78,23 @@
           -0.025
         ]
       }
-    ]
+    ],
+    "families": {
+      "medieval": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "sengoku": [
+        4,
+        5
+      ],
+      "pirates": [
+        6,
+        7
+      ]
+    }
   },
   "ancientGrove": {
     "drawing": "art/map_features/ancient_tree_cluster_2x2.png",

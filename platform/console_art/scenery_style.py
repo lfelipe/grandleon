@@ -11,10 +11,13 @@ def document(repo: Path) -> dict:
     return json.loads((repo / "platform/godot/project/content/scenery_style.json").read_text())
 
 
-def house_at(repo: Path, x: int, y: int) -> dict:
+def house_at(repo: Path, x: int, y: int, family: str = "medieval") -> dict:
     choices = document(repo)["houses"]["placements"]
     seed = x * 17 + y * 31
-    return choices[(seed ^ (seed >> 3)) % len(choices)]
+    result = dict(choices[(seed ^ (seed >> 3)) % len(choices)])
+    drawings = document(repo)["houses"]["families"][family]
+    result["drawing"] = drawings[result["drawing"] % len(drawings)]
+    return result
 
 
 def house_image(repo: Path, drawing: int, side: int) -> Image.Image:
@@ -77,12 +80,18 @@ def write_n64_header(repo: Path, output: Path, theme: int = 0) -> None:
              "#pragma once", "#include <array>", "#include <cstdint>",
              "namespace grandleon::nintendo64::pyrite::scenery_style {",
              "struct House { std::uint8_t drawing; bool mirror; float x,z; };",
+             f"inline constexpr unsigned house_drawing_count = {len(houses["drawings"])};",
              f"inline constexpr float house_side = {houses['portableCanvasSide']}F;",
              f"inline constexpr float grove_side = {document(repo)['ancientGrove']['portableCanvasSide']}F;",
              f"inline constexpr std::array<House,{len(houses['placements'])}> houses = {{{{"]
     for h in houses["placements"]:
         lines.append(f"{{{h['drawing']},{str(h['mirror']).lower()},{h['offset'][0]}F,{h['offset'][1]}F}},")
-    lines += ["}};", "inline House house_at(int x,int y) { const auto seed=x*17+y*31; return houses[(seed^(seed>>3))%houses.size()]; }",
+    lines += ["}};", "inline House house_at(int x,int y,unsigned family=0) { const auto seed=x*17+y*31; auto house=houses[(seed^(seed>>3))%houses.size()];"]
+    for family, name in enumerate(("medieval", "sengoku", "pirates")):
+        drawings = houses["families"][name]
+        mapped = [drawings[i % len(drawings)] for i in range(4)]
+        lines.append(f"if (family=={family}U) {{ constexpr unsigned drawings[4]={{{','.join(map(str,mapped))}}}; house.drawing=drawings[house.drawing]; }}")
+    lines += ["return house; }",
               "inline constexpr std::uint8_t ground[13][3] = {"]
     lines += ["{" + ",".join(map(str, colour)) + "}," for colour in palette]
     lines += ["};", "}", ""]
