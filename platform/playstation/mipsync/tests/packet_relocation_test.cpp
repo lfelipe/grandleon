@@ -22,7 +22,7 @@ int main() {
     grandleon_gpu_copy_stream(destination.data(), packets.data(), packets.size(), &ranges);
     CHECK(destination[0] == 0x03008010u);
     CHECK(destination[4] == 0x01009008u);
-    for (const unsigned index : {1, 2, 3, 5}) CHECK(destination[index] == packets[index]);
+    for (const unsigned index : {1u, 2u, 3u, 5u}) CHECK(destination[index] == packets[index]);
     CHECK(destination[6] == 0xfeedfaceu);
 
     uint32_t tag;
