@@ -18,7 +18,12 @@
 #define SCREEN_WIDTH 320
 #define SCREEN_HEIGHT 240
 #define ORDERING_TABLE_LENGTH PS1_RENDER_OT_LEN
-#define PACKET_BYTES_PER_FRAME 24576
+/* Sized at build time from scene content; both arenas remain static and are
+ * included in the linked RAM audit. Keep executable code common to stages. */
+extern const unsigned int grandleon_packet_bytes_per_frame;
+extern char grandleon_packet_arena[];
+#define PACKET_BYTES_PER_FRAME grandleon_packet_bytes_per_frame
+#define MAX_PACKET_BYTES_PER_FRAME 40960
 #define TARGET_RENDER_FPS 30
 
 /* Artifact audit marker: release/export must fail closed if this is absent. */
@@ -28,7 +33,9 @@ static const char k_renderer_identity[] = "GRANDLEON_PS1_RENDERER=MIPSYNC";
 static DISPENV s_display[2];
 static DRAWENV s_draw[2];
 static uint32_t s_ordering_table[2][ORDERING_TABLE_LENGTH];
-static char s_packets[2][PACKET_BYTES_PER_FRAME];
+static char* frame_packets(unsigned index) {
+    return grandleon_packet_arena + index * PACKET_BYTES_PER_FRAME;
+}
 static char* s_next_packet;
 static int s_buffer;
 static uint16_t s_gpu_ready_tick;
@@ -59,6 +66,8 @@ static uint32_t* s_world_source_ot;
 static char* s_world_pending_start;
 static uint32_t s_world_bytes;
 static uint32_t s_world_hits, s_world_misses;
+static uint32_t s_world_free_min = MAX_PACKET_BYTES_PER_FRAME;
+static uint32_t s_world_near_limit_frames;
 static int s_world_ready, s_world_recording, s_world_replaying;
 static uint16_t s_world_render_started, s_world_ui_started, s_world_ui_ticks;
 
@@ -129,11 +138,11 @@ struct static_fragment {
     uint32_t bytes;
     int added, ready;
 };
-static struct static_fragment s_static_fragments[2];
-static const ps1_entity* s_static_targets[2];
+static struct static_fragment s_static_fragments[3];
+static const ps1_entity* s_static_targets[3];
 static uint32_t s_static_packet_hits, s_static_packet_misses, s_static_packet_rejects;
 static int s_static_packets_supported;
-static uint32_t s_static_packet_marks[PACKET_BYTES_PER_FRAME / 4u / 32u];
+static uint32_t s_static_packet_marks[MAX_PACKET_BYTES_PER_FRAME / 4u / 32u];
 
 static void static_packets_begin_frame(int supported) {
     /* Attached point lights need a wider cache key than these immutable,
@@ -150,16 +159,20 @@ static void static_packets_begin_frame(int supported) {
             break;
         }
     }
+    s_static_targets[2] = g_grandleon_visibility_cell_count
+        ? &g_ps1_scene.entities[g_grandleon_visibility_entity_index] : 0;
+    if (s_static_targets[2] && !s_static_targets[2]->mesh_enabled)
+        s_static_targets[2] = 0;
     if (!s_static_targets[0] || !s_static_targets[0]->mesh_enabled)
         s_static_packets_supported = 0;
-    for (unsigned i = 0; i < 2; ++i) {
+    for (unsigned i = 0; i < 3; ++i) {
         if (!s_static_packets_supported || !s_static_targets[i])
             s_static_fragments[i].ready = 0;
     }
 }
 
 static struct static_fragment* static_packet_fragment_for(const ps1_entity* entity) {
-    for (unsigned i = 0; i < 2; ++i) {
+    for (unsigned i = 0; i < 3; ++i) {
         if (entity == s_static_targets[i] && entity->mesh_enabled &&
             entity->render_unlit && entity->parent_entity_index < 0)
             return &s_static_fragments[i];
@@ -292,6 +305,11 @@ static void capture_world_packets(uint32_t* ot, char** next_packet) {
 }
 
 void grandleon_world_packet_cache_capture(uint32_t* ot, char** next_packet) {
+    const ptrdiff_t remaining = frame_packets(s_buffer) + PACKET_BYTES_PER_FRAME
+        - PS1_UI_PACKET_RESERVE - *next_packet;
+    const uint32_t free_bytes = remaining > 0 ? (uint32_t)remaining : 0;
+    if (free_bytes < s_world_free_min) s_world_free_min = free_bytes;
+    if (free_bytes < 256u) ++s_world_near_limit_frames;
     capture_world_packets(ot, next_packet);
     s_world_ui_started = (uint16_t)TIMER_VALUE(1);
 }
@@ -385,7 +403,7 @@ static void setup_display(void) {
     s_draw[1].isbg = 1;
     ClearOTagR(s_ordering_table[0], ORDERING_TABLE_LENGTH);
     ClearOTagR(s_ordering_table[1], ORDERING_TABLE_LENGTH);
-    s_next_packet = s_packets[0];
+    s_next_packet = frame_packets(0);
     PutDispEnv(&s_display[0]);
     PutDrawEnv(&s_draw[0]);
     SetDispMask(1);
@@ -400,7 +418,7 @@ static void present(void) {
     PutDispEnv(&s_display[s_buffer]);
     PutDrawEnv(&s_draw[s_buffer]);
     SetDispMask(1);
-    s_next_packet = s_packets[s_buffer];
+    s_next_packet = frame_packets(s_buffer);
     ps1_render_submit(
         s_ordering_table[1 - s_buffer], s_draw[s_buffer].clip.x,
         s_draw[s_buffer].clip.y, SCREEN_WIDTH, SCREEN_HEIGHT, 0
@@ -555,7 +573,7 @@ int main(void) {
         render_start = (uint16_t)TIMER_VALUE(1);
         render_world_and_ui(
             s_ordering_table[s_buffer], &s_next_packet,
-            s_packets[s_buffer] + PACKET_BYTES_PER_FRAME
+            frame_packets(s_buffer) + PACKET_BYTES_PER_FRAME
         );
         render_ticks = (uint16_t)((uint16_t)TIMER_VALUE(1) - render_start);
         present();
@@ -576,9 +594,9 @@ report_metrics:
             grandleon_game_log_world_packets(s_world_hits, s_world_misses, s_world_bytes);
             grandleon_game_log_static_packets(
                 s_static_packet_hits, s_static_packet_misses,
-                s_static_fragments[0].bytes + s_static_fragments[1].bytes,
-                (unsigned)(s_static_fragments[0].head_count + s_static_fragments[1].head_count),
-                s_static_packet_rejects);
+                s_static_fragments[0].bytes + s_static_fragments[1].bytes + s_static_fragments[2].bytes,
+                (unsigned)(s_static_fragments[0].head_count + s_static_fragments[1].head_count + s_static_fragments[2].head_count),
+                s_static_packet_rejects, s_world_free_min, s_world_near_limit_frames);
             grandleon_game_log_metrics(
                 measured_frames, rendered_frames, scheduled_frames,
                 deferred_frames,

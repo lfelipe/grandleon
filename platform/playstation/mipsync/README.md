@@ -171,12 +171,16 @@ policy stays portable across renderers (`natural_blend`, `extend_edges` or
 `fixed_terrain`).
 
 Unchanged world frames reuse GPU commands from the existing double buffers.
-The board and nearby architecture can also keep their commands when only idle
-poses or foliage change. Exact snapshots track the camera, mesh, visibility
+The board, nearby architecture and unrevealed castle cover can also keep their
+commands when only idle poses or foliage change. Exact snapshots track the camera, mesh, visibility
 and material state; moving units and combat render normally, and UI is rebuilt
 every frame. Both caches use the existing command arenas and preserve drawing
 order. Generated geometry budgets include both complete cursor outlines and
-automatically refresh CMake when regenerated.
+automatically refresh CMake when regenerated. Stages with covered rooms use two
+40 KiB command arenas; open stages use two 24 KiB arenas. These are static ELF
+storage, included in the RAM audit rather than taken from the gameplay-heap
+reserve. The manifest verifies the linked arena size, and serial measurements
+report the minimum free world-command space to expose clipping under pressure.
 
 Release validation checks the following on the exact CUE/BIN:
 

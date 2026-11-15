@@ -1,0 +1,274 @@
+{
+  "schema": "grandleon.ps1-packet-capacity.v1",
+  "source_base": "3993688ccea5ffb36e52a07d1862ab891eb2947d",
+  "design": "Scene-sized static double command arenas:40KiB per frame with a covered room,24KiB otherwise. Generated storage remains BSS and is included in resident RAM, never borrowed from gameplay heap. Main executable code remains common across stages. Optional third immutable fragment retains the unrevealed roof with exact camera/entity keys.",
+  "sources": {
+    "platform/playstation/mipsync/runtime/main.c": "4feb3d3e075bd8dc41670b9930d3cae335ad369090e72075893367bbc2d7e916",
+    "platform/playstation/mipsync/runtime/CMakeLists.txt": "06304a1ad86825a223ef710893cc4634f6e59391dc3163732762d3d81bcfb3dc",
+    "platform/playstation/mipsync/runtime/game_bridge.cpp": "2a567567f72532964b0847f3f46a7b1f23c5a733139d121f86046ea984821fdd",
+    "platform/playstation/mipsync/runtime/game_bridge.h": "10531fcb98c731af1716647a905d5908af804197d31c37475bf063907587cbdb",
+    "platform/playstation/mipsync/tools/write_build_manifest.py": "807ba3d93a29c57992a5aeb5da90838c28611c65e53cfd5a12d687847402b2da",
+    "platform/playstation/mipsync/tests/run-campaign-probe.sh": "32e3e8784785f4da3dfb87bd92aa0e5e9faf1ac4e48d0e9dfad877c61bccc468",
+    "platform/playstation/mipsync/README.md": "5dc2f7e48612725dfd7ebdfc15634488b9e587b802d58b4d0c96c5b0dd961ea5",
+    "TODO.md": "7576599b823fe06f990ef099e4529f1f18bfccf2e176ea64ce21a147c88dba80"
+  },
+  "checks": {
+    "campaign_functional_passed": true,
+    "campaign_log": "out/ps1-packet-capacity06-campaign-final.log",
+    "strict_campaign_fps_passed": false,
+    "combat_functional_audio_camera_passed": true,
+    "combat_log": "out/ps1-packet-capacity06-combat.log",
+    "strict_combat_fps_passed": false,
+    "castle_legal_entry_passed": true,
+    "castle_reveal_cells": 18,
+    "visibility_log": "out/ps1-packet-capacity06-visibility/emulator.log",
+    "stale_linked_arenas_rejected": "out/ps1-packet-capacity06-stale-rejection.txt",
+    "current_memory_preflight": "out/ps1-packet-capacity06-memory-preflight.log",
+    "disc_identity_tests_passed": 7
+  },
+  "geometry_comparison": {
+    "before": "out/ps1-static06-2p-before-scroll/mipsync-scroll-final.bin",
+    "after": "out/ps1-packet-capacity06-2p-review/mipsync-scroll-final.bin",
+    "before_sha256": "c06ee05c94e52da1c71f0767aaaead10cc2b2029883e23edf4eb503ccc5f8455",
+    "after_sha256": "dcf04f62f8c852be969e7b071c460ba615e08f2ad3dc84283f82843bcc92c3e3",
+    "scope": "Same real scene and camera. Restores far castle towers previously omitted when the world command arena filled. This intentionally changes pixels.",
+    "larger_buffer_prototype": "out/ps1-packets40-06-review",
+    "matches_isolated_40k_framebuffers": 132,
+    "matches_isolated_32k_framebuffers": 91
+  },
+  "watch_pages": {
+    "entities": 68,
+    "pages": 9,
+    "drawn_canopy_entities": [
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66
+    ],
+    "scope": "Actual controller traversal and renderer draw calls; no entity, camera or simulation state writes."
+  },
+  "timing": {
+    "coop_scroll": {
+      "MIPSYNC_WORLD_PACKETS": {
+        "hits": 181,
+        "misses": 149,
+        "bytes": 23704
+      },
+      "MIPSYNC_STATIC_PACKETS": {
+        "hits": 175,
+        "misses": 17,
+        "bytes": 23348,
+        "heads": 128,
+        "rejects": 0,
+        "world_free_min": 984,
+        "world_near_limit_frames": 0
+      },
+      "MIPSYNC_GRANDLEON_METRICS": {
+        "frames": 600,
+        "rendered_frames": 300,
+        "scheduled_frames": 300,
+        "deferred_frames": 0,
+        "missed_vblanks": 219,
+        "max_elapsed_vblanks": 6
+      },
+      "MIPSYNC_FRAME_BUDGET": {
+        "render_hbl_avg": 359,
+        "render_hbl_max": 1534,
+        "ready_hbl_avg": 361,
+        "ready_hbl_max": 1538,
+        "mutation_hbl_max": 0
+      }
+    },
+    "campaign_keep": {
+      "MIPSYNC_WORLD_PACKETS": {
+        "hits": 155,
+        "misses": 180,
+        "bytes": 18496
+      },
+      "MIPSYNC_STATIC_PACKETS": {
+        "hits": 106,
+        "misses": 56,
+        "bytes": 7816,
+        "heads": 55,
+        "rejects": 0,
+        "world_free_min": 11440,
+        "world_near_limit_frames": 0
+      },
+      "MIPSYNC_GRANDLEON_METRICS": {
+        "frames": 600,
+        "rendered_frames": 300,
+        "scheduled_frames": 300,
+        "deferred_frames": 0,
+        "missed_vblanks": 184,
+        "max_elapsed_vblanks": 6
+      },
+      "MIPSYNC_FRAME_BUDGET": {
+        "render_hbl_avg": 366,
+        "render_hbl_max": 1306,
+        "ready_hbl_avg": 369,
+        "ready_hbl_max": 1309,
+        "mutation_hbl_max": 0
+      }
+    },
+    "orchard_combat": {
+      "MIPSYNC_WORLD_PACKETS": {
+        "hits": 0,
+        "misses": 330,
+        "bytes": 0
+      },
+      "MIPSYNC_STATIC_PACKETS": {
+        "hits": 350,
+        "misses": 6,
+        "bytes": 3812,
+        "heads": 22,
+        "rejects": 0,
+        "world_free_min": 12,
+        "world_near_limit_frames": 214
+      },
+      "MIPSYNC_GRANDLEON_METRICS": {
+        "frames": 600,
+        "rendered_frames": 300,
+        "scheduled_frames": 300,
+        "deferred_frames": 0,
+        "missed_vblanks": 184,
+        "max_elapsed_vblanks": 3
+      },
+      "MIPSYNC_FRAME_BUDGET": {
+        "render_hbl_avg": 378,
+        "render_hbl_max": 714,
+        "ready_hbl_avg": 381,
+        "ready_hbl_max": 718,
+        "mutation_hbl_max": 264
+      }
+    }
+  },
+  "stages": {
+    "bell": {
+      "manifest": "out/ps1-packet-capacity06-campaign/bell-build-manifest.json",
+      "main_ram": {
+        "text_bytes": 421560,
+        "data_bytes": 493876,
+        "bss_bytes": 329552,
+        "resident_bytes": 1244988,
+        "packet_bytes_per_frame": 24576,
+        "packet_arena_bytes": 49152,
+        "end_address": "0x8013f750",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1310524,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 1867580,
+        "passes_playable_slice_budget": true
+      },
+      "vram_texture_bytes": 213312,
+      "elf_sha256": "291d21a2eff0226c190e6280c62fd4fae68ac9a658af16229aa4b38ef73023e6"
+    },
+    "deep": {
+      "manifest": "out/ps1-packet-capacity06-campaign/deep-build-manifest.json",
+      "main_ram": {
+        "text_bytes": 424104,
+        "data_bytes": 493364,
+        "bss_bytes": 240448,
+        "resident_bytes": 1157916,
+        "packet_bytes_per_frame": 24576,
+        "packet_arena_bytes": 49152,
+        "end_address": "0x8012a340",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1223452,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 1780508,
+        "passes_playable_slice_budget": true
+      },
+      "vram_texture_bytes": 175904,
+      "elf_sha256": "874a97a6bee25fe598830c0be66224c2912ef4a53eac96e61252399f4a1c02e7"
+    },
+    "watch": {
+      "manifest": "out/ps1-packet-capacity06-campaign/watch-build-manifest.json",
+      "main_ram": {
+        "text_bytes": 434104,
+        "data_bytes": 667700,
+        "bss_bytes": 254744,
+        "resident_bytes": 1356548,
+        "packet_bytes_per_frame": 24576,
+        "packet_arena_bytes": 49152,
+        "end_address": "0x8015ab18",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1422084,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 1979140,
+        "passes_playable_slice_budget": true
+      },
+      "vram_texture_bytes": 262464,
+      "elf_sha256": "cfa0ae056af18fe973f7f63736b2c1d1f4de8e57430dcfeb1be8a675f03d75d0"
+    },
+    "village": {
+      "manifest": "out/ps1-packet-capacity06-campaign/village-build-manifest.json",
+      "main_ram": {
+        "text_bytes": 425880,
+        "data_bytes": 751668,
+        "bss_bytes": 288168,
+        "resident_bytes": 1465716,
+        "packet_bytes_per_frame": 24576,
+        "packet_arena_bytes": 49152,
+        "end_address": "0x801755a8",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1531252,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 2088308,
+        "passes_playable_slice_budget": true
+      },
+      "vram_texture_bytes": 316736,
+      "elf_sha256": "4a84ebd42771395042d222f345e4df2145193a02edeeb0bce540ba676fd1ceaf"
+    },
+    "gate": {
+      "manifest": "out/ps1-packet-capacity06-campaign/gate-build-manifest.json",
+      "main_ram": {
+        "text_bytes": 424296,
+        "data_bytes": 714356,
+        "bss_bytes": 322088,
+        "resident_bytes": 1460740,
+        "packet_bytes_per_frame": 40960,
+        "packet_arena_bytes": 81920,
+        "end_address": "0x80174228",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1526276,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 2083332,
+        "passes_playable_slice_budget": true
+      },
+      "vram_texture_bytes": 255360,
+      "elf_sha256": "66aa75c387e3a60115805bb3c6f3267d7db266c714afad4864fe3b0d76ff7c69"
+    }
+  },
+  "limits": [
+    "Emulator review, not hardware validation. Strict keep and combat30FPS gates still fail. Larger buffers restore more geometry; co-op scrolling misses219retraces versus181with the prior smaller buffers.",
+    "Orchard combat still reports214 near-limit redraws with12bytes minimum world space. Open-stage packet pressure remains work; do not treat the castle fix as a complete command-capacity fix.",
+    "Campaign UI validation uses supported stage skip, not full battle playthroughs. Separate combat and castle-entry probes use real legal actions.",
+    "Initial campaign probe reported a validation failure despite the expected marker in its final log; its shell source had been edited while it was running. The same artifacts were retested with a stable script in campaign-final; all functional checks passed before the known FPS gate failed."
+  ],
+  "upstream": "No further Mipsync patch in this pass. Existing optional packet hooks remain local only; public upstream PR unchanged."
+}

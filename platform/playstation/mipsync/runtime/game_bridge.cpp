@@ -2440,11 +2440,14 @@ extern "C" int grandleon_game_world_packets_stable(void) {
 }
 
 extern "C" void grandleon_game_log_static_packets(
-    uint32_t hits, uint32_t misses, uint32_t bytes, uint32_t heads, uint32_t rejects
+    uint32_t hits, uint32_t misses, uint32_t bytes, uint32_t heads, uint32_t rejects,
+    uint32_t world_free_min, uint32_t world_near_limit_frames
 ) {
     psx::Line().text("MIPSYNC_STATIC_PACKETS hits=").decimal(hits)
         .text(" misses=").decimal(misses).text(" bytes=").decimal(bytes)
-        .text(" heads=").decimal(heads).text(" rejects=").decimal(rejects).flush();
+        .text(" heads=").decimal(heads).text(" rejects=").decimal(rejects)
+        .text(" world_free_min=").decimal(world_free_min)
+        .text(" world_near_limit_frames=").decimal(world_near_limit_frames).flush();
 }
 
 extern "C" void grandleon_game_log_world_packets(uint32_t hits, uint32_t misses, uint32_t bytes) {

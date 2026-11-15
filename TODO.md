@@ -277,7 +277,14 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   gameplay or weaken checks to meet a performance gate. Static scenery now
   needs less CPU time when unit poses or foliage change, but camera-motion
   bursts and the strict keep frame-pacing check remain open.
-  [Current measurements](tools/renderer_comparison/ps1-static-packets-06.json)
+  [Current measurements](tools/renderer_comparison/ps1-packet-capacity-06.json)
+- [ ] Reduce PS1 close-combat command pressure without cutting terrain detail
+  or consuming the gameplay reserves. The new telemetry also finds near-full
+  24 KiB arenas during orchard combat; texture-heavy village stages need a
+  memory-saving approach before their buffers can grow.
+- [x] Size PS1 command storage for covered rooms so the keep no longer loses
+  towers when its roof is drawn. Audit the two static arenas in linked RAM;
+  keep open-stage storage smaller and preserve all audio, stack and heap reserves.
 - [x] Reuse static PS1 board and architecture commands independently of unit
   idle poses and foliage. Preserve depth ordering, moving actors, fresh UI,
   castle reveals and the original memory reserves. Native image comparisons

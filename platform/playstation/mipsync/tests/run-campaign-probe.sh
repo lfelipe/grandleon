@@ -57,6 +57,12 @@ for filename in sys.argv[1:]:
             raise SystemExit(f"{path}: Twin Gate reveal policy is not recorded")
     elif visibility.get("cells") != 0 or visibility.get("entities") != 0:
         raise SystemExit(f"{path}: unexpected hidden-area presentation")
+    packet_bytes = 40960 if visibility.get("cells") else 24576
+    if memory.get("packet_bytes_per_frame") != packet_bytes or \
+            memory.get("packet_arena_bytes") != 2 * packet_bytes:
+        raise SystemExit(f"{path}: linked command storage does not match scene content")
+    if memory["packet_arena_bytes"] > memory["bss_bytes"]:
+        raise SystemExit(f"{path}: command storage is not included in resident RAM")
     if not memory.get("passes_playable_slice_budget"):
         raise SystemExit(f"{path}: playable slice exceeds main RAM")
     if memory["playable_slice_committed_bytes"] > memory["main_ram_bytes"]:
