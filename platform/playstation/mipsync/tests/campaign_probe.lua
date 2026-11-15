@@ -11,6 +11,7 @@ local UI = {browse=0, move=1, deployment=6, moment=13, title=14, players=15,
             story=16, objective=17, aftermath=18, save_error=19, name=22}
 local frame, next_input, state_since = 0, 30, 0
 local observed, current_stage = nil, nil
+local observed_revision, input_revision = 0, -1
 local captured, returns = {}, {}
 local pending_capture, pending_quit = nil, nil
 local ui_output, ui_return = nil, nil
@@ -66,6 +67,7 @@ entry_hooks[#entry_hooks + 1] = PCSX.addBreakpoint(
         'Observe completed campaign UI', function()
       if ui_return == address then
         local output = pointer(ui_output, 'const grandleon_ui_state*')[0]
+        observed_revision = observed_revision + 1
         local previous = observed and observed.mode or -1
         observed = {mode=tonumber(output.mode), menu=tonumber(output.campaign_menu_index),
                     settled=output.camera_settled ~= 0, headline=text(tonumber(output.headline))}
@@ -108,7 +110,7 @@ entry_hooks[#entry_hooks + 1] = PCSX.addBreakpoint(
        frame - state_since >= 12 then
       capture((mode == 'solo' and 'solo-' or '') .. current_stage)
     end
-    if frame >= next_input and not pending_capture then
+    if frame >= next_input and not pending_capture and observed_revision > input_revision then
       if ui == UI.title then
         local row = mode == 'continue' and 1 or 0
         held = observed.menu == row and 0x4000 or 0x0040
@@ -140,7 +142,10 @@ entry_hooks[#entry_hooks + 1] = PCSX.addBreakpoint(
           end
         end
       end
-      if held ~= 0 or player_two ~= 0 then next_input = frame + 10 end
+      if held ~= 0 or player_two ~= 0 then
+        next_input = frame + 10
+        input_revision = observed_revision
+      end
     end
   end
   PCSX.getRegisters().GPR.n.a0 = held
