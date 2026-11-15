@@ -2,9 +2,20 @@
 #include "SettlementScenery.hpp"
 #include "GeneratedSettlement.hpp"
 #include <limits>
+#include <array>
+#include <algorithm>
 
 namespace grandleon::nintendo64::pyrite {
 void SettlementScenery::begin() {
+    // Recorded draws read the world-space vertex and index arenas. Retire
+    // them before either arena or the instance list is changed for a new map.
+    if (commands_[0] || commands_[1]) rspq_wait();
+    for (auto& block : commands_) {
+        if (block) rspq_block_free(block);
+        block = nullptr;
+    }
+    if (indices_) free_uncached(indices_);
+    indices_ = nullptr;
     instances_.clear();
     batches_.clear();
 }
@@ -36,7 +47,7 @@ bool SettlementScenery::finish() {
         for (std::size_t p=0; p<model.count; ++p) {
             const std::size_t source_index = model.first+p;
             const auto& part = settlement_art::batches[source_index];
-            batches_.push_back({static_cast<std::uint16_t>(source_index),static_cast<std::uint16_t>(next)});
+            batches_.push_back({static_cast<std::uint16_t>(source_index),static_cast<std::uint16_t>(next),0});
             for (std::size_t i=0; i<part.count; ++i) {
                 const auto& source = settlement_art::vertices[part.first+i];
                 const auto at = next+i;
@@ -50,6 +61,64 @@ bool SettlementScenery::finish() {
             }
             next += part.count;
         }
+    }
+    // Keep one encoded index list per used source part, sharing it between
+    // repeated instances. Restart each triangle to retain its original order
+    // and winding, rather than optimizing or simplifying the source mesh.
+    constexpr auto absent = std::numeric_limits<std::uint16_t>::max();
+    std::array<std::uint16_t, settlement_art::batches.size()> offsets{};
+    offsets.fill(absent);
+    std::size_t words = 0;
+    for (auto& batch : batches_) {
+        const auto& part = settlement_art::batches[batch.source];
+        const std::size_t padded_words = (part.index_count + 3U) & ~std::size_t{3};
+        // The pinned Tiny3D stores a transformed vertex in 36 DMEM bytes.
+        // Index DMA shares the unoccupied end of that vertex cache.
+        if (part.count > T3D_VERTEX_CACHE_SIZE || part.index_count % 3U ||
+            padded_words * 2U > (T3D_VERTEX_CACHE_SIZE - part.count) * 36U)
+            return false;
+        if (offsets[batch.source] == absent) {
+            if (words + padded_words >= absent) return false;
+            offsets[batch.source] = static_cast<std::uint16_t>(words);
+            words += padded_words;
+        }
+        batch.index_word = offsets[batch.source];
+    }
+    if (words) {
+        indices_ = static_cast<std::int16_t*>(malloc_uncached_aligned(16, words * 2U));
+        if (!indices_) return false;
+        // Padding is initialized as well as the actual indices because the
+        // RSP's final DMA read is aligned to eight bytes.
+        for (std::size_t word = 0; word < words; ++word) indices_[word] = 0;
+        for (std::size_t source = 0; source < offsets.size(); ++source) {
+            if (offsets[source] == absent) continue;
+            const auto& part = settlement_art::batches[source];
+            auto* target = indices_ + offsets[source];
+            for (unsigned i = 0; i < part.index_count; ++i) {
+                const auto index = settlement_art::indices[part.index_first + i];
+                if (index >= part.count) return false;
+                target[i] = static_cast<std::int16_t>(index | (i && i % 3U == 0U ? 0x8000U : 0U));
+            }
+            if (part.index_count) t3d_indexbuffer_convert(target, part.index_count);
+        }
+    }
+    for (unsigned pass = 0; pass < 2U; ++pass) {
+        const bool textured = pass == 0U;
+        const bool present = std::any_of(batches_.begin(), batches_.end(), [&](const auto& batch) {
+            return settlement_art::batches[batch.source].masonry == textured;
+        });
+        if (!present) continue;
+        rspq_block_begin();
+        for (const auto& batch : batches_) {
+            const auto& part = settlement_art::batches[batch.source];
+            if (part.masonry != textured) continue;
+            t3d_vert_load(vertices_ + batch.first / 2U, 0, part.count);
+            if (part.index_count)
+                t3d_tri_draw_strip_and_sync(indices_ + batch.index_word, part.index_count);
+            else t3d_tri_sync();
+        }
+        commands_[pass] = rspq_block_end();
+        if (!commands_[pass]) return false;
     }
     return true;
 }
@@ -71,16 +140,7 @@ void SettlementScenery::draw() const {
             rdpq_sprite_upload(TILE0,masonry_,&repeat);
         }
         t3d_state_set_drawflags(static_cast<T3DDrawFlags>(T3D_FLAG_SHADED|T3D_FLAG_DEPTH|(textured ? T3D_FLAG_TEXTURED : 0)));
-        for (const auto& batch : batches_) {
-            const auto& part=settlement_art::batches[batch.source];
-            if (part.masonry != textured) continue;
-            t3d_vert_load(vertices_+batch.first/2U,0,part.count);
-            for (std::size_t i=0; i<part.index_count; i+=3U) {
-                const auto first=part.index_first+i;
-                t3d_tri_draw(settlement_art::indices[first],settlement_art::indices[first+1U],settlement_art::indices[first+2U]);
-            }
-            t3d_tri_sync();
-        }
+        if (commands_[textured ? 0U : 1U]) rspq_block_run(commands_[textured ? 0U : 1U]);
     }
 }
 }

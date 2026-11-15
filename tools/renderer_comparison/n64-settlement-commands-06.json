@@ -1,0 +1,417 @@
+{
+  "schema": "grandleon.n64.settlement-command-review.v1",
+  "source_base": "025721ff",
+  "decision": "Retain indexed static settlement command streams. No culling, model simplification, material change, camera change or fallback renderer.",
+  "sources": {
+    "platform/nintendo64/pyrite/project/src/user/SettlementScenery.cpp": "eec9f9df903317bb9cf20688c4d64c3d399b8c8f8ef0220529f3858bc71f2619",
+    "platform/nintendo64/pyrite/project/src/user/SettlementScenery.hpp": "9b4d00e291a2638e8d0aeb728f324851fee500858b173aa072c9d19c77b7e4bb"
+  },
+  "method": "Separate review copies observe 7 CPU submission groups without new fences and actual VI-origin presentation holds. Per-group spans include queue backpressure from preceding work; RSP/GPU execution can continue later. Both variants have identical observation and legal campaign input. Normal builds contain no new observation.",
+  "bell_group_profile": {
+    "before": [
+      {
+        "stage": 1,
+        "calls": 695,
+        "avg_us": 2139,
+        "max_us": 2483,
+        "group": "ground"
+      },
+      {
+        "stage": 1,
+        "calls": 695,
+        "avg_us": 611,
+        "max_us": 886,
+        "group": "terrain_forms"
+      },
+      {
+        "stage": 1,
+        "calls": 695,
+        "avg_us": 26287,
+        "max_us": 27664,
+        "group": "landmarks"
+      },
+      {
+        "stage": 1,
+        "calls": 695,
+        "avg_us": 317,
+        "max_us": 1063,
+        "group": "forest"
+      },
+      {
+        "stage": 1,
+        "calls": 695,
+        "avg_us": 4,
+        "max_us": 142,
+        "group": "scenery_sprites"
+      },
+      {
+        "stage": 1,
+        "calls": 695,
+        "avg_us": 274,
+        "max_us": 6566,
+        "group": "overlays"
+      },
+      {
+        "stage": 1,
+        "calls": 695,
+        "avg_us": 571,
+        "max_us": 6143,
+        "group": "units"
+      }
+    ],
+    "after": [
+      {
+        "stage": 1,
+        "calls": 695,
+        "avg_us": 2133,
+        "max_us": 2477,
+        "group": "ground"
+      },
+      {
+        "stage": 1,
+        "calls": 695,
+        "avg_us": 612,
+        "max_us": 837,
+        "group": "terrain_forms"
+      },
+      {
+        "stage": 1,
+        "calls": 695,
+        "avg_us": 231,
+        "max_us": 841,
+        "group": "landmarks"
+      },
+      {
+        "stage": 1,
+        "calls": 695,
+        "avg_us": 271,
+        "max_us": 870,
+        "group": "forest"
+      },
+      {
+        "stage": 1,
+        "calls": 695,
+        "avg_us": 6,
+        "max_us": 143,
+        "group": "scenery_sprites"
+      },
+      {
+        "stage": 1,
+        "calls": 695,
+        "avg_us": 788,
+        "max_us": 31415,
+        "group": "overlays"
+      },
+      {
+        "stage": 1,
+        "calls": 695,
+        "avg_us": 645,
+        "max_us": 31308,
+        "group": "units"
+      }
+    ]
+  },
+  "stage_results": [
+    {
+      "stage": 1,
+      "before_submit_avg_us": 30296,
+      "after_submit_avg_us": 4772,
+      "before_nominal_fps": 26.42,
+      "after_nominal_fps": 27.72,
+      "before_four_vi_holds": 94,
+      "after_four_vi_holds": 57,
+      "presentation_intervals": 694
+    },
+    {
+      "stage": 2,
+      "before_submit_avg_us": 6953,
+      "after_submit_avg_us": 6942,
+      "before_nominal_fps": 30.0,
+      "after_nominal_fps": 30.0,
+      "before_four_vi_holds": 0,
+      "after_four_vi_holds": 0,
+      "presentation_intervals": 870
+    },
+    {
+      "stage": 3,
+      "before_submit_avg_us": 18271,
+      "after_submit_avg_us": 8234,
+      "before_nominal_fps": 30.0,
+      "after_nominal_fps": 30.0,
+      "before_four_vi_holds": 0,
+      "after_four_vi_holds": 0,
+      "presentation_intervals": 1409
+    },
+    {
+      "stage": 4,
+      "before_submit_avg_us": 23266,
+      "after_submit_avg_us": 21609,
+      "before_nominal_fps": 30.0,
+      "after_nominal_fps": 30.0,
+      "before_four_vi_holds": 0,
+      "after_four_vi_holds": 0,
+      "presentation_intervals": 1012
+    },
+    {
+      "stage": 5,
+      "before_submit_avg_us": 21321,
+      "after_submit_avg_us": 20821,
+      "before_nominal_fps": 30.0,
+      "after_nominal_fps": 30.0,
+      "before_four_vi_holds": 0,
+      "after_four_vi_holds": 0,
+      "presentation_intervals": 1299
+    }
+  ],
+  "interpretation": "Bell landmark submission falls from 26.287 ms to 0.231 ms, and complete 3D submission from 30.296 ms to 4.772 ms. Actual presentation improves 26.42 to 27.72 nominal FPS with 94 to 57 double-length holds; later stages remain 30.00 with every frame held 2 VIs. Do not interpret the submission reduction as eliminating that much total-frame/GPU time: identical geometry still executes on the RSP/RDP. Bell remains below target.",
+  "lifetime_and_bounds": [
+    "Each source part used by the current map has one aligned, uncached encoded index list, shared by repeated instances. Every triangle restarts the list, keeping exact indices, winding and order. Vertex-load and material-pass ordering are unchanged.",
+    "Retained blocks contain geometry commands only. Current camera/matrix, texture uploads, material/filter/depth state remain at their original draw location. Vertex positions, UVs and colours are baked into the existing world-space arena.",
+    "begin() drains pending RSP work before freeing blocks/index data or modifying stage geometry; finish() creates new buffers/blocks once per map. No per-frame allocation or fence is added.",
+    "Source indices are validated against each batch vertex count. Aligned index DMA is checked against free DMEM using the pinned Tiny3D 70 vertex/36 byte transformed-vertex layout. All 490 current source batches fit (max 32 vertices/87 indices)."
+  ],
+  "memory": {
+    "normal_before": {
+      "text": 1712898,
+      "data": 82404,
+      "bss": 66128,
+      "total": 1861430
+    },
+    "normal_after": {
+      "text": 1714050,
+      "data": 82420,
+      "bss": 66128,
+      "total": 1862598
+    },
+    "normal_resident_delta_bytes": 1168,
+    "per_map_cache_snapshots": [
+      {
+        "map": 1,
+        "vertex_arena": 193728,
+        "batches": 446,
+        "batch_capacity_bytes": 3072,
+        "index_bytes": 10312,
+        "cache_heap": 26520,
+        "free_heap": 319248
+      },
+      {
+        "map": 2,
+        "vertex_arena": 193728,
+        "batches": 0,
+        "batch_capacity_bytes": 3072,
+        "index_bytes": 0,
+        "cache_heap": 0,
+        "free_heap": 311352
+      },
+      {
+        "map": 3,
+        "vertex_arena": 193728,
+        "batches": 164,
+        "batch_capacity_bytes": 3072,
+        "index_bytes": 9288,
+        "cache_heap": 13192,
+        "free_heap": 290712
+      },
+      {
+        "map": 4,
+        "vertex_arena": 193728,
+        "batches": 233,
+        "batch_capacity_bytes": 3072,
+        "index_bytes": 14896,
+        "cache_heap": 22680,
+        "free_heap": 256488
+      },
+      {
+        "map": 5,
+        "vertex_arena": 193728,
+        "batches": 119,
+        "batch_capacity_bytes": 3072,
+        "index_bytes": 8768,
+        "cache_heap": 14496,
+        "free_heap": 237008
+      }
+    ],
+    "note": "Cache heap includes aligned index allocation plus retained block allocation overhead. Batch capacity is 512 records: 6 bytes instead of 4, adding 1024 bytes. Snapshots are taken immediately after cache construction, not claimed as an all-frame peak. Existing vertex arena, T3D limits, audio/gameplay/stack reservations and base 4 MiB remain unchanged. Full native runs pass; final instrumented free heap 225216 bytes."
+  },
+  "command_proof": "Two host probes compile the actual before/after SettlementScenery sources. For all 26 models, each with repeated and mixed instances, vertex payloads (positions, UVs, colours, normals), loads, exact triangle indices/winding/order, material/filter/depth/texture state and repeated draws match. Empty-stage replacement also matches; block-free assertions require drained execution. The helper models documented Tiny3D restart semantics, not GPU rasterization. Native execution separately passes.",
+  "native_pixel_checks": [
+    {
+      "name": "bell_beam",
+      "crop": [
+        350,
+        240,
+        490,
+        250
+      ],
+      "pixels": 1400,
+      "identical": true,
+      "channel_diff_range": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "bell_post",
+      "crop": [
+        349,
+        255,
+        357,
+        330
+      ],
+      "pixels": 600,
+      "identical": true,
+      "channel_diff_range": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "orchard_crown",
+      "crop": [
+        240,
+        232,
+        265,
+        247
+      ],
+      "pixels": 375,
+      "identical": true,
+      "channel_diff_range": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    }
+  ],
+  "artifacts": {
+    "baseline_source": {
+      "path": "out/n64-groups06/project/src/user/SettlementScenery.cpp",
+      "bytes": 3938,
+      "sha256": "0ab598287132db9b634e516a855cb8f63497810b48e27bc6ce0832d00020c92b"
+    },
+    "baseline_log": {
+      "path": "out/n64-groups06/ares/groups.log",
+      "bytes": 25682,
+      "sha256": "2e79f484f04023b08cc4fb6cc29fd6fab3d85ccafc731a2de3bc3f0d17de70c7"
+    },
+    "current_review_source": {
+      "path": "out/n64-settlement-commands06/project/src/user/SettlementScenery.cpp",
+      "bytes": 6988,
+      "sha256": "53c0654efbe31b384975a3f3e54ed0e4196972099c610bc853b42fc604521df2"
+    },
+    "current_review_rom": {
+      "path": "out/n64-settlement-commands06/project/grandleon_pyrite_game.z64",
+      "bytes": 8306688,
+      "sha256": "a92adb1240a382630b1e9e3071f120989d097f141796bd64e2be517dfbbe740a"
+    },
+    "current_review_log": {
+      "path": "out/n64-settlement-commands06/ares/commands.log",
+      "bytes": 25720,
+      "sha256": "a5d71c344fb635acc37f8d20ce7a2278f9a5821a8322473415f180c6054bac78"
+    },
+    "memory_source": {
+      "path": "out/n64-settlement-memory06/project/src/user/SettlementScenery.cpp",
+      "bytes": 7715,
+      "sha256": "d7e1d935df24f15885fb9d4babb45476247c06c1aa660e19c0858c33acfae354"
+    },
+    "memory_log": {
+      "path": "out/n64-settlement-memory06/ares/memory.log",
+      "bytes": 26382,
+      "sha256": "5e0742520523d67e716b84aad15d9238f4358b31986e804075c503ef7e059282"
+    },
+    "normal_rom": {
+      "path": "out/n64-settlement-normal06/project/grandleon_pyrite_game.z64",
+      "bytes": 8290304,
+      "sha256": "a331c612f0d264f42bbeb11cb4119b03f3dad87cf6d549ed7c6d12ba43e3aea9"
+    },
+    "normal_source": {
+      "path": "out/n64-settlement-normal06/project/src/user/SettlementScenery.cpp",
+      "bytes": 6990,
+      "sha256": "eec9f9df903317bb9cf20688c4d64c3d399b8c8f8ef0220529f3858bc71f2619"
+    },
+    "normal_boot_log": {
+      "path": "out/n64-settlement-normal06/ares/normal.log",
+      "bytes": 1203,
+      "sha256": "d9f3e0e3226c7b4f50eb8ae471d80cb2b85fab90c6661d61df18b51762b61f25"
+    },
+    "host_probe": {
+      "path": "out/n64-settlement-commands06/proof/main.cpp",
+      "bytes": 1058,
+      "sha256": "b18fc074c61572afdac588e15cfc462d79428ef7973fdf2648f102477a6715fb"
+    },
+    "host_probe_backend": {
+      "path": "out/n64-settlement-commands06/proof/include/libdragon.h",
+      "bytes": 4311,
+      "sha256": "50bbcd9aaeac1bb186a245173165c2da133617a465b455396bb176d61f5b1385"
+    },
+    "host_before_result": {
+      "path": "out/n64-settlement-commands06/proof/before.txt",
+      "bytes": 1794,
+      "sha256": "e09984b980c1b8f842c8ad2c3a44dc79aa9da6b20493f91d7a63975cd94d540f"
+    },
+    "host_after_result": {
+      "path": "out/n64-settlement-commands06/proof/after.txt",
+      "bytes": 1794,
+      "sha256": "e09984b980c1b8f842c8ad2c3a44dc79aa9da6b20493f91d7a63975cd94d540f"
+    },
+    "bell_before_image": {
+      "path": "out/n64-groups06/ares/groups-trail/012-PYRITE_SELECTED.png",
+      "bytes": 105656,
+      "sha256": "47006d9f284da0831172479852d391f0aeed865d32c67fe2ad1f867954627c4a"
+    },
+    "bell_after_image": {
+      "path": "out/n64-settlement-commands06/ares/commands-trail/012-PYRITE_SELECTED.png",
+      "bytes": 105825,
+      "sha256": "75ecd2bfe51656de82bf8f4dbd554d503ad78fa675dd9b19409638efc6b17ace"
+    },
+    "forest_image": {
+      "path": "out/n64-settlement-commands06/ares/commands-trail/040-PYRITE_CAMERA_NORTHWEST.png",
+      "bytes": 108773,
+      "sha256": "ace387fb4a44f2835a643869561b85c7f7fb074425a722573d8a2066f547704b"
+    },
+    "castle_exterior": {
+      "path": "out/n64-settlement-commands06/ares/commands-trail/108-PYRITE_CASTLE_EXTERIOR_REVIEW.png",
+      "bytes": 92228,
+      "sha256": "ce2e8c92b14938735e25c832b872ae55d81db3e9d55aa7a0a295f70efc684004"
+    },
+    "castle_interior": {
+      "path": "out/n64-settlement-commands06/ares/commands-trail/124-PYRITE_CASTLE_ROOM_REVIEW.png",
+      "bytes": 93566,
+      "sha256": "fd7b6a272d32b915b01dbb44b1b127f3a32946ce5d50359204120a57eb76b345"
+    }
+  },
+  "validation": [
+    "Complete paired native reviews pass all 5 battles, 287 accepted commands, 165 enemy commands and 18 cell castle reveal with canonical hash 600017321675168062. No unmapped active origins.",
+    "All 26 source models match the host command/payload proof. Three native static prop crops (2375 pixels) match exactly; no whole-image equality claim for asynchronous moving/animated captures.",
+    "Normal ROM boots with review_driver=0. Its final comment-only cleanup produces a byte-identical ROM.",
+    "Five host camera/controller/glyph tests and scoped diff checks pass. No upstream, PS1 or TODO changes."
+  ]
+}

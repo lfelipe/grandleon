@@ -16,11 +16,13 @@ public:
     void draw() const;
 private:
     struct Instance { std::uint8_t model; std::int16_t x,y,z; };
-    struct DrawBatch { std::uint16_t source, first; };
+    struct DrawBatch { std::uint16_t source, first, index_word; };
     std::vector<Instance> instances_;
     std::vector<DrawBatch> batches_;
     T3DVertPacked* vertices_{};
     std::size_t capacity_{};
     sprite_t* masonry_{};
+    std::int16_t* indices_{};
+    rspq_block_t* commands_[2]{};
 };
 }
