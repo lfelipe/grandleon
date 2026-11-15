@@ -44,7 +44,7 @@
     "generator": "out/ps1-water-generator-final06.log"
   },
   "limits": [
-    "Deepwood gains4048 resident bytes including code and staging; dry-stage budgets remain unchanged. Largest stage2088836 bytes with full platform/audio/stack/gameplay reserves.",
+    "Deepwood gains4048 resident bytes including code and staging; dry-stage budgets remain unchanged. Largest stage2088836 bytes with full platform, audio, stack and gameplay reserves.",
     "Keep pacing remains an explicit failing test. This is not hardware validation or a whole-game steady30FPS claim.",
     "The new campaign observation harness resolves each stage function and matches its complete loaded code before handling its breakpoint. It does not change inputs, gameplay, target memory or validation thresholds."
   ]

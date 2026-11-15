@@ -6,19 +6,19 @@
   "limitations": [
     "Read-only coarse VI status samples do not isolate RSP cost from RDP work, measure complete GPU time, or prove earlier mutation spikes irrelevant. SP not halted is not a count of useful instructions. Engine phase includes waits and engine work.",
     "CPU submission spans include asynchronous queue backpressure. Lower local ground-command time cannot be claimed as total-frame savings.",
-    "Emulator-only, base 4 MiB, same legal native review input and unchanged tests/thresholds. No hardware FPS claim. Nominal FPS uses 60 VIs/s; real native VI clock is approximately 59.826 Hz.",
+    "Emulator-only, base 4 MiB, same legal native review input and unchanged tests and thresholds. No hardware FPS claim. Nominal FPS uses 60 VIs/s; real native VI clock is approximately 59.826 Hz.",
     "Additional review observation can slightly perturb cycle/buffer phase. Two fewer four-VI holds do not establish a material presentation improvement."
   ],
   "observer": {
     "script": "out/n64-bell-phases06/stage-profile.py",
-    "scope": "Separate ignored staged build only; no engine/upstream edits, new fences, counter resets, markers or per-frame serial.",
+    "scope": "Separate ignored staged build only; no engine or upstream edits, new fences, counter resets, markers or per-frame serial.",
     "registers": {
       "SP_STATUS": "read-only 0xA4040010; bit0=halt",
       "DP_STATUS": "read-only 0xA410000C; bit4=TMEM busy, bit5=pipe busy, bit6=command busy",
       "definitions": "pinned SDK mips64-elf/include/rsp.inc"
     },
     "late": "unchanged VI origin more than two retraces after presentation, matched active stage; excludes stage transitions",
-    "cpu_scopes": "RAII timers around complete user update, board3D and UI callbacks; other phase is engine/wait."
+    "cpu_scopes": "RAII timers around complete user update, board3D and UI callbacks; other phase is engine work and waits."
   },
   "results": {
     "current": {

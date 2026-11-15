@@ -6,7 +6,7 @@
     "platform/godot/project/content/scenery_style.json": "95d6d006516751522a45b01bfc5b5a5ff264058c0ba76ac3403b821cc92e4d7d",
     "platform/console_art/natural_materials/manifest.json": "afb836991a1d898a27b4084388e8c7dc99c8190f6d0a310721cc000d77d3b29f",
     "platform/playstation/mipsync/tools/generate_scene.py": "78ac7bd3b3bdc006e3ab5c21624ebb128af9701912612ac5cf884cf91f750fca",
-    "platform/nintendo64/pyrite/project/src/user/HouseScenery.cpp": "becae4766b0a2ef11cdda43dd3ec28fa48a203aab1fdff3bfa435fe9d64add81",
+    "https://github.com/lfelipe/grandleon/blob/e4bd8bc0/platform/nintendo64/pyrite/project/src/user/HouseScenery.cpp": "becae4766b0a2ef11cdda43dd3ec28fa48a203aab1fdff3bfa435fe9d64add81",
     "out/scenery-match06-n64-review/ares/game.log": "9fdcf70ceedb2f8d7a1d020454e5b58886d5e04163fa3136469440cc99b1051d",
     "out/scenery-match06-ps1/paving-review/emulator.log": "23c0e9259adeacc4305297899fc99007295f576b8395e27312e865dd3af6633c",
     "out/scenery-match06-balance.log": "61221f55d4797e4a574a857c5239cb70c64bda4864208712e72e4e89c068e506",

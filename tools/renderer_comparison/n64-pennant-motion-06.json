@@ -218,5 +218,5 @@
     "path": "out/n64-pennant06-normal/project/grandleon_pyrite_game.z64",
     "sha256": "279b214b8d9f9b5932df45218f1438bb1d24dd5405456595b72553ed1803d57e"
   },
-  "scope": "N64-only source/preparation/evidence. No shared assets, tests/assertions, upstream engine, TODO, hardware deployment or public pushes."
+  "scope": "N64-only source/preparation/evidence. No shared assets, tests or assertions, upstream engine, TODO, hardware deployment or public pushes."
 }

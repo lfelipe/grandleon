@@ -15,7 +15,7 @@
     },
     {
       "url": "https://github.com/KasaBranca/Mipsync#see-mipsync-in-action",
-      "reviewed": "Published real PS1 runtime screenshot and local native example fixtures. Screenshot is a platform/texture test scene, not a finished forest environment."
+      "reviewed": "Published real PS1 runtime screenshot and local native example fixtures. Screenshot is a platform and texture test scene, not a finished forest environment."
     }
   ],
   "changes": [
