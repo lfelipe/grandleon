@@ -1224,7 +1224,7 @@ void build_environment_vertices() {
             const std::int16_t cx = world_x(static_cast<std::int16_t>(x), width);
             const std::int16_t cz = world_z(static_cast<std::int16_t>(z), height);
             constexpr std::int16_t apron_half = kCell / 2;
-            const std::int16_t floor = -4;
+            const std::int16_t floor = terrain_lift(edge_terrain);
             const auto tint = [&](int gx, int gz) {
                 return environment_colour(edge_terrain, static_cast<std::int16_t>(gx), static_cast<std::int16_t>(gz), distance);
             };
@@ -1848,7 +1848,7 @@ void build_tree_vertices() {
             append_tree(
                 world_x(static_cast<std::int16_t>(x), width) +
                     static_cast<std::int16_t>((hash >> 4U) % 17U) - 8,
-                -4,
+                terrain_lift(edge_terrain),
                 world_z(static_cast<std::int16_t>(z), height) +
                     static_cast<std::int16_t>((hash >> 9U) % 17U) - 8,
                 hash,

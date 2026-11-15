@@ -1,0 +1,103 @@
+{
+  "schema": "grandleon.n64.ground-seam-review.v1",
+  "renderer_base": "9b2e292a",
+  "decision": "Use the existing terrain height lookup for decorative apron surfaces and their tree roots, replacing the arbitrary minus-four-unit drop.",
+  "problem": "Watch/Village native views had a straight dark ledge through continuous grass/road extensions at the playable boundary. The surrounding geometry and decorative trees were independently hard-coded to height-4, while matching playable terrain used its kind-dependent height.",
+  "reference": "Godot board_view_3d.gd builds surrounding tiles and playable tiles through the same natural-terrain construction/height policy. Its terrain extension reads as continuous scenery.",
+  "change": "Two existing height expressions now call terrain_lift(edge_terrain). Same surrounding policy/terrain selection, XZ positions, topology, UVs/textures, object and primitive counts. Decorative tree roots move with their surface. Water remains at its existing height0. Deliberate roads/hills retain terrain height steps.",
+  "boundary": "Existing cursor/reach markers and playable map dimensions remain the boundary cues. Simulation maps, routes, unit placement, input and test assertions are unchanged.",
+  "source_sha256": {
+    "platform/nintendo64/pyrite/project/src/user/ProjectBoard.cpp": "a3647052d9dc7290a43d6828cf15b93dcc71bfa34113c73f8dd14cc874e2f196"
+  },
+  "native_review": {
+    "log": "out/n64-ground-seam-final06/ares/seam.log",
+    "result": "PASS: 5 battles, 287 accepted commands, 165 enemy commands, 18 revealed Keep cells; canonical 600017321675168062. Same legal review input and thresholds.",
+    "geometry_counts": "122 trees and 194 terrain forms, unchanged. No new geometry, textures, allocation, render pass or per-frame synchronization.",
+    "presentation": [
+      {
+        "stage": 1,
+        "frames": 694,
+        "fps_nominal_x100": 2772,
+        "hold2": 637,
+        "hold4": 57
+      },
+      {
+        "stage": 2,
+        "frames": 870,
+        "fps_nominal_x100": 3000,
+        "hold2": 870,
+        "hold4": 0
+      },
+      {
+        "stage": 3,
+        "frames": 1409,
+        "fps_nominal_x100": 3000,
+        "hold2": 1409,
+        "hold4": 0
+      },
+      {
+        "stage": 4,
+        "frames": 1012,
+        "fps_nominal_x100": 3000,
+        "hold2": 1012,
+        "hold4": 0
+      },
+      {
+        "stage": 5,
+        "frames": 1299,
+        "fps_nominal_x100": 3000,
+        "hold2": 1299,
+        "hold4": 0
+      }
+    ],
+    "performance_qualification": "Bell 27.72 nominal FPS / 57 four-VI holds versus 27.76 / 56 before: no meaningful change claimed. Other four stages keep 30 nominal FPS with only two-VI holds. Emulator-only; no hardware FPS claim.",
+    "host_tests": "out/n64-ground-seam-final06/host-projection.log; five existing camera/controller/font tests pass.",
+    "screenshots": [
+      {
+        "before": "out/n64-water06/ares/water-trail/041-PYRITE_CAMERA_SOUTHEAST.png",
+        "after": "out/n64-ground-seam-final06/ares/seam-trail/041-PYRITE_CAMERA_SOUTHEAST.png",
+        "after_sha256": "afb769596354fa9753eb55c44cc5daf11f031d94fca35215339f22c13f95c8c1"
+      },
+      {
+        "before": "out/n64-water06/ares/water-trail/063-PYRITE_CAMERA_SOUTHEAST.png",
+        "after": "out/n64-ground-seam-final06/ares/seam-trail/063-PYRITE_CAMERA_SOUTHEAST.png",
+        "after_sha256": "e51eea18e6ea9bc23d455f9663692bd9bbae06254bf458836ccc76c255c5b74e"
+      },
+      {
+        "before": "out/n64-water06/ares/water-trail/086-PYRITE_CAMERA_SOUTHEAST.png",
+        "after": "out/n64-ground-seam-final06/ares/seam-trail/086-PYRITE_CAMERA_SOUTHEAST.png",
+        "after_sha256": "7c62338e28189f7dc566c71d1478489e26c75227aeb1a196a4c04244f5a8733d"
+      },
+      {
+        "before": "out/n64-water06/ares/water-trail/108-PYRITE_CASTLE_EXTERIOR_REVIEW.png",
+        "after": "out/n64-ground-seam-final06/ares/seam-trail/108-PYRITE_CASTLE_EXTERIOR_REVIEW.png",
+        "after_sha256": "185c938166af81fd4465a3c052529d25dce4c3469fb935ed82d6c1657fa1f0ac"
+      },
+      {
+        "before": "out/n64-water06/ares/water-trail/124-PYRITE_CASTLE_ROOM_REVIEW.png",
+        "after": "out/n64-ground-seam-final06/ares/seam-trail/124-PYRITE_CASTLE_ROOM_REVIEW.png",
+        "after_sha256": "c933d53852ba297942ef203119933ac5207ed0f3c13cf3867a5623b0bbc2d96b"
+      }
+    ],
+    "visual_qualification": "Actual native Forest/Watch/Village, Keep exterior and revealed-room captures reviewed. Checkpoint timing/animation varies, so these are not pixel-aligned before/after comparisons.",
+    "rejected_intermediate": "Surface-only initial experiment stopped after discovering the independent tree-root height -4 assumption. It is isolated in out/n64-ground-seam06 and is not shipping."
+  },
+  "normal_build": {
+    "rom": "out/n64-ground-seam-final06-normal/project/grandleon_pyrite_game.z64",
+    "sha256": "407f1072497d631efd52b30a435c7f2c2ea11e302d575d45ee5cdc7c54f078b8",
+    "boot": "out/n64-ground-seam-final06-normal/ares/normal.log",
+    "review_driver": false,
+    "resident_before_bytes": 1864310,
+    "resident_after_bytes": 1864086,
+    "resident_delta_bytes": -224,
+    "heap_allocations_added": 0,
+    "review_final_free_heap_bytes": 223616,
+    "rdram_bytes": 4194304,
+    "reserves": "Existing gameplay, audio and stack reservations retained."
+  },
+  "limitations": [
+    "N64 terrain remains intentionally stepped; this fixes the artificial map-edge drop, not the broader terrain smoothing difference from Godot.",
+    "Distant backdrop depth and authored surrounding policies remain unchanged.",
+    "No shared assets, rules, upstream engine or public artifacts were modified."
+  ]
+}
