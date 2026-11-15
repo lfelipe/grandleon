@@ -33,6 +33,8 @@ selected source project:
   the authoritative Godot sheets and masks;
 - a deterministic CI4 terrain atlas and terrain-derived CI8 combat plate are
   generated from the selected campaign's own terrain vocabulary;
+- houses retain up to 255 visible colours in CI8 sprites; small overlapping
+  uploads preserve their full canvas and filtering at the strip joins;
 - a generated header binds the selected campaign, encounter order, save
   identity, terrain slots and every staged character drawing;
 - Grandleon's portable runtime libraries are cross-compiled independently of

@@ -298,10 +298,11 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   gain and could starve newly visible pages, so it was not retained.
 - [ ] Improve console texture/palette residency and streaming where it buys
   visible quality. Measure upload, cache, geometry and memory costs before
-  spending the recovered budget on richer scenery, characters or effects. Review N64
-  house palettes at gameplay size: cyan and violet material accents lose
-  separation in CI4. Compare palette selection and higher-colour texture
-  strips without dropping the shared artwork or memory checks.
+  spending the recovered budget on richer scenery, characters or effects.
+- [x] Preserve house colours on both consoles. N64 uses CI8 artwork in
+  filtering-safe strips rather than reducing every building to fifteen visible
+  colours. PS1 houses have independent palettes in reserved VRAM; unit and UI
+  colours remain stable. Keep the same footprints and authoritative campaign.
 - [ ] Maintain the 30 fps console target and explicit memory limits, including
   base 4 MiB Nintendo 64 support. Improve quality within those limits rather
   than restoring retired renderers or adding silent fallbacks.

@@ -6,7 +6,7 @@ import tempfile
 import unittest
 import subprocess
 from PIL import Image
-from scenery_style import HOUSE_FAMILIES, write_n64_header, document, ground_image, house_at, house_image, materials, n64_ground_palette, grove_image, save_ci4_house
+from scenery_style import HOUSE_FAMILIES, write_n64_header, document, ground_image, house_at, house_image, materials, n64_ground_palette, grove_image, save_ci8_house, save_ci4_image
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -59,21 +59,35 @@ class SceneryStyleTests(unittest.TestCase):
             subprocess.run(["c++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-I" + str(REPO / "engine/core/include"), str(folder / "main.cpp"), "-o", str(folder / "check")], check=True)
             subprocess.run([str(folder / "check")], check=True)
 
-    def test_house_payload_preserves_transparency_and_ci4_budget(self):
+    def test_house_payload_preserves_transparency_and_ci8_budget(self):
         with tempfile.TemporaryDirectory() as folder:
             for drawing in range(len(document(REPO)['houses']['drawings'])):
                 source = house_image(REPO, drawing, 64)
                 path = Path(folder) / f'{drawing}.png'
-                save_ci4_house(REPO, drawing, path)
+                save_ci8_house(REPO, drawing, path)
                 payload = path.read_bytes()
-                self.assertEqual(payload[24], 4, 'PNG must declare four-bit indices')
+                self.assertEqual(payload[24], 8, 'PNG must declare eight-bit indices')
                 with Image.open(path) as encoded:
                     self.assertEqual(encoded.size, (64, 64))
                     self.assertEqual(encoded.mode, 'P')
-                    self.assertLessEqual(max(encoded.getdata()), 15)
+                    self.assertLessEqual(max(encoded.getdata()), 255)
+                    self.assertGreater(len(set(encoded.getdata())), 16)
                     alpha = encoded.convert('RGBA').getchannel('A')
                     expected = source.getchannel('A').point(lambda value: 255 if value >= 128 else 0)
                     self.assertEqual(alpha.tobytes(), expected.tobytes())
+                    # Compare the colours the hardware can actually display,
+                    # after reducing each palette to five bits per component.
+                    baseline = Path(folder) / f'{drawing}-ci4.png'
+                    save_ci4_image(source, baseline)
+                    with Image.open(baseline) as old:
+                        old_rgb = list(old.convert("RGB").getdata())
+                    new_rgb = list(encoded.convert("RGB").getdata())
+                    source_rgba = list(source.getdata())
+                    def error(values):
+                        return sum(((value[c] >> 3) * 255 / 31 - original[c]) ** 2
+                                   for original, value in zip(source_rgba, values)
+                                   if original[3] >= 128 for c in range(3))
+                    self.assertLess(error(new_rgb), error(old_rgb), f'drawing {drawing}')
 
     def test_grove_retains_its_shape_and_transparent_background(self):
         for theme in range(4):

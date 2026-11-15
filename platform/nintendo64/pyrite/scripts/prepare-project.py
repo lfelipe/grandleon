@@ -20,7 +20,7 @@ import sys
 from PIL import Image, ImageDraw
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "platform/console_art"))
-from scenery_style import document as scenery_document, write_n64_header as write_style_header, save_ci4_house, save_ci4_image, grove_image, ground_image
+from scenery_style import document as scenery_document, write_n64_header as write_style_header, save_ci8_house, save_ci4_image, grove_image, ground_image
 from settlement_scenery import write_n64_header as write_settlement_header
 from stone_keep import write_n64_header
 
@@ -330,8 +330,8 @@ def prepare(project_path: Path, manifest_path: Path, project_root: Path,
     write_style_header(castle_source.parents[1], project_root / "src/user/GeneratedSceneryStyle.hpp", theme)
     for drawing in range(len(scenery_document(castle_source.parents[1])["houses"]["drawings"])):
         name = f"scenery_house_{drawing}"
-        save_ci4_house(castle_source.parents[1], drawing, assets / f"{name}.png")
-        write_asset_config(assets / f"{name}.png.conf", name, 4)
+        save_ci8_house(castle_source.parents[1], drawing, assets / f"{name}.png")
+        write_asset_config(assets / f"{name}.png.conf", name, 3)  # Pyrite TexFormat::CI8
 
     save_ci4_image(grove_image(castle_source.parents[1], 64, theme), assets / "scenery_grove.png")
     write_asset_config(assets / "scenery_grove.png.conf", "scenery_grove", 4)

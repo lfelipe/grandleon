@@ -680,8 +680,17 @@ def write_textures(
     if len(material_palettes) > 16:
         raise ValueError("4-bit terrain bank exceeds reserved CLUT slots")
     font_index = ui_index - 1
-    palette_owner = next(index for index in range(len(textures))
-                         if index not in material_palettes and index != font_index)
+    house_palettes = {
+        index: slot for slot, index in enumerate(index for index, (name, *_rest) in enumerate(textures)
+                                               if name.startswith("scenery_house_"))
+    }
+    # These rows are already excluded from texture allocation by TexturePacker.
+    # Keep all private CLUTs inside that reserved final 32-line block.
+    if house_palettes and CLUT_Y - 4 - (len(house_palettes) - 1) < (CLUT_Y // 32) * 32:
+        raise ValueError("house palettes exceed the reserved CLUT rows")
+    palette_owner = next((index for index in range(len(textures))
+                          if index not in material_palettes and index != font_index
+                          and index not in house_palettes and index + 1 not in backdrop_indices), None)
     # Only one unit walks at a time. Its six compass/contact frames share a
     # slot, while idle, attack and hurt remain independently resident so two
     # identical archetypes can fight without overwriting each other's art.
@@ -723,13 +732,16 @@ def write_textures(
     embedded_texture_bytes = 0
     for index, (name, image, cutout, x, y) in enumerate(textures):
         is_backdrop = index + 1 in backdrop_indices
-        colours, palette = backdrop_palette if is_backdrop else (palette_colours, palette_image)
+        colours, palette = (shared_stage_palette([image]) if index in house_palettes else
+                            backdrop_palette if is_backdrop else (palette_colours, palette_image))
         words = tim_words(
             image, x, y, cutout, colours, palette,
-            include_palette=(index + 1 == backdrop_indices[0]) if is_backdrop else index == palette_owner,
+            include_palette=True if index in house_palettes else
+                            (index + 1 == backdrop_indices[0]) if is_backdrop else index == palette_owner,
             depth_bits=4 if index in material_palettes or index == font_index else 8,
             palette_slot=material_palettes.get(index, 0),
-            palette_row=CLUT_Y - 2 if is_backdrop else CLUT_Y,
+            palette_row=CLUT_Y - 4 - house_palettes[index] if index in house_palettes else
+                        CLUT_Y - 2 if is_backdrop else CLUT_Y,
             font_palette=index == font_index,
         )
         lines.extend((f"static const uint32_t k_{name}_tim[] = {{", c_words(words), "};", ""))
@@ -740,15 +752,16 @@ def write_textures(
     lines.append("const ps1_texture_desc g_ps1_textures[] = {")
     for index, (name, _image, cutout, _x, _y) in enumerate(textures):
         slot = residency_slots.get(index, index) + 1
-        clut_owner = (index + 1 if index == font_index else
-                      backdrop_indices[0] if index + 1 in backdrop_indices else palette_owner + 1)
+        clut_owner = (index + 1 if index == font_index or index in house_palettes or index in material_palettes else
+                      backdrop_indices[0] if index + 1 in backdrop_indices else
+                      palette_owner + 1 if palette_owner is not None else 0)
         lines.append(
             f"    {{ k_{name}_tim, sizeof(k_{name}_tim) / sizeof(k_{name}_tim[0]), 0, {1 if cutout else 0}, {clut_owner}, {slot} }},"
         )
     lines.extend(("};", "const unsigned int g_ps1_texture_count =", "    sizeof(g_ps1_textures) / sizeof(g_ps1_textures[0]);", ""))
     lines.append("const unsigned int g_grandleon_combat_plate_indices[4] = {" + ",".join(map(str, backdrop_indices or [0] * 4)) + "};")
     (output / "textures_data.c").write_text("\n".join(lines), encoding="utf-8")
-    occupied_vram_bytes = image_vram_bytes + CLUT_COLOURS * 2 + len(material_palettes) * 32 + 32 + (512 if backdrop_indices else 0)
+    occupied_vram_bytes = image_vram_bytes + (CLUT_COLOURS * 2 if palette_owner is not None else 0) + len(material_palettes) * 32 + 32 + (512 if backdrop_indices else 0) + len(house_palettes) * 512
     metrics = {
         "texture_count": len(textures),
         "texture_depth_bits": TEXTURE_DEPTH_BITS,
@@ -757,7 +770,8 @@ def write_textures(
         "font_glyph_count": 96,
         "font_clut_row": CLUT_Y - 3,
         "palette_colours": CLUT_COLOURS,
-        "palette_strategy": "shared_stage_clut",
+        "palette_strategy": "shared_units_private_houses" if house_palettes else "shared_stage_clut",
+        "house_palette_count": len(house_palettes),
         "residency_strategy": "resident_idle_combat_paged_walk",
         "combat_plate": bool(backdrop_indices),
         "texture_bytes": occupied_vram_bytes,

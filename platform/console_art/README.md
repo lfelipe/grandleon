@@ -25,8 +25,6 @@ stale geometry. Regenerate with `platform/godot/tests/export_settlement_scenery.
 using a real rendering server (`xvfb-run` and `--rendering-method gl_compatibility`
 work locally). The headless dummy renderer discards instance transforms and is
 refused by this exporter.
-Use Godot's compatibility renderer for that export (with `xvfb-run` when no
-display is available); headless rendering does not preserve the tree instance transforms.
 PS1 stores each model once and places it separately from terrain pages; its
 build audit still enforces main RAM and texture limits. Console prop animation
 and the busier village's frame budget remain open work.
@@ -35,11 +33,13 @@ and the busier village's frame budget remain open work.
 
 Houses share Godot’s sixteen drawings: four Medieval buildings and two each
 for Sengoku, pirates, sci-fi, mythical, nature and undead. The editor authors
-each family explicitly; all retain
-the same blocked 2×2 footprint. `scenery_style.json` in the Godot content folder defines their drawing,
-mirroring, small placement offsets and size. Nintendo 64 reduces each drawing
-to a transparent 64×64 CI4 sprite; PlayStation uses a 96×96 cutout in the stage
-palette. Changing the drawing or recipe updates all three builds. The ancient grove
+each family explicitly; all retain the same blocked 2×2 footprint.
+`scenery_style.json` in the Godot content folder defines drawing choices,
+mirroring, small placement offsets and size. Nintendo 64 uses transparent
+64×64 CI8 sprites, drawn in three overlapping strips so the palette and texture
+fit TMEM without horizontal joins. PlayStation gives each 96×96 house its own
+palette in the already reserved CLUT area; unit poses keep their shared palette.
+Changing the drawing or recipe updates all three builds. The ancient grove
 uses the same source drawing too, with a transparent square canvas preserving
 its proportions and a seasonal foliage tint.
 

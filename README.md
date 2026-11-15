@@ -82,6 +82,8 @@ The Map Editor includes 2×2 house stamps for all seven themes, with sixteen
 building drawings shared by Godot, Nintendo 64 and PlayStation. Choose a family
 in the landmark selector, then use **Place 2×2**; each house's appearance varies
 naturally across the settlement.
+Console buildings now keep their coloured roofs, windows and trim closer to the
+source artwork.
 
 ![Examples of Grandleon's seven art themes and eight unit roles](docs/screenshots/art-roster/readme-art-sampler.png)
 

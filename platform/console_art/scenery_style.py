@@ -106,8 +106,26 @@ def write_n64_header(repo: Path, output: Path, theme: int = 0) -> None:
     output.write_text("\n".join(lines))
 
 
-def save_ci4_house(repo: Path, drawing: int, output: Path) -> None:
-    save_ci4_image(house_image(repo, drawing, 64), output)
+def save_ci8_house(repo: Path, drawing: int, output: Path) -> None:
+    image = house_image(repo, drawing, 64)
+    pixels = list(image.getdata())
+    opaque = [p[:3] for p in pixels if p[3] >= 128]
+    sample = Image.new("RGB", (len(opaque), 1))
+    sample.putdata(opaque)
+    palette = sample.quantize(colors=255, method=Image.Quantize.MEDIANCUT).getpalette()[:765]
+    palette += [0] * (765 - len(palette))
+    # Map opaque pixels against only visible colours, then shift their indices
+    # by one. Black opaque details must not become transparent palette entry 0.
+    visible = Image.new("P", (1, 1))
+    visible.putpalette(palette + palette[:3])
+    mapped = image.convert("RGB").quantize(palette=visible, dither=Image.Dither.NONE)
+    indices = [0 if pixel[3] < 128 else (index if index < 255 else 0) + 1
+               for pixel, index in zip(pixels, mapped.getdata())]
+    result = Image.new("P", image.size)
+    result.putpalette([0, 0, 0] + palette)
+    result.putdata(indices)
+    result.info["transparency"] = 0
+    result.save(output, bits=8)
 
 
 def save_ci4_image(image: Image.Image, output: Path) -> None:

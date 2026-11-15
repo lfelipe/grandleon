@@ -366,9 +366,40 @@ def test_themed_houses_and_grove_keep_distinct_texture_bindings() -> None:
             assert max(u for u, _v in uvs) == 95
             selected.append(faces[0][3])
         assert len(set(selected)) == 17, "a new house must never alias the grove texture"
+        emitted = (Path(folder) / "textures_data.c").read_text()
+        rows = []
+        for drawing in range(16):
+            body = re.search(r"k_scenery_house_%d_tim\[\] = \{(.*?)\};" % drawing, emitted, re.S).group(1)
+            words = [int(value, 16) for value in re.findall(r"0x[0-9a-fA-F]+", body)]
+            payload = struct.pack(f"<{len(words)}I", *words)
+            assert struct.unpack_from('<II', payload) == (0x10, 9)
+            length, x, y, width, height = struct.unpack_from('<IHHHH', payload, 8)
+            assert (length, x, width, height) == (524, SCENE.CLUT_X, 256, 1)
+            assert 480 <= y <= SCENE.CLUT_Y - 4
+            rows.append(y)
+            image_offset = 8 + length
+            _, px, py, image_width, image_height = struct.unpack_from('<IHHHH', payload, image_offset)
+            assert (image_width, image_height) == (48, 96)
+            assert not (py <= y < py + image_height and px + image_width > x)
+            source = SCENE.house_image(ROOT.parents[2], drawing, 96)
+            texels = payload[image_offset + 12:image_offset + 12 + 96 * 96]
+            assert sum(value != 0 for value in texels) == sum(pixel[3] >= 40 for pixel in source.getdata())
+        assert len(set(rows)) == 16, "house palettes must not overwrite one another or UI palettes"
+
+
+def test_house_only_bank_does_not_require_a_shared_unit_palette() -> None:
+    with tempfile.TemporaryDirectory() as folder:
+        _, _, _, metrics, _ = SCENE.write_textures(Path(folder), ROOT.parents[2], [9], [],
+                                                 houses=True, house_drawings=(8, 10))
+        assert metrics["house_palette_count"] == 2
+        emitted = (Path(folder) / "textures_data.c").read_text()
+        for body in re.findall(r"static const uint32_t k_.*?_tim\[\] = \{(.*?)\};", emitted, re.S):
+            words = [int(value, 16) for value in re.findall(r"0x[0-9a-fA-F]+", body)]
+            assert words[1] & 8, "a bank with only independently paletted textures must own every CLUT"
 
 
 if __name__ == "__main__":
+    test_house_only_bank_does_not_require_a_shared_unit_palette()
     test_themed_houses_and_grove_keep_distinct_texture_bindings()
     test_geometry_pool_covers_both_complete_cursor_outlines()
     test_scenery_compaction_preserves_drawn_faces_and_texture_seams()

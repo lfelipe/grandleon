@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include "ScenerySprites.hpp"
+#include "ScenerySlices.hpp"
 #include "GeneratedSceneryStyle.hpp"
 #include <cmath>
 #include <cstdio>
@@ -7,7 +8,7 @@
 namespace grandleon::nintendo64::pyrite {
 bool ScenerySprites::add_house(int tile_x, int tile_y, int x, int floor, int z, unsigned family) {
     if (count_ >= houses_.size()) return false;
-    if (!vertices_) vertices_ = static_cast<T3DVertPacked*>(malloc_uncached(sizeof(T3DVertPacked)*houses_.size()*2U));
+    if (!vertices_) vertices_ = static_cast<T3DVertPacked*>(malloc_uncached(sizeof(T3DVertPacked)*houses_.size()*scenery_slices::pairs_per_house));
     if (!vertices_) return false;
     const auto style = scenery_style::house_at(tile_x,tile_y,family);
     if (!sprites_[style.drawing]) {
@@ -16,12 +17,15 @@ bool ScenerySprites::add_house(int tile_x, int tile_y, int x, int floor, int z, 
         sprites_[style.drawing] = sprite_load(path);
     }
     if (!sprites_[style.drawing]) return false;
+    const auto surface = sprite_get_pixels(sprites_[style.drawing]);
+    if (surface_get_format(&surface) != FMT_CI8 || surface.width != 64 || surface.height != 64 ||
+        !sprite_get_palette(sprites_[style.drawing]) || sprite_get_palette_used_colors(sprites_[style.drawing]) <= 0) return false;
     houses_[count_++] = {x+static_cast<int>(std::round(style.x*52)),floor,z+static_cast<int>(std::round(style.z*52)),style.drawing,style.mirror,scenery_style::house_side};
     return true;
 }
 bool ScenerySprites::add_grove(int x, int floor, int z) {
     if (count_ >= houses_.size()) return false;
-    if (!vertices_) vertices_ = static_cast<T3DVertPacked*>(malloc_uncached(sizeof(T3DVertPacked)*houses_.size()*2U));
+    if (!vertices_) vertices_ = static_cast<T3DVertPacked*>(malloc_uncached(sizeof(T3DVertPacked)*houses_.size()*scenery_slices::pairs_per_house));
     if (!vertices_) return false;
     if (!sprites_[scenery_style::house_drawing_count]) sprites_[scenery_style::house_drawing_count] = sprite_load("rom:/scenery_grove.sprite");
     if (!sprites_[scenery_style::house_drawing_count]) return false;
@@ -43,21 +47,28 @@ void ScenerySprites::draw(float ex,float ey,float ez,float tx,float ty,float tz)
         for (unsigned i=0;i<count_;++i) {
             const auto& h=houses_[i];
             const float half = h.side * 26.0F;
-            for (unsigned corner=0;corner<4;++corner) {
-                const float sx=(corner==0 || corner==3) ? -half : half;
-                const float sy=corner<2 ? -half : half;
-                const unsigned at=i*4U+corner;
-                auto* pos=t3d_vertbuffer_get_pos(vertices_,static_cast<int>(at));
-                pos[0]=static_cast<std::int16_t>(std::round(h.x+rx*sx+ux*sy));
-                pos[1]=static_cast<std::int16_t>(std::round(h.y+uy*(sy+half)));
-                pos[2]=static_cast<std::int16_t>(std::round(h.z+rz*sx+uz*sy));
-                auto* uv=t3d_vertbuffer_get_uv(vertices_,static_cast<int>(at));
-                const bool right=corner==1 || corner==2;
-                uv[0]=(right != h.mirror ? 63 : 0)<<5;
-                uv[1]=(corner<2 ? 63 : 0)<<5;
-                *t3d_vertbuffer_get_color(vertices_,static_cast<int>(at))=0xffffffffU;
-                auto& pair=vertices_[at/2U];
-                if(at&1U) pair.normB=t3d_vert_pack_normal(&normal);else pair.normA=t3d_vert_pack_normal(&normal);
+            const unsigned strips = h.drawing < scenery_style::house_drawing_count ? scenery_slices::strips.size() : 1U;
+            for (unsigned strip = 0; strip < strips; ++strip) {
+                const auto& slice = h.drawing < scenery_style::house_drawing_count
+                    ? scenery_slices::strips[strip] : scenery_slices::whole;
+                for (unsigned corner=0;corner<4;++corner) {
+                    const bool bottom = corner < 2;
+                    const float sx=(corner==0 || corner==3) ? -half : half;
+                    const int row = bottom ? slice.last : slice.first;
+                    const float sy = scenery_slices::vertical(row, half);
+                    const unsigned at=i*scenery_slices::vertices_per_house+strip*4U+corner;
+                    auto* pos=t3d_vertbuffer_get_pos(vertices_,static_cast<int>(at));
+                    pos[0]=static_cast<std::int16_t>(std::round(h.x+rx*sx+ux*sy));
+                    pos[1]=static_cast<std::int16_t>(std::round(h.y+uy*(sy+half)));
+                    pos[2]=static_cast<std::int16_t>(std::round(h.z+rz*sx+uz*sy));
+                    auto* uv=t3d_vertbuffer_get_uv(vertices_,static_cast<int>(at));
+                    const bool right=corner==1 || corner==2;
+                    uv[0]=(right != h.mirror ? 63 : 0)<<5;
+                    uv[1]=row<<5;
+                    *t3d_vertbuffer_get_color(vertices_,static_cast<int>(at))=0xffffffffU;
+                    auto& pair=vertices_[at/2U];
+                    if(at&1U) pair.normB=t3d_vert_pack_normal(&normal);else pair.normA=t3d_vert_pack_normal(&normal);
+                }
             }
         }
         last_x_=fx;last_y_=fy;last_z_=fz;dirty_=false;
@@ -66,6 +77,7 @@ void ScenerySprites::draw(float ex,float ey,float ez,float tx,float ty,float tz)
         rdpq_mode_zbuf(true,true);
         rdpq_mode_tlut(TLUT_RGBA16);
         rdpq_mode_filter(FILTER_BILINEAR);
+        rdpq_mode_mipmap(MIPMAP_NONE, 0);
         rdpq_mode_combiner(RDPQ_COMBINER_TEX);
         rdpq_mode_alphacompare(1);
         rdpq_mode_blender(0);
@@ -73,9 +85,24 @@ void ScenerySprites::draw(float ex,float ey,float ez,float tx,float ty,float tz)
     rdpq_mode_end();
     t3d_state_set_drawflags(static_cast<T3DDrawFlags>(T3D_FLAG_TEXTURED|T3D_FLAG_DEPTH));
     for(unsigned i=0;i<count_;++i) {
-        rdpq_sprite_upload(TILE0,sprites_[houses_[i].drawing],nullptr);
-        t3d_vert_load(vertices_+i*2U,0,4);
-        t3d_tri_draw(0,1,2);t3d_tri_draw(0,2,3);t3d_tri_sync();
+        auto* sprite = sprites_[houses_[i].drawing];
+        if (houses_[i].drawing == scenery_style::house_drawing_count) {
+            rdpq_sprite_upload(TILE0,sprite,nullptr);
+            t3d_vert_load(vertices_+i*scenery_slices::pairs_per_house,0,4);
+            t3d_tri_draw(0,1,2);t3d_tri_draw(0,2,3);t3d_tri_sync();
+            continue;
+        }
+        const auto surface = sprite_get_pixels(sprite);
+        rdpq_tex_upload_tlut(sprite_get_palette(sprite), 0, sprite_get_palette_used_colors(sprite));
+        t3d_vert_load(vertices_+i*scenery_slices::pairs_per_house,0,scenery_slices::vertices_per_house);
+        for (unsigned strip = 0; strip < scenery_slices::strips.size(); ++strip) {
+            const auto& slice = scenery_slices::strips[strip];
+            rdpq_tex_upload_sub(TILE0, &surface, nullptr, 0, slice.upload_first, 64, slice.upload_end);
+            const unsigned first = strip * 4U;
+            t3d_tri_draw(first,first+1U,first+2U);
+            t3d_tri_draw(first,first+2U,first+3U);
+            t3d_tri_sync();
+        }
     }
 }
 }

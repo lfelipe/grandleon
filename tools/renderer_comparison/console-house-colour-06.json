@@ -1,0 +1,868 @@
+{
+  "schema": "grandleon.console-house-colour-review.v1",
+  "source_base": "7e7b72ed",
+  "scope": "Higher-fidelity console house colours; no authored art, footprints, campaign, simulation, unit poses or reserved-memory limits changed.",
+  "sources": {
+    "README.md": "ba3291dc785a100d7084059b91826205e55b86e20e5315ce1bc71cb3ba2181a5",
+    "TODO.md": "66a4dfe11f7fc2683dc9da118a843b652425993da38c4873810591e645cbc25d",
+    "platform/console_art/README.md": "9e1a4e808df4be7234794b87a295422dcb5cdd8672dad5d2a3b069d4154e32cf",
+    "platform/console_art/scenery_style.py": "d4c98cd7c8dc2a264613a136b14e7305a7ccd55ca48ddfd19f687e6f5f595e07",
+    "platform/console_art/test_scenery_style.py": "919d7e3a6ea913bab54d9731861a4a8d8f2471c50b2625e92d1c65adc6a03660",
+    "platform/nintendo64/pyrite/README.md": "b88b7f7d4444aa5b94dc696a332d5670230d77f66c1ac9f0211bcc2e7ec5a9b5",
+    "platform/nintendo64/pyrite/project/src/user/ScenerySprites.cpp": "4e0f749a8710da70af5827a0bb378d2bed0c0aaca3a2ab480791aeb028a1834f",
+    "platform/nintendo64/pyrite/scripts/prepare-project.py": "9f3e5963ff4b37643cfdd8740d653939742eae48fd878562b8dac90e9a772286",
+    "platform/nintendo64/pyrite/tests/board_camera_test.cpp": "02f3a25ca5fa1ee1ff04d151ea8642ea5030affcf616db3282d800499ea9d693",
+    "platform/playstation/mipsync/tests/scene_generator_test.py": "811b6d70593be0ba5229a55217ec1f6c36971dee8dbe594528fe4d231498f499",
+    "platform/playstation/mipsync/tools/generate_scene.py": "0b461a06035fb1064b463eff6c81ba8e9aa44dc52cc3cba28ed9f849d1bdb8b2",
+    "platform/nintendo64/pyrite/project/src/user/ScenerySlices.hpp": "cbe3f3a26d605ea5d6bd2656162c38bbb7afbecd91707cd060c96b324ab0f58a"
+  },
+  "n64": {
+    "conversion": "64x64 CI8, transparent entry zero and up to 255 visible colours. Three overlapping uploads retain bilinear neighbours across shared edges, with each upload at most 1536 bytes in the lower 2 KiB of TMEM. Ancient groves and character formats retain CI4.",
+    "palette_only_alternative": "Maximum-coverage CI4 was visibly noisier and increased RGB555 MSE; not retained.",
+    "offline_rgb555_mse": {
+      "0": {
+        "ci4_rgb555_mse": 89.39438766853873,
+        "maximum_coverage_rgb555_mse": 157.47294951218873,
+        "ci8_rgb555_mse": 18.620859146133895
+      },
+      "8": {
+        "ci4_rgb555_mse": 155.18052345726267,
+        "maximum_coverage_rgb555_mse": 306.44985718751474,
+        "ci8_rgb555_mse": 25.454317650465494
+      },
+      "10": {
+        "ci4_rgb555_mse": 229.6062006922458,
+        "maximum_coverage_rgb555_mse": 416.74142900368685,
+        "ci8_rgb555_mse": 37.09974686533678
+      },
+      "12": {
+        "ci4_rgb555_mse": 138.04015452421328,
+        "maximum_coverage_rgb555_mse": 215.50365803263313,
+        "ci8_rgb555_mse": 29.268586422278474
+      },
+      "14": {
+        "ci4_rgb555_mse": 67.79155138807883,
+        "maximum_coverage_rgb555_mse": 162.02068799386876,
+        "ci8_rgb555_mse": 21.95275583966953
+      }
+    },
+    "portable_checks": "Fifteen source-art/model/palette tests pass, including exact alpha coverage and improved RGB555 error for all sixteen houses. Static slice tests cover UV continuity, filtering neighbours and TMEM/RSP bounds. Generic project export passes.",
+    "upstream_api_references": [
+      "https://github.com/HailToDodongo/pyrite64/blob/eb8545428f1059841c844169b7b307535e0bfeb2/src/utils/textureFormats.h",
+      "https://github.com/DragonMinded/libdragon/blob/c79a52b42ac790e06e797aede43914dd8754cd5f/src/rdpq/rdpq_sprite.c"
+    ],
+    "builds": {
+      "mythical": {
+        "rom": {
+          "path": "out/n64-house-colour06-mythical/project/grandleon_pyrite_game.z64",
+          "sha256": "41ec85336f443bc75ad72ca1015b137b22ee6f5e1aa2504370db1fe960916796"
+        },
+        "log": {
+          "path": "out/n64-house-colour06-mythical/ares/ci8.log",
+          "sha256": "1937e78b08368858ec4a4d73569d8ecc3d28a6e496a9f242ae0d8d9c5e961303"
+        },
+        "final_sample": "GRANDLEON_PYRITE_GAMEPLAY frames=120 avg_frame_us=33337 min_frame_us=22778 max_frame_us=33958 fps_x100=3000 heap_used=1997952 heap_total=2281432 heap_free=283480 rdram=4194304 battles=5 commands=287 enemy_commands=165 combat=5 trees=122 forms=194 slot_bytes=1340 hash=600017321675168062",
+        "passed": true
+      },
+      "medieval": {
+        "rom": {
+          "path": "out/n64-house-colour06-medieval/project/grandleon_pyrite_game.z64",
+          "sha256": "3502d984e75dd6c29df7d62d67724a877715e42ae1f5f8b22e6b87805eda5bbe"
+        },
+        "log": {
+          "path": "out/n64-house-colour06-medieval/ares/ci8.log",
+          "sha256": "b01daad0add45bedca4f653671591253aa12c8388d5c70c1897df8d8fd3c9dac"
+        },
+        "final_sample": "GRANDLEON_PYRITE_GAMEPLAY frames=120 avg_frame_us=33339 min_frame_us=22971 max_frame_us=34020 fps_x100=3000 heap_used=2007568 heap_total=2281432 heap_free=273864 rdram=4194304 battles=5 commands=287 enemy_commands=165 combat=5 trees=122 forms=194 slot_bytes=1340 hash=600017321675168062",
+        "passed": true
+      }
+    }
+  },
+  "ps1": {
+    "conversion": "Private per-house 256-entry CLUTs in the already reserved final VRAM block. Existing stage palette training and unit-pose residency stay unchanged. Font, terrain and backdrop palette rows remain distinct.",
+    "generated_checks": "All sixteen house CLUTs occupy distinct reserved rows without changing alpha coverage; a house-only bank needs no shared unit-palette owner. The existing generator presentation checks pass.",
+    "matched_mythical_frame": {
+      "before": {
+        "path": "out/all-house-families06-ps1-mythical-review/mipsync-scroll-final.bin",
+        "sha256": "61f287485a3784593374adef75f9b7ed3e7bf21bb2a5407c85a3e4f19d25cbf5"
+      },
+      "after": {
+        "path": "out/ps1-house-colour06-review/mipsync-scroll-final.bin",
+        "sha256": "c9f14692f92e4b325d5839a24d56b73bee2200e9162e150c40b3231a4e9fe2c5"
+      },
+      "different_pixels": 4805,
+      "house_bounds": [
+        [
+          131,
+          115,
+          186,
+          201
+        ],
+        [
+          287,
+          92,
+          320,
+          168
+        ]
+      ],
+      "all_other_pixels_identical": true,
+      "review": {
+        "schema": "grandleon.scene-review.v1",
+        "scene": "out/all-house-families06-mythical-scene.json",
+        "canonical_hash": "9005011463098403465",
+        "capture_verified": true,
+        "metrics": {
+          "frames": 600,
+          "rendered_frames": 300,
+          "scheduled_frames": 300,
+          "deferred_frames": 0,
+          "missed_vblanks": 71,
+          "max_elapsed_vblanks": 3,
+          "render_hbl_avg": 222,
+          "render_hbl_max": 551
+        },
+        "scope": "Emulator visual review. Frame-budget misses are recorded, not treated as a passed performance test."
+      }
+    },
+    "full_campaign": {
+      "functional_checks_pass": true,
+      "scope": "Real new-game/Continue, card persistence, player-two ownership and five-stage solo/co-op UI traversal; stage progression uses supported debug skip, not a full battle playthrough.",
+      "strict_30fps_pass": false,
+      "compared_frames": 15,
+      "unchanged_frames": 13,
+      "changed_frames": [
+        "continue-village.bin",
+        "solo-solo-village.bin"
+      ],
+      "builds": {
+        "bell": {
+          "schema": "grandleon.mipsync.build.v1",
+          "renderer": "mipsync",
+          "identity": "GRANDLEON_PS1_RENDERER=MIPSYNC",
+          "upstream": {
+            "base_revision": "ce1e489f3135039cdad8e81da7b4b0a24cf55870",
+            "patched_revision": "6e37cb110a66c9b6c2a1933acdb4b46a66bc2cf9"
+          },
+          "artifacts": {
+            "grandleon_mipsync.elf": {
+              "bytes": 7143952,
+              "sha256": "a3fa3c01c2bb9d18963fee1940087e9996cb4d295557b4f5617c8e34678aff6c"
+            },
+            "grandleon_mipsync.exe": {
+              "bytes": 911360,
+              "sha256": "5654964cb7d4ace02b966a794fce89cd79f3ddcfc93c354ed5828878bee815ca"
+            },
+            "grandleon-mipsync-campaign.cue": {
+              "bytes": 89,
+              "sha256": "29d16c06436b8a5210108dcf67bbbd29ef0c78753e18cceed2e506a8f9ffecff"
+            },
+            "grandleon-mipsync-campaign.bin": {
+              "bytes": 8467200,
+              "sha256": "eca0facb1653f50f6486a3b88ca3c64256166ab96a2b2410e5d7b54d154791ff"
+            }
+          },
+          "main_ram": {
+            "text_bytes": 417544,
+            "data_bytes": 493748,
+            "bss_bytes": 322312,
+            "resident_bytes": 1233604,
+            "end_address": "0x8013cb08",
+            "renderer_probe_budget_bytes": 524288,
+            "platform_audio_reserve_bytes": 65536,
+            "stack_reserve_bytes": 32768,
+            "minimum_gameplay_heap_bytes": 524288,
+            "main_ram_bytes": 2097152,
+            "renderer_and_audio_reserve_bytes": 1299140,
+            "passes_renderer_only_probe_budget": false,
+            "playable_slice_committed_bytes": 1856196,
+            "passes_playable_slice_budget": true
+          },
+          "scene": {
+            "schema": "grandleon.mipsync.generated.v2",
+            "renderer": "mipsync",
+            "map": {
+              "width": 8,
+              "height": 6
+            },
+            "surroundings": {
+              "policy": "natural_blend",
+              "seed": 75123998,
+              "visible_depth": 2,
+              "authored_depth": 5
+            },
+            "entities": 31,
+            "terrain_chunks": 2,
+            "terrain_forms": 16,
+            "terrain_relief": "smooth",
+            "terrain_material": "relay",
+            "visibility": {
+              "cells": 0,
+              "entities": 0,
+              "reveal": "whole_authored_region_on_entry"
+            },
+            "deployment_markers": 0,
+            "visible": {
+              "units": 8,
+              "covers": 0
+            },
+            "cache": {
+              "vertices": 3221,
+              "vertex_limit": 3264,
+              "triangles": 3521,
+              "triangle_limit": 3584,
+              "mesh_vertex_limit": 1024
+            },
+            "vram": {
+              "texture_count": 79,
+              "texture_depth_bits": 8,
+              "material_depth_bits": 4,
+              "font_depth_bits": 4,
+              "font_glyph_count": 96,
+              "font_clut_row": 508,
+              "palette_colours": 256,
+              "palette_strategy": "shared_stage_clut",
+              "house_palette_count": 0,
+              "residency_strategy": "resident_idle_combat_paged_walk",
+              "combat_plate": true,
+              "texture_bytes": 213312,
+              "embedded_texture_bytes": 358396,
+              "vram_reserved_bytes": 507584
+            },
+            "camera": {
+              "clamp": "viewport_aware_playable_bounds",
+              "static_probe": false,
+              "visible_tiles": [
+                8,
+                6
+              ]
+            }
+          }
+        },
+        "deep": {
+          "schema": "grandleon.mipsync.build.v1",
+          "renderer": "mipsync",
+          "identity": "GRANDLEON_PS1_RENDERER=MIPSYNC",
+          "upstream": {
+            "base_revision": "ce1e489f3135039cdad8e81da7b4b0a24cf55870",
+            "patched_revision": "6e37cb110a66c9b6c2a1933acdb4b46a66bc2cf9"
+          },
+          "artifacts": {
+            "grandleon_mipsync.elf": {
+              "bytes": 7158660,
+              "sha256": "d5acf1fe1c6f79460e8f3e001201417d53f7f602ea274fda5399cd1b7cad2d96"
+            },
+            "grandleon_mipsync.exe": {
+              "bytes": 913408,
+              "sha256": "c541300aa37adbf5c15af9734864440f9b13610456b8df832fad072121c4f724"
+            },
+            "grandleon-mipsync-campaign.cue": {
+              "bytes": 89,
+              "sha256": "29d16c06436b8a5210108dcf67bbbd29ef0c78753e18cceed2e506a8f9ffecff"
+            },
+            "grandleon-mipsync-campaign.bin": {
+              "bytes": 8467200,
+              "sha256": "eca0facb1653f50f6486a3b88ca3c64256166ab96a2b2410e5d7b54d154791ff"
+            }
+          },
+          "main_ram": {
+            "text_bytes": 420072,
+            "data_bytes": 493300,
+            "bss_bytes": 232168,
+            "resident_bytes": 1145540,
+            "end_address": "0x801272e8",
+            "renderer_probe_budget_bytes": 524288,
+            "platform_audio_reserve_bytes": 65536,
+            "stack_reserve_bytes": 32768,
+            "minimum_gameplay_heap_bytes": 524288,
+            "main_ram_bytes": 2097152,
+            "renderer_and_audio_reserve_bytes": 1211076,
+            "passes_renderer_only_probe_budget": false,
+            "playable_slice_committed_bytes": 1768132,
+            "passes_playable_slice_budget": true
+          },
+          "scene": {
+            "schema": "grandleon.mipsync.generated.v2",
+            "renderer": "mipsync",
+            "map": {
+              "width": 14,
+              "height": 9
+            },
+            "surroundings": {
+              "policy": "natural_blend",
+              "seed": 75123998,
+              "visible_depth": 2,
+              "authored_depth": 5
+            },
+            "entities": 22,
+            "terrain_chunks": 5,
+            "terrain_forms": 42,
+            "terrain_relief": "smooth",
+            "terrain_material": "relay",
+            "visibility": {
+              "cells": 0,
+              "entities": 0,
+              "reveal": "whole_authored_region_on_entry"
+            },
+            "deployment_markers": 0,
+            "visible": {
+              "units": 10,
+              "covers": 0
+            },
+            "cache": {
+              "vertices": 514,
+              "vertex_limit": 1280,
+              "triangles": 496,
+              "triangle_limit": 1280,
+              "mesh_vertex_limit": 1024
+            },
+            "vram": {
+              "texture_count": 93,
+              "texture_depth_bits": 8,
+              "material_depth_bits": 4,
+              "font_depth_bits": 4,
+              "font_glyph_count": 96,
+              "font_clut_row": 508,
+              "palette_colours": 256,
+              "palette_strategy": "shared_stage_clut",
+              "house_palette_count": 0,
+              "residency_strategy": "resident_idle_combat_paged_walk",
+              "combat_plate": false,
+              "texture_bytes": 175904,
+              "embedded_texture_bytes": 362204,
+              "vram_reserved_bytes": 544992
+            },
+            "camera": {
+              "clamp": "viewport_aware_playable_bounds",
+              "static_probe": false,
+              "visible_tiles": [
+                8,
+                6
+              ]
+            }
+          }
+        },
+        "watch": {
+          "schema": "grandleon.mipsync.build.v1",
+          "renderer": "mipsync",
+          "identity": "GRANDLEON_PS1_RENDERER=MIPSYNC",
+          "upstream": {
+            "base_revision": "ce1e489f3135039cdad8e81da7b4b0a24cf55870",
+            "patched_revision": "6e37cb110a66c9b6c2a1933acdb4b46a66bc2cf9"
+          },
+          "artifacts": {
+            "grandleon_mipsync.elf": {
+              "bytes": 7406996,
+              "sha256": "3a0fe4cd75cce15510085eaebc56c2a3922efd9a05300f60db61decfb818f8a1"
+            },
+            "grandleon_mipsync.exe": {
+              "bytes": 1093632,
+              "sha256": "65d1daf5dac73797f09e7e8e553e19cd1ac4c687ea92afec2e04f9580f2ff849"
+            },
+            "grandleon-mipsync-campaign.cue": {
+              "bytes": 89,
+              "sha256": "29d16c06436b8a5210108dcf67bbbd29ef0c78753e18cceed2e506a8f9ffecff"
+            },
+            "grandleon-mipsync-campaign.bin": {
+              "bytes": 8467200,
+              "sha256": "eca0facb1653f50f6486a3b88ca3c64256166ab96a2b2410e5d7b54d154791ff"
+            }
+          },
+          "main_ram": {
+            "text_bytes": 430056,
+            "data_bytes": 663540,
+            "bss_bytes": 244448,
+            "resident_bytes": 1338044,
+            "end_address": "0x801562e0",
+            "renderer_probe_budget_bytes": 524288,
+            "platform_audio_reserve_bytes": 65536,
+            "stack_reserve_bytes": 32768,
+            "minimum_gameplay_heap_bytes": 524288,
+            "main_ram_bytes": 2097152,
+            "renderer_and_audio_reserve_bytes": 1403580,
+            "passes_renderer_only_probe_budget": false,
+            "playable_slice_committed_bytes": 1960636,
+            "passes_playable_slice_budget": true
+          },
+          "scene": {
+            "schema": "grandleon.mipsync.generated.v2",
+            "renderer": "mipsync",
+            "map": {
+              "width": 16,
+              "height": 12
+            },
+            "surroundings": {
+              "policy": "natural_blend",
+              "seed": 75123998,
+              "visible_depth": 2,
+              "authored_depth": 5
+            },
+            "entities": 59,
+            "terrain_chunks": 10,
+            "terrain_forms": 64,
+            "terrain_relief": "smooth",
+            "terrain_material": "relay",
+            "visibility": {
+              "cells": 0,
+              "entities": 0,
+              "reveal": "whole_authored_region_on_entry"
+            },
+            "deployment_markers": 0,
+            "visible": {
+              "units": 14,
+              "covers": 0
+            },
+            "cache": {
+              "vertices": 1167,
+              "vertex_limit": 1280,
+              "triangles": 1400,
+              "triangle_limit": 1408,
+              "mesh_vertex_limit": 1024
+            },
+            "vram": {
+              "texture_count": 106,
+              "texture_depth_bits": 8,
+              "material_depth_bits": 4,
+              "font_depth_bits": 4,
+              "font_glyph_count": 96,
+              "font_clut_row": 508,
+              "palette_colours": 256,
+              "palette_strategy": "shared_stage_clut",
+              "house_palette_count": 0,
+              "residency_strategy": "resident_idle_combat_paged_walk",
+              "combat_plate": true,
+              "texture_bytes": 262464,
+              "embedded_texture_bytes": 469528,
+              "vram_reserved_bytes": 458432
+            },
+            "camera": {
+              "clamp": "viewport_aware_playable_bounds",
+              "static_probe": false,
+              "visible_tiles": [
+                8,
+                6
+              ]
+            }
+          }
+        },
+        "village": {
+          "schema": "grandleon.mipsync.build.v1",
+          "renderer": "mipsync",
+          "identity": "GRANDLEON_PS1_RENDERER=MIPSYNC",
+          "upstream": {
+            "base_revision": "ce1e489f3135039cdad8e81da7b4b0a24cf55870",
+            "patched_revision": "6e37cb110a66c9b6c2a1933acdb4b46a66bc2cf9"
+          },
+          "artifacts": {
+            "grandleon_mipsync.elf": {
+              "bytes": 7434308,
+              "sha256": "76e1d92d44bde6a4aa1cab52f72081c017e1b3e347e98f666633eb021ea26bec"
+            },
+            "grandleon_mipsync.exe": {
+              "bytes": 1173504,
+              "sha256": "03a46bf794ae271d22e06eaf447f39e6b59bbc557112f5f86c6cae1a727f7fda"
+            },
+            "grandleon-mipsync-campaign.cue": {
+              "bytes": 89,
+              "sha256": "29d16c06436b8a5210108dcf67bbbd29ef0c78753e18cceed2e506a8f9ffecff"
+            },
+            "grandleon-mipsync-campaign.bin": {
+              "bytes": 8467200,
+              "sha256": "eca0facb1653f50f6486a3b88ca3c64256166ab96a2b2410e5d7b54d154791ff"
+            }
+          },
+          "main_ram": {
+            "text_bytes": 421848,
+            "data_bytes": 751604,
+            "bss_bytes": 280448,
+            "resident_bytes": 1453900,
+            "end_address": "0x80172780",
+            "renderer_probe_budget_bytes": 524288,
+            "platform_audio_reserve_bytes": 65536,
+            "stack_reserve_bytes": 32768,
+            "minimum_gameplay_heap_bytes": 524288,
+            "main_ram_bytes": 2097152,
+            "renderer_and_audio_reserve_bytes": 1519436,
+            "passes_renderer_only_probe_budget": false,
+            "playable_slice_committed_bytes": 2076492,
+            "passes_playable_slice_budget": true
+          },
+          "scene": {
+            "schema": "grandleon.mipsync.generated.v2",
+            "renderer": "mipsync",
+            "map": {
+              "width": 18,
+              "height": 12
+            },
+            "surroundings": {
+              "policy": "natural_blend",
+              "seed": 75123998,
+              "visible_depth": 2,
+              "authored_depth": 5
+            },
+            "entities": 44,
+            "terrain_chunks": 8,
+            "terrain_forms": 72,
+            "terrain_relief": "smooth",
+            "terrain_material": "relay",
+            "visibility": {
+              "cells": 0,
+              "entities": 0,
+              "reveal": "whole_authored_region_on_entry"
+            },
+            "deployment_markers": 0,
+            "visible": {
+              "units": 6,
+              "covers": 0
+            },
+            "cache": {
+              "vertices": 2358,
+              "vertex_limit": 2368,
+              "triangles": 2104,
+              "triangle_limit": 2112,
+              "mesh_vertex_limit": 1024
+            },
+            "vram": {
+              "texture_count": 118,
+              "texture_depth_bits": 8,
+              "material_depth_bits": 4,
+              "font_depth_bits": 4,
+              "font_glyph_count": 96,
+              "font_clut_row": 508,
+              "palette_colours": 256,
+              "palette_strategy": "shared_units_private_houses",
+              "house_palette_count": 4,
+              "residency_strategy": "resident_idle_combat_paged_walk",
+              "combat_plate": true,
+              "texture_bytes": 316736,
+              "embedded_texture_bytes": 544568,
+              "vram_reserved_bytes": 404160
+            },
+            "camera": {
+              "clamp": "viewport_aware_playable_bounds",
+              "static_probe": false,
+              "visible_tiles": [
+                8,
+                6
+              ]
+            }
+          }
+        },
+        "gate": {
+          "schema": "grandleon.mipsync.build.v1",
+          "renderer": "mipsync",
+          "identity": "GRANDLEON_PS1_RENDERER=MIPSYNC",
+          "upstream": {
+            "base_revision": "ce1e489f3135039cdad8e81da7b4b0a24cf55870",
+            "patched_revision": "6e37cb110a66c9b6c2a1933acdb4b46a66bc2cf9"
+          },
+          "artifacts": {
+            "grandleon_mipsync.elf": {
+              "bytes": 7383056,
+              "sha256": "c3c3133dce1be2fdca4d35a35406d89c62a08914dbde27da5878ba492d367ecd"
+            },
+            "grandleon_mipsync.exe": {
+              "bytes": 1134592,
+              "sha256": "5c27e6eb91a0ab54c949911d4746ecb05db22817c22ce8849988958b08f9cf82"
+            },
+            "grandleon-mipsync-campaign.cue": {
+              "bytes": 89,
+              "sha256": "29d16c06436b8a5210108dcf67bbbd29ef0c78753e18cceed2e506a8f9ffecff"
+            },
+            "grandleon-mipsync-campaign.bin": {
+              "bytes": 8467200,
+              "sha256": "eca0facb1653f50f6486a3b88ca3c64256166ab96a2b2410e5d7b54d154791ff"
+            }
+          },
+          "main_ram": {
+            "text_bytes": 420264,
+            "data_bytes": 714292,
+            "bss_bytes": 281200,
+            "resident_bytes": 1415756,
+            "end_address": "0x80169270",
+            "renderer_probe_budget_bytes": 524288,
+            "platform_audio_reserve_bytes": 65536,
+            "stack_reserve_bytes": 32768,
+            "minimum_gameplay_heap_bytes": 524288,
+            "main_ram_bytes": 2097152,
+            "renderer_and_audio_reserve_bytes": 1481292,
+            "passes_renderer_only_probe_budget": false,
+            "playable_slice_committed_bytes": 2038348,
+            "passes_playable_slice_budget": true
+          },
+          "scene": {
+            "schema": "grandleon.mipsync.generated.v2",
+            "renderer": "mipsync",
+            "map": {
+              "width": 20,
+              "height": 14
+            },
+            "surroundings": {
+              "policy": "natural_blend",
+              "seed": 75123998,
+              "visible_depth": 2,
+              "authored_depth": 5
+            },
+            "entities": 31,
+            "terrain_chunks": 10,
+            "terrain_forms": 94,
+            "terrain_relief": "smooth",
+            "terrain_material": "relay",
+            "visibility": {
+              "cells": 18,
+              "entities": 1,
+              "reveal": "whole_authored_region_on_entry"
+            },
+            "deployment_markers": 0,
+            "visible": {
+              "units": 4,
+              "covers": 18
+            },
+            "cache": {
+              "vertices": 2365,
+              "vertex_limit": 2368,
+              "triangles": 2424,
+              "triangle_limit": 2432,
+              "mesh_vertex_limit": 1024
+            },
+            "vram": {
+              "texture_count": 98,
+              "texture_depth_bits": 8,
+              "material_depth_bits": 4,
+              "font_depth_bits": 4,
+              "font_glyph_count": 96,
+              "font_clut_row": 508,
+              "palette_colours": 256,
+              "palette_strategy": "shared_stage_clut",
+              "house_palette_count": 0,
+              "residency_strategy": "resident_idle_combat_paged_walk",
+              "combat_plate": true,
+              "texture_bytes": 255360,
+              "embedded_texture_bytes": 441808,
+              "vram_reserved_bytes": 465536
+            },
+            "camera": {
+              "clamp": "viewport_aware_playable_bounds",
+              "static_probe": false,
+              "visible_tiles": [
+                8,
+                6
+              ]
+            }
+          }
+        }
+      }
+    },
+    "mythical_build": {
+      "schema": "grandleon.mipsync.build.v1",
+      "renderer": "mipsync",
+      "identity": "GRANDLEON_PS1_RENDERER=MIPSYNC",
+      "upstream": {
+        "base_revision": "ce1e489f3135039cdad8e81da7b4b0a24cf55870",
+        "patched_revision": "ff384cbab9d43d9d30e38e440777a0f27dcc3f4a"
+      },
+      "artifacts": {
+        "grandleon_mipsync.elf": {
+          "bytes": 7203072,
+          "sha256": "d49a54edfcd4e5989e20d6651accfb0dafe392792b7ce15075f10da9a8fa0fb5"
+        },
+        "grandleon_mipsync.exe": {
+          "bytes": 1097728,
+          "sha256": "47e1b0a85542ee6895f41d533d964847d79f89ae075745ec2402380bdc513d55"
+        },
+        "grandleon-mipsync.cue": {
+          "bytes": 446,
+          "sha256": "972d118966a595819c008e73d10695d45ef31689759a83a055f07a69a6b625a3"
+        },
+        "grandleon-mipsync.bin": {
+          "bytes": 95253648,
+          "sha256": "47ae1186b5c83fc02a309f320404d0c08b5e9a96de6eb19337cb0cb2b09dc83f"
+        }
+      },
+      "main_ram": {
+        "text_bytes": 366328,
+        "data_bytes": 731380,
+        "bss_bytes": 248080,
+        "resident_bytes": 1345788,
+        "end_address": "0x80158110",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1411324,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 1968380,
+        "passes_playable_slice_budget": true
+      },
+      "scene": {
+        "schema": "grandleon.mipsync.generated.v2",
+        "renderer": "mipsync",
+        "map": {
+          "width": 18,
+          "height": 12
+        },
+        "surroundings": {
+          "policy": "natural_blend",
+          "seed": 75123998,
+          "visible_depth": 2,
+          "authored_depth": 5
+        },
+        "entities": 44,
+        "terrain_chunks": 8,
+        "terrain_forms": 72,
+        "terrain_relief": "smooth",
+        "terrain_material": "relay",
+        "visibility": {
+          "cells": 0,
+          "entities": 0,
+          "reveal": "whole_authored_region_on_entry"
+        },
+        "deployment_markers": 0,
+        "visible": {
+          "units": 6,
+          "covers": 0
+        },
+        "cache": {
+          "vertices": 2358,
+          "vertex_limit": 2368,
+          "triangles": 2104,
+          "triangle_limit": 2112,
+          "mesh_vertex_limit": 1024
+        },
+        "vram": {
+          "texture_count": 116,
+          "texture_depth_bits": 8,
+          "material_depth_bits": 4,
+          "font_depth_bits": 4,
+          "font_glyph_count": 96,
+          "font_clut_row": 508,
+          "palette_colours": 256,
+          "palette_strategy": "shared_units_private_houses",
+          "house_palette_count": 2,
+          "residency_strategy": "resident_idle_combat_paged_walk",
+          "combat_plate": true,
+          "texture_bytes": 297280,
+          "embedded_texture_bytes": 525048,
+          "vram_reserved_bytes": 423616
+        },
+        "camera": {
+          "clamp": "viewport_aware_playable_bounds",
+          "static_probe": false,
+          "visible_tiles": [
+            8,
+            6
+          ]
+        }
+      }
+    },
+    "medieval_build": {
+      "schema": "grandleon.mipsync.build.v1",
+      "renderer": "mipsync",
+      "identity": "GRANDLEON_PS1_RENDERER=MIPSYNC",
+      "upstream": {
+        "base_revision": "ce1e489f3135039cdad8e81da7b4b0a24cf55870",
+        "patched_revision": "ff384cbab9d43d9d30e38e440777a0f27dcc3f4a"
+      },
+      "artifacts": {
+        "grandleon_mipsync.elf": {
+          "bytes": 7224496,
+          "sha256": "6fd307476d41ca960a83ed074a769a0c10e95575e79c5d4ada0ce964e73b1a1b"
+        },
+        "grandleon_mipsync.exe": {
+          "bytes": 1118208,
+          "sha256": "3fea85e81e2dd5b3802a4b4139066326abcb32e80e7afbf1bad7c68f371af4a0"
+        },
+        "grandleon-mipsync.cue": {
+          "bytes": 446,
+          "sha256": "5c5381ca25f342c8854fc6caba1b779aba6fa13af3aff322f3d55fd2894ebbfc"
+        },
+        "grandleon-mipsync.bin": {
+          "bytes": 95277168,
+          "sha256": "846ae151d4cee0949e4f9d1db73c2d9824ee95110f8bd3b55a06e00a7fe4f128"
+        }
+      },
+      "main_ram": {
+        "text_bytes": 366328,
+        "data_bytes": 751860,
+        "bss_bytes": 248080,
+        "resident_bytes": 1366268,
+        "end_address": "0x8015d110",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1431804,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 1988860,
+        "passes_playable_slice_budget": true
+      },
+      "scene": {
+        "schema": "grandleon.mipsync.generated.v2",
+        "renderer": "mipsync",
+        "map": {
+          "width": 18,
+          "height": 12
+        },
+        "surroundings": {
+          "policy": "natural_blend",
+          "seed": 75123998,
+          "visible_depth": 2,
+          "authored_depth": 5
+        },
+        "entities": 44,
+        "terrain_chunks": 8,
+        "terrain_forms": 72,
+        "terrain_relief": "smooth",
+        "terrain_material": "relay",
+        "visibility": {
+          "cells": 0,
+          "entities": 0,
+          "reveal": "whole_authored_region_on_entry"
+        },
+        "deployment_markers": 0,
+        "visible": {
+          "units": 6,
+          "covers": 0
+        },
+        "cache": {
+          "vertices": 2358,
+          "vertex_limit": 2368,
+          "triangles": 2104,
+          "triangle_limit": 2112,
+          "mesh_vertex_limit": 1024
+        },
+        "vram": {
+          "texture_count": 118,
+          "texture_depth_bits": 8,
+          "material_depth_bits": 4,
+          "font_depth_bits": 4,
+          "font_glyph_count": 96,
+          "font_clut_row": 508,
+          "palette_colours": 256,
+          "palette_strategy": "shared_units_private_houses",
+          "house_palette_count": 4,
+          "residency_strategy": "resident_idle_combat_paged_walk",
+          "combat_plate": true,
+          "texture_bytes": 316736,
+          "embedded_texture_bytes": 544568,
+          "vram_reserved_bytes": 404160
+        },
+        "camera": {
+          "clamp": "viewport_aware_playable_bounds",
+          "static_probe": false,
+          "visible_tiles": [
+            8,
+            6
+          ]
+        }
+      }
+    }
+  },
+  "hardware_tested": false,
+  "limitations": [
+    "N64 timing is the final 120-frame sample, not a per-stage/hardware benchmark.",
+    "The PS1 full-campaign functional checks pass before the unchanged strict keep FPS check fails. No performance gates were weakened.",
+    "Native stills are checkpoint captures; cursor/idle timing can differ."
+  ]
+}
