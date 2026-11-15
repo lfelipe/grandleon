@@ -1,4 +1,4 @@
-# Godot PC application
+# Godot application
 
 This is Grandleon's main player and campaign creator. One application opens the
 included games, local projects, creation tools, settings, and exports.
@@ -13,19 +13,18 @@ GRANDLEON_WINDOWED=1 out/grandleon-pc/launch-pc.sh
 ```
 
 The resulting folder is self-contained. It includes the pinned Godot runtime,
-Grandleon's native game engine, its art, and the two sample campaigns. A system
+Grandleon's native game engine, its art, and the included campaign. A system
 Godot installation is not required.
 
 ## Play
 
-The home screen includes:
+The home screen offers **Steel and Cedar**, campaigns created or imported on
+this device, and the campaign browser. **Create / Edit Games** opens the creator.
 
-- **The Tarnholt Line**, a one-player campaign;
-- **Emberbound: The Last Dawn**, playable by one or two local players; and
-- campaigns created or imported on this computer.
-
-Each local player has their own cursor and units. A solo game gives the complete
-allied company to Player 1. Campaigns that allow either mode ask before launch.
+Each local player has their own cursor and units. Campaigns can provide distinct
+solo and co-op formations and offer a player-count choice at launch. The 0.6
+development build also supports LAN co-op between Android devices and PCs;
+see [Setting up](../../docs/SETUP.md#checking-lan-co-op).
 
 The battlefield gives most of the window to the map. Unit details appear only
 while a character is selected, and action menus choose a clear position rather

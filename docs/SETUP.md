@@ -229,6 +229,18 @@ platform/godot/scripts/smoke-lan.sh build-godot
 ```
 
 
+### Checking touch layouts
+
+Run the local input, phone/tablet layout and touch-player checks with:
+
+```sh
+platform/godot/scripts/smoke-mobile.sh build-godot
+```
+
+The campaign checks include long chapter names, larger text, scrolling to the
+last action, and reordering chapters in English and Portuguese. Desktop layout
+checks complement Android emulator and physical-device testing.
+
 ### Checking interrupted local games
 
 The Godot player keeps automatic recovery for local solo and same-device

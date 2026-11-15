@@ -47,6 +47,10 @@ static func apply_tree(node: Node, sizes: Dictionary) -> void:
 		if node is BaseButton:
 			node.custom_minimum_size.x = maxf(float(_original(node, "min_x", node.custom_minimum_size.x)), sizes.touch)
 		if node is OptionButton:
+			# Long authored chapter/unit names must not widen the whole form.
+			# Keep the full item text in the choice menu, within a bounded field.
+			node.fit_to_longest_item = false
+			node.clip_text = true
 			var popup: PopupMenu = node.get_popup()
 			popup.add_theme_font_size_override("font_size", sizes.font)
 			popup.add_theme_constant_override("v_separation", roundi(32 * sizes.unit))
@@ -57,6 +61,17 @@ static func apply_tree(node: Node, sizes: Dictionary) -> void:
 				node.add_theme_font_size_override(variant, maxi(int(_original(node, variant, node.get_theme_font_size(variant))), sizes.body))
 	elif node is HSlider or node is VSlider:
 		node.custom_minimum_size.y = maxf(float(_original(node, "min_y", node.custom_minimum_size.y)), sizes.touch)
+	if node is BoxContainer and node.get_meta("mobile_wrap_actions", false):
+		var width := 0.0
+		var count := 0
+		for child: Node in node.get_children():
+			if child is Control and child.visible:
+				width += child.get_combined_minimum_size().x
+				count += 1
+		width += maxi(0, count - 1) * node.get_theme_constant("separation")
+		# Recompute from the children, so a larger viewport or smaller text can
+		# restore the original horizontal row without accumulating overrides.
+		node.vertical = width > node.size.x
 	if node is ScrollContainer:
 		node.follow_focus = true
 	if node is PanelContainer and not node.get_parent() is Container and node.get_child_count() == 1:

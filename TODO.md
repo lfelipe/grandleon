@@ -63,7 +63,11 @@ part of 0.6, alongside performance work and platform validation.
   keyboards and mice. Readable controls alone do not prove every form fits well.
   Compact project hubs now use a full-width list; chapter cards stack their
   actions, and campaign settings fold away. Phone/tablet review captures cover
-  these screens and the map editor, browser and player.
+  these screens and the map editor, browser and player. Long chapter names now
+  stay within their selectors; crowded campaign-dialog actions stack instead
+  of widening the form. Local English/Portuguese layout checks cover chapter
+  reordering, scrolling to the final action, and restoring the wider layout.
+  These density checks do not replace Android keyboard and mouse validation.
 - [x] Make the phone player board-first with contextual controls. Show legal
   unit actions after selection, target details during targeting, and compact
   dialogue/close-up controls only while those views are active. Avoid a
