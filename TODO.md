@@ -272,25 +272,16 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
 
 - [ ] Record the 0.5 production builds as baselines: artifact hashes, matched
   captures, frame timing, CPU/rendering cost, ROM/RAM and PS1 VRAM usage.
-- [ ] Fix PS1 scenery-rendering cost and frame pacing on scrolling and castle
-  views so the existing strict 30 fps checks pass. Retain the full terrain,
-  units, camera behaviour and test scenarios; do not change gameplay to pass
-  a performance test or weaken the checks. Profile canopy motion and lost
-  world-packet reuse on the heavier castle views; the new forest movement
-  does not close this performance task. The renderer now indexes every exported
-  scene entry; a native nine-position Cedar Watch check covers canopy pages
-  beyond the former 64-entry cap.
-  Exported flat scenery now shares duplicate projected vertices while keeping
-  texture seams, face order and baked colour. The one-player keep saves 4 KiB
-  of resident memory; all 253 reveal-sequence captures remain byte-identical.
-  Its small timing gain does not close the frame-rate gap.
-  [Entrance and vertex-sharing checks](tools/renderer_comparison/castle-entrance-06.json)
-  The richer stone-keep candidate needs further profiling: the centred
-  two-player exterior capture improves from 114 to 111 missed retraces over
-  600 simulation ticks (300 rendered frames), with render time reduced from
-  515 to 499 HBlanks on average by skipping provably unnecessary fog work.
-  All 131 movement captures are pixel-identical. It fits RAM/VRAM but does not
-  meet the 30 fps gate.
+- [ ] Bring PS1 scrolling and castle views to consistent 30 fps. Retain the
+  full terrain, units, camera behaviour and test scenarios; do not change
+  gameplay or weaken checks to meet a performance gate. Static scenery now
+  needs less CPU time when unit poses or foliage change, but camera-motion
+  bursts and the strict keep frame-pacing check remain open.
+  [Current measurements](tools/renderer_comparison/ps1-static-packets-06.json)
+- [x] Reuse static PS1 board and architecture commands independently of unit
+  idle poses and foliage. Preserve depth ordering, moving actors, fresh UI,
+  castle reveals and the original memory reserves. Native image comparisons
+  cover scrolling, combat, conversations, campaign menus and the keep entrance.
 - [x] Prepare upstream Mipsync texture-bounds protection and batched world
   projection as separate commits/patches. Sanitizers cover the bounds cases;
   matched movement, scrolling and castle-reveal frames remain pixel-identical.

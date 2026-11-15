@@ -1,0 +1,424 @@
+{
+  "schema": "grandleon.ps1-static-packets.v1",
+  "source_base": "0bc3afab339c56371b087c554163f79669c7a3f6",
+  "sources": {
+    "TODO.md": "eaf2dcb63dcbbc6a84bdc601c8c4f23e1a71f8ddd5d8b690916511ed94919145",
+    "platform/playstation/mipsync/README.md": "8f586a8265711833b71c458f92987787fcc52d29a9e54014cb2f736e898d7b9a",
+    "platform/playstation/mipsync/runtime/CMakeLists.txt": "12aa6699295ed9e833009db42190140e81de52502ab7d96be7b29df3e7cc137a",
+    "platform/playstation/mipsync/runtime/main.c": "b43ce55d818313bcdb39bb8db97751dabd4bd09090e74dc6f072b010457c5696",
+    "platform/playstation/mipsync/runtime/game_bridge.cpp": "29dce454e8db01ff1b0a30f26d563e1bb67064f7e6d58ce0f565040409df46cd",
+    "platform/playstation/mipsync/runtime/game_bridge.h": "c872f16c342fac6278faff72a9cfd3a87509b099a17b7973c78711efd94b4d5f",
+    "tools/upstream_patches/engines/mipsync/series": "058fcadd0eb78b5112c86506861bf0286d10a6959e6d2895d8611905122058b9",
+    "tools/upstream_patches/engines/mipsync/0005-Add-opt-in-PS1-entity-packet-reuse-hooks.patch": "8725be072aa230f960dbf4bc59773bff321ef74abbcf82d3f6bd33c12c79dedb"
+  },
+  "design": "Two application-owned immutable command fragments: primary board surface and active architecture page. Exact entity/camera keys, original submission positions, current-frame bucket-tail merging, existing two packet arenas. Dynamic units, foliage, UI and camera/combat motion keep normal drawing. Unsupported parents, point lights, engine animations/VM bindings and prerender occluders opt out. No gameplay or test-threshold changes.",
+  "upstream": {
+    "local_only": true,
+    "topic_commit": "b47cef960aa9cb6f9cf251dc589e5994c6b55197",
+    "default_hooks_enabled": false,
+    "default_disabled_preprocessor_sha256": "1ebd3da683aa6365ac1b14b778043bfe27a982cecb1709e482d40b125897bcda",
+    "default_disabled_matches_before": true,
+    "portable_tests": [
+      "Ps1ClipMathTests",
+      "Ps1GpuClippingTests",
+      "Ps1TexturePaletteTests",
+      "Ps1ViewmodelProjectionTests",
+      "Ps1WorldProjectionTests",
+      "Ps1FogBoundsTests",
+      "Ps1PacketFragmentTests"
+    ],
+    "sanitizers": "ASan and UBSan; new fragment test also passes at -O2 with -Werror. Existing ClipMath missing-initializer warning is unchanged; no existing tests edited.",
+    "series_apply_check": "out/mipsync-packet-fragments06-series-check.log",
+    "public_pr_updated": false
+  },
+  "comparisons": {
+    "solo_scroll": {
+      "before": "out/ps1-floor06-before-scroll",
+      "after": "out/ps1-static06-final-1p-scroll",
+      "identical_framebuffers": 132,
+      "sha256_of_capture_hashes": "f90efc42d1f6858e8ec9e66c639ed43bdc8b4ba879287fc58c6aaaf011164103"
+    },
+    "coop_scroll": {
+      "before": "out/ps1-static06-2p-before-scroll",
+      "after": "out/ps1-static06-final-2p-scroll",
+      "identical_framebuffers": 132,
+      "sha256_of_capture_hashes": "230701a87150d997e57d23f56f6678af236399bc5eb8d92e8b9da606ca5e02f8"
+    },
+    "castle_entry": {
+      "before": "out/ps1-static06-visibility-before",
+      "after": "out/ps1-static06-final-visibility",
+      "identical_framebuffers": 253,
+      "sha256_of_capture_hashes": "1ba611a6780ec30d8ecac3145da2bfe36638ce81110b2359fe3efd2b56d19fd1"
+    },
+    "combat": {
+      "before": "out/ps1-static06-combat-before",
+      "after": "out/ps1-static06-combat-after",
+      "identical_framebuffers": 409,
+      "sha256_of_capture_hashes": "6db2f35561b9cf5b1dbadc5ac1fe2747123cc4013903753b72d5fa225c50d0ca"
+    },
+    "campaign": {
+      "before": "out/ps1-index06-campaign-probe",
+      "after": "out/ps1-static06-final-campaign-probe",
+      "identical_framebuffers": 15,
+      "sha256_of_capture_hashes": "fe3722c50bf7923bb24e925f3f360d41b7dc6c1ec67fa21184d1145a9283f433"
+    }
+  },
+  "total_identical_framebuffers": 941,
+  "watch_index_regression": {
+    "entities": 68,
+    "pages": 9,
+    "drawn_canopy_entities": [
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66
+    ],
+    "scope": "Actual controller traversal and renderer draw calls; no entity, camera or simulation state writes."
+  },
+  "timing": {
+    "solo_scroll": {
+      "before": {
+        "MIPSYNC_WORLD_PACKETS": {
+          "hits": 231,
+          "misses": 98,
+          "bytes": 18140
+        },
+        "MIPSYNC_GRANDLEON_METRICS": {
+          "frames": 600,
+          "rendered_frames": 299,
+          "scheduled_frames": 300,
+          "deferred_frames": 1,
+          "missed_vblanks": 123,
+          "max_elapsed_vblanks": 5
+        },
+        "MIPSYNC_FRAME_BUDGET": {
+          "render_hbl_avg": 240,
+          "render_hbl_max": 1202,
+          "ready_hbl_avg": 242,
+          "ready_hbl_max": 1205,
+          "mutation_hbl_max": 49
+        }
+      },
+      "after": {
+        "MIPSYNC_WORLD_PACKETS": {
+          "hits": 231,
+          "misses": 98,
+          "bytes": 18140
+        },
+        "MIPSYNC_STATIC_PACKETS": {
+          "hits": 34,
+          "misses": 6,
+          "bytes": 10220,
+          "heads": 87,
+          "rejects": 0
+        },
+        "MIPSYNC_GRANDLEON_METRICS": {
+          "frames": 600,
+          "rendered_frames": 299,
+          "scheduled_frames": 300,
+          "deferred_frames": 1,
+          "missed_vblanks": 123,
+          "max_elapsed_vblanks": 5
+        },
+        "MIPSYNC_FRAME_BUDGET": {
+          "render_hbl_avg": 233,
+          "render_hbl_max": 1202,
+          "ready_hbl_avg": 236,
+          "ready_hbl_max": 1206,
+          "mutation_hbl_max": 50
+        }
+      }
+    },
+    "coop_scroll": {
+      "before": {
+        "MIPSYNC_WORLD_PACKETS": {
+          "hits": 5,
+          "misses": 325,
+          "bytes": 18432
+        },
+        "MIPSYNC_GRANDLEON_METRICS": {
+          "frames": 600,
+          "rendered_frames": 300,
+          "scheduled_frames": 300,
+          "deferred_frames": 0,
+          "missed_vblanks": 180,
+          "max_elapsed_vblanks": 6
+        },
+        "MIPSYNC_FRAME_BUDGET": {
+          "render_hbl_avg": 558,
+          "render_hbl_max": 1465,
+          "ready_hbl_avg": 561,
+          "ready_hbl_max": 1469,
+          "mutation_hbl_max": 0
+        }
+      },
+      "after": {
+        "MIPSYNC_WORLD_PACKETS": {
+          "hits": 32,
+          "misses": 298,
+          "bytes": 18528
+        },
+        "MIPSYNC_STATIC_PACKETS": {
+          "hits": 422,
+          "misses": 4,
+          "bytes": 11300,
+          "heads": 81,
+          "rejects": 0
+        },
+        "MIPSYNC_GRANDLEON_METRICS": {
+          "frames": 600,
+          "rendered_frames": 300,
+          "scheduled_frames": 300,
+          "deferred_frames": 0,
+          "missed_vblanks": 181,
+          "max_elapsed_vblanks": 6
+        },
+        "MIPSYNC_FRAME_BUDGET": {
+          "render_hbl_avg": 396,
+          "render_hbl_max": 1466,
+          "ready_hbl_avg": 399,
+          "ready_hbl_max": 1470,
+          "mutation_hbl_max": 0
+        }
+      }
+    },
+    "combat": {
+      "before": {
+        "MIPSYNC_WORLD_PACKETS": {
+          "hits": 0,
+          "misses": 330,
+          "bytes": 0
+        },
+        "MIPSYNC_GRANDLEON_METRICS": {
+          "frames": 600,
+          "rendered_frames": 300,
+          "scheduled_frames": 300,
+          "deferred_frames": 0,
+          "missed_vblanks": 185,
+          "max_elapsed_vblanks": 4
+        },
+        "MIPSYNC_FRAME_BUDGET": {
+          "render_hbl_avg": 420,
+          "render_hbl_max": 780,
+          "ready_hbl_avg": 424,
+          "ready_hbl_max": 784,
+          "mutation_hbl_max": 263
+        }
+      },
+      "after": {
+        "MIPSYNC_WORLD_PACKETS": {
+          "hits": 0,
+          "misses": 330,
+          "bytes": 0
+        },
+        "MIPSYNC_STATIC_PACKETS": {
+          "hits": 350,
+          "misses": 6,
+          "bytes": 3812,
+          "heads": 22,
+          "rejects": 0
+        },
+        "MIPSYNC_GRANDLEON_METRICS": {
+          "frames": 600,
+          "rendered_frames": 300,
+          "scheduled_frames": 300,
+          "deferred_frames": 0,
+          "missed_vblanks": 184,
+          "max_elapsed_vblanks": 3
+        },
+        "MIPSYNC_FRAME_BUDGET": {
+          "render_hbl_avg": 377,
+          "render_hbl_max": 725,
+          "ready_hbl_avg": 381,
+          "ready_hbl_max": 729,
+          "mutation_hbl_max": 264
+        }
+      }
+    },
+    "keep_campaign": {
+      "before": {
+        "MIPSYNC_WORLD_PACKETS": {
+          "hits": 13,
+          "misses": 322,
+          "bytes": 18432
+        },
+        "MIPSYNC_GRANDLEON_METRICS": {
+          "frames": 600,
+          "rendered_frames": 300,
+          "scheduled_frames": 300,
+          "deferred_frames": 0,
+          "missed_vblanks": 183,
+          "max_elapsed_vblanks": 5
+        },
+        "MIPSYNC_FRAME_BUDGET": {
+          "render_hbl_avg": 550,
+          "render_hbl_max": 1300,
+          "ready_hbl_avg": 554,
+          "ready_hbl_max": 1303,
+          "mutation_hbl_max": 0
+        }
+      },
+      "after": {
+        "MIPSYNC_WORLD_PACKETS": {
+          "hits": 155,
+          "misses": 180,
+          "bytes": 18496
+        },
+        "MIPSYNC_STATIC_PACKETS": {
+          "hits": 106,
+          "misses": 2,
+          "bytes": 7816,
+          "heads": 55,
+          "rejects": 0
+        },
+        "MIPSYNC_GRANDLEON_METRICS": {
+          "frames": 600,
+          "rendered_frames": 300,
+          "scheduled_frames": 300,
+          "deferred_frames": 0,
+          "missed_vblanks": 185,
+          "max_elapsed_vblanks": 6
+        },
+        "MIPSYNC_FRAME_BUDGET": {
+          "render_hbl_avg": 362,
+          "render_hbl_max": 1306,
+          "ready_hbl_avg": 366,
+          "ready_hbl_max": 1309,
+          "mutation_hbl_max": 0
+        }
+      }
+    },
+    "deepwood_campaign": {
+      "before": {
+        "MIPSYNC_WORLD_PACKETS": {
+          "hits": 156,
+          "misses": 179,
+          "bytes": 7992
+        },
+        "MIPSYNC_GRANDLEON_METRICS": {
+          "frames": 600,
+          "rendered_frames": 300,
+          "scheduled_frames": 300,
+          "deferred_frames": 0,
+          "missed_vblanks": 0,
+          "max_elapsed_vblanks": 2
+        },
+        "MIPSYNC_FRAME_BUDGET": {
+          "render_hbl_avg": 189,
+          "render_hbl_max": 445,
+          "ready_hbl_avg": 191,
+          "ready_hbl_max": 449,
+          "mutation_hbl_max": 0
+        }
+      },
+      "after": {
+        "MIPSYNC_WORLD_PACKETS": {
+          "hits": 156,
+          "misses": 179,
+          "bytes": 7992
+        },
+        "MIPSYNC_STATIC_PACKETS": {
+          "hits": 104,
+          "misses": 2,
+          "bytes": 3968,
+          "heads": 36,
+          "rejects": 0
+        },
+        "MIPSYNC_GRANDLEON_METRICS": {
+          "frames": 600,
+          "rendered_frames": 300,
+          "scheduled_frames": 300,
+          "deferred_frames": 0,
+          "missed_vblanks": 0,
+          "max_elapsed_vblanks": 2
+        },
+        "MIPSYNC_FRAME_BUDGET": {
+          "render_hbl_avg": 173,
+          "render_hbl_max": 446,
+          "ready_hbl_avg": 176,
+          "ready_hbl_max": 450,
+          "mutation_hbl_max": 0
+        }
+      }
+    }
+  },
+  "stages": {
+    "bell": {
+      "committed_ram_bytes": 1862884,
+      "ram_limit": 2097152,
+      "audio_stack_heap_reserves": [
+        65536,
+        32768,
+        524288
+      ],
+      "vram_texture_bytes": 213312,
+      "elf_sha256": "5f20a99afb6a4d029d670f7496f9ea2d03e71582d66f9b84ab7e6e0c7f655243",
+      "patched_engine_revision": "1c5fe1ae9cf56aa6973cf76a435308bb5357ab89"
+    },
+    "deep": {
+      "committed_ram_bytes": 1777868,
+      "ram_limit": 2097152,
+      "audio_stack_heap_reserves": [
+        65536,
+        32768,
+        524288
+      ],
+      "vram_texture_bytes": 175904,
+      "elf_sha256": "1654a4129a430a3bc333650ef0a15a93f7c89b68ae392dce25e2d3d4cc2a7604",
+      "patched_engine_revision": "1c5fe1ae9cf56aa6973cf76a435308bb5357ab89"
+    },
+    "watch": {
+      "committed_ram_bytes": 1976500,
+      "ram_limit": 2097152,
+      "audio_stack_heap_reserves": [
+        65536,
+        32768,
+        524288
+      ],
+      "vram_texture_bytes": 262464,
+      "elf_sha256": "194420bfa3af6247dbda9c237cbb439b69ccb63e552eafeb9c0e5f6bc9e85775",
+      "patched_engine_revision": "1c5fe1ae9cf56aa6973cf76a435308bb5357ab89"
+    },
+    "village": {
+      "committed_ram_bytes": 2085660,
+      "ram_limit": 2097152,
+      "audio_stack_heap_reserves": [
+        65536,
+        32768,
+        524288
+      ],
+      "vram_texture_bytes": 316736,
+      "elf_sha256": "c0a7c2be0cc8b6f20f239fcb80487c9659193093539cea5208fd9ac172bda641",
+      "patched_engine_revision": "1c5fe1ae9cf56aa6973cf76a435308bb5357ab89"
+    },
+    "gate": {
+      "committed_ram_bytes": 2047924,
+      "ram_limit": 2097152,
+      "audio_stack_heap_reserves": [
+        65536,
+        32768,
+        524288
+      ],
+      "vram_texture_bytes": 255360,
+      "elf_sha256": "ebc40fcee1b5f1df91a534feca814ca235baf55c062d4b0002f5fe3317dfbd8d",
+      "patched_engine_revision": "1c5fe1ae9cf56aa6973cf76a435308bb5357ab89"
+    }
+  },
+  "checks": {
+    "campaign_functional_passed": true,
+    "combat_camera_audio_passed": true,
+    "castle_reveal_passed": true,
+    "strict_campaign_fps_passed": false,
+    "strict_combat_fps_passed": false
+  },
+  "limits": [
+    "Emulator CPU measurements, not hardware validation. HBlanks are render time, not FPS.",
+    "Co-op scrolling improves 558 to 396 HBlanks but missed retraces grow 180 to 181. The full keep sample improves 550 to 362 with 184 to 185 missed retraces. Moving-camera bursts remain over budget.",
+    "Campaign traversal exercises actual menus, saves and player ownership with supported stage skip, not full battles. The separate combat and castle-entry checks use legal gameplay actions."
+  ]
+}

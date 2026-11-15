@@ -2439,6 +2439,14 @@ extern "C" int grandleon_game_world_packets_stable(void) {
         !s_camera_return_frames && s_camera_settle_frames >= 2;
 }
 
+extern "C" void grandleon_game_log_static_packets(
+    uint32_t hits, uint32_t misses, uint32_t bytes, uint32_t heads, uint32_t rejects
+) {
+    psx::Line().text("MIPSYNC_STATIC_PACKETS hits=").decimal(hits)
+        .text(" misses=").decimal(misses).text(" bytes=").decimal(bytes)
+        .text(" heads=").decimal(heads).text(" rejects=").decimal(rejects).flush();
+}
+
 extern "C" void grandleon_game_log_world_packets(uint32_t hits, uint32_t misses, uint32_t bytes) {
     psx::Line().text("MIPSYNC_WORLD_PACKETS hits=").decimal(hits)
         .text(" misses=").decimal(misses).text(" bytes=").decimal(bytes).flush();

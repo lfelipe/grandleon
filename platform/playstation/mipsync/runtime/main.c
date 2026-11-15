@@ -9,9 +9,11 @@
 #include "game_bridge.h"
 #include "grandleon_audio.h"
 #include "runtime/render.h"
+#include "runtime/packet_fragment.h"
 #include "runtime/scene.h"
 #include "runtime/textures.h"
 #include "packet_relocation.h"
+#include "generated/grandleon_scene.h"
 
 #define SCREEN_WIDTH 320
 #define SCREEN_HEIGHT 240
@@ -112,6 +114,130 @@ static int world_arena_slot(char* base) {
         }
     }
     return -1;
+}
+
+/* Retain immutable board and architecture commands at their original positions
+ * in the submission order. Unit, cursor and foliage commands stay dynamic.
+ * Source commands live in the existing packet arenas, never a third buffer. */
+#define STATIC_PACKET_HEAD_CAPACITY 256
+struct static_fragment {
+    ps1_packet_fragment_bucket heads[STATIC_PACKET_HEAD_CAPACITY];
+    size_t head_count;
+    uint32_t entity[sizeof(ps1_entity) / 4u];
+    uint32_t camera[sizeof(ps1_entity) / 4u];
+    const uint32_t* packets;
+    uint32_t bytes;
+    int added, ready;
+};
+static struct static_fragment s_static_fragments[2];
+static const ps1_entity* s_static_targets[2];
+static uint32_t s_static_packet_hits, s_static_packet_misses, s_static_packet_rejects;
+static int s_static_packets_supported;
+static uint32_t s_static_packet_marks[PACKET_BYTES_PER_FRAME / 4u / 32u];
+
+static void static_packets_begin_frame(int supported) {
+    /* Attached point lights need a wider cache key than these immutable,
+     * unlit generated meshes. Leave them on the normal renderer path. */
+    s_static_packets_supported = supported && !g_ps1_scene.light_count;
+    s_static_targets[0] = g_grandleon_board_surface_count
+        ? &g_ps1_scene.entities[g_grandleon_board_surface_entity_indices[0]] : 0;
+    s_static_targets[1] = 0;
+    for (unsigned i = 0; i < g_grandleon_terrain_chunk_count; ++i) {
+        const ps1_entity* entity =
+            &g_ps1_scene.entities[g_grandleon_terrain_entity_indices[i]];
+        if (entity->mesh_enabled) {
+            s_static_targets[1] = entity;
+            break;
+        }
+    }
+    if (!s_static_targets[0] || !s_static_targets[0]->mesh_enabled)
+        s_static_packets_supported = 0;
+    for (unsigned i = 0; i < 2; ++i) {
+        if (!s_static_packets_supported || !s_static_targets[i])
+            s_static_fragments[i].ready = 0;
+    }
+}
+
+static struct static_fragment* static_packet_fragment_for(const ps1_entity* entity) {
+    for (unsigned i = 0; i < 2; ++i) {
+        if (entity == s_static_targets[i] && entity->mesh_enabled &&
+            entity->render_unlit && entity->parent_entity_index < 0)
+            return &s_static_fragments[i];
+    }
+    return 0;
+}
+
+static const ps1_entity* static_packet_camera(void) {
+    const int index = g_ps1_scene.camera_entity_index;
+    return index >= 0 && (unsigned)index < g_ps1_scene.entity_count
+        ? &g_ps1_scene.entities[index] : 0;
+}
+
+static int static_packet_entity_matches(const uint32_t* snapshot, const void* entity) {
+    const unsigned char* bytes = (const unsigned char*)entity;
+    for (size_t i = 0; i < sizeof(ps1_entity) / 4u; ++i) {
+        uint32_t word;
+        __builtin_memcpy(&word, bytes + i * 4u, 4u);
+        if (word != snapshot[i]) return 0;
+    }
+    return 1;
+}
+
+int ps1_render_entity_packet_replay(uint32_t* ot, char** next,
+    const char* end, const ps1_entity* entity, int viewmodel) {
+    struct static_fragment* cache;
+    const ps1_entity* camera;
+    uintptr_t source;
+    if (!s_static_packets_supported || viewmodel) return -1;
+    cache = static_packet_fragment_for(entity);
+    if (!cache) return -1;
+    camera = static_packet_camera();
+    source = (uintptr_t)cache->packets;
+    /* Earlier entities may already have overwritten a template in this arena.
+     * Downward overlapping copies are safe; a source behind the write cursor
+     * must be rebuilt. Camera/mesh state comparisons are exact, not hashes. */
+    if (!s_static_packets_supported || !camera || camera->parent_entity_index >= 0 ||
+        !cache->ready || end - *next < (ptrdiff_t)(cache->bytes + 64u) ||
+        !static_packet_entity_matches(cache->entity, entity) ||
+        !static_packet_entity_matches(cache->camera, camera) ||
+        (source < (uintptr_t)*next &&
+         source + cache->bytes > (uintptr_t)s_world_pending_start)) {
+        ++s_static_packet_misses;
+        return -1;
+    }
+    if (!grandleon_gpu_range(dma_address(*next), cache->bytes)) return -1;
+    ps1_packet_fragment_copy((uint32_t*)*next, cache->packets, cache->bytes / 4u,
+        dma_address(cache->packets), dma_address(*next), ot, cache->heads, cache->head_count);
+    cache->packets = (const uint32_t*)*next;
+    *next += cache->bytes;
+    ++s_static_packet_hits;
+    return cache->added;
+}
+
+void ps1_render_entity_packet_capture(uint32_t* ot, const char* begin,
+    const char* next, const char* end, const ps1_entity* entity, int viewmodel, int primitives) {
+    struct static_fragment* cache;
+    const ps1_entity* camera;
+    if (!s_static_packets_supported || viewmodel) return;
+    cache = static_packet_fragment_for(entity);
+    if (!cache) return;
+    camera = static_packet_camera();
+    cache->ready = 0;
+    if (!s_static_packets_supported || !camera || camera->parent_entity_index >= 0 ||
+        primitives <= 0 || next <= begin || end - next < 64) return;
+    cache->bytes = (uint32_t)(next - begin);
+    if (!ps1_packet_fragment_capture((const uint32_t*)begin, cache->bytes / 4u,
+        dma_address(begin), ot, ORDERING_TABLE_LENGTH, cache->heads,
+        STATIC_PACKET_HEAD_CAPACITY, s_static_packet_marks,
+        sizeof(s_static_packet_marks) / sizeof(s_static_packet_marks[0]), &cache->head_count)) {
+        ++s_static_packet_rejects;
+        return;
+    }
+    __builtin_memcpy(cache->entity, entity, sizeof(ps1_entity));
+    __builtin_memcpy(cache->camera, camera, sizeof(ps1_entity));
+    cache->packets = (const uint32_t*)begin;
+    cache->added = primitives;
+    cache->ready = 1;
 }
 
 static void capture_world_packets(uint32_t* ot, char** next_packet) {
@@ -218,6 +344,7 @@ redraw:
     s_world_recording = supported;
     s_world_pending_start = *next_packet;
     s_world_render_started = (uint16_t)TIMER_VALUE(1);
+    static_packets_begin_frame(supported);
     ps1_render_frame(ot, next_packet, end);
     s_world_ui_ticks = (uint16_t)((uint16_t)TIMER_VALUE(1) - s_world_ui_started);
 }
@@ -447,6 +574,11 @@ int main(void) {
 report_metrics:
         if (measured_frames == 600) {
             grandleon_game_log_world_packets(s_world_hits, s_world_misses, s_world_bytes);
+            grandleon_game_log_static_packets(
+                s_static_packet_hits, s_static_packet_misses,
+                s_static_fragments[0].bytes + s_static_fragments[1].bytes,
+                (unsigned)(s_static_fragments[0].head_count + s_static_fragments[1].head_count),
+                s_static_packet_rejects);
             grandleon_game_log_metrics(
                 measured_frames, rendered_frames, scheduled_frames,
                 deferred_frames,

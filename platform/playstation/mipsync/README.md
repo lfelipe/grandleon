@@ -171,11 +171,12 @@ policy stays portable across renderers (`natural_blend`, `extend_edges` or
 `fixed_terrain`).
 
 Unchanged world frames reuse GPU commands from the existing double buffers.
-Exact entity snapshots invalidate them when the camera, visibility, pose or
-material changes; moving units and combat render normally, and UI is rebuilt
-every frame. The cache adds no third command arena. Generated geometry budgets
-include both complete cursor outlines and automatically refresh CMake when
-regenerated.
+The board and nearby architecture can also keep their commands when only idle
+poses or foliage change. Exact snapshots track the camera, mesh, visibility
+and material state; moving units and combat render normally, and UI is rebuilt
+every frame. Both caches use the existing command arenas and preserve drawing
+order. Generated geometry budgets include both complete cursor outlines and
+automatically refresh CMake when regenerated.
 
 Release validation checks the following on the exact CUE/BIN:
 
