@@ -1231,6 +1231,23 @@ void tick_camera() {
         );
         if (chunk) chunk->mesh_enabled = !close_combat && index == closest_page;
     }
+    // Sample wind on the unit idle cadence, keeping packets reusable between
+    // updates. Each page retains a fixed mesh so Mipsync can reserve the right
+    // geometry-cache capacity, including after the opening camera sweep.
+    const auto wind_tick = (s_ambient_ticks / 2U) & ~3U;
+    const auto wind = grandleon::view::ambient_wave_q12(wind_tick / 2U, 19U);
+    for (unsigned index = 0; index < g_grandleon_terrain_chunk_count; ++index) {
+        ps1_entity* foliage = grandleon_scene_mutable_entity(
+            g_grandleon_foliage_entity_indices[index]);
+        if (!foliage) continue;
+        foliage->mesh_enabled = !close_combat && index == closest_page;
+        // Hidden pages must not invalidate an otherwise unchanged world.
+        if (!foliage->mesh_enabled) continue;
+        // Maximum displacement: four of the 128 mesh units in a tile.
+        // Trunks, buildings and the board keep their authored positions.
+        foliage->position[0] = s_reduced_motion ? 0 : wind;
+        foliage->position[2] = s_reduced_motion ? 0 : wind / 2;
+    }
     ps1_entity* combat_floor = grandleon_scene_mutable_entity(
         g_grandleon_combat_floor_entity_index
     );

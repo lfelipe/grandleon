@@ -338,6 +338,77 @@ def test_scenery_compaction_preserves_drawn_faces_and_texture_seams() -> None:
         assert len(compact[0]) == (3 if texture == 0 else 6)
 
 
+def test_foliage_pages_preserve_every_face_and_leave_trunks_static() -> None:
+    from collections import Counter
+    with tempfile.TemporaryDirectory() as folder:
+        output = Path(folder)
+        metadata = []
+        SCENE.write_meshes(
+            output, [((0, 0), [(0, 0, 2, True, 4, 4)]),
+                     ((10, 10), [(10, 10, 2, False, 1, 1)])],
+            4, 4, [(1, 1, 2)], {2: 1, -1: 2, -2: 3, -3: 4},
+            0, "flat", {}, [], [], foliage_metadata=metadata)
+        emitted = (output / "mesh_data.c").read_text()
+        assert len(metadata) == 2 and metadata[0] > 0 and metadata[1] == 0
+
+        def read_mesh(name):
+            def body(suffix):
+                return emitted.split(name + suffix + "[] = {")[1].split("};")[0]
+            vertices = [tuple(map(int, match)) for match in re.findall(
+                r"\{\s*(-?\d+),\s*(-?\d+),\s*(-?\d+),\s*(-?\d+)\s*\}", body("_vertices"))]
+            uvs = [tuple(map(int, match)) for match in re.findall(
+                r"\{\s*(\d+),\s*(\d+)\s*\}", body("_uvs"))]
+            triangles = []
+            for line in body("_triangles").splitlines():
+                fields = dict(re.findall(r"\.(\w+)\s*=\s*(-?\d+)", line))
+                if fields:
+                    triangles.append(tuple(int(fields[key]) for key in
+                        ("i0", "i1", "i2", "texture_index", "shade", "color_r", "color_g", "color_b")))
+            return vertices, uvs, triangles
+
+        def faces(mesh, materials):
+            verts, uvs, tris = mesh
+            return Counter((tuple((verts[i], uvs[i]) for i in tri[:3]), tri[3:])
+                           for tri in tris if tri[3] in materials)
+
+        roll = SCENE.hash_cell(1, 1, 0)
+        cx = -64 + (26 if roll & 1 else -26)
+        cz = 64 + (22 if roll & 2 else -22)
+        original = ([], [], [])
+        SCENE.append_terrain_form(*original, 2, cx, 0, cz, roll,
+                                  {2: 1, -1: 2, -2: 3, -3: 4})
+        board = read_mesh("k_board_0")
+        foliage = read_mesh("k_foliage_0")
+        assert {tri[3] for tri in foliage[2]} == {3}
+        assert all(tri[3] != 3 for tri in board[2])
+        assert faces(board, {2}) == faces(original, {2}), "trunk geometry must stay planted"
+        assert faces(foliage, {3}) == faces(original, {3}), "wind must retain every original leaf face and UV"
+        assert not any("k_foliage_1" in line for line in emitted.splitlines())
+
+
+def test_camera_pages_keep_separate_fixed_canopy_meshes() -> None:
+    # Mipsync reserves an entity's geometry cache from its first mesh. A
+    # camera sweep must not reuse a small-page reservation for a larger crown.
+    with tempfile.TemporaryDirectory() as folder:
+        output = Path(folder)
+        unit = dict(id=1, x=0, y=0, side=0, style=0, archetype=0, figure=0, colour=0)
+        document = dict(width=4, height=4, units=[unit], simulation={},
+                        visual_visibility=dict(hidden_cells=[], reveal_radius=1))
+        chunks = [(2, 0, 0, 4, 4, 0, 0), (3, 2, 0, 6, 4, 2, 0)]
+        count = SCENE.write_scene(output, document, {(0, 0, 0, 0): tuple(range(1, 10))},
+                                 chunks, 1, [0] * 16, (0, 0, 0), foliage_metadata=[9, 10])
+        emitted = (output / 'scene_data.c').read_text()
+        canopies = [line for line in emitted.splitlines() if '.name="forest_canopies"' in line]
+        assert len(canopies) == 2 and count == 9
+        assert [int(re.search(r'\.mesh_index=(\d+)', line)[1]) for line in canopies] == [9, 10]
+        assert all('.mesh_enabled=0' in line for line in canopies)
+        bindings = emitted.split('g_grandleon_foliage_entity_indices[] = {')[1].split('};')[0]
+        assert [int(value) for value in re.findall(r'(\d+)u', bindings)] == [6, 7]
+        count = SCENE.write_scene(output, document, {(0, 0, 0, 0): tuple(range(1, 10))},
+                                 chunks, 1, [0] * 16, (0, 0, 0))
+        assert count == 7 and 'forest_canopies' not in (output / 'scene_data.c').read_text()
+
+
 def test_geometry_pool_covers_both_complete_cursor_outlines() -> None:
     with tempfile.TemporaryDirectory() as folder:
         output = Path(folder)
@@ -399,6 +470,8 @@ def test_house_only_bank_does_not_require_a_shared_unit_palette() -> None:
 
 
 if __name__ == "__main__":
+    test_camera_pages_keep_separate_fixed_canopy_meshes()
+    test_foliage_pages_preserve_every_face_and_leave_trunks_static()
     test_house_only_bank_does_not_require_a_shared_unit_palette()
     test_themed_houses_and_grove_keep_distinct_texture_bindings()
     test_geometry_pool_covers_both_complete_cursor_outlines()

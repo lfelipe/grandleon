@@ -193,8 +193,10 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   the existing foundation while keeping walkable boundaries readable.
   The console material pass adds stable tree colour and silhouette variation;
   PS1 reeds, shrubs and outcrops also vary in size. Neutral texture detail
-  preserves authored colours. Nintendo 64 has varied crown sway; PS1 foliage
-  motion remains pending and must preserve static terrain caching.
+  preserves authored colours. Nintendo 64 has varied crown sway; PS1 forest
+  crowns now move gently while trunks stay planted. The PS1 pass reuses static
+  packets between wind updates; richer foliage and motion across other scenery
+  remain open.
   Godot landscapes, including newly created campaigns, now have connected
   height meshes, shaped banks, branched trees, crops and leafy bamboo in
   temperate, autumn, winter
@@ -273,7 +275,9 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
 - [ ] Fix PS1 scenery-rendering cost and frame pacing on scrolling and castle
   views so the existing strict 30 fps checks pass. Retain the full terrain,
   units, camera behaviour and test scenarios; do not change gameplay to pass
-  a performance test or weaken the checks.
+  a performance test or weaken the checks. Profile canopy motion and lost
+  world-packet reuse on the heavier castle views; the new forest movement
+  does not close this performance task.
   Exported flat scenery now shares duplicate projected vertices while keeping
   texture seams, face order and baked colour. The one-player keep saves 4 KiB
   of resident memory; all 253 reveal-sequence captures remain byte-identical.

@@ -34,7 +34,8 @@ retain 64×64 detail. The six walking poses
 share a VRAM slot and are uploaded on demand; idle, attack, and hurt images
 stay resident independently. This allows identical character types to appear
 on both sides of a fight. Native terrain forms use bark, foliage, and stone
-materials, grouped within terrain pages to limit texture changes.
+materials, grouped within terrain pages to limit texture changes. Forest
+canopies sway gently while their trunks stay planted.
 Compatible close-combat scenes use the existing Godot panorama artwork,
 split into four texture-page-safe strips with its own palette. The camera
 places the actors on the panorama's foreground rather than its horizon.

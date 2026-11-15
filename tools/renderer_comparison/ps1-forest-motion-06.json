@@ -1,0 +1,424 @@
+{
+  "schema": "grandleon.ps1-forest-motion-review.v1",
+  "source_base": "f9c278111923f1400da1e71ac39fed48e9d2570a",
+  "scope": "PS1 board forest crowns only. No artwork, campaign, simulation, terrain footprint, unit animation or upstream renderer changes.",
+  "design": {
+    "amplitude_mesh_units": [
+      4,
+      0,
+      2
+    ],
+    "tile_mesh_units": 128,
+    "logic_tick_cadence": 8,
+    "mesh_data": "immutable; static trunks and per-page crown batches",
+    "culling": "Only the closest scenery page is enabled; hidden pages do not advance wind. Close combat hides both batches.",
+    "packet_cache": "Exact snapshots remain supported for up to 80 total entities; the renderer visible-entity list remains 64. The actual largest scene has 68 total entities, including mutually exclusive pages.",
+    "geometry_cache": "One fixed crown mesh per page preserves engine reservation sizes across the opening camera sweep."
+  },
+  "rejected_prototype": {
+    "design": "One reusable crown entity with changing page mesh index",
+    "reason": "The engine sizes its static geometry reservation from the first mesh. A later larger crown page then loses geometry caching.",
+    "deepwood_campaign_render_hbl_avg": 567,
+    "deepwood_campaign_missed_vblanks": 284,
+    "retained": false
+  },
+  "sources": {
+    "TODO.md": "4341cefefe78fc21e99fb0a9e5fa171a7873b5351a625d005322f31b303ad5d8",
+    "platform/playstation/mipsync/README.md": "27a6bdab449a3c7d80377d69cb8e3f78187ad56b5d0e39fe2441bc3a9a478e82",
+    "platform/playstation/mipsync/runtime/CMakeLists.txt": "e03b31ef0902c69fa7b18b8f377afbbf6b83d39bc8b962262c369e5b6436455d",
+    "platform/playstation/mipsync/runtime/game_bridge.cpp": "b094d6fe9dbe1baf45dc1ed4dc1c16f76e14abd8dc186b604b0503f81beb70f3",
+    "platform/playstation/mipsync/tools/generate_scene.py": "bd53e19c7e606f052c0d4dc1f1f207f86ba4af014db638b8e94299e9bf3fdc06",
+    "platform/playstation/mipsync/tests/scene_generator_test.py": "544b6419aaa182b9303d448df76caea5704127ad081893e60b8cc8e085e830fc"
+  },
+  "stages": {
+    "bell": {
+      "artifacts": {
+        "grandleon_mipsync.elf": {
+          "bytes": 7144516,
+          "sha256": "e11d5e87c664f19f68df87c404beca10fc73cf5826871f0327895be3800b7215"
+        },
+        "grandleon_mipsync.exe": {
+          "bytes": 911360,
+          "sha256": "02f1783c81d844ac4e2718bce2b22d482af9c622dac9c65b1376549722107eea"
+        },
+        "grandleon-mipsync-campaign.cue": {
+          "bytes": 89,
+          "sha256": "29d16c06436b8a5210108dcf67bbbd29ef0c78753e18cceed2e506a8f9ffecff"
+        },
+        "grandleon-mipsync-campaign.bin": {
+          "bytes": 8474256,
+          "sha256": "4dd519a0b590d86386e01fbb7e67adeffd82cea7c75cd1c812d8a9cefd888de7"
+        }
+      },
+      "entities": 31,
+      "foliage": {
+        "pages": 0,
+        "entities": 0,
+        "max_displacement_mesh_units": [
+          4,
+          0,
+          2
+        ],
+        "update_logic_ticks": 8
+      },
+      "ram": {
+        "resident_bytes": 1233620,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "playable_slice_committed_bytes": 1856212,
+        "passes_playable_slice_budget": true
+      },
+      "vram": {
+        "texture_count": 79,
+        "house_palette_count": 0,
+        "texture_bytes": 213312,
+        "vram_reserved_bytes": 507584
+      },
+      "enabled_entities_conservative_upper_bound": 31
+    },
+    "deep": {
+      "artifacts": {
+        "grandleon_mipsync.elf": {
+          "bytes": 7162688,
+          "sha256": "4c8ace7ea064bac840e3eab1a1e7f4b8a3ec04d00c5f9b574e0e81f0f3e8136c"
+        },
+        "grandleon_mipsync.exe": {
+          "bytes": 915456,
+          "sha256": "c0524b59f47d4c562840672edf7a2a5f7e18ffe14fccea8778ae4f75a033ce39"
+        },
+        "grandleon-mipsync-campaign.cue": {
+          "bytes": 89,
+          "sha256": "29d16c06436b8a5210108dcf67bbbd29ef0c78753e18cceed2e506a8f9ffecff"
+        },
+        "grandleon-mipsync-campaign.bin": {
+          "bytes": 8474256,
+          "sha256": "4dd519a0b590d86386e01fbb7e67adeffd82cea7c75cd1c812d8a9cefd888de7"
+        }
+      },
+      "entities": 26,
+      "foliage": {
+        "pages": 4,
+        "entities": 4,
+        "max_displacement_mesh_units": [
+          4,
+          0,
+          2
+        ],
+        "update_logic_ticks": 8
+      },
+      "ram": {
+        "resident_bytes": 1148692,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "playable_slice_committed_bytes": 1771284,
+        "passes_playable_slice_budget": true
+      },
+      "vram": {
+        "texture_count": 93,
+        "house_palette_count": 0,
+        "texture_bytes": 175904,
+        "vram_reserved_bytes": 544992
+      },
+      "enabled_entities_conservative_upper_bound": 20
+    },
+    "watch": {
+      "artifacts": {
+        "grandleon_mipsync.elf": {
+          "bytes": 7414516,
+          "sha256": "e098697b22b9e8c753ff0cb37fcd25b8e1479e4ed194f9e52437b8bc6fe69083"
+        },
+        "grandleon_mipsync.exe": {
+          "bytes": 1097728,
+          "sha256": "e92e3b038e214847c238d3e280a3a820b4166d4a39b12d82c30d2d2c688403a9"
+        },
+        "grandleon-mipsync-campaign.cue": {
+          "bytes": 89,
+          "sha256": "29d16c06436b8a5210108dcf67bbbd29ef0c78753e18cceed2e506a8f9ffecff"
+        },
+        "grandleon-mipsync-campaign.bin": {
+          "bytes": 8474256,
+          "sha256": "4dd519a0b590d86386e01fbb7e67adeffd82cea7c75cd1c812d8a9cefd888de7"
+        }
+      },
+      "entities": 68,
+      "foliage": {
+        "pages": 9,
+        "entities": 9,
+        "max_displacement_mesh_units": [
+          4,
+          0,
+          2
+        ],
+        "update_logic_ticks": 8
+      },
+      "ram": {
+        "resident_bytes": 1344668,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "playable_slice_committed_bytes": 1967260,
+        "passes_playable_slice_budget": true
+      },
+      "vram": {
+        "texture_count": 106,
+        "house_palette_count": 0,
+        "texture_bytes": 262464,
+        "vram_reserved_bytes": 458432
+      },
+      "enabled_entities_conservative_upper_bound": 52
+    },
+    "village": {
+      "artifacts": {
+        "grandleon_mipsync.elf": {
+          "bytes": 7435228,
+          "sha256": "93d5f9f2d74c58cf4b772f7eaba8c3ff73e79ff24ee65738972aa60c09273ff3"
+        },
+        "grandleon_mipsync.exe": {
+          "bytes": 1173504,
+          "sha256": "8248123f8d68b7f8ca5633f3812c4343bd80ace3d9532f9c390243f69d8820e4"
+        },
+        "grandleon-mipsync-campaign.cue": {
+          "bytes": 89,
+          "sha256": "29d16c06436b8a5210108dcf67bbbd29ef0c78753e18cceed2e506a8f9ffecff"
+        },
+        "grandleon-mipsync-campaign.bin": {
+          "bytes": 8474256,
+          "sha256": "4dd519a0b590d86386e01fbb7e67adeffd82cea7c75cd1c812d8a9cefd888de7"
+        }
+      },
+      "entities": 45,
+      "foliage": {
+        "pages": 1,
+        "entities": 1,
+        "max_displacement_mesh_units": [
+          4,
+          0,
+          2
+        ],
+        "update_logic_ticks": 8
+      },
+      "ram": {
+        "resident_bytes": 1454212,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "playable_slice_committed_bytes": 2076804,
+        "passes_playable_slice_budget": true
+      },
+      "vram": {
+        "texture_count": 118,
+        "house_palette_count": 4,
+        "texture_bytes": 316736,
+        "vram_reserved_bytes": 404160
+      },
+      "enabled_entities_conservative_upper_bound": 39
+    },
+    "gate": {
+      "artifacts": {
+        "grandleon_mipsync.elf": {
+          "bytes": 7384632,
+          "sha256": "c414415c9e0e4f2644bdb086dffe295dce1e4e7eb6a8cfa33f6b5a8e56c96899"
+        },
+        "grandleon_mipsync.exe": {
+          "bytes": 1134592,
+          "sha256": "341e6506e6f93ad4e10693d13532709a5411b24dad27bdfe19190bac74ebe1cd"
+        },
+        "grandleon-mipsync-campaign.cue": {
+          "bytes": 89,
+          "sha256": "29d16c06436b8a5210108dcf67bbbd29ef0c78753e18cceed2e506a8f9ffecff"
+        },
+        "grandleon-mipsync-campaign.bin": {
+          "bytes": 8474256,
+          "sha256": "4dd519a0b590d86386e01fbb7e67adeffd82cea7c75cd1c812d8a9cefd888de7"
+        }
+      },
+      "entities": 34,
+      "foliage": {
+        "pages": 3,
+        "entities": 3,
+        "max_displacement_mesh_units": [
+          4,
+          0,
+          2
+        ],
+        "update_logic_ticks": 8
+      },
+      "ram": {
+        "resident_bytes": 1416580,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "playable_slice_committed_bytes": 2039172,
+        "passes_playable_slice_budget": true
+      },
+      "vram": {
+        "texture_count": 98,
+        "house_palette_count": 0,
+        "texture_bytes": 255360,
+        "vram_reserved_bytes": 465536
+      },
+      "enabled_entities_conservative_upper_bound": 24
+    }
+  },
+  "checks": {
+    "generator": {
+      "passed": true,
+      "new_regressions": [
+        "All original leaf faces, UVs and planted trunks survive the page split.",
+        "Camera pages have distinct entities with immutable mesh bindings; empty pages add no entity."
+      ]
+    },
+    "campaign": {
+      "functional_passed": true,
+      "strict_frame_pacing_passed": false,
+      "failure": "Twin Gate 30 FPS result",
+      "output": "out/ps1-foliage06-visible-only-campaign-probe",
+      "scope": "New game, controller-two ownership, card persistence, Continue, and solo/co-op five-stage UI traversal; supported debug skips, not full battles."
+    },
+    "castle_visibility": {
+      "passed": true,
+      "revealed_cells": 18,
+      "output": "out/ps1-foliage06-visible-only-visibility",
+      "scope": "Cursor inspection keeps the room hidden. Legal unit movement through the doorway reveals the room; no simulation/test relaxation."
+    }
+  },
+  "limits": [
+    "Emulator evidence, not hardware testing.",
+    "Campaign probe covers menu, card, save/Continue, controller ownership and solo/co-op traversal using the supported stage skip; it is not a full campaign battle playthrough.",
+    "The full strict PS1 frame-pacing check remains failing; native functionality and RAM success do not imply sustained 30 FPS.",
+    "The large ancient grove, settlement trees and other natural scenery do not gain wind in this change."
+  ],
+  "timing": {
+    "deepwood": {
+      "before": {
+        "MIPSYNC_WORLD_PACKETS": {
+          "hits": 156,
+          "misses": 179,
+          "bytes": 7992
+        },
+        "MIPSYNC_GRANDLEON_METRICS": {
+          "frames": 600,
+          "rendered_frames": 300,
+          "scheduled_frames": 300,
+          "deferred_frames": 0,
+          "missed_vblanks": 0,
+          "max_elapsed_vblanks": 2
+        },
+        "MIPSYNC_FRAME_BUDGET": {
+          "render_hbl_avg": 182,
+          "render_hbl_max": 437,
+          "ready_hbl_avg": 185,
+          "ready_hbl_max": 440,
+          "mutation_hbl_max": 0
+        }
+      },
+      "after": {
+        "MIPSYNC_WORLD_PACKETS": {
+          "hits": 156,
+          "misses": 179,
+          "bytes": 7992
+        },
+        "MIPSYNC_GRANDLEON_METRICS": {
+          "frames": 600,
+          "rendered_frames": 300,
+          "scheduled_frames": 300,
+          "deferred_frames": 0,
+          "missed_vblanks": 0,
+          "max_elapsed_vblanks": 2
+        },
+        "MIPSYNC_FRAME_BUDGET": {
+          "render_hbl_avg": 188,
+          "render_hbl_max": 445,
+          "ready_hbl_avg": 191,
+          "ready_hbl_max": 449,
+          "mutation_hbl_max": 0
+        }
+      }
+    },
+    "keep": {
+      "before": {
+        "MIPSYNC_WORLD_PACKETS": {
+          "hits": 112,
+          "misses": 223,
+          "bytes": 18496
+        },
+        "MIPSYNC_GRANDLEON_METRICS": {
+          "frames": 600,
+          "rendered_frames": 300,
+          "scheduled_frames": 300,
+          "deferred_frames": 0,
+          "missed_vblanks": 185,
+          "max_elapsed_vblanks": 5
+        },
+        "MIPSYNC_FRAME_BUDGET": {
+          "render_hbl_avg": 441,
+          "render_hbl_max": 1269,
+          "ready_hbl_avg": 444,
+          "ready_hbl_max": 1272,
+          "mutation_hbl_max": 0
+        }
+      },
+      "after": {
+        "MIPSYNC_WORLD_PACKETS": {
+          "hits": 11,
+          "misses": 324,
+          "bytes": 18432
+        },
+        "MIPSYNC_GRANDLEON_METRICS": {
+          "frames": 600,
+          "rendered_frames": 300,
+          "scheduled_frames": 300,
+          "deferred_frames": 0,
+          "missed_vblanks": 184,
+          "max_elapsed_vblanks": 5
+        },
+        "MIPSYNC_FRAME_BUDGET": {
+          "render_hbl_avg": 552,
+          "render_hbl_max": 1300,
+          "ready_hbl_avg": 556,
+          "ready_hbl_max": 1303,
+          "mutation_hbl_max": 0
+        }
+      }
+    },
+    "idle_clip": {
+      "MIPSYNC_WORLD_PACKETS": {
+        "hits": 238,
+        "misses": 92,
+        "bytes": 7992
+      },
+      "MIPSYNC_GRANDLEON_METRICS": {
+        "frames": 600,
+        "rendered_frames": 300,
+        "scheduled_frames": 300,
+        "deferred_frames": 0,
+        "missed_vblanks": 0,
+        "max_elapsed_vblanks": 2
+      },
+      "MIPSYNC_FRAME_BUDGET": {
+        "render_hbl_avg": 107,
+        "render_hbl_max": 358,
+        "ready_hbl_avg": 109,
+        "ready_hbl_max": 360,
+        "mutation_hbl_max": 0
+      }
+    },
+    "scope": "Separate emulator samples. HBlanks measure CPU render time, not FPS. Deepwood average grows 182 to 188 with zero missed retraces; keep grows 441 to 552 and remains over budget (185 to 184 missed retraces). No hardware claim."
+  },
+  "clip": {
+    "path": "out/ps1-foliage06-idle/foliage.gif",
+    "sha256": "e239f97f55dcda547579d4bb437f6fd223608fa0339ec24559a2960fdd7794ac",
+    "raw_frames": 131,
+    "sampling_hz": 30,
+    "scope": "Actual two-player Deepwood board after the introductory dialogue; looping idle excerpt, not a frame-pacing benchmark.",
+    "elf_sha256": "05e33a8cea769f9499047617ade3831106a3e89a4cb08330a84c138becb8fdb4",
+    "capture_driver": "out/ps1-foliage06-idle/idle.lua"
+  }
+}

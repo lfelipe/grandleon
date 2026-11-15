@@ -81,7 +81,7 @@ MAX_CACHE_TOTAL = 1280  # Minimum pools; stage audits size them within hard limi
 
 # Colour and proportions for the tiny low-poly forms embedded into each
 # terrain page. The same bounded topology reads as reeds, rubble, crops,
-# bamboo or rock without adding prop entities or separate draw calls.
+# bamboo or rock. Forest crowns use a separate moving page batch.
 TERRAIN_FORM_STYLES = (
     ((73, 130, 92), (0.28, 1.15, 0.28)),   # water reeds
     ((143, 127, 102), (0.62, 0.42, 0.54)), # road stone
@@ -1249,6 +1249,7 @@ def write_meshes(
     mesh_vertex_limit: int = MAX_CACHE_VERTICES,
     scenery_metadata: list | None = None,
     surface_count: int = 0,
+    foliage_metadata: list | None = None,
 ) -> tuple[int, int, list[tuple[int, int, int, int, int, int, int]]]:
     keep_parts = keep_parts or []
     settlement_instances = settlement_instances or []
@@ -1263,6 +1264,7 @@ def write_meshes(
         list[tuple[int, int, int, int, int, int, int, int]],
         tuple[int, int, int, int],
     ]] = []
+    foliage_groups = []
     page_origins: list[tuple[int, int]] = []
     for group_index, (key, group_cells) in enumerate(cell_groups):
         # The complete floor is drawn once. Near scenery remains paged.
@@ -1344,6 +1346,7 @@ def write_meshes(
                     (first + 2, first + 1, first + 3, texture, shade,
                      255, 255, 255),
                 ))
+        foliage_triangles = []
         for x, y, kind in ([] if surface_count and group_index < surface_count else terrain_form_cells):
             if (x, y) in castle_cells or (x, y) in occupied:
                 continue
@@ -1359,11 +1362,18 @@ def write_meshes(
             cx = (x * 2 + 1 - width) * 64 + (26 if roll & 1 else -26)
             cz = (height - y * 2 - 1) * 64 + (22 if roll & 2 else -22)
             floor = surface_relief(x, y, cell_lifts) if relief_mode == "smooth" else 0
+            first_face = len(board_triangles)
             append_terrain_form(
                 board_vertices, board_uvs, board_triangles,
                 kind, cx, floor, cz, roll,
                 terrain_indices,
             )
+            if kind == 2:
+                # Keep trunks planted. Only the leaf material joins the small
+                # moving batch; mesh data itself stays immutable at runtime.
+                faces = board_triangles[first_face:]
+                foliage_triangles.extend(face for face in faces if face[3] == terrain_indices[-2])
+                board_triangles[first_face:] = [face for face in faces if face[3] != terrain_indices[-2]]
         for part in ([] if surface_count and group_index < surface_count else keep_parts):
             if part["upper"]:
                 continue
@@ -1380,6 +1390,8 @@ def write_meshes(
         board_triangles = [triangle for pair in batches for triangle in pair]
         if not board_vertices:
             continue
+        foliage_groups.append(compact_flat_mesh(
+            board_vertices, board_uvs, foliage_triangles))
         board_vertices, board_uvs, board_triangles = compact_flat_mesh(
             board_vertices, board_uvs, board_triangles)
         page_origins.append(key)
@@ -1489,12 +1501,14 @@ def write_meshes(
     # Only one terrain page is enabled by the camera at a time. All pages stay
     # in executable data, but the renderer's transformed-geometry cache must
     # hold the largest active page, not the sum of mutually exclusive pages.
+    active_groups = [(len(group[0]) + len(foliage[0]), len(group[2]) + len(foliage[2]))
+                     for group, foliage in zip(board_groups, foliage_groups)]
     if surface_count:
-        vertex_count = sum(len(g[0]) for g in board_groups[:surface_count]) + max((len(g[0]) for g in board_groups[surface_count:]), default=0)
-        triangle_count = sum(len(g[2]) for g in board_groups[:surface_count]) + max((len(g[2]) for g in board_groups[surface_count:]), default=0)
+        vertex_count = sum(g[0] for g in active_groups[:surface_count]) + max((g[0] for g in active_groups[surface_count:]), default=0)
+        triangle_count = sum(g[1] for g in active_groups[:surface_count]) + max((g[1] for g in active_groups[surface_count:]), default=0)
     else:
-        vertex_count = max(len(group[0]) for group in board_groups)
-        triangle_count = max(len(group[2]) for group in board_groups)
+        vertex_count = max(group[0] for group in active_groups)
+        triangle_count = max(group[1] for group in active_groups)
     scenery_groups = {}
     for _x, _y, kind, _size in settlement_instances:
         if kind in scenery_groups:
@@ -1569,6 +1583,30 @@ def write_meshes(
             floor = max(surface_relief(x+dx,y+dy,cell_lifts) for dy in range(size) for dx in range(size)) if relief_mode == "smooth" else 0
             px, pz = scenery_position(Path(__file__).resolve().parents[4], x, y, kind, size, width, height)
             scenery_metadata.append((scenery_indices[kind], px, floor, pz, kind.startswith("house_cutout_") or kind == "grove_cutout"))
+    foliage_mesh_lines = []
+    foliage_mesh_start = scenery_mesh_start + len(scenery_groups)
+    for page, (verts, uvs, tris) in enumerate(foliage_groups):
+        if not tris:
+            if foliage_metadata is not None:
+                foliage_metadata.append(0)
+            continue
+        if len(verts) > mesh_vertex_limit:
+            raise ValueError("a foliage page exceeds its per-mesh cache")
+        if foliage_metadata is not None:
+            foliage_metadata.append(foliage_mesh_start + len(foliage_mesh_lines))
+        name = f"k_foliage_{page}"
+        lines += emit_vectors(name + "_vertices", verts)
+        lines += emit_vectors(name + "_normals", [(0,4096,0,0)] * len(verts))
+        lines.append(f"static const ps1_uv8 {name}_uvs[] = {{")
+        lines += [f"    {{{u},{v}}}," for u, v in uvs]
+        lines += ["};", f"static const ps1_mesh_tri {name}_triangles[] = {{"]
+        for i0, i1, i2, texture, shade, r, g, b in tris:
+            lines.append(f"    {{.i0={i0},.i1={i1},.i2={i2},.ny=4096,.shade={shade},.color_r={r},.color_g={g},.color_b={b},.texture_index={texture}}},")
+        lines.append("};")
+        cx = (min(v[0] for v in verts) + max(v[0] for v in verts)) // 2
+        cz = (min(v[2] for v in verts) + max(v[2] for v in verts)) // 2
+        radius = math.ceil(max(math.hypot(v[0] - cx, v[2] - cz) for v in verts))
+        foliage_mesh_lines.append(f"    {{.verts={name}_vertices,.norms={name}_normals,.vert_count={len(verts)},.uvs={name}_uvs,.tris={name}_triangles,.tri_count={len(tris)},.scale_q12=4096,.bounds_center_x={cx},.bounds_center_z={cz},.bounds_radius={radius},.flags=PS1_MESH_FLAG_TERRAIN}},")
     lines += emit_vectors("k_combat_floor_vertices", combat_floor_vertices)
     lines += emit_vectors(
         "k_combat_floor_normals",
@@ -1654,6 +1692,7 @@ def write_meshes(
         "    { .verts=k_billboard_vertices, .norms=k_billboard_normals, .vert_count=4, .uvs=k_directional_billboard_uvs, .tris=k_billboard_triangles, .tri_count=2, .scale_q12=256, .bounds_center_y=512, .bounds_radius=724 },",
         "    { .verts=k_billboard_vertices, .norms=k_billboard_normals, .vert_count=4, .uvs=k_directional_billboard_mirrored_uvs, .tris=k_billboard_triangles, .tri_count=2, .scale_q12=256, .bounds_center_y=512, .bounds_radius=724 },",
         *scenery_mesh_lines,
+        *foliage_mesh_lines,
         "};", "const unsigned int g_ps1_mesh_count =", "    sizeof(g_ps1_meshes) / sizeof(g_ps1_meshes[0]);", ""))
     (output / "mesh_data.c").write_text("\n".join(lines), encoding="utf-8")
     if max(max(len(group[0]) for group in board_groups), len(visibility_vertices)) > mesh_vertex_limit:
@@ -1767,7 +1806,11 @@ def write_scene(
     speaker_indices: dict[int, int] | None = None,
     scenery_metadata: list | None = None,
     surface_count: int = 0,
+    foliage_metadata: list | None = None,
 ) -> int:
+    foliage_metadata = foliage_metadata or [0] * len(terrain_chunks)
+    if len(foliage_metadata) != len(terrain_chunks):
+        raise ValueError("foliage bindings must match terrain pages")
     scenery_metadata = scenery_metadata or []
     width = int(document["width"])
     height = int(document["height"])
@@ -1884,13 +1927,22 @@ def write_scene(
     )
     next_id += 1
     entity_index += 1
+    foliage_entity_indices = []
+    for mesh in foliage_metadata[surface_count:]:
+        if not mesh:
+            foliage_entity_indices.append(0xffffffff)
+            continue
+        foliage_entity_indices.append(entity_index)
+        lines.append(f'    {{.id={next_id}u,.name="forest_canopies",.parent_entity_index=-1,.scale={{65536,65536,65536}},.mesh=PS1_MESH_CUSTOM,.mesh_index={mesh},.mesh_size=65536,.mesh_enabled=0,.color_r=255,.color_g=255,.color_b=255,.texture_tiling_u_q8=256,.texture_tiling_v_q8=256,.render_unlit=1,.render_preset=PS1_RENDER_PRESET_FLOOR,.rigid_root_entity_index=-1,.collider_shape=-1,.camera_shot_trigger_index=-1,.collider_camera_target_index=-1}},')
+        next_id += 1
+        entity_index += 1
     camera_index = entity_index
     lines.extend((
         f"    {{ .id={next_id}u, .name=\"clamped_board_camera\", .parent_entity_index=-1, .position={{{fixed(camera_focus_x)},{fixed(CAMERA_HEIGHT)},{fixed(camera_focus_z + CAMERA_TRAILING_DISTANCE)}}}, .rotation={{{fixed(-40)},0,0}}, .scale={{65536,65536,65536}}, .rigid_root_entity_index=-1, .collider_shape=-1, .has_camera=1, .camera_primary=1, .camera_fov={fixed(45)}, .camera_near={fixed(0.2)}, .camera_far={fixed(80)}, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},",
         "};", "", "const ps1_scene g_ps1_scene = {", "    .entities=k_ps1_entities,", "    .entity_count=sizeof(k_ps1_entities)/sizeof(k_ps1_entities[0]),", f"    .camera_entity_index={camera_index},", "    .light={ .enabled=1, .dir_x=-1024, .dir_y=3072, .dir_z=2048, .color_r=255, .color_g=244, .color_b=220, .ambient_r=96, .ambient_g=96, .ambient_b=112 },", f"    .fog_enabled=1, .fog_r={fog_colour[0]}, .fog_g={fog_colour[1]}, .fog_b={fog_colour[2]},",
         # Keep foreground terrain legible; haze belongs beyond the near board.
         f"    .fog_start={fixed(24)}, .fog_end={fixed(36)},",
-        f"    .meshes=g_ps1_meshes, .mesh_count={cursor_mesh_index + (1 if hidden_cells else 0) + 3 + scenery_model_count},", "};", "",
+        f"    .meshes=g_ps1_meshes, .mesh_count={cursor_mesh_index + (1 if hidden_cells else 0) + 3 + scenery_model_count + sum(bool(mesh) for mesh in foliage_metadata)},", "};", "",
         "const uint64_t g_grandleon_unit_ids[] = {",
         *(f"    {int(unit['id'])}ULL," for unit in units if isinstance(unit, dict)),
         "};",
@@ -1945,6 +1997,9 @@ def write_scene(
         *(f"    {{{focus_x},{focus_z}}}," for _mesh, _min_x, _min_y, _max_x, _max_y, focus_x, focus_z in terrain_chunks[surface_count:]),
         "};",
         "const unsigned int g_grandleon_terrain_chunk_count = sizeof(g_grandleon_terrain_entity_indices) / sizeof(g_grandleon_terrain_entity_indices[0]);",
+        "const unsigned int g_grandleon_foliage_entity_indices[] = {",
+        *(f"    {index}u," for index in foliage_entity_indices),
+        "};",
         "const unsigned int g_grandleon_tree_entity_indices[] = {",
         *(f"    {index}u," for index in tree_entity_indices),
         "};",
@@ -1996,6 +2051,7 @@ extern const int16_t g_grandleon_terrain_page_focus[][2];
 extern const unsigned int g_grandleon_board_surface_entity_indices[];
 extern const unsigned int g_grandleon_board_surface_count;
 extern const unsigned int g_grandleon_terrain_chunk_count;
+extern const unsigned int g_grandleon_foliage_entity_indices[];
 extern const unsigned int g_grandleon_tree_entity_indices[];
 extern const unsigned int g_grandleon_tree_count;
 extern const unsigned int g_grandleon_cursor_entity_indices[2];
@@ -2158,12 +2214,14 @@ def main() -> int:
         if args.terrain_relief == "smooth" else [0] * (width * height)
     )
     scenery_metadata = []
+    foliage_metadata = []
     board_vertices, board_triangles, terrain_chunks = write_meshes(
         output, terrain_groups, width, height, terrain_form_cells,
         terrain_indices, args.surroundings_seed,
         args.terrain_relief, cell_lifts, hidden_cells, castle_cells,
         keep_parts, settlement_instances, settlement_models,
         MAX_CACHE_VERTICES, scenery_metadata, surface_count=len(floor_groups),
+        foliage_metadata=foliage_metadata,
     )
     entities = write_scene(
         output, document, unit_indices, terrain_chunks,
@@ -2171,6 +2229,7 @@ def main() -> int:
         surface_lifts,
         shifted_colour(terrain_colours(repo, distant_kind, int(document.get("theme",0)))[0], 65),
         speaker_indices, scenery_metadata, surface_count=len(floor_groups),
+        foliage_metadata=foliage_metadata,
     )
     visible_units = visible_position_peak(
         [(int(unit["x"]), int(unit["y"])) for unit in typed_units],
@@ -2204,6 +2263,10 @@ def main() -> int:
         "surroundings": {"policy": policy, "seed": args.surroundings_seed, "visible_depth": depth, "authored_depth": requested_depth},
         "entities": entities,
         "terrain_chunks": len(terrain_chunks),
+        "foliage": {"pages": sum(bool(mesh) for mesh in foliage_metadata),
+                    "entities": sum(bool(mesh) for mesh in foliage_metadata),
+                    "max_displacement_mesh_units": [4, 0, 2],
+                    "update_logic_ticks": 8},
         "terrain_forms": len(terrain_form_cells),
         "terrain_relief": args.terrain_relief,
         "terrain_material": "relay",
