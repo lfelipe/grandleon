@@ -95,39 +95,9 @@ fi
 output=$(CDPATH= cd -- "$output" && pwd)
 
 nm=$PSN00BSDK_ROOT/bin/mipsel-none-elf-nm
-if test -n "${GRANDLEON_UPDATE_ADDRESS:-}"; then
-    bell_update=$GRANDLEON_UPDATE_ADDRESS
-else
-    address_of() {
-        "$nm" -n "$1" | awk '$3 == "grandleon_runtime_update" {
-            print "0x" substr($1, length($1) - 7); found = 1
-        } END { if (!found) exit 1 }'
-    }
-    bell_update=$(address_of "$build/bell-build/grandleon_mipsync.elf")
-    for stage in deep watch village gate; do
-        stage_update=$(address_of "$build/$stage-build/grandleon_mipsync.elf")
-        test "$bell_update" = "$stage_update" || {
-            echo "campaign probe update seam differs: $bell_update vs $stage_update ($stage)" >&2
-            exit 1
-        }
-    done
-fi
-
-ui_address_of() {
-    "$nm" -n "$1" | awk '$3 == "grandleon_game_ui_state" {
-        print "0x" substr($1, length($1) - 7); found = 1
-    } END { if (!found) exit 1 }'
-}
-bell_ui=$(ui_address_of "$build/bell-build/grandleon_mipsync.elf")
-for stage in deep watch village gate; do
-    stage_ui=$(ui_address_of "$build/$stage-build/grandleon_mipsync.elf")
-    test "$bell_ui" = "$stage_ui" || {
-        echo "campaign UI observation seam differs: $bell_ui vs $stage_ui ($stage)" >&2
-        exit 1
-    }
-done
-
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+python3 "$script_dir/campaign-bindings.py" "$build" "$nm" \
+    "$output/campaign-bindings.lua"
 # LuaJIT runs on a 64-bit host; preserve the actual PS1 UI ABI by replacing
 # only its C pointers with explicit 32-bit addresses. The probe reads the
 # production function's real output after its normal render call returns.
@@ -158,9 +128,7 @@ run_mode() {
     timeout --kill-after=10 180 \
         "$docker" run --rm --user "$(id -u):$(id -g)" \
             --env HOME=/tmp \
-            --env "GRANDLEON_UPDATE_ADDRESS=$bell_update" \
             --env "GRANDLEON_CAMPAIGN_MODE=$mode" \
-            --env "GRANDLEON_UI_ADDRESS=$bell_ui" \
             --volume "$build:/disc:ro" \
             --volume "$script_dir:/probe:ro" \
             --volume "$output:/out" \
@@ -236,6 +204,6 @@ require "$output/new.log" 'MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=
 require "$output/continue.log" 'MIPSYNC_GRANDLEON_METRICS frames=600 rendered_frames=300 scheduled_frames=300 deferred_frames=0 missed_vblanks=0 max_elapsed_vblanks=[12]$' 'the Twin Gate 30 fps result'
 require "$output/continue.log" 'MIPSYNC_MISS_RANGE first=0 last=0$' 'an empty missed-frame range'
 
-printf 'Mipsync full campaign/card passed: card_sha256=%s update=%s\n' "$after" "$bell_update"
+printf 'Mipsync full campaign/card passed: card_sha256=%s\n' "$after"
 printf 'New log: %s\nContinue log: %s\nSolo log: %s\n' \
     "$output/new.log" "$output/continue.log" "$output/solo.log"

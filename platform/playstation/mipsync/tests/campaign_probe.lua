@@ -3,10 +3,8 @@
 local ffi = require('ffi')
 local bit = require('bit')
 dofile('/out/campaign-ui-abi.lua')
-local update_address = assert(tonumber(os.getenv('GRANDLEON_UPDATE_ADDRESS')),
-                              'GRANDLEON_UPDATE_ADDRESS is required')
-local ui_address = assert(tonumber(os.getenv('GRANDLEON_UI_ADDRESS')),
-                          'GRANDLEON_UI_ADDRESS is required')
+local bindings = dofile('/out/campaign-bindings.lua')
+local entry_hooks = {}
 local mode = os.getenv('GRANDLEON_CAMPAIGN_MODE') or 'new'
 assert(mode == 'new' or mode == 'continue' or mode == 'solo', 'unknown campaign mode')
 local UI = {browse=0, move=1, deployment=6, moment=13, title=14, players=15,
@@ -48,10 +46,16 @@ local function capture(name)
   pending_capture = {name=name, after=frame + 4}
 end
 
+local function matches(binding)
+  return ffi.string(pointer(binding.address, 'const char*'), #binding.code) == binding.code
+end
+
 -- The UI is called normally by ps1_ui_render. Read the populated output only
 -- when that real call returns; never invoke it or write any game state.
-grandleon_campaign_ui = PCSX.addBreakpoint(
-    ui_address, 'Exec', 4, 'Observe campaign UI call', function()
+for _, binding in ipairs(bindings.ui) do
+entry_hooks[#entry_hooks + 1] = PCSX.addBreakpoint(
+    binding.address, 'Exec', 4, 'Observe campaign UI call', function()
+  if not matches(binding) then return true end
   local registers = PCSX.getRegisters().GPR.n
   ui_output, ui_return = tonumber(registers.a0), tonumber(registers.ra)
   assert(ui_output >= 0x80000000 and ui_output < 0x80200000 - ffi.sizeof('grandleon_ui_state'),
@@ -85,10 +89,13 @@ grandleon_campaign_ui = PCSX.addBreakpoint(
   end
   return true
 end)
+end
 grandleon_campaign_returns = returns
 
-grandleon_campaign_update = PCSX.addBreakpoint(
-    update_address, 'Exec', 4, 'Grandleon campaign update', function()
+for _, binding in ipairs(bindings.update) do
+entry_hooks[#entry_hooks + 1] = PCSX.addBreakpoint(
+    binding.address, 'Exec', 4, 'Grandleon campaign update', function()
+  if not matches(binding) then return true end
   frame = frame + 1
   local held, player_two = 0, 0
   if observed and not pending_quit then
@@ -148,6 +155,9 @@ grandleon_campaign_update = PCSX.addBreakpoint(
   return true
 end)
 
+end
+grandleon_campaign_entry_hooks = entry_hooks
+
 grandleon_campaign_listener = PCSX.Events.createEventListener('GPU::Vsync', function()
   if pending_capture and frame >= pending_capture.after then
     local name = pending_capture.name
@@ -165,5 +175,5 @@ grandleon_campaign_listener = PCSX.Events.createEventListener('GPU::Vsync', func
   if pending_quit ~= nil then PCSX.quit(pending_quit) end
 end)
 
-print(string.format('MIPSYNC_CAMPAIGN_PROBE_READY mode=%s update=%08x ui=%08x',
-                    mode, update_address, ui_address))
+print(string.format('MIPSYNC_CAMPAIGN_PROBE_READY mode=%s update_bindings=%d ui_bindings=%d',
+                    mode, #bindings.update, #bindings.ui))
