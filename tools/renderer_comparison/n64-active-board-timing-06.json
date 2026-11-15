@@ -1,0 +1,382 @@
+{
+  "schema": "grandleon.n64.active-board-timing.v1",
+  "source_base": "3993688c",
+  "sources": {
+    "platform/nintendo64/pyrite/project/src/user/ProjectBoard.cpp": "a11cf7cf1e3c5b189182e20bd1d24f2929a32d5bb9c1bb625213b08609af7179",
+    "platform/nintendo64/pyrite/README.md": "247153fb0ea3739c9ca4c1a029c67fb29565e73aca71759d2852420bb5b3e74a"
+  },
+  "method": "Review-driver-only observations at existing update and draw callbacks. No extra waits, GPU fences, input or simulation changes. Interval classifications describe the previous drawn frame; stage-loading and story transitions are excluded. CPU submission span includes backpressure and Pyrite camera work before the 2D callback, but does not wait for completed GPU work. Contexts overlap; all is the unique frame total. The 40 ms count is observational, not a validation gate.",
+  "artifacts": {
+    "review_rom": {
+      "path": "out/n64-board-timing06/project/grandleon_pyrite_game.z64",
+      "sha256": "31e1d1f8abc02fd59d08224484f8c256c896453b499d19407f9356d7e301740e"
+    },
+    "review_elf": {
+      "path": "out/n64-board-timing06/project/build/grandleon_pyrite_game.elf",
+      "sha256": "933b54bd731e5fbc063113c750350dc8395f5cad3298fba5f77efd07ececd669"
+    },
+    "review_log": {
+      "path": "out/n64-board-timing06/ares/timings.log",
+      "sha256": "1bac21e1892efc61aa5350ecfa79dec35b4d7d1f7dad1e6d86ed8f39a8db7abc"
+    },
+    "normal_rom": {
+      "path": "out/n64-board-timing06/normal/project/grandleon_pyrite_game.z64",
+      "sha256": "a29102e998707c166c145fca6afebf774d1be497cbe7219590cc76ba947b7076"
+    },
+    "normal_elf": {
+      "path": "out/n64-board-timing06/normal/project/build/grandleon_pyrite_game.elf",
+      "sha256": "1dbe1e92e88730d85ce1103410e0398eb8dc465d45837fc9de1d6c2774f6cb3b"
+    }
+  },
+  "observations": [
+    {
+      "context": "all",
+      "stage": 1,
+      "intervals": 694,
+      "interval_avg_us": 40292,
+      "interval_max_us": 46959,
+      "intervals_over_40ms": 298,
+      "submissions": 695,
+      "submit_avg_us": 35651,
+      "submit_max_us": 38230
+    },
+    {
+      "context": "overview",
+      "stage": 1,
+      "intervals": 44,
+      "interval_avg_us": 39606,
+      "interval_max_us": 40826,
+      "intervals_over_40ms": 4,
+      "submissions": 44,
+      "submit_avg_us": 36903,
+      "submit_max_us": 37383
+    },
+    {
+      "context": "camera",
+      "stage": 1,
+      "intervals": 123,
+      "interval_avg_us": 38068,
+      "interval_max_us": 40496,
+      "intervals_over_40ms": 8,
+      "submissions": 123,
+      "submit_avg_us": 35042,
+      "submit_max_us": 37396
+    },
+    {
+      "context": "units",
+      "stage": 1,
+      "intervals": 130,
+      "interval_avg_us": 40242,
+      "interval_max_us": 45585,
+      "intervals_over_40ms": 57,
+      "submissions": 130,
+      "submit_avg_us": 36967,
+      "submit_max_us": 37556
+    },
+    {
+      "context": "combat",
+      "stage": 1,
+      "intervals": 243,
+      "interval_avg_us": 37390,
+      "interval_max_us": 41703,
+      "intervals_over_40ms": 8,
+      "submissions": 243,
+      "submit_avg_us": 33072,
+      "submit_max_us": 37396
+    },
+    {
+      "context": "settled",
+      "stage": 1,
+      "intervals": 276,
+      "interval_avg_us": 42981,
+      "interval_max_us": 46959,
+      "intervals_over_40ms": 228,
+      "submissions": 277,
+      "submit_avg_us": 37094,
+      "submit_max_us": 38230
+    },
+    {
+      "context": "all",
+      "stage": 2,
+      "intervals": 870,
+      "interval_avg_us": 33382,
+      "interval_max_us": 40079,
+      "intervals_over_40ms": 1,
+      "submissions": 871,
+      "submit_avg_us": 16541,
+      "submit_max_us": 17442
+    },
+    {
+      "context": "overview",
+      "stage": 2,
+      "intervals": 119,
+      "interval_avg_us": 33077,
+      "interval_max_us": 34321,
+      "intervals_over_40ms": 0,
+      "submissions": 119,
+      "submit_avg_us": 16447,
+      "submit_max_us": 17408
+    },
+    {
+      "context": "camera",
+      "stage": 2,
+      "intervals": 442,
+      "interval_avg_us": 33337,
+      "interval_max_us": 40079,
+      "intervals_over_40ms": 1,
+      "submissions": 442,
+      "submit_avg_us": 16424,
+      "submit_max_us": 17408
+    },
+    {
+      "context": "units",
+      "stage": 2,
+      "intervals": 135,
+      "interval_avg_us": 33426,
+      "interval_max_us": 34327,
+      "intervals_over_40ms": 0,
+      "submissions": 135,
+      "submit_avg_us": 17064,
+      "submit_max_us": 17329
+    },
+    {
+      "context": "combat",
+      "stage": 2,
+      "intervals": 183,
+      "interval_avg_us": 33429,
+      "interval_max_us": 35155,
+      "intervals_over_40ms": 0,
+      "submissions": 183,
+      "submit_avg_us": 15147,
+      "submit_max_us": 17153
+    },
+    {
+      "context": "settled",
+      "stage": 2,
+      "intervals": 272,
+      "interval_avg_us": 33428,
+      "interval_max_us": 35539,
+      "intervals_over_40ms": 0,
+      "submissions": 273,
+      "submit_avg_us": 17127,
+      "submit_max_us": 17442
+    },
+    {
+      "context": "all",
+      "stage": 3,
+      "intervals": 1409,
+      "interval_avg_us": 33849,
+      "interval_max_us": 43073,
+      "intervals_over_40ms": 4,
+      "submissions": 1410,
+      "submit_avg_us": 26382,
+      "submit_max_us": 28190
+    },
+    {
+      "context": "overview",
+      "stage": 3,
+      "intervals": 119,
+      "interval_avg_us": 33339,
+      "interval_max_us": 34254,
+      "intervals_over_40ms": 0,
+      "submissions": 119,
+      "submit_avg_us": 26578,
+      "submit_max_us": 27464
+    },
+    {
+      "context": "camera",
+      "stage": 3,
+      "intervals": 467,
+      "interval_avg_us": 33379,
+      "interval_max_us": 43073,
+      "intervals_over_40ms": 1,
+      "submissions": 467,
+      "submit_avg_us": 26195,
+      "submit_max_us": 28190
+    },
+    {
+      "context": "units",
+      "stage": 3,
+      "intervals": 390,
+      "interval_avg_us": 33420,
+      "interval_max_us": 38458,
+      "intervals_over_40ms": 0,
+      "submissions": 390,
+      "submit_avg_us": 26922,
+      "submit_max_us": 27330
+    },
+    {
+      "context": "combat",
+      "stage": 3,
+      "intervals": 243,
+      "interval_avg_us": 33430,
+      "interval_max_us": 35109,
+      "intervals_over_40ms": 0,
+      "submissions": 243,
+      "submit_avg_us": 24401,
+      "submit_max_us": 27493
+    },
+    {
+      "context": "settled",
+      "stage": 3,
+      "intervals": 504,
+      "interval_avg_us": 34660,
+      "interval_max_us": 40560,
+      "intervals_over_40ms": 3,
+      "submissions": 505,
+      "submit_avg_us": 26937,
+      "submit_max_us": 27347
+    },
+    {
+      "context": "all",
+      "stage": 4,
+      "intervals": 1012,
+      "interval_avg_us": 33592,
+      "interval_max_us": 41020,
+      "intervals_over_40ms": 1,
+      "submissions": 1013,
+      "submit_avg_us": 25764,
+      "submit_max_us": 28845
+    },
+    {
+      "context": "overview",
+      "stage": 4,
+      "intervals": 119,
+      "interval_avg_us": 33123,
+      "interval_max_us": 34436,
+      "intervals_over_40ms": 0,
+      "submissions": 119,
+      "submit_avg_us": 27176,
+      "submit_max_us": 28707
+    },
+    {
+      "context": "camera",
+      "stage": 4,
+      "intervals": 476,
+      "interval_avg_us": 33323,
+      "interval_max_us": 41020,
+      "intervals_over_40ms": 1,
+      "submissions": 476,
+      "submit_avg_us": 26323,
+      "submit_max_us": 28845
+    },
+    {
+      "context": "units",
+      "stage": 4,
+      "intervals": 185,
+      "interval_avg_us": 33423,
+      "interval_max_us": 36766,
+      "intervals_over_40ms": 0,
+      "submissions": 185,
+      "submit_avg_us": 25440,
+      "submit_max_us": 25840
+    },
+    {
+      "context": "combat",
+      "stage": 4,
+      "intervals": 183,
+      "interval_avg_us": 33427,
+      "interval_max_us": 34767,
+      "intervals_over_40ms": 0,
+      "submissions": 183,
+      "submit_avg_us": 24653,
+      "submit_max_us": 26014
+    },
+    {
+      "context": "settled",
+      "stage": 4,
+      "intervals": 324,
+      "interval_avg_us": 34095,
+      "interval_max_us": 36465,
+      "intervals_over_40ms": 0,
+      "submissions": 325,
+      "submit_avg_us": 25472,
+      "submit_max_us": 27266
+    },
+    {
+      "context": "all",
+      "stage": 5,
+      "intervals": 1299,
+      "interval_avg_us": 33802,
+      "interval_max_us": 40347,
+      "intervals_over_40ms": 1,
+      "submissions": 1300,
+      "submit_avg_us": 26677,
+      "submit_max_us": 30219
+    },
+    {
+      "context": "overview",
+      "stage": 5,
+      "intervals": 119,
+      "interval_avg_us": 33303,
+      "interval_max_us": 34163,
+      "intervals_over_40ms": 0,
+      "submissions": 119,
+      "submit_avg_us": 27590,
+      "submit_max_us": 28398
+    },
+    {
+      "context": "camera",
+      "stage": 5,
+      "intervals": 726,
+      "interval_avg_us": 33397,
+      "interval_max_us": 40347,
+      "intervals_over_40ms": 1,
+      "submissions": 726,
+      "submit_avg_us": 27228,
+      "submit_max_us": 30219
+    },
+    {
+      "context": "units",
+      "stage": 5,
+      "intervals": 190,
+      "interval_avg_us": 33426,
+      "interval_max_us": 37624,
+      "intervals_over_40ms": 0,
+      "submissions": 190,
+      "submit_avg_us": 26235,
+      "submit_max_us": 27580
+    },
+    {
+      "context": "combat",
+      "stage": 5,
+      "intervals": 243,
+      "interval_avg_us": 33429,
+      "interval_max_us": 34813,
+      "intervals_over_40ms": 0,
+      "submissions": 243,
+      "submit_avg_us": 25887,
+      "submit_max_us": 27585
+    },
+    {
+      "context": "settled",
+      "stage": 5,
+      "intervals": 312,
+      "interval_avg_us": 35063,
+      "interval_max_us": 38476,
+      "intervals_over_40ms": 0,
+      "submissions": 313,
+      "submit_avg_us": 26261,
+      "submit_max_us": 29946
+    }
+  ],
+  "normal_build": {
+    "baseline_sections": {
+      "text": 1708690,
+      "data": 82404,
+      "bss": 65760,
+      "total": 1856854
+    },
+    "current_sections": {
+      "text": 1708690,
+      "data": 82404,
+      "bss": 65760,
+      "total": 1856854
+    },
+    "contains_board_timing_symbols": false,
+    "note": "Identical section sizes and no timing symbols: counters and callbacks are eliminated from the normal build. ROM bytes differ because source line numbers embedded in assertions changed."
+  },
+  "review_final_sample": "GRANDLEON_PYRITE_GAMEPLAY frames=120 avg_frame_us=33335 min_frame_us=22626 max_frame_us=33975 fps_x100=3000 heap_used=2007568 heap_total=2262808 heap_free=255240 rdram=4194304 battles=5 commands=287 enemy_commands=165 combat=5 trees=122 forms=194 slot_bytes=1340 hash=600017321675168062",
+  "validation": "Full five-battle native campaign driver passed; commands 287 and enemy commands 165 and final canonical hash 600017321675168062 equal the preceding mixed-forest review. The 18-cell castle reveal remains complete. Base 4 MiB. Not a new physical hardware or two-player review.",
+  "finding": "Bell Orchard averages 40.292 ms between active updates (~24.8Hz), including 42.981 ms settled (~23.3Hz). Deepwood averages 33.382 ms (~30Hz). The post-campaign 30 fps number did not characterize actual play. No new 30 fps pass assertion is claimed."
+}

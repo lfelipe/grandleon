@@ -417,6 +417,113 @@ float camera_max_x = 0.0F;
 float camera_min_z = 0.0F;
 float camera_max_z = 0.0F;
 
+// Review-only observations: update cadence includes normal VI/GPU waits;
+// submission time measures CPU command generation, not GPU completion. No
+// extra fences, frame waits or simulation changes are introduced by this probe.
+struct BoardTimingSample final {
+    std::uint64_t interval_ticks{};
+    std::uint64_t interval_max{};
+    std::uint64_t submit_ticks{};
+    std::uint64_t submit_max{};
+    std::uint32_t intervals{};
+    std::uint32_t submissions{};
+    std::uint32_t intervals_over_40ms{};
+};
+constexpr std::array<const char*, 6> kBoardTimingContexts{
+    "all", "overview", "camera", "units", "combat", "settled"
+};
+std::array<std::array<BoardTimingSample, kBoardTimingContexts.size()>,
+    grandleon_project_encounter_count> board_timings{};
+struct BoardTimingObservation final {
+    std::uint64_t update_started{};
+    std::uint64_t submit_started{};
+    std::size_t stage{};
+    std::uint8_t contexts{};
+    bool pending{};
+    bool update_was_battle{};
+    std::size_t update_stage{};
+    bool submitting{};
+    bool camera_valid{};
+    std::size_t camera_stage{};
+    CameraPose camera{};
+} board_timing;
+
+void board_timing_begin_update() {
+    if (!grandleon_project_review_driver) return;
+    const auto now = get_ticks();
+    if (board_timing.pending && shell.phase == ShellPhase::battle &&
+        shell.stage_index == board_timing.stage) {
+        const auto elapsed = now - board_timing.update_started;
+        for (std::size_t context = 0; context < kBoardTimingContexts.size(); ++context) {
+            if (!(board_timing.contexts & (1U << context))) continue;
+            auto& sample = board_timings[board_timing.stage][context];
+            sample.interval_ticks += elapsed;
+            sample.interval_max = std::max(sample.interval_max, elapsed);
+            ++sample.intervals;
+            if (TICKS_TO_US(elapsed) > 40000U) ++sample.intervals_over_40ms;
+        }
+    }
+    board_timing.pending = false;
+    board_timing.update_started = now;
+    board_timing.update_was_battle = board.loaded && shell.phase == ShellPhase::battle;
+    board_timing.update_stage = shell.stage_index;
+}
+
+void board_timing_begin_submission() {
+    if (!grandleon_project_review_driver) return;
+    const auto& last = board_timing.camera;
+    const bool camera_moved = board_timing.camera_valid &&
+        board_timing.camera_stage == shell.stage_index &&
+        (last.eye_x != current_camera.eye_x || last.eye_y != current_camera.eye_y ||
+         last.eye_z != current_camera.eye_z || last.target_x != current_camera.target_x ||
+         last.target_y != current_camera.target_y || last.target_z != current_camera.target_z ||
+         last.ortho != current_camera.ortho);
+    board_timing.contexts = 1U |
+        (stage_overview.active() ? 2U : 0U) |
+        (camera_moved ? 4U : 0U) | (motion.active ? 8U : 0U) |
+        (combat.active ? 16U : 0U);
+    if (board_timing.contexts == 1U) board_timing.contexts |= 32U;
+    board_timing.camera = current_camera;
+    board_timing.camera_stage = shell.stage_index;
+    board_timing.camera_valid = true;
+    board_timing.stage = shell.stage_index;
+    board_timing.pending = board_timing.update_was_battle &&
+        board_timing.update_stage == shell.stage_index;
+    board_timing.submitting = true;
+    board_timing.submit_started = get_ticks();
+}
+
+void board_timing_end_submission() {
+    if (!grandleon_project_review_driver || !board_timing.submitting) return;
+    const auto elapsed = get_ticks() - board_timing.submit_started;
+    board_timing.submitting = false;
+    for (std::size_t context = 0; context < kBoardTimingContexts.size(); ++context) {
+        if (!(board_timing.contexts & (1U << context))) continue;
+        auto& sample = board_timings[board_timing.stage][context];
+        sample.submit_ticks += elapsed;
+        sample.submit_max = std::max(sample.submit_max, elapsed);
+        ++sample.submissions;
+    }
+}
+
+void board_timing_report() {
+    if (!grandleon_project_review_driver) return;
+    for (std::size_t context = 0; context < kBoardTimingContexts.size(); ++context) {
+        const auto& sample = board_timings[shell.stage_index][context];
+        if (!sample.intervals && !sample.submissions) continue;
+        debugf("GRANDLEON_N64_BOARD_TIMING stage=%lu context=%s intervals=%lu "
+            "interval_avg_us=%llu interval_max_us=%llu intervals_over_40ms=%lu "
+            "submissions=%lu submit_avg_us=%llu submit_max_us=%llu\n",
+            static_cast<unsigned long>(shell.stage_index + 1U), kBoardTimingContexts[context],
+            static_cast<unsigned long>(sample.intervals),
+            sample.intervals ? TICKS_TO_US(sample.interval_ticks) / sample.intervals : 0ULL,
+            TICKS_TO_US(sample.interval_max), static_cast<unsigned long>(sample.intervals_over_40ms),
+            static_cast<unsigned long>(sample.submissions),
+            sample.submissions ? TICKS_TO_US(sample.submit_ticks) / sample.submissions : 0ULL,
+            TICKS_TO_US(sample.submit_max));
+    }
+}
+
 constexpr std::string_view kSettingsSlot = "pyrite_settings";
 constexpr std::array<std::uint8_t, 3> kSettingsMagic{'P', 'Y', 'S'};
 
@@ -4218,6 +4325,7 @@ bool finish_battle_and_advance() {
         shell.first_battle_committed = true;
     }
     assert(board.saves->contains(campaign_slot()));
+    board_timing_report();
     shell.phase = ShellPhase::aftermath;
     shell.next_automatic_frame = frame_count + 90U;
     play_victory_cue();
@@ -5687,6 +5795,7 @@ void onGameInit() {
 }
 
 void onSceneUpdate() {
+    board_timing_begin_update();
     update_music();
     if (shell.phase != ShellPhase::battle) {
         update_shell_input();
@@ -5765,6 +5874,7 @@ void onSceneUpdate() {
 
 void onScenePreDraw3D() {
     if (!board.loaded || shell.phase != ShellPhase::battle) return;
+    board_timing_begin_submission();
     draw_environment();
     draw_elevation();
     draw_board_cells();
@@ -5782,6 +5892,7 @@ void onScenePreDraw3D() {
 }
 
 void onSceneDraw2D() {
+    board_timing_end_submission();
     if (shell.phase != ShellPhase::battle) {
         draw_shell();
         return;

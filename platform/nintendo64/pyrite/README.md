@@ -13,7 +13,7 @@ renderer. Grandleon has no second Nintendo 64 presenter or compatibility
 fallback; an unavailable pinned dependency makes the export fail with a clear
 diagnostic.
 
-The renderer deliberately presents at 30 fps on NTSC systems. Authored
+The renderer targets 30 fps on NTSC systems. Authored
 movement and cinematic timings remain expressed in 60 Hz ticks and advance at
 the same real-world speed. The recovered rendering budget enables the filtered
 terrain atlas, denser scenery, and stronger silhouettes used by the production
@@ -46,6 +46,14 @@ Normal ROMs always wait for player input. For an automated emulator review,
 set `GRANDLEON_N64_REVIEW_DRIVER=1` when building. This creates a test ROM that
 plays through the campaign; do not distribute it as a playable release. The
 boot log records `review_driver=0` for a normal ROM and `1` for a review ROM.
+Review ROMs also emit a short timing summary for each active battle. Update
+intervals include normal frame waits; submission times measure CPU command
+preparation, including queue backpressure, without waiting for GPU completion.
+Overview, moving-camera, moving-unit and combat groups can overlap; settled
+frames belong to none of those groups. Loading and story transitions are
+excluded. The count above 40 ms is an observation, not a pass threshold.
+These counters compile out of normal ROMs. The final post-campaign sample
+alone does not establish the frame rate during play.
 The export gate opts into the driver explicitly. Physical takeover also
 disables it for subsequent battles in that run.
 
