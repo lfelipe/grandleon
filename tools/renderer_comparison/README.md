@@ -35,8 +35,11 @@ For a PS1 movement review with measured display timing, run
 against the two-player Bell Orchard probe build. It preserves the original
 combat/audio checks, observes native display changes and records their timing.
 The output includes a silent MP4, a 15 FPS GIF preview and capture provenance.
+Add `--last-update 1000` to include the later ability and return; the default
+window ends at update 480.
 Original frame-pacing failures remain recorded; a valid movie is not a passed
 performance gate. `encode CAPTURE OUTPUT` validates an existing trace before
-encoding it. The N64 equivalent and current clips are documented in
-[n64-native-movement-06.json](n64-native-movement-06.json) and
-[ps1-native-movement-06.json](ps1-native-movement-06.json).
+encoding it. Current PS1 cadence and remaining misses are recorded in
+[ps1-display-deadlines-06.json](ps1-display-deadlines-06.json). The N64 decoder
+and its original movement capture are documented in
+[n64-native-movement-06.json](n64-native-movement-06.json).
