@@ -243,8 +243,8 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
 - [ ] Further polish movement, turns, planted feet, idle motion, attack,
   reaction and defeat animation on all three players. Preserve the accepted
   route, destination, event order and combat results.
-- [ ] Expand ambient terrain motion on PlayStation without invalidating static
-  terrain caches. Review water, banners and environmental details, and refine
+- [ ] Expand ambient terrain motion beyond the existing water and forest crowns
+  without invalidating static terrain caches. Review banners and other details, and refine
   Godot/N64 ambient motion where it improves the board's readability.
 - [ ] Add richer close-combat character animation and terrain packs beyond the
   existing forest, orchard, watch, village and castle coverage. Refine camera
@@ -281,11 +281,14 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   gameplay or weaken checks to meet a performance gate. Static scenery now
   needs less CPU time when unit poses or foliage change, but camera-motion
   bursts and the strict keep frame-pacing check remain open.
-  [Current measurements](tools/renderer_comparison/ps1-inplace-fragments-06.json)
+  [Current measurements](tools/renderer_comparison/ps1-display-deadlines-06.json)
 - [x] Reuse unchanged PS1 scenery during unit movement when the camera remains
   still; retain exact camera invalidation and normal actor drawing.
-- [ ] Make PS1 frames arrive evenly and remove the close-up return hitch.
-  Native display-swap recordings reveal uneven pacing that average FPS hides.
+- [x] Pace completed PS1 images from actual display deadlines and keep game
+  updates at 60 Hz under rendering load. Native recordings remove the
+  alternating short/long frame holds; full campaign and co-op checks pass.
+- [ ] Remove the remaining cold return frame after close attacks and abilities.
+  Each observed return still holds one image for five retraces.
 - [x] Reuse the complete static PS1 ground/landmark group while idle units and
   foliage animate. Keep house drawing priority and castle reveals; native
   comparisons preserve every captured pixel while reducing orchard render cost.
@@ -326,21 +329,11 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   change to their round silhouette. One fully instanced tree uses 3,608
   triangles in temperate/autumn, 2,840 in winter and 1,240 in ashland.
 
-The latest PS1 pass reuses unchanged world commands while rebuilding UI every
-frame. In matched emulator probes, average CPU rendering cost falls from 461
-to 238 HBlanks for keep scrolling, and from 277 to 182 for the Deepwood sample.
-All 385 scrolling and castle-reveal comparison frames remain byte-identical.
-All five campaign RAM/VRAM checks retain the full audio, stack and gameplay-heap
-reserves; solo/co-op UI traversal, save/Continue, combat and audio checks pass.
-
-This does not finish frame pacing. The two-player keep's average cost falls
-from 559 to 441 HBlanks, but missed retraces rise from 183 to 185 over its first
-600 simulation ticks, including the opening sweep. The direct doorway probe
-retains 151 misses. Profile changing-world frames next; the strict 30 FPS gates
-remain unchanged and open. These are emulator measurements, not hardware results.
-[Current measurements and build identities](tools/renderer_comparison/ps1-world-packets-06.json).
-Earlier projection measurements remain in
-[the initial performance review](tools/renderer_comparison/ps1-performance-06.json).
+PS1 now schedules completed images at two-retrace display deadlines while
+keeping game updates at 60 Hz. Ordinary recorded combat holds frames evenly;
+one cold frame remains on close-view returns, and the keep's opening sweep
+still exceeds budget. The existing strict performance checks remain open.
+[Current measurements and build identities](tools/renderer_comparison/ps1-display-deadlines-06.json).
 
 ### Review and release checks
 

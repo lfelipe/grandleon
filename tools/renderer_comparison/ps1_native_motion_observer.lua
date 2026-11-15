@@ -6,6 +6,8 @@ dofile('/probe/combat_audio_original.lua')
 local update_address = assert(tonumber(os.getenv('GRANDLEON_UPDATE_ADDRESS')))
 local ffi, bit = require('ffi'), require('bit')
 local frame, index, finished = 0, 0, false
+local first_update = grandleon_capture_first_update or 90
+local last_update = grandleon_capture_last_update or 480
 local display_origin, unknown_writes = nil, 0
 local trace = assert(io.open('/out/presentation.csv', 'wb'))
 trace:write('index,cycle,update,display_origin\n')
@@ -51,7 +53,7 @@ grandleon_display_write_bps = {
   PCSX.addBreakpoint(0xbf801814, 'Write', 4, 'Read-only uncached display origin', observe_display_write),
 }
 grandleon_presentation_listener = PCSX.Events.createEventListener('GPU::Vsync', function()
-  if frame < 90 or finished then return end
+  if frame < first_update or finished then return end
   -- Pinned emulator's documented monotonic 64-bit native CPU cycle counter.
   local cycle = assert(tonumber(PCSX.getCPUCycles()))
   assert(display_origin ~= nil and unknown_writes == 0, 'display origin observation incomplete')
@@ -62,10 +64,10 @@ grandleon_presentation_listener = PCSX.Events.createEventListener('GPU::Vsync', 
   output:close()
   trace:write(string.format('%d,%.0f,%d,%d\n', index, cycle, frame, display_origin))
   index = index + 1
-  if frame > 480 then
+  if frame > last_update then
     finished = true
     trace:flush()
-    print(string.format('MIPSYNC_PRESENTATION_CAPTURE frames=%d first_update=90 last_update=%d', index, frame))
+    print(string.format('MIPSYNC_PRESENTATION_CAPTURE frames=%d first_update=%d last_update=%d', index, first_update, frame))
   end
 end)
 local previous_quit = PCSX.quit

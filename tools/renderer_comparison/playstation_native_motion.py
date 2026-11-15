@@ -56,6 +56,7 @@ def read_capture(capture):
         'source_cpu_clock_hz': CPU_HZ,
         'native_vsync_samples': len(rows), 'encoded_vsync_frames': count,
         'duration_seconds': span / CPU_HZ,
+        'observed_logic_updates_per_second': (int(rows[-1]['update']) - int(rows[0]['update'])) * CPU_HZ / span,
         'uniform_clock_error_max_us': error * 1e6,
         'complete_frame_hold_histogram_vis': dict(Counter(holds)),
         'observed_display_flip_fps': len(holds) / seconds,
@@ -122,14 +123,17 @@ def encode(capture, output):
     return report
 
 
-def record(build, output):
+def record(build, output, first_update=90, last_update=480):
     require(os.environ.get('PSN00BSDK_ROOT'), 'PSN00BSDK_ROOT is required for recording')
+    require(0 <= first_update < last_update < 1800, 'capture window must finish before the original probe exits at update 1800')
     empty_directory(output)
     probe = output / 'probe'
     shutil.copytree(ROOT / 'platform/playstation/mipsync/tests', probe,
                     ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
     shutil.copy2(probe / 'combat_audio_probe.lua', probe / 'combat_audio_original.lua')
-    shutil.copy2(Path(__file__).with_name('ps1_native_motion_observer.lua'), probe / 'combat_audio_probe.lua')
+    observer = Path(__file__).with_name('ps1_native_motion_observer.lua').read_text()
+    (probe / 'combat_audio_probe.lua').write_text(
+        f'grandleon_capture_first_update={first_update}\ngrandleon_capture_last_update={last_update}\n' + observer)
     original = probe / 'combat_probe.lua'
     text = original.read_text()
     needle = '  runtime_frame = runtime_frame + 1\n'
@@ -158,8 +162,11 @@ def main():
     parser.add_argument('action', choices=('record', 'encode'))
     parser.add_argument('input', type=Path, help='Bell Orchard two-player build, or existing capture directory')
     parser.add_argument('output', type=Path, help='empty output directory')
+    parser.add_argument('--first-update', type=int, default=90, help='recording window start')
+    parser.add_argument('--last-update', type=int, default=480, help='recording window end, before probe exit at 1800')
     args = parser.parse_args()
-    report = (record if args.action == 'record' else encode)(args.input.resolve(), args.output.resolve())
+    report = (record(args.input.resolve(), args.output.resolve(), args.first_update, args.last_update)
+              if args.action == 'record' else encode(args.input.resolve(), args.output.resolve()))
     print(json.dumps({k: report[k] for k in ('duration_seconds', 'observed_display_flip_fps',
                                             'presentation_is_even_two_vi')}))
 

@@ -130,6 +130,7 @@ unsigned s_counter_sound_cue{GRANDLEON_SOUND_BLADE};
 bool s_counter_missed{};
 bool s_result_combat_audio{};
 unsigned s_camera_return_frames{};
+bool s_static_camera_at_target{};
 sim::UnitId s_combat_attacker{};
 sim::UnitId s_combat_target{};
 sim::Position s_combat_centre{};
@@ -1141,6 +1142,7 @@ void animate_combat_units(const sim::EncounterSnapshot& snapshot) {
 }
 
 void tick_camera() {
+    s_static_camera_at_target = false;
     ps1_entity* camera = grandleon_scene_mutable_entity(
         g_grandleon_camera_entity_index
     );
@@ -1197,6 +1199,9 @@ void tick_camera() {
     camera->position[2] = snap
         ? focus_z + desired_trailing
         : approach(camera->position[2], focus_z + desired_trailing);
+    s_static_camera_at_target = camera->position[0] == focus_x &&
+        camera->position[1] == desired_height &&
+        camera->position[2] == focus_z + desired_trailing;
     const bool camera_moved =
         camera->position[0] != previous_camera_x ||
         camera->position[2] != previous_camera_z;
@@ -2436,7 +2441,7 @@ extern "C" void grandleon_game_set_fps(uint16_t fps) {
 extern "C" int grandleon_game_static_packets_stable(void) {
     return s_campaign_mode == CampaignMode::battle && s_created && *s_created &&
         !s_stage_overview.active() && !s_result_frames &&
-        !s_camera_return_frames && s_camera_settle_frames >= 2;
+        !s_camera_return_frames && s_static_camera_at_target;
 }
 
 extern "C" int grandleon_game_world_packets_stable(void) {

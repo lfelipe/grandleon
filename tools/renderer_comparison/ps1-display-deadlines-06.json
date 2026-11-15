@@ -1,0 +1,310 @@
+{
+  "schema": "grandleon.ps1-display-deadlines.v1",
+  "source_base": "a242efbb06a274efa738dc961c1973619437795a",
+  "sources": {
+    "platform/playstation/mipsync/runtime/main.c": "1bcac3f367e94e630b1222048eb03942f966e2adc1f997e04ab0ede0816e52c4",
+    "platform/playstation/mipsync/runtime/game_bridge.cpp": "ae74d5fcb165faf574b457e8e36d38c2fe5f4e73c23634421e934cc15837a864",
+    "tools/renderer_comparison/playstation_native_motion.py": "5b84db61049a9e28ef4a41d06daa0062295d8f9dfa590e9ffa61a53860dddd55",
+    "tools/renderer_comparison/ps1_native_motion_observer.lua": "a9c5bb5be90ff82d6d6a97393c405af3c26f2f52fa52d2c862617c479d6d4e50",
+    "tools/renderer_comparison/test_playstation_native_motion.py": "7130de2ba42967667db13ffa1e9eec5baf3f0b9626cd89e8696e5a418c960e52"
+  },
+  "design": [
+    "Complete the back image before scheduling its display. Swap only at a fresh VSync and at least two retraces after the preceding physical swap. Reuse command storage only after GPU completion.",
+    "Run game/audio updates from elapsed VSync ticks, including catch-up after a slow render. Finish catch-up before building the next image; do not queue an obsolete simulation state or add the old alternating idle wait.",
+    "Allow static command capture once the camera actually reaches its full XYZ target. Retain exact camera/entity keys, movement invalidation and the existing UI/input settle delay. Opening sweeps and active combat/return transitions still opt out.",
+    "Count missed display retraces from actual swaps. Do not reset the last physical swap timestamp when resetting an observation window or printing telemetry. No gameplay rules, scenarios, command counts, asset quality, memory reserves or test thresholds changed."
+  ],
+  "combat_short": {
+    "before": {
+      "complete_frame_hold_histogram_vis": {
+        "2": 139,
+        "3": 27,
+        "1": 26,
+        "5": 2
+      },
+      "observed_display_flip_fps": 29.47263541865485,
+      "duration_seconds": 6.61570563468443
+    },
+    "after": {
+      "complete_frame_hold_histogram_vis": {
+        "2": 192,
+        "5": 1
+      },
+      "observed_display_flip_fps": 29.77296268001658,
+      "observed_logic_updates_per_second": 60.00871806849944,
+      "duration_seconds": 6.515719925122827,
+      "same_origin_pixel_changes": 0
+    },
+    "media": "out/ps1-pacing-final06-media",
+    "raw_source": "out/ps1-pacing-final06-long-native/capture",
+    "subset": "out/ps1-pacing-final06-short-trace",
+    "scope": "Same original legal controller sequence. Captures start/end at the observed VSyncs crossing the requested update bounds, so durations and animation phases differ. No movie interpolation or uniform30FPS retiming."
+  },
+  "extended_combat": {
+    "coverage": "out/ps1-pacing-final06-long-native/media/coverage.json",
+    "duration_seconds": 15.181127763605442,
+    "hold_histogram_vis": {
+      "2": 450,
+      "5": 2
+    },
+    "logic_updates_per_second": 60.00871701929752,
+    "scope": "Extends through attack and ability close views plus telemetry.450 complete two-VI holds and two five-VI cold-return holds; no one-/three-VI alternation."
+  },
+  "keep_native": {
+    "ps1-keep-swap06-before": {
+      "native_samples": 611,
+      "fps": 19.179062677237397,
+      "hold_histogram_vis": {
+        "2": 119,
+        "5": 31,
+        "4": 21,
+        "6": 21,
+        "3": 1,
+        "1": 1
+      },
+      "post_update300_hold_histogram": {
+        "2": 90
+      },
+      "logic_updates_per_second": 38.46460400952961,
+      "same_origin_pixel_changes": 0,
+      "cycle_delta_range": [
+        563938,
+        564854
+      ],
+      "qualification": "Read-only native trace and actual controller traversal. No fixed-rate video was encoded: native callback jitter exceeds the strict uniform-encoding tolerance. Original integrity guard remains unchanged. Steady-window boundary chosen after existing240-tick overview ends, not a passed whole-scene budget."
+    },
+    "ps1-keep-swap06-after": {
+      "native_samples": 392,
+      "fps": 23.080274922731494,
+      "hold_histogram_vis": {
+        "2": 119,
+        "4": 13,
+        "6": 10,
+        "5": 8
+      },
+      "post_update300_hold_histogram": {
+        "2": 90
+      },
+      "logic_updates_per_second": 60.008716436938236,
+      "same_origin_pixel_changes": 0,
+      "cycle_delta_range": [
+        564035,
+        564786
+      ],
+      "qualification": "Read-only native trace and actual controller traversal. No fixed-rate video was encoded: native callback jitter exceeds the strict uniform-encoding tolerance. Original integrity guard remains unchanged. Steady-window boundary chosen after existing240-tick overview ends, not a passed whole-scene budget."
+    }
+  },
+  "functional_checks": {
+    "full_campaign_new_continue_solo_coop_card_passed": true,
+    "combat_and_counter_audio_timing_passed": true,
+    "canonical_combat_hash": "2ea20447a61b5d9a",
+    "legal_castle_reveal_cells": 18,
+    "nine_scenery_pages_drawn": [
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66
+    ],
+    "native_motion_offline_tests": 5,
+    "strict_combat_fps_passed": false,
+    "strict_keep_fps_passed": false
+  },
+  "current_timing": {
+    "campaign_deepwood": {
+      "MIPSYNC_GRANDLEON_METRICS": {
+        "frames": 600,
+        "rendered_frames": 300,
+        "scheduled_frames": 300,
+        "deferred_frames": 0,
+        "missed_vblanks": 0,
+        "max_elapsed_vblanks": 2
+      },
+      "MIPSYNC_FRAME_BUDGET": {
+        "render_hbl_avg": 171,
+        "render_hbl_max": 484,
+        "ready_hbl_avg": 177,
+        "ready_hbl_max": 490,
+        "mutation_hbl_max": 0
+      },
+      "MIPSYNC_MISS_RANGE": {
+        "first": 0,
+        "last": 0
+      }
+    },
+    "campaign_keep": {
+      "MIPSYNC_GRANDLEON_METRICS": {
+        "frames": 600,
+        "rendered_frames": 253,
+        "scheduled_frames": 347,
+        "deferred_frames": 0,
+        "missed_vblanks": 94,
+        "max_elapsed_vblanks": 6
+      },
+      "MIPSYNC_FRAME_BUDGET": {
+        "render_hbl_avg": 226,
+        "render_hbl_max": 1306,
+        "ready_hbl_avg": 234,
+        "ready_hbl_max": 1313,
+        "mutation_hbl_max": 0
+      },
+      "MIPSYNC_MISS_RANGE": {
+        "first": 62,
+        "last": 240
+      }
+    },
+    "combat": {
+      "MIPSYNC_GRANDLEON_METRICS": {
+        "frames": 600,
+        "rendered_frames": 299,
+        "scheduled_frames": 300,
+        "deferred_frames": 1,
+        "missed_vblanks": 3,
+        "max_elapsed_vblanks": 5
+      },
+      "MIPSYNC_FRAME_BUDGET": {
+        "render_hbl_avg": 106,
+        "render_hbl_max": 1134,
+        "ready_hbl_avg": 115,
+        "ready_hbl_max": 1146,
+        "mutation_hbl_max": 257
+      },
+      "MIPSYNC_MISS_RANGE": {
+        "first": 363,
+        "last": 363
+      }
+    },
+    "direct_keep_scroll": {
+      "frames": 600,
+      "rendered_frames": 255,
+      "scheduled_frames": 345,
+      "deferred_frames": 0,
+      "missed_vblanks": 90,
+      "max_elapsed_vblanks": 6,
+      "render_hbl_avg": 192,
+      "render_hbl_max": 1530
+    }
+  },
+  "stages": {
+    "bell": {
+      "text_bytes": 421992,
+      "data_bytes": 493428,
+      "bss_bytes": 330072,
+      "resident_bytes": 1245492,
+      "packet_bytes_per_frame": 57344,
+      "packet_arena_bytes": 57344,
+      "packet_arena_count": 1,
+      "ordering_table_bytes": 8192,
+      "end_address": "0x8013f958",
+      "renderer_probe_budget_bytes": 524288,
+      "platform_audio_reserve_bytes": 65536,
+      "stack_reserve_bytes": 32768,
+      "minimum_gameplay_heap_bytes": 524288,
+      "main_ram_bytes": 2097152,
+      "renderer_and_audio_reserve_bytes": 1311028,
+      "passes_renderer_only_probe_budget": false,
+      "playable_slice_committed_bytes": 1868084,
+      "passes_playable_slice_budget": true
+    },
+    "deep": {
+      "text_bytes": 424856,
+      "data_bytes": 494644,
+      "bss_bytes": 243016,
+      "resident_bytes": 1162516,
+      "packet_bytes_per_frame": 57344,
+      "packet_arena_bytes": 57344,
+      "packet_arena_count": 1,
+      "ordering_table_bytes": 8192,
+      "end_address": "0x8012b548",
+      "renderer_probe_budget_bytes": 524288,
+      "platform_audio_reserve_bytes": 65536,
+      "stack_reserve_bytes": 32768,
+      "minimum_gameplay_heap_bytes": 524288,
+      "main_ram_bytes": 2097152,
+      "renderer_and_audio_reserve_bytes": 1228052,
+      "passes_renderer_only_probe_budget": false,
+      "playable_slice_committed_bytes": 1785108,
+      "passes_playable_slice_budget": true
+    },
+    "watch": {
+      "text_bytes": 434520,
+      "data_bytes": 667252,
+      "bss_bytes": 255264,
+      "resident_bytes": 1357036,
+      "packet_bytes_per_frame": 57344,
+      "packet_arena_bytes": 57344,
+      "packet_arena_count": 1,
+      "ordering_table_bytes": 8192,
+      "end_address": "0x8015ad20",
+      "renderer_probe_budget_bytes": 524288,
+      "platform_audio_reserve_bytes": 65536,
+      "stack_reserve_bytes": 32768,
+      "minimum_gameplay_heap_bytes": 524288,
+      "main_ram_bytes": 2097152,
+      "renderer_and_audio_reserve_bytes": 1422572,
+      "passes_renderer_only_probe_budget": false,
+      "playable_slice_committed_bytes": 1979628,
+      "passes_playable_slice_budget": true
+    },
+    "village": {
+      "text_bytes": 426296,
+      "data_bytes": 751284,
+      "bss_bytes": 288688,
+      "resident_bytes": 1466268,
+      "packet_bytes_per_frame": 57344,
+      "packet_arena_bytes": 57344,
+      "packet_arena_count": 1,
+      "ordering_table_bytes": 8192,
+      "end_address": "0x801757b0",
+      "renderer_probe_budget_bytes": 524288,
+      "platform_audio_reserve_bytes": 65536,
+      "stack_reserve_bytes": 32768,
+      "minimum_gameplay_heap_bytes": 524288,
+      "main_ram_bytes": 2097152,
+      "renderer_and_audio_reserve_bytes": 1531804,
+      "passes_renderer_only_probe_budget": false,
+      "playable_slice_committed_bytes": 2088860,
+      "passes_playable_slice_budget": true
+    },
+    "gate": {
+      "text_bytes": 424712,
+      "data_bytes": 715956,
+      "bss_bytes": 289840,
+      "resident_bytes": 1430508,
+      "packet_bytes_per_frame": 57344,
+      "packet_arena_bytes": 57344,
+      "packet_arena_count": 1,
+      "ordering_table_bytes": 8192,
+      "end_address": "0x8016cc30",
+      "renderer_probe_budget_bytes": 524288,
+      "platform_audio_reserve_bytes": 65536,
+      "stack_reserve_bytes": 32768,
+      "minimum_gameplay_heap_bytes": 524288,
+      "main_ram_bytes": 2097152,
+      "renderer_and_audio_reserve_bytes": 1496044,
+      "passes_renderer_only_probe_budget": false,
+      "playable_slice_committed_bytes": 2053100,
+      "passes_playable_slice_budget": true
+    }
+  },
+  "limits": [
+    "One cold five-VI return frame remains per observed attack/ability close view. Heavy keep overview/scrolling still exceeds30FPS; strict gates remain failures.",
+    "Elapsed-time updates prevent slowdown under load, but missed presentation frames remain visible. Emulator measurements do not establish hardware performance.",
+    "The campaign driver freshness fix is a separate commit; it waits for a new real UI observation after each input, without changing the route or pass criteria.",
+    "Keep callback-cycle jitter prevents the strict constant-rate encoder from accepting those captures. Raw images/timestamps and display-origin transitions are retained; no misleading fixed-rate keep movie is published."
+  ],
+  "artifacts": {
+    "normal_campaign": "out/ps1-pacing-final06-campaign",
+    "full_campaign_probe": "out/ps1-pacing-final06-campaign-probe",
+    "normal_bell": "out/ps1-pacing-final06-bell",
+    "visibility": "out/ps1-clock-catchup06-visibility",
+    "scenery_pages": "out/ps1-clock-catchup06-watch-pages",
+    "native_long": "out/ps1-pacing-final06-long-native",
+    "cold_profile": "out/ps1-return-profile06-review/emulator.log"
+  },
+  "upstream": "Grandleon platform adapter changes only. No new Mipsync patch or public upstream update."
+}

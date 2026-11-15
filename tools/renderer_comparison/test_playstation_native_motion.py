@@ -28,6 +28,7 @@ class PresentationCaptureTests(unittest.TestCase):
     def test_identical_pixels_still_count_real_buffer_swaps(self):
         _, _, _, report = read_capture(self.root)
         self.assertAlmostEqual(report['observed_display_flip_fps'], 30)
+        self.assertAlmostEqual(report['observed_logic_updates_per_second'], 60)
         self.assertTrue(report['presentation_is_even_two_vi'])
 
     def test_missing_image_is_rejected(self):

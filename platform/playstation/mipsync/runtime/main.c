@@ -36,6 +36,7 @@ static __attribute__((aligned(4))) char grandleon_packet_arena[PACKET_BYTES_PER_
 static char* s_next_packet;
 static int s_buffer;
 static uint16_t s_gpu_ready_tick;
+static int s_frame_pending, s_last_present_vblank;
 static uint8_t s_pad_buffers[2][34];
 static uint16_t s_last_buttons[2] = {0xffffu, 0xffffu};
 
@@ -522,18 +523,15 @@ static void update_water_texture(uint32_t frame) { (void)frame; }
 #endif
 
 static void present(void) {
-    DrawSync(0);
-    s_gpu_ready_tick = (uint16_t)TIMER_VALUE(1);
-    VSync(0);
-    s_buffer ^= 1;
-    PutDispEnv(&s_display[s_buffer]);
-    PutDrawEnv(&s_draw[s_buffer]);
-    SetDispMask(1);
-    s_next_packet = grandleon_packet_arena;
+    /* Finish the back image now; expose it only on its display deadline. */
     ps1_render_submit(
         s_ordering_table[0], s_draw[s_buffer].clip.x,
         s_draw[s_buffer].clip.y, SCREEN_WIDTH, SCREEN_HEIGHT, 0
     );
+    DrawSync(0);
+    s_gpu_ready_tick = (uint16_t)TIMER_VALUE(1);
+    s_next_packet = grandleon_packet_arena;
+    s_frame_pending = 1;
 }
 
 int main(void) {
@@ -553,6 +551,7 @@ int main(void) {
     uint32_t fps_window_start;
     uint32_t fps_frames = 0;
     int last_vblank;
+    int next_update_vblank;
     int maximum_elapsed = 1;
 
     setup_display();
@@ -571,17 +570,49 @@ int main(void) {
         grandleon_game_log_boot(0);
     }
     grandleon_audio_init();
+    next_update_vblank = VSync(-1) + 1;
+    s_last_present_vblank = next_update_vblank - 1;
+    fps_window_start = (uint32_t)s_last_present_vblank;
 
     for (;;) {
+        int current_vblank = VSync(-1);
+        int fresh_vblank = 0;
+        if (current_vblank < next_update_vblank ||
+            (s_frame_pending && current_vblank - s_last_present_vblank >= 2)) {
+            VSync(0);
+            current_vblank = VSync(-1);
+            fresh_vblank = 1;
+        }
+        if (fresh_vblank && s_frame_pending &&
+            current_vblank - s_last_present_vblank >= 2) {
+            const int held_vblanks = current_vblank - s_last_present_vblank;
+            s_buffer ^= 1;
+            PutDispEnv(&s_display[s_buffer]);
+            PutDrawEnv(&s_draw[s_buffer]);
+            SetDispMask(1);
+            s_frame_pending = 0;
+            s_last_present_vblank = current_vblank;
+            ++fps_frames;
+            if (frame >= 60) {
+                if (held_vblanks > 2) {
+                    missed_vblanks += (uint32_t)(held_vblanks - 2);
+                    if (!first_missed_frame) first_missed_frame = frame;
+                    last_missed_frame = frame;
+                }
+                if (held_vblanks > maximum_elapsed) maximum_elapsed = held_vblanks;
+            }
+        }
+        ++next_update_vblank;
         const uint16_t frame_start = (uint16_t)TIMER_VALUE(1);
-        const int current_vblank = VSync(-1);
-        const int elapsed = current_vblank - last_vblank;
         uint16_t render_start;
         uint16_t render_ticks;
         uint16_t ready_ticks;
         uint16_t pressed[2] = {0, 0};
         int deferred;
-        const int render_due = (frame & 1u) == 0u;
+        /* Catch up elapsed game ticks before building the next image. A
+         * late image must not queue another already-obsolete game state. */
+        const int render_due = !s_frame_pending &&
+            next_update_vblank > current_vblank;
         unsigned pad_index;
         last_vblank = current_vblank;
         if ((uint32_t)current_vblank - fps_window_start >= 60u) {
@@ -592,16 +623,6 @@ int main(void) {
             grandleon_game_set_fps((uint16_t)measured_fps);
             fps_frames = 0;
             fps_window_start = (uint32_t)current_vblank;
-        }
-        if (frame >= 60) {
-            /* A quality frame may intentionally occupy both retraces in the
-             * 30 fps presentation budget. Only a third retrace is missed. */
-            if (elapsed > 2) {
-                missed_vblanks += (uint32_t)(elapsed - 2);
-                if (!first_missed_frame) first_missed_frame = frame;
-                last_missed_frame = frame;
-            }
-            if (elapsed > maximum_elapsed) maximum_elapsed = elapsed;
         }
 
         for (pad_index = 0; pad_index < 2; ++pad_index) {
@@ -632,10 +653,6 @@ int main(void) {
             const uint16_t mutation_ticks =
                 (uint16_t)((uint16_t)TIMER_VALUE(1) - frame_start);
             if (mutation_ticks > mutation_max) mutation_max = mutation_ticks;
-            /* Keep the already-complete front buffer for one retrace. Rules
-             * still update at 60 Hz; presentation is deliberately paced at
-             * 30 Hz so a full quality render owns two hardware retraces. */
-            VSync(0);
             if (deferred > 1) {
                 frame = 0;
                 measured_frames = 0;
@@ -652,6 +669,7 @@ int main(void) {
                 mutation_max = 0;
                 maximum_elapsed = 1;
                 last_vblank = VSync(-1);
+                next_update_vblank = last_vblank + 1;
                 fps_frames = 0;
                 fps_window_start = (uint32_t)last_vblank;
                 continue;
@@ -665,18 +683,12 @@ int main(void) {
             goto report_metrics;
         }
 
-        if (!render_due) {
-            /* Input and game rules remain at 60 Hz. Holding the completed
-             * front buffer on alternating retraces gives the renderer a
-             * stable 30 Hz budget without changing gameplay speed. */
-            /* A render that already consumed the second retrace has supplied
-             * this cadence slot. Run the second 60 Hz rules tick immediately
-             * instead of inserting a third retrace and falling to 20 fps. */
-            if (elapsed < 2) VSync(0);
+        if (!render_due || s_frame_pending) {
             ++frame;
             if (frame > 60) {
                 ++measured_frames;
-                ++scheduled_frames;
+                if (render_due) ++deferred_frames;
+                else ++scheduled_frames;
             }
             goto report_metrics;
         }
@@ -694,7 +706,6 @@ int main(void) {
         );
         render_ticks = (uint16_t)((uint16_t)TIMER_VALUE(1) - render_start);
         present();
-        ++fps_frames;
         ready_ticks = (uint16_t)(s_gpu_ready_tick - frame_start);
         ++frame;
         if (frame > 60) {
@@ -724,6 +735,7 @@ report_metrics:
             );
             /* Serial telemetry is intentionally outside the frame budget. */
             last_vblank = VSync(-1);
+            next_update_vblank = last_vblank + 1;
         }
     }
 }
