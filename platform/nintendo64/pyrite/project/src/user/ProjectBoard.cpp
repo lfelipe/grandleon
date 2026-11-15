@@ -123,6 +123,8 @@ struct BoardResources final {
     T3DVertPacked* elevation{};
     T3DVertPacked* terrain_forms{};
     T3DVertPacked* trees{};
+    rspq_block_t* tree_commands{};
+    std::uint32_t tree_command_bytes{};
     T3DVertPacked* landmark{};
     T3DVertPacked* visibility{};
     T3DVertPacked* units{};
@@ -1727,6 +1729,69 @@ void append_tree(
     ++board.tree_count;
 }
 
+// Restart each triangle so this compact DMA stream preserves the original
+// primitive order and winding exactly.20 vertices leave ample DMEM space for
+// at most84 indices; padding covers the final aligned DMA read.
+alignas(16) std::int16_t tree_indices[2][88]{};
+std::uint32_t tree_index_counts[2]{};
+bool tree_indices_ready{};
+void build_tree_indices() {
+    if (tree_indices_ready) return;
+    for (unsigned shape = 0; shape < 2U; ++shape) {
+        auto* indices = tree_indices[shape];
+        auto& count = tree_index_counts[shape];
+        const auto triangle = [&](int a, int b, int c) {
+            indices[count] = static_cast<std::int16_t>(a | (count ? 0x8000U : 0U));
+            ++count;
+            indices[count++] = static_cast<std::int16_t>(b);
+            indices[count++] = static_cast<std::int16_t>(c);
+        };
+        triangle(0, 1, 4); triangle(1, 2, 4);
+        triangle(2, 3, 4); triangle(3, 0, 4);
+        for (std::uint8_t side = 0; side < 6U; ++side) {
+            const std::uint8_t next = (side + 1U) % 6U;
+            if (shape == 1U) {
+                triangle(5 + side, 12 + side, 12 + next);
+                triangle(5 + side, 12 + next, 5 + next);
+            } else {
+                triangle(11, 5 + side, 5 + next);
+            }
+            triangle(18, 12 + side, 12 + next);
+            triangle(19, 5 + next, 5 + side);
+        }
+        assert(count == (shape == 1U ? 84U : 66U));
+        t3d_indexbuffer_convert(indices, static_cast<int>(count));
+    }
+    data_cache_hit_writeback(tree_indices, sizeof(tree_indices));
+    tree_indices_ready = true;
+}
+
+void build_tree_commands() {
+    // Previous stage commands may still reference this block. Drain once at
+    // the stage boundary, never during the normal animated drawing loop.
+    rspq_wait();
+    if (board.tree_commands) rspq_block_free(board.tree_commands);
+    build_tree_indices();
+    heap_stats_t before{}, after{};
+    sys_get_heap_stats(&before);
+    rspq_block_begin();
+    for (std::size_t index = 0; index < board.tree_count; ++index) {
+        t3d_vert_load(board.trees + index * (kTreeVertexCount / 2U), 0, kTreeVertexCount);
+        const unsigned shape = board.tree_broadleaf[index] ? 1U : 0U;
+        t3d_tri_draw_strip_and_sync(tree_indices[shape], tree_index_counts[shape]);
+    }
+    board.tree_commands = rspq_block_end();
+    assert(board.tree_commands);
+    sys_get_heap_stats(&after);
+    board.tree_command_bytes = after.used - before.used;
+    if (grandleon_project_review_driver) {
+        debugf("GRANDLEON_N64_TREE_COMMANDS stage=%lu trees=%lu heap_bytes=%lu\n",
+            static_cast<unsigned long>(shell.stage_index + 1U),
+            static_cast<unsigned long>(board.tree_count),
+            static_cast<unsigned long>(board.tree_command_bytes));
+    }
+}
+
 void build_tree_vertices() {
     const auto width = board.content->definition.width;
     const auto height = board.content->definition.height;
@@ -1782,6 +1847,7 @@ void build_tree_vertices() {
             );
         }
     }
+    build_tree_commands();
 }
 
 UnitArt* art_for_unit(const sim::UnitSnapshot& unit) {
@@ -3205,22 +3271,9 @@ void draw_trees() {
             }
             board.tree_sway[index] = sway;
         }
-        t3d_vert_load(board.trees + index * (kTreeVertexCount / 2U), 0, kTreeVertexCount);
-        t3d_tri_draw(0, 1, 4); t3d_tri_draw(1, 2, 4);
-        t3d_tri_draw(2, 3, 4); t3d_tri_draw(3, 0, 4);
-        for (std::uint8_t side = 0; side < 6U; ++side) {
-            const std::uint8_t next = (side + 1U) % 6U;
-            if (board.tree_broadleaf[index]) {
-                t3d_tri_draw(5 + side, 12 + side, 12 + next);
-                t3d_tri_draw(5 + side, 12 + next, 5 + next);
-            } else {
-                t3d_tri_draw(11, 5 + side, 5 + next);
-            }
-            t3d_tri_draw(18, 12 + side, 12 + next);
-            t3d_tri_draw(19, 5 + next, 5 + side);
-        }
-        t3d_tri_sync();
+
     }
+    if (board.tree_commands) rspq_block_run(board.tree_commands);
 }
 
 void draw_units() {

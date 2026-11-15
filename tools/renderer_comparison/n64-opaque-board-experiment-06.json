@@ -1,0 +1,241 @@
+{
+  "schema": "grandleon.n64.opaque-board-experiment.v1",
+  "decision": "Rejected for production. Retained forest work uses the unchanged all-board rendering baseline. These variants exist only under ignored out/ directories.",
+  "reason": "Removing board commands under a full-screen close view saves CPU submission work, but produces different update-cadence tails around workload changes; prewarming during the final six opaque phase ticks does not consistently remove them. These are update intervals before Pyrite pacing, not direct VI display timestamps, so a displayed hitch is not established. Keep the normal board path until actual presentation cadence and scheduling are understood.",
+  "variants": {
+    "baseline": {
+      "source": {
+        "path": "out/n64-board-timing06/project/src/user/ProjectBoard.cpp",
+        "sha256": "a11cf7cf1e3c5b189182e20bd1d24f2929a32d5bb9c1bb625213b08609af7179"
+      },
+      "rom": {
+        "path": "out/n64-board-timing06/project/grandleon_pyrite_game.z64",
+        "sha256": "31e1d1f8abc02fd59d08224484f8c256c896453b499d19407f9356d7e301740e"
+      },
+      "log": {
+        "path": "out/n64-board-timing06/ares/timings.log",
+        "sha256": "1bac21e1892efc61aa5350ecfa79dec35b4d7d1f7dad1e6d86ed8f39a8db7abc"
+      },
+      "five_battle_driver_passed": true,
+      "stages": [
+        {
+          "stage": 1,
+          "interval_avg_us": 40292,
+          "interval_max_us": 46959,
+          "submit_avg_us": 35651,
+          "moving_camera_interval_max_us": 40496
+        },
+        {
+          "stage": 2,
+          "interval_avg_us": 33382,
+          "interval_max_us": 40079,
+          "submit_avg_us": 16541,
+          "moving_camera_interval_max_us": 40079
+        },
+        {
+          "stage": 3,
+          "interval_avg_us": 33849,
+          "interval_max_us": 43073,
+          "submit_avg_us": 26382,
+          "moving_camera_interval_max_us": 43073
+        },
+        {
+          "stage": 4,
+          "interval_avg_us": 33592,
+          "interval_max_us": 41020,
+          "submit_avg_us": 25764,
+          "moving_camera_interval_max_us": 41020
+        },
+        {
+          "stage": 5,
+          "interval_avg_us": 33802,
+          "interval_max_us": 40347,
+          "submit_avg_us": 26677,
+          "moving_camera_interval_max_us": 40347
+        }
+      ]
+    },
+    "skip": {
+      "source": {
+        "path": "out/n64-opaque06/project/src/user/ProjectBoard.cpp",
+        "sha256": "0803d5172f2f89be101014177054732f494f1647ca2773b44aadaa009f546b15"
+      },
+      "rom": {
+        "path": "out/n64-opaque06/project/grandleon_pyrite_game.z64",
+        "sha256": "bffd4803f81a8a06052f8cc684a66563faec35550f66089fa94149568669e5ff"
+      },
+      "log": {
+        "path": "out/n64-opaque06/ares/opaque.log",
+        "sha256": "8decf60beebb4fe2c0daedc207adf0b68ffa1d32a433ef53d1c3739c41926c39"
+      },
+      "five_battle_driver_passed": true,
+      "stages": [
+        {
+          "stage": 1,
+          "interval_avg_us": 39696,
+          "interval_max_us": 65906,
+          "submit_avg_us": 30290,
+          "moving_camera_interval_max_us": 65906
+        },
+        {
+          "stage": 2,
+          "interval_avg_us": 33413,
+          "interval_max_us": 48069,
+          "submit_avg_us": 15554,
+          "moving_camera_interval_max_us": 48069
+        },
+        {
+          "stage": 3,
+          "interval_avg_us": 33868,
+          "interval_max_us": 57991,
+          "submit_avg_us": 24411,
+          "moving_camera_interval_max_us": 57991
+        },
+        {
+          "stage": 4,
+          "interval_avg_us": 33589,
+          "interval_max_us": 58534,
+          "submit_avg_us": 24365,
+          "moving_camera_interval_max_us": 58534
+        },
+        {
+          "stage": 5,
+          "interval_avg_us": 33799,
+          "interval_max_us": 60097,
+          "submit_avg_us": 24332,
+          "moving_camera_interval_max_us": 60097
+        }
+      ]
+    },
+    "prewarm": {
+      "source": {
+        "path": "out/n64-opaque-warm06/project/src/user/ProjectBoard.cpp",
+        "sha256": "e7f402ab13d0cb30cf1775a69f5e2a70581d4bee47787a179fb59ad77bc4d881"
+      },
+      "rom": {
+        "path": "out/n64-opaque-warm06/project/grandleon_pyrite_game.z64",
+        "sha256": "eebda1bb6c21f1055c6857005134f382c89a5723abbff78f8a6e5bf9fe00d6e0"
+      },
+      "log": {
+        "path": "out/n64-opaque-warm06/ares/warm.log",
+        "sha256": "23171c0b4fe7254b00af6a0e83ed5820815ce87197d181d3fb6b99f8c726b8bf"
+      },
+      "five_battle_driver_passed": true,
+      "stages": [
+        {
+          "stage": 1,
+          "interval_avg_us": 39645,
+          "interval_max_us": 65530,
+          "submit_avg_us": 30550,
+          "moving_camera_interval_max_us": 44566
+        },
+        {
+          "stage": 2,
+          "interval_avg_us": 33376,
+          "interval_max_us": 48394,
+          "submit_avg_us": 15642,
+          "moving_camera_interval_max_us": 48394
+        },
+        {
+          "stage": 3,
+          "interval_avg_us": 33822,
+          "interval_max_us": 57872,
+          "submit_avg_us": 24484,
+          "moving_camera_interval_max_us": 57872
+        },
+        {
+          "stage": 4,
+          "interval_avg_us": 33555,
+          "interval_max_us": 58665,
+          "submit_avg_us": 24488,
+          "moving_camera_interval_max_us": 58665
+        },
+        {
+          "stage": 5,
+          "interval_avg_us": 33750,
+          "interval_max_us": 60016,
+          "submit_avg_us": 24433,
+          "moving_camera_interval_max_us": 60016
+        }
+      ]
+    },
+    "true_opaque_prewarm": {
+      "source": {
+        "path": "out/n64-opaque-true06/project/src/user/ProjectBoard.cpp",
+        "sha256": "c57c9d251f64f3f9e1e1a42d27ceff85e8eecddf2bb083e02240559a13c6029d"
+      },
+      "rom": {
+        "path": "out/n64-opaque-true06/project/grandleon_pyrite_game.z64",
+        "sha256": "3d94b1cf58c49a54b6f973add83c2db04017ae25a184beb3ac96f5dbf8037983"
+      },
+      "log": {
+        "path": "out/n64-opaque-true06/ares/true.log",
+        "sha256": "9fb2f8076361b1e0d6ca39b090535a5eb01d9270f3d012e90a5d29899c6793c7"
+      },
+      "five_battle_driver_passed": true,
+      "stages": [
+        {
+          "stage": 1,
+          "interval_avg_us": 39638,
+          "interval_max_us": 65447,
+          "submit_avg_us": 30546,
+          "moving_camera_interval_max_us": 43954
+        },
+        {
+          "stage": 2,
+          "interval_avg_us": 33413,
+          "interval_max_us": 48358,
+          "submit_avg_us": 15625,
+          "moving_camera_interval_max_us": 48358
+        },
+        {
+          "stage": 3,
+          "interval_avg_us": 33844,
+          "interval_max_us": 57834,
+          "submit_avg_us": 24497,
+          "moving_camera_interval_max_us": 57834
+        },
+        {
+          "stage": 4,
+          "interval_avg_us": 33556,
+          "interval_max_us": 59138,
+          "submit_avg_us": 24493,
+          "moving_camera_interval_max_us": 59138
+        },
+        {
+          "stage": 5,
+          "interval_avg_us": 33773,
+          "interval_max_us": 59996,
+          "submit_avg_us": 24433,
+          "moving_camera_interval_max_us": 59996
+        }
+      ]
+    }
+  },
+  "opacity_finding": "Opaque source texels plus the existing TEX_FLAT and MULTIPLY composition still allowed small underlay-dependent RGB555 differences. The isolated true-opaque variant disables panorama blending only at alpha 255 after checking a full 320x240 CI8 palette for opacity; fades retain blending. This composition change also remains experimental.",
+  "visual_control": {
+    "source": {
+      "path": "out/n64-opaque-reference06/project/src/user/ProjectBoard.cpp",
+      "sha256": "dee99103ad5ec1f301c711b7d683a3e6e3bfa6cc158fa618e6443fa0d25b9f61"
+    },
+    "rom": {
+      "path": "out/n64-opaque-reference06/project/grandleon_pyrite_game.z64",
+      "sha256": "276337c2f4080fea5c89ebfa10a2b7ab141a654b96db1cf17fdf49edc6dfb51f"
+    },
+    "log": {
+      "path": "out/n64-opaque-reference06/ares/reference.log",
+      "sha256": "73d47c32d28afff0dff560881802a6b30b67f2ec2a7c8a6ce2c4f3801326c792"
+    },
+    "note": "Ninety-second native reference capture through first counterattack, with true-opaque composition and board culling disabled. Not a full campaign validation.",
+    "comparison": "Static panorama crop (118,220)-(868,405), 138750 pixels, is exactly equal between actual reference and true-opaque-culling strike screenshots. Full screenshots have different sampled animation moments.",
+    "reference_image": {
+      "path": "out/n64-opaque-reference06/ares/reference-trail/024-PYRITE_COMBAT_STRIKE.png",
+      "sha256": "99a50e3f56f78fa37c68d5e0c10bde536249f8447b1cc7c9b25b7f779c856c46"
+    },
+    "candidate_image": {
+      "path": "out/n64-opaque-true06/ares/true-trail/024-PYRITE_COMBAT_STRIKE.png",
+      "sha256": "dd985199dbb2fde9c58b2634e1bd60471184500fa33f7f337ba5d587ad42185a"
+    }
+  },
+  "gameplay": "All four full-review variants retain five battles, 287 accepted commands, 165 enemy commands and canonical hash 600017321675168062, with complete 18-cell castle reveal. No thresholds, inputs, scenarios or simulation rules changed."
+}

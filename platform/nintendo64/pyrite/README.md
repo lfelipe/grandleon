@@ -153,6 +153,9 @@ rendered forms: rocks, shrubs, reeds, crops, bamboo, rubble and kerbs are
 derived from the authored terrain family. Farmland and bamboo no longer reuse
 forest trees. Forest crowns vary in shape, size and tone, with gentle wind
 above rooted trunks. Both tree shapes share the same bounded vertex arena.
+Their triangle commands are retained once per stage while wind continues to
+update the live vertices. Compact index lists preserve the original triangles
+and drawing order; this saves submission work without simplifying the forest.
 Terrain and landmark detail continues to improve within the same
 renderer and hardware budgets.
 The bounded review driver uses the real tactics policy for both sides to finish

@@ -1,0 +1,250 @@
+{
+  "schema": "grandleon.n64.retained-forest-review.v1",
+  "source_base": "6a9879b7",
+  "decision": "Retain compact indexed forest commands. Opaque/prewarm culling remains rejected and is not present in this source.",
+  "sources": {
+    "platform/nintendo64/pyrite/project/src/user/ProjectBoard.cpp": "0d8b812b21f29b086844b1f56ec5ba5cd754b05a68e30b27bf7a5b1596fa1020",
+    "platform/nintendo64/pyrite/README.md": "fee4b0d7b16ca40a5552105cf1aafffcb88ffadc4b3b5244a0865ccbff05ee96"
+  },
+  "contract": {
+    "geometry": "Same 20 vertices per tree, 22 or 28 triangles, material, winding, vertex-load order, tree order, positions and textures. Each indexed triangle restarts the strip, preserving primitive order exactly. Both shape index lists are converted once using pinned Tiny3D.",
+    "memory_lifetime": "The tree vertex arena is allocated once as uncached memory and never rotates. Existing stage loading drains RSP before rebuilding vertices. Command replacement drains again before freeing the previous block; no per-frame fence is added. Immutable index rows are 16-byte aligned with padded DMA ends and written back once. Wind updates all live crowns inside the measured draw window before the retained block runs. The RSP still transforms/rasterizes the live geometry each frame.",
+    "setup_cost": "Command assembly occurs once per stage and is reused, rather than being moved to another per-frame callback. Tree shape and stage geometry changes rebuild the block. Material, camera and matrix state remain outside the block at their original draw location.",
+    "upstream": "No Pyrite, Tiny3D or libdragon changes. Uses pinned Tiny3D 517156d9464aaab95bf9531336d9a57624405ca7 index-list/restart contract and libdragon existing rspq block lifecycle."
+  },
+  "measurements": {
+    "qualification": "Review-only observations. CPU submission span includes queue backpressure but not completed GPU execution. Update intervals are measured before Pyrite pacing and are not VI presentation timestamps; variance is not evidence of a displayed hitch. Bell remains above the 30 fps target on average. No full 30 fps guarantee is claimed.",
+    "stages": [
+      {
+        "stage": 1,
+        "baseline_submit_avg_us": 35651,
+        "direct_block_submit_avg_us": 30311,
+        "indexed_submit_avg_us": 30298,
+        "baseline_update_interval_avg_us": 40292,
+        "indexed_update_interval_avg_us": 38087,
+        "baseline_moving_camera_interval_max_us": 40496,
+        "indexed_moving_camera_interval_max_us": 39204
+      },
+      {
+        "stage": 2,
+        "baseline_submit_avg_us": 16541,
+        "direct_block_submit_avg_us": 7037,
+        "indexed_submit_avg_us": 6943,
+        "baseline_update_interval_avg_us": 33382,
+        "indexed_update_interval_avg_us": 33370,
+        "baseline_moving_camera_interval_max_us": 40079,
+        "indexed_moving_camera_interval_max_us": 43246
+      },
+      {
+        "stage": 3,
+        "baseline_submit_avg_us": 26382,
+        "direct_block_submit_avg_us": 18252,
+        "indexed_submit_avg_us": 18252,
+        "baseline_update_interval_avg_us": 33849,
+        "indexed_update_interval_avg_us": 33415,
+        "baseline_moving_camera_interval_max_us": 43073,
+        "indexed_moving_camera_interval_max_us": 42734
+      },
+      {
+        "stage": 4,
+        "baseline_submit_avg_us": 25764,
+        "direct_block_submit_avg_us": 24236,
+        "indexed_submit_avg_us": 23266,
+        "baseline_update_interval_avg_us": 33592,
+        "indexed_update_interval_avg_us": 33413,
+        "baseline_moving_camera_interval_max_us": 41020,
+        "indexed_moving_camera_interval_max_us": 40702
+      },
+      {
+        "stage": 5,
+        "baseline_submit_avg_us": 26677,
+        "direct_block_submit_avg_us": 21320,
+        "indexed_submit_avg_us": 21316,
+        "baseline_update_interval_avg_us": 33802,
+        "indexed_update_interval_avg_us": 33409,
+        "baseline_moving_camera_interval_max_us": 40347,
+        "indexed_moving_camera_interval_max_us": 39947
+      }
+    ],
+    "block_allocations": [
+      {
+        "stage": 1,
+        "trees": 94,
+        "heap_bytes": 3888
+      },
+      {
+        "stage": 2,
+        "trees": 176,
+        "heap_bytes": 3888
+      },
+      {
+        "stage": 3,
+        "trees": 176,
+        "heap_bytes": 3888
+      },
+      {
+        "stage": 4,
+        "trees": 156,
+        "heap_bytes": 3888
+      },
+      {
+        "stage": 5,
+        "trees": 122,
+        "heap_bytes": 3888
+      }
+    ],
+    "direct_block_alternative": "First prototype retained all individual draw commands, using 32584 to 65360 heap bytes by stage. Compact indexed prototype uses 3888 bytes in every stage while retaining the submission savings.",
+    "baseline_final_sample": "GRANDLEON_PYRITE_GAMEPLAY frames=120 avg_frame_us=33335 min_frame_us=22626 max_frame_us=33975 fps_x100=3000 heap_used=2007568 heap_total=2262808 heap_free=255240 rdram=4194304 battles=5 commands=287 enemy_commands=165 combat=5 trees=122 forms=194 slot_bytes=1340 hash=600017321675168062",
+    "direct_block_final_sample": "GRANDLEON_PYRITE_GAMEPLAY frames=120 avg_frame_us=33341 min_frame_us=23235 max_frame_us=34061 fps_x100=3000 heap_used=2040152 heap_total=2261752 heap_free=221600 rdram=4194304 battles=5 commands=287 enemy_commands=165 combat=5 trees=122 forms=194 slot_bytes=1340 hash=600017321675168062",
+    "indexed_final_sample": "GRANDLEON_PYRITE_GAMEPLAY frames=120 avg_frame_us=33341 min_frame_us=23393 max_frame_us=33995 fps_x100=3000 heap_used=2011464 heap_total=2261112 heap_free=249648 rdram=4194304 battles=5 commands=287 enemy_commands=165 combat=5 trees=122 forms=194 slot_bytes=1340 hash=600017321675168062"
+  },
+  "memory": {
+    "baseline_review_sections": {
+      "text": 1715650,
+      "data": 82404,
+      "bss": 67264,
+      "total": 1865318
+    },
+    "indexed_review_sections": {
+      "text": 1716978,
+      "data": 82404,
+      "bss": 67632,
+      "total": 1867014
+    },
+    "baseline_normal_sections": {
+      "text": 1708690,
+      "data": 82404,
+      "bss": 65760,
+      "total": 1856854
+    },
+    "indexed_normal_sections": {
+      "text": 1712898,
+      "data": 82404,
+      "bss": 66128,
+      "total": 1861430
+    },
+    "normal_resident_delta_bytes": 4576,
+    "measured_command_heap_bytes": 3888,
+    "baseline_review_final_heap_free_bytes": 255240,
+    "indexed_review_final_heap_free_bytes": 249648,
+    "rdram_bytes": 4194304,
+    "note": "Same base-memory mode, unit/art capacities and existing audio/stack reservations. Static vertex arena and TMEM are unchanged. Reported final heap is from actual native review; normal residency is audited separately because review-only telemetry compiles away."
+  },
+  "artifacts": {
+    "review_rom": {
+      "path": "out/n64-forest-index06/project/grandleon_pyrite_game.z64",
+      "bytes": 8306688,
+      "sha256": "fb4fa96b0c70a057cfbda741c7285ab25dfe1b4756e6cbd2241bc813fa436108"
+    },
+    "review_elf": {
+      "path": "out/n64-forest-index06/project/build/grandleon_pyrite_game.elf",
+      "bytes": 30371764,
+      "sha256": "79e916b93c861709a680e2d83e063af4196847da29ea3fae51a58a49f1877b3d"
+    },
+    "review_source": {
+      "path": "out/n64-forest-index06/project/src/user/ProjectBoard.cpp",
+      "bytes": 253764,
+      "sha256": "0d8b812b21f29b086844b1f56ec5ba5cd754b05a68e30b27bf7a5b1596fa1020"
+    },
+    "review_log": {
+      "path": "out/n64-forest-index06/ares/index.log",
+      "bytes": 14827,
+      "sha256": "e8a747fc33df858615e4dc1fde8f3118372ae9d93ba61511c8abc2f009a7a6af"
+    },
+    "normal_rom": {
+      "path": "out/n64-forest-index06/normal/project/grandleon_pyrite_game.z64",
+      "bytes": 8290304,
+      "sha256": "fefa4854713661ca67e01e0d9336fa42b1635d11d0e3ade737f2891f349814f1"
+    },
+    "normal_elf": {
+      "path": "out/n64-forest-index06/normal/project/build/grandleon_pyrite_game.elf",
+      "bytes": 30354584,
+      "sha256": "397fa66d23e1186da650d7b573fb9415c5ac5453f7f53f77a1d39a20db2081a3"
+    },
+    "normal_boot_log": {
+      "path": "out/n64-forest-index06/normal/ares/normal.log",
+      "bytes": 1307,
+      "sha256": "7ab2d5f29cdba9f70a9fd5d32edcdca7399b0ea9af65adc121b1e7da60bb7111"
+    },
+    "baseline_source": {
+      "path": "out/n64-board-timing06/project/src/user/ProjectBoard.cpp",
+      "bytes": 251509,
+      "sha256": "a11cf7cf1e3c5b189182e20bd1d24f2929a32d5bb9c1bb625213b08609af7179"
+    },
+    "baseline_log": {
+      "path": "out/n64-board-timing06/ares/timings.log",
+      "bytes": 14417,
+      "sha256": "1bac21e1892efc61aa5350ecfa79dec35b4d7d1f7dad1e6d86ed8f39a8db7abc"
+    },
+    "direct_block_source": {
+      "path": "out/n64-forest-block06/project/src/user/ProjectBoard.cpp",
+      "bytes": 252600,
+      "sha256": "38ac77454ea2fcd55b28b91efd957ec01585c27e1326895654e83c5066055495"
+    },
+    "direct_block_rom": {
+      "path": "out/n64-forest-block06/project/grandleon_pyrite_game.z64",
+      "bytes": 8306688,
+      "sha256": "27a9dc4dfa36b71cd0e6248020ed5a047601b16b3f74ae8003dacf468b23d826"
+    },
+    "direct_block_log": {
+      "path": "out/n64-forest-block06/ares/block.log",
+      "bytes": 14837,
+      "sha256": "cf1a50169daae4afb71981680323d74577b4c8c1c12916d50c123279a0babdfa"
+    },
+    "topology_probe_source": {
+      "path": "out/n64-forest-index06/topology_probe.cpp",
+      "bytes": 7044,
+      "sha256": "f8eadd1dcc32d81bf1e6e7a6d3796f9fc5ca4ea8c65dc3fcfac416a70abffc6e"
+    },
+    "topology_probe_result": {
+      "path": "out/n64-forest-index06/topology-proof.json",
+      "bytes": 187,
+      "sha256": "6b535d117106282902808a2ce11400a40c699be9bbda110c172b7e0de182ac78"
+    }
+  },
+  "validation": [
+    "Full five-battle native campaign driver passes with identical 287 accepted commands, 165 enemy commands and final canonical hash 600017321675168062.",
+    "All 18 castle cells reveal, with exterior and entered-room native screenshots reviewed.",
+    "Native mixed-forest screenshot inspected: crown shape, texture and occlusion retained. Asynchronous screenshot timing changes camera/animation moments, so whole-image pixel equality is not claimed.",
+    "Independent host probe compiled the actual legacy and indexed helper bodies: 21 count/shape cases and 42429 commands match exact vertex loads, primitive indices, order and winding under the documented Tiny3D list contract. This is not a substitute for native execution, which also passes.",
+    "Separate normal ROM boots at title with review_driver=0. No hardware deployment or two-player campaign retest performed.",
+    "git diff --check passed for scoped changes."
+  ],
+  "native_gameplay_captures": [
+    {
+      "path": "out/n64-forest-index06/ares/index-trail/012-PYRITE_SELECTED.png",
+      "bytes": 105545,
+      "sha256": "1cd45b9a9dc5ae890ca01cae205fab579bab56c72b4b23c0ed2e079b178ff15a"
+    },
+    {
+      "path": "out/n64-forest-index06/ares/index-trail/040-PYRITE_CAMERA_NORTHWEST.png",
+      "bytes": 108291,
+      "sha256": "54cee7899d4f41e429edb090e473ac05774f6ea17a8566deacf10ce577f64d30"
+    },
+    {
+      "path": "out/n64-forest-index06/ares/index-trail/041-PYRITE_CAMERA_SOUTHEAST.png",
+      "bytes": 107982,
+      "sha256": "d112e7854f42d5f7bc90f06133cb91d49cca4502a981a7114b4fd5c173f10128"
+    },
+    {
+      "path": "out/n64-forest-index06/ares/index-trail/061-PYRITE_CAMERA_VERTICAL.png",
+      "bytes": 95932,
+      "sha256": "eaf04cd27d663336286721e48050943266287fd93eeaf23e85df0d8847ee05fd"
+    },
+    {
+      "path": "out/n64-forest-index06/ares/index-trail/083-PYRITE_CAMERA_NORTHWEST.png",
+      "bytes": 118865,
+      "sha256": "4394bfbcfaba2092b8dfb33ac2ed186f3058790b3ca1b82e4936a30ec6fd9174"
+    },
+    {
+      "path": "out/n64-forest-index06/ares/index-trail/108-PYRITE_CASTLE_EXTERIOR_REVIEW.png",
+      "bytes": 92257,
+      "sha256": "47606c96d79d29ddc9d051f104bbd4be3c6dd23d385c47a2fd396c10bd6fc9c5"
+    },
+    {
+      "path": "out/n64-forest-index06/ares/index-trail/124-PYRITE_CASTLE_ROOM_REVIEW.png",
+      "bytes": 93605,
+      "sha256": "2ac29cc584aec97a675547133900156bd4f44d7011102880e42c93e6b0c8db87"
+    }
+  ]
+}
