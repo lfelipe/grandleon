@@ -1,0 +1,178 @@
+{
+  "schema": "grandleon.n64.mixed-forest-review.v1",
+  "source_base": "7f5b6a1e",
+  "scope": "Nintendo64-only mixed 3D forest crown silhouettes. Authored maps, terrain costs, unit routes, camera, gameplay, textures, engine dependencies and memory reservations unchanged.",
+  "sources": {
+    "platform/nintendo64/pyrite/project/src/user/ProjectBoard.cpp": "451a2ce989f49f01c50f694071cd4003bb2d22e7f7cf435082af5cc3f85b7ff3",
+    "platform/nintendo64/pyrite/README.md": "a6d37da5f087763a16a4e61a829467eba07dbf21ec31ff6ddf64a3ef0f2e389c"
+  },
+  "geometry": {
+    "tree_capacity": 176,
+    "vertices_per_tree_before": 20,
+    "vertices_per_tree_after": 20,
+    "triangles_per_conifer": 22,
+    "triangles_per_broadleaf": 28,
+    "extra_shape_flags_bytes": 176,
+    "selection": "Deterministic environment hash selects rounded crowns for about one third of forest trees, including the surrounding landscape. Existing sizes, tones, roots and crown wind are retained.",
+    "textures": "Existing surface detail only; no new texture or TMEM allocation."
+  },
+  "native_review": {
+    "rom": {
+      "path": "out/n64-mixed-forest06/review.z64",
+      "bytes": 8290304,
+      "sha256": "b8d229af1306dbc4633641b0a2da4f61775dbba692bd1bef38571080874e56a3"
+    },
+    "elf": {
+      "path": "out/n64-mixed-forest06/review.elf",
+      "bytes": 30338612,
+      "sha256": "bdad2c9d07f71d738c56eb4b123ea1d42dfd2e342308a5c57eea4d7c43c70467"
+    },
+    "log": {
+      "path": "out/n64-mixed-forest06/ares/mixed.log",
+      "bytes": 9042,
+      "sha256": "ae1117bbbc49c7acfeea6d8bcca5bde76a525a4957e40f41f9ffa00102d61480"
+    },
+    "result": "RESULT PASS PYRITE_GAMEPLAY",
+    "coverage": "Real policy-driver campaign traversal through all five battles, five close encounters, scrolling, commands for both sides, SRAM commits, final outcome and 18-cell castle reveal. One-player launch; not a new two-player playthrough or physical hardware validation.",
+    "baseline_sample": {
+      "frames": 120,
+      "avg_frame_us": 33339,
+      "min_frame_us": 22971,
+      "max_frame_us": 34020,
+      "fps_x100": 3000,
+      "heap_used": 2007568,
+      "heap_total": 2281432,
+      "heap_free": 273864,
+      "rdram": 4194304,
+      "battles": 5,
+      "commands": 287,
+      "enemy_commands": 165,
+      "combat": 5,
+      "trees": 122,
+      "forms": 194,
+      "slot_bytes": 1340,
+      "hash": 600017321675168062
+    },
+    "sample": {
+      "frames": 120,
+      "avg_frame_us": 33338,
+      "min_frame_us": 22963,
+      "max_frame_us": 33993,
+      "fps_x100": 3000,
+      "heap_used": 2007584,
+      "heap_total": 2270728,
+      "heap_free": 263144,
+      "rdram": 4194304,
+      "battles": 5,
+      "commands": 287,
+      "enemy_commands": 165,
+      "combat": 5,
+      "trees": 122,
+      "forms": 194,
+      "slot_bytes": 1340,
+      "hash": 600017321675168062
+    },
+    "canonical_hash_equal": true,
+    "commands_equal": true,
+    "timing_limit": "The 120-frame timing sample runs after campaign completion. Its 30 fps result does not establish moving-camera or active-battle frame rate. Emulator screenshot VPS is host presentation speed, not console game FPS."
+  },
+  "memory": {
+    "rdram_bytes": 4194304,
+    "baseline_sections": {
+      "text": 1698706,
+      "data": 82228,
+      "bss": 65760,
+      "total": 1846694
+    },
+    "review_sections": {
+      "text": 1709234,
+      "data": 82404,
+      "bss": 65760,
+      "total": 1857398
+    },
+    "section_delta": {
+      "text": 10528,
+      "data": 176,
+      "bss": 0,
+      "total": 10704
+    },
+    "heap_free_delta_bytes": -10720,
+    "heap_total_delta_bytes": -10704,
+    "note": "Full existing reservations retained. Extra compiled code reduces available heap; vertex arena and texture storage are unchanged."
+  },
+  "normal_rom": {
+    "rom": {
+      "path": "out/n64-mixed-forest06/production.z64",
+      "bytes": 8290304,
+      "sha256": "bf19511a48f9ad3424fa5a7777fb0cb0114b0716c6a4293e3fba5c67f919d0c9"
+    },
+    "elf": {
+      "path": "out/n64-mixed-forest06/production.elf",
+      "bytes": 30333008,
+      "sha256": "8d85f546d9a1d57ad6ac693f3733a3ae3cab142795d5f775fb93eab960d8a0c1"
+    },
+    "log": {
+      "path": "out/n64-mixed-forest06/ares/production.log",
+      "bytes": 1192,
+      "sha256": "4420985d1182a420e08b8e4132307595575fc0f98be534067338f8857a411308"
+    },
+    "check": "Booted at title with review_driver=0 and no automatic campaign input. Bounded 18-second title observation; does not expect a gameplay RESULT."
+  },
+  "forest_comparison": {
+    "before": {
+      "path": "out/n64-house-colour06-medieval/ares/ci8-trail/040-PYRITE_CAMERA_NORTHWEST.png",
+      "bytes": 111277,
+      "sha256": "cd491e03e4a85197a60381c290ebf353a163ae7ffc9264414b28b017b93586e0"
+    },
+    "after": {
+      "path": "out/n64-mixed-forest06/ares/mixed-trail/040-PYRITE_CAMERA_NORTHWEST.png",
+      "bytes": 113084,
+      "sha256": "6d6ae1a6ae7af790cc923f5fba4762ad83638686845b34e9ad6c2bfba487a508"
+    },
+    "note": "Actual Ares screenshots near the same stage 2 camera checkpoint; asynchronous capture shifts camera framing slightly. No generated illustration or synthesized motion."
+  },
+  "current_gameplay_captures": [
+    {
+      "path": "out/n64-mixed-forest06/ares/mixed-trail/012-PYRITE_SELECTED.png",
+      "bytes": 105636,
+      "sha256": "7de4dca381d343dd68be44b85e202577e62c5d277d9fe813a5aeee6e96325324"
+    },
+    {
+      "path": "out/n64-mixed-forest06/ares/mixed-trail/040-PYRITE_CAMERA_NORTHWEST.png",
+      "bytes": 113084,
+      "sha256": "6d6ae1a6ae7af790cc923f5fba4762ad83638686845b34e9ad6c2bfba487a508"
+    },
+    {
+      "path": "out/n64-mixed-forest06/ares/mixed-trail/041-PYRITE_CAMERA_SOUTHEAST.png",
+      "bytes": 108491,
+      "sha256": "fafbf5a62f770ec73fb840321c2471e242680973be7cd314035e5b606680692e"
+    },
+    {
+      "path": "out/n64-mixed-forest06/ares/mixed-trail/061-PYRITE_CAMERA_VERTICAL.png",
+      "bytes": 96768,
+      "sha256": "07c736004c1b9bfc05b006bbdf0a3eb94b3ea17b932ead32ef2758b6c040b575"
+    },
+    {
+      "path": "out/n64-mixed-forest06/ares/mixed-trail/083-PYRITE_CAMERA_NORTHWEST.png",
+      "bytes": 118864,
+      "sha256": "a48149ca659f0dcc8af1384695c7710bd4ee09ae137cee94366edc2961d39dd7"
+    },
+    {
+      "path": "out/n64-mixed-forest06/ares/mixed-trail/108-PYRITE_CASTLE_EXTERIOR_REVIEW.png",
+      "bytes": 92104,
+      "sha256": "ed782af9e67cf98c2aafa480655918cc1ed8dddfc074cae379b01096e43d3d4e"
+    },
+    {
+      "path": "out/n64-mixed-forest06/ares/mixed-trail/124-PYRITE_CASTLE_ROOM_REVIEW.png",
+      "bytes": 93568,
+      "sha256": "c21373dce5929b1eb5e9e7f6c5e6d4d9140bfc9f4d5509b72f59bbdd83e3c969"
+    }
+  ],
+  "validation": [
+    "Native N64 review build and separate interactive build succeeded.",
+    "Full five-battle native campaign driver passed with identical final authoritative canonical hash and command totals.",
+    "Closed keep and revealed-room screenshots inspected.",
+    "Mixed-forest native board screenshot inspected against previous conifer-only result.",
+    "git diff --check passed for scoped changes."
+  ]
+}

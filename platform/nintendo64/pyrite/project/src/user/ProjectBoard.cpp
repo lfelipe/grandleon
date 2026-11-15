@@ -150,6 +150,7 @@ struct BoardResources final {
     std::size_t apron_cell_count{};
     std::size_t tree_count{};
     std::array<std::int8_t, kMaxTrees> tree_sway{};
+    std::array<bool, kMaxTrees> tree_broadleaf{};
     std::size_t landmark_vertex_count{};
     gp::StoneKeep keep{};
     gp::SettlementScenery settlement{};
@@ -1590,9 +1591,30 @@ void append_tree(
         set_vertex(board.trees, first + base + 6U, cx + lean, floor + top, cz,
             leaf_b, 16 * 32, 16 * 32, normal);
     };
-    ring(5U, crown, depth, scaled(28, scale), shoulder + scaled(23, scale), leaf_a);
-    ring(12U, crown * 2 / 3, depth * 2 / 3, shoulder + scaled(2, scale),
-         scaled(82, scale), leaf_a);
+    // Mix rounded deciduous crowns into the conifers without allocating a
+    // second vertex arena. Two six-sided rings form an actual closed canopy;
+    // the narrower upper ring and shaded underside give it a softer profile.
+    const bool broadleaf = ((variant >> 24U) % 3U) == 0U;
+    board.tree_broadleaf[board.tree_count] = broadleaf;
+    if (broadleaf) {
+        ring(5U, crown + scaled(5, scale), depth + scaled(3, scale),
+             scaled(37, scale), scaled(70, scale), leaf_a);
+        ring(12U, crown * 3 / 4, depth * 3 / 4, scaled(62, scale),
+             scaled(76, scale), leaf_a);
+        for (std::size_t vertex = 0; vertex < 6U; ++vertex) {
+            auto* lower = t3d_vertbuffer_get_pos(board.trees,
+                static_cast<int>(first + 5U + vertex));
+            auto* upper = t3d_vertbuffer_get_pos(board.trees,
+                static_cast<int>(first + 12U + vertex));
+            const int uneven = static_cast<int>((variant >> (vertex * 3U)) & 3U) - 1;
+            lower[1] += scaled(uneven, scale);
+            upper[1] += scaled(uneven * 2, scale);
+        }
+    } else {
+        ring(5U, crown, depth, scaled(28, scale), shoulder + scaled(23, scale), leaf_a);
+        ring(12U, crown * 2 / 3, depth * 2 / 3, shoulder + scaled(2, scale),
+             scaled(82, scale), leaf_a);
+    }
     set_vertex(board.trees, first + 19U, cx, floor + scaled(24, scale), cz,
         darken(leaf_a, 130U), 16 * 32, 16 * 32, normal);
     ++board.tree_count;
@@ -3081,7 +3103,12 @@ void draw_trees() {
         t3d_tri_draw(2, 3, 4); t3d_tri_draw(3, 0, 4);
         for (std::uint8_t side = 0; side < 6U; ++side) {
             const std::uint8_t next = (side + 1U) % 6U;
-            t3d_tri_draw(11, 5 + side, 5 + next);
+            if (board.tree_broadleaf[index]) {
+                t3d_tri_draw(5 + side, 12 + side, 12 + next);
+                t3d_tri_draw(5 + side, 12 + next, 5 + next);
+            } else {
+                t3d_tri_draw(11, 5 + side, 5 + next);
+            }
             t3d_tri_draw(18, 12 + side, 12 + next);
             t3d_tri_draw(19, 5 + next, 5 + side);
         }

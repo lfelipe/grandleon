@@ -127,7 +127,8 @@ fast-forward is 3x and skip restores immediately.
 
 The tactical board has filtered CI4 terrain materials, shared edges between
 coplanar neighbours, elevation sidewalls where heights differ, deterministic
-tree clusters, generated directional walk poses and I8 falloff contact
+tree clusters with mixed conifer and rounded broadleaf crowns, generated
+directional walk poses and I8 falloff contact
 shadows. Campaign launch, player-count selection, authored story
 dialogue, interactive attacks and abilities, packaged battles,
 aftermath/objective results, terminal progression and cartridge saving run in
@@ -142,7 +143,9 @@ binary audio sources. Every exported unit receives board and close-stage art.
 Board terrain combines its generated texture with elevation faces and bounded
 rendered forms: rocks, shrubs, reeds, crops, bamboo, rubble and kerbs are
 derived from the authored terrain family. Farmland and bamboo no longer reuse
-forest trees. Terrain and landmark detail continues to improve within the same
+forest trees. Forest crowns vary in shape, size and tone, with gentle wind
+above rooted trunks. Both tree shapes share the same bounded vertex arena.
+Terrain and landmark detail continues to improve within the same
 renderer and hardware budgets.
 The bounded review driver uses the real tactics policy for both sides to finish
 each battle and presents one complete optional close handoff per encounter; it
