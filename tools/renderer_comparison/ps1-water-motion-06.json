@@ -1,0 +1,51 @@
+{
+  "schema": "grandleon.ps1-water-motion.v1",
+  "source_base": "885ae5bb3b84c93273d77a910028f7d43cb61e5c",
+  "sources": {
+    "platform/playstation/mipsync/runtime/main.c": "e2c0b21fe02b4b3c8b1655de08ac76311929ca32699f98a989a8eef8ed91606d",
+    "platform/playstation/mipsync/runtime/terrain_motion.h": "1472e249efe07d7b023e4973c6b4f5f691895a0126d68801d5ad5449379fc92a",
+    "platform/playstation/mipsync/tools/generate_scene.py": "169cb44fafa8dccc3583c3236ddfa9f200b66ed0bff9c767ee70776655683eee",
+    "platform/playstation/mipsync/tests/terrain_motion_test.cpp": "203f820d82c6e659068f57a8da0dfa30427c9f742c57b4dee6663ae15a6eb20c",
+    "platform/playstation/mipsync/tests/scene_generator_test.py": "65600d50fda64287916889b6051d1b85546f28c069555c6164643ea784ea2e2c"
+  },
+  "design": "Scroll the original128x32 four-bit water sheet by one row every8 logic ticks. Preserve palette indices, all horizontal tile variants, geometry, draw ordering and fixed VRAM addresses. Upload only after previous GPU commands retire and finish DMA before staging storage is reused. Generated dry stages compile without the2048-byte staging array.",
+  "checks": {
+    "host_sanitizers_passed": true,
+    "ctest_terrain_motion_passed": true,
+    "generator_checks_passed": true,
+    "all1024phases_bounds_and_source_preservation_passed": true,
+    "campaign_card_solo_coop_continue_passed": true,
+    "campaign_captures_identical": 15,
+    "strict_keep_frame_pacing_passed": false,
+    "deepwood_missed_retraces": 0,
+    "deepwood_render_hbl_avg": 171
+  },
+  "stages_committed_ram_bytes": {
+    "bell": 1868060,
+    "deep": 1785084,
+    "watch": 1979604,
+    "village": 2088836,
+    "gate": 2051092
+  },
+  "visual_review": {
+    "static": "out/ps1-water-static06-review",
+    "moving": "out/ps1-water-vertical06-review",
+    "motion_frames": 131,
+    "changed_motion_frames": 106,
+    "simulation_hash": "658470629210798602",
+    "review_missed_retraces": 0,
+    "preview": "out/ps1-water-vertical06-media/ps1-water-preview.gif",
+    "qualification": "Actual scene-review snapshots on a nominal replay timeline, not an observed display-timing or FPS benchmark. Native crop and camera framing differ from the N64 example. The15 campaign UI checkpoints do not expose the moving river, so unchanged captures verify UI and other stages rather than animation."
+  },
+  "artifacts": {
+    "full_campaign": "out/ps1-water-integrated06-campaign",
+    "native_functional": "out/ps1-water-integrated06-functional",
+    "ctest": "out/ps1-water-cmake-final06.log",
+    "generator": "out/ps1-water-generator-final06.log"
+  },
+  "limits": [
+    "Deepwood gains4048 resident bytes including code and staging; dry-stage budgets remain unchanged. Largest stage2088836 bytes with full platform/audio/stack/gameplay reserves.",
+    "Keep pacing remains an explicit failing test. This is not hardware validation or a whole-game steady30FPS claim.",
+    "The new campaign observation harness resolves each stage function and matches its complete loaded code before handling its breakpoint. It does not change inputs, gameplay, target memory or validation thresholds."
+  ]
+}

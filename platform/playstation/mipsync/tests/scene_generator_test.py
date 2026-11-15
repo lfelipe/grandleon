@@ -396,7 +396,9 @@ def test_camera_pages_keep_separate_fixed_canopy_meshes() -> None:
                         visual_visibility=dict(hidden_cells=[], reveal_radius=1))
         chunks = [(2, 0, 0, 4, 4, 0, 0), (3, 2, 0, 6, 4, 2, 0)]
         count = SCENE.write_scene(output, document, {(0, 0, 0, 0): tuple(range(1, 10))},
-                                 chunks, 1, [0] * 16, (0, 0, 0), foliage_metadata=[9, 10])
+                                 chunks, 1, [0] * 16, (0, 0, 0), foliage_metadata=[9, 10],
+                                 water_texture_index=7)
+        assert "#define GRANDLEON_WATER_TEXTURE_INDEX 7u" in (output / "grandleon_scene.h").read_text()
         emitted = (output / 'scene_data.c').read_text()
         canopies = [line for line in emitted.splitlines() if '.name="forest_canopies"' in line]
         assert len(canopies) == 2 and count == 9
@@ -407,6 +409,7 @@ def test_camera_pages_keep_separate_fixed_canopy_meshes() -> None:
         count = SCENE.write_scene(output, document, {(0, 0, 0, 0): tuple(range(1, 10))},
                                  chunks, 1, [0] * 16, (0, 0, 0))
         assert count == 7 and 'forest_canopies' not in (output / 'scene_data.c').read_text()
+        assert "#define GRANDLEON_WATER_TEXTURE_INDEX 0u" in (output / "grandleon_scene.h").read_text()
 
 
 def test_geometry_pool_covers_both_complete_cursor_outlines() -> None:

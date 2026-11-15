@@ -268,6 +268,10 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   units authoritative, with straightforward editor placement and previews.
   Gameplay fog of war and nighttime sight rules remain separate later work.
 
+- [x] Add subtle water-surface motion on both consoles using the existing
+  artwork and geometry. Keep fixed ground and bridges, with native campaign
+  checks and all memory reserves preserved.
+
 ### Performance and memory
 
 - [ ] Record the 0.5 production builds as baselines: artifact hashes, matched
@@ -277,7 +281,7 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   gameplay or weaken checks to meet a performance gate. Static scenery now
   needs less CPU time when unit poses or foliage change, but camera-motion
   bursts and the strict keep frame-pacing check remain open.
-  [Current measurements](tools/renderer_comparison/ps1-camera-gate-06.json)
+  [Current measurements](tools/renderer_comparison/ps1-inplace-fragments-06.json)
 - [x] Reuse unchanged PS1 scenery during unit movement when the camera remains
   still; retain exact camera invalidation and normal actor drawing.
 - [ ] Make PS1 frames arrive evenly and remove the close-up return hitch.

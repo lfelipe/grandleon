@@ -971,6 +971,13 @@ target_include_directories(grandleon_ps1_packet_relocation_tests PRIVATE
     ../platform/playstation/mipsync/runtime)
 add_test(NAME grandleon.ps1_packet_relocation COMMAND grandleon_ps1_packet_relocation_tests)
 
+add_executable(grandleon_ps1_terrain_motion_tests
+    ../platform/playstation/mipsync/tests/terrain_motion_test.cpp)
+target_include_directories(grandleon_ps1_terrain_motion_tests PRIVATE
+    ../platform/playstation/mipsync/runtime)
+add_test(NAME grandleon.ps1_terrain_motion COMMAND grandleon_ps1_terrain_motion_tests)
+
+
 # The console font. Two machines have no font of their own and read one table,
 # and the *shape* of a letter is the part they share, so the shape is pinned
 # here, where neither console is in the loop. The box matters most: both

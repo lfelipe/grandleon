@@ -1807,6 +1807,7 @@ def write_scene(
     scenery_metadata: list | None = None,
     surface_count: int = 0,
     foliage_metadata: list | None = None,
+    water_texture_index: int = 0,
 ) -> int:
     foliage_metadata = foliage_metadata or [0] * len(terrain_chunks)
     if len(foliage_metadata) != len(terrain_chunks):
@@ -2072,6 +2073,8 @@ ps1_entity* grandleon_scene_mutable_entity(unsigned int index);
 #endif
 #endif
 """
+    header = header.replace("#define GRANDLEON_GENERATED_SCENE_H",
+        f"#define GRANDLEON_GENERATED_SCENE_H\n#define GRANDLEON_WATER_TEXTURE_INDEX {water_texture_index}u", 1)
     (output / "grandleon_scene.h").write_text(header, encoding="utf-8")
     return entity_index + 1  # plus the camera appended below the indexed entities
 
@@ -2233,6 +2236,7 @@ def main() -> int:
         shifted_colour(terrain_colours(repo, distant_kind, int(document.get("theme",0)))[0], 65),
         speaker_indices, scenery_metadata, surface_count=len(floor_groups),
         foliage_metadata=foliage_metadata,
+        water_texture_index=terrain_indices.get(0, 0),
     )
     visible_units = visible_position_peak(
         [(int(unit["x"]), int(unit["y"])) for unit in typed_units],

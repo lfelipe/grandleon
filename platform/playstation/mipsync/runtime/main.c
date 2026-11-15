@@ -12,6 +12,7 @@
 #include "runtime/packet_fragment.h"
 #include "runtime/scene.h"
 #include "runtime/textures.h"
+#include "terrain_motion.h"
 #include "packet_relocation.h"
 #include "generated/grandleon_scene.h"
 
@@ -38,8 +39,8 @@ static uint16_t s_gpu_ready_tick;
 static uint8_t s_pad_buffers[2][34];
 static uint16_t s_last_buttons[2] = {0xffffu, 0xffffu};
 
-/* Stable probe seam: main.c is byte-identical in every campaign executable,
- * while the scene-specific C++ bridge may link at a different address. */
+/* Observe normal updates through an exported seam. Stage-specific code may
+ * change its address; native probes resolve each executable independently. */
 __attribute__((noinline)) int grandleon_runtime_update(
     uint16_t player_one, uint16_t player_two
 ) {
@@ -63,7 +64,8 @@ static uint32_t s_world_near_limit_frames;
 static int s_world_ready, s_world_recording, s_world_replaying;
 static uint16_t s_world_render_started, s_world_ui_started, s_world_ui_ticks;
 
-/* Generated meshes/materials are immutable. Future mutable mesh data must
+/* Generated meshes and draw-state descriptors are immutable. Texture pixels
+ * may refresh in their fixed VRAM slots after GPU retirement. Mutable mesh data must
  * invalidate this cache; engine-driven animation and VM bindings opt out. */
 static int scene_cache_supported(void) {
     unsigned i;
@@ -492,6 +494,33 @@ static void setup_display(void) {
     SetDispMask(1);
 }
 
+#if GRANDLEON_WATER_TEXTURE_INDEX
+static uint32_t s_water_words[512];
+static unsigned s_water_phase = 32u;
+static void update_water_texture(uint32_t frame) {
+    TIM_IMAGE tim;
+    const unsigned phase = (frame / 8u) & 31u;
+    const unsigned index = GRANDLEON_WATER_TEXTURE_INDEX;
+    if (phase == s_water_phase || index > g_ps1_texture_count ||
+        GetTimInfo(g_ps1_textures[index - 1u].tim, &tim) ||
+        (tim.mode & 3u) != 0u || !tim.prect || !tim.paddr ||
+        tim.prect->w != 32 || tim.prect->h != 32) return;
+    grandleon_water_rows(s_water_words, (const uint32_t*)tim.paddr, phase);
+    /* Called after retirement of the preceding command arena. Keep the
+     * staging words alive until upload completes, then flush sampled texels. */
+    LoadImage(tim.prect, s_water_words);
+    DrawSync(0);
+    DR_TPAGE flush;
+    setlen(&flush, 1);
+    flush.code[0] = 0x01000000u;
+    DrawPrim((const uint32_t*)&flush);
+    DrawSync(0);
+    s_water_phase = phase;
+}
+#else
+static void update_water_texture(uint32_t frame) { (void)frame; }
+#endif
+
 static void present(void) {
     DrawSync(0);
     s_gpu_ready_tick = (uint16_t)TIMER_VALUE(1);
@@ -657,6 +686,7 @@ int main(void) {
          * those reads before clearing the shared table or overwriting packets;
          * the front/back VRAM display buffers remain independent. */
         DrawSync(0);
+        update_water_texture(frame);
         ClearOTagR(s_ordering_table[0], ORDERING_TABLE_LENGTH);
         render_world_and_ui(
             s_ordering_table[0], &s_next_packet,
