@@ -4,7 +4,7 @@
 extends RefCounted
 const Checkpoint = preload("res://scripts/network/lan_checkpoint.gd")
 const REPLAY_REQUEST_BASE := 3000000000
-const BOOTSTRAP := ["campaign_begun", "definitions", "battle_begins", "battle_surroundings", "battle_visual_visibility", "deployment_begins", "snapshot", "management", "campaign_ended"]
+const BOOTSTRAP := ["campaign_begun", "definitions", "recovery_stage", "battle_begins", "battle_surroundings", "battle_visual_visibility", "deployment_begins", "snapshot", "management", "campaign_ended"]
 var native
 var checkpoints: RefCounted
 var _events: Array = []
@@ -100,6 +100,8 @@ func submit_intent(kind: String, unit := 0, target := 0, x := 0, y := 0, content
 func _remember(event: Dictionary) -> void:
 	var kind := str(event.get("type", ""))
 	if kind in BOOTSTRAP: _bootstrap[kind] = event.duplicate(true)
+	if kind == "management":
+		_bootstrap["recovery_stage"] = {"type": "recovery_stage", "company": event.get("company", {}).duplicate(true)}
 	if kind == "dialogue" and _replaying and _saved.commands.is_empty():
 		_opening_dialogues.append(event.duplicate(true))
 	if kind in ["battle_begins", "management"]:

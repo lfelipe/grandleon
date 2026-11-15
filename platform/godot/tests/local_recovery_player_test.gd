@@ -38,6 +38,7 @@ func run() -> void:
 	player.session.submit_intent("move", rowan, 0, 4, 1, 0, 9001)
 	check(await until(func(): return player._unit_by_id(rowan).get("x") == 4 and player._unit_by_id(rowan).get("y") == 1), "full player receives accepted movement")
 	var expected: Dictionary = player.snapshot.duplicate(true)
+	var expected_stage: String = player.current_stage_name
 	player._mobile_set_backgrounded(true)
 	check(paused and player.mobile_backgrounded, "suspension pauses full player")
 	player._mobile_set_backgrounded(false)
@@ -49,6 +50,7 @@ func run() -> void:
 	check(await until(func(): return not player.snapshot.is_empty() and not player.session.is_restoring()), "new full player restores battle")
 	var codec = load("res://scripts/network/lan_checkpoint.gd")
 	check(codec.same_state(expected, player.snapshot), "scene restart preserves actual position and action state")
+	check(player.current_stage_name == expected_stage and not expected_stage.is_empty(), "recovered player retains translated stage title")
 	check(not player.stage_overview_pending, "recovery does not replay opening camera pan")
 	check(not player._dialogue_visible(), "completed opening story is not replayed after actions")
 	player._open_session_menu()

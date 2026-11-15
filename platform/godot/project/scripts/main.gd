@@ -2959,6 +2959,8 @@ func _handle_event(event: Dictionary) -> void:
 			# Reconnection must preserve the explicit Resume decision after an
 			# Android suspension, or a menu the player opened while waiting.
 			lan_waiting_for_host = false
+		"recovery_stage":
+			_remember_campaign_stage(event.get("company", {}))
 		"recovery_notice":
 			_show_toast(_ui(str(event.get("key", "player.recovery.unavailable"))))
 		"network_save_failed":

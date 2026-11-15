@@ -206,8 +206,8 @@ nothing, enter the host's IP address. Internet play is planned separately.
 Local solo and same-device co-op in the 0.6 Godot player also recover the
 current battle when you reopen the campaign. Accepted moves and actions are
 saved automatically; manual save slots still hold between-battle checkpoints.
-Recovery has been tested across forced desktop process termination. Android
-process-kill testing remains on the device checklist.
+Recovery has been tested across forced desktop process termination and an
+Android emulator force-stop. Physical-device testing remains on the checklist.
 
 The 0.6 development branch adds **Browse Campaigns** to the Godot home menu.
 It reads the public [campaign catalogue](https://github.com/lfelipe/grandleon-campaigns),
