@@ -1,9 +1,13 @@
-# PlayStation closing review
+# PlayStation 0.5 closing review
 
-Reviewed on 9 November 2026. Mipsync is the only PlayStation renderer;
+This records the 0.5 review from 9 November 2026. Current 0.6 rendering and
+frame-pacing measurements are under
+[`tools/renderer_comparison`](../../../tools/renderer_comparison).
+Mipsync is the only PlayStation renderer;
 missing dependencies or unsupported exports fail rather than selecting an
-older renderer. Eleven runtime patches and a Windows build-helper fix apply to
-the pinned upstream revision `866f405a0e34b5925a8d832272fe52c657688430`.
+older renderer. Current upstream provenance is recorded in
+[`upstream.env`](../../../tools/upstream_patches/engines/mipsync/upstream.env)
+and the accompanying patch series.
 
 ## Accented text
 
