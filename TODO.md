@@ -277,7 +277,9 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   units, camera behaviour and test scenarios; do not change gameplay to pass
   a performance test or weaken the checks. Profile canopy motion and lost
   world-packet reuse on the heavier castle views; the new forest movement
-  does not close this performance task.
+  does not close this performance task. The renderer now indexes every exported
+  scene entry; a native nine-position Cedar Watch check covers canopy pages
+  beyond the former 64-entry cap.
   Exported flat scenery now shares duplicate projected vertices while keeping
   texture seams, face order and baked colour. The one-player keep saves 4 KiB
   of resident memory; all 253 reveal-sequence captures remain byte-identical.

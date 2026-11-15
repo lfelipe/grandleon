@@ -1,0 +1,157 @@
+{
+  "schema": "grandleon.ps1-scene-index-review.v1",
+  "source_base": "afea3e4e77081afba70478175d3a2ab98d577bc3",
+  "sources": {
+    "TODO.md": "2b9b034f3df433192745cf5a51b7f4ca618f7a27d01bf07c0b9db7a509a83b32",
+    "platform/playstation/mipsync/README.md": "1fafa174420ced94938061535128a04f3dd0a061fccfba920e66a3eb229e8ded",
+    "platform/playstation/mipsync/runtime/CMakeLists.txt": "39ffd430a24efddafccb2eb8ff6170073385a0a0ed98ff3ef80cca95747f271d",
+    "platform/playstation/mipsync/tools/generate_scene.py": "00b3ecde136b0dc858a5e8c5f1ea172fc5eb92128cdd57c917e7276267231fcc",
+    "platform/playstation/mipsync/tests/scenery_pages_probe.lua": "9951a5bbe2c127b74c5e55e84abac4d45a9032b88711cf2157f7c8f96de38228",
+    "platform/playstation/mipsync/tests/run-scenery-pages-probe.py": "8ec02e99a3d4b508a42b06ede54791fd158888c7715eef0093b0ac6c55ff274f",
+    "tools/renderer_comparison/ps1-forest-motion-06.json": "51235cb3617629fc6ec3d7f3cbf132a11de63a18775a7ece9ffe7f2a97299936"
+  },
+  "problem": "PS1_RENDER_ENTITY_LIST_MAX limits inspected scene indices, not simultaneous visible objects. The new 68-entry Cedar Watch scene lost canopy entries 64, 65 and 66 when configured for 64.",
+  "fix": "Generate the renderer index capacity from the complete scene count. Bound optional whole-world snapshots independently at 80 entries. Compile-time assertion checks the actual C entity array against the renderer capacity. No upstream source changes.",
+  "native_compile_contract": {
+    "64": {
+      "exit_code": 1,
+      "output": "/work/source/generated/scene_data.c:75:1: error: static assertion failed: \"renderer entity index capacity omits scene entries\"\n   75 | _Static_assert(sizeof(k_ps1_entities) / sizeof(k_ps1_entities[0]) <= PS1_RENDER_ENTITY_LIST_MAX,\n      | ^~~~~~~~~~~~~~\n"
+    },
+    "68": {
+      "exit_code": 0,
+      "output": ""
+    }
+  },
+  "native_page_regression": {
+    "before": {
+      "source": "Historical HEAD before this fix; reproduced only in ignored output",
+      "output": "out/ps1-index06-before-mapped-pages",
+      "result": "Expected failure: canopy entity not submitted: 64"
+    },
+    "after": {
+      "entities": 68,
+      "pages": 9,
+      "drawn_canopy_entities": [
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
+        66
+      ],
+      "scope": "Actual controller traversal and renderer draw calls; no entity, camera or simulation state writes."
+    },
+    "output": "out/ps1-index06-final-pages",
+    "scope": "Raw pad inputs enter the production screen-direction mapper. The test observes the real UI output and draw_entity calls. It never changes entities, camera positions, simulation or rules. The actual nine map-coordinate camera regions are captured."
+  },
+  "stages": {
+    "bell": {
+      "entities": 31,
+      "compiled_index_capacity": 31,
+      "committed_ram_bytes": 1855764,
+      "ram_limit": 2097152,
+      "audio_stack_heap_reserves": [
+        65536,
+        32768,
+        524288
+      ],
+      "vram_texture_bytes": 213312,
+      "elf_sha256": "b93c772734092d0a28a08ce165c74e47ac7cfa1ddfcd90136c870b3bef15acd0"
+    },
+    "deep": {
+      "entities": 26,
+      "compiled_index_capacity": 26,
+      "committed_ram_bytes": 1768748,
+      "ram_limit": 2097152,
+      "audio_stack_heap_reserves": [
+        65536,
+        32768,
+        524288
+      ],
+      "vram_texture_bytes": 175904,
+      "elf_sha256": "fa76677d977322d6fab83f0a8505f63dc70ed92ff41180b065de9be42ee99f17"
+    },
+    "watch": {
+      "entities": 68,
+      "compiled_index_capacity": 68,
+      "committed_ram_bytes": 1967316,
+      "ram_limit": 2097152,
+      "audio_stack_heap_reserves": [
+        65536,
+        32768,
+        524288
+      ],
+      "vram_texture_bytes": 262464,
+      "elf_sha256": "5823c6cf7d4c0f0c66764356ca1e3239ed84f21ad5cdbb07a1bb18be9431b131"
+    },
+    "village": {
+      "entities": 45,
+      "compiled_index_capacity": 45,
+      "committed_ram_bytes": 2076540,
+      "ram_limit": 2097152,
+      "audio_stack_heap_reserves": [
+        65536,
+        32768,
+        524288
+      ],
+      "vram_texture_bytes": 316736,
+      "elf_sha256": "b8501dbcb1c948f523fab9fe7de9154afc1841257e685aaec8eb0dff4af5970b"
+    },
+    "gate": {
+      "entities": 34,
+      "compiled_index_capacity": 34,
+      "committed_ram_bytes": 2038804,
+      "ram_limit": 2097152,
+      "audio_stack_heap_reserves": [
+        65536,
+        32768,
+        524288
+      ],
+      "vram_texture_bytes": 255360,
+      "elf_sha256": "a7f10218391acbd58b49b9751c11e219cb69a678ece74bbc806aff4d3ff0744f"
+    }
+  },
+  "checks": {
+    "generator_passed": true,
+    "campaign_functional_passed": true,
+    "strict_frame_pacing_passed": false,
+    "strict_failure": "Twin Gate 30 FPS",
+    "campaign_output": "out/ps1-index06-campaign-probe"
+  },
+  "rejected_precision_experiment": {
+    "retained": false,
+    "formula": [
+      "(wind >> 10) * 1024",
+      "((wind / 2) >> 10) * 1024"
+    ],
+    "pixel_identical_frames": 262,
+    "keep_render_hbl_avg_before_after": [
+      240,
+      240
+    ],
+    "idle_render_hbl_avg_before_after": [
+      107,
+      107
+    ],
+    "reason": "No measured saving; unit idle updates still invalidate the shared packet prefix on the same cadence. Product code restored."
+  },
+  "limits": [
+    "Emulator evidence, not hardware validation.",
+    "The full campaign probe tests UI traversal with supported stage skip, controller ownership, saves, Continue and solo/co-op; it is not a full battle playthrough.",
+    "The PS1 keep still fails the unchanged strict 30 FPS gate. Index coverage is a correctness fix, not a sustained-performance claim."
+  ],
+  "captures": {
+    "middle-east": "97cfef1abc9ec9536110c580914d6e2a06eb41a71edac8d5058e490c878ae4e5",
+    "middle-middle": "3e3b72faf2ed424f9e17359318d1ff9eec3b8f3b13b85fc166896c3e587956ad",
+    "middle-west": "22c5a5db8066cdf63159f6af5fb638fc47f0f1634bc717f1e71babba108fd2d5",
+    "north-east": "180e4b132799583375c9570ca3e17d952c413f91f93ccd2a3d420e2332f8f736",
+    "north-middle": "0921742b02aae246a1973da6deef9d64d8726f0c74d659b8fccb12aefda7614e",
+    "north-west": "e7f370617a6ad1b7c444188a1d837d03cef468a38dfaf93919e054c707632d45",
+    "south-east": "ad37d679ab74a668ce118e39e772fea535032f954eaf8d3b1ca46981a2ae1408",
+    "south-middle": "60778d43d0da6a08fb4382d0d3c87daedd47d018b3d11311b37136bc3b34ee82",
+    "south-west": "5c619ca3bce8d2214a6a0bfb7fc749688dd9278d8cfb03267725612dd2374f67"
+  }
+}

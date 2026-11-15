@@ -84,9 +84,10 @@ string(JSON GRANDLEON_STATIC_VERTEX_POOL GET "${GRANDLEON_SCENE_METRICS}" cache 
 string(JSON GRANDLEON_STATIC_TRI_POOL GET "${GRANDLEON_SCENE_METRICS}" cache triangle_limit)
 string(JSON GRANDLEON_STATIC_MESH_POOL GET "${GRANDLEON_SCENE_METRICS}" cache mesh_vertex_limit)
 string(JSON GRANDLEON_WORLD_ENTITY_CAPACITY GET "${GRANDLEON_SCENE_METRICS}" entities)
-# Terrain and canopy pages are mutually exclusive while drawing, but every
-# entity participates in the exact world-packet snapshot. Keep this separate
-# from the renderer's unchanged 64-entry list of simultaneously visible objects.
+# Mipsync indexes scene entries, including disabled pages, up to its list
+# capacity. Size those lists for the complete scene, not only visible meshes.
+# The optional exact packet snapshot has its own bounded reservation.
+set(GRANDLEON_RENDER_ENTITY_CAPACITY ${GRANDLEON_WORLD_ENTITY_CAPACITY})
 if(GRANDLEON_WORLD_ENTITY_CAPACITY GREATER 80)
     set(GRANDLEON_WORLD_ENTITY_CAPACITY 80)
 endif()
@@ -103,7 +104,7 @@ target_compile_definitions(grandleon_mipsync PRIVATE
     PS1_STATIC_ENTITY_CACHE_MAX=64 PS1_STATIC_TOPOLOGY_CACHE_MAX=32
     PS1_UI_PACKET_RESERVE=4096 PS1_OCCLUDER_CACHE_MAX=8
     PS1_OCCLUDER_PROJECTED_VERTEX_MAX=64 PS1_OCCLUDER_PROJECTED_TRI_MAX=64
-    PS1_RENDER_ENTITY_LIST_MAX=64
+    PS1_RENDER_ENTITY_LIST_MAX=${GRANDLEON_RENDER_ENTITY_CAPACITY}
 )
 
 target_link_libraries(grandleon_mipsync PRIVATE

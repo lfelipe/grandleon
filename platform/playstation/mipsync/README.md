@@ -189,3 +189,9 @@ Release validation checks the following on the exact CUE/BIN:
 Release and creator exports already point only to Mipsync and fail clearly if
 it cannot build. There is no comparison renderer or alternate PlayStation
 graphics path in the repository.
+
+The large-scene paging regression uses the two-player Cedar Watch scene. Run
+`PSN00BSDK_ROOT=/path/to/sdk python3 tests/run-scenery-pages-probe.py BUILD OUTPUT`
+with an empty output directory. It drives the controller through nine camera
+positions and verifies that every canopy page reaches the actual renderer,
+including scene entries beyond index 63.

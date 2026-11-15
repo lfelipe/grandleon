@@ -420,5 +420,10 @@
     "scope": "Actual two-player Deepwood board after the introductory dialogue; looping idle excerpt, not a frame-pacing benchmark.",
     "elf_sha256": "05e33a8cea769f9499047617ade3831106a3e89a4cb08330a84c138becb8fdb4",
     "capture_driver": "out/ps1-foliage06-idle/idle.lua"
+  },
+  "subsequent_review": {
+    "issue": "The initial configuration indexed only scene entries 0 through 63. Cedar Watch has 68 entries after the canopy split, so some late canopy pages were omitted. The computed enabled-entity upper bounds did not detect this because the upstream limit applies to scene indices, not simultaneous visibility.",
+    "resolution": "ps1-scene-index-06.json",
+    "scope": "Earlier memory and non-Watch captures remain valid; do not treat the initial campaign/UI checks as proof that every canopy page was drawn."
   }
 }
