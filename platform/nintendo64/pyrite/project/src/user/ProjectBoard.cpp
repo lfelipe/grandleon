@@ -119,6 +119,8 @@ struct BoardResources final {
     std::vector<sim::Event> battle_events;
     T3DVertPacked* cells{};
     T3DVertPacked* ground{};
+    std::vector<std::uint16_t> water_quads;
+    std::int16_t water_s{}, water_t{};
     T3DVertPacked* apron{};
     T3DVertPacked* elevation{};
     T3DVertPacked* terrain_forms{};
@@ -1090,6 +1092,8 @@ void build_cell_vertices() {
             return ground_corner_tint(board.content->terrain[index], index, gx, gz);
         };
         const std::size_t first = index * kCellVertexCount;
+        if (terrain_kind(board.content->terrain[index]) == 0U)
+            board.water_quads.push_back(static_cast<std::uint16_t>(index));
         set_vertex(board.cells, first + 0U, cx - kHalfCell, lift, cz - kHalfCell, tint(x, z), s0, t0, normal);
         set_vertex(board.cells, first + 1U, cx + kHalfCell, lift, cz - kHalfCell, tint(x + 1, z), s1, t0, normal);
         set_vertex(board.cells, first + 2U, cx + kHalfCell, lift, cz + kHalfCell, tint(x + 1, z + 1), s1, t1, normal);
@@ -1163,6 +1167,8 @@ std::uint64_t surrounding_terrain_at(int x, int z) {
 }
 
 void build_environment_vertices() {
+    board.water_quads.clear();
+    board.water_s = board.water_t = 0;
     const auto width = board.content->definition.width;
     const auto height = board.content->definition.height;
     const fm_vec3_t up = {{0.0F, 1.0F, 0.0F}};
@@ -1225,6 +1231,8 @@ void build_environment_vertices() {
             std::int16_t s0, t0, s1, t1;
             terrain_uv(edge_terrain, static_cast<std::size_t>((z + apron) * (width + 2 * apron) + x + apron), s0, t0, s1, t1);
             const std::size_t first = board.apron_cell_count * 4U;
+            if (terrain_kind(edge_terrain) == 0U)
+                board.water_quads.push_back(static_cast<std::uint16_t>(0x8000U | board.apron_cell_count));
             set_vertex(board.apron, first + 0U, cx - apron_half, floor,
                 cz - apron_half, tint(x, z), s0, t0, normal);
             set_vertex(board.apron, first + 1U, cx + apron_half, floor,
@@ -3034,6 +3042,37 @@ void update_shell_input() {
         frame_count >= shell.next_automatic_frame) {
         (void)confirm_shell_choice();
     }
+}
+
+// Animate only the existing water UVs, after SwapChain has retired the
+// previous draw pass. The padded material window has a full texel of guard;
+// offsets stay within 3/8 texel horizontally and 1/4 vertically, preserving
+// bilinear filtering without sampling a neighbouring atlas material.
+void animate_water_vertices() {
+    if (board.water_quads.empty()) return;
+    const auto s = static_cast<std::int16_t>(combat.reduced_motion ? 0 :
+        view::ambient_wave_q12(frame_count / 2U, 17U) * 12 / 4096);
+    const auto t = static_cast<std::int16_t>(combat.reduced_motion ? 0 :
+        view::ambient_wave_q12(frame_count / 2U, 49U) * 8 / 4096);
+    const int ds = s - board.water_s, dt = t - board.water_t;
+    if (ds == 0 && dt == 0) return;
+    for (const auto quad : board.water_quads) {
+        auto* arena = (quad & 0x8000U) ? board.apron : board.cells;
+        const unsigned first = (quad & 0x7fffU) * 4U;
+        const auto* uv0 = t3d_vertbuffer_get_uv(arena, first);
+        const auto* uv1 = t3d_vertbuffer_get_uv(arena, first + 1U);
+        const auto* uv3 = t3d_vertbuffer_get_uv(arena, first + 3U);
+        // Material flips must not reverse the water's world-space motion.
+        const int sign_s = uv1[0] > uv0[0] ? 1 : -1;
+        const int sign_t = uv3[1] > uv0[1] ? 1 : -1;
+        for (unsigned vertex = 0; vertex < 4U; ++vertex) {
+            auto* uv = t3d_vertbuffer_get_uv(arena, first + vertex);
+            uv[0] += ds * sign_s;
+            uv[1] += dt * sign_t;
+        }
+    }
+    board.water_s = s;
+    board.water_t = t;
 }
 
 void draw_environment() {
@@ -5929,6 +5968,7 @@ void onSceneUpdate() {
 void onScenePreDraw3D() {
     if (!board.loaded || shell.phase != ShellPhase::battle) return;
     board_timing_begin_submission();
+    animate_water_vertices();
     draw_environment();
     draw_elevation();
     draw_board_cells();

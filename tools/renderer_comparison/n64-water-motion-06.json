@@ -1,0 +1,163 @@
+{
+  "schema": "grandleon.n64.water-motion-review.v1",
+  "source_base": "bcdbaf8a",
+  "decision": "Retain subtle motion of existing water-surface UVs. No new art, geometry, render pass, texture transfer, gameplay/input changes, per-frame allocation or extra fence.",
+  "source_sha256": {
+    "platform/nintendo64/pyrite/project/src/user/ProjectBoard.cpp": "1873ab07a0301c134dacaac903384cba29eedbd5b47a713115d2055460cc134d"
+  },
+  "implementation": {
+    "registration": "Collect compact uint16 quad references while building existing board/apron geometry; bit15 selects the existing apron arena. Clear at stage replacement. Current campaign has6 board and10 automatically extended apron water quads in Deepwood.",
+    "animation": "Shift all four UVs using two slow existing fixed-point ambient waves. Maximum S offset12/32 texel, T offset8/32 texel; account for UV flips to retain a coherent world-space direction. Apply only delta from the prior offset, preserving exact geometry and UV span. Neutral motion restores original UVs.",
+    "atlas_safety": "The existing padded20-texel slot samples coordinates1..18. After shifts, the minimum coordinate remains0.625 and maximum18.375 in S,0.75..18.25 in T, retaining a bilinear-filter guard before adjacent materials.",
+    "lifetime": "Write uncached vertex UVs only in onScenePreDraw3D, after SwapChain::nextFrame admits the draw pass. Its blockNewFrame gate remains set until the previous rdpq_detach_cb renderPassDone callback. Therefore prior rendering has retired before mutation; no additional wait or fence. The permanent existing board/apron arenas are neither reallocated nor redirected. Rejected quad-command experiment is not shipping.",
+    "reduced_motion": "Uses the existing internal motion preference to restore neutral UVs; no new setting or UI."
+  },
+  "validation": {
+    "full_review": "out/n64-water06/ares/water.log",
+    "normal_boot": "out/n64-water-normal06/ares/normal.log",
+    "normal_review_driver": false,
+    "functional_result": "PASS:5 battles,287 accepted commands,165 enemy commands,18 revealed Keep cells; canonical600017321675168062. Same legal review inputs and thresholds.",
+    "host_helper_proof": "out/n64-water06/proof/result.txt",
+    "host_proof_scope": "Compile the actual animation helper.1024 updates cover all4 flips, board/apron arenas, bounded atlas footprint, no accumulated drift, unchanged XYZ/colour and neutral restoration.",
+    "native_screenshots": [
+      "out/n64-water06/ares/water-trail/041-PYRITE_CAMERA_SOUTHEAST.png",
+      "out/n64-water06/ares/water-trail/108-PYRITE_CASTLE_EXTERIOR_REVIEW.png",
+      "out/n64-water06/ares/water-trail/124-PYRITE_CASTLE_ROOM_REVIEW.png"
+    ],
+    "presentation": [
+      {
+        "stage": 1,
+        "frames": 694,
+        "total_vi": 1500,
+        "fps_nominal_x100": 2776,
+        "hold2": 638,
+        "hold4": 56
+      },
+      {
+        "stage": 2,
+        "frames": 870,
+        "total_vi": 1740,
+        "fps_nominal_x100": 3000,
+        "hold2": 870,
+        "hold4": 0
+      },
+      {
+        "stage": 3,
+        "frames": 1409,
+        "total_vi": 2818,
+        "fps_nominal_x100": 3000,
+        "hold2": 1409,
+        "hold4": 0
+      },
+      {
+        "stage": 4,
+        "frames": 1012,
+        "total_vi": 2024,
+        "fps_nominal_x100": 3000,
+        "hold2": 1012,
+        "hold4": 0
+      },
+      {
+        "stage": 5,
+        "frames": 1299,
+        "total_vi": 2598,
+        "fps_nominal_x100": 3000,
+        "hold2": 1299,
+        "hold4": 0
+      }
+    ],
+    "qualification": "Emulator-only actual VI-origin holds. Deepwood retains30 nominal FPS with all two-VI holds. Bell retains27.76 and56 four-VI holds, matching the no-water baseline there. Native raw clock is approximately59.826 Hz; this is not hardware validation."
+  },
+  "memory": {
+    "normal_before": {
+      "text": 1714114,
+      "data": 82420,
+      "bss": 66128,
+      "total": 1862662
+    },
+    "normal_after": {
+      "text": 1715746,
+      "data": 82436,
+      "bss": 66128,
+      "total": 1864310
+    },
+    "resident_delta_bytes": 1648,
+    "review_heap_used_before": 2026984,
+    "review_heap_used_after": 2027032,
+    "extra_observed_heap_bytes": 48,
+    "review_final_free_heap": 223488,
+    "rdram_bytes": 4194304,
+    "geometry_and_texture_bytes_added": 0,
+    "qualification": "The16-entry uint16 reference capacity uses32 payload bytes plus allocator overhead. Generic all-water maps can grow this compact reference vector; no per-frame allocation or extra vertex arena. Existing gameplay/audio/stack reserves retained."
+  },
+  "capture": {
+    "method": "Separate review capture build, ordinary external X11 Right input at existing Deepwood southeast checkpoint takes over autoplay at the map edge. Idle camera continues normal gameplay animations. No source/test scenario was changed to produce the static river view. Functional full-campaign validation uses a separate unchanged-input run.",
+    "controller": "out/n64-water-film06/controller-proof.txt",
+    "trace_log": "out/n64-water-film06/ares/film.log",
+    "coverage": "out/n64-water-film06/decoded/coverage.json",
+    "mapping": "out/n64-water-film06/decoded/selection.json",
+    "frame_match": {
+      "trace_records": 121,
+      "matched_ids": 121,
+      "missing_ids": [],
+      "guard_rejects": 0,
+      "duration_us": 4011615,
+      "hold_vi_histogram": {
+        "2": 120
+      },
+      "constant_cadence_rate": "8000000/267441"
+    },
+    "motion_proof": {
+      "water": {
+        "crop": [
+          530,
+          345,
+          580,
+          393
+        ],
+        "settled_frames": 56,
+        "unique_pixel_states": 16
+      },
+      "road": {
+        "crop": [
+          275,
+          192,
+          303,
+          216
+        ],
+        "settled_frames": 56,
+        "unique_pixel_states": 1
+      }
+    },
+    "motion_qualification": "Last56 actual frames have settled camera: water crop changes16 times while adjacent opaque road remains byte-identical. This isolates actual UV motion from panning, unit animation and synthetic image movement.",
+    "encoding": "First120 actual matched pictures, final121st supplies timing endpoint. MP4 uses measured constant rate8000000/267441, duration4.011615s. No missing frames, interpolation, temporal resampling or milestone-image stretching. Marker/window chrome cropped; capture observation adds overhead and is not a normal-build performance benchmark.",
+    "media": {
+      "n64-water-native.mp4": {
+        "path": "out/n64-water-film06/n64-water-native.mp4",
+        "sha256": "cc53906905cfff97d0519a19ab71d87a5974954a1c50153a0066749f185aca75",
+        "bytes": 395987
+      },
+      "n64-water-poster.png": {
+        "path": "out/n64-water-film06/n64-water-poster.png",
+        "sha256": "233a4e7d0cf4e9080e2c903bdce75778d06a3942fa5552e7ce3936b983734f28",
+        "bytes": 97639
+      }
+    },
+    "encoded_metadata": {
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "width": 750,
+          "height": 566,
+          "r_frame_rate": "337839/11294",
+          "nb_frames": "120"
+        }
+      ],
+      "format": {
+        "duration": "4.011615"
+      }
+    }
+  },
+  "normal_rom": "out/n64-water-normal06/project/grandleon_pyrite_game.z64"
+}
