@@ -1474,8 +1474,9 @@ func _build_interface() -> void:
 	_build_combat_layer()
 
 
-func _option_row(parent: VBoxContainer, label_text: String) -> HBoxContainer:
-	var row := HBoxContainer.new()
+func _option_row(parent: VBoxContainer, label_text: String) -> BoxContainer:
+	var row := BoxContainer.new()
+	row.set_meta("mobile_wrap_actions", true)
 	row.custom_minimum_size = Vector2(1100, 58)
 	row.add_theme_constant_override("separation", 20)
 	parent.add_child(row)
@@ -1491,7 +1492,8 @@ func _option_row(parent: VBoxContainer, label_text: String) -> HBoxContainer:
 
 
 func _add_number_row(key: String, label_text: String, parent: VBoxContainer) -> void:
-	var row := HBoxContainer.new()
+	var row := BoxContainer.new()
+	row.set_meta("mobile_wrap_actions", true)
 	row.custom_minimum_size = Vector2(1100, 58)
 	row.add_theme_constant_override("separation", 12)
 	parent.add_child(row)
@@ -1499,17 +1501,20 @@ func _add_number_row(key: String, label_text: String, parent: VBoxContainer) -> 
 	label.custom_minimum_size = Vector2(300, 58)
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(label)
+	var controls := HBoxContainer.new()
+	controls.add_theme_constant_override("separation", 8)
+	row.add_child(controls)
 	var minus := _button("−", 110, 54)
 	minus.pressed.connect(_change_number.bind(key, -1))
-	row.add_child(minus)
+	controls.add_child(minus)
 	var value := _label("1", 22, Color("f2f7f9"))
 	value.custom_minimum_size = Vector2(400, 54)
 	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(value)
+	controls.add_child(value)
 	var plus := _button("+", 110, 54)
 	plus.pressed.connect(_change_number.bind(key, 1))
-	row.add_child(plus)
+	controls.add_child(plus)
 	number_rows[key] = row
 	number_labels[key] = value
 
@@ -1692,7 +1697,8 @@ func _build_combat_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 12)
 	panel.add_child(column)
-	var heading := HBoxContainer.new()
+	var heading := BoxContainer.new()
+	heading.set_meta("mobile_wrap_actions", true)
 	heading.add_theme_constant_override("separation", 16)
 	column.add_child(heading)
 	var title := _label(_t("gear.combat.open"), 28, Color("f2f7f9"))
@@ -1716,7 +1722,8 @@ func _build_combat_layer() -> void:
 	strength_column.add_theme_constant_override("separation", 8)
 	strength_panel.add_child(strength_column)
 	strength_column.add_child(_label(_t("gear.combat.strengths"), 18, Color("e6b86d")))
-	var relation_row := HBoxContainer.new()
+	var relation_row := BoxContainer.new()
+	relation_row.set_meta("mobile_wrap_actions", true)
 	relation_row.add_theme_constant_override("separation", 10)
 	strength_column.add_child(relation_row)
 	advantage_family_select = OptionButton.new()
@@ -1733,7 +1740,8 @@ func _build_combat_layer() -> void:
 	advantage_toggle_button = _button(_t("gear.combat.mark_strong"), 330, 48)
 	advantage_toggle_button.pressed.connect(_toggle_weapon_advantage)
 	relation_row.add_child(advantage_toggle_button)
-	var bonus_row := HBoxContainer.new()
+	var bonus_row := BoxContainer.new()
+	bonus_row.set_meta("mobile_wrap_actions", true)
 	bonus_row.add_theme_constant_override("separation", 8)
 	strength_column.add_child(bonus_row)
 	bonus_row.add_child(_label(_t("gear.combat.with_advantage"), 15, Color("a9bdc9")))
@@ -1764,7 +1772,8 @@ func _build_combat_layer() -> void:
 	advantage_summary_label.custom_minimum_size.y = 28
 	strength_column.add_child(advantage_summary_label)
 
-	var preview_row := HBoxContainer.new()
+	var preview_row := BoxContainer.new()
+	preview_row.set_meta("mobile_wrap_actions", true)
 	preview_row.add_theme_constant_override("separation", 12)
 	preview_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(preview_row)
@@ -1777,7 +1786,8 @@ func _build_combat_layer() -> void:
 	matchup_column.add_theme_constant_override("separation", 10)
 	matchup_panel.add_child(matchup_column)
 	matchup_column.add_child(_label(_t("gear.combat.matchup"), 18, Color("b58cff")))
-	var matchup_choices := HBoxContainer.new()
+	var matchup_choices := BoxContainer.new()
+	matchup_choices.set_meta("mobile_wrap_actions", true)
 	matchup_choices.add_theme_constant_override("separation", 8)
 	matchup_column.add_child(matchup_choices)
 	matchup_attacker_select = OptionButton.new()
@@ -1820,7 +1830,8 @@ func _build_combat_layer() -> void:
 	shape_summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	shape_summary_label.custom_minimum_size.y = 42
 	shape_column.add_child(shape_summary_label)
-	var grids := HBoxContainer.new()
+	var grids := BoxContainer.new()
+	grids.set_meta("mobile_wrap_actions", true)
 	grids.add_theme_constant_override("separation", 18)
 	shape_column.add_child(grids)
 	var range_box := VBoxContainer.new()

@@ -2383,7 +2383,8 @@ func _build_interface() -> void:
 	editor_column.add_child(role_label)
 	join_label = _label(_t("army.joins"), 20, Color("72e08f"))
 	editor_column.add_child(join_label)
-	var role_actions := HBoxContainer.new()
+	var role_actions := BoxContainer.new()
+	role_actions.set_meta("mobile_wrap_actions", true)
 	role_actions.add_theme_constant_override("separation", 14)
 	editor_column.add_child(role_actions)
 	customize_button = _button(_t("army.hero.open"), 330, 56)
@@ -2460,13 +2461,15 @@ func _build_modifier_layer() -> void:
 	column.add_child(explanation)
 	var modifiers := GridContainer.new()
 	modifiers.columns = 2
+	modifiers.set_meta("mobile_fit_columns", true)
 	modifiers.add_theme_constant_override("h_separation", 28)
 	modifiers.add_theme_constant_override("v_separation", 10)
 	column.add_child(modifiers)
 	for index in HERO_MODIFIERS.size():
 		var option: Dictionary = HERO_MODIFIERS[index]
 		var key := str(option.key)
-		var row := HBoxContainer.new()
+		var row := BoxContainer.new()
+		row.set_meta("mobile_wrap_actions", true)
 		row.custom_minimum_size = Vector2(630, 64)
 		row.add_theme_constant_override("separation", 8)
 		modifiers.add_child(row)
@@ -2474,18 +2477,21 @@ func _build_modifier_layer() -> void:
 		name_label.custom_minimum_size = Vector2(165, 54)
 		name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		row.add_child(name_label)
+		var controls := HBoxContainer.new()
+		controls.add_theme_constant_override("separation", 8)
+		row.add_child(controls)
 		var minus := _button("−", 66, 54)
 		minus.pressed.connect(_adjust_modifier.bind(key, -1))
-		row.add_child(minus)
+		controls.add_child(minus)
 		var value_label := _label(_t("army.hero.role_default"), 16, Color("f2f7f9"))
 		value_label.custom_minimum_size = Vector2(255, 54)
 		value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		value_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		row.add_child(value_label)
+		controls.add_child(value_label)
 		modifier_value_labels[key] = value_label
 		var plus := _button("+", 66, 54)
 		plus.pressed.connect(_adjust_modifier.bind(key, 1))
-		row.add_child(plus)
+		controls.add_child(plus)
 		if index == 0:
 			first_modifier_button = plus
 	var footer := _label(
@@ -2699,7 +2705,8 @@ func _build_guided_character_layer() -> void:
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explanation.custom_minimum_size.y = 48
 	column.add_child(explanation)
-	var columns := HBoxContainer.new()
+	var columns := BoxContainer.new()
+	columns.set_meta("mobile_wrap_actions", true)
 	columns.add_theme_constant_override("separation", 18)
 	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(columns)
@@ -2828,7 +2835,8 @@ func _build_supply_layer() -> void:
 	supply_asset.add_theme_font_size_override("font_size", 20)
 	supply_asset.item_selected.connect(_refresh_supply_value)
 	column.add_child(supply_asset)
-	var quantity_row := HBoxContainer.new()
+	var quantity_row := BoxContainer.new()
+	quantity_row.set_meta("mobile_wrap_actions", true)
 	quantity_row.add_theme_constant_override("separation", 14)
 	column.add_child(quantity_row)
 	supply_minus_button = _button("−", 120, 64)
@@ -2880,7 +2888,8 @@ func _build_role_layer() -> void:
 	column.add_child(role_title_label)
 	role_scope_label = _label(_t("army.role.independent", {"count": 1}), 16, Color("72e08f"))
 	column.add_child(role_scope_label)
-	var side_row := HBoxContainer.new()
+	var side_row := BoxContainer.new()
+	side_row.set_meta("mobile_wrap_actions", true)
 	side_row.custom_minimum_size = Vector2(1480, 56)
 	side_row.add_theme_constant_override("separation", 18)
 	column.add_child(side_row)
@@ -2897,7 +2906,8 @@ func _build_role_layer() -> void:
 	role_side_new_button.tooltip_text = _t("army.side.new_tooltip")
 	role_side_new_button.pressed.connect(_open_new_side)
 	side_row.add_child(role_side_new_button)
-	var movement_row := HBoxContainer.new()
+	var movement_row := BoxContainer.new()
+	movement_row.set_meta("mobile_wrap_actions", true)
 	movement_row.custom_minimum_size = Vector2(1480, 56)
 	movement_row.add_theme_constant_override("separation", 18)
 	column.add_child(movement_row)
@@ -2919,7 +2929,8 @@ func _build_role_layer() -> void:
 		role_movement.set_item_metadata(role_movement.item_count - 1, choice.id)
 	role_movement.item_selected.connect(_change_role_movement)
 	movement_row.add_child(role_movement)
-	var family_row := HBoxContainer.new()
+	var family_row := BoxContainer.new()
+	family_row.set_meta("mobile_wrap_actions", true)
 	family_row.custom_minimum_size = Vector2(1480, 56)
 	family_row.add_theme_constant_override("separation", 18)
 	column.add_child(family_row)
@@ -2935,7 +2946,8 @@ func _build_role_layer() -> void:
 	role_family_toggle_button = _button(_t("army.role.allow_family"), 360, 56)
 	role_family_toggle_button.pressed.connect(_toggle_role_family)
 	family_row.add_child(role_family_toggle_button)
-	var behavior_row := HBoxContainer.new()
+	var behavior_row := BoxContainer.new()
+	behavior_row.set_meta("mobile_wrap_actions", true)
 	behavior_row.add_theme_constant_override("separation", 14)
 	column.add_child(behavior_row)
 	role_behavior_button = _button(_t("army.role.attack_ends_activation"), 480, 58)
@@ -2950,7 +2962,8 @@ func _build_role_layer() -> void:
 	role_detach_button.tooltip_text = _t("army.role.detach_tooltip")
 	role_detach_button.pressed.connect(_detach_role_baseline)
 	behavior_row.add_child(role_detach_button)
-	var dependency_row := HBoxContainer.new()
+	var dependency_row := BoxContainer.new()
+	dependency_row.set_meta("mobile_wrap_actions", true)
 	dependency_row.add_theme_constant_override("separation", 14)
 	column.add_child(dependency_row)
 	role_dependency_button = _button(_t("army.delete.role_open"), 500, 54)
@@ -2972,12 +2985,14 @@ func _build_role_layer() -> void:
 	column.add_child(_label(_t("army.role.stats"), 16, Color("e6b86d")))
 	var grid := GridContainer.new()
 	grid.columns = 2
+	grid.set_meta("mobile_fit_columns", true)
 	grid.add_theme_constant_override("h_separation", 20)
 	grid.add_theme_constant_override("v_separation", 7)
 	column.add_child(grid)
 	for definition: Dictionary in ROLE_STATS:
 		var key := str(definition.key)
-		var row := HBoxContainer.new()
+		var row := BoxContainer.new()
+		row.set_meta("mobile_wrap_actions", true)
 		row.custom_minimum_size = Vector2(720, 44)
 		row.add_theme_constant_override("separation", 8)
 		grid.add_child(row)
@@ -2985,21 +3000,25 @@ func _build_role_layer() -> void:
 		label.custom_minimum_size = Vector2(190, 44)
 		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		row.add_child(label)
+		var controls := HBoxContainer.new()
+		controls.add_theme_constant_override("separation", 8)
+		row.add_child(controls)
 		var minus := _button("−", 88, 42)
 		minus.pressed.connect(_adjust_role_stat.bind(key, -1))
-		row.add_child(minus)
+		controls.add_child(minus)
 		var value := _label("0", 20, Color("f2f7f9"))
 		value.custom_minimum_size = Vector2(210, 42)
 		value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		row.add_child(value)
+		controls.add_child(value)
 		var plus := _button("+", 88, 42)
 		plus.pressed.connect(_adjust_role_stat.bind(key, 1))
-		row.add_child(plus)
+		controls.add_child(plus)
 		role_stat_labels[key] = value
 		role_stat_buttons.append(minus)
 		role_stat_buttons.append(plus)
-	var footer := HBoxContainer.new()
+	var footer := BoxContainer.new()
+	footer.set_meta("mobile_wrap_actions", true)
 	footer.add_theme_constant_override("separation", 14)
 	column.add_child(footer)
 	var done := _button(_t("army.done"), 280, 60)
@@ -3177,7 +3196,8 @@ func _build_growth_layer() -> void:
 	note.custom_minimum_size.y = 32
 	column.add_child(note)
 
-	var appearance_row := HBoxContainer.new()
+	var appearance_row := BoxContainer.new()
+	appearance_row.set_meta("mobile_wrap_actions", true)
 	appearance_row.add_theme_constant_override("separation", 14)
 	column.add_child(appearance_row)
 	var style_label := _label(_t("army.growth.look"), 15, Color("69d9ff"))
@@ -3212,7 +3232,8 @@ func _build_growth_layer() -> void:
 	appearance_row.add_child(growth_figure)
 
 	column.add_child(_label(_t("army.growth.rewards"), 15, Color("e6b86d")))
-	var reward_row := HBoxContainer.new()
+	var reward_row := BoxContainer.new()
+	reward_row.set_meta("mobile_wrap_actions", true)
 	reward_row.add_theme_constant_override("separation", 12)
 	column.add_child(reward_row)
 	_build_growth_stepper(reward_row, _t("army.growth.xp_defeated"), "experienceAward", 365, false)
@@ -3226,7 +3247,8 @@ func _build_growth_layer() -> void:
 	growth_drop.add_theme_font_size_override("font_size", 17)
 	growth_drop.item_selected.connect(_change_growth_drop)
 	reward_row.add_child(growth_drop)
-	var chance_row := HBoxContainer.new()
+	var chance_row := BoxContainer.new()
+	chance_row.set_meta("mobile_wrap_actions", true)
 	chance_row.add_theme_constant_override("separation", 12)
 	column.add_child(chance_row)
 	var chance_spacer := Control.new()
@@ -3237,6 +3259,7 @@ func _build_growth_layer() -> void:
 	column.add_child(_label(_t("army.growth.level_chance"), 15, Color("e6b86d")))
 	var growth_grid := GridContainer.new()
 	growth_grid.columns = 2
+	growth_grid.set_meta("mobile_fit_columns", true)
 	growth_grid.add_theme_constant_override("h_separation", 22)
 	growth_grid.add_theme_constant_override("v_separation", 5)
 	column.add_child(growth_grid)
@@ -3245,7 +3268,8 @@ func _build_growth_layer() -> void:
 			growth_grid, _stat_label(str(definition.key)), str(definition.key), 716, false
 		)
 
-	var footer := HBoxContainer.new()
+	var footer := BoxContainer.new()
+	footer.set_meta("mobile_wrap_actions", true)
 	footer.add_theme_constant_override("separation", 16)
 	column.add_child(footer)
 	var done := _button(_t("army.done"), 280, 58)
@@ -3263,7 +3287,8 @@ func _build_growth_layer() -> void:
 func _build_growth_stepper(
 	parent: Container, label_text: String, key: String, width: int, drop_control: bool
 ) -> void:
-	var row := HBoxContainer.new()
+	var row := BoxContainer.new()
+	row.set_meta("mobile_wrap_actions", true)
 	row.custom_minimum_size = Vector2(width, 46)
 	row.add_theme_constant_override("separation", 7)
 	parent.add_child(row)
@@ -3271,17 +3296,20 @@ func _build_growth_stepper(
 	label.custom_minimum_size = Vector2(190 if width > 600 else 155, 46)
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(label)
+	var controls := HBoxContainer.new()
+	controls.add_theme_constant_override("separation", 8)
+	row.add_child(controls)
 	var minus := _button("−", 72, 44)
 	minus.pressed.connect(_adjust_role_detail.bind(key, -1))
-	row.add_child(minus)
+	controls.add_child(minus)
 	var value := _label("0", 18, Color("f2f7f9"))
 	value.custom_minimum_size = Vector2(165 if width > 600 else 70, 44)
 	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(value)
+	controls.add_child(value)
 	var plus := _button("+", 72, 44)
 	plus.pressed.connect(_adjust_role_detail.bind(key, 1))
-	row.add_child(plus)
+	controls.add_child(plus)
 	growth_value_labels[key] = value
 	if drop_control:
 		growth_drop_buttons.append(minus)

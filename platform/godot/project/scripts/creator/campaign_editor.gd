@@ -53,11 +53,11 @@ var outcome_flag: OptionButton
 var outcome_objective_column: VBoxContainer
 var outcome_item_column: VBoxContainer
 var outcome_flag_column: VBoxContainer
-var outcome_detail_row: HBoxContainer
-var outcome_quantity_row: HBoxContainer
+var outcome_detail_row: BoxContainer
+var outcome_quantity_row: BoxContainer
 var outcome_quantity_label: Label
 var outcome_quantity_buttons: Array[Button] = []
-var outcome_compound_row: HBoxContainer
+var outcome_compound_row: BoxContainer
 var outcome_compound_summary: Label
 var outcome_compound_button: Button
 var outcome_target: OptionButton
@@ -75,11 +75,11 @@ var compound_kind: OptionButton
 var compound_objective: OptionButton
 var compound_item: OptionButton
 var compound_flag: OptionButton
-var compound_detail_row: HBoxContainer
+var compound_detail_row: BoxContainer
 var compound_objective_column: VBoxContainer
 var compound_item_column: VBoxContainer
 var compound_flag_column: VBoxContainer
-var compound_quantity_row: HBoxContainer
+var compound_quantity_row: BoxContainer
 var compound_quantity_label: Label
 var compound_remove_button: Button
 var compound_status: Label
@@ -864,6 +864,7 @@ func _add_node_button(node: Dictionary, battle_number: int, alternate: bool) -> 
 	if OS.has_feature("android"):
 		var compact_actions := GridContainer.new()
 		compact_actions.columns = 2
+		compact_actions.set_meta("mobile_fit_columns", true)
 		compact_actions.add_theme_constant_override("h_separation", 12)
 		compact_actions.add_theme_constant_override("v_separation", 12)
 		row.add_child(compact_actions)
@@ -3031,7 +3032,8 @@ func _build_interface() -> void:
 	route_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	route_list.add_theme_constant_override("separation", 10)
 	scroll.add_child(route_list)
-	var status_row := HBoxContainer.new()
+	var status_row := BoxContainer.new()
+	status_row.set_meta("mobile_wrap_actions", true)
 	status_row.add_theme_constant_override("separation", 12)
 	column.add_child(status_row)
 	status_label = _label(_t("campaign.opening"), 17, Color("a9bdc9"))
@@ -3253,7 +3255,8 @@ func _build_outcome_layer() -> void:
 	outcome_select.item_selected.connect(_refresh_selected_outcome)
 	column.add_child(outcome_select)
 
-	var route_row := HBoxContainer.new()
+	var route_row := BoxContainer.new()
+	route_row.set_meta("mobile_wrap_actions", true)
 	route_row.add_theme_constant_override("separation", 18)
 	column.add_child(route_row)
 	var condition_column := VBoxContainer.new()
@@ -3276,7 +3279,8 @@ func _build_outcome_layer() -> void:
 	outcome_target.add_theme_font_size_override("font_size", 18)
 	target_column.add_child(outcome_target)
 
-	outcome_detail_row = HBoxContainer.new()
+	outcome_detail_row = BoxContainer.new()
+	outcome_detail_row.set_meta("mobile_wrap_actions", true)
 	outcome_detail_row.add_theme_constant_override("separation", 18)
 	column.add_child(outcome_detail_row)
 	outcome_objective_column = VBoxContainer.new()
@@ -3307,7 +3311,8 @@ func _build_outcome_layer() -> void:
 	outcome_flag.add_theme_font_size_override("font_size", 18)
 	outcome_flag_column.add_child(outcome_flag)
 
-	outcome_quantity_row = HBoxContainer.new()
+	outcome_quantity_row = BoxContainer.new()
+	outcome_quantity_row.set_meta("mobile_wrap_actions", true)
 	outcome_quantity_row.add_theme_constant_override("separation", 10)
 	column.add_child(outcome_quantity_row)
 	var quantity_title := _label(_t("campaign.outcome.item_amount"), 15, Color("69d9ff"))
@@ -3326,7 +3331,8 @@ func _build_outcome_layer() -> void:
 	plus.pressed.connect(_adjust_outcome_quantity.bind(1))
 	outcome_quantity_row.add_child(plus)
 	outcome_quantity_buttons = [minus, plus]
-	outcome_compound_row = HBoxContainer.new()
+	outcome_compound_row = BoxContainer.new()
+	outcome_compound_row.set_meta("mobile_wrap_actions", true)
 	outcome_compound_row.add_theme_constant_override("separation", 16)
 	column.add_child(outcome_compound_row)
 	outcome_compound_summary = _label(_t("campaign.compound.add_requirements"), 17, Color("a9bdc9"))
@@ -3337,7 +3343,8 @@ func _build_outcome_layer() -> void:
 	outcome_compound_button.pressed.connect(_open_compound)
 	outcome_compound_row.add_child(outcome_compound_button)
 
-	var edit_actions := HBoxContainer.new()
+	var edit_actions := BoxContainer.new()
+	edit_actions.set_meta("mobile_wrap_actions", true)
 	edit_actions.add_theme_constant_override("separation", 12)
 	column.add_child(edit_actions)
 	outcome_apply_button = _button(_t("campaign.outcome.apply"), 300, 60)
@@ -3350,7 +3357,8 @@ func _build_outcome_layer() -> void:
 	outcome_remove_button.pressed.connect(_remove_outcome)
 	edit_actions.add_child(outcome_remove_button)
 
-	var order_actions := HBoxContainer.new()
+	var order_actions := BoxContainer.new()
+	order_actions.set_meta("mobile_wrap_actions", true)
 	order_actions.add_theme_constant_override("separation", 12)
 	column.add_child(order_actions)
 	outcome_earlier_button = _button(_t("campaign.outcome.earlier"), 260, 56)
@@ -3402,7 +3410,8 @@ func _build_compound_layer() -> void:
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explanation.custom_minimum_size.y = 52
 	column.add_child(explanation)
-	var top_row := HBoxContainer.new()
+	var top_row := BoxContainer.new()
+	top_row.set_meta("mobile_wrap_actions", true)
 	top_row.add_theme_constant_override("separation", 16)
 	column.add_child(top_row)
 	var mode_column := VBoxContainer.new()
@@ -3434,7 +3443,8 @@ func _build_compound_layer() -> void:
 	compound_kind.custom_minimum_size = Vector2(1130, 58)
 	compound_kind.item_selected.connect(_update_compound_condition)
 	column.add_child(compound_kind)
-	compound_detail_row = HBoxContainer.new()
+	compound_detail_row = BoxContainer.new()
+	compound_detail_row.set_meta("mobile_wrap_actions", true)
 	compound_detail_row.add_theme_constant_override("separation", 16)
 	column.add_child(compound_detail_row)
 	compound_objective_column = VBoxContainer.new()
@@ -3462,7 +3472,8 @@ func _build_compound_layer() -> void:
 	compound_flag_column.add_child(compound_flag)
 	compound_detail_row.add_child(compound_flag_column)
 
-	compound_quantity_row = HBoxContainer.new()
+	compound_quantity_row = BoxContainer.new()
+	compound_quantity_row.set_meta("mobile_wrap_actions", true)
 	compound_quantity_row.add_theme_constant_override("separation", 12)
 	column.add_child(compound_quantity_row)
 	var amount_title := _label(_t("campaign.outcome.item_amount"), 15, Color("69d9ff"))
@@ -3481,7 +3492,8 @@ func _build_compound_layer() -> void:
 	amount_plus.pressed.connect(_adjust_compound_quantity.bind(1))
 	compound_quantity_row.add_child(amount_plus)
 
-	var list_actions := HBoxContainer.new()
+	var list_actions := BoxContainer.new()
+	list_actions.set_meta("mobile_wrap_actions", true)
 	list_actions.add_theme_constant_override("separation", 14)
 	column.add_child(list_actions)
 	var add := _button(_t("campaign.compound.add"), 350, 60)

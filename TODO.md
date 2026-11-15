@@ -71,7 +71,11 @@ part of 0.6, alongside performance work and platform validation.
   headings wrap without making their dialogs wider. Local tests create and
   compile all three using accented names in English and Portuguese, check
   their final actions at three densities, and restore smaller text afterward.
-  These density checks do not replace Android keyboard and mouse validation.
+  Seventeen additional panels now adapt their rows and stat grids to the
+  available width, including growth, loadout, combat design, scene sequencing
+  and campaign conditions. Their final actions are checked at three densities
+  in English and Portuguese. These density checks do not replace Android
+  keyboard and mouse validation.
 - [x] Make the phone player board-first with contextual controls. Show legal
   unit actions after selection, target details during targeting, and compact
   dialogue/close-up controls only while those views are active. Avoid a

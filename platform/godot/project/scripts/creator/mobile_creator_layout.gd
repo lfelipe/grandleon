@@ -40,7 +40,11 @@ func _apply() -> void:
 static func apply_tree(node: Node, sizes: Dictionary) -> void:
 	for child: Node in node.get_children(): apply_tree(child, sizes)
 	if node is Control and node.get_meta("mobile_tile", false): return
-	if node is Button: node.mouse_filter = Control.MOUSE_FILTER_PASS
+	if node is Button:
+		node.mouse_filter = Control.MOUSE_FILTER_PASS
+		var parent := node.get_parent()
+		if not node is OptionButton and parent != null and (parent is VBoxContainer or parent.get_meta("mobile_wrap_actions", false)):
+			node.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	if node is Button or node is LineEdit or node is TextEdit or node is SpinBox:
 		node.add_theme_font_size_override("font_size", maxi(int(_original(node, "font", node.get_theme_font_size("font_size"))), sizes.font))
 		node.custom_minimum_size.y = maxf(float(_original(node, "min_y", node.custom_minimum_size.y)), sizes.touch)
@@ -79,6 +83,14 @@ static func apply_tree(node: Node, sizes: Dictionary) -> void:
 		# Recompute from the children, so a larger viewport or smaller text can
 		# restore the original horizontal row without accumulating overrides.
 		node.vertical = width > node.size.x
+	if node is GridContainer and node.get_meta("mobile_fit_columns", false):
+		var original := int(_original(node, "columns", node.columns))
+		var widest := 1.0
+		for child: Node in node.get_children():
+			if child is Control and child.visible:
+				widest = maxf(widest, child.get_combined_minimum_size().x)
+		var gap := float(node.get_theme_constant("h_separation"))
+		node.columns = clampi(floori((node.size.x + gap) / (widest + gap)), 1, original)
 	if node is ScrollContainer:
 		node.follow_focus = true
 	if node is PanelContainer and not node.get_parent() is Container and node.get_child_count() == 1:

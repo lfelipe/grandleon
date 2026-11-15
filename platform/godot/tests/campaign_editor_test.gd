@@ -690,7 +690,7 @@ func _run() -> void:
 	await create_timer(0.15).timeout
 	if failures == 0:
 		print("campaign outline smoke passed")
-	quit(1 if failures > 0 else 0)
+	root.get_node("PCAudio").request_quit(1 if failures > 0 else 0)
 
 
 func _exercise_unused_battle_delete(editor: Control) -> void:

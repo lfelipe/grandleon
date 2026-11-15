@@ -253,7 +253,7 @@ func _run() -> void:
 	_expect("back returns to army setup", current_scene.get_script().resource_path.ends_with("army_editor.gd"), true)
 	if failures == 0:
 		print("gear editor smoke passed")
-	quit(1 if failures > 0 else 0)
+	root.get_node("PCAudio").request_quit(1 if failures > 0 else 0)
 
 
 func _select_category(editor, identity: String) -> void:

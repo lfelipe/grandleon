@@ -441,7 +441,7 @@ func _run() -> void:
 	await process_frame
 	if failures == 0:
 		print("story editor smoke passed")
-	quit(1 if failures > 0 else 0)
+	root.get_node("PCAudio").request_quit(1 if failures > 0 else 0)
 
 
 func _parse(value: String) -> Dictionary:
