@@ -5,6 +5,7 @@ import argparse
 from contextlib import redirect_stdout
 import importlib.util
 import io
+import shutil
 from pathlib import Path
 import tempfile
 
@@ -20,6 +21,13 @@ def main():
     (ROOT / 'out').mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='android-script-check-', dir=ROOT / 'out') as directory:
         project = Path(directory)
+        stage = project / 'app'
+        stage.mkdir()
+        previous = stage / 'libgrandleon_godot.so'
+        previous.write_bytes(b'previous native build input')
+        preserved = builder.preserve_native_inputs(stage, {'arm64-v8a': previous})
+        shutil.rmtree(stage)
+        assert preserved['arm64-v8a'].read_bytes() == b'previous native build input', 'restaging must preserve reused native inputs'
         (project / 'project.godot').write_text('config_version=5\n[application]\nrun/main_scene="res://main.tscn"\n')
         (project / 'main.tscn').write_text('[gd_scene load_steps=2 format=3]\n[ext_resource type="Script" path="res://main.gd" id="1"]\n[node name="Check" type="Node"]\nscript=ExtResource("1")\n')
         script = project / 'main.gd'
@@ -35,7 +43,7 @@ def main():
             assert 'SCRIPT ERROR:' in output.getvalue(), 'fixture must exercise a real GDScript parser failure'
         else:
             raise AssertionError('Android builder accepted a project with an actual script parse error')
-    print('ANDROID_BUILD_SCRIPT_GUARD_PASS valid_import=true invalid_import_rejected=true')
+    print('ANDROID_BUILD_SCRIPT_GUARD_PASS valid_import=true invalid_import_rejected=true staged_inputs_preserved=true')
 
 if __name__ == '__main__':
     main()

@@ -46,6 +46,19 @@ def run_godot(*args, env=None):
         raise RuntimeError('Godot reported script/import errors; refusing to package this application')
 
 
+def preserve_native_inputs(stage, libraries):
+    # A caller may reuse libraries from a previous APK staging tree. Keep
+    # those inputs outside the tree before replacing it for the next build.
+    preserved = dict(libraries)
+    for abi, library in libraries.items():
+        if library.is_relative_to(stage):
+            saved = stage.parent / 'native-inputs' / abi / library.name
+            saved.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(library, saved)
+            preserved[abi] = saved
+    return preserved
+
+
 def digest(path):
     with path.open('rb') as source:
         return hashlib.file_digest(source, 'sha256').hexdigest()
@@ -163,6 +176,7 @@ def main():
     stage = build / 'app'
     if output.is_relative_to(stage):
         parser.error('Output must be outside the staging directory')
+    libraries = preserve_native_inputs(stage, libraries)
     shutil.rmtree(stage, ignore_errors=True)
     shutil.copytree(ROOT / 'platform/godot/project', stage,
                     ignore=shutil.ignore_patterns('.godot', '*.so', '*.dll'))
