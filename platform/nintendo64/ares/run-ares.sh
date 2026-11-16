@@ -166,6 +166,7 @@ mkdir -p "${out_dir}"
 # Removing it makes "the container never ran" indistinguishable from "the ROM
 # said nothing", which is the honest reading of both.
 rm -f "${out_dir}/${log_name}"
+rm -f "${out_dir}/input-sequence.status" "${out_dir}/input-sequence.log"
 
 save_mount=()
 container_saves=/tmp/saves
@@ -218,10 +219,15 @@ set -e
 log="${out_dir}/${log_name}"
 require="${GRANDLEON_N64_ARES_REQUIRE:-^RESULT PASS }"
 min_checks="${GRANDLEON_N64_ARES_MIN_CHECKS:-0}"
-if [ "${GRANDLEON_N64_ARES_ALLOW_TIMEOUT:-0}" = "1" ] && [ "${status}" -ne 0 ]; then
+if [ -n "${GRANDLEON_N64_ARES_INPUT_SEQUENCE:-}" ] &&
+        [ "$(cat "${out_dir}/input-sequence.status" 2>/dev/null)" != 0 ]; then
+    echo "error: external controller sequence did not complete successfully." >&2
+    exit 1
+fi
+if [ "${GRANDLEON_N64_ARES_ALLOW_TIMEOUT:-0}" = "1" ] && [ "${status}" -eq 124 ]; then
     # A ROM with no script never ends, so the timeout killing it is the
     # expected way for this run to stop. The required line still has to be
-    # there: the run is judged on what the ROM said, never on how it stopped.
+    # there. Emulator, container and controller failures remain failures.
     status=0
 fi
 # The verdict, the count behind it, and the exit code: all three. The verdict is

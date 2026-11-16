@@ -1,0 +1,35 @@
+{
+  "date": "2026-11-16",
+  "renderer": "pyrite-tiny3d",
+  "rom_sha256": "e37484673cb03ac803c04f99431c9243dbe671b6b6520f3fa7f81f189f5757d7",
+  "base_rdram_bytes": 4194304,
+  "review_driver": false,
+  "controller_phases": {
+    "1p": [
+      "n64-personal-1p/new",
+      "n64-personal-1p/loss",
+      "n64-personal-1p/reload"
+    ],
+    "2p": [
+      "n64-personal-2p/new",
+      "n64-personal-2p-final/loss",
+      "n64-personal-2p-final/reload"
+    ]
+  },
+  "saves_read_by": "native ByteWindowSlotStorage and CampaignSession, input files opened read-only",
+  "checks": [
+    "permanent casualty remains excluded",
+    "withdrawn hero returns healthy",
+    "required-hero defeat follows authored loss story",
+    "two fresh-process resumes in both modes",
+    "personal sword preserved across Mage role",
+    "both players retain ownership",
+    "authored map identity and scenery survive exclusion"
+  ],
+  "runner_integrity": "Expected timeout124 only; successful completion of external controller required. A real invalid-action sequence is rejected.",
+  "limitations": [
+    "Emulator acceptance, not physical hardware validation.",
+    "Direct acquisition of a new weapon in console campaign progression is a separate remaining check.",
+    "The 2P continuation was rerun from its real validated first-battle SRAM after correcting the external controller for its initial unit selection."
+  ]
+}

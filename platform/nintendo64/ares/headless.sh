@@ -5,7 +5,8 @@
 #
 # Starts a virtual display, boots one ROM in ares, waits for the ROM's
 # "RESULT" line on the ISViewer channel, captures a screenshot of the ares
-# window, and exits 0 only if the result was a pass. run-ares.sh invokes this
+# window, and exits 0 only if the result was a pass (124 at the verdict deadline).
+# run-ares.sh invokes this
 # under `timeout`, and every wait below is bounded, so it cannot hang either
 # way.
 #
@@ -182,10 +183,23 @@ if [ -n "${input_sequence}" ]; then
     input_pid=$!
 fi
 
+finish_input() {
+    if [ -z "${input_pid}" ]; then return 0; fi
+    if wait "${input_pid}"; then
+        printf '0\n' > "${out}/input-sequence.status"
+    else
+        printf '%s\n' "$?" > "${out}/input-sequence.status"
+        echo "error: external controller sequence failed." >&2
+        cat "${out}/input-sequence.log" >&2 || true
+        return 1
+    fi
+}
+
 # Wait for the ROM's verdict. The banner line marks boot, the RESULT line
 # marks completion; both timestamps go to stdout for the wrapper to report.
 booted=0
 result=0
+emulator_failed=0
 elapsed=0
 # The screenshot trail: an autopilot ROM prints "CHECKPOINT <name>" and then
 # holds the frame; each new line gets one photograph. Cleared per run so the
@@ -203,6 +217,7 @@ if [ -n "${ARES_SCREENSHOT_AFTER:-}" ]; then
         || echo "warning: screenshot capture failed." >&2
     kill "${ares_pid}" 2>/dev/null || true
     wait "${ares_pid}" 2>/dev/null || true
+    finish_input || exit 1
     kill "${xvfb_pid}" 2>/dev/null || true
     echo "screenshot-only run complete"
     exit 0
@@ -273,6 +288,7 @@ while [ "${elapsed}" -lt "${deadline}" ]; do
     fi
     if ! kill -0 "${ares_pid}" 2>/dev/null; then
         echo "error: ares exited before the ROM reported." >&2
+        emulator_failed=1
         break
     fi
     sleep "${poll_seconds}"
@@ -301,15 +317,12 @@ fi
 
 kill "${ares_pid}" 2>/dev/null || true
 wait "${ares_pid}" 2>/dev/null || true
-[ -z "${input_pid}" ] || wait "${input_pid}" || {
-    echo "error: external controller sequence failed." >&2
-    cat "${out}/input-sequence.log" >&2 || true
-    exit 1
-}
+finish_input || exit 1
 kill "${xvfb_pid}" 2>/dev/null || true
 
+if [ "${emulator_failed}" -ne 0 ]; then exit 1; fi
 if [ "${result}" -eq 0 ]; then
     echo "error: no RESULT line within ${deadline}s." >&2
-    exit 1
+    exit 124
 fi
 grep -q "RESULT PASS" "${log}"

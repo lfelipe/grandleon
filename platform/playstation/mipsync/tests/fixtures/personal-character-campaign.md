@@ -109,3 +109,20 @@ class/kit resolution, simulation, and campaign outcomes are the same; the PS1
 probe additionally verifies its generated stage data and independent bridge.
 Gold, shops, class progression, and temporary allied extras are outside this
 fixture.
+
+The N64 controller probe runs those three phases and inspects the actual SRAM
+through the native save and campaign loaders:
+
+```sh
+cmake --build build --target grandleon_n64_personal_save_inspect
+python3 platform/nintendo64/pyrite/tests/personal_character_test.py \
+  path/to/grandleon_pyrite_game.z64 path/to/assets/game.gpk \
+  build/tests/grandleon_n64_personal_save_inspect out/personal-n64-1p 1
+```
+
+Use a separate empty output and final argument `2` for co-op. Both runs use
+normal controllers, base 4 MiB and fresh emulator processes. Controller
+failures remain failures even when the interactive ROM's timeout is expected.
+The read-only inspector checks casualties, returning heroes, personal weapons,
+player ownership and preserved map scenery. `--resume-sram path/to/new.ram`
+reruns the two continuation phases from a real, validated first-battle save.

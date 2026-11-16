@@ -200,11 +200,16 @@ tracked above.
 - [x] Add per-character defeat choices: permanent death, withdrawal and return,
   or a required hero whose defeat follows the battle's loss route. Keep this
   on the main roster and handle simultaneous outcomes consistently.
+- [x] Keep hero-form validation visible beside Apply, explain incompatible
+  weapons and show the effective starting kit. Test the selected battle from
+  the map editor and preserve its map, stage and 1P/2P view on return.
+- [x] Preserve map scenery, hidden rooms, conversations, terrain costs and the
+  battle seed when casualties or retired heroes are excluded from a stage.
 - [ ] Complete direct console parity checks for those character rules,
   including defeated roster members, save/reload and newly acquired weapons.
-  The PS1 controller probe passes casualties, required-hero defeat and two
-  fresh-process card resumes in both 1P and 2P. The same N64 campaign builds
-  and launches; its complete casualty/recovery playthrough remains to check.
+  Both console controller probes pass permanent/withdrawn casualties,
+  required-hero defeat and two fresh-process resumes in 1P and 2P. Direct
+  console checks for newly acquired weapons remain.
 
 ### Graphics and animation
 
@@ -400,6 +405,8 @@ still exceeds budget. The existing strict performance checks remain open.
 
 ### Review and release checks
 
+- [x] Reject failed or incomplete N64 controller scripts, container errors and
+  emulator failures even when an interactive ROM's timeout is expected.
 - [ ] Review movement, two-axis scrolling, UI overlap, combat sides, castle
   entry/reveal, story and save/resume on the actual console builds. Complete
   the matched physical-target castle review on Nintendo 64 and PlayStation.
