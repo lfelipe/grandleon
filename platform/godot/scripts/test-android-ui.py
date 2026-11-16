@@ -66,6 +66,12 @@ def main():
     width, height = map(int, size.split('x'))
     call('shell', 'wm', 'size', f'{height}x{width}')
     call('shell', 'wm', 'density', density)
+    configuration = call('shell', 'am', 'get-config').stdout.decode()
+    (output / 'emulator-config.txt').write_text(configuration)
+    if '-nokeys-' not in configuration.splitlines()[0]:
+        raise RuntimeError('Android reports a hardware keyboard. Start a touch-only emulator '
+                           'and verify am get-config reports nokeys; Godot suppresses the '
+                           'on-screen keyboard with a hardware keyboard attached.')
     call('shell', 'am', 'force-stop', PACKAGE)
     call('shell', 'run-as', PACKAGE, 'mkdir', '-p', 'files/android-ui')
     call('shell', 'run-as', PACKAGE, 'rm', '-f', 'files/android-ui/status.json', 'files/android-ui/continue.json', 'files/android-ui/capture-continue.json')

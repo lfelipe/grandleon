@@ -127,6 +127,7 @@ func run() -> void:
 	await settle()
 	report["virtual_keyboard_enabled"] = field.virtual_keyboard_enabled
 	report["field_editable"] = field.editable
+	report["virtual_keyboard_supported"] = DisplayServer.has_feature(DisplayServer.FEATURE_VIRTUAL_KEYBOARD)
 	var point: Vector2 = get_viewport().get_screen_transform() * field.get_global_rect().get_center()
 	write_status("ready_ime", {"field_pixel": [point.x, point.y]})
 	var deadline := Time.get_ticks_msec() + 60000
@@ -236,5 +237,9 @@ func run() -> void:
 	write_status("passed" if report.failures.is_empty() else "failed")
 
 func _input(event: InputEvent) -> void:
+	if report.phase == "ready_ime" and (event is InputEventScreenTouch or event is InputEventMouseButton):
+		var hovered := get_viewport().gui_get_hovered_control()
+		var focused := get_viewport().gui_get_focus_owner()
+		print("ANDROID_UI_IME_INPUT ", event, " hovered=", hovered.get_path() if hovered else "none", " focused=", focused.get_path() if focused else "none")
 	if report.phase == "ready_mouse" and event is InputEventMouseButton and event.device >= 0 and event.pressed:
 		report.mouse_event_seen = true

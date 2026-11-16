@@ -97,7 +97,7 @@ adb -s DEVICE_SERIAL install --no-incremental -r \
 ```
 
 A 64-bit Android 7.0 or newer device with OpenGL ES 3.0 is required. The APK includes all
-built-in artwork and audio, so it is currently about 436 MB. Physical phone
+built-in artwork and audio, so it is currently about 450 MB. Physical phone
 and tablet testing remains on the [Android work list](../TODO.md#android-player-and-editor).
 
 For emulator testing, use host graphics, or `-gpu swangle` on a headless
@@ -142,8 +142,11 @@ python3 platform/godot/scripts/test-android-ui.py --serial emulator-5554 \
 The other profiles are `wide-phone` and `tablet`; `--cutout corner` also
 checks an Android display cutout. The runner uses actual Android input and
 system file pickers, writes screenshots and results, and needs a keyboard-free
-emulator configuration to exercise the on-screen keyboard. Hardware keyboards,
-controllers, audio and graphics speed still need device testing. Do not share
+emulator configuration to exercise the on-screen keyboard. The runner checks
+that `adb -s emulator-5554 shell am get-config` reports `nokeys`; an AVD setting
+alone is insufficient if its image still exposes an AT keyboard. Detach that
+emulated keyboard or use another touch-only image before running the check.
+Hardware keyboards, controllers, audio and graphics speed still need device testing. Do not share
 the test APK as the player application.
 
 ### Campaign library in 0.6
