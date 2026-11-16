@@ -1259,6 +1259,64 @@ void a_narrowed_board_keeps_the_deployment_its_author_wrote() {
     );
 }
 
+void casualties_keep_the_authored_battle() {
+    auto authored = game_source();
+    authored.classes.front().base_stats.movement = 1;
+    auto& map = authored.maps.front();
+    map.terrain_kinds.assign(12, 9U);  // Grass, with one expensive forest tile.
+    map.terrain[1] = 2U;
+    map.terrain_kinds[1] = 2U;
+    map.surroundings.mode = gc::MapSurroundingMode::manual;
+    map.surroundings.depth = 1U;
+    map.surroundings.terrain.assign(18, 1U);
+    map.surroundings.terrain_kinds.assign(18, 9U);
+    map.visual_visibility = {1U, {5U, 6U}};
+    authored.dialogues.push_back({400U, "Opening", {{"Kestrel", "Hold the ford."}}});
+    authored.encounters.front().moments.push_back(
+        {300U, gc::MomentTrigger::stage_opens, 0U, 400U});
+    const pf::LoadedPackage package = compile_and_load(authored);
+    for (const auto availability : {campaign::Availability::dead,
+                                    campaign::Availability::retired}) {
+        campaign::CampaignState state = full_roster(package);
+        const auto operation = availability == campaign::Availability::dead
+            ? campaign::record_permanent_death(brand)
+            : campaign::set_availability(brand, availability);
+        expect(static_cast<bool>(campaign::apply_outcome(state,
+            campaign::make_outcome_batch(
+                {ref(package, core::ContentCategory::encounter, ford_encounter), 0U, 42U},
+                {operation}))), "a member is unavailable for this battle");
+
+        auto loaded = pr::load_encounter(package, ford_encounter);
+        const auto map_id = loaded.map_id;
+        loaded.definition.random_seed = 0xcafeU;  // Supplied by the campaign caller.
+        const auto joined = cr::join_campaign_roster(std::move(loaded), state, assignments());
+        expect(static_cast<bool>(joined), "the battle still accepts the remaining company");
+        if (!joined) continue;
+        const auto& board = joined.encounter;
+        expect(board.map_id == map_id && map_id != 0U,
+               "a casualty cannot remove the map's authored identity");
+        expect(board.surroundings.mode == pr::MapSurroundingMode::manual &&
+                   board.surroundings.colour == 0x07131dU && board.surroundings.depth == 1U &&
+                   board.surroundings.terrain == std::vector<std::uint64_t>(18, 1U),
+               "the non-playable scenery remains authored after an exclusion");
+        expect(board.visual_visibility.reveal_radius == 1U &&
+                   board.visual_visibility.hidden_cells == std::vector<std::uint32_t>{5U, 6U},
+               "covered castle rooms do not become visible after a casualty");
+        expect(board.moments.size() == 1U && board.moments.front().id == 300U &&
+                   board.moments.front().dialogue_id == 400U,
+               "the battle's opening conversation survives roster filtering");
+        expect(board.definition.random_seed == 0xcafeU,
+               "filtering the roster does not replace the battle's random seed");
+        const auto made = sim::create_encounter(board.definition);
+        expect(static_cast<bool>(made), "the filtered battle can be played");
+        if (made) {
+            const auto tiles = sim::reachable_tiles(made.encounter.snapshot(), 1000U);
+            expect(std::find(tiles.begin(), tiles.end(), sim::Position{1, 0}) == tiles.end(),
+                   "expensive terrain still costs two steps when only one is available");
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // The store
 // ---------------------------------------------------------------------------
@@ -2485,6 +2543,7 @@ int main() {
     a_rebalanced_class_still_moves_a_written_character();
     an_out_of_range_delta_saturates_rather_than_wrapping();
     a_narrowed_board_keeps_the_deployment_its_author_wrote();
+    casualties_keep_the_authored_battle();
     a_node_says_what_it_gives_the_store();
     a_defeat_pays_the_member_who_caused_it();
     the_fallen_earn_nothing();

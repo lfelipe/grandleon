@@ -708,60 +708,23 @@ CampaignEncounter join_campaign_roster(
         return result;
     }
 
-    package_runtime::EncounterLoadResult kept;
-    kept.definition.width = loaded.definition.width;
-    kept.definition.height = loaded.definition.height;
-    kept.definition.terrain = std::move(loaded.definition.terrain);
-    kept.definition.turn_order = loaded.definition.turn_order;
-    kept.definition.objectives = std::move(loaded.definition.objectives);
-    // The weapon, ability and item registries are what the *package* offers,
-    // not what a particular board draws from, so they are carried across
-    // whole. A
-    // registry entry nobody now carries costs a lookup that never happens; a
-    // registry rebuilt from the survivors would make the definitions depend on
-    // the roster, which is a rule depending on a save file.
-    kept.definition.weapons = std::move(loaded.definition.weapons);
-    kept.definition.abilities = std::move(loaded.definition.abilities);
-    kept.definition.items = std::move(loaded.definition.items);
-    kept.terrain = std::move(loaded.terrain);
-    // What the encounter says about deploying, carried across whole for the
-    // same reason the registries are: it is what the *author* wrote about this
-    // board and not a summary of who happens to be standing on it. A region
-    // that vanished because somebody was benched would be a board that lost its
-    // deployment phase for a reason the author never wrote, and a capacity that
-    // vanished the same way would be a cap that stopped applying the moment it
-    // started to bite.
-    kept.definition.deployment_tiles =
-        std::move(loaded.definition.deployment_tiles);
-    kept.deployment_zone_id = loaded.deployment_zone_id;
-    kept.deployment_capacity = loaded.deployment_capacity;
-    // And what the author wrote about the characters themselves, carried
-    // across on exactly the same grounds: it is content about who these people
-    // are, and a member does not stop being who they are because somebody else
-    // was benched. Carried whole rather than filtered to the survivors for the
-    // same reason the registries are: a table rebuilt from who is standing
-    // would make what an author wrote depend on a save file.
-    kept.member_specificities = std::move(loaded.member_specificities);
-    kept.member_rules = std::move(loaded.member_rules);
-    kept.definition.weapon_types = std::move(loaded.definition.weapon_types);
-    // And the campaign's own declaration about whether its company can be
-    // felled, which is a fact about the campaign rather than about who happens
-    // to be standing on this board. Carried across for the same reason as
-    // everything above it: benching somebody must not quietly change the rules
-    // the rest of the company fights under.
-    kept.company_endures = loaded.company_endures;
-    for (std::size_t index = 0; index < loaded.definition.units.size(); ++index) {
-        if (is_removed(loaded.definition.units[index].id)) {
-            continue;
-        }
-        kept.definition.units.push_back(std::move(loaded.definition.units[index]));
-        kept.placements.push_back(loaded.placements[index]);
-    }
-    for (package_runtime::UnitBehaviorBinding& behavior : loaded.behaviors) {
-        if (!is_removed(behavior.unit_id)) {
-            kept.behaviors.push_back(std::move(behavior));
-        }
-    }
+    // Roster availability changes who takes the field, not the authored map,
+    // terrain costs, scenes, visibility or random seed. Keep the whole board
+    // and remove only the unavailable units and their per-placement bindings.
+    package_runtime::EncounterLoadResult kept = std::move(loaded);
+    auto& units = kept.definition.units;
+    units.erase(std::remove_if(units.begin(), units.end(),
+        [&is_removed](const simulation::UnitDefinition& unit) {
+            return is_removed(unit.id);
+        }), units.end());
+    kept.placements.erase(std::remove_if(kept.placements.begin(), kept.placements.end(),
+        [&is_removed](const package_runtime::PlacementIdentity& placement) {
+            return is_removed(placement.unit_id);
+        }), kept.placements.end());
+    kept.behaviors.erase(std::remove_if(kept.behaviors.begin(), kept.behaviors.end(),
+        [&is_removed](const package_runtime::UnitBehaviorBinding& behavior) {
+            return is_removed(behavior.unit_id);
+        }), kept.behaviors.end());
 
     result.encounter = std::move(kept);
     std::sort(result.excluded.begin(), result.excluded.end());
