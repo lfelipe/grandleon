@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include <grandleon/client/campaign_session.hpp>
+#include <grandleon/package_runtime/inventory.hpp>
 #include <grandleon/client/member_name_tokens.hpp>
 
 #include <grandleon/client/session.hpp>
@@ -108,6 +109,8 @@ std::string_view campaign_session_error_name(
 ) noexcept {
     switch (error) {
         case CampaignSessionError::none: return "none";
+        case CampaignSessionError::incompatible_inventory_save:
+            return "incompatible_inventory_save";
         case CampaignSessionError::graph_rejected: return "graph_rejected";
         case CampaignSessionError::board_rejected: return "board_rejected";
         case CampaignSessionError::invalid_slot: return "invalid_slot";
@@ -127,6 +130,9 @@ std::string_view management_error_name(ManagementError error) noexcept {
         case ManagementError::fixed_name: return "fixed_name";
         case ManagementError::invalid_name: return "invalid_name";
         case ManagementError::disallowed_weapon: return "disallowed_weapon";
+        case ManagementError::inventory_full: return "inventory_full";
+        case ManagementError::non_transferable_currency: return "non_transferable_currency";
+        case ManagementError::shared_supplies_disabled: return "shared_supplies_disabled";
     }
     return "unknown";
 }
@@ -213,6 +219,7 @@ CampaignSessionError CampaignSession::begin(
     live_ = campaign::make_campaign_save(
         campaign::CampaignState{}, {requirement_of(*package_)}
     );
+    live_.carried_inventory = authored_.inventory_mode == sim::InventoryMode::carried;
     {
         std::vector<campaign::CampaignOutcomeOperation> founding =
             recruitment_at(0U);
@@ -279,6 +286,15 @@ CampaignSessionError CampaignSession::begin(
                         ? restored.load.state_error
                         : restored.migration.state_error;
                 refused = true;
+            } else if (restored.save.carried_inventory != live_.carried_inventory ||
+                       (live_.carried_inventory && std::any_of(restored.save.state.store.begin(),
+                            restored.save.state.store.end(), [](const auto& stack) {
+                                return stack.item.category != core::ContentCategory::currency;
+                            }))) {
+                // Do not continue as a fresh game: the next checkpoint would
+                // overwrite a valid save using different ownership rules.
+                refused = true;
+                return CampaignSessionError::incompatible_inventory_save;
             } else if (!(restored.save.state.progress.active &&
                          restored.save.state.progress.campaign ==
                              graph_.campaign)) {
@@ -371,7 +387,7 @@ std::vector<campaign::CampaignOutcomeOperation> CampaignSession::recruitment_at(
                 authored.id == member.entry.placement_source_key) rules = &authored.rules;
         }
         const cr::StartingKit kit = cr::starting_kit(
-            *package_, member.entry.member, member.entry.unit_type.stable_id, rules
+            *package_, member.entry.member, member.entry.unit_type.stable_id, rules, authored_.inventory_mode
         );
         operations.insert(
             operations.end(), kit.operations.begin(), kit.operations.end()
@@ -525,6 +541,7 @@ CampaignSession::PreparedBoard CampaignSession::prepare_board() {
     // content that was never compiled goes through the same pass, and this
     // session is the thing that knows which campaign is being played.
     loaded.company_endures = authored_.invulnerable_for_testing;
+    loaded.company_permanent_loss = authored_.character_loss == pr::CharacterLoss::permanent;
     cr::CampaignEncounter board =
         cr::join_campaign_roster(std::move(loaded), live_.state, assignments_, package_);
     if (!board) {
@@ -732,7 +749,8 @@ CampaignSessionError CampaignSession::commit_battle(
     const BattleReport& battle,
     BattleAftermath& aftermath
 ) {
-    if (!prepared_ready_) return CampaignSessionError::board_rejected;
+    if (!prepared_ready_ || battle.final_snapshot.collecting_loot)
+        return CampaignSessionError::board_rejected;
 
     // What the battle did, as campaign consequences. The deaths are read off
     // the board through the binding; everything else is the campaign runtime's.
@@ -747,7 +765,7 @@ CampaignSessionError CampaignSession::commit_battle(
     };
     const cr::BattleProgression progression = cr::derive_battle_progression(
         *package_, live_.state, prepared_unit_types_, prepared_binding_,
-        battle.events, source
+        battle.events, source, authored_.inventory_mode
     );
     if (!progression) return CampaignSessionError::progression_rejected;
 
@@ -798,7 +816,10 @@ CampaignSessionError CampaignSession::commit_battle(
         const bool permanent = entry != members_.end() &&
             entry->entry.defeat_policy == pr::DefeatPolicy::permanent;
         if (permanent) {
-            operations.push_back(campaign::record_permanent_death(member));
+            operations.push_back(campaign::record_permanent_death(member,
+                authored_.inventory_mode == sim::InventoryMode::carried
+                    ? campaign::DeathInventory::require_empty
+                    : campaign::DeathInventory::return_to_supplies));
         }
     }
     for (const sim::ObjectiveResult& objective : battle.objectives) {
@@ -866,6 +887,7 @@ CampaignSessionError CampaignSession::commit_battle(
 
 CompanyManagement CampaignSession::management() {
     CompanyManagement company;
+    company.inventory_mode = authored_.inventory_mode;
     const Standing where = standing();
     if (where.error != CampaignSessionError::none) {
         company.error = where.error;
@@ -948,7 +970,15 @@ ManagementCommit CampaignSession::give_item(
     campaign::PersistentEntityId member,
     const campaign::DefinitionRef& item
 ) {
-    if (item.category == core::ContentCategory::weapon) {
+    if(item.category==core::ContentCategory::currency){
+        ManagementCommit refused;refused.error=ManagementError::non_transferable_currency;return refused;
+    }
+    if (authored_.inventory_mode == sim::InventoryMode::carried) {
+        ManagementCommit refused;
+        refused.error = ManagementError::shared_supplies_disabled;
+        return refused;
+    }
+    if (item.category == core::ContentCategory::weapon && authored_.inventory_mode==simulation::InventoryMode::legacy) {
         const auto found = std::find_if(members_.begin(), members_.end(),
             [member](const AuthoredMember& candidate) { return candidate.entry.member == member; });
         if (found != members_.end()) {
@@ -978,6 +1008,11 @@ ManagementCommit CampaignSession::take_item(
     campaign::PersistentEntityId member,
     const campaign::DefinitionRef& item
 ) {
+    if (authored_.inventory_mode == sim::InventoryMode::carried) {
+        ManagementCommit refused;
+        refused.error = ManagementError::shared_supplies_disabled;
+        return refused;
+    }
     return commit_management(
         {campaign::consume_item(member, item, 1U),
          campaign::add_item(campaign::PersistentEntityId{}, item, 1U)}

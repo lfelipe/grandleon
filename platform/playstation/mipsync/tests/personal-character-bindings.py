@@ -13,8 +13,8 @@ import struct
 import subprocess
 
 
-def dwarf_layouts(elf):
-    wanted = {'UnitSnapshot', 'EncounterSnapshot', 'ObjectiveResult'}
+def dwarf_layouts(elf, wanted=None):
+    wanted = set(wanted or {'UnitSnapshot', 'EncounterSnapshot', 'ObjectiveResult'})
     found, stack = {}, []
     process = subprocess.Popen(['readelf', '--debug-dump=info', str(elf)], stdout=subprocess.PIPE, text=True)
     def finish():

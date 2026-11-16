@@ -89,8 +89,8 @@ bool GameplaySlice::input(Action action, std::uint8_t player) {
             if (input.selected == 0) {
                 const sim::UnitSnapshot* candidate = unit_at(input.cursor);
                 if (candidate == nullptr ||
-                    candidate->side != snapshot_.active_side ||
-                    candidate->has_acted ||
+                    (snapshot_.collecting_loot ? candidate->side != sim::Side::first :
+                        (candidate->side != snapshot_.active_side || candidate->has_acted)) ||
                     candidate->local_player != player + 1U) {
                     return false;
                 }
@@ -119,7 +119,8 @@ void GameplaySlice::sanitise_local_inputs() {
         LocalInput& input = players_[player];
         const sim::UnitSnapshot* selected = unit(input.selected);
         if (selected == nullptr || !sim::on_board(*selected) ||
-            selected->side != snapshot_.active_side || selected->has_acted ||
+            (snapshot_.collecting_loot ? selected->side != sim::Side::first :
+                (selected->side != snapshot_.active_side || selected->has_acted)) ||
             selected->local_player != player + 1U) {
             input.selected = 0U;
         }
@@ -152,7 +153,9 @@ bool GameplaySlice::apply(const sim::Command& command, std::uint8_t player) {
     }
     transition_.after_hash = encounter_->canonical_hash();
     ++accepted_commands_;
-    if (player < local_players_) players_[player].selected = 0U;
+    if (player < local_players_ && command.type != sim::CommandType::pick_up &&
+        command.type != sim::CommandType::drop_carried && command.type != sim::CommandType::exchange_carried)
+        players_[player].selected = 0U;
     sanitise_local_inputs();
     return true;
 }

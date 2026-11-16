@@ -60,6 +60,10 @@ enum class IntentKind : std::uint8_t {
     // `client::CampaignSession::jump_to_stage`, which is the only thing in this
     // library that reads the field.
     jump_to_stage,
+    pick_up,
+    drop_carried,
+    exchange_carried,
+    finish_collection,
 };
 
 struct Intent final {
@@ -80,6 +84,9 @@ struct Intent final {
     // campaign node is the one thing in this record that is not the board's:
     // nothing below the presenter seam reads it.
     std::uint64_t stage_id{};
+    std::uint64_t ground_item_id{};
+    core::ContentCategory carried_category{core::ContentCategory::item};
+    simulation::ContentId carried_content_id{};
 };
 
 // Which of `side`'s characters still owes the board an activation, or zero

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 #include <grandleon/campaign/graph.hpp>
 #include <grandleon/campaign/outcome.hpp>
+#include <grandleon/campaign/save.hpp>
+#include <grandleon/core/currency.hpp>
 #include <grandleon/campaign_runtime/campaign_runtime.hpp>
 #include <grandleon/game_content/compiler.hpp>
 
@@ -218,7 +220,10 @@ campaign::DefinitionRef ref(
 // roster of characters who would take the field empty-handed. It is written the
 // way a client writes it, with `cr::starting_kit` in the batch that recruits
 // them, so that what these tests exercise is the loop the clients run.
-campaign::CampaignState full_roster(const pf::LoadedPackage& package) {
+campaign::CampaignState full_roster(
+    const pf::LoadedPackage& package,
+    sim::InventoryMode mode = sim::InventoryMode::legacy
+) {
     campaign::CampaignState state;
     std::vector<campaign::CampaignOutcomeOperation> founding{
         campaign::recruit_unit(
@@ -231,7 +236,7 @@ campaign::CampaignState full_roster(const pf::LoadedPackage& package) {
         campaign::set_availability(brand, campaign::Availability::available),
     };
     for (const campaign::PersistentEntityId member : {kestrel, brand}) {
-        const cr::StartingKit kit = cr::starting_kit(package, member, 60);
+        const cr::StartingKit kit = cr::starting_kit(package, member, 60, nullptr, mode);
         expect(static_cast<bool>(kit), "the unit type says what it starts with");
         founding.insert(
             founding.end(), kit.operations.begin(), kit.operations.end()
@@ -2521,7 +2526,169 @@ void an_inventory_grant_opens_a_graph_edge_that_reads_the_store() {
     );
 }
 
+
+void physical_equipment_survives_a_real_battle_and_reload() {
+    auto authored = game_source();
+    authored.campaigns[0].inventory_mode = gc::InventoryMode::carried;
+    for (auto& encounter : authored.encounters) encounter.inventory_mode = gc::InventoryMode::carried;
+    authored.encounters[0].turn_order = gc::TurnOrder::side_blocks;
+    authored.encounters[0].placements[2].x = 2;
+    authored.classes[0].base_stats.action_points = 3;
+    authored.classes[0].base_stats.strength = 20;
+    authored.unit_types[0].states_carry_capacity = true;
+    authored.unit_types[0].carry_capacity = 3;
+    const auto package = compile_and_load(authored);
+    auto state = full_roster(package, sim::InventoryMode::carried);
+    const auto joined = cr::load_encounter_for_campaign(package, ford_encounter, state, assignments());
+    expect(bool(joined), "physical roster loads");
+    if (!joined) return;
+    auto created = sim::create_encounter(joined.encounter.definition);
+    expect(bool(created), "physical battle creates");
+    if (!created) return;
+    auto& battle = created.encounter;
+    std::vector<sim::Event> events;
+    const auto apply = [&](const sim::Command& command) {
+        const auto result = battle.apply(command);
+        expect(bool(result), sim::error_name(result.error));
+        events.insert(events.end(), result.events.begin(), result.events.end());
+        return bool(result);
+    };
+    sim::Command command;
+    command.type = sim::CommandType::drop_carried;
+    command.unit_id = 1000;
+    command.carried_category = core::ContentCategory::weapon;
+    command.carried_content_id = 40;
+    if (!apply(command)) return;
+    const auto ground_id = battle.snapshot().ground_items.front().id;
+    command = {};
+    command.type = sim::CommandType::move;
+    command.unit_id = 1000;
+    command.destination = {1, 0};
+    if (!apply(command)) return;
+    command.unit_id = 1001;
+    command.destination = {0, 0};
+    if (!apply(command)) return;
+    command = {};
+    command.type = sim::CommandType::pick_up;
+    command.unit_id = 1001;
+    command.ground_item_id = ground_id;
+    if (!apply(command)) return;
+    command = {};
+    command.type = sim::CommandType::attack;
+    command.unit_id = 1000;
+    command.target_id = 1002;
+    if (!apply(command)) return;
+    expect(battle.snapshot().outcome == sim::Outcome::first_side_won,
+           "ordinary attack completes the actual battle");
+    if (battle.snapshot().outcome != sim::Outcome::first_side_won) return;
+    const campaign::OutcomeSource source{
+        ref(package, core::ContentCategory::encounter, ford_encounter),
+        battle.canonical_hash(), 1};
+    const auto derived = cr::derive_battle_progression(
+        package, state, joined.encounter.definition, joined.binding, events, source);
+    expect(bool(derived), "real physical battle derives consequences");
+    expect(bool(campaign::apply_outcome(state, campaign::make_outcome_batch(source, derived.operations))),
+           "physical ownership commits");
+    const auto sword = ref(package, core::ContentCategory::weapon, 40);
+    expect(campaign::item_quantity(state, kestrel, sword) == 0, "drop removes the owner's sword");
+    expect(campaign::item_quantity(state, brand, sword) == 2, "collector owns both sword copies");
+    expect(campaign::item_quantity(state, {}, sword) == 0, "no weapon enters shared supplies");
+    auto save = campaign::make_campaign_save(state, {});
+    save.carried_inventory = true;
+    const auto restored = campaign::load_campaign(campaign::save_campaign(save), {});
+    expect(bool(restored) && restored.save.carried_inventory, "owned packs and mode survive save/reload");
+    if (!restored) return;
+    const auto next = cr::load_encounter_for_campaign(package, watch_encounter, restored.save.state, assignments());
+    expect(bool(next), "reloaded roster enters the next map");
+    if (!next) return;
+    for (const auto& unit : next.encounter.definition.units) {
+        if (unit.id == 1010) expect(unit.weapon_ids.empty(), "role weapon is not regenerated on next map");
+        if (unit.id == 1011) {
+            const auto found = std::find_if(unit.carried_inventory.begin(), unit.carried_inventory.end(),
+                [](const auto& stack) { return stack.category == core::ContentCategory::weapon && stack.content_id == 40; });
+            expect(found != unit.carried_inventory.end() && found->quantity == 2,
+                   "collector retains duplicate copies on next map");
+        }
+    }
+}
+
+
+void physical_casualty_and_rewards_settle_without_shared_equipment() {
+    auto authored = game_source();
+    authored.campaigns[0].inventory_mode = gc::InventoryMode::carried;
+    for (auto& encounter : authored.encounters) encounter.inventory_mode = gc::InventoryMode::carried;
+    authored.encounters[0].turn_order = gc::TurnOrder::side_blocks;
+    authored.encounters[0].placements[2].x = 1;
+    authored.classes[0].base_stats.action_points = 3;
+    authored.classes[0].base_stats.strength = 20;
+    authored.unit_types[0].states_carry_capacity = true;
+    authored.unit_types[0].carry_capacity = 3;
+    authored.unit_types[1].drop_gold = 7;
+    authored.unit_types[1].drop_weapon_id = 40;
+    authored.unit_types[1].drop_weapon_chance = 100;
+    const auto package = compile_and_load(authored);
+    auto state = full_roster(package, sim::InventoryMode::carried);
+    const auto before = campaign::canonical_hash(state);
+    const auto premature = campaign::make_outcome_batch(
+        {ref(package, core::ContentCategory::encounter, ford_encounter), 55, 1},
+        {campaign::record_permanent_death(kestrel, campaign::DeathInventory::require_empty)});
+    expect(campaign::apply_outcome(state, premature).error == campaign::OutcomeError::inventory_not_empty,
+           "personal casualty refuses to return an unaccounted pack to supplies");
+    expect(campaign::canonical_hash(state) == before, "refused casualty is atomic");
+    const auto joined = cr::load_encounter_for_campaign(package, tarnholt_campaign, ford_encounter, state, assignments());
+    expect(bool(joined), "permanent physical roster loads");
+    if (!joined) return;
+    expect(joined.encounter.definition.units[0].drop_inventory_on_defeat,
+           "campaign loss policy reaches the physical pack");
+    auto created = sim::create_encounter(joined.encounter.definition);
+    expect(bool(created), "permanent physical battle creates");
+    if (!created) return;
+    auto& battle = created.encounter;
+    std::vector<sim::Event> events;
+    const auto apply = [&](sim::Command command) {
+        const auto result = battle.apply(command);
+        expect(bool(result), sim::error_name(result.error));
+        events.insert(events.end(), result.events.begin(), result.events.end());
+        return bool(result);
+    };
+    sim::Command command;
+    command.type = sim::CommandType::wait; command.unit_id = 1000;
+    if (!apply(command)) return;
+    command.unit_id = 1001;
+    if (!apply(command)) return;
+    command.type = sim::CommandType::attack; command.unit_id = 1002; command.target_id = 1000;
+    if (!apply(command)) return;
+    expect(battle.snapshot().ground_items.size() == 2, "fallen hero leaves sword and tonic locally");
+    command = {}; command.type = sim::CommandType::move; command.unit_id = 1001; command.destination = {1, 1};
+    if (!apply(command)) return;
+    command = {}; command.type = sim::CommandType::attack; command.unit_id = 1001; command.target_id = 1002;
+    if (!apply(command)) return;
+    expect(battle.snapshot().outcome == sim::Outcome::first_side_won && battle.snapshot().collecting_loot,
+           "real victory allows collection of casualty and enemy equipment");
+    command = {}; command.type = sim::CommandType::finish_collection;
+    if (!apply(command)) return;
+    const campaign::OutcomeSource source{
+        ref(package, core::ContentCategory::encounter, ford_encounter), battle.canonical_hash(), 2};
+    const auto progression = cr::derive_battle_progression(
+        package, state, joined.encounter.definition, joined.binding, events, source);
+    expect(bool(progression), "actual casualty and rewards derive");
+    auto operations = progression.operations;
+    operations.push_back(campaign::record_permanent_death(kestrel, campaign::DeathInventory::require_empty));
+    expect(bool(campaign::apply_outcome(state, campaign::make_outcome_batch(source, operations))),
+           "local pack debits precede permanent casualty settlement");
+    const auto* dead = campaign::find_unit(state, kestrel);
+    expect(dead && dead->availability == campaign::Availability::dead && dead->carried.empty(),
+           "permanent casualty retains no equipment");
+    expect(campaign::item_quantity(state, {}, ref(package, core::ContentCategory::weapon, 40)) == 0 &&
+           campaign::item_quantity(state, {}, ref(package, core::ContentCategory::item, 50)) == 0,
+           "neither casualty pack nor enemy loot enters shared supplies");
+    expect(campaign::item_quantity(state, {}, ref(package, core::ContentCategory::currency, core::gold_currency_id)) == 7,
+           "only gold enters shared wallet");
+}
+
 int main() {
+    physical_casualty_and_rewards_settle_without_shared_equipment();
+    physical_equipment_survives_a_real_battle_and_reload();
     an_authored_flow_becomes_a_graph();
     a_campaign_walks_the_graph_its_package_authored();
     a_full_roster_loads_the_board_the_package_holds();

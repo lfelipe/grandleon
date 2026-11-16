@@ -204,6 +204,10 @@ bool is_known_section(std::uint32_t type) {
         case SectionType::placement_two_player_positions:
         case SectionType::localizations:
         case SectionType::player_nameable_members:
+        case SectionType::currencies:
+        case SectionType::unit_loot:
+        case SectionType::campaign_inventory:
+        case SectionType::encounter_inventory:
         case SectionType::member_rules:
         case SectionType::map_visual_visibility:
             return true;
@@ -296,6 +300,9 @@ namespace {
             return true;
         case core::ContentCategory::weapon:
             type = SectionType::weapons;
+            return true;
+        case core::ContentCategory::currency:
+            type = SectionType::currencies;
             return true;
         case core::ContentCategory::item:
             type = SectionType::items;

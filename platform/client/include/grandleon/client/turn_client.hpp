@@ -183,6 +183,8 @@ public:
 // naming which carried weapon, or zero for the one in hand), a cast (`ability`
 // set), a spent item (`item` set), a talk (`talk` set), the end of the
 // character's own turn, the character's information sheet, or the way out.
+enum class PackAction : std::uint8_t { none, open, inventory, ground, inspect, loot, pickup, drop, exchange, next, back, finish };
+
 struct MenuChoice final {
     // What to show. Owned by the shared display-name table, never by content.
     const char* label{nullptr};
@@ -241,6 +243,9 @@ struct MenuChoice final {
     // and only on a platform that says it has that display.
     bool fps{false};
     bool cancel{false};
+    // Pack rows reuse content for a typed stack or a spatial ground-pile ID.
+    PackAction pack{PackAction::none};
+    core::ContentCategory carried_category{core::ContentCategory::item};
 };
 
 // Room for what a character carries plus the four rows every menu is framed by:
@@ -1106,6 +1111,18 @@ protected:
     void expect(bool condition, const char* name);
 
 private:
+    enum class PackView : std::uint8_t { none, hub, inventory, ground, entry, loot, exchange };
+    struct PackState {
+        PackView view{PackView::none};
+        std::uint16_t page{};
+        std::uint64_t ground{};
+        sim::ContentId content{};
+        core::ContentCategory category{core::ContentCategory::item};
+    };
+    PackState pack_{};
+    void open_pack(const sim::EncounterSnapshot& snapshot);
+    void commit_pack(const sim::EncounterSnapshot& snapshot, const MenuChoice& row);
+    void back_pack(const sim::EncounterSnapshot& snapshot);
     // The part of board interaction that belongs to one local person. Query
     // vectors and menu rows are rebuilt on activation from the engine's current
     // snapshot; keeping them once rather than twice matters on the consoles.
@@ -1119,6 +1136,7 @@ private:
         bool menu_open{false};
         bool board_menu_open{false};
         bool sheet_open{false};
+        PackState pack{};
         grandleon::sheet::UnitSheet sheet{};
         Aim aim{Aim::none};
         sim::ContentId aim_weapon{0};
@@ -1168,7 +1186,7 @@ private:
     // not a character is selected. Three rows, none of which commands a
     // character: the way back to the battle, the end of this side's whole turn,
     // and the way out of the board.
-    void open_board_menu();
+    void open_board_menu(const sim::EncounterSnapshot& snapshot);
     // Whether the row the caret is on was taken out of the board menu, and what
     // taking it means. Split from `commit_menu_row` because the two menus share
     // a caret and a renderer and share nothing else: a row that ends a side's

@@ -142,15 +142,21 @@ func _refresh_queries() -> void:
 			_queries[_query_key(kind, id, 0)] = native.query_tiles(kind, id, 0)
 		for ability: Variant in unit.get("abilities", []):
 			_queries[_query_key("ability", id, int(ability))] = native.query_tiles("ability", id, int(ability))
+		for weapon: Variant in unit.get("weapons", []):
+			_queries[_query_key("attack", id, int(weapon))] = native.query_tiles("attack", id, int(weapon))
 		for target: Dictionary in _snapshot.get("units", []):
 			if target.get("side", "") != "second" or not target.get("on_board", false): continue
 			_forecasts[str(id) + ":" + str(target.id)] = native.forecast_attack(id, int(target.id))
+			for weapon: Variant in unit.get("weapons", []):
+				_forecasts[_forecast_key(id, int(target.id), int(weapon))] = native.forecast_attack(id, int(target.id), int(weapon))
 
 func _query_key(kind: String, id: int, content: int) -> String: return kind + ":" + str(id) + ":" + str(content)
+func _forecast_key(id: int, target: int, weapon: int) -> String:
+	return str(id) + ":" + str(target) + (":" + str(weapon) if weapon != 0 else "")
 func query_tiles(kind: String, id: int, content := 0) -> Array:
 	return native.query_tiles(kind, id, content) if net.role == "host" else _queries.get(_query_key(kind, id, content), [])
-func forecast_attack(id: int, target: int) -> Dictionary:
-	return native.forecast_attack(id, target) if net.role == "host" else _forecasts.get(str(id) + ":" + str(target), {})
+func forecast_attack(id: int, target: int, weapon := 0) -> Dictionary:
+	return native.forecast_attack(id, target, weapon) if net.role == "host" else _forecasts.get(_forecast_key(id, target, weapon), {})
 
 func _can_command(id: int, seat: int) -> bool:
 	for unit: Dictionary in _snapshot.get("units", []):
@@ -161,21 +167,21 @@ func _can_command(id: int, seat: int) -> bool:
 func _refuse(request: int, message: String) -> void:
 	_events.append({"type": "refused", "request_id": request, "message": message})
 
-func submit_intent(kind: String, unit := 0, target := 0, x := 0, y := 0, content := 0, request := 0) -> void:
+func submit_intent(kind: String, unit := 0, target := 0, x := 0, y := 0, content := 0, request := 0, ground := 0, category := "item", carried := 0) -> void:
 	if not net.connected or net.game_paused or _replaying:
 		_refuse(request, Localization.text("lan.waiting"))
 		return
-	if kind not in ["move", "attack", "ability", "talk", "wait", "deploy", "begin"]:
+	if kind not in ["move", "attack", "ability", "item", "talk", "wait", "deploy", "begin", "pick_up", "drop_carried", "exchange_carried", "finish_collection"]:
 		_refuse(request, Localization.text("lan.invalid_command"))
 		return
-	if not _can_command(unit, net.local_seat()) and not (kind == "begin" and net.role == "host"):
+	if not _can_command(unit, net.local_seat()) and not (kind in ["begin", "finish_collection"] and net.role == "host"):
 		_refuse(request, Localization.text("lan.other_army"))
 		return
 	if net.role == "host":
-		_pending_journal[request] = {"kind": kind, "unit": unit, "target": target, "x": x, "y": y, "content": content}
-		native.submit_intent(kind, unit, target, x, y, content, request)
+		_pending_journal[request] = {"kind": kind, "unit": unit, "target": target, "x": x, "y": y, "content": content, "ground": ground, "category": category, "carried": carried}
+		native.submit_intent(kind, unit, target, x, y, content, request, ground, category, carried)
 	else:
-		net.send_message({"type": "intent", "kind": kind, "unit": unit, "target": target, "x": x, "y": y, "content": content, "request": request, "generation": _state_generation})
+		net.send_message({"type": "intent", "kind": kind, "unit": unit, "target": target, "x": x, "y": y, "content": content, "ground": ground, "category": category, "carried": carried, "request": request, "generation": _state_generation})
 
 func submit_management(kind: String, member := 0, item := 0, stage := 0) -> bool:
 	# Fixed-formation preparation is automatic in the player. On the guest the
@@ -254,11 +260,12 @@ func _message(value: Dictionary) -> void:
 			if request <= _last_remote_request or request >= REMOTE_REQUEST_BASE: return
 			_last_remote_request = request
 			var action := str(value.get("kind", ""))
-			if _replaying or net.game_paused or int(value.get("generation", -1)) != _state_generation or action not in ["move", "attack", "ability", "talk", "wait", "deploy"] or not _can_command(int(value.get("unit", 0)), 1):
+			var typed := Checkpoint.valid_command(value)
+			if not typed or _replaying or net.game_paused or int(value.get("generation", -1)) != _state_generation or action not in ["move", "attack", "ability", "item", "talk", "wait", "deploy", "pick_up", "drop_carried", "exchange_carried"] or not _can_command(int(value.get("unit", 0)), 1):
 				net.send_message({"type": "events", "events": [{"type": "refused", "request_id": request, "message": Localization.text("lan.invalid_command")}], "queries": _queries, "forecasts": _forecasts, "generation": _state_generation})
 				return
-			_pending_journal[REMOTE_REQUEST_BASE + request] = {"kind": action, "unit": int(value.unit), "target": int(value.get("target", 0)), "x": int(value.get("x", 0)), "y": int(value.get("y", 0)), "content": int(value.get("content", 0))}
-			native.submit_intent(action, int(value.unit), int(value.get("target", 0)), int(value.get("x", 0)), int(value.get("y", 0)), int(value.get("content", 0)), REMOTE_REQUEST_BASE + request)
+			_pending_journal[REMOTE_REQUEST_BASE + request] = {"kind": action, "unit": int(value.unit), "target": int(value.get("target", 0)), "x": int(value.get("x", 0)), "y": int(value.get("y", 0)), "content": int(value.get("content", 0)), "ground": int(value.get("ground", 0)), "category": str(value.get("category", "item")), "carried": int(value.get("carried", 0))}
+			native.submit_intent(action, int(value.unit), int(value.get("target", 0)), int(value.get("x", 0)), int(value.get("y", 0)), int(value.get("content", 0)), REMOTE_REQUEST_BASE + request, int(value.get("ground", 0)), str(value.get("category", "item")), int(value.get("carried", 0)))
 	elif kind == "events" and value.get("events") is Array and value.get("queries") is Dictionary and value.get("forecasts") is Dictionary:
 		_queries = value.queries
 		_forecasts = value.forecasts
@@ -310,7 +317,7 @@ func _replay_step(events: Array) -> void:
 		var command: Dictionary = _replay_data.commands[_replay_next]
 		_replay_request = REPLAY_REQUEST_BASE + _replay_next
 		_replay_next += 1
-		native.submit_intent(str(command.kind), int(command.get("unit", 0)), int(command.get("target", 0)), int(command.get("x", 0)), int(command.get("y", 0)), int(command.get("content", 0)), _replay_request)
+		native.submit_intent(str(command.kind), int(command.get("unit", 0)), int(command.get("target", 0)), int(command.get("x", 0)), int(command.get("y", 0)), int(command.get("content", 0)), _replay_request, int(command.get("ground", 0)), str(command.get("category", "item")), int(command.get("carried", 0)))
 	elif Checkpoint.same_state(_snapshot, _replay_data.snapshot):
 		_finish_restore()
 	else:

@@ -146,7 +146,7 @@ void every_field_of_a_battle_is_folded() {
         width, height, active_side, active_unit_id, remaining_action_points,
         round, activation_count, outcome, turn_order, units, objectives,
         terrain, movement_cost, drops, random, deployment_tiles, weapon_types,
-        deploying
+        deploying, inventory_mode, ground_items, next_ground_item_id, collecting_loot
     ] = battle;
 
     // Mutate one field, ask whether the hash noticed, put it back.
@@ -219,6 +219,27 @@ void every_field_of_a_battle_is_folded() {
     deploying = false;
     folded("whether the arranging phase is still open");
 
+    collecting_loot = true;
+    folded("collection phase cannot alias a closed legacy snapshot");
+    inventory_mode = sim::InventoryMode::carried;
+    folded("whether equipment is physically carried");
+    // Ground ownership only exists in carried mode. Compare within that mode
+    // so the test checks each field rather than just the extension marker.
+    battle.inventory_mode = sim::InventoryMode::carried;
+    const auto physical_hash = sim::canonical_hash(battle);
+    collecting_loot = true;
+    expect(sim::canonical_hash(battle) != physical_hash, "collection phase is hashed");
+    collecting_loot = false;
+    ground_items = {{1, {1, 2}, {grandleon::core::ContentCategory::weapon, 400, 1}}};
+    expect(sim::canonical_hash(battle) != physical_hash, "ground equipment is hashed");
+    const auto ground_hash = sim::canonical_hash(battle);
+    ground_items[0].position.x = 2;
+    expect(sim::canonical_hash(battle) != ground_hash, "ground position is hashed");
+    ground_items[0].position.x = 1;
+    next_ground_item_id = 3;
+    expect(sim::canonical_hash(battle) != ground_hash, "next ground identity is hashed");
+    battle = baseline;
+
     // And the one field of a battle that is deliberately not folded.
     //
     // Which kinds of weapon beat which is content the battle names, on exactly
@@ -254,7 +275,10 @@ void every_field_of_a_character_is_folded() {
         minimum_reach, maximum_reach, ability_ids, has_acted, has_moved,
         weapon_ids, crossings, accuracy, item_ids, item_counts, drop_item_id,
         drop_chance, reach_bonus, talk_record_id, departed, arrival_round,
-        arrived, endures, weapon_type, local_player, defeat_ends_battle
+        arrived, endures, weapon_type, local_player, defeat_ends_battle,
+        carried_inventory, carry_capacity, states_carry_capacity,
+        weapon_affinities, states_weapon_affinities, drop_gold, drop_weapon_id,
+        drop_weapon_chance, drop_inventory_on_defeat
     ] = character;
 
     const auto folded = [&](std::string_view field) {
@@ -369,6 +393,35 @@ void every_field_of_a_character_is_folded() {
     folded("whether it can be felled at all");
     defeat_ends_battle = true;
     folded("whether its defeat ends the battle");
+
+    // Each personal-ownership field must affect physical-mode replay state.
+    const auto physically_folded = [&](std::string_view field) {
+        auto before = board;
+        before.inventory_mode = sim::InventoryMode::carried;
+        auto after = before;
+        after.units[0] = character;
+        expect(sim::canonical_hash(before) != sim::canonical_hash(after),
+               std::string("physical inventory hashes ") + std::string(field));
+        character = baseline;
+    };
+    carried_inventory = {{grandleon::core::ContentCategory::weapon, 400, 2}};
+    physically_folded("owned copies");
+    carry_capacity = 5;
+    physically_folded("capacity");
+    states_carry_capacity = true;
+    physically_folded("explicit capacity");
+    weapon_affinities = {900};
+    physically_folded("affinities");
+    states_weapon_affinities = true;
+    physically_folded("explicit affinities");
+    drop_gold = 10;
+    physically_folded("gold drop");
+    drop_weapon_id = 400;
+    physically_folded("weapon drop identity");
+    drop_weapon_chance = 50;
+    physically_folded("weapon drop chance");
+    drop_inventory_on_defeat = true;
+    physically_folded("permanent casualty inventory");
 
     // And the one that is deliberately not folded.
     //
@@ -595,9 +648,10 @@ void every_field_of_a_definition_reaches_the_snapshot() {
     const auto& [
         width, height, units, abilities, objectives, turn_order, weapons,
         weapon_types, items, terrain, movement_cost, random_seed,
-        deployment_tiles
+        deployment_tiles, inventory_mode
     ] = definition;
 
+    expect(battle.inventory_mode == inventory_mode, "inventory mode reaches snapshot");
     expect(battle.width == width, "the width reaches the snapshot");
     expect(battle.height == height, "the height reaches the snapshot");
     expect(
@@ -739,7 +793,10 @@ void every_field_of_a_character_definition_reaches_the_snapshot() {
         acts_after_attacking, minimum_reach, maximum_reach, ability_ids,
         weapon_ids, crossings, accuracy, item_ids, item_counts, drop_item_id,
         drop_chance, reach_bonus, talk_record_id, arrival_round, arrival_every,
-        arrival_times, endures, local_player, defeat_ends_battle
+        arrival_times, endures, local_player, defeat_ends_battle,
+        carried_inventory, carry_capacity, states_carry_capacity,
+        weapon_affinities, states_weapon_affinities, drop_gold, drop_weapon_id,
+        drop_weapon_chance, drop_inventory_on_defeat
     ] = described;
 
     const auto carried = [&](std::string_view field, bool held) {
@@ -747,6 +804,15 @@ void every_field_of_a_character_definition_reaches_the_snapshot() {
                          " reaches the snapshot");
     };
 
+    carried("owned copies", character.carried_inventory == carried_inventory);
+    carried("capacity", character.carry_capacity == carry_capacity);
+    carried("explicit capacity", character.states_carry_capacity == states_carry_capacity);
+    carried("affinities", character.weapon_affinities == weapon_affinities);
+    carried("explicit affinities", character.states_weapon_affinities == states_weapon_affinities);
+    carried("gold drop", character.drop_gold == drop_gold);
+    carried("weapon drop", character.drop_weapon_id == drop_weapon_id);
+    carried("weapon chance", character.drop_weapon_chance == drop_weapon_chance);
+    carried("pack loss", character.drop_inventory_on_defeat == drop_inventory_on_defeat);
     carried("identity", character.id == id);
     carried("kind", character.unit_type_id == unit_type_id);
     carried("side", character.side == side);

@@ -299,6 +299,13 @@ struct UnitType final {
     // Presentation only. Omission retains the class/name convention; clones
     // snapshot the template's resolved appearance before changing its name.
     std::uint8_t character_archetype{archetype_unnamed};
+    // Optional additional defeat rewards. Zero gold and an absent weapon pair
+    // preserve legacy item drops; appended to preserve positional fixtures.
+    std::uint16_t drop_gold{};
+    StableId drop_weapon_id{};
+    std::uint8_t drop_weapon_chance{};
+    std::uint16_t carry_capacity{};
+    bool states_carry_capacity{false};
 };
 
 //: How many terrain kinds the art library draws, and therefore how many an
@@ -674,6 +681,11 @@ struct Moment final {
     std::uint8_t minimum_players{1};
 };
 
+enum class InventoryMode : std::uint8_t {
+    legacy = 0,
+    carried = 1,
+};
+
 struct Encounter final {
     StableId id{};
     std::string name;
@@ -683,6 +695,7 @@ struct Encounter final {
     TurnOrder turn_order{TurnOrder::alternating};
     DeploymentZone deployment;
     std::vector<Moment> moments;
+    InventoryMode inventory_mode{InventoryMode::legacy};
 };
 
 enum class CampaignNodeKind : std::uint8_t {
@@ -859,6 +872,8 @@ struct CampaignMember final {
     std::vector<StableId> starting_weapons;
     bool states_starting_weapons{false};
     DefeatPolicy defeat_policy{DefeatPolicy::inherit};
+    std::uint16_t carry_capacity{};
+    bool states_carry_capacity{false};
 };
 
 // A quantity of one item the campaign puts into its shared store, and where in
@@ -921,6 +936,7 @@ struct Campaign final {
     // Last to preserve aggregate initializers written before launch policy was
     // authorable. One player is the backward-compatible source default.
     LocalPlayerMode player_mode{LocalPlayerMode::one};
+    InventoryMode inventory_mode{InventoryMode::legacy};
 };
 
 //: What a campaign does with a character who falls in battle.

@@ -189,7 +189,8 @@ class HardwareCameraProjection(unittest.TestCase):
     def test_company_and_enemy_speakers_use_shared_portrait_draw_path(self):
         source = SOURCE.read_text()
         start = source.index("bool speaker_name_matches(")
-        end = source.index("\nvoid draw_battle_ui()", start)
+        portrait = source.index("bool draw_speaker_portrait(", start)
+        end = source.index("\nvoid ", portrait)
         repo = Path(os.environ.get("GRANDLEON_REPO", Path(__file__).resolve().parents[4]))
         project = json.loads((repo / "games/steel_and_cedar/source/project.json").read_text())
         names = [unit["name"] for unit in project["unitTypes"]]

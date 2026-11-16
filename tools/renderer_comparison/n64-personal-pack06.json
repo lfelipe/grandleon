@@ -1,0 +1,69 @@
+{
+  "description": "Native personal-equipment UI acceptance through two stages; production renderer, normal controller input, base 4MiB emulator.",
+  "date": "2026-11-16",
+  "scope": "release_06 uncommitted integration; no hardware validation or performance benchmark claim",
+  "campaign": "out/loot06/personal-inventory-acceptance.json",
+  "rom": {
+    "path": "out/n64-personal-pack-final06/project/grandleon_pyrite_game.z64",
+    "sha256": "5448da9652f1b902995941c3e106e87336fa390e67d041364112bcff2505cb0b",
+    "bytes": 7798784,
+    "review_driver": false,
+    "resident_bytes": 1921662,
+    "text_bytes": 1360136,
+    "data_bytes": 491494,
+    "bss_bytes": 70032
+  },
+  "native_log": "out/n64-personal-pack-final06/ares/verified-normal.log",
+  "emulator": "grandleon/n64-ares:0aafd85789215e84e1e43415c07d4c88461b7899",
+  "acceptance": [
+    "Attack last foe, select spent victor during collection, walk onto same-cell ground loot",
+    "Full combined weapon/item bag defaults Leave; Exchange outgoing list defaults Back",
+    "Exchange exactly one Blade for incompatible Apprentice Focus; discarded Blade stays at collector cell",
+    "Pack entry defaults Back; explicitly Drop Focus, then pick it up from same-cell ground",
+    "Explicit Start-menu Continue finishes collection; stage2 owns Focus+Tonic without regenerating Blade",
+    "Win second encounter, explicitly Continue, complete campaign; normal120frame terminal diagnostic passes with zero enemy commands"
+  ],
+  "screenshots": {
+    "full_leave_default": "out/n64-personal-pack-final06/ares/g02-full-leave.png",
+    "exchange_back_default": "out/n64-personal-pack-final06/ares/g03-exchange-back.png",
+    "owned_incompatible_focus": "out/n64-personal-pack-final06/ares/g04-owned.png",
+    "drop_back_default": "out/n64-personal-pack-final06/ares/g05-drop-back.png",
+    "local_discarded_items": "out/n64-personal-pack-final06/ares/g06-ground-discard.png",
+    "explicit_continue": "out/n64-personal-pack-final06/ares/g07-continue.png",
+    "stage2_persisted_pack": "out/n64-personal-pack-final06/ares/g08-stage2-owned.png",
+    "complete": "out/n64-personal-pack-final06/ares/verified-normal.png"
+  },
+  "checkpoints": [
+    "GRANDLEON_N64_BOARD_MEMORY cells=16 used=1217952 free=988504 rdram=4194304",
+    "CHECKPOINT PYRITE_AFTERMATH outcome=1 objectives=1 fallen=0 recruited=0 stage=1 commands=6 enemy=0 events=11 slot_bytes=821",
+    "GRANDLEON_N64_BOARD_MEMORY cells=16 used=1232320 free=974136 rdram=4194304",
+    "CHECKPOINT PYRITE_AFTERMATH outcome=1 objectives=1 fallen=0 recruited=0 stage=2 commands=2 enemy=0 events=6 slot_bytes=865",
+    "CHECKPOINT PYRITE_CAMPAIGN_COMPLETE battles=2 slot_bytes=865",
+    "GRANDLEON_PYRITE_GAMEPLAY frames=120 avg_frame_us=33422 min_frame_us=32746 max_frame_us=34040 fps_x100=3000 heap_used=1232352 heap_total=2206456 heap_free=974104 rdram=4194304 battles=2 commands=8 enemy_commands=0 combat=2 trees=13 forms=6 slot_bytes=865 hash=8464194045304050382",
+    "RESULT PASS PYRITE_GAMEPLAY"
+  ],
+  "validation": {
+    "shared_ui": "out/turn-pack-host-results.log (7/7 pass; includes real carried/legacy/company/owner/paging/stale/postwalk tests)",
+    "native_slice": "out/turn-pack-n64-gameplay.log (exit0, actual simulation collection commands)",
+    "camera_portrait_font": "out/turn-pack-n64-projection.log (5/5 pass)",
+    "build": "out/n64-personal-pack-final06/diagnostic-fix-build.log"
+  },
+  "diagnostic_fix": "Route-specific completion assertions and base4MiB hardware check now apply to explicit review driver only; ordinary terminal/checkpoint/save/no-active-combat assertions remain. Original failure preserved in packed-normal.log. No simulation rules or input scenarios changed.",
+  "limitations": [
+    "Native acceptance uses emulator only; host FPS/VPS window label is not target performance data.",
+    "Two-controller ownership and paging are exercised by real host integration tests, not this one-controller native capture.",
+    "Long localized equipment names use existing compact panel truncation.",
+    "Tiny carried acceptance fixture is separate from normal demo campaign; no demo loot authored."
+  ],
+  "source_sha256": {
+    "platform/client/include/grandleon/client/turn_client.hpp": "634ad5576a9d23cc871493bd967ab96c17af7ddc99c8bd00fb95e62c0b0c159b",
+    "platform/client/src/turn_client.cpp": "150c0c2ae0b0830b8cf6c5e59f620ec6d9c807f9ed820fb804e5aaefe77d6eab",
+    "platform/client/include/grandleon/client/console_localization.hpp": "5452eba7f1f6725468b479efe8f7ff85dd2a9b9b283037d6b78853639c2434a1",
+    "platform/nintendo64/pyrite/project/src/user/GameplaySlice.cpp": "49d88e3efe8d8f9e3d25f566cfc7d66864dd75166baafb9836f8d4c6d2e22328",
+    "platform/nintendo64/pyrite/project/src/user/ProjectBoard.cpp": "eedd405323543c98409215782eeeb6b57edf2f3d6370143b57c1733a4ed8be53",
+    "tests/client/carried_pack_test.cpp": "a0c7a9b354b01ca7ad2e8af9cb6536fbe65609877564b4a38ffb4b9a34b4f2c7",
+    "tests/client/company_scroll_test.cpp": "5b12cb6d7f40f5065a72f47fc1f03f07b0823108038d8b12d341f5611240dd9c",
+    "platform/nintendo64/pyrite/tests/gameplay_slice_test.cpp": "83ec834d13cc4db05f321c7697477961ef365d9630dc2e01075a9bb8a332d6e1",
+    "platform/nintendo64/pyrite/tests/hardware_camera_projection_test.py": "d3dace4c6c36e09cd7f70578025f04ca5dfd97fe794386402933d94106916e8e"
+  }
+}

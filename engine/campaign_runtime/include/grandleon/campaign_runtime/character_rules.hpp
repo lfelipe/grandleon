@@ -10,11 +10,40 @@
 namespace grandleon::campaign_runtime {
 // Shared by package-backed campaigns and generated console campaigns. The
 // inventory remains intact; only the battle's usable equipment is selected.
-inline void apply_member_kit(
+inline bool apply_member_kit(
     simulation::UnitDefinition& unit,
     const campaign::PersistentUnit& record,
-    const package_runtime::MemberRules* rules
+    const package_runtime::MemberRules* rules,
+    bool carried_mode = false
 ) {
+    if(carried_mode){
+        std::vector<simulation::CarriedStack> owned;
+        std::vector<simulation::ContentId> weapons,items;
+        std::vector<std::uint16_t> counts;
+        std::uint64_t occupied{};
+        for(const auto& stack:record.carried){
+            if(stack.item.package_id!=record.definition.package_id || stack.quantity==0 || stack.quantity>0xffffU ||
+               (stack.item.category!=core::ContentCategory::weapon && stack.item.category!=core::ContentCategory::item)) return false;
+            owned.push_back({stack.item.category,stack.item.stable_id,static_cast<std::uint16_t>(stack.quantity)});
+            occupied+=stack.quantity;
+            if(stack.item.category==core::ContentCategory::weapon) weapons.push_back(stack.item.stable_id);
+            else {items.push_back(stack.item.stable_id);counts.push_back(static_cast<std::uint16_t>(stack.quantity));}
+        }
+        const bool overridden=rules && rules->states_carry_capacity;
+        const bool limited=overridden || unit.states_carry_capacity;
+        const auto capacity=overridden?rules->carry_capacity:unit.carry_capacity;
+        if(limited && occupied>capacity) return false;
+        // Owned quantities are authoritative. Authored weapons are seeded at
+        // recruitment, never regenerated because a new map was loaded.
+        std::vector<simulation::ContentId> ordered;
+        const auto& preferred=rules && rules->states_starting_weapons?rules->starting_weapons:unit.weapon_ids;
+        for(const auto id:preferred) if(std::find(weapons.begin(),weapons.end(),id)!=weapons.end()) ordered.push_back(id);
+        for(const auto id:weapons) if(std::find(ordered.begin(),ordered.end(),id)==ordered.end()) ordered.push_back(id);
+        unit.carried_inventory=std::move(owned);unit.weapon_ids=std::move(ordered);
+        unit.item_ids=std::move(items);unit.item_counts=std::move(counts);
+        unit.states_carry_capacity=limited;unit.carry_capacity=limited?capacity:0;
+        return true;
+    }
     std::vector<simulation::ContentId> identities;
     std::vector<std::uint16_t> counts;
     identities.reserve(record.carried.size());
@@ -92,12 +121,26 @@ inline void apply_member_kit(
         armed.push_back(stack.item.stable_id);
     }
     unit.weapon_ids = std::move(armed);
+    return true;
 }
 
 inline void apply_member_permissions(
     simulation::UnitDefinition& unit, const package_runtime::MemberRules* rules,
-    const std::vector<simulation::WeaponDefinition>& weapons
+    const std::vector<simulation::WeaponDefinition>& weapons,
+    bool carried_mode = false
 ) {
+    if(carried_mode){
+        if(rules && rules->states_weapon_affinities){
+            unit.weapon_affinities=rules->weapon_affinities;unit.states_weapon_affinities=true;
+        }
+        if(unit.states_weapon_affinities){
+            unit.weapon_ids.erase(std::remove_if(unit.weapon_ids.begin(),unit.weapon_ids.end(),[&](auto id){
+                const auto found=std::find_if(weapons.begin(),weapons.end(),[id](const auto& weapon){return weapon.id==id;});
+                return found==weapons.end() || std::find(unit.weapon_affinities.begin(),unit.weapon_affinities.end(),found->weapon_type)==unit.weapon_affinities.end();
+            }),unit.weapon_ids.end());
+        }
+        if(unit.weapon_ids.empty()){unit.power=0;unit.minimum_reach=1;unit.maximum_reach=1;unit.accuracy=100;}
+    }
     if (rules == nullptr) return;
     unit.defeat_ends_battle = rules->defeat_policy == package_runtime::DefeatPolicy::lose_battle;
     if (rules->states_weapon_affinities) {

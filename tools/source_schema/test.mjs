@@ -120,6 +120,60 @@ const fixtures = path.resolve(directory, "../../tests/fixtures/source_projects")
   } finally { fs.rmSync(temp, {recursive:true, force:true}); }
 }
 
+// Physical inventory is an explicit campaign choice, with no migration defaults.
+{
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "grandleon-loot-schema-"));
+  const filename = path.join(temp, "project.json");
+  try {
+    const base = JSON.parse(fs.readFileSync(path.join(fixtures, "valid/campaign-roster.json"), "utf8"));
+    const campaign = base.campaigns[0];
+    const member = campaign.roster[0];
+    const role = base.unitTypes.find(value => value.id === member.unitTypeId);
+    base.weapons = [{id:"loot_sword",name:"Loot Sword",power:1,range:1}];
+    role.startingWeaponIds = ["loot_sword"];
+    campaign.inventoryMode = "carried";
+    role.carryCapacity = 64;
+    member.carryCapacity = 64;
+    Object.assign(role, {dropGold:32767, dropWeaponId:base.weapons[0].id, dropWeaponChance:100});
+    const verify = project => { fs.writeFileSync(filename, JSON.stringify(project)); return validateProject(filename); };
+    assert.deepEqual(verify(base), [], "typed physical loot and both capacity scopes validate");
+    campaign.startingStore = [{weaponId:"loot_sword",quantity:1}];
+    assert.ok(verify(base).some(value => value.code === "SOURCE_SHARED_EQUIPMENT_DISABLED"), "personal equipment cannot enter shared supplies");
+    delete campaign.startingStore;
+    for (const [field, bad] of [["dropGold",0],["dropGold",32768],["dropGold",true],["dropGold",null],["dropGold",1.5],
+      ["dropWeaponId","missing"],["dropWeaponId",null],["dropWeaponChance",0],["dropWeaponChance",101],["dropWeaponChance",false],
+      ["carryCapacity",-1],["carryCapacity",65],["carryCapacity",true],["carryCapacity",null]]) {
+      const previous = role[field]; role[field] = bad;
+      assert.ok(verify(base).length, `role ${field} refuses ${JSON.stringify(bad)}`); role[field] = previous;
+    }
+    for (const field of ["dropWeaponId","dropWeaponChance"]) {
+      const previous = role[field]; delete role[field];
+      assert.ok(verify(base).some(value => value.code === "SOURCE_DROP_INCOMPLETE"), "weapon pair cannot be half authored"); role[field] = previous;
+    }
+    delete campaign.inventoryMode;
+    assert.ok(verify(base).some(value => value.code === "SOURCE_CARRIED_INVENTORY_REQUIRED"), "legacy campaign cannot ignore explicit physical inventory rules");
+    campaign.inventoryMode = "carried";
+    member.carryCapacity = 0;
+    assert.ok(verify(base).some(value => value.code === "SOURCE_CARRY_CAPACITY_EXCEEDED"), "full initial pack is refused rather than truncated");
+    member.startingWeaponIds = []; role.startingItemIds = [];
+    assert.deepEqual(verify(base), [], "zero capacity with no owned copies is explicit and valid");
+    for (const bad of [-1,65,true,null,1.5]) { member.carryCapacity = bad; assert.ok(verify(base).length, "personal capacity is strictly bounded and typed"); }
+    member.carryCapacity = 0;
+    for (const bad of ["legacy","shared","",true,null]) { campaign.inventoryMode = bad; assert.ok(verify(base).length, "unknown mode never silently becomes legacy"); }
+    campaign.inventoryMode = "carried";
+    for (const explicit of [false,true]) {
+      const old = explicit ? structuredClone(base) : JSON.parse(fs.readFileSync(path.join(fixtures, "valid/campaign-roster.json"), "utf8"));
+      old.schemaVersion = "1.5.0";
+      const before = structuredClone(old);
+      const upgraded = upgradeProject(sourceMigrations(), old);
+      assert.ok(upgraded.ok);
+      assert.deepEqual(upgraded.project, {...before,schemaVersion:"1.6.0"}, "1.5 upgrade only moves version; opt-in, capacity, loot and omissions survive");
+      assert.deepEqual(old,before,"migration leaves original source untouched");
+      assert.deepEqual(upgraded.applied.map(step=>`${step.from}->${step.to}`), ["1.5.0->1.6.0"]);
+    }
+  } finally { fs.rmSync(temp,{recursive:true,force:true}); }
+}
+
 const validDiagnostics = validateProject(path.join(fixtures, "valid/minimal.json"));
 assert.deepEqual(validDiagnostics, [], "minimal project must be valid");
 assert.deepEqual(
@@ -1306,13 +1360,13 @@ assert.ok(
   // says it does.
   assert.equal(
     sourceMigrations().size,
-    5,
-    "five steps ship: the ones that reach 1.1.0 through 1.5.0"
+    6,
+    "six steps ship: the ones that reach 1.1.0 through 1.6.0"
   );
   assert.deepEqual(
     sourceMigrations().versions(),
-    [FIRST_SOURCE_VERSION, "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.5.0"],
-    "and therefore six versions a project may have been written at"
+    [FIRST_SOURCE_VERSION, "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.5.0", "1.6.0"],
+    "and therefore seven versions a project may have been written at"
   );
 
   // A project written before moments existed walks all the way up and is left
@@ -1334,16 +1388,17 @@ assert.ok(
         "1.1.0->1.2.0",
         "1.2.0->1.3.0",
         "1.3.0->1.4.0",
-        "1.4.0->1.5.0"
+        "1.4.0->1.5.0",
+        "1.5.0->1.6.0"
       ],
       "all steps, in the order the chain holds them"
     );
-    assert.equal(walked.project.schemaVersion, "1.5.0", "arriving at the version");
+    assert.equal(walked.project.schemaVersion, "1.6.0", "arriving at the version");
     assert.equal(walked.project.sourceLanguage, "en", "with historical English made explicit");
     assert.equal(walked.project.title, "An Old Game", "with the game untouched");
     assert.equal(
       walked.changed.length,
-      5,
+      6,
       "and one sentence for each step, which is what the author is shown"
     );
     assert.equal(
@@ -1397,12 +1452,13 @@ assert.ok(
     const before = structuredClone(old);
     const plan = planUpgrade(sourceMigrations(), old.schemaVersion);
     assert.deepEqual(planChanges(plan), [
-      "heroes can keep their appearance, weapon choices and defeat rules when their role changes"
+      "heroes can keep their appearance, weapon choices and defeat rules when their role changes",
+      "characters can carry limited packs and collect gold, weapons and items during battle"
     ]);
     const walked = upgradeProject(sourceMigrations(), old);
     assert.equal(walked.ok, true);
-    assert.deepEqual(walked.applied.map(({from, to}) => `${from}->${to}`), ["1.4.0->1.5.0"]);
-    assert.deepEqual(walked.project, {...before, schemaVersion: "1.5.0"},
+    assert.deepEqual(walked.applied.map(({from, to}) => `${from}->${to}`), ["1.4.0->1.5.0", "1.5.0->1.6.0"]);
+    assert.deepEqual(walked.project, {...before, schemaVersion: "1.6.0"},
       "the migration retains authored personal rules and never materializes omissions");
     assert.deepEqual(old, before, "inspection and migration do not mutate the caller");
   }
@@ -1421,7 +1477,8 @@ assert.ok(
       "1.1.0->1.2.0",
       "1.2.0->1.3.0",
       "1.3.0->1.4.0",
-      "1.4.0->1.5.0"
+      "1.4.0->1.5.0",
+        "1.5.0->1.6.0"
     ],
     "one version at a time, in order, and never in a leap"
   );
@@ -1451,7 +1508,8 @@ assert.ok(
       FOURTH_CHANGE,
       FIFTH_CHANGE,
       SIXTH_CHANGE,
-      SEVENTH_CHANGE
+      SEVENTH_CHANGE,
+      "characters can carry limited packs and collect gold, weapons and items during battle"
     ],
     "what changed, in the order it changed, in words an author can read"
   );
@@ -1464,14 +1522,15 @@ assert.ok(
       FOURTH_CHANGE,
       FIFTH_CHANGE,
       SIXTH_CHANGE,
-      SEVENTH_CHANGE
+      SEVENTH_CHANGE,
+      "characters can carry limited packs and collect gold, weapons and items during battle"
     ],
     "and the same list before anything has run, which is what the dialog asks "
       + "the author to agree to"
   );
   assert.deepEqual(
     planChanges(planUpgrade(exampleMigrations(), "0.9.0")),
-    [SECOND_CHANGE, THIRD_CHANGE, FOURTH_CHANGE, FIFTH_CHANGE, SIXTH_CHANGE, SEVENTH_CHANGE],
+    [SECOND_CHANGE, THIRD_CHANGE, FOURTH_CHANGE, FIFTH_CHANGE, SIXTH_CHANGE, SEVENTH_CHANGE, "characters can carry limited packs and collect gold, weapons and items during battle"],
     "a project part of the way up is told only what is left to do to it"
   );
 

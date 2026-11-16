@@ -7,14 +7,45 @@ cannot state: identities, cross-field rules, the diagnostics that enforce them,
 and the handful of places where a rule lives in the compiler rather than in the
 schema.
 
-The current schema version is `1.5.0`. Projects from `1.0.0` through `1.4.0`
+The current schema version is `1.6.0`. Projects from `1.0.0` through `1.5.0`
 have registered, non-destructive migrations. The `1.3.0` to `1.4.0` step makes
 the historical English source language explicit and invents no translations.
 The `1.4.0` to `1.5.0` step enables stable character appearance and personal
 weapon and defeat choices. It changes only the version: existing choices stay
-intact, and omitted choices stay omitted. Package and save formats are unchanged.
+intact, and omitted choices stay omitted.
+The `1.5.0` to `1.6.0` step adds optional physical inventories and enemy loot.
+It also changes only the version: it never enables carried inventories or
+assigns capacities or drops. Existing legacy projects keep their prior behavior.
 Authors normally use the editor; the public files exist so projects stay
 portable, scriptable, source-controlled, and buildable headlessly.
+
+## Carried inventories and enemy loot
+
+A campaign explicitly sets `inventoryMode: "carried"` to use personal physical
+inventories. Omission preserves legacy behavior. Opening, importing, migrating
+or cloning a source record never enables this mode. New creator templates
+explicitly author it and a five-copy capacity; existing projects opt in through
+an author action.
+
+`UnitType.carryCapacity` sets the capacity of a reusable archetype, from 0 to
+64 weapon/item copies. `CampaignMember.carryCapacity` replaces it for that named
+hero and survives role changes. Omitted personal capacity inherits the role;
+omitted role capacity is unlimited. Zero means no carried copies. Each copy,
+including an equipped weapon, uses one slot; gold uses none. Starting kits over
+the effective capacity are refused, never truncated. A campaign using an
+explicit capacity must enable carried inventory; the compiler does not ignore it.
+Equipment stays with individual characters: `startingStore` and node equipment
+`grants` must be empty in this mode. Assign starting equipment to characters or
+archetypes and loot to enemy drop settings. Legacy campaigns retain their stores.
+
+`dropGold` authors guaranteed gold from 1 to 32767. `dropWeaponId` and
+`dropWeaponChance` are authored together; chance is 1 to 100. They coexist with
+the existing `dropItemId`/`dropChance` pair. A campaign using weapon drops must
+explicitly enable carried inventories. Physical weapon/item loot belongs to
+the unit that collects it, and leaving it or exchanging an owned copy keeps the
+uncollected copy on the battlefield. It is never automatically sent to shared
+supplies. Weapon affinities govern use, not possession. Gold remains a separate
+company wallet. These fields introduce no shops, weapon wear or repairs.
 
 ## Identity
 

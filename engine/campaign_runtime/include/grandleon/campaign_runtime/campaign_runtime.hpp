@@ -395,7 +395,8 @@ struct StartingKit final {
     const package_format::LoadedPackage& package,
     campaign::PersistentEntityId member,
     std::uint64_t unit_type_id,
-    const package_runtime::MemberRules* rules = nullptr
+    const package_runtime::MemberRules* rules = nullptr,
+    simulation::InventoryMode inventory_mode = simulation::InventoryMode::legacy
 );
 
 // ---------------------------------------------------------------------------
@@ -636,7 +637,8 @@ struct BoardUnitType final {
     const std::vector<BoardUnitType>& board,
     const campaign::BattleBinding& binding,
     const std::vector<simulation::Event>& events,
-    const campaign::OutcomeSource& source
+    const campaign::OutcomeSource& source,
+    simulation::InventoryMode inventory_mode = simulation::InventoryMode::legacy
 );
 
 }  // namespace grandleon::campaign_runtime

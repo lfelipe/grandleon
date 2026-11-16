@@ -5,6 +5,7 @@ const SceneryStyle = preload("res://scripts/scenery_style.gd")
 const ArtLibrary = preload("res://scripts/art_library.gd")
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
 const CampaignRoster = preload("res://scripts/creator/campaign_roster.gd")
+const InventoryEditor = preload("res://scripts/creator/inventory_editor.gd")
 const BattleGoals = preload("res://scripts/creator/battle_goals.gd")
 const CampaignEditor = preload("res://scripts/creator/campaign_editor.gd")
 const ProjectContentDependencyIndex = preload(
@@ -66,6 +67,9 @@ var encounter_index := 0
 var selected_terrain := "grass"
 var active_tool := "brush"
 var rectangle_anchor := -1
+var inventory_editor: Control
+var placement_inventory_button: Button
+var forces_inventory_button: Button
 var selected_placement_id := ""
 var pending_placement: Dictionary = {}
 var placement_side := "second"
@@ -286,7 +290,9 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		var viewport := get_viewport()
-		if touch_brush_pointer >= 0:
+		if inventory_editor != null and inventory_editor.visible:
+			inventory_editor.close()
+		elif touch_brush_pointer >= 0:
 			_cancel_touch_brush()
 		elif dependency_layer != null and dependency_layer.visible:
 			_close_dependency_review()
@@ -2858,6 +2864,8 @@ func _update_placement_candidate() -> void:
 	placement_side_button.add_theme_color_override(
 		"font_color", Color("69d9ff") if placement_side == "first" else Color("ff7a83")
 	)
+	placement_inventory_button.visible = placement_side == "second"
+	placement_inventory_button.disabled = placement_candidates.is_empty()
 	placement_apply_button.disabled = placement_candidates.is_empty()
 	if placement_candidates.is_empty():
 		placement_candidate_label.text = (
@@ -2876,6 +2884,8 @@ func _update_placement_candidate() -> void:
 	var join_name := str(candidate.get("join_node_name", ""))
 	if not join_name.is_empty():
 		placement_candidate_label.text += "\n" + _t("map.placement.joins_after", {"stage": join_name})
+	if placement_side == "second":
+		placement_candidate_label.text += "\n" + InventoryEditor.summary(_inventory_role(str(candidate.unit_type_id)), project, _t)
 	placement_candidate_label.text += "\n%s" % _target_impact_summary(1)
 
 
@@ -2894,6 +2904,43 @@ func _begin_add_placement() -> void:
 		false
 	)
 	call_deferred("_focus_cell", 0)
+
+
+func _inventory_role(identity: String) -> Dictionary:
+	for role: Dictionary in project.get("unitTypes", []):
+		if str(role.get("id", "")) == identity: return role
+	return {}
+
+
+func _open_placement_inventory() -> void:
+	if placement_side != "second" or placement_candidates.is_empty(): return
+	_open_inventory(str(placement_candidates[placement_candidate_index].unit_type_id), placement_inventory_button)
+
+
+func _open_force_inventory() -> void:
+	if _selected_force().is_empty(): return
+	_open_inventory(str(_selected_force().get("unitTypeId", "")), forces_inventory_button)
+
+
+func _open_inventory(identity: String, focus: Control) -> void:
+	var encounter := _current_encounter()
+	if encounter.is_empty(): return
+	inventory_editor.open(source, project, str(encounter.get("campaign_id", "")), identity, focus)
+
+
+func _accept_inventory_edit(updated: Dictionary) -> void:
+	if not updated.ok or str(updated.source) == source: return
+	var selected_force_id := str(_selected_force().get("id", ""))
+	_push_undo(source)
+	redo_stack.clear()
+	source = str(updated.source)
+	dirty = true
+	_read_source()
+	_refresh_maps_after_edit(-1)
+	_refresh_placement_candidates()
+	_collect_force_candidates(selected_force_id)
+	_update_forces_view()
+	_set_status(_t("inventory.saved_draft"), false)
 
 
 func _open_objectives() -> void:
@@ -3422,6 +3469,8 @@ func _update_forces_view() -> void:
 			"schedule": schedule,
 			"x": int(placement.get("x", 0)), "y": int(placement.get("y", 0)),
 		})
+		forces_candidate_label.text += "\n" + InventoryEditor.summary(_inventory_role(str(placement.get("unitTypeId", ""))), project, _t)
+	forces_inventory_button.disabled = not available
 	forces_mode_button.text = _t("map.forces.mode." + force_mode)
 	forces_round_label.text = _t("map.forces.round", {"round": force_round})
 	forces_repeat_row.visible = force_mode == "repeating"
@@ -4763,6 +4812,10 @@ func _build_interface() -> void:
 	_build_setup_overlay()
 	_build_talk_overlay()
 	_build_more_overlay()
+	inventory_editor = InventoryEditor.new()
+	add_child(inventory_editor)
+	inventory_editor.setup(self)
+	inventory_editor.edited.connect(_accept_inventory_edit)
 
 
 func _open_setup() -> void:
@@ -5925,7 +5978,12 @@ func _build_placement_overlay() -> void:
 	placement_layer.add_child(panel)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 18)
-	panel.add_child(column)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	panel.add_child(scroll)
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(column)
 	column.add_child(_label(_t("map.placement.heading"), 24, Color("69d9ff")))
 	var explanation := _label(
 		_t("map.placement.help"),
@@ -5943,7 +6001,8 @@ func _build_placement_overlay() -> void:
 	placement_candidate_label.custom_minimum_size.y = 110
 	placement_candidate_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	column.add_child(placement_candidate_label)
-	var candidate_row := HBoxContainer.new()
+	var candidate_row := BoxContainer.new()
+	candidate_row.set_meta("mobile_wrap_actions", true)
 	candidate_row.add_theme_constant_override("separation", 12)
 	column.add_child(candidate_row)
 	var previous := _button(_t("map.previous"), 240, 60)
@@ -5952,7 +6011,11 @@ func _build_placement_overlay() -> void:
 	var next := _button(_t("map.next"), 240, 60)
 	next.pressed.connect(_cycle_placement_candidate.bind(1))
 	candidate_row.add_child(next)
-	var actions := HBoxContainer.new()
+	placement_inventory_button = _button(_t("inventory.open"), 0, 56)
+	placement_inventory_button.pressed.connect(_open_placement_inventory)
+	column.add_child(placement_inventory_button)
+	var actions := BoxContainer.new()
+	actions.set_meta("mobile_wrap_actions", true)
 	actions.add_theme_constant_override("separation", 12)
 	column.add_child(actions)
 	placement_apply_button = _button(_t("map.placement.apply"), 300, 64)
@@ -6098,7 +6161,12 @@ func _build_forces_overlay() -> void:
 	forces_layer.add_child(panel)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 12)
-	panel.add_child(column)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	panel.add_child(scroll)
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(column)
 	column.add_child(_label(_t("map.forces.heading"), 24, Color("ffca63")))
 	var explanation := _label(
 		_t("map.forces.help"),
@@ -6111,7 +6179,12 @@ func _build_forces_overlay() -> void:
 	forces_candidate_label.custom_minimum_size.y = 80
 	forces_candidate_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	column.add_child(forces_candidate_label)
-	var navigation := HBoxContainer.new()
+	forces_candidate_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	forces_inventory_button = _button(_t("inventory.open"), 0, 54)
+	forces_inventory_button.pressed.connect(_open_force_inventory)
+	column.add_child(forces_inventory_button)
+	var navigation := BoxContainer.new()
+	navigation.set_meta("mobile_wrap_actions", true)
 	navigation.add_theme_constant_override("separation", 12)
 	column.add_child(navigation)
 	forces_first_button = _button(_t("map.forces.previous"), 330, 52)
@@ -6181,7 +6254,8 @@ func _build_forces_overlay() -> void:
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.custom_minimum_size.y = 48
 	column.add_child(note)
-	var actions := HBoxContainer.new()
+	var actions := BoxContainer.new()
+	actions.set_meta("mobile_wrap_actions", true)
 	actions.add_theme_constant_override("separation", 12)
 	column.add_child(actions)
 	forces_apply_button = _button(_t("map.forces.apply"), 430, 58)

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 extends Control
 
+const InventoryEditor = preload("res://scripts/creator/inventory_editor.gd")
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
 const CampaignRoster = preload("res://scripts/creator/campaign_roster.gd")
 const ArtLibrary = preload("res://scripts/art_library.gd")
@@ -114,6 +115,12 @@ var guide_feedback_label: Label
 var rules_layer: Control
 var rules_affinities: MenuButton
 var rules_weapons: MenuButton
+var rules_personal_capacity: CheckButton
+var rules_capacity: SpinBox
+var rules_capacity_buttons: Array[Button] = []
+var rules_capacity_summary: Label
+var rules_enable_inventory: Button
+var rules_inventory_help: Label
 var rules_personal_affinities: CheckButton
 var rules_personal_kit: CheckButton
 var rules_defeat: OptionButton
@@ -153,6 +160,8 @@ var role_movement: OptionButton
 var role_family: OptionButton
 var role_family_toggle_button: Button
 var role_behavior_button: Button
+var inventory_editor: Control
+var role_inventory_button: Button
 var role_growth_button: Button
 var role_detach_button: Button
 var role_dependency_button: Button
@@ -197,7 +206,9 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		var viewport := get_viewport()
-		if dependency_layer != null and dependency_layer.visible:
+		if inventory_editor != null and inventory_editor.visible:
+			inventory_editor.close()
+		elif dependency_layer != null and dependency_layer.visible:
 			_close_dependency_review()
 		elif rules_layer != null and rules_layer.visible:
 			rules_layer.visible = false
@@ -1329,6 +1340,15 @@ func _create_side() -> void:
 	role_side.grab_focus()
 
 
+func _open_role_inventory() -> void:
+	inventory_editor.open(source, project, str(_current_campaign().get("id", "")), role_unit_type_id, role_inventory_button)
+
+
+func _accept_inventory_edit(updated: Dictionary) -> void:
+	if not updated.ok: return
+	_accept_role_project(JSON.parse_string(str(updated.source)), _t("inventory.saved_draft"))
+
+
 func _open_growth() -> void:
 	_refresh_growth_layer()
 	growth_layer.visible = true
@@ -2438,7 +2458,7 @@ func _build_interface() -> void:
 	loadout_button.tooltip_text = _t("army.loadout.open_tooltip")
 	loadout_button.pressed.connect(_open_loadout)
 	role_actions.add_child(loadout_button)
-	var personal_button := _button(_t("army.personal.open"), 250, 56)
+	var personal_button := _button(_t("inventory.hero_choices"), 250, 56)
 	personal_button.pressed.connect(_open_personal_rules)
 	role_actions.add_child(personal_button)
 	var role_note := _label(
@@ -2469,6 +2489,10 @@ func _build_interface() -> void:
 	_build_growth_layer()
 	_build_loadout_layer()
 	_build_dependency_layer()
+	inventory_editor = InventoryEditor.new()
+	add_child(inventory_editor)
+	inventory_editor.setup(self)
+	inventory_editor.edited.connect(_accept_inventory_edit)
 
 
 func _build_modifier_layer() -> void:
@@ -3021,6 +3045,9 @@ func _build_role_layer() -> void:
 	role_growth_button.tooltip_text = _t("army.growth.open_tooltip")
 	role_growth_button.pressed.connect(_open_growth)
 	behavior_row.add_child(role_growth_button)
+	role_inventory_button = _button(_t("inventory.open"), 0, 58)
+	role_inventory_button.pressed.connect(_open_role_inventory)
+	column.add_child(role_inventory_button)
 	role_detach_button = _button(_t("army.role.detach"), 480, 58)
 	role_detach_button.tooltip_text = _t("army.role.detach_tooltip")
 	role_detach_button.pressed.connect(_detach_role_baseline)
@@ -3674,6 +3701,17 @@ func _refresh_personal_rules_feedback() -> void:
 	var summary := _starting_weapon_summary(kit)
 	rules_kit_label.text = summary if rules_personal_kit.button_pressed else _t("army.personal.role_kit_summary", {"summary": summary})
 	var problem := _weapon_affinity_problem(affinities, kit)
+	var carried := str(_current_campaign().get("inventoryMode", "")) == "carried"
+	rules_enable_inventory.visible = not carried
+	rules_inventory_help.visible = not carried
+	rules_personal_capacity.disabled = not carried
+	rules_capacity.editable = carried and rules_personal_capacity.button_pressed
+	for button: Button in rules_capacity_buttons: button.disabled = not rules_capacity.editable
+	var pack_limit: int = int(rules_capacity.value) if rules_personal_capacity.button_pressed else int(role.get("carryCapacity", -1))
+	var copies: int = kit.size() + role.get("startingItemIds", []).size()
+	rules_capacity_summary.text = _t("inventory.pack_summary", {"used": copies, "capacity": pack_limit}) if pack_limit >= 0 else _t("inventory.unlimited_pack", {"used": copies})
+	if carried and pack_limit >= 0 and copies > pack_limit and problem.is_empty():
+		problem = _t("inventory.pack_overflow", {"used": copies, "capacity": pack_limit})
 	rules_apply_button.disabled = not problem.is_empty()
 	_set_form_feedback(rules_feedback_label, problem, true)
 
@@ -3720,7 +3758,7 @@ func _build_personal_rules_layer() -> void:
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.add_theme_constant_override("separation", 16)
 	scroll.add_child(column)
-	column.add_child(_label(_t("army.personal.title"), 28, Color("72e08f")))
+	column.add_child(_label(_t("inventory.hero_heading"), 28, Color("72e08f")))
 	var help := _label(_t("army.personal.help"), 18, Color("a9bdc9"))
 	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(help)
@@ -3747,6 +3785,38 @@ func _build_personal_rules_layer() -> void:
 	rules_kit_label = _label("", 18, Color("72e08f"))
 	rules_kit_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(rules_kit_label)
+	rules_inventory_help = _label(_t("inventory.mode_help"), 18, Color("a9bdc9"))
+	rules_inventory_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(rules_inventory_help)
+	rules_enable_inventory = _button(_t("inventory.enable"), 0, 56)
+	rules_enable_inventory.pressed.connect(_enable_member_inventory)
+	column.add_child(rules_enable_inventory)
+	rules_personal_capacity = CheckButton.new()
+	rules_personal_capacity.text = _t("inventory.personal_capacity")
+	rules_personal_capacity.custom_minimum_size.y = 54
+	rules_personal_capacity.toggled.connect(func(_value: bool): _refresh_personal_rules_feedback())
+	column.add_child(rules_personal_capacity)
+	var capacity_row := HBoxContainer.new()
+	capacity_row.add_theme_constant_override("separation", 8)
+	column.add_child(capacity_row)
+	var capacity_minus := _button("−", 80, 54)
+	capacity_row.add_child(capacity_minus)
+	rules_capacity = SpinBox.new()
+	rules_capacity.min_value = 0
+	rules_capacity.max_value = 64
+	rules_capacity.step = 1
+	rules_capacity.custom_minimum_size = Vector2(250, 54)
+	rules_capacity.value_changed.connect(func(_value: float): _refresh_personal_rules_feedback())
+	rules_capacity.get_line_edit().add_theme_font_size_override("font_size", 20)
+	capacity_row.add_child(rules_capacity)
+	var capacity_plus := _button("+", 80, 54)
+	capacity_row.add_child(capacity_plus)
+	capacity_minus.pressed.connect(func(): rules_capacity.value -= 1)
+	capacity_plus.pressed.connect(func(): rules_capacity.value += 1)
+	rules_capacity_buttons = [capacity_minus, capacity_plus]
+	rules_capacity_summary = _label("", 18, Color("72e08f"))
+	rules_capacity_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(rules_capacity_summary)
 	column.add_child(_label(_t("army.personal.if_defeated"), 18, Color("e6b86d")))
 	rules_defeat = _defeat_choice()
 	column.add_child(rules_defeat)
@@ -3771,6 +3841,8 @@ func _open_personal_rules() -> void:
 	rules_weapon_ids = member.get("startingWeaponIds", role.get("startingWeaponIds", [])).duplicate()
 	rules_personal_affinities.set_pressed_no_signal(member.has("weaponAffinityTypeIds"))
 	rules_personal_kit.set_pressed_no_signal(member.has("startingWeaponIds"))
+	rules_personal_capacity.set_pressed_no_signal(member.has("carryCapacity"))
+	rules_capacity.set_value_no_signal(int(member.get("carryCapacity", role.get("carryCapacity", 5))))
 	rules_affinities.disabled = not rules_personal_affinities.button_pressed
 	rules_weapons.disabled = not rules_personal_kit.button_pressed
 	_fill_multi_choice(rules_affinities, project.get("weaponTypes", []), rules_affinity_ids, _t("army.personal.affinities"), _refresh_personal_rules_feedback)
@@ -3778,6 +3850,17 @@ func _open_personal_rules() -> void:
 	_select_metadata(rules_defeat, str(member.get("defeatPolicy", "inherit")))
 	_refresh_personal_rules_feedback()
 	rules_layer.visible = true
+
+
+func _enable_member_inventory() -> void:
+	var updated: Dictionary = compiler.set_campaign_inventory_mode(source, str(_current_campaign().get("id", "")), "carried")
+	if not updated.ok:
+		_set_form_feedback(rules_feedback_label, _t("inventory.refused", {"detail": _diagnostic_detail(updated)}), true)
+		if InventoryEditor.has_shared_supplies(_current_campaign()):
+			_set_form_feedback(rules_feedback_label, _t("inventory.remove_shared_supplies"), true)
+		return
+	_accept_role_project(JSON.parse_string(str(updated.source)), _t("inventory.saved_draft"))
+	_refresh_personal_rules_feedback()
 
 
 func _apply_personal_rules() -> void:
@@ -3791,6 +3874,8 @@ func _apply_personal_rules() -> void:
 		rules["weaponAffinityTypeIds"] = rules_affinity_ids.duplicate()
 	if rules_personal_kit.button_pressed:
 		rules["startingWeaponIds"] = rules_weapon_ids.duplicate()
+	if rules_personal_capacity.button_pressed:
+		rules["carryCapacity"] = int(rules_capacity.value)
 	var policy := _selected_metadata(rules_defeat)
 	if policy != "inherit":
 		rules["defeatPolicy"] = policy

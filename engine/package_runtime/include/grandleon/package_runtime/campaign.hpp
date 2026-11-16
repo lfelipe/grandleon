@@ -229,6 +229,8 @@ struct CampaignDefinition final {
     // campaign policy; their loader fallback infers `choice` when one of this
     // campaign's encounters has Player 2 ownership and `one` otherwise.
     LocalPlayerMode player_mode{LocalPlayerMode::one};
+    simulation::InventoryMode inventory_mode{simulation::InventoryMode::legacy};
+
 };
 
 enum class CampaignError : std::uint8_t {

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include <grandleon/package_runtime/campaign.hpp>
+#include <grandleon/package_runtime/inventory.hpp>
 #include <grandleon/package_runtime/encounter_loader.hpp>
 #include <grandleon/package_runtime/starting_kit.hpp>
 
@@ -174,6 +175,7 @@ CampaignLoadResult load_campaign(
         package.find(package_format::SectionType::campaigns, campaign_id);
     if (record == nullptr) return fail(CampaignError::missing_record);
 
+    if (!validate_inventory_sections(package)) return fail(CampaignError::malformed_payload);
     // Every rule record must belong to an existing campaign, even if this
     // caller selected a different one. Optional flags would let older engines
     // silently ignore gameplay rules, so only the required encoding is valid.
@@ -186,6 +188,7 @@ CampaignLoadResult load_campaign(
         }
     }
     CampaignLoadResult result;
+    result.definition.inventory_mode = inventory_mode(package,package_format::SectionType::campaign_inventory,campaign_id);
     const package_format::SectionView* player_modes =
         package.find(package_format::SectionType::campaign_players);
     if (player_modes != nullptr) {
@@ -598,7 +601,7 @@ CampaignLoadResult load_campaign(
         for (std::uint16_t index = 0; index < count; ++index) {
             std::uint64_t id = 0;
             std::uint8_t flags = 0;
-            if (!rules_reader.u64(id) || !rules_reader.u8(flags) || flags == 0U || (flags & ~7U) != 0U)
+            if (!rules_reader.u64(id) || !rules_reader.u8(flags) || flags == 0U || (flags & ~15U) != 0U)
                 return fail(CampaignError::malformed_payload);
             const auto found = std::find_if(result.definition.members.begin(), result.definition.members.end(),
                 [id](const CampaignMember& member) { return member.id == id; });
@@ -631,6 +634,11 @@ CampaignLoadResult load_campaign(
                     return fail(CampaignError::malformed_payload);
                 rules.defeat_policy = static_cast<DefeatPolicy>(policy);
             }
+            rules.states_carry_capacity = (flags & 8U) != 0;
+            if(rules.states_carry_capacity &&
+               (!rules_reader.u16(rules.carry_capacity) || rules.carry_capacity>64U ||
+                result.definition.inventory_mode!=simulation::InventoryMode::carried))
+                return fail(CampaignError::malformed_payload);
         }
         if (!rules_reader.finished()) return fail(CampaignError::malformed_payload);
         for (const auto& member : result.definition.members) {
@@ -677,6 +685,19 @@ CampaignLoadResult load_campaign(
         if (member.join_node_id != 0U &&
             find_node(member.join_node_id) == result.definition.nodes.end()) {
             return fail(CampaignError::missing_reference);
+        }
+    }
+    if (result.definition.inventory_mode == simulation::InventoryMode::carried &&
+        !result.definition.grants.empty()) return fail(CampaignError::malformed_payload);
+    for (const auto& node : result.definition.nodes) {
+        if (node.kind == CampaignNodeKind::encounter &&
+            inventory_mode(package, package_format::SectionType::encounter_inventory, node.encounter_id) !=
+                result.definition.inventory_mode) return fail(CampaignError::malformed_payload);
+    }
+    if (result.definition.inventory_mode == simulation::InventoryMode::legacy) {
+        for (const auto& member : result.definition.members) {
+            const auto role = unit_inventory_rules(package, member.unit_type_id);
+            if (role.states_carry_capacity || role.drop_weapon_id) return fail(CampaignError::malformed_payload);
         }
     }
     for (const CampaignItemGrant& grant : result.definition.grants) {

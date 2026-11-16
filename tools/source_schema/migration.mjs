@@ -8,8 +8,8 @@
 // rather than inventing a second philosophy for the same question:
 //
 // * **Version by version, never in a leap.** A step goes from one version to
-//   the next and no further. A project at `1.0.0` reaching tooling at `1.5.0`
-//   runs each registered step in order, including 1.4.0 -> 1.5.0, rather than
+//   the next and no further. A project at `1.0.0` reaching tooling at `1.6.0`
+//   runs each registered step in order, including 1.5.0 -> 1.6.0, rather than
 //   leaping over the versions in between
 //   with its own test. One function per (old, new) pair is quadratic in the
 //   number of versions and gives the pair nobody thought to write no diagnostic
@@ -459,7 +459,10 @@ function legacyPlayerMode(campaign) {
 /**
  * Every step this build ships.
  *
- * Five, and each exists because its version exists.
+ * Six, and each exists because its version exists.
+ *
+ * `1.6.0` adds optional gold and weapon drops. It changes only the version;
+ * no enemy gains a reward merely because the project was upgraded.
  *
  * `1.5.0` adds optional stable character artwork and personal hero rules.
  * The step invents no defaults: omitted rules retain their existing behavior,
@@ -538,6 +541,12 @@ export function sourceMigrations() {
       from: "1.4.0",
       to: "1.5.0",
       changed: HEROES_KEEP_PERSONAL_CHOICES,
+      apply: (project) => project
+    })
+    .add({
+      from: "1.5.0",
+      to: "1.6.0",
+      changed: "characters can carry limited packs and collect gold, weapons and items during battle",
       apply: (project) => project
     });
 }

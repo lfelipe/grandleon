@@ -32,7 +32,7 @@ void expect(bool condition, std::string_view message) {
 }
 
 constexpr std::string_view source = R"json({
-  "schemaVersion": "1.5.0",
+  "schemaVersion": "1.6.0",
   "sourceLanguage": "en",
   "packageId": "d05f4dc5-592f-4c6a-9093-f4090a722ffc",
   "gameId": "vertical.demo",
@@ -3677,11 +3677,12 @@ void names_both_versions_when_it_refuses_one() {
     for (const auto& item : {
              Case{"0.9.0", "upgrade.mjs", "Upgrade the tools"},
              Case{"1.4.0", "upgrade.mjs", "Upgrade the tools"},
+             Case{"1.5.0", "upgrade.mjs", "Upgrade the tools"},
              Case{"2.0.0", "Upgrade the tools", "upgrade.mjs"},
              Case{"nonsense", "", "upgrade.mjs"},
          }) {
         const auto parsed = gc::parse_source_project_json(
-            source_with(R"json("schemaVersion": "1.5.0")json",
+            source_with(R"json("schemaVersion": "1.6.0")json",
                         std::string(R"json("schemaVersion": ")json") +
                             std::string(item.declared) + "\"")
         );
@@ -3707,7 +3708,7 @@ void names_both_versions_when_it_refuses_one() {
         );
     }
     expect(
-        gc::supported_source_schema == "1.5.0",
+        gc::supported_source_schema == "1.6.0",
         "the version this compiler reads; tools/source_schema/test.mjs holds "
         "it level with the schema and the migration registry"
     );
@@ -3740,6 +3741,65 @@ void personal_rules_parse_edit_and_reopen() {
         expect(!gc::set_source_campaign_member_rules_json(source, "demo", "blue_one", bad),
             "malformed or incompatible personal rules are refused atomically");
     }
+}
+
+void authors_physical_inventory_without_rewriting_legacy_source() {
+    const auto legacy = gc::parse_source_project_json(source);
+    const auto legacy_bytes = gc::compile(legacy.source).package;
+    expect(!legacy.source.unit_types[0].states_carry_capacity &&
+        !legacy.source.campaigns[0].roster[0].states_carry_capacity &&
+        legacy.source.campaigns[0].inventory_mode == gc::InventoryMode::legacy,
+        "omitted inventory rules remain legacy and unlimited");
+    const auto enabled = gc::set_source_campaign_inventory_mode_json(source, "demo", "carried");
+    expect(bool(enabled), "author explicitly enables carried inventory atomically");
+    auto parsed = gc::parse_source_project_json(enabled.json);
+    expect(parsed && parsed.source.campaigns[0].inventory_mode == gc::InventoryMode::carried &&
+        parsed.source.encounters[0].inventory_mode == gc::InventoryMode::carried &&
+        !parsed.source.unit_types[0].states_carry_capacity, "opt-in never invents a capacity");
+    auto supplied = parsed.source;
+    supplied.campaigns[0].grants.push_back({0, 1, 0, grandleon::core::stable_content_id_v1("sword")});
+    expect(!gc::compile(supplied), "personal equipment cannot be authored into shared supplies");
+    supplied.campaigns[0].inventory_mode = gc::InventoryMode::legacy;
+    for (auto& encounter : supplied.encounters) encounter.inventory_mode = gc::InventoryMode::legacy;
+    expect(bool(gc::compile(supplied)), "existing shared-supply campaigns remain valid legacy games");
+    const auto capacity = gc::set_source_unit_type_carry_capacity_json(enabled.json, "blue_unit", 5, true);
+    expect(bool(capacity), "role capacity uses native atomic edit");
+    const auto personal = gc::set_source_campaign_member_rules_json(capacity.json, "demo", "blue_one", R"({"carryCapacity":4})");
+    expect(bool(personal), "named hero can override role capacity");
+    const auto drops = gc::set_source_unit_type_drops_json(personal.json, "red_unit",
+        R"({"dropGold":32767,"dropWeaponId":"sword","dropWeaponChance":75,"dropItemId":"tonic","dropChance":100})");
+    expect(bool(drops), "gold, weapon and legacy item rewards coexist");
+    parsed = gc::parse_source_project_json(drops.json);
+    expect(parsed && parsed.source.unit_types[0].carry_capacity == 5 && parsed.source.unit_types[0].states_carry_capacity &&
+        parsed.source.campaigns[0].roster[0].carry_capacity == 4 && parsed.source.campaigns[0].roster[0].states_carry_capacity,
+        "save/reopen retains role and personal capacity separately");
+    expect(parsed && parsed.source.unit_types[1].drop_gold == 32767 && parsed.source.unit_types[1].drop_weapon_chance == 75 &&
+        parsed.source.unit_types[1].drop_weapon_id == grandleon::core::stable_content_id_v1("sword") && parsed.source.unit_types[1].drop_item != 0,
+        "parser maps typed gold and weapon drops beside the existing item drop");
+    expect(!gc::set_source_campaign_inventory_mode_json(drops.json, "demo", ""),
+        "cannot silently disable physical inventory while authored rules need it");
+    for (const auto bad : {R"({"dropGold":0})", R"({"dropGold":32768})", R"({"dropGold":true})", R"({"dropGold":1.5})",
+        R"({"dropGold":null})", R"({"dropWeaponId":"sword"})", R"({"dropWeaponChance":50})", R"({"dropWeaponId":"missing","dropWeaponChance":100})",
+        R"({"dropWeaponId":"sword","dropWeaponChance":0})", R"({"dropWeaponId":"sword","dropWeaponChance":101})",
+        R"({"dropItemId":"tonic"})", R"({"dropChance":100})", R"({"name":"renamed"})", R"([])"}) {
+        expect(!gc::set_source_unit_type_drops_json(drops.json, "red_unit", bad), "malformed drop edit is refused atomically");
+    }
+    for (const auto bad : {-1, 65}) expect(!gc::set_source_unit_type_carry_capacity_json(enabled.json, "blue_unit", bad, true), "capacity bounds are strict");
+    for (const auto bad : {R"({"carryCapacity":-1})", R"({"carryCapacity":65})", R"({"carryCapacity":null})", R"({"carryCapacity":true})"})
+        expect(!gc::set_source_campaign_member_rules_json(enabled.json, "demo", "blue_one", bad), "personal capacity rejects invalid types and ranges");
+    expect(!gc::set_source_unit_type_carry_capacity_json(enabled.json, "blue_unit", 0, true), "initial equipment cannot silently exceed zero capacity");
+    const auto empty_kit = gc::set_source_campaign_member_rules_json(enabled.json, "demo", "blue_one", R"({"startingWeaponIds":[],"carryCapacity":0})");
+    parsed = gc::parse_source_project_json(empty_kit.json);
+    expect(parsed && parsed.source.campaigns[0].roster[0].states_carry_capacity && parsed.source.campaigns[0].roster[0].carry_capacity == 0,
+        "explicit empty kit and zero capacity stay distinct from omission");
+    expect(!gc::set_source_unit_type_drops_json(source, "red_unit", R"({"dropWeaponId":"sword","dropWeaponChance":100})"), "weapon drops require explicit campaign opt-in");
+    expect(!gc::set_source_campaign_inventory_mode_json(source, "demo", "shared"), "unsupported inventory mode is refused");
+    const auto no_drops = gc::set_source_unit_type_drops_json(drops.json, "red_unit", "{}");
+    const auto no_personal = gc::set_source_campaign_member_rules_json(no_drops.json, "demo", "blue_one", "{}");
+    const auto no_capacity = gc::set_source_unit_type_carry_capacity_json(no_personal.json, "blue_unit", 0, false);
+    const auto restored = gc::set_source_campaign_inventory_mode_json(no_capacity.json, "demo", "");
+    parsed = gc::parse_source_project_json(restored.json);
+    expect(parsed && gc::compile(parsed.source).package == legacy_bytes, "removing opt-in fields restores identical legacy compiled bytes");
 }
 
 }  // namespace
@@ -3782,6 +3842,7 @@ int main() {
     maps_a_characters_own_style();
     maps_explicit_character_archetypes_and_preserves_cloned_appearance();
     personal_rules_parse_edit_and_reopen();
+    authors_physical_inventory_without_rewriting_legacy_source();
     maps_a_scene_backdrop();
     maps_a_scene_cast();
     maps_the_game_wide_turn_order();

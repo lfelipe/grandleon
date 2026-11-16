@@ -59,7 +59,7 @@ func _run() -> void:
 			await process_frame
 		get_root().get_texture().get_image().save_png(new_campaign_screenshot_path)
 		print("new campaign capture saved: %s" % new_campaign_screenshot_path)
-		quit(1 if failures > 0 else 0)
+		root.get_node("PCAudio").request_quit(1 if failures > 0 else 0)
 		return
 	screen.new_campaign_title.text = "Signal Road"
 	screen._create_named_campaign(false)
@@ -160,7 +160,7 @@ func _run() -> void:
 				await process_frame
 			get_root().get_texture().get_image().save_png(export_screenshot_path)
 			print("creator export center capture saved: %s" % export_screenshot_path)
-			quit(1 if failures > 0 else 0)
+			root.get_node("PCAudio").request_quit(1 if failures > 0 else 0)
 			return
 		if not real_shell.is_empty():
 			screen._export_linux_from_center()
@@ -195,7 +195,7 @@ func _run() -> void:
 				await process_frame
 			get_root().get_texture().get_image().save_png(rename_screenshot_path)
 			print("creator rename capture saved: %s" % rename_screenshot_path)
-			quit(1 if failures > 0 else 0)
+			root.get_node("PCAudio").request_quit(1 if failures > 0 else 0)
 			return
 		screen.rename_input.text = "Relay Adventure"
 		screen._apply_rename()
@@ -230,7 +230,7 @@ func _run() -> void:
 				await process_frame
 			get_root().get_texture().get_image().save_png(import_screenshot_path)
 			print("creator import capture saved: %s" % import_screenshot_path)
-			quit(1 if failures > 0 else 0)
+			root.get_node("PCAudio").request_quit(1 if failures > 0 else 0)
 			return
 		screen._open_import_dialog()
 		_expect("optional desktop archive picker opens", screen.import_dialog.visible, true)
@@ -256,7 +256,7 @@ func _run() -> void:
 				await process_frame
 			get_root().get_texture().get_image().save_png(screenshot_path)
 			print("creator project actions capture saved: %s" % screenshot_path)
-			quit(1 if failures > 0 else 0)
+			root.get_node("PCAudio").request_quit(1 if failures > 0 else 0)
 			return
 		screen._play_project(original_id)
 		await process_frame
@@ -268,7 +268,7 @@ func _run() -> void:
 
 	if failures == 0:
 		print("creator screen smoke passed")
-	quit(1 if failures > 0 else 0)
+	root.get_node("PCAudio").request_quit(1 if failures > 0 else 0)
 
 
 func _exercise_migration_cards(screen: Control, project_id: String, source: String) -> void:
@@ -285,7 +285,7 @@ func _exercise_migration_cards(screen: Control, project_id: String, source: Stri
 	if screen.project_notice_labels.has(project_id):
 		_expect(
 			"legacy project card explains recovery copy",
-			screen.project_notice_labels[project_id].text.contains("1.3 → 1.5"),
+			screen.project_notice_labels[project_id].text.contains("1.3 → 1.6"),
 			true
 		)
 	_expect(
@@ -345,12 +345,12 @@ func _exercise_migration_cards(screen: Control, project_id: String, source: Stri
 	_expect(
 		"opening legacy project reports completed migration",
 		screen.status_label.text,
-		"UPDATED 1.3 → 1.5  /  ORIGINAL RECOVERY COPY KEPT"
+		"UPDATED 1.3 → 1.6  /  ORIGINAL RECOVERY COPY KEPT"
 	)
 	_expect(
 		"opened legacy source reaches current schema",
 		str(screen.library.inspect_source(project_id).project.schemaVersion),
-		"1.5.0"
+		"1.6.0"
 	)
 	_expect(
 		"completed migration stays visible on project card",
@@ -372,7 +372,7 @@ func _exercise_migration_cards(screen: Control, project_id: String, source: Stri
 	var count_before: int = screen.library.list_projects().size()
 	screen._import_project(archive_path)
 	_expect("old import asks before adding a project", screen.migration_layer.visible, true)
-	_expect("1.4 import shows only personal choice step", screen.migration_body.text.contains("Heroes") and not screen.migration_body.text.contains("language"), true)
+	_expect("1.4 import shows personal choices and packs without repeating source language", screen.migration_body.text.contains("Heroes") and screen.migration_body.text.contains("packs") and not screen.migration_body.text.contains("language"), true)
 	screen.migration_cancel_button.pressed.emit()
 	_expect("cancelled import adds no project", screen.library.list_projects().size(), count_before)
 	_expect("cancelled import preserves archive", FileAccess.get_file_as_bytes(archive_path), original_archive)
@@ -382,7 +382,7 @@ func _exercise_migration_cards(screen: Control, project_id: String, source: Stri
 	_expect("confirmed import still preserves archive", FileAccess.get_file_as_bytes(archive_path), original_archive)
 	var imported: Dictionary = screen.library.inspect_source(str(archive_source.packageId))
 	_expect("confirmed import preserves source language", imported.project.sourceLanguage, "pt-BR")
-	_expect("confirmed import reaches 1.5", imported.project.schemaVersion, "1.5.0")
+	_expect("confirmed import reaches 1.6", imported.project.schemaVersion, "1.6.0")
 	_expect("confirmed import keeps exact recovery source", FileAccess.get_file_as_bytes(screen.library.root_path.path_join(str(archive_source.packageId)).path_join(str(imported.migration.backup.file))), archive_bytes)
 	screen.library._remove_tree(screen.library.root_path.path_join(str(archive_source.packageId)))
 	screen._refresh_projects()

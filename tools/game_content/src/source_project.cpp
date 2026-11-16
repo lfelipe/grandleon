@@ -868,6 +868,11 @@ CampaignMember read_member(
     member.states_starting_weapons =
         mapper.member(*object, "startingWeaponIds", path, false) != nullptr;
     member.starting_weapons = mapper.references(*object, "startingWeaponIds", path);
+    member.states_carry_capacity = mapper.member(*object, "carryCapacity", path, false) != nullptr;
+    if (member.states_carry_capacity) {
+        const auto capacity = mapper.integer(*object, "carryCapacity", path, 0, 64);
+        if (capacity) member.carry_capacity = static_cast<std::uint16_t>(*capacity);
+    }
     const auto policy = mapper.string(*object, "defeatPolicy", path, false);
     if (policy) {
         if (*policy == "inherit") member.defeat_policy = DefeatPolicy::inherit;
@@ -1608,6 +1613,26 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                 // halves can be compared against each other.
                 result.drop_item =
                     mapper.reference(value, "dropItemId", path, false);
+                result.states_carry_capacity = mapper.member(value, "carryCapacity", path, false) != nullptr;
+                if (result.states_carry_capacity) {
+                    const auto capacity = mapper.integer(value, "carryCapacity", path, 0, 64);
+                    if (capacity) result.carry_capacity = static_cast<std::uint16_t>(*capacity);
+                }
+                if (mapper.member(value, "dropGold", path, false) != nullptr) {
+                    const auto gold = mapper.integer(value, "dropGold", path, 1, 32767);
+                    if (gold) result.drop_gold = static_cast<std::uint16_t>(*gold);
+                }
+                result.drop_weapon_id = mapper.reference(value, "dropWeaponId", path, false);
+                const bool has_weapon = mapper.member(value, "dropWeaponId", path, false) != nullptr;
+                const bool has_weapon_chance = mapper.member(value, "dropWeaponChance", path, false) != nullptr;
+                if (has_weapon_chance) {
+                    const auto chance = mapper.integer(value, "dropWeaponChance", path, 1, 100);
+                    if (chance) result.drop_weapon_chance = static_cast<std::uint8_t>(*chance);
+                }
+                if (has_weapon != has_weapon_chance) {
+                    mapper.error(SourceDiagnosticCode::invalid_value, path + ".dropWeaponId",
+                        "dropWeaponId and dropWeaponChance must be authored together");
+                }
                 if (mapper.member(value, "dropChance", path, false) !=
                     nullptr) {
                     const auto chance =
@@ -2218,6 +2243,12 @@ SourceParseResult parse_source_project_json(std::string_view json) {
             const auto campaign_name =
                 mapper.string(*value, "name", campaign_path);
             if (campaign_name) campaign.name = *campaign_name;
+            const auto inventory_mode = mapper.string(*value, "inventoryMode", campaign_path, false);
+            if (inventory_mode) {
+                if (*inventory_mode == "carried") campaign.inventory_mode = InventoryMode::carried;
+                else mapper.error(SourceDiagnosticCode::invalid_value, campaign_path + ".inventoryMode",
+                    "expected carried; omit inventoryMode for legacy behavior");
+            }
             const auto player_mode =
                 mapper.string(*value, "playerMode", campaign_path, false);
             if (!player_mode || *player_mode == "one") {
@@ -2331,6 +2362,7 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                     output_node.encounter_id =
                         core::stable_content_id_v1(encounter_key);
                     Encounter encounter;
+                    encounter.inventory_mode = campaign.inventory_mode;
                     encounter.id = output_node.encounter_id;
                     const auto name = mapper.string(*node, "name", node_path);
                     if (name) encounter.name = *name;
@@ -7443,12 +7475,12 @@ SourceTextResult set_source_campaign_member_rules_json(
         return result;
     }
     for (const auto& entry : *fields) {
-        if (entry.first != "weaponAffinityTypeIds" && entry.first != "startingWeaponIds" && entry.first != "defeatPolicy") {
+        if (entry.first != "weaponAffinityTypeIds" && entry.first != "startingWeaponIds" && entry.first != "defeatPolicy" && entry.first != "carryCapacity") {
             refuse_edit(result, SourceDiagnosticCode::invalid_value, member_path, "unknown character rule");
             return result;
         }
     }
-    for (const char* key : {"weaponAffinityTypeIds", "startingWeaponIds", "defeatPolicy"}) {
+    for (const char* key : {"weaponAffinityTypeIds", "startingWeaponIds", "defeatPolicy", "carryCapacity"}) {
         const auto value = fields->find(key);
         if (value == fields->end()) member->erase(key);
         else (*member)[key] = value->second;
@@ -8012,6 +8044,133 @@ SourceTextResult set_source_unit_type_kit_entry_json(
         "role loadout edit would make this playable project invalid"
     );
     return result;
+}
+
+
+SourceTextResult set_source_unit_type_drops_json(
+    std::string_view source_json,
+    std::string_view unit_type_id,
+    std::string_view drops_json
+) {
+    SourceTextResult result;
+    const SourceParseResult before = parse_source_project_json(source_json);
+    if (!before) { result.diagnostics = before.diagnostics; return result; }
+    Json document;
+    Json requested;
+    try {
+        document = JsonParser(source_json).parse();
+        requested = JsonParser(drops_json).parse();
+    } catch (const JsonError&) {
+        refuse_edit(result, SourceDiagnosticCode::invalid_json, "$.unitTypes", "drops must be JSON");
+        return result;
+    }
+    auto* root = std::get_if<Object>(&document.value);
+    auto* units = root == nullptr ? nullptr : mutable_array(*root, "unitTypes");
+    std::size_t index = 0;
+    auto* unit = units == nullptr ? nullptr : find_object_by_id(*units, unit_type_id, &index);
+    const std::string path = "$.unitTypes[" + std::to_string(index) + "]";
+    if (!valid_source_key(unit_type_id) || unit == nullptr) {
+        refuse_edit(result, SourceDiagnosticCode::invalid_value, "$.unitTypes", "role was not found");
+        return result;
+    }
+    const auto* fields = std::get_if<Object>(&requested.value);
+    if (fields == nullptr) {
+        refuse_edit(result, SourceDiagnosticCode::invalid_value, path, "drops must be an object");
+        return result;
+    }
+    for (const auto& entry : *fields) {
+        if (entry.first != "dropGold" && entry.first != "dropWeaponId" && entry.first != "dropWeaponChance" &&
+            entry.first != "dropItemId" && entry.first != "dropChance") {
+            refuse_edit(result, SourceDiagnosticCode::invalid_value, path, "unknown drop field");
+            return result;
+        }
+    }
+    for (const auto& pair : {std::pair{"dropItemId", "dropChance"}, std::pair{"dropWeaponId", "dropWeaponChance"}}) {
+        const auto identity = fields->find(pair.first);
+        if ((identity == fields->end()) != (fields->find(pair.second) == fields->end())) {
+            refuse_edit(result, SourceDiagnosticCode::invalid_value, path, "drop identity and chance must be authored together");
+            return result;
+        }
+        if (identity == fields->end()) continue;
+        const auto* key = std::get_if<std::string>(&identity->second.value);
+        const char* collection = std::string_view(pair.first) == "dropItemId" ? "items" : "weapons";
+        auto* assets = mutable_array(*root, collection);
+        if (key == nullptr || !valid_source_key(*key) || assets == nullptr || find_object_by_id(*assets, *key) == nullptr) {
+            refuse_edit(result, SourceDiagnosticCode::invalid_value, path + "." + pair.first, "drop was not found in the project");
+            return result;
+        }
+    }
+    for (const char* key : {"dropGold", "dropWeaponId", "dropWeaponChance", "dropItemId", "dropChance"}) {
+        const auto value = fields->find(key);
+        if (value == fields->end()) unit->erase(key);
+        else (*unit)[key] = value->second;
+    }
+    const bool was_playable = static_cast<bool>(compile(before.source));
+    finish_document_edit(document, result);
+    if (!result || !was_playable) return result;
+    const SourceParseResult after = parse_source_project_json(result.json);
+    if (after && compile(after.source)) return result;
+    result.json.clear();
+    refuse_edit(result, SourceDiagnosticCode::invalid_value, path, "drop edit would make this playable project invalid");
+    return result;
+}
+
+namespace {
+SourceTextResult set_source_inventory_field(
+    std::string_view source_json, std::string_view collection,
+    std::string_view identity, std::string_view field, const Json* value
+) {
+    SourceTextResult result;
+    const auto before = parse_source_project_json(source_json);
+    if (!before) { result.diagnostics = before.diagnostics; return result; }
+    Json document;
+    try { document = JsonParser(source_json).parse(); }
+    catch (const JsonError&) { return result; }
+    auto* root = std::get_if<Object>(&document.value);
+    auto* records = root == nullptr ? nullptr : mutable_array(*root, collection);
+    auto* record = records == nullptr ? nullptr : find_object_by_id(*records, identity);
+    const std::string path = "$." + std::string(collection);
+    if (!valid_source_key(identity) || record == nullptr) {
+        refuse_edit(result, SourceDiagnosticCode::invalid_value, path, "inventory owner was not found");
+        return result;
+    }
+    if (value == nullptr) record->erase(std::string(field));
+    else (*record)[std::string(field)] = *value;
+    const bool was_playable = static_cast<bool>(compile(before.source));
+    finish_document_edit(document, result);
+    if (!result || !was_playable) return result;
+    const auto after = parse_source_project_json(result.json);
+    if (after && compile(after.source)) return result;
+    result.json.clear();
+    refuse_edit(result, SourceDiagnosticCode::invalid_value, path,
+        "inventory edit would make this playable project invalid");
+    return result;
+}
+}  // namespace
+
+SourceTextResult set_source_unit_type_carry_capacity_json(
+    std::string_view source_json, std::string_view unit_type_id,
+    std::int64_t capacity, bool stated
+) {
+    if (stated && (capacity < 0 || capacity > 64)) {
+        SourceTextResult result;
+        refuse_edit(result, SourceDiagnosticCode::invalid_value, "$.unitTypes", "carryCapacity must be between 0 and 64");
+        return result;
+    }
+    const Json value{capacity};
+    return set_source_inventory_field(source_json, "unitTypes", unit_type_id, "carryCapacity", stated ? &value : nullptr);
+}
+
+SourceTextResult set_source_campaign_inventory_mode_json(
+    std::string_view source_json, std::string_view campaign_id, std::string_view mode
+) {
+    if (!mode.empty() && mode != "carried") {
+        SourceTextResult result;
+        refuse_edit(result, SourceDiagnosticCode::invalid_value, "$.campaigns", "inventory mode must be carried, or empty to omit it");
+        return result;
+    }
+    const Json value{std::string(mode)};
+    return set_source_inventory_field(source_json, "campaigns", campaign_id, "inventoryMode", mode.empty() ? nullptr : &value);
 }
 
 }  // namespace grandleon::game_content

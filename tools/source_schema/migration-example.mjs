@@ -127,6 +127,12 @@ export const EXAMPLE_STEPS = [
     to: "1.5.0",
     changed: SEVENTH_CHANGE,
     apply: (project) => project
+  },
+  {
+    from: "1.5.0",
+    to: "1.6.0",
+    changed: "characters can carry limited packs and collect gold, weapons and items during battle",
+    apply: (project) => project
   }
 ];
 

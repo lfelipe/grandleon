@@ -1,0 +1,26 @@
+{
+  "description": "Personal equipment and acquired weapon choice using ordinary controller inputs in the production MIPSYNC player.",
+  "date": "2026-11-16",
+  "fixtures": {
+    "full_pack": "out/loot06/personal-inventory-acceptance.json",
+    "compatible_weapon": "out/loot06/ps1-second-weapon-acceptance.json"
+  },
+  "build": "out/loot06/ps1-second-weapon",
+  "stage_01_executable_sha256": "660e6d517d534fa05984b4e0895c288b624817136d1222e10e17ab647c2f43d5",
+  "validation": {
+    "full_collection": "out/loot06/ps1-inventory-probe-v8.log; exit 0, exact ownership and gold retained across stages",
+    "acquired_weapon": "out/loot06/ps1-weapon-probe.log; exit 0, enemy HP20 to8, damage12, original primary retained, wallet11",
+    "production_build": "out/loot06/ps1-second-weapon-build.log"
+  },
+  "probe": "platform/playstation/mipsync/tests/personal_inventory_probe.lua",
+  "bindings": "platform/playstation/mipsync/tests/personal-inventory-bindings.py",
+  "scope": "Pinned PCSX-Redux emulator, production build, ordinary controller inputs. Read-only linked ELF layouts and RAM assertions. No hardware or frame-rate claim. Small functional test maps, not the main demo campaign.",
+  "screenshots": {
+    "pack": "out/loot06/ps1-personal-pack.png",
+    "full_pack": "out/loot06/ps1-full-pack-exchange.png",
+    "weapon_choice": "out/loot06/ps1-named-weapon-menu.png",
+    "forecast": "out/loot06/ps1-long-blade-forecast.png",
+    "gold_pending": "out/loot06/ps1-weapon-gold-pending.png",
+    "gold_saved": "out/loot06/ps1-weapon-gold-settled.png"
+  }
+}

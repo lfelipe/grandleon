@@ -53,6 +53,7 @@ def emit_definition(
         f"    definition.width={int(document['width'])}; definition.height={int(document['height'])};",
         f"    definition.turn_order=static_cast<sim::TurnOrder>({int(simulation['turn_order'])});",
         f"    definition.random_seed={int(simulation['random_seed'])}ULL;",
+        f"    definition.inventory_mode=static_cast<sim::InventoryMode>({int(simulation.get('inventory_mode', 0))});",
         "    definition.terrain={" + ",".join(
             f"static_cast<sim::Terrain>({int(value)})"
             for value in document["passability"]
@@ -83,6 +84,15 @@ def emit_definition(
             )
         for field in ("ability_ids", "weapon_ids", "item_ids"):
             lines.append(f"      value.{field}={ids(source[field])};")
+        for field in ("carry_capacity", "drop_gold", "drop_weapon_chance"):
+            lines.append(f"      value.{field}={int(source.get(field, 0))};")
+        for field in ("states_carry_capacity", "states_weapon_affinities", "drop_inventory_on_defeat"):
+            lines.append(f"      value.{field}={'true' if source.get(field, 0) else 'false'};")
+        lines.append(f"      value.drop_weapon_id={int(source.get('drop_weapon_id', 0))}ULL;")
+        lines.append(f"      value.weapon_affinities={ids(source.get('weapon_affinities', []))};")
+        for category, identity, quantity in source.get("carried_inventory", []):
+            lines.append("      value.carried_inventory.push_back({static_cast<grandleon::core::ContentCategory>("
+                         f"{int(category)}),{int(identity)}ULL,{int(quantity)}}});")
         lines += [
             f"      value.item_counts={nums(source['item_counts'])};",
             f"      value.drop_item_id={int(source['drop_item_id'])}ULL; value.talk_record_id={int(source['talk_record_id'])}ULL;",
@@ -315,11 +325,15 @@ def emit_localizations(
         "struct generated_localized_dialogue final {",
         "    std::uint64_t id; std::vector<grandleon_generated_dialogue_line> lines;",
         "};",
+        "struct generated_localized_equipment final {",
+        "    std::uint32_t category; std::uint64_t id; const char* name;",
+        "};",
         "struct generated_language final {",
         "    const char* code; const char* project_title; const char* objective;",
         "    std::vector<generated_localized_member> members;",
         "    std::vector<generated_localized_node> nodes;",
         "    std::vector<generated_localized_dialogue> moments;",
+        "    std::vector<generated_localized_equipment> equipment;",
         "};",
         "const std::vector<generated_language>& generated_languages() {",
     ]
@@ -388,6 +402,10 @@ def emit_localizations(
             )) + "}"
             for moment in moments
         )
+        equipment_values = ",".join(
+            "{" + f"{int(value['category'])},{int(value['id'])}ULL," + cpp_string(value["name"]) + "}"
+            for value in language.get("equipment", [])
+        )
         language_values.append(
             "        {" + ",".join((
                 cpp_string(language.get("code", "en")),
@@ -396,6 +414,7 @@ def emit_localizations(
                 "{" + member_values + "}",
                 "{" + node_values + "}",
                 "{" + moment_values + "}",
+                "{" + equipment_values + "}",
             )) + "},"
         )
     lines += ["    static const std::vector<generated_language> values = {"] + language_values
@@ -430,6 +449,11 @@ def emit_localizations(
         "}",
         "}",
         "",
+        "const char* grandleon_generated_equipment_name(unsigned language, std::uint32_t category, std::uint64_t id) {",
+        "    for (const auto& value : generated_language(language).equipment)",
+        "        if (value.category == category && value.id == id) return value.name;",
+        "    return \"?\";",
+        "}",
         "unsigned grandleon_generated_language_count() {",
         "    return static_cast<unsigned>(generated_languages().size());",
         "}",
@@ -665,8 +689,10 @@ def main() -> int:
             ids(member.get("starting_weapons", [])) + ", " +
             f"{'true' if member.get('states_weapon_affinities', 0) else 'false'}, " +
             f"{'true' if member.get('states_starting_weapons', 0) else 'false'}, " +
-            f"static_cast<grandleon::package_runtime::DefeatPolicy>({int(member.get('defeat_policy', 0))})" + "}, " +
-            ids(member.get("starting_items", [])) + "},"
+            f"static_cast<grandleon::package_runtime::DefeatPolicy>({int(member.get('defeat_policy', 0))}), " +
+            f"{int(member.get('carry_capacity', 0))}, " +
+            f"{'true' if member.get('states_carry_capacity', 0) else 'false'}" + "}, " +
+            ids(member.get("starting_items", [])) + ", " + ids(member.get("recruited_weapons", [])) + "},"
         )
     lines += [
         "    };", "    return values;", "}", "",
@@ -717,6 +743,7 @@ def main() -> int:
         lines.append(f"    case {identifier}ULL: return {int(unit.get('source_id', 0))}ULL;")
     lines += ["    default: return 0;", "    }", "}",
         "bool grandleon_generated_permanent_loss() { return " + ("true" if campaign.get("permanent_loss", 1) else "false") + "; }",
+        "bool grandleon_generated_carried_inventory() { return " + ("true" if campaign.get("inventory_mode", 0) else "false") + "; }",
         "bool grandleon_generated_company_endures() { return " + ("true" if campaign.get("company_endures", 0) else "false") + "; }"]
     args.output.mkdir(parents=True, exist_ok=True)
     (args.output / "simulation_data.cpp").write_text("\n".join(lines), encoding="utf-8")
@@ -744,6 +771,7 @@ struct grandleon_generated_campaign_node final {{
 std::uint64_t grandleon_generated_unit_source(std::uint64_t id);
 bool grandleon_generated_permanent_loss();
 bool grandleon_generated_company_endures();
+bool grandleon_generated_carried_inventory();
 struct grandleon_generated_campaign_member final {{
     std::uint64_t persistent_id{{}};
     std::uint64_t source_id{{}};
@@ -753,6 +781,7 @@ struct grandleon_generated_campaign_member final {{
     bool player_nameable{{}};
     grandleon::package_runtime::MemberRules rules;
     std::vector<std::uint64_t> starting_items;
+    std::vector<std::uint64_t> recruited_weapons;
 }};
 struct grandleon_generated_moment final {{
     std::uint64_t id{{}};
@@ -780,6 +809,7 @@ const std::vector<grandleon_generated_campaign_node>& grandleon_generated_campai
 const grandleon_generated_campaign_node* grandleon_generated_campaign_node_for(std::uint64_t id);
 const std::vector<std::uint64_t>& grandleon_generated_objective_ids();
 unsigned grandleon_generated_language_count();
+const char* grandleon_generated_equipment_name(unsigned language, std::uint32_t category, std::uint64_t id);
 const char* grandleon_generated_language_code(unsigned language);
 const char* grandleon_generated_project_title_for(unsigned language);
 const char* grandleon_generated_objective_for(unsigned language);

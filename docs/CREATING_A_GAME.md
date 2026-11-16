@@ -51,6 +51,14 @@ alone.
 Ordinary enemies can be placed from reusable archetypes; they do not need
 their own hero or class definition.
 
+New campaigns give each archetype five pack slots. A weapon or item copy uses
+one slot, including the weapon in hand; gold uses none. **Hero Choices**
+can give a named hero their own pack size, which stays with them when their
+role changes. Existing projects keep their old inventory behavior until you
+choose **Use Personal Packs in This Campaign**. Equipment found in battle stays
+on the map until a character collects it. A full pack lets you leave it or
+exchange an older item. Gold goes to the campaign wallet.
+
 ## Make the first battle
 
 Open the map from the guide. **Brush**, **Fill** and **Rectangle** paint terrain;
@@ -68,6 +76,18 @@ has joined. Switch the **1P** and **2P** tabs above the map to compare and edit
 each formation in the same view. Moving a unit in 2P keeps its 1P position.
 Under **Battle Setup**, you can also arrange
 reinforcements, patrols and the differences between solo and co-op forces.
+**Pack & Drops**, beside an enemy archetype, sets its pack size and the gold,
+weapon or item it leaves when defeated. The preview shows exact chances, and
+the settings apply to every enemy using that archetype, including reinforcements.
+Acquired equipment belongs to the character who obtains it. A full pack offers
+a choice to leave equipment or exchange a carried copy; nothing is sent
+automatically to shared supplies. During a test, select a hero again to open
+their actions, then choose **Pack / Pick up**. Move onto dropped equipment to
+collect it. After victory, **Continue** shows how many copies you would leave
+behind; choose it when you have finished collecting.
+When a hero can use several carried weapons, their actions list an attack for
+each weapon by name. Choose one to see its targets and damage. Both weapons
+stay in the pack; the choice applies to that attack.
 **Edit Objective** explains the actual win or loss rule. Choose **This Battle**,
 **Reuse**, or **Create** directly; a target goal starts with a suitable
 enemy or ally. Multiple goals can end the battle independently.

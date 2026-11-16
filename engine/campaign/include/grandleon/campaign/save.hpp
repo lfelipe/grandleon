@@ -184,6 +184,9 @@ enum class SaveSectionType : std::uint32_t {
     // Required when currency exists: old readers must refuse rather than
     // treat money as ordinary equipment. Saves without currency omit it.
     currency_inventory = 8,
+    // Personal equipment is authoritative, even when every pack is empty.
+    // Readers that might regenerate role equipment must refuse this save.
+    carried_inventory = 9,
 };
 
 [[nodiscard]] std::string_view save_section_name(std::uint32_t type) noexcept;
@@ -288,6 +291,7 @@ struct CampaignSave final {
     CampaignState state;
     // Ascending type, no duplicates, and never a type this build knows.
     std::vector<RetainedSection> retained;
+    bool carried_inventory{false};
 };
 
 [[nodiscard]] bool operator==(const CampaignSave& lhs, const CampaignSave& rhs) noexcept;

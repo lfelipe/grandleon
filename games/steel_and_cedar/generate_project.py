@@ -627,7 +627,7 @@ def build_project() -> dict:
     ))
 
     project = {
-        "schemaVersion": "1.5.0",
+        "schemaVersion": "1.6.0",
         "sourceLanguage": "en",
         "packageId": "751d322d-dc60-4c6d-a1e1-821e4dd7c617",
         "gameId": "grandleon.steel_and_cedar",

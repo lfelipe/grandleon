@@ -39,7 +39,8 @@ enum grandleon_ui_mode {
     GRANDLEON_UI_TITLE_HELP,
     GRANDLEON_UI_TITLE_SETTINGS,
     GRANDLEON_UI_NAME,
-    GRANDLEON_UI_STAGE_OVERVIEW
+    GRANDLEON_UI_STAGE_OVERVIEW,
+    GRANDLEON_UI_PACK
 };
 
 enum grandleon_ui_text_id {
@@ -95,13 +96,14 @@ enum grandleon_ui_text_id {
     GRANDLEON_TEXT_DEPLOYMENT,
     GRANDLEON_TEXT_SELECT,
     GRANDLEON_TEXT_DEPLOY,
-    GRANDLEON_TEXT_BEGIN
+    GRANDLEON_TEXT_BEGIN,
+    GRANDLEON_TEXT_COLLECTION
 };
 
 typedef struct grandleon_ui_state {
     uint8_t mode;
-    uint8_t menu_index;
-    uint8_t menu_count;
+    uint16_t menu_index;
+    uint16_t menu_count;
     uint8_t ability_count;
     uint8_t ability_index;
     uint8_t hit_chance;
@@ -149,6 +151,7 @@ typedef struct grandleon_ui_state {
     uint16_t portrait_texture;
     uint8_t talking_phase;
     uint8_t deployment_selected;
+    uint8_t collecting_loot;
 } grandleon_ui_state;
 
 enum grandleon_action_kind {
@@ -156,7 +159,8 @@ enum grandleon_action_kind {
     GRANDLEON_ACTION_ABILITY,
     GRANDLEON_ACTION_ITEM,
     GRANDLEON_ACTION_TALK,
-    GRANDLEON_ACTION_WAIT
+    GRANDLEON_ACTION_WAIT,
+    GRANDLEON_ACTION_EQUIPMENT
 };
 
 int grandleon_game_init(void);
@@ -167,10 +171,16 @@ int grandleon_game_update(
 int grandleon_game_focus_point(uint8_t index, int32_t* x, int32_t* y, int32_t* z);
 uint8_t grandleon_game_movement_edges(uint16_t index);
 int grandleon_game_movement_tile(uint16_t index, int32_t* x, int32_t* y, int32_t* z);
+uint16_t grandleon_game_ground_count(void);
+int grandleon_game_ground_tile(uint16_t index, int32_t* x, int32_t* y, int32_t* z);
 uint16_t grandleon_game_map_controller(uint16_t pressed);
 void grandleon_game_ui_state(grandleon_ui_state* output);
 const char* grandleon_game_text(uint8_t text_id);
-uint8_t grandleon_game_action_kind(uint8_t index);
+uint8_t grandleon_game_action_kind(uint16_t index);
+const char* grandleon_game_action_label(uint16_t index);
+const char* grandleon_game_pack_heading(void);
+const char* grandleon_game_pack_incoming(void);
+const char* grandleon_game_gold(void);
 const char* grandleon_game_name_key(uint8_t row, uint8_t column);
 void grandleon_game_set_fps(uint16_t fps);
 void grandleon_game_log_boot(unsigned int packet_bytes);

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include <grandleon/game_content/compiler.hpp>
+#include <grandleon/core/currency.hpp>
 
 #include <grandleon/simulation/encounter.hpp>
 
@@ -1779,6 +1780,10 @@ CompileResult compile(const GameSource& source) {
         std::set<std::pair<StableId, StableId>> granted;
         std::set<std::pair<StableId, StableId>> granted_weapons;
         for (const CampaignItemGrant& grant : definition.grants) {
+            if (definition.inventory_mode == InventoryMode::carried) {
+                result.diagnostics.push_back({DiagnosticCode::invalid_range,
+                    path + ".grants", definition.id});
+            }
             const std::string grant_path =
                 grant.join_node_id == 0 ? path + ".starting_store"
                                         : path + ".nodes.grants";
@@ -1993,6 +1998,63 @@ CompileResult compile(const GameSource& source) {
         }
     }
 
+    // Inventory rules are explicit; importing an old campaign never enables them.
+    for (const auto& type : source.unit_types) {
+        const auto path = "unit_types[" + std::to_string(type.id) + "]";
+        if (type.drop_gold > 32767U || type.drop_weapon_chance > 100U ||
+            type.carry_capacity > 64U || (!type.states_carry_capacity && type.carry_capacity))
+            result.diagnostics.push_back({DiagnosticCode::invalid_range,path+".inventory",type.id});
+        if ((type.drop_weapon_id == 0U) != (type.drop_weapon_chance == 0U))
+            result.diagnostics.push_back({DiagnosticCode::incomplete_pair,path+".drop_weapon",type.id});
+        if(type.drop_weapon_id) validate_reference(type.drop_weapon_id,weapon_ids,path+".drop_weapon_id",result.diagnostics);
+        if(type.states_carry_capacity && type.starting_weapons.size()+type.starting_items.size()>type.carry_capacity)
+            result.diagnostics.push_back({DiagnosticCode::invalid_range,path+".carry_capacity",type.id});
+    }
+    for (const auto& encounter : source.encounters) {
+        if (static_cast<unsigned>(encounter.inventory_mode) > 1U)
+            result.diagnostics.push_back({DiagnosticCode::invalid_range, "encounters.inventory_mode", encounter.id});
+        if (encounter.inventory_mode != InventoryMode::carried) {
+            for (const auto& placement : encounter.placements) {
+                const auto role = unit_types_by_id.find(placement.unit_type_id);
+                if (role != unit_types_by_id.end() && (role->second->states_carry_capacity || role->second->drop_weapon_id))
+                    result.diagnostics.push_back({DiagnosticCode::invalid_range, "encounters.inventory_mode", encounter.id});
+            }
+        }
+    }
+    for (const auto& campaign : source.campaigns) {
+        const bool carried=campaign.inventory_mode==InventoryMode::carried;
+        const auto path="campaigns["+std::to_string(campaign.id)+"]";
+        if(static_cast<unsigned>(campaign.inventory_mode)>1U)
+            result.diagnostics.push_back({DiagnosticCode::invalid_range,path+".inventory_mode",campaign.id});
+        const auto check_role=[&](StableId id) {
+            const auto type=unit_types_by_id.find(id);
+            if(type!=unit_types_by_id.end() && !carried &&
+               (type->second->states_carry_capacity || type->second->drop_weapon_id))
+                result.diagnostics.push_back({DiagnosticCode::invalid_range,path+".inventory_mode",id});
+        };
+        for(const auto& member:campaign.roster){
+            check_role(member.unit_type_id);
+            if(member.carry_capacity>64U || (!member.states_carry_capacity && member.carry_capacity) ||
+               (member.states_carry_capacity && !carried))
+                result.diagnostics.push_back({DiagnosticCode::invalid_range,path+".roster.carry_capacity",member.id});
+            const auto type=unit_types_by_id.find(member.unit_type_id);
+            if(type==unit_types_by_id.end()) continue;
+            const auto& role=*type->second;
+            const auto& weapons=member.states_starting_weapons?member.starting_weapons:role.starting_weapons;
+            const bool stated=member.states_carry_capacity || role.states_carry_capacity;
+            const auto capacity=member.states_carry_capacity?member.carry_capacity:role.carry_capacity;
+            if(carried && stated && weapons.size()+role.starting_items.size()>capacity)
+                result.diagnostics.push_back({DiagnosticCode::invalid_range,path+".roster.carry_capacity",member.id});
+        }
+        for(const auto& node:campaign.nodes){
+            for(const auto& encounter:source.encounters){
+                if(encounter.id!=node.encounter_id || node.kind!=CampaignNodeKind::encounter) continue;
+                if(encounter.inventory_mode!=campaign.inventory_mode)
+                    result.diagnostics.push_back({DiagnosticCode::invalid_range,path+".inventory_mode",encounter.id});
+                for(const auto& placement:encounter.placements) check_role(placement.unit_type_id);
+            }
+        }
+    }
     if (!result.diagnostics.empty()) {
         return result;
     }
@@ -3043,7 +3105,8 @@ CompileResult compile(const GameSource& source) {
                     const std::uint8_t flags =
                         (member.states_weapon_affinities ? 1U : 0U) |
                         (member.states_starting_weapons ? 2U : 0U) |
-                        (policy != 0U ? 4U : 0U);
+                        (policy != 0U ? 4U : 0U) |
+                        (member.states_carry_capacity ? 8U : 0U);
                     if (flags == 0U) continue;
                     ++count;
                     put_u64(rows, member.id);
@@ -3051,6 +3114,7 @@ CompileResult compile(const GameSource& source) {
                     if (member.states_weapon_affinities) put_ids(rows, member.weapon_affinities);
                     if (member.states_starting_weapons) put_ids(rows, member.starting_weapons);
                     if (policy != 0U) rows.push_back(policy);
+                    if (member.states_carry_capacity) put_u16(rows,member.carry_capacity);
                 }
                 if (count == 0U) continue;
                 Bytes bytes;
@@ -3275,6 +3339,43 @@ CompileResult compile(const GameSource& source) {
                 }}
             }
         );
+    }
+    // Sparse required records preserve all old bytes when these rules are absent.
+    {
+        package_format::SectionSource rules;
+        rules.type=package_format::SectionType::unit_loot;
+        const bool any_carried=std::any_of(source.encounters.begin(),source.encounters.end(),[](const auto& encounter){
+            return encounter.inventory_mode==InventoryMode::carried;
+        });
+        for(const auto& role:source.unit_types){
+            const auto cls=classes_by_id.find(role.class_id);
+            const bool permitted=any_carried && cls!=classes_by_id.end() && cls->second->states_allowed_weapon_types;
+            if(!role.states_carry_capacity && !role.drop_gold && !role.drop_weapon_id && !permitted) continue;
+            Bytes bytes;
+            bytes.push_back(static_cast<std::uint8_t>((role.states_carry_capacity?1U:0U)|(permitted?2U:0U)));
+            put_u16(bytes,role.carry_capacity);put_u16(bytes,role.drop_gold);
+            bytes.push_back(role.drop_weapon_chance);put_u64(bytes,role.drop_weapon_id);
+            put_ids(bytes,permitted?cls->second->allowed_weapon_types:std::vector<StableId>{});
+            rules.records.push_back({role.id,std::move(bytes)});
+        }
+        if(!rules.records.empty()) package.sections.push_back(std::move(rules));
+        if(std::any_of(source.unit_types.begin(),source.unit_types.end(),[](const auto& type){return type.drop_gold!=0;})){
+            package_format::SectionSource currencies;
+            currencies.type=package_format::SectionType::currencies;
+            Bytes name;put_string(name,"Gold");
+            currencies.records.push_back({core::gold_currency_id,std::move(name)});
+            package.sections.push_back(std::move(currencies));
+        }
+        package_format::SectionSource campaigns;
+        campaigns.type=package_format::SectionType::campaign_inventory;
+        for(const auto& campaign:source.campaigns)
+            if(campaign.inventory_mode==InventoryMode::carried) campaigns.records.push_back({campaign.id,{1U}});
+        if(!campaigns.records.empty()) package.sections.push_back(std::move(campaigns));
+        package_format::SectionSource encounters;
+        encounters.type=package_format::SectionType::encounter_inventory;
+        for(const auto& encounter:source.encounters)
+            if(encounter.inventory_mode==InventoryMode::carried) encounters.records.push_back({encounter.id,{1U}});
+        if(!encounters.records.empty()) package.sections.push_back(std::move(encounters));
     }
     package.sections.erase(
         std::remove_if(

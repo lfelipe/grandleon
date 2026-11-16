@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 #include <algorithm>
 #include <grandleon/client/turn_client.hpp>
+#include <grandleon/simulation/carried_inventory.hpp>
 
 #include <grandleon/client/attack_gesture.hpp>
 #include <grandleon/client/console_localization.hpp>
@@ -227,6 +228,12 @@ const char* reason_name(Reason reason) noexcept {
 
 const char* refusal_text(sim::CommandError error) noexcept {
     switch (error) {
+        case sim::CommandError::inventory_disabled: return "NO PERSONAL INVENTORY IN THIS CAMPAIGN";
+        case sim::CommandError::inventory_full: return "BAG FULL";
+        case sim::CommandError::unknown_ground_item: return "ITEM NO LONGER THERE";
+        case sim::CommandError::ground_out_of_reach: return "MOVE TO THE ITEM FIRST";
+        case sim::CommandError::unavailable_inventory: return "ITEM NOT IN THIS BAG";
+        case sim::CommandError::invalid_inventory: return "CANNOT TRANSFER THAT ITEM";
         case sim::CommandError::none: return "";
         case sim::CommandError::encounter_complete: return "THE BATTLE IS OVER";
         case sim::CommandError::unknown_unit: return "NO SUCH UNIT";
@@ -660,6 +667,7 @@ void TurnClient::battle_begins(
     cursor_x_ = 0;
     cursor_y_ = 0;
     selected_ = 0;
+    pack_ = {};
     deploying_ = false;
     menu_open_ = false;
     board_menu_open_ = false;
@@ -816,6 +824,7 @@ void TurnClient::save_local_player() noexcept {
     state.menu_open = menu_open_;
     state.board_menu_open = board_menu_open_;
     state.sheet_open = sheet_open_;
+    state.pack = pack_;
     state.sheet = sheet_;
     state.aim = aim_;
     state.aim_weapon = aim_weapon_;
@@ -837,11 +846,12 @@ void TurnClient::sanitise_local_player(
 ) noexcept {
     if (state.selected == 0) return;
     const sim::UnitSnapshot* still = unit_by_id(snapshot, state.selected);
-    if (still != nullptr && sim::on_board(*still) && !still->has_acted &&
-        still->side == snapshot.active_side && controlled_by(*still, player)) {
+    if (still != nullptr && sim::on_board(*still) &&
+        (snapshot.collecting_loot || (!still->has_acted && still->side == snapshot.active_side)) && controlled_by(*still, player)) {
         return;
     }
     state.selected = 0;
+    state.pack = {};
     state.reopen_menu = 0;
     state.aim = Aim::none;
     state.aim_weapon = 0;
@@ -871,6 +881,7 @@ void TurnClient::activate_local_player(
     cursor_y_ = state.cursor_y;
     selected_ = state.selected;
     sheet_ = state.sheet;
+    pack_ = state.pack;
     aim_ = state.aim;
     aim_weapon_ = state.aim_weapon;
     aim_ability_ = state.aim_ability;
@@ -894,10 +905,13 @@ void TurnClient::activate_local_player(
     menu_row_ = 0;
     sheet_open_ = false;
     if (wanted_menu && wanted_board_menu) {
-        open_board_menu();
+        open_board_menu(snapshot);
     } else if (wanted_menu && selected_ != 0) {
         const sim::UnitSnapshot* actor = unit_by_id(snapshot, selected_);
-        if (actor != nullptr) open_menu(snapshot, *actor);
+        if (actor != nullptr) {
+            if (pack_.view != PackView::none) open_pack(snapshot);
+            else open_menu(snapshot, *actor);
+        }
     }
     if (menu_open_ && menu_rows_ > 0) {
         menu_row_ = wanted_row < 0
@@ -951,8 +965,8 @@ void TurnClient::draw(
     // the board about who may still be given orders.
     if (selected_ != 0) {
         const sim::UnitSnapshot* still = unit_by_id(snapshot, selected_);
-        if (still == nullptr || !sim::on_board(*still) || still->has_acted ||
-            still->side != snapshot.active_side ||
+        if (still == nullptr || !sim::on_board(*still) ||
+            (!snapshot.collecting_loot && (still->has_acted || still->side != snapshot.active_side)) ||
             !controlled_by(*still, active_local_player_)) {
             selected_ = 0;
         }
@@ -1490,7 +1504,8 @@ client::Intent TurnClient::next_intent(
     pending_ = client::Intent{};
     // The turn the player asked the board menu to finish, before a press is
     // read: the side owes these commands whether or not a thumb moves.
-    drain_side(snapshot);
+    if (!snapshot.collecting_loot) drain_side(snapshot);
+    else finishing_ = false;
     if (pending_.kind != client::IntentKind::none) return pending_;
     // A character that has just walked is asked what it does next, rather than
     // being left standing on a board with nothing said about it. On a board
@@ -1503,10 +1518,11 @@ client::Intent TurnClient::next_intent(
         if (walked == selected_) {
             // And a character the board has nothing left to offer ends its turn
             // where it stands, instead of being handed a menu whose every
-            // committing row the engine would refuse. `client::nothing_left_to_do`
-            // is the judgement and it is shared, so no two front ends can
-            // disagree about when a turn ends itself.
-            if (client::nothing_left_to_do(
+            // committing row the engine would refuse. Carried equipment still
+            // offers Pack/Pickup after walking, beyond the combat gestures
+            // checked by `client::nothing_left_to_do`.
+            if (!snapshot.collecting_loot && snapshot.inventory_mode != sim::InventoryMode::carried &&
+                client::nothing_left_to_do(
                     snapshot, walked, weapons_, abilities_, items_
                 )) {
                 selected_ = 0;
@@ -1569,6 +1585,11 @@ client::Intent TurnClient::next_deployment_intent(
 // ---------------------------------------------------------------------------
 
 void TurnClient::settle(const sim::EncounterSnapshot& snapshot) {
+    if (menu_open_ && pack_.view != PackView::none) {
+        const int caret = menu_row_;
+        open_pack(snapshot);
+        menu_row_ = std::max(0, std::min(caret, menu_rows_ - 1));
+    }
     refresh_queries(snapshot);
     build_overlay(snapshot);
     paint(snapshot, overlay_);
@@ -1998,6 +2019,7 @@ void TurnClient::press(
             menu_row_ = menu_row_ + 1 < menu_rows_ ? menu_row_ + 1 : 0;
         }
         if ((buttons & pad_b) != 0U) {
+            if (pack_.view != PackView::none) { back_pack(snapshot); return; }
             menu_open_ = false;
             board_menu_open_ = false;
             menu_rows_ = 0;
@@ -2079,7 +2101,7 @@ void TurnClient::press(
     // `wait` for the selection would be an undiscoverable "I am done" that did
     // nothing at all with nobody picked up.
     if ((buttons & pad_start) != 0U) {
-        open_board_menu();
+        open_board_menu(snapshot);
         return;
     }
     if ((buttons & pad_c) != 0U && selected_ != 0) {
@@ -2095,7 +2117,7 @@ void TurnClient::press(
     }
 
     const sim::UnitSnapshot* occupant = unit_at(snapshot, cursor_x_, cursor_y_);
-    if (selected_ != 0 && occupant != nullptr && occupant->side != player_side_) {
+    if (selected_ != 0 && occupant != nullptr && occupant->side != player_side_ && !snapshot.collecting_loot) {
         // The shortcut, and the weapon it uses is the one in hand. A character
         // that wants the other one asks for it in the menu; naming no weapon
         // is the command the engine has always been given.
@@ -2120,7 +2142,7 @@ void TurnClient::press(
         // the sheet opens on them. Said in words rather than by a press that
         // does nothing, because a button that silently refuses reads as a
         // broken button.
-        if (occupant->has_acted) {
+        if (occupant->has_acted && !snapshot.collecting_loot) {
             const sheet::ContentName who =
                 character_called(snapshot, occupant->id);
             write_message(who.c_str(), " HAS ALREADY ACTED");
@@ -2236,9 +2258,146 @@ void TurnClient::deploy_press(
 // character's own sheet and puts the player back in this menu; CANCEL puts
 // them back on the board. Neither is a command, which is why INFO joined the
 // tail rather than taking the item's row.
+void TurnClient::open_pack(const sim::EncounterSnapshot& snapshot) {
+    const auto* actor = unit_by_id(snapshot, selected_);
+    if (actor == nullptr || !controlled_by(*actor, active_local_player_) ||
+        snapshot.inventory_mode != sim::InventoryMode::carried) {
+        pack_ = {}; menu_open_ = false; menu_rows_ = 0; return;
+    }
+    menu_rows_ = menu_row_ = 0;
+    menu_open_ = true; board_menu_open_ = false;
+    const auto add = [&](PackAction action, console::Message label,
+                         sim::ContentId content = 0,
+                         core::ContentCategory category = core::ContentCategory::item) {
+        auto& row = menu_[menu_rows_++]; row = {};
+        row.label = console::text(language(), label);
+        row.pack = action; row.content = content; row.carried_category = category;
+    };
+    const auto ground_here = [&](const sim::GroundItem& pile) {
+        return pile.position == actor->position && pile.stack.quantity != 0;
+    };
+    Text capacity;
+    capacity.text(console::text(language(), console::Message::pack_capacity)).space()
+        .number(static_cast<std::int32_t>(sim::carried_count(actor->carried_inventory)));
+    if (actor->states_carry_capacity) capacity.text("/").number(actor->carry_capacity);
+    copy_line(message_, sizeof message_, capacity.c_str());
+    if (pack_.view == PackView::hub) {
+        add(PackAction::inventory, console::Message::inventory);
+        if (std::any_of(snapshot.ground_items.begin(), snapshot.ground_items.end(), ground_here))
+            add(PackAction::ground, console::Message::pick_up);
+    } else if (pack_.view == PackView::entry) {
+        if (pack_.category == core::ContentCategory::item && !snapshot.collecting_loot) {
+            const auto forecast = sim::forecast_item(snapshot, actor->id, actor->id, items_, pack_.content);
+            if (forecast && (forecast.kind != sim::ItemKind::restore || forecast.restored > 0)) {
+                auto& row = menu_[menu_rows_++]; row = {};
+                row.label = console::text(language(), console::Message::use_item);
+                row.use = true; row.content = pack_.content;
+            }
+        }
+        add(PackAction::drop, console::Message::drop, pack_.content, pack_.category);
+    } else if (pack_.view == PackView::loot) {
+        const auto pile = std::find_if(snapshot.ground_items.begin(), snapshot.ground_items.end(),
+            [&](const auto& entry) { return entry.id == pack_.ground && ground_here(entry); });
+        if (pile != snapshot.ground_items.end()) {
+            const bool full = actor->states_carry_capacity &&
+                sim::carried_count(actor->carried_inventory) >= actor->carry_capacity;
+            if (!full) add(PackAction::pickup, console::Message::pick_up);
+            else {
+                copy_line(message_, sizeof message_, console::text(language(), console::Message::pack_full));
+                if (!actor->carried_inventory.empty()) add(PackAction::exchange, console::Message::exchange);
+            }
+        }
+        add(PackAction::back, console::Message::leave);
+        menu_row_ = menu_rows_ - 1;
+        return;
+    } else {
+        constexpr std::size_t per_page = menu_capacity - 2;
+        const bool piles = pack_.view == PackView::ground;
+        std::size_t total = piles ? static_cast<std::size_t>(std::count_if(
+            snapshot.ground_items.begin(), snapshot.ground_items.end(), ground_here)) : actor->carried_inventory.size();
+        if (static_cast<std::size_t>(pack_.page) * per_page >= total) pack_.page = 0;
+        const auto begin = static_cast<std::size_t>(pack_.page) * per_page;
+        for (std::size_t index = begin; index < total && index < begin + per_page; ++index) {
+            sim::CarriedStack stack{}; std::uint64_t identity = 0;
+            if (piles) {
+                std::size_t ordinal = 0;
+                for (const auto& pile : snapshot.ground_items) {
+                    if (!ground_here(pile)) continue;
+                    if (ordinal++ == index) { stack = pile.stack; identity = pile.id; break; }
+                }
+            } else stack = actor->carried_inventory[index];
+            auto& row = menu_[menu_rows_]; row = {};
+            Text name;
+            name.text("x").number(stack.quantity).space().text(
+                stack.category == core::ContentCategory::weapon ?
+                sheet::weapon_name(package_, stack.content_id, language(), text_encoding()).c_str() :
+                sheet::item_name(package_, stack.content_id, language(), text_encoding()).c_str());
+            copy_line(content_labels_[menu_rows_], sizeof content_labels_[menu_rows_], name.c_str());
+            row.label = content_labels_[menu_rows_++];
+            row.pack = piles ? PackAction::loot : PackAction::inspect;
+            row.content = piles ? identity : stack.content_id;
+            row.carried_category = stack.category;
+        }
+        if (total > per_page) add(PackAction::next, console::Message::next);
+        if (total == 0) copy_line(message_, sizeof message_, console::text(language(), console::Message::pack_empty));
+    }
+    add(PackAction::back, console::Message::back_button);
+    if (pack_.view == PackView::entry || pack_.view == PackView::exchange) menu_row_ = menu_rows_ - 1;
+}
+
+void TurnClient::back_pack(const sim::EncounterSnapshot& snapshot) {
+    switch (pack_.view) {
+        case PackView::hub: {
+            const auto* actor = unit_by_id(snapshot, selected_);
+            if (actor != nullptr) open_menu(snapshot, *actor);
+            else { pack_ = {}; menu_open_ = false; }
+            return;
+        }
+        case PackView::entry: pack_.view = PackView::inventory; break;
+        case PackView::exchange: pack_.view = PackView::loot; pack_.page = 0; break;
+        case PackView::loot: pack_.view = PackView::ground; pack_.page = 0; break;
+        default: pack_.view = PackView::hub; pack_.page = 0; break;
+    }
+    open_pack(snapshot);
+}
+
+void TurnClient::commit_pack(const sim::EncounterSnapshot& snapshot, const MenuChoice& row) {
+    const auto* actor = unit_by_id(snapshot, selected_);
+    if (actor == nullptr || !controlled_by(*actor, active_local_player_)) return;
+    switch (row.pack) {
+        case PackAction::open: pack_ = {}; pack_.view = PackView::hub; break;
+        case PackAction::inventory: pack_.view = PackView::inventory; pack_.page = 0; break;
+        case PackAction::ground: pack_.view = PackView::ground; pack_.page = 0; break;
+        case PackAction::loot: pack_.ground = row.content; pack_.view = PackView::loot; break;
+        case PackAction::exchange: pack_.view = PackView::exchange; pack_.page = 0; break;
+        case PackAction::next: ++pack_.page; break;
+        case PackAction::back: back_pack(snapshot); return;
+        case PackAction::inspect:
+            if (pack_.view != PackView::exchange) {
+                pack_.content = row.content; pack_.category = row.carried_category;
+                pack_.view = PackView::entry; break;
+            }
+            [[fallthrough]];
+        case PackAction::pickup:
+        case PackAction::drop:
+            pending_.kind = row.pack == PackAction::pickup ? client::IntentKind::pick_up :
+                row.pack == PackAction::drop ? client::IntentKind::drop_carried : client::IntentKind::exchange_carried;
+            pending_.unit_id = actor->id;
+            pending_.ground_item_id = pack_.ground;
+            pending_.carried_category = row.carried_category;
+            pending_.carried_content_id = row.content;
+            pack_ = {}; menu_open_ = false; menu_rows_ = 0;
+            reopen_menu_ = selected_;
+            return;
+        default: return;
+    }
+    open_pack(snapshot);
+}
+
 void TurnClient::open_menu(
     const sim::EncounterSnapshot& snapshot, const sim::UnitSnapshot& actor
 ) {
+    pack_ = {};
     menu_rows_ = 0;
     menu_row_ = 0;
     board_menu_open_ = false;
@@ -2267,7 +2426,7 @@ void TurnClient::open_menu(
     // be teaching a rule nobody can see. An item row already prints its own
     // count, TALK is already offered only where `forecast_talk` says one could
     // land, and the three tail rows are never refused.
-    if (sim::gesture_available(
+    if (snapshot.collecting_loot || sim::gesture_available(
             snapshot, actor.id, {sim::Gesture::walk, 0, 0}, weapons_,
             abilities_
         )) {
@@ -2276,6 +2435,11 @@ void TurnClient::open_menu(
         walk.label = console::text(language(), console::Message::walk);
         walk.move = true;
     }
+    if (snapshot.inventory_mode == sim::InventoryMode::carried) {
+        auto& row = menu_[menu_rows_++]; row = {};
+        row.label = console::text(language(), console::Message::pack); row.pack = PackAction::open;
+    }
+    if (!snapshot.collecting_loot) {
     if (actor.weapon_ids.size() >= 2) {
         for (std::size_t i = 0;
              i < actor.weapon_ids.size() && menu_rows_ < offered; ++i) {
@@ -2370,6 +2534,7 @@ void TurnClient::open_menu(
         language(), console::Message::end_character_turn
     );
     wait.wait = true;
+    }
     MenuChoice& info = menu_[menu_rows_++];
     info = MenuChoice{};
     info.label = console::text(language(), console::Message::info);
@@ -2414,7 +2579,15 @@ bool TurnClient::any_talkable_neighbour(
 // pressed to find out what it did should say how to undo that before it says
 // anything else; B backs out of it too, as B backs out of everything here, but
 // a row a player can read is not the same as a button they have to know.
-void TurnClient::open_board_menu() {
+void TurnClient::open_board_menu(const sim::EncounterSnapshot& snapshot) {
+    pack_ = {};
+    if (snapshot.collecting_loot) {
+        menu_rows_ = 2; menu_row_ = 0;
+        menu_[0] = {}; menu_[0].label = console::text(language(), console::Message::back_to_battle); menu_[0].cancel = true;
+        menu_[1] = {}; menu_[1].label = console::text(language(), console::Message::finish_collection); menu_[1].pack = PackAction::finish;
+        menu_open_ = board_menu_open_ = true;
+        return;
+    }
     // The selection is deliberately left standing. Opening this menu is a
     // question about the battle, and a player who asks one and backs out
     // should find the board exactly as they left it, with the character they
@@ -2499,6 +2672,10 @@ void TurnClient::commit_board_row(const sim::EncounterSnapshot& snapshot) {
     board_menu_open_ = false;
     menu_rows_ = 0;
     if (row.cancel) return;
+    if (row.pack == PackAction::finish) {
+        pending_.kind = client::IntentKind::finish_collection;
+        return;
+    }
     if (row.fps) {
         set_fps_display_visible(!fps_display_visible());
         return;
@@ -2580,6 +2757,7 @@ void TurnClient::drain_side(const sim::EncounterSnapshot& snapshot) {
 void TurnClient::commit_menu_row(const sim::EncounterSnapshot& snapshot) {
     if (menu_row_ < 0 || menu_row_ >= menu_rows_) return;
     const MenuChoice row = menu_[menu_row_];
+    if (row.pack != PackAction::none) { commit_pack(snapshot, row); return; }
     if (row.info) {
         const sim::UnitSnapshot* actor = unit_by_id(snapshot, selected_);
         if (actor == nullptr) return;
@@ -3359,6 +3537,7 @@ void TurnClient::compose_company(
     // was simply not drawn would leave nothing on screen to say so. The stacks
     // themselves are reached on a member's menu, which scrolls under its own
     // caret for the same reason the roster does.
+    if (company != nullptr && company->inventory_mode == sim::InventoryMode::carried) return;
     view::ListWindow shelf;
     shelf.rows = company_store_rows;
     shelf.total = static_cast<int>(store.size());
@@ -3470,6 +3649,7 @@ void TurnClient::compose_member_menu(
             fielded ? client::ManagementVerb::bench
                     : client::ManagementVerb::field,
             {});
+        if (company.inventory_mode == sim::InventoryMode::legacy) {
         for (const campaign::InventoryStack& stack : company.store) {
             if (verb_count_ + 1 >= company_menu_capacity) break;
             Text label;
@@ -3493,6 +3673,7 @@ void TurnClient::compose_member_menu(
                 .text(" X")
                 .number(static_cast<std::int32_t>(stack.quantity));
             add(label.c_str(), client::ManagementVerb::take, stack.item);
+        }
         }
     }
     add(

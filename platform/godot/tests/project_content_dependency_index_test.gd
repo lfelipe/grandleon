@@ -81,7 +81,7 @@ func _init() -> void:
 	map_uses[0].label = "changed by caller"
 	_expect("returned uses cannot mutate the index", str(index.where_used("map", "cedar_field")[0].label).contains("Bridge Stand"), true)
 
-	index.rebuild({"schemaVersion": "1.5.0", "maps": [{"id": "new_map", "name": "New Map"}]})
+	index.rebuild({"schemaVersion": "1.6.0", "maps": [{"id": "new_map", "name": "New Map"}]})
 	_expect("rebuild clears old references", index.where_used("map", "cedar_field").size(), 0)
 	_expect("rebuild registers new unused content", index.can_delete("map", "new_map"), true)
 
@@ -100,7 +100,7 @@ func _init() -> void:
 
 func _fixture() -> Dictionary:
 	return {
-		"schemaVersion": "1.5.0",
+		"schemaVersion": "1.6.0",
 		"gameId": "dependency_fixture",
 		"title": "Dependency Fixture",
 		"themeId": "autumn",

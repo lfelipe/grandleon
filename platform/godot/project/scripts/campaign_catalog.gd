@@ -394,7 +394,11 @@ func _inspect(bytes: PackedByteArray, entry: Dictionary) -> Dictionary:
 	return {"ok": true, "compatibility": checked}
 
 func _save_identity(info: Dictionary, entry: Dictionary) -> String:
-	return (str(info.get("gameId", "")) + "\n" + str(info.get("contentRevision", "")) + "\n" + str(entry.campaign) + "\n" + str(info.get("playerMode", ""))).sha256_text()
+	var identity := str(info.get("gameId", "")) + "\n" + str(info.get("contentRevision", "")) + "\n" + str(entry.campaign) + "\n" + str(info.get("playerMode", ""))
+	# Keep every existing legacy save scope byte-identical. Personal ownership
+	# cannot reuse it even when an author leaves contentRevision unchanged.
+	if info.get("inventoryMode", "legacy") == "carried": identity += "\ncarried"
+	return identity.sha256_text()
 
 func install(entry: Dictionary, accept_fresh_start := false) -> Dictionary:
 	_ensure_loaded()

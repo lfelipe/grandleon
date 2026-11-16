@@ -2,6 +2,7 @@
 #pragma once
 
 #include <grandleon/core/random.hpp>
+#include <grandleon/core/content_identity.hpp>
 
 #include <cstdint>
 #include <string_view>
@@ -288,6 +289,23 @@ enum class TurnOrder : std::uint8_t {
     initiative = 2,
 };
 
+enum class InventoryMode : std::uint8_t { legacy = 0, carried = 1 };
+
+// Possession is distinct from usable weapon choices. Each copy takes one slot.
+struct CarriedStack final {
+    core::ContentCategory category{core::ContentCategory::item};
+    ContentId content_id{};
+    std::uint16_t quantity{1};
+};
+[[nodiscard]] constexpr bool operator==(const CarriedStack& a, const CarriedStack& b) noexcept {
+    return a.category == b.category && a.content_id == b.content_id && a.quantity == b.quantity;
+}
+struct GroundItem final {
+    std::uint64_t id{};
+    Position position{};
+    CarriedStack stack;
+};
+
 struct UnitDefinition final {
     UnitId id{};
     ContentId unit_type_id{};
@@ -465,6 +483,19 @@ struct UnitDefinition final {
     std::uint8_t local_player{};
     // Defeat of this arrived character ends its side's battle before other goals.
     bool defeat_ends_battle{false};
+    // Sparse carried-inventory extension; legacy encounters do not use it.
+    std::vector<CarriedStack> carried_inventory{};
+    std::uint16_t carry_capacity{};
+    bool states_carry_capacity{false};
+    std::vector<ContentId> weapon_affinities{};
+    bool states_weapon_affinities{false};
+    std::uint16_t drop_gold{};
+    ContentId drop_weapon_id{};
+    std::uint8_t drop_weapon_chance{};
+    // Campaign loss policy: permanent casualties leave their owned equipment
+    // at their tile; recoverable characters retain their personal pack.
+    bool drop_inventory_on_defeat{false};
+
 };
 
 // The most arrivals one authored character may make. A bound rather than a
@@ -585,6 +616,8 @@ struct EncounterDefinition final {
     // authoring time, where the author is, rather than a rule this module keeps
     // a second copy of.
     std::vector<Position> deployment_tiles;
+    InventoryMode inventory_mode{InventoryMode::legacy};
+
 };
 
 enum class CreateError : std::uint8_t {
@@ -634,6 +667,8 @@ enum class CreateError : std::uint8_t {
     // out of the engine rather than restating them, so renumbering a value
     // would re-mean an existing refusal.
     invalid_weapon_type,
+    invalid_inventory,
+
 };
 
 [[nodiscard]] std::string_view error_name(CreateError error) noexcept;
@@ -851,6 +886,19 @@ struct UnitSnapshot final {
     std::uint8_t local_player{};
     // Defeat of this arrived character ends its side's battle before other goals.
     bool defeat_ends_battle{false};
+    // Sparse carried-inventory extension; legacy encounters do not use it.
+    std::vector<CarriedStack> carried_inventory{};
+    std::uint16_t carry_capacity{};
+    bool states_carry_capacity{false};
+    std::vector<ContentId> weapon_affinities{};
+    bool states_weapon_affinities{false};
+    std::uint16_t drop_gold{};
+    ContentId drop_weapon_id{};
+    std::uint8_t drop_weapon_chance{};
+    // Campaign loss policy: permanent casualties leave their owned equipment
+    // at their tile; recoverable characters retain their personal pack.
+    bool drop_inventory_on_defeat{false};
+
 };
 
 // Whether a character is still this battle's to lose: alive, and not talked off
@@ -1046,6 +1094,12 @@ struct EncounterSnapshot final {
     // is refused as `wrong_phase`, no activation has begun, and nothing has
     // drawn from any random stream.
     bool deploying{false};
+    InventoryMode inventory_mode{InventoryMode::legacy};
+    std::vector<GroundItem> ground_items;
+    std::uint64_t next_ground_item_id{1};
+    // Victory is decided; optional local equipment collection remains open.
+    bool collecting_loot{false};
+
 };
 
 // What a cell costs in `movement_field` when no walk within the allowance
@@ -1139,6 +1193,11 @@ enum class CommandType : std::uint8_t {
     // `UnitSnapshot::departed`; the short version is that leaving and dying are
     // two different facts and nothing here confuses them.
     talk,
+    pick_up,
+    drop_carried,
+    exchange_carried,
+    finish_collection,
+
 };
 
 struct Command final {
@@ -1154,6 +1213,10 @@ struct Command final {
     // here the way there is for a weapon: nothing is "in hand" among what a
     // character carries in its pack, so a use naming nothing is `unknown_item`.
     ContentId item_id{};
+    std::uint64_t ground_item_id{};
+    core::ContentCategory carried_category{core::ContentCategory::item};
+    ContentId carried_content_id{};
+
 };
 
 enum class CommandError : std::uint8_t {
@@ -1270,6 +1333,13 @@ enum class CommandError : std::uint8_t {
     // be countered and be buried, undoing at the one surface a client drives
     // the whole distinction `UnitSnapshot::departed` exists to keep.
     departed_unit,
+    inventory_disabled,
+    inventory_full,
+    unknown_ground_item,
+    ground_out_of_reach,
+    unavailable_inventory,
+    invalid_inventory,
+
 };
 
 [[nodiscard]] std::string_view error_name(CommandError error) noexcept;
@@ -1366,6 +1436,10 @@ enum class EventType : std::uint8_t {
     // absence of damage, a departure is an event rather than a health total
     // that did not move, and holding on is an event for the same reason.
     unit_endured,
+    inventory_picked_up,
+    inventory_dropped,
+    gold_gained,
+
 };
 
 struct Event final {
@@ -1381,6 +1455,9 @@ struct Event final {
     // `related_unit_id`: a unit identifier and a content identifier are two
     // different namespaces and sharing a field would make them one.
     ContentId content_id{};
+    core::ContentCategory content_category{};
+    std::uint64_t ground_item_id{};
+
 };
 
 struct CommandResult final {
@@ -2021,6 +2098,7 @@ private:
         Side mover
     ) const;
     void evaluate_objectives(const UnitSnapshot& actor, CommandResult& result);
+    void start_collection_if_available(CommandResult& result);
     // Advances to whoever the turn order says acts next. Alternating order
     // simply hands the turn to the other side and lets the caller choose.
     // Where the advance closes a round it lands whatever the new round brings,

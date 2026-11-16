@@ -69,6 +69,22 @@
       "description": "How often the drop falls, as a whole percentage rolled at the moment of defeat. The authored number is the rolled number. 100 always drops and rolls nothing. Authored together with dropItemId or not at all.",
       "default": 0
     },
+    "carryCapacity": {
+      "type": "integer", "minimum": 0, "maximum": 64,
+      "description": "Maximum carried weapon and item copies, including the weapon in hand. Gold uses no slots. Omitted is unlimited; zero carries nothing. Every campaign using this archetype must explicitly enable carried inventories. A member may override this capacity."
+    },
+    "dropGold": {
+      "type": "integer", "minimum": 1, "maximum": 32767,
+      "description": "Guaranteed gold left when defeated. Added to the shared campaign wallet after battle when claimed by a roster hero. Omit for no gold; independent of item and weapon drops."
+    },
+    "dropWeaponId": {
+      "$ref": "common.schema.json#/$defs/stableId",
+      "description": "One weapon left when defeated, authored together with dropWeaponChance. Collected into a unit's carried inventory in a campaign using inventoryMode carried; independent of what the enemy carries."
+    },
+    "dropWeaponChance": {
+      "type": "integer", "minimum": 1, "maximum": 100,
+      "description": "Whole percentage chance of the weapon drop. 100 always drops without rolling. Authored together with dropWeaponId."
+    },
     "notes": { "$ref": "common.schema.json#/$defs/notes" },
     "extensions": { "$ref": "common.schema.json#/$defs/extensions" }
   },

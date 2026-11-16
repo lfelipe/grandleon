@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 #include <grandleon/simulation/encounter.hpp>
+#include <grandleon/simulation/carried_inventory.hpp>
+#include <grandleon/core/currency.hpp>
 
 #include <algorithm>
 #include <deque>
@@ -1041,7 +1043,7 @@ bool nearest_standing_tile(
 // realises.
 void record_defeat(
     EncounterSnapshot& state,
-    const UnitSnapshot& fallen,
+    UnitSnapshot& fallen,
     UnitId claimant,
     CommandResult& result
 ) {
@@ -1055,21 +1057,70 @@ void record_defeat(
             Outcome::ongoing
         }
     );
-    // Nothing to leave, or nobody to claim it. Neither draws.
-    if (fallen.drop_item_id == 0 || claimant == 0) return;
-    if (!roll_drop(state.random, fallen.drop_chance)) return;
-    state.drops.push_back({fallen.id, claimant, fallen.drop_item_id});
-    result.events.push_back(
-        {
-            EventType::item_dropped,
-            fallen.id,
-            claimant,
-            fallen.position,
-            1,
-            Outcome::ongoing,
-            fallen.drop_item_id
+    if (state.inventory_mode == InventoryMode::carried && fallen.drop_inventory_on_defeat) {
+        for (const auto& stack : fallen.carried_inventory) {
+            const auto identity = state.next_ground_item_id++;
+            state.ground_items.push_back({identity, fallen.position, stack});
+            // Event quantities are signed16; split a large unlimited pack's
+            // stack without narrowing or losing copies during settlement.
+            std::uint32_t remaining = stack.quantity;
+            while (remaining) {
+                const auto quantity = static_cast<std::int16_t>(std::min<std::uint32_t>(remaining, 32767U));
+                Event dropped;
+                dropped.type = EventType::inventory_dropped;
+                dropped.unit_id = fallen.id;
+                dropped.position = fallen.position;
+                dropped.content_id = stack.content_id;
+                dropped.content_category = stack.category;
+                dropped.ground_item_id = identity;
+                dropped.amount = quantity;
+                result.events.push_back(dropped);
+                remaining -= static_cast<std::uint32_t>(quantity);
+            }
         }
-    );
+        fallen.carried_inventory.clear();
+        fallen.weapon_ids.clear();
+        fallen.item_ids.clear();
+        fallen.item_counts.clear();
+    }
+    if (state.inventory_mode == InventoryMode::carried) {
+        const auto leave = [&](core::ContentCategory category, ContentId content) {
+            const auto identity = state.next_ground_item_id++;
+            state.ground_items.push_back({identity, fallen.position, {category, content, 1}});
+            Event dropped;
+            dropped.type = EventType::item_dropped;
+            dropped.unit_id = fallen.id;
+            dropped.related_unit_id = claimant;
+            dropped.position = fallen.position;
+            dropped.amount = 1;
+            dropped.content_id = content;
+            dropped.content_category = category;
+            dropped.ground_item_id = identity;
+            result.events.push_back(dropped);
+        };
+        // Stable consumption order: item roll, then weapon roll. Gold is a
+        // guaranteed award and draws no random number.
+        if (fallen.drop_item_id && roll_drop(state.random, fallen.drop_chance))
+            leave(core::ContentCategory::item, fallen.drop_item_id);
+        if (fallen.drop_weapon_id && roll_drop(state.random, fallen.drop_weapon_chance))
+            leave(core::ContentCategory::weapon, fallen.drop_weapon_id);
+    } else if (fallen.drop_item_id != 0 && claimant != 0 &&
+               roll_drop(state.random, fallen.drop_chance)) {
+        state.drops.push_back({fallen.id, claimant, fallen.drop_item_id});
+        result.events.push_back({EventType::item_dropped, fallen.id, claimant,
+                                 fallen.position, 1, Outcome::ongoing, fallen.drop_item_id});
+    }
+    if (fallen.drop_gold && claimant) {
+        Event gold;
+        gold.type = EventType::gold_gained;
+        gold.unit_id = fallen.id;
+        gold.related_unit_id = claimant;
+        gold.position = fallen.position;
+        gold.amount = static_cast<std::int16_t>(fallen.drop_gold);
+        gold.content_category = core::ContentCategory::currency;
+        gold.content_id = core::gold_currency_id;
+        result.events.push_back(gold);
+    }
 }
 
 void hash_byte(std::uint64_t& hash, std::uint8_t value) noexcept {
@@ -1237,6 +1288,7 @@ std::string_view error_name(CreateError error) noexcept {
         case CreateError::none: return "none";
         case CreateError::invalid_map: return "invalid_map";
         case CreateError::invalid_unit: return "invalid_unit";
+        case CreateError::invalid_inventory: return "invalid_inventory";
         case CreateError::duplicate_unit: return "duplicate_unit";
         case CreateError::occupied_position: return "occupied_position";
         case CreateError::missing_side: return "missing_side";
@@ -1259,6 +1311,12 @@ std::string_view error_name(CommandError error) noexcept {
         case CommandError::defeated_unit: return "defeated_unit";
         case CommandError::wrong_side: return "wrong_side";
         case CommandError::invalid_command: return "invalid_command";
+        case CommandError::inventory_disabled: return "inventory_disabled";
+        case CommandError::inventory_full: return "inventory_full";
+        case CommandError::unknown_ground_item: return "unknown_ground_item";
+        case CommandError::ground_out_of_reach: return "ground_out_of_reach";
+        case CommandError::unavailable_inventory: return "unavailable_inventory";
+        case CommandError::invalid_inventory: return "invalid_inventory";
         case CommandError::invalid_destination: return "invalid_destination";
         case CommandError::occupied_destination:
             return "occupied_destination";
@@ -1297,6 +1355,9 @@ Encounter::CreateResult create_encounter(
     const EncounterDefinition& definition
 ) {
     EncounterSnapshot state;
+    if(static_cast<unsigned>(definition.inventory_mode)>1U)
+        return {CreateError::invalid_inventory,Encounter(std::move(state))};
+    state.inventory_mode=definition.inventory_mode;
     state.width = definition.width;
     state.height = definition.height;
     if (definition.width == 0 || definition.height == 0 ||
@@ -1481,6 +1542,27 @@ Encounter::CreateResult create_encounter(
             unit.minimum_reach > unit.maximum_reach ||
             !in_bounds(unit.position, definition.width, definition.height)) {
             return {CreateError::invalid_unit, Encounter(std::move(state))};
+        }
+        if(unit.drop_gold>32767U || unit.drop_weapon_chance>100U ||
+           ((unit.drop_weapon_id==0)!=(unit.drop_weapon_chance==0)) ||
+           (unit.drop_weapon_id && weapon_ids.find(unit.drop_weapon_id)==weapon_ids.end()))
+            return {CreateError::invalid_inventory,Encounter(std::move(state))};
+        if(definition.inventory_mode==InventoryMode::carried){
+            if(unit.carry_capacity>64U || (!unit.states_carry_capacity && unit.carry_capacity) ||
+               validate_carried(unit.carried_inventory,unit.states_carry_capacity,unit.carry_capacity)!=InventoryError::none)
+                return {CreateError::invalid_inventory,Encounter(std::move(state))};
+            for(const auto& stack:unit.carried_inventory){
+                if((stack.category==core::ContentCategory::weapon && weapon_ids.find(stack.content_id)==weapon_ids.end()) ||
+                   (stack.category==core::ContentCategory::item && item_ids.find(stack.content_id)==item_ids.end()))
+                    return {CreateError::invalid_inventory,Encounter(std::move(state))};
+            }
+            for(const auto weapon:unit.weapon_ids){
+                if(std::none_of(unit.carried_inventory.begin(),unit.carried_inventory.end(),[weapon](const auto& stack){
+                    return stack.category==core::ContentCategory::weapon && stack.content_id==weapon;
+                })) return {CreateError::invalid_inventory,Encounter(std::move(state))};
+            }
+        } else if(unit.states_carry_capacity || !unit.carried_inventory.empty() || unit.drop_weapon_id || unit.drop_inventory_on_defeat) {
+            return {CreateError::invalid_inventory,Encounter(std::move(state))};
         }
         // A unit standing where it could never walk is authored nonsense.
         // Letting it stand there and step out would make the board's one
@@ -1667,7 +1749,16 @@ Encounter::CreateResult create_encounter(
                         ? (unit.local_player == 0U ? 1U : unit.local_player)
                         : 0U
                 ),
-                unit.defeat_ends_battle
+                unit.defeat_ends_battle,
+                unit.carried_inventory,
+                unit.carry_capacity,
+                unit.states_carry_capacity,
+                unit.weapon_affinities,
+                unit.states_weapon_affinities,
+                unit.drop_gold,
+                unit.drop_weapon_id,
+                unit.drop_weapon_chance,
+                unit.drop_inventory_on_defeat
             }
         );
     }
@@ -2114,10 +2205,48 @@ void Encounter::begin_next_activation(Side previous, CommandResult& result) {
     state_.remaining_action_points = 0;
 }
 
+void Encounter::start_collection_if_available(CommandResult& result) {
+    if (state_.inventory_mode != InventoryMode::carried ||
+        state_.outcome != Outcome::first_side_won || state_.ground_items.empty()) return;
+    if (std::none_of(state_.units.begin(), state_.units.end(), [](const auto& unit) {
+            return unit.side == Side::first && on_board(unit);
+        })) return;
+    state_.collecting_loot = true;
+    state_.active_side = Side::first;
+    state_.active_unit_id = 0;
+    state_.remaining_action_points = 0;
+    for (auto& unit : state_.units) {
+        unit.has_acted = false;
+        unit.has_moved = false;
+        unit.spent_action_points = 0;
+    }
+    result.events.erase(std::remove_if(result.events.begin(), result.events.end(), [](const auto& event) {
+        return event.type == EventType::encounter_completed;
+    }), result.events.end());
+}
+
 CommandResult Encounter::apply(const Command& command) {
     CommandResult result;
-    if (state_.outcome != Outcome::ongoing) {
+    if (command.type == CommandType::finish_collection) {
+        if (!state_.collecting_loot) {
+            result.error = CommandError::wrong_phase;
+            return result;
+        }
+        state_.collecting_loot = false;
+        Event complete;
+        complete.type = EventType::encounter_completed;
+        complete.outcome = state_.outcome;
+        result.events.push_back(complete);
+        return result;
+    }
+    if (state_.outcome != Outcome::ongoing && !state_.collecting_loot) {
         result.error = CommandError::encounter_complete;
+        return result;
+    }
+    if (state_.collecting_loot && command.type != CommandType::move &&
+        command.type != CommandType::pick_up && command.type != CommandType::drop_carried &&
+        command.type != CommandType::exchange_carried) {
+        result.error = CommandError::wrong_phase;
         return result;
     }
     // The phase gate, before anything about the command's own subject, because
@@ -2255,7 +2384,7 @@ CommandResult Encounter::apply(const Command& command) {
     // the command named, and the refusals about the command's own subject are
     // answered in subject order; `activation_in_progress` is a fact about the
     // battle. Inert under alternating order, where nobody is ever marked.
-    if (unit->has_acted) {
+    if (unit->has_acted && !state_.collecting_loot) {
         result.error = CommandError::already_acted;
         return result;
     }
@@ -2279,12 +2408,12 @@ CommandResult Encounter::apply(const Command& command) {
     // playing on a cartridge showed: a player who moved a character with a
     // point in hand found every other character refused, with nothing on
     // screen saying that attacking or waiting was the way out.
-    if (state_.turn_order == TurnOrder::side_blocks) {
+    if (!state_.collecting_loot && state_.turn_order == TurnOrder::side_blocks) {
         if (unit->spent_action_points >= turn_budget(*unit)) {
             result.error = CommandError::no_action_points;
             return result;
         }
-    } else {
+    } else if (!state_.collecting_loot) {
         if (state_.active_unit_id != 0 && state_.active_unit_id != unit->id) {
             result.error = CommandError::activation_in_progress;
             return result;
@@ -2301,7 +2430,7 @@ CommandResult Encounter::apply(const Command& command) {
         // anything about the destination, because this is a fact about the
         // character rather than about the tile it named: the same tile would
         // be refused whichever one it was.
-        if (unit->has_moved) {
+        if (unit->has_moved && !state_.collecting_loot) {
             result.error = CommandError::already_moved;
             return result;
         }
@@ -2649,6 +2778,10 @@ CommandResult Encounter::apply(const Command& command) {
         // let a player waste something would be a second rule about what a
         // good move is, and a restoring cast at full health already does not
         // have one.
+        if(state_.inventory_mode==InventoryMode::carried &&
+           remove_carried(unit->carried_inventory,{core::ContentCategory::item,command.item_id,1})!=InventoryError::none){
+            result.error=CommandError::invalid_inventory;return result;
+        }
         unit->item_counts[slot] =
             static_cast<std::uint16_t>(unit->item_counts[slot] - 1U);
         result.events.push_back(
@@ -2684,6 +2817,44 @@ CommandResult Encounter::apply(const Command& command) {
                 );
             }
         }
+        if(state_.inventory_mode==InventoryMode::carried) refresh_usable_inventory(*unit,weapons_);
+    } else if(command.type==CommandType::pick_up || command.type==CommandType::drop_carried ||
+              command.type==CommandType::exchange_carried) {
+        if(state_.inventory_mode!=InventoryMode::carried){result.error=CommandError::inventory_disabled;return result;}
+        CarriedStack incoming;
+        if(command.type!=CommandType::drop_carried){
+            const auto ground=std::find_if(state_.ground_items.begin(),state_.ground_items.end(),[&](const auto& entry){
+                return entry.id==command.ground_item_id;
+            });
+            if(ground==state_.ground_items.end()){result.error=CommandError::unknown_ground_item;return result;}
+            incoming=ground->stack;
+        }
+        const CarriedStack outgoing{command.carried_category,command.carried_content_id,1};
+        InventoryError inventory_error;
+        if(command.type==CommandType::pick_up) inventory_error=collect_ground_item(*unit,state_.ground_items,command.ground_item_id);
+        else if(command.type==CommandType::drop_carried) inventory_error=drop_carried_item(*unit,state_.ground_items,state_.next_ground_item_id,outgoing);
+        else inventory_error=exchange_ground_item(*unit,state_.ground_items,command.ground_item_id,state_.next_ground_item_id,outgoing);
+        if(inventory_error!=InventoryError::none){
+            result.error=inventory_error==InventoryError::over_capacity?CommandError::inventory_full:
+                inventory_error==InventoryError::missing_ground_item?CommandError::unknown_ground_item:
+                inventory_error==InventoryError::wrong_position?CommandError::ground_out_of_reach:
+                inventory_error==InventoryError::unavailable?CommandError::unavailable_inventory:CommandError::invalid_inventory;
+            return result;
+        }
+        refresh_usable_inventory(*unit,weapons_);
+        const auto stack=command.type==CommandType::drop_carried?outgoing:incoming;
+        Event event;
+        event.type=command.type==CommandType::drop_carried?EventType::inventory_dropped:EventType::inventory_picked_up;
+        event.unit_id=unit->id;event.position=unit->position;event.amount=1;event.content_id=stack.content_id;
+        event.content_category=stack.category;
+        event.ground_item_id=command.type==CommandType::drop_carried?state_.next_ground_item_id-1:command.ground_item_id;
+        if(command.type==CommandType::exchange_carried){
+            Event dropped=event;
+            dropped.type=EventType::inventory_dropped;dropped.content_id=outgoing.content_id;
+            dropped.content_category=outgoing.category;dropped.ground_item_id=state_.next_ground_item_id-1;
+            result.events.push_back(dropped);
+        }
+        result.events.push_back(event);
     } else if (command.type == CommandType::talk) {
         // Every refusal first, in the order that names what the player got
         // wrong, and only then the one consequence. Nothing below the last
@@ -2753,6 +2924,11 @@ CommandResult Encounter::apply(const Command& command) {
     }
 
     ++state_.activation_count;
+
+    if (state_.collecting_loot) {
+        unit->has_moved = false;
+        return result;
+    }
 
     // Waiting is an explicit "I am done", the deliberate way a player says
     // "nothing more from this one", and it finishes the character outright
@@ -2838,6 +3014,7 @@ CommandResult Encounter::apply(const Command& command) {
     }
 
     if (state_.outcome != Outcome::ongoing) {
+        start_collection_if_available(result);
         state_.active_unit_id = 0;
         state_.remaining_action_points = 0;
         // A battle that ends mid-turn ends those turns with it, so the walk
@@ -2903,6 +3080,7 @@ CommandResult Encounter::apply(const Command& command) {
         if (state_.round != round_before && !objectives_.empty()) {
             evaluate_objectives(actor, result);
             if (state_.outcome != Outcome::ongoing) {
+                start_collection_if_available(result);
                 state_.active_unit_id = 0;
                 state_.remaining_action_points = 0;
             }
@@ -3429,8 +3607,10 @@ std::vector<Position> reachable_tiles(
     // in it exactly when a move to it would not be refused, and every one of
     // those moves is refused by name. A client painting a range here would be
     // offering a walk the board will not take.
-    if (unit->has_moved || unit->has_acted) return tiles;
-    if (points_left(snapshot, *unit) == 0) return tiles;
+    if (snapshot.outcome != Outcome::ongoing && !snapshot.collecting_loot) return tiles;
+    if (snapshot.collecting_loot && unit->side != Side::first) return tiles;
+    if (!snapshot.collecting_loot && (unit->has_moved || unit->has_acted)) return tiles;
+    if (!snapshot.collecting_loot && points_left(snapshot, *unit) == 0) return tiles;
 
     const std::vector<std::uint32_t> spent = movement_field(
         snapshot, unit->position, unit->movement, unit->crossings, unit->side
@@ -3881,7 +4061,7 @@ namespace {
     UnitId unit_id
 ) noexcept {
     if (snapshot.width == 0 || snapshot.height == 0) return nullptr;
-    if (snapshot.outcome != Outcome::ongoing) return nullptr;
+    if (snapshot.outcome != Outcome::ongoing && !snapshot.collecting_loot) return nullptr;
     // Every gesture below is an ordinary command, and an ordinary command while
     // the board is being arranged is refused for its phase.
     if (snapshot.deploying) return nullptr;
@@ -3959,6 +4139,7 @@ bool gesture_available(
 ) noexcept {
     const UnitSnapshot* unit = aiming_unit(snapshot, unit_id);
     if (unit == nullptr) return false;
+    if (snapshot.collecting_loot && gesture.kind != Gesture::walk) return false;
     switch (gesture.kind) {
         case Gesture::walk:
             // One walk per activation, whatever the points say. `apply`
@@ -4380,6 +4561,40 @@ std::uint64_t canonical_hash(const EncounterSnapshot& state) noexcept {
         hash_integer(hash, required_count);
         for (const UnitSnapshot& unit : state.units) {
             if (unit.defeat_ends_battle) hash_integer(hash, unit.id);
+        }
+    }
+    const bool inventory_extension = state.inventory_mode != InventoryMode::legacy ||
+        state.collecting_loot || !state.ground_items.empty() || state.next_ground_item_id != 1U ||
+        std::any_of(state.units.begin(), state.units.end(), [](const auto& unit) {
+            return !unit.carried_inventory.empty() || unit.states_carry_capacity || unit.carry_capacity ||
+                unit.states_weapon_affinities || !unit.weapon_affinities.empty() || unit.drop_gold ||
+                unit.drop_weapon_id || unit.drop_weapon_chance || unit.drop_inventory_on_defeat;
+        });
+    if(inventory_extension){
+        hash_integer(hash,std::uint32_t{0x494E5654U});
+        hash_integer(hash,static_cast<std::uint8_t>(state.inventory_mode));
+        hash_integer(hash,static_cast<std::uint8_t>(state.collecting_loot));
+        hash_integer(hash,static_cast<std::uint32_t>(state.units.size()));
+        for(const auto& unit:state.units){
+            hash_integer(hash,unit.id);
+            hash_integer(hash,static_cast<std::uint8_t>(unit.states_carry_capacity));hash_integer(hash,unit.carry_capacity);
+            hash_integer(hash,static_cast<std::uint8_t>(unit.states_weapon_affinities));
+            hash_integer(hash,static_cast<std::uint32_t>(unit.weapon_affinities.size()));
+            for(const auto type:unit.weapon_affinities) hash_integer(hash,type);
+            hash_integer(hash,unit.drop_gold);hash_integer(hash,unit.drop_weapon_id);hash_integer(hash,unit.drop_weapon_chance);
+            hash_integer(hash,static_cast<std::uint8_t>(unit.drop_inventory_on_defeat));
+            hash_integer(hash,static_cast<std::uint32_t>(unit.carried_inventory.size()));
+            for(const auto& stack:unit.carried_inventory){
+                hash_integer(hash,static_cast<std::uint32_t>(stack.category));
+                hash_integer(hash,stack.content_id);hash_integer(hash,stack.quantity);
+            }
+        }
+        hash_integer(hash,state.next_ground_item_id);
+        hash_integer(hash,static_cast<std::uint32_t>(state.ground_items.size()));
+        for(const auto& ground:state.ground_items){
+            hash_integer(hash,ground.id);hash_integer(hash,ground.position.x);hash_integer(hash,ground.position.y);
+            hash_integer(hash,static_cast<std::uint32_t>(ground.stack.category));
+            hash_integer(hash,ground.stack.content_id);hash_integer(hash,ground.stack.quantity);
         }
     }
     return hash;

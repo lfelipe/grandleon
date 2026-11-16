@@ -169,6 +169,8 @@ enum class Message : std::uint8_t {
     finish_turn,
     action_refused,
     presentation_options,
+    gold, collect_equipment, pack, pick_up, exchange, leave, drop, finish_collection,
+    pack_full, pack_empty, pack_capacity, use_item,
 };
 
 enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
@@ -201,6 +203,42 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
 ) noexcept {
     const Language selected = interface_language(language);
     switch (message) {
+        case Message::gold:
+            return selected == Language::spanish ? "ORO"
+                 : selected == Language::portuguese_brazil ? "OURO" : "GOLD";
+        case Message::collect_equipment:
+            return selected == Language::spanish ? "RECOGE EQUIPO"
+                 : selected == Language::portuguese_brazil ? "RECOLHA EQUIPAMENTO" : "COLLECT EQUIPMENT";
+        case Message::pack:
+            return selected == Language::spanish ? "BOLSA"
+                 : selected == Language::portuguese_brazil ? "MOCHILA" : "PACK";
+        case Message::pick_up:
+            return selected == Language::spanish ? "RECOGER"
+                 : selected == Language::portuguese_brazil ? "RECOLHER" : "PICK UP";
+        case Message::exchange:
+            return selected == Language::spanish ? "CAMBIAR"
+                 : selected == Language::portuguese_brazil ? "TROCAR" : "EXCHANGE";
+        case Message::leave:
+            return selected == Language::spanish ? "DEJAR"
+                 : selected == Language::portuguese_brazil ? "DEIXAR" : "LEAVE";
+        case Message::drop:
+            return selected == Language::spanish ? "SOLTAR UNO"
+                 : selected == Language::portuguese_brazil ? "LARGAR UM" : "DROP ONE";
+        case Message::finish_collection:
+            return selected == Language::spanish ? "CONTINUAR"
+                 : selected == Language::portuguese_brazil ? "CONTINUAR" : "CONTINUE";
+        case Message::pack_full:
+            return selected == Language::spanish ? "BOLSA LLENA"
+                 : selected == Language::portuguese_brazil ? "MOCHILA CHEIA" : "PACK FULL";
+        case Message::pack_empty:
+            return selected == Language::spanish ? "VACÍO"
+                 : selected == Language::portuguese_brazil ? "VAZIO" : "EMPTY";
+        case Message::pack_capacity:
+            return selected == Language::spanish ? "BOLSA"
+                 : selected == Language::portuguese_brazil ? "MOCHILA" : "PACK";
+        case Message::use_item:
+            return selected == Language::spanish ? "USAR"
+                 : selected == Language::portuguese_brazil ? "USAR" : "USE";
         case Message::campaign_tagline:
             return selected == Language::spanish ? "UNA NUEVA AVENTURA"
                  : selected == Language::portuguese_brazil ? "UMA NOVA AVENTURA"

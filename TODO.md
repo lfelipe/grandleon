@@ -211,24 +211,24 @@ tracked above.
   recovery copy and leave cancelled imports and opens untouched.
 - [x] Preserve map scenery, hidden rooms, conversations, terrain costs and the
   battle seed when casualties or retired heroes are excluded from a stage.
-- [ ] Complete direct console parity checks for those character rules,
+- [x] Complete direct console parity checks for those character rules,
   including defeated roster members, save/reload and newly acquired weapons.
   Both console controller probes pass permanent/withdrawn casualties,
   required-hero defeat and two fresh-process resumes in 1P and 2P. Direct
-  console checks for newly acquired weapons need the carried-inventory and
-  pickup/drop flow below.
+  console checks now also cover carrying a newly acquired compatible weapon
+  into the next stage, choosing it for an attack and retaining the original.
 
 ### Enemy loot and carried equipment
 
-- [ ] Let creators configure an enemy's gold and weapon drops, including the
+- [x] Let creators configure an enemy's gold and weapon drops, including the
   amount and drop chance. Keep common enemy archetypes quick to reuse.
-- [ ] Keep found weapons and items with the unit that obtains them during the
+- [x] Keep found weapons and items with the unit that obtains them during the
   battle. Configure a combined carrying capacity per unit. A full bag prompts
   the player to leave the new item or drop an older one on the map; equipment
   must never become instantly available to a distant unit. Keep possession
   separate from weapon affinity so incompatible loot is not destroyed. Save
   carried and ground items and prevent duplicate awards during recovery.
-- [ ] Add nearby pickup/drop and full-bag replacement controls across all three
+- [x] Add nearby pickup/drop and full-bag replacement controls across all three
   players, with readable capacity feedback and editor bag-size settings.
   Revisit the older shared-store flow only as an explicit between-battle
   facility, not the destination for weapon or item drops during play.

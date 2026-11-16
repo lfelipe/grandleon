@@ -275,6 +275,19 @@ public:
         const ::godot::String& asset_id,
         bool included
     ) const;
+    [[nodiscard]] ::godot::Dictionary set_unit_type_drops(
+        const ::godot::String& source_json,
+        const ::godot::String& unit_type_id,
+        const ::godot::String& drops_json
+    ) const;
+    [[nodiscard]] ::godot::Dictionary set_unit_type_carry_capacity(
+        const ::godot::String& source_json, const ::godot::String& unit_type_id,
+        std::int64_t capacity, bool stated
+    ) const;
+    [[nodiscard]] ::godot::Dictionary set_campaign_inventory_mode(
+        const ::godot::String& source_json, const ::godot::String& campaign_id,
+        const ::godot::String& mode
+    ) const;
     [[nodiscard]] ::godot::Dictionary insert_dialogue_line(
         const ::godot::String& source_json,
         const ::godot::String& dialogue_id,

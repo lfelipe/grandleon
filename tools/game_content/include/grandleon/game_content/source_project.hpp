@@ -18,7 +18,7 @@ namespace grandleon::game_content {
 // it found, the version it wants, and the command that closes the gap;
 // `tools/source_schema/migration.mjs` is the other end, and
 // `tools/source_schema/test.mjs` pins this string to it.
-inline constexpr std::string_view supported_source_schema = "1.5.0";
+inline constexpr std::string_view supported_source_schema = "1.6.0";
 
 enum class SourceDiagnosticCode : std::uint8_t {
     invalid_json,
@@ -478,6 +478,30 @@ struct SourceMapCell final {
     std::string_view kind,
     std::string_view asset_id,
     bool included
+);
+
+// Replaces only a role's defeat rewards as one edit. The object accepts
+// dropGold, dropWeaponId/dropWeaponChance and legacy dropItemId/dropChance.
+// Omission removes that reward; unknown fields, incomplete pairs and invalid
+// references are refused without changing the source.
+[[nodiscard]] SourceTextResult set_source_unit_type_drops_json(
+    std::string_view source_json,
+    std::string_view unit_type_id,
+    std::string_view drops_json
+);
+
+// Explicitly authors/removes the archetype capacity. An authored zero means
+// no carried copies; omission inherits the legacy unlimited behavior.
+[[nodiscard]] SourceTextResult set_source_unit_type_carry_capacity_json(
+    std::string_view source_json, std::string_view unit_type_id,
+    std::int64_t capacity, bool stated
+);
+
+// An explicit author action enables physical carried inventory. Mode is
+// "carried", or empty to omit it. Never called merely by opening or cloning.
+[[nodiscard]] SourceTextResult set_source_campaign_inventory_mode_json(
+    std::string_view source_json, std::string_view campaign_id,
+    std::string_view mode
 );
 
 // Creates one complete scene and attaches it to an existing story node as one

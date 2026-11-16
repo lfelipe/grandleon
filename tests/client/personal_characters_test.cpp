@@ -157,4 +157,98 @@ void defeat_commands_and_outcomes() {
     auto battle=sim::create_encounter(def);check(bool(battle),"conflicting objective fixture is valid");
     if(battle){check(bool(battle.encounter.apply({sim::CommandType::wait,1,{},0})),"conflict fixture yields turn");check(bool(battle.encounter.apply({sim::CommandType::attack,2,{},1})),"conflict attack accepted");check(battle.encounter.snapshot().outcome==sim::Outcome::second_side_won,"required loss takes precedence over an objective satisfied by same defeat");}
 }
-int main(){compiler_and_decoder();equipment_and_resume();defeat_commands_and_outcomes();return failures?1:0;}
+
+void personal_inventory_save_mode_is_checked_without_overwriting() {
+    for (const bool carried : {false, true}) {
+        auto authored = source();
+        authored.campaigns[0].grants.clear();
+        if (carried) {
+            authored.campaigns[0].inventory_mode = gc::InventoryMode::carried;
+            authored.encounters[0].inventory_mode = gc::InventoryMode::carried;
+            authored.unit_types[0].states_carry_capacity = true;
+            authored.unit_types[0].carry_capacity = 2;
+        }
+        const auto p = package(authored);
+        client::PackageBoards boards{p};
+        storage::MemorySlotStorage device;
+        client::CampaignSessionOptions options;
+        options.slot = "inventory-mode";
+        client::CampaignSession initial{p, 110, boards, device, options};
+        begin(initial);
+        check(initial.save() == storage::StorageError::none, "initial campaign saves");
+        const auto checkpoint = camp::load_campaign(device.read(options.slot).bytes, {});
+        check(bool(checkpoint), "initial checkpoint decodes");
+        auto save = checkpoint.save;
+        check(save.carried_inventory == carried, "new campaign records its ownership rules");
+        if (carried) {
+            const camp::DefinitionRef sword{p.game_id, core::ContentCategory::weapon, 40};
+            check(initial.take_item({1}, sword).error == client::ManagementError::shared_supplies_disabled,
+                  "personal equipment cannot be sent to shared supplies");
+            check(initial.give_item({2}, sword).error == client::ManagementError::shared_supplies_disabled,
+                  "distant characters cannot receive equipment through shared supplies");
+            check(device.read(options.slot).bytes == camp::save_campaign(save),
+                  "refused shared transfers do not alter checkpoint");
+        }
+        const auto correct = camp::save_campaign(save);
+        check(device.write(options.slot, correct) == storage::StorageError::none, "matching checkpoint writes");
+        options.resume = true;
+        client::CampaignSession matching{p, 110, boards, device, options};
+        begin(matching, true);
+        save.carried_inventory = !carried;
+        const auto incompatible = camp::save_campaign(save);
+        check(device.write(options.slot, incompatible) == storage::StorageError::none, "opposite-mode checkpoint writes");
+        client::CampaignSession mismatched{p, 110, boards, device, options};
+        client::SlotFailure failure;
+        bool refused = false, resumed = false;
+        check(mismatched.begin(failure, refused, resumed) == client::CampaignSessionError::incompatible_inventory_save,
+              "mode mismatch stops the session instead of founding a replacement");
+        check(refused && !resumed, "incompatible ownership is a refused resume");
+        check(device.read(options.slot).bytes == incompatible, "refusal preserves exact checkpoint bytes");
+    }
+}
+
+
+void malformed_personal_inventory_metadata_is_refused() {
+    auto authored = source();
+    authored.campaigns[0].grants.clear();
+    authored.campaigns[0].inventory_mode = gc::InventoryMode::carried;
+    authored.encounters[0].inventory_mode = gc::InventoryMode::carried;
+    authored.unit_types[0].states_carry_capacity = true;
+    authored.unit_types[0].carry_capacity = 2;
+    authored.unit_types[1].drop_gold = 11;
+    const auto good = package(authored);
+    check(bool(pr::load_campaign(good, 110)), "complete physical inventory metadata loads");
+    auto bad = good;
+    const auto role = bad.find(pf::SectionType::unit_loot, 60);
+    check(role != nullptr, "personal rules record exists");
+    if (!role) return;
+    bad.bytes[role->payload_offset + 1] = 65;
+    check(!pr::load_campaign(bad, 110), "out-of-range capacity in package is refused");
+    bad = good;
+    for (auto& section : bad.sections) if (section.type == pf::SectionType::unit_loot) section.flags = 0;
+    check(!pr::load_campaign(bad, 110), "equipment rules cannot be optional for older players");
+    bad = good;
+    for (auto& section : bad.sections) if (section.type == pf::SectionType::unit_loot) section.records[0].stable_id = 9999;
+    check(!pr::load_campaign(bad, 110), "orphan archetype rules are refused");
+    bad = good;
+    bad.sections.erase(std::remove_if(bad.sections.begin(), bad.sections.end(), [](const auto& section) {
+        return section.type == pf::SectionType::currencies;
+    }), bad.sections.end());
+    check(!pr::load_campaign(bad, 110), "gold reward requires a currency definition");
+    bad = good;
+    bad.sections.erase(std::remove_if(bad.sections.begin(), bad.sections.end(), [](const auto& section) {
+        return section.type == pf::SectionType::encounter_inventory;
+    }), bad.sections.end());
+    check(!pr::load_campaign(bad, 110), "campaign cannot silently enter an encounter with different ownership rules");
+    bad = good;
+    bad.sections.erase(std::remove_if(bad.sections.begin(), bad.sections.end(), [](const auto& section) {
+        return section.type == pf::SectionType::campaign_inventory;
+    }), bad.sections.end());
+    check(!pr::load_campaign(bad, 110), "carried encounter cannot silently resume as legacy campaign");
+    auto standalone = authored;
+    standalone.campaigns.clear();
+    standalone.encounters[0].inventory_mode = static_cast<gc::InventoryMode>(2);
+    check(!gc::compile(standalone), "standalone invalid mode is refused rather than omitted");
+}
+
+int main(){malformed_personal_inventory_metadata_is_refused();personal_inventory_save_mode_is_checked_without_overwriting();compiler_and_decoder();equipment_and_resume();defeat_commands_and_outcomes();return failures?1:0;}

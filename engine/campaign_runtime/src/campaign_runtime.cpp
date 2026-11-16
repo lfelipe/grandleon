@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 #include <grandleon/campaign_runtime/campaign_runtime.hpp>
 #include <grandleon/campaign_runtime/character_rules.hpp>
+#include <grandleon/campaign_runtime/inventory_consequences.hpp>
 
 #include <grandleon/core/random.hpp>
+#include <grandleon/core/currency.hpp>
 
 #include <algorithm>
 #include <cstddef>
@@ -469,9 +471,17 @@ void apply_roster_join(
                 if (candidate.member_id == placement.source_key_id) rules = &candidate;
             }
         }
+        unit.drop_inventory_on_defeat =
+            result.encounter.definition.inventory_mode == simulation::InventoryMode::carried &&
+            permanent_member_loss(rules ? rules->defeat_policy : package_runtime::DefeatPolicy::inherit,
+                                  result.encounter.company_permanent_loss);
         unit.defeat_ends_battle = rules != nullptr &&
             rules->defeat_policy == package_runtime::DefeatPolicy::lose_battle;
-        apply_member_kit(unit, *record, rules);
+        if(!apply_member_kit(unit,*record,rules,result.encounter.definition.inventory_mode==simulation::InventoryMode::carried)){
+            result.error=RosterError::encounter_rejected;
+            result.load_error=package_runtime::EncounterLoadError::malformed_payload;
+            return;
+        }
     }
     if (package != nullptr && !package_runtime::resolve_carried_equipment(*package, result.encounter.definition)) {
         result.error = RosterError::encounter_rejected;
@@ -483,7 +493,8 @@ void apply_roster_join(
             if (placement.unit_id != unit.id) continue;
             for (const auto& rules : result.encounter.member_rules) {
                 if (rules.member_id == placement.source_key_id)
-                    apply_member_permissions(unit, &rules, result.encounter.definition.weapons);
+                    apply_member_permissions(unit, &rules, result.encounter.definition.weapons,
+                        result.encounter.definition.inventory_mode==simulation::InventoryMode::carried);
             }
         }
     }
@@ -593,6 +604,8 @@ CampaignEncounter load_encounter_for_campaign(
                 member_specificities(authored.definition);
             loaded.member_rules = member_rules(authored.definition);
             loaded.company_endures = authored.definition.invulnerable_for_testing;
+            loaded.company_permanent_loss = authored.definition.character_loss ==
+                package_runtime::CharacterLoss::permanent;
         }
     }
     return join_campaign_roster(std::move(loaded), state, roster, &package);
@@ -780,7 +793,8 @@ StartingKit starting_kit(
     const package_format::LoadedPackage& package,
     campaign::PersistentEntityId member,
     std::uint64_t unit_type_id,
-    const package_runtime::MemberRules* rules
+    const package_runtime::MemberRules* rules,
+    simulation::InventoryMode inventory_mode
 ) {
     StartingKit result;
     if (member.value == 0U) {
@@ -797,6 +811,12 @@ StartingKit starting_kit(
             result.operations.push_back(campaign::add_item(member,
                 {package.game_id, core::ContentCategory::weapon, weapon}, 1U));
         }
+    }
+    if(inventory_mode==simulation::InventoryMode::carried && !(rules && rules->states_starting_weapons)){
+        const auto weapons=package_runtime::load_unit_starting_weapons(package,unit_type_id);
+        if(!weapons){result.found=false;result.operations.clear();return result;}
+        for(const auto weapon:weapons.weapons) result.operations.push_back(campaign::add_item(member,
+            {package.game_id,core::ContentCategory::weapon,weapon},1U));
     }
     for (const std::uint64_t item : authored.items) {
         if (item == 0U) continue;
@@ -903,7 +923,7 @@ BattleProgression derive_battle_progression(
     const campaign::OutcomeSource& source
 ) {
     return derive_battle_progression(
-        package, state, board_unit_types(board), binding, events, source
+        package, state, board_unit_types(board), binding, events, source, board.inventory_mode
     );
 }
 
@@ -913,7 +933,8 @@ BattleProgression derive_battle_progression(
     const std::vector<BoardUnitType>& board,
     const campaign::BattleBinding& binding,
     const std::vector<simulation::Event>& events,
-    const campaign::OutcomeSource& source
+    const campaign::OutcomeSource& source,
+    simulation::InventoryMode inventory_mode
 ) {
     BattleProgression result;
 
@@ -1092,32 +1113,8 @@ BattleProgression derive_battle_progression(
         if (unit == 0U) return {};
         return binding.persistent_of(campaign::BattleEntityId{unit});
     };
-    const auto item_ref =
-        [&package](simulation::ContentId item) -> campaign::DefinitionRef {
-        return {package.game_id, core::ContentCategory::item, item};
-    };
-    // What fell, first, so a batch that both gains and spends one identity is
-    // never refused for an ordering.
-    for (const simulation::Event& event : events) {
-        if (event.type != simulation::EventType::item_dropped) continue;
-        if (event.content_id == 0U) continue;
-        if (claimed_by_a_member(event.related_unit_id).value == 0U) continue;
-        result.operations.push_back(
-            campaign::add_item({}, item_ref(event.content_id), 1U)
-        );
-    }
-    // Then what was spent, out of the kit of whoever spent it. Exactly one per
-    // event, in the order the battle recorded them.
-    for (const simulation::Event& event : events) {
-        if (event.type != simulation::EventType::item_used) continue;
-        if (event.content_id == 0U) continue;
-        const campaign::PersistentEntityId spender =
-            claimed_by_a_member(event.unit_id);
-        if (spender.value == 0U) continue;
-        result.operations.push_back(
-            campaign::consume_item(spender, item_ref(event.content_id), 1U)
-        );
-    }
+    append_inventory_consequences(result.operations, package.game_id, events,
+                                  inventory_mode, claimed_by_a_member);
 
     // And what the battle turned out to be *about*, last, so no operation above
     // moved. A character talked off the board raises the flag their placement

@@ -6,7 +6,8 @@ const ProjectArchive = preload("res://scripts/creator/project_archive.gd")
 const PROJECT_FILE := "project.json"
 const PREVIOUS_FILE := "project.previous.json"
 const RECOVERY_DIRECTORY := "recovered"
-const CURRENT_SCHEMA_VERSION := "1.5.0"
+const CURRENT_SCHEMA_VERSION := "1.6.0"
+const LOOT_PREVIOUS_SCHEMA_VERSION := "1.5.0"
 const PERSONAL_RULES_PREVIOUS_SCHEMA_VERSION := "1.4.0"
 const LEGACY_SCHEMA_VERSION := "1.3.0"
 
@@ -522,7 +523,7 @@ func inspect_source(project_id: String) -> Dictionary:
 		return checked
 	var migration: Dictionary = checked.migration.duplicate(true)
 	if str(migration.get("status", "")) == "not_needed":
-		for prior_version: String in [PERSONAL_RULES_PREVIOUS_SCHEMA_VERSION, LEGACY_SCHEMA_VERSION]:
+		for prior_version: String in [LOOT_PREVIOUS_SCHEMA_VERSION, PERSONAL_RULES_PREVIOUS_SCHEMA_VERSION, LEGACY_SCHEMA_VERSION]:
 			var prior_backup := _existing_migration_backup(directory, prior_version)
 			if not prior_backup.is_empty():
 				migration = _migration_details(
@@ -554,7 +555,7 @@ func _upgrade_legacy_source(source: String) -> Dictionary:
 			"migrated": false,
 			"migration": _migration_details("not_needed", version, version),
 		}
-	if version not in [LEGACY_SCHEMA_VERSION, PERSONAL_RULES_PREVIOUS_SCHEMA_VERSION]:
+	if version not in [LEGACY_SCHEMA_VERSION, PERSONAL_RULES_PREVIOUS_SCHEMA_VERSION, LOOT_PREVIOUS_SCHEMA_VERSION]:
 		return {
 			"ok": true,
 			"source": source,
@@ -571,6 +572,7 @@ func _upgrade_legacy_source(source: String) -> Dictionary:
 		project["schemaVersion"] = PERSONAL_RULES_PREVIOUS_SCHEMA_VERSION
 	# 1.4 -> 1.5 introduces optional hero choices. Retain both existing
 	# development choices and their absence; never invent personal defaults.
+	# 1.5 -> 1.6 adds optional drops. Do not assign any reward on upgrade.
 	project["schemaVersion"] = CURRENT_SCHEMA_VERSION
 	var portable: Dictionary = _integer_numbers(project)
 	return {
@@ -850,17 +852,23 @@ func _migration_details(
 	status: String = "not_needed", from_schema: String = "", to_schema: String = ""
 ) -> Dictionary:
 	var steps: Array[Dictionary] = []
-	if from_schema in [LEGACY_SCHEMA_VERSION, PERSONAL_RULES_PREVIOUS_SCHEMA_VERSION] and to_schema == CURRENT_SCHEMA_VERSION:
+	if from_schema in [LEGACY_SCHEMA_VERSION, PERSONAL_RULES_PREVIOUS_SCHEMA_VERSION, LOOT_PREVIOUS_SCHEMA_VERSION] and to_schema == CURRENT_SCHEMA_VERSION:
 		if from_schema == LEGACY_SCHEMA_VERSION:
 			steps.append({
 				"from": LEGACY_SCHEMA_VERSION, "to": PERSONAL_RULES_PREVIOUS_SCHEMA_VERSION,
 				"changed": "The game records the language its original text is written in, ready for manual translations that travel with every export.",
 				"message_key": "creator.migration.source_language",
 			})
+		if from_schema != LOOT_PREVIOUS_SCHEMA_VERSION:
+			steps.append({
+				"from": PERSONAL_RULES_PREVIOUS_SCHEMA_VERSION, "to": LOOT_PREVIOUS_SCHEMA_VERSION,
+				"changed": "Heroes can keep their appearance, weapon choices and defeat rules when their role changes.",
+				"message_key": "creator.migration.personal_choices",
+			})
 		steps.append({
-			"from": PERSONAL_RULES_PREVIOUS_SCHEMA_VERSION, "to": CURRENT_SCHEMA_VERSION,
-			"changed": "Heroes can keep their appearance, weapon choices and defeat rules when their role changes.",
-			"message_key": "creator.migration.personal_choices",
+			"from": LOOT_PREVIOUS_SCHEMA_VERSION, "to": CURRENT_SCHEMA_VERSION,
+			"changed": "Characters can carry limited packs and collect gold, weapons and items during battle.",
+			"message_key": "creator.migration.enemy_loot",
 		})
 	return {
 		"status": status,

@@ -4,6 +4,8 @@ extends Node2D
 const ArtLibrary = preload("res://scripts/art_library.gd")
 const BoardView = preload("res://scripts/board_view.gd")
 const BoardView3D = preload("res://scripts/board_view_3d.gd")
+const PlayerPack = preload("res://scripts/player_pack.gd")
+const GroundLootOverlay = preload("res://scripts/ground_loot_overlay.gd")
 const CampaignManager = preload("res://scripts/campaign_manager.gd")
 const CombatCinematic = preload("res://scripts/combat_cinematic.gd")
 const CombatPresentationPlan = preload("res://scripts/combat_presentation_plan.gd")
@@ -37,6 +39,7 @@ var mobile_density := 0.0
 var mobile_context_tween: Tween
 var mobile_buttons: Dictionary = {}
 var mobile_popup_lists: Array[VBoxContainer] = []
+var mobile_popup_scrolls: Array[ScrollContainer] = []
 var mobile_seat := 0
 var mobile_backgrounded := false
 var mobile_previously_paused := false
@@ -48,6 +51,9 @@ var mobile_session_column: VBoxContainer
 var mobile_session_pages: VBoxContainer
 var mobile_session_scroll: ScrollContainer
 
+var player_pack: Control
+var collection_button: Button
+var ground_loot_overlay: Node2D
 var session
 var board: Node
 var player_count := 2
@@ -129,6 +135,8 @@ var device_to_seat: Dictionary = {}
 var keyboard_seat := -1
 var selected_units: Array[int] = [0, 0]
 var action_modes: Array[String] = ["move", "move"]
+var attack_weapons: Array[int] = [0, 0]
+var attack_weapon_actors: Array[int] = [0, 0]
 var hud_seat := 0
 var snapshot: Dictionary = {}
 var battle_terrain: Array = []
@@ -407,6 +415,7 @@ func _process(delta: float) -> void:
 		stage_overview_showing = false
 		_update_context_help()
 	_position_action_popups()
+	_update_collection_action()
 	if OS.has_feature("android"):
 		_position_mobile_context()
 		if unit_panel.visible:
@@ -481,6 +490,13 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if mobile_backgrounded:
+		return
+	if player_pack != null and player_pack.visible:
+		if event is InputEventJoypadButton and int(device_to_seat.get(event.device, -1)) != player_pack.seat:
+			get_viewport().set_input_as_handled()
+		elif player_pack.handle_input(event, controls): get_viewport().set_input_as_handled()
+		return
+	if collection_button != null and collection_button.visible and ((event is InputEventMouseButton or event is InputEventScreenTouch) and collection_button.get_global_rect().has_point(event.position)):
 		return
 	if OS.has_feature("android"):
 		# Let Controls receive emulated mouse events; only the original screen
@@ -1958,6 +1974,17 @@ func _create_interface() -> void:
 	_create_dialogue(layer)
 	_create_session_menu(layer)
 	_create_campaign_manager(layer)
+	ground_loot_overlay = GroundLootOverlay.new()
+	ground_loot_overlay.player = self
+	layer.add_child(ground_loot_overlay)
+	layer.move_child(ground_loot_overlay, 0)
+	collection_button = Button.new()
+	collection_button.pressed.connect(_finish_collection)
+	collection_button.hide()
+	layer.add_child(collection_button)
+	player_pack = PlayerPack.new()
+	layer.add_child(player_pack)
+	player_pack.command_requested.connect(_pack_command)
 
 
 func _create_action_popups(layer: CanvasLayer) -> void:
@@ -1992,8 +2019,15 @@ func _create_action_popups(layer: CanvasLayer) -> void:
 		column.add_child(choices)
 		action_popup_lists.append(choices)
 		var touch_choices := VBoxContainer.new()
-		touch_choices.visible = OS.has_feature("android")
-		column.add_child(touch_choices)
+		touch_choices.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var touch_scroll := ScrollContainer.new()
+		touch_scroll.visible = OS.has_feature("android")
+		touch_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		touch_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		touch_scroll.follow_focus = true
+		column.add_child(touch_scroll)
+		touch_scroll.add_child(touch_choices)
+		mobile_popup_scrolls.append(touch_scroll)
 		mobile_popup_lists.append(touch_choices)
 		if OS.has_feature("android"):
 			choices.visible = false
@@ -2585,6 +2619,8 @@ func _clear_session_presentation() -> void:
 	snapshot = {}
 	definitions = {"weapons": [], "abilities": [], "items": []}
 	selected_units = [0, 0]
+	attack_weapons = [0, 0]
+	attack_weapon_actors = [0, 0]
 	if board != null:
 		board.visible = false
 
@@ -2888,6 +2924,7 @@ func _handle_event(event: Dictionary) -> void:
 				dialogue_index = dialogue_lines.size() - event.get("lines", []).size()
 				_show_dialogue_line()
 		"battle_begins":
+			if player_pack != null: player_pack.hide()
 			lan_waiting_for_host = false
 			PCAudio.play_music("banners_afar")
 			pending_combat_presentation.clear()
@@ -2924,6 +2961,8 @@ func _handle_event(event: Dictionary) -> void:
 			)
 			selected_units = [0, 0]
 			action_modes = ["move", "move"]
+			attack_weapons = [0, 0]
+			attack_weapon_actors = [0, 0]
 			for seat in 2:
 				board.set_selected(seat, 0, "move")
 			_seed_cursors()
@@ -2979,6 +3018,9 @@ func _handle_event(event: Dictionary) -> void:
 			if _stage_overview_active(): board.finish_stage_overview()
 			var presentation_events: Array = event.get("events", [])
 			var presentation_action := String(event.get("action", ""))
+			for effect: Dictionary in presentation_events:
+				if effect.get("kind") == "gold_gained" and _gold_claimant_in_company(effect):
+					_show_toast(_ui("player.pack.gold_gained", {"amount": int(effect.amount)}))
 			if coop_smoke:
 				_verify_coop_motion(presentation_events)
 			var audio_events: Array = presentation_events
@@ -3013,6 +3055,7 @@ func _handle_event(event: Dictionary) -> void:
 			_refresh_selected_panel()
 			_update_highlights(0)
 			_update_highlights(1)
+			_refresh_pack()
 		"refused":
 			if coop_smoke and coop_smoke_requests.has(int(event.get("request_id", 0))):
 				coop_smoke_requests.erase(int(event.get("request_id", 0)))
@@ -3020,10 +3063,12 @@ func _handle_event(event: Dictionary) -> void:
 				get_tree().quit(2)
 			_complete_request(event)
 			PCAudio.play_cue("refuse")
+			_refresh_pack()
 			_show_toast(_ui("player.command.refused", {
 				"reason": String(event.get("message", "unknown")),
 			}))
 		"battle_ended":
+			if player_pack != null: player_pack.hide()
 			for seat in action_popups.size():
 				_close_action_popup(seat)
 			snapshot = event.snapshot
@@ -3470,6 +3515,13 @@ func _handle_pad_button(event: InputEventJoypadButton) -> void:
 
 
 func _on_stick_direction(device: int, direction: Vector2i) -> void:
+	if player_pack != null and player_pack.visible:
+		if int(device_to_seat.get(device, -1)) == player_pack.seat and direction.y != 0:
+			var key := InputEventKey.new()
+			key.pressed = true
+			key.keycode = KEY_DOWN if direction.y > 0 else KEY_UP
+			player_pack.handle_input(key, controls)
+		return
 	if (
 		_management_visible() or _session_menu_visible() or _dialogue_visible()
 		or (combat_cinematic != null and combat_cinematic.is_active())
@@ -3529,8 +3581,11 @@ func _accept_at(seat: int) -> void:
 		if _unit_is_pending(int(occupant.id)):
 			_show_toast(_ui("player.toast.already_moving"))
 			return
-		if occupant.get("has_acted", false):
+		if _unit_finished(occupant):
 			_show_toast(_ui("player.toast.finished_round"))
+			return
+		if selected == int(occupant.id) and not snapshot.get("deploying", false):
+			_open_action_popup(seat, selected)
 			return
 		_close_action_popup(seat)
 		selected_units[seat] = int(occupant.id)
@@ -3562,7 +3617,7 @@ func _accept_at(seat: int) -> void:
 		if mode == "talk":
 			_submit("talk", selected, int(occupant.id), cursor)
 		else:
-			_submit("attack", selected, int(occupant.id), cursor)
+			_submit("attack", selected, int(occupant.id), cursor, _attack_weapon(seat) if mode == "attack" else 0, seat)
 		return
 	if mode == "talk":
 		_show_toast(_ui("player.toast.talk_adjacent"))
@@ -3572,7 +3627,7 @@ func _accept_at(seat: int) -> void:
 
 func _submit(
 	kind: String, unit_id := 0, target_id := 0, cell := Vector2i.ZERO,
-	content_id := 0, command_seat := -1
+	content_id := 0, command_seat := -1, ground_id := 0, carried_category := "item", carried_content_id := 0
 ) -> int:
 	var request_id := next_request_id
 	next_request_id += 1
@@ -3591,7 +3646,7 @@ func _submit(
 		"seat": seat,
 		"kind": kind,
 	}
-	session.submit_intent(kind, unit_id, target_id, cell.x, cell.y, content_id, request_id)
+	session.submit_intent(kind, unit_id, target_id, cell.x, cell.y, content_id, request_id, ground_id, carried_category, carried_content_id)
 	for selected_seat in selected_units.size():
 		if selected_units[selected_seat] == unit_id:
 			hud_seat = selected_seat
@@ -3638,29 +3693,42 @@ func _open_action_popup(seat: int, unit_id: int) -> void:
 	var unit := _unit_by_id(unit_id)
 	if (
 		unit.is_empty()
-		or unit.get("has_acted", false)
+		or _unit_finished(unit)
 		or not unit.get("on_board", false)
 		or not _unit_owned_by_seat(unit, seat)
 	):
 		return
 	var options: Array[Dictionary] = []
-	if not _legal_attack_targets(unit_id).is_empty():
-		options.append({"mode": "attack", "label": _action_text("attack")})
+	if not _collecting_loot():
+		var weapons: Array = unit.get("weapons", [])
+		if weapons.size() > 1:
+			for weapon: Variant in weapons:
+				options.append({"mode": "attack", "weapon": int(weapon), "label": _action_text("attack") + " · " + _weapon_name(int(weapon)), "disabled": _legal_attack_targets(unit_id, int(weapon)).is_empty()})
+		elif not _legal_attack_targets(unit_id).is_empty():
+			options.append({"mode": "attack", "label": _action_text("attack")})
 	var abilities: Array = unit.get("abilities", [])
 	if (
-		not abilities.is_empty()
+		not _collecting_loot() and not abilities.is_empty()
 		and not session.query_tiles("ability", unit_id, int(abilities[0])).is_empty()
 	):
 		options.append({"mode": "ability", "label": _action_text("ability")})
-	if not session.query_tiles("talk", unit_id, 0).is_empty():
+	if not _collecting_loot() and not session.query_tiles("talk", unit_id, 0).is_empty():
 		options.append({"mode": "talk", "label": _action_text("talk")})
-	options.append({"mode": "wait", "label": _action_text("wait")})
+	if snapshot.get("inventory_mode", "legacy") == "carried":
+		options.append({"mode": "pack", "label": _ui("player.pack.open")})
+	if _collecting_loot():
+		options.append({"mode": "move", "label": _action_text("move")})
+	else: options.append({"mode": "wait", "label": _action_text("wait")})
 	action_popups[seat] = {
 		"open": true,
 		"unit_id": unit_id,
 		"options": options,
 		"row": 0,
 	}
+	for index in options.size():
+		if not options[index].get("disabled", false):
+			action_popups[seat].row = index
+			break
 	selected_units[seat] = unit_id
 	board.set_selected(seat, unit_id, action_modes[seat])
 	_render_action_popup(seat)
@@ -3681,26 +3749,49 @@ func _render_action_popup(seat: int) -> void:
 	var options: Array = popup.get("options", [])
 	for index in options.size():
 		var label := String(options[index].get("label", _ui("player.hud.action")))
-		if index == row:
+		if options[index].get("disabled", false):
+			lines.append("   [color=#718896]%s[/color]" % label)
+		elif index == row:
 			lines.append("[color=#%s][b]▶ %s[/b][/color]" % [PLAYER_COLOURS[seat].to_html(), label])
 		else:
 			lines.append("   " + label)
 	if OS.has_feature("android"):
-		var list := mobile_popup_lists[seat]
-		for child in list.get_children():
-			list.remove_child(child)
-			child.queue_free()
-		for index in options.size():
-			var button := Button.new()
-			button.text = str(options[index].get("label", ""))
-			button.custom_minimum_size = Vector2(320, maxf(96, 48 * MobileLayout.units_per_dp(get_viewport())))
-			button.add_theme_font_size_override("font_size", roundi(16 * MobileLayout.units_per_dp(get_viewport())))
-			button.pressed.connect(_mobile_popup_chosen.bind(seat, index))
-			list.add_child(button)
-		action_popup_panels[seat].size.y = 0
+		_render_touch_action_popup(seat, options, row, MobileLayout.units_per_dp(get_viewport()))
 		return
-	action_popup_lists[seat].text = "\n".join(lines)
-	action_popup_panels[seat].size.y = 24.0 + float(options.size()) * 27.0
+	var choices := action_popup_lists[seat]
+	var width := 198.0
+	for option: Dictionary in options:
+		width = maxf(width, choices.get_theme_font("normal_font").get_string_size(str(option.label), HORIZONTAL_ALIGNMENT_LEFT, -1, choices.get_theme_font_size("normal_font_size")).x + 60)
+	action_popup_panels[seat].custom_minimum_size.x = minf(width, minf(560, MobileLayout.current_rect(get_viewport()).size.x - 32))
+	var height := minf(24.0 + float(options.size()) * 27.0, MobileLayout.current_rect(get_viewport()).size.y * 0.75)
+	choices.fit_content = false
+	choices.custom_minimum_size.y = maxf(40, height - 24)
+	choices.text = "\n".join(lines)
+	action_popup_panels[seat].size.y = height
+	choices.call_deferred("scroll_to_paragraph", row)
+
+
+func _render_touch_action_popup(seat: int, options: Array, row: int, density: float) -> void:
+	action_popup_lists[seat].hide()
+	mobile_popup_scrolls[seat].show()
+	var list := mobile_popup_lists[seat]
+	var safe := MobileLayout.current_rect(get_viewport()).grow(-16)
+	var button_height := maxf(96, 48 * density)
+	for child in list.get_children():
+		list.remove_child(child)
+		child.queue_free()
+	for index in options.size():
+		var button := Button.new()
+		button.text = str(options[index].get("label", ""))
+		button.disabled = bool(options[index].get("disabled", false))
+		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		button.custom_minimum_size = Vector2(0, button_height)
+		button.add_theme_font_size_override("font_size", roundi(16 * density))
+		button.pressed.connect(_mobile_popup_chosen.bind(seat, index))
+		list.add_child(button)
+	action_popup_panels[seat].custom_minimum_size.x = minf(safe.size.x, maxf(340, 260 * density))
+	action_popup_panels[seat].size.y = minf(safe.size.y * 0.75, 24 + options.size() * (button_height + 2))
+	if row < list.get_child_count(): mobile_popup_scrolls[seat].call_deferred("ensure_control_visible", list.get_child(row))
 
 
 func _position_action_popups() -> void:
@@ -3713,7 +3804,7 @@ func _position_action_popups() -> void:
 		var unit := _unit_by_id(int(popup.get("unit_id", 0)))
 		if OS.has_feature("android"):
 			action_popup_panels[seat].visible = not _mobile_unit_busy(int(popup.get("unit_id", 0)))
-		if unit.is_empty() or unit.get("has_acted", false) or not unit.get("on_board", false):
+		if unit.is_empty() or _unit_finished(unit) or not unit.get("on_board", false):
 			_close_action_popup(seat)
 			continue
 		var anchor: Vector2 = board.screen_position_for_cell(
@@ -3856,7 +3947,9 @@ func _move_action_popup(seat: int, direction: int) -> bool:
 	var options: Array = popup.get("options", [])
 	if options.is_empty():
 		return true
-	popup["row"] = wrapi(int(popup.get("row", 0)) + direction, 0, options.size())
+	for attempt in options.size():
+		popup["row"] = wrapi(int(popup.get("row", 0)) + direction, 0, options.size())
+		if not options[int(popup.row)].get("disabled", false): break
 	action_popups[seat] = popup
 	_render_action_popup(seat)
 	PCAudio.play_cue("move")
@@ -3875,19 +3968,26 @@ func _activate_action_popup(seat: int) -> bool:
 		return true
 	var unit_id := int(popup.get("unit_id", 0))
 	var chosen: Dictionary = options[int(popup.get("row", 0))]
+	if chosen.get("disabled", false): return true
 	var mode := String(chosen.get("mode", "wait"))
 	_close_action_popup(seat)
+	if mode == "pack":
+		_open_pack(seat, unit_id)
+		return true
 	if mode == "wait":
 		_submit("wait", unit_id, 0, Vector2i.ZERO, 0, seat)
 		return true
 	action_modes[seat] = mode
 	selected_units[seat] = unit_id
+	if mode == "attack":
+		attack_weapons[seat] = int(chosen.get("weapon", 0))
+		attack_weapon_actors[seat] = unit_id
 	board.set_selected(seat, unit_id, mode)
 	_update_highlights(seat)
 	_focus_attack_target(seat)
 	_refresh_selected_panel(seat)
 	_show_toast(_ui("player.toast.choose_target", {
-		"action": _action_text(mode),
+		"action": _selected_action_text(seat),
 	}))
 	return true
 
@@ -3895,7 +3995,7 @@ func _activate_action_popup(seat: int) -> bool:
 func _focus_attack_target(seat: int) -> void:
 	if action_modes[seat] != "attack" or selected_units[seat] == 0:
 		return
-	var targets := _legal_attack_targets(selected_units[seat])
+	var targets := _legal_attack_targets(selected_units[seat], _attack_weapon(seat))
 	if not targets.is_empty():
 		seats[seat].cursor = Vector2i(int(targets[0].x), int(targets[0].y))
 		board.set_seats(seats)
@@ -3903,14 +4003,32 @@ func _focus_attack_target(seat: int) -> void:
 
 # The native forecast includes every actor/target gate, so an Attack option
 # always has a command the engine can accept rather than merely a reach tile.
-func _legal_attack_targets(unit_id: int) -> Array[Dictionary]:
+func _legal_attack_targets(unit_id: int, weapon := 0) -> Array[Dictionary]:
 	var targets: Array[Dictionary] = []
 	for unit: Dictionary in snapshot.get("units", []):
 		if not unit.get("on_board", false):
 			continue
-		if bool(session.forecast_attack(unit_id, int(unit.id)).get("available", false)):
+		if bool(session.forecast_attack(unit_id, int(unit.id), weapon).get("available", false)):
 			targets.append(unit)
 	return targets
+
+
+func _weapon_name(identity: int) -> String:
+	for weapon: Dictionary in definitions.get("weapons", []):
+		if int(weapon.id) == identity: return str(weapon.name)
+	return _action_text("attack")
+
+
+func _attack_weapon(seat: int) -> int:
+	var actor := _unit_by_id(selected_units[seat])
+	if attack_weapon_actors[seat] != selected_units[seat] or attack_weapons[seat] not in actor.get("weapons", []): return 0
+	return attack_weapons[seat]
+
+
+func _selected_action_text(seat: int) -> String:
+	var mode := action_modes[seat]
+	var weapon := _attack_weapon(seat) if mode == "attack" else 0
+	return _action_text(mode) + (" · " + _weapon_name(weapon) if weapon != 0 else "")
 
 
 func _selected_by_other_seat(seat: int, unit_id: int) -> int:
@@ -3936,6 +4054,8 @@ func _cancel(seat: int) -> void:
 		return
 	selected_units[seat] = 0
 	action_modes[seat] = "move"
+	attack_weapons[seat] = 0
+	attack_weapon_actors[seat] = 0
 	board.set_selected(seat, 0, "move")
 	board.set_highlights(seat, [])
 	_show_no_selection(seat)
@@ -3943,6 +4063,9 @@ func _cancel(seat: int) -> void:
 
 func _cycle_mode(seat: int, direction: int) -> void:
 	hud_seat = seat
+	if _collecting_loot():
+		_open_action_popup(seat, selected_units[seat])
+		return
 	var at := MODES.find(action_modes[seat])
 	action_modes[seat] = MODES[wrapi(at + direction, 0, MODES.size())]
 	_focus_attack_target(seat)
@@ -3958,7 +4081,7 @@ func _cycle_unit(seat: int, direction: int) -> void:
 		if (
 			unit.get("on_board", false)
 			and _unit_owned_by_seat(unit, seat)
-			and not unit.get("has_acted", false)
+			and not _unit_finished(unit)
 		):
 			available.append(unit)
 	if available.is_empty():
@@ -3983,7 +4106,7 @@ func _update_highlights(seat: int) -> void:
 			board.set_highlights(seat, [])
 		return
 	var mode := "deploy" if snapshot.get("deploying", false) else action_modes[seat]
-	var content_id := 0
+	var content_id := _attack_weapon(seat) if mode == "attack" else 0
 	if mode == "ability":
 		var actor := _unit_by_id(selected_units[seat])
 		var abilities: Array = actor.get("abilities", [])
@@ -3995,6 +4118,9 @@ func _update_highlights(seat: int) -> void:
 
 
 func _wait_selected(seat: int) -> void:
+	if _collecting_loot():
+		_finish_collection()
+		return
 	hud_seat = seat
 	var selected := selected_units[seat]
 	if selected != 0:
@@ -4070,7 +4196,7 @@ func _show_unit(unit: Dictionary, seat := 0) -> void:
 	if action_modes[seat] == "attack" and selected_units[seat] != 0:
 		var target: Dictionary = board.unit_at(Vector2i(seats[seat].cursor))
 		if not target.is_empty():
-			var forecast: Dictionary = session.forecast_attack(selected_units[seat], int(target.id))
+			var forecast: Dictionary = session.forecast_attack(selected_units[seat], int(target.id), _attack_weapon(seat))
 			if bool(forecast.get("available", false)):
 				unit_name.text = String(target.get("name", _ui("player.unit.unnamed")))
 				unit_stats.text = "%s %d → %d   %s %d%%" % [
@@ -4138,6 +4264,7 @@ func _context_help_text(seat: int) -> String:
 	var next_action: String = controls.label("next_action")
 	var finish: String = controls.label("end_turn")
 	var menu: String = controls.label("menu")
+	if _collecting_loot(): return _ui("player.pack.collection_help")
 	if String(snapshot.get("active_side", "")) != "first":
 		return "[color=#ff5267][b]%s[/b][/color]" % _ui("player.hud.enemy_turn")
 	if bool(action_popups[seat].get("open", false)):
@@ -4166,7 +4293,7 @@ func _context_help_text(seat: int) -> String:
 		]
 	var mode := action_modes[seat]
 	var action := (
-		_action_text(mode)
+		_selected_action_text(seat)
 		if mode in MODES else _ui("player.hud.confirm")
 	)
 	return (
@@ -4201,7 +4328,7 @@ func _update_status() -> void:
 		"font_color",
 		Color("69d9ff") if String(snapshot.active_side) == "first" else Color("ff7182")
 	)
-	status_label.text = phase
+	status_label.text = _ui("player.pack.collection_help") if _collecting_loot() else phase
 	_update_context_help()
 
 
@@ -4451,8 +4578,10 @@ func _mobile_context_actions() -> Array:
 		return []
 	if action_popups[mobile_seat].get("open", false):
 		return ["cancel"]
+	if _collecting_loot() and selected == 0:
+		return [] if LANSession.active() and LANSession.role == "client" else ["end_turn"]
 	if selected != 0:
-		if _unit_by_id(selected).get("has_acted", false): return ["cancel"]
+		if _unit_finished(_unit_by_id(selected)): return ["cancel"]
 		return ["cancel", "confirm"] if action_modes[mobile_seat] != "move" else ["cancel", "actions"]
 	for unit: Dictionary in snapshot.get("units", []):
 		if _unit_owned_by_seat(unit, mobile_seat) and unit.get("on_board", false) and not unit.get("has_acted", false):
@@ -4555,7 +4684,7 @@ func _position_mobile_context() -> void:
 func _update_mobile_controls() -> void:
 	if mobile_bar == null:
 		return
-	var available := game_language_picker_layer == null and not _management_visible() and not _session_menu_visible() and not mobile_backgrounded
+	var available := game_language_picker_layer == null and not _management_visible() and not _session_menu_visible() and not mobile_backgrounded and not player_pack.visible
 	var conversation: bool = _dialogue_visible() or (combat_cinematic != null and combat_cinematic.is_active())
 	var actions: Array = _mobile_context_actions() if available else []
 	for action: String in mobile_buttons:
@@ -4564,6 +4693,7 @@ func _update_mobile_controls() -> void:
 		button.visible = action in actions or (available and (action == "menu" or (action == "seat" and player_count > 1 and not conversation and not LANSession.active())))
 		button.disabled = false
 	if snapshot.get("deploying", false): mobile_buttons.end_turn.text = _ui("player.hud.begin")
+	elif _collecting_loot(): mobile_buttons.end_turn.text = _ui("player.pack.continue")
 	if "confirm" in actions: mobile_buttons.confirm.text = _action_text(action_modes[mobile_seat])
 	mobile_bar.visible = available and not actions.is_empty()
 	mobile_menu_panel.visible = available
@@ -4599,7 +4729,7 @@ func _mobile_action(action: String) -> void:
 	match action:
 		"menu": _open_session_menu(true)
 		"actions":
-			if not _mobile_unit_busy(selected_units[mobile_seat]) and not _unit_by_id(selected_units[mobile_seat]).get("has_acted", false):
+			if not _mobile_unit_busy(selected_units[mobile_seat]) and not _unit_finished(_unit_by_id(selected_units[mobile_seat])):
 				_open_action_popup(mobile_seat, selected_units[mobile_seat])
 		"cancel": _mobile_back()
 		"seat":
@@ -4607,7 +4737,7 @@ func _mobile_action(action: String) -> void:
 			hud_seat = mobile_seat
 			_refresh_selected_panel(mobile_seat)
 		"confirm":
-			if _mobile_unit_busy(selected_units[mobile_seat]) or _unit_by_id(selected_units[mobile_seat]).get("has_acted", false): return
+			if _mobile_unit_busy(selected_units[mobile_seat]) or _unit_finished(_unit_by_id(selected_units[mobile_seat])): return
 			if combat_cinematic != null and combat_cinematic.is_active():
 				combat_cinematic.skip_exchange()
 			elif _dialogue_visible():
@@ -4642,7 +4772,7 @@ func _mobile_over_buttons(position: Vector2) -> bool:
 
 
 func _handle_mobile_screen(event: InputEvent) -> void:
-	if game_language_picker_layer != null or _management_visible() or _session_menu_visible():
+	if game_language_picker_layer != null or _management_visible() or _session_menu_visible() or player_pack.visible:
 		mobile_gestures.reset()
 		return # Godot Controls handle taps, scrolling, and the soft keyboard.
 	if event is InputEventScreenTouch and event.pressed and _mobile_over_buttons(event.position):
@@ -4681,7 +4811,7 @@ func _mobile_tap(position: Vector2) -> void:
 		return
 	var unit: Dictionary = board.unit_at(cell)
 	var selected: int = selected_units[mobile_seat]
-	if (_mobile_unit_busy(selected) or _unit_by_id(selected).get("has_acted", false)) and (unit.is_empty() or unit.get("side", "") != "first"):
+	if (_mobile_unit_busy(selected) or _unit_finished(_unit_by_id(selected))) and (unit.is_empty() or unit.get("side", "") != "first"):
 		return
 	# Selecting the current unit a second time reveals its legal actions.
 	if selected != 0 and int(unit.get("id", 0)) == selected and not _mobile_unit_busy(selected):
@@ -4703,7 +4833,9 @@ func _mobile_tap(position: Vector2) -> void:
 
 func _mobile_back() -> void:
 	mobile_gestures.reset()
-	if game_language_picker_layer != null:
+	if player_pack != null and player_pack.visible:
+		player_pack._leave()
+	elif game_language_picker_layer != null:
 		_return_home()
 	elif _session_menu_visible():
 		_session_menu_back()
@@ -4787,3 +4919,56 @@ func _update_lan_status() -> void:
 	var safe := MobileLayout.current_rect(get_viewport())
 	lan_status_panel.size = Vector2(minf(980, safe.size.x * 0.82), 0)
 	lan_status_panel.position = Vector2(safe.get_center().x - lan_status_panel.size.x * 0.5, safe.position.y + (160 if OS.has_feature("android") else 90))
+
+
+func _collecting_loot() -> bool:
+	return bool(snapshot.get("collecting_loot", false))
+
+func _gold_claimant_in_company(effect: Dictionary) -> bool:
+	var claimant := _unit_by_id(int(effect.get("related_unit_id", 0)))
+	return claimant.get("side") == "first" and int(claimant.get("member_id", 0)) != 0
+
+func _unit_finished(unit: Dictionary) -> bool:
+	return bool(unit.get("has_acted", false)) and not _collecting_loot()
+
+func _open_pack(seat: int, unit_id: int) -> void:
+	var unit := _unit_by_id(unit_id)
+	if unit.is_empty() or not _unit_owned_by_seat(unit, seat) or _unit_finished(unit) or _unit_is_pending(unit_id): return
+	if snapshot.get("active_side") != "first" and not _collecting_loot(): return
+	if snapshot.get("inventory_mode", "legacy") != "carried" or snapshot.get("deploying", false): return
+	player_pack.present(unit, snapshot.get("ground_items", []), seat, _collecting_loot())
+
+func _pack_command(kind: String, ground: int, category: String, content: int) -> void:
+	var unit := _unit_by_id(player_pack.unit_id)
+	if not _unit_owned_by_seat(unit, player_pack.seat) or _unit_is_pending(player_pack.unit_id):
+		_refresh_pack()
+		return
+	_submit(kind, player_pack.unit_id, 0, Vector2i.ZERO, content if kind == "item" else 0, player_pack.seat, ground, category, content)
+
+func _refresh_pack() -> void:
+	if player_pack != null and player_pack.visible:
+		var unit := _unit_by_id(player_pack.unit_id)
+		if _unit_finished(unit) or (snapshot.get("active_side") != "first" and not _collecting_loot()): player_pack.hide()
+		else: player_pack.refresh(unit, snapshot.get("ground_items", []), _collecting_loot())
+
+func _finish_collection() -> void:
+	if not _collecting_loot() or (LANSession.active() and LANSession.role != "host"): return
+	if not pending_requests.is_empty(): return
+	if player_pack != null: player_pack.hide()
+	_submit("finish_collection")
+
+func _update_collection_action() -> void:
+	if collection_button == null: return
+	collection_button.visible = _collecting_loot() and not _dialogue_visible() and not _session_menu_visible() and not player_pack.visible and not (combat_cinematic != null and combat_cinematic.is_active())
+	if not collection_button.visible: return
+	var remaining := 0
+	for pile: Dictionary in snapshot.get("ground_items", []): remaining += int(pile.get("count", 0))
+	collection_button.text = _ui("player.pack.continue_leave", {"count": remaining}) if remaining > 0 else _ui("player.pack.continue")
+	collection_button.disabled = not pending_requests.is_empty() or (LANSession.active() and LANSession.role != "host")
+	if LANSession.active() and LANSession.role != "host": collection_button.text = _ui("player.pack.host_continue")
+	var safe := MobileLayout.current_rect(get_viewport())
+	var density := MobileLayout.units_per_dp(get_viewport()) if OS.has_feature("android") else 1.0
+	collection_button.custom_minimum_size = Vector2(320, maxf(56, 48 * density))
+	collection_button.add_theme_font_size_override("font_size", roundi(maxf(18, 16 * density)))
+	collection_button.reset_size()
+	collection_button.position = Vector2(safe.end.x - collection_button.size.x - 24, safe.position.y + 90)

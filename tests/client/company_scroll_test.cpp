@@ -375,9 +375,53 @@ public:
     }
 };
 
+class SupplySurfacePilot final : public ScrollPilot {
+public:
+    using ScrollPilot::ScrollPilot;
+    bool saw_store{}, saw_give{}, saw_take{};
+    void paint_screen(const turn::ScreenView& view) override {
+        ScrollPilot::paint_screen(view);
+        for (int row = 0; row < view.page->count; ++row) {
+            const std::string line(view.page->line(row));
+            saw_store = saw_store || line.find("THE COMPANY'S STORE") != std::string::npos;
+            saw_give = saw_give || line.find("GIVE ") != std::string::npos;
+            saw_take = saw_take || line.find("TAKE ") != std::string::npos;
+        }
+    }
+    std::uint16_t next_press() override {
+        return screen_.screen == turn::Screen::company ? turn::pad_a : turn::pad_b;
+    }
+};
+
+void carried_company_has_no_shared_supply_controls() {
+    client::CompanyManagement company;
+    company.has_deployment_options = true;
+    client::RosterEntry member;
+    member.member = {1}; member.name = "Keeper";
+    member.availability = grandleon::campaign::Availability::available;
+    member.carried.push_back({{{}, core::ContentCategory::item, 30}, 1});
+    company.roster.push_back(member);
+    company.placeable.push_back(member.member);
+    company.fielded.push_back(member.member);
+    company.store.push_back({{{}, core::ContentCategory::currency, 40}, 11});
+    QuietSink sink;
+    company.inventory_mode = grandleon::simulation::InventoryMode::carried;
+    SupplySurfacePilot carried(sink);
+    const auto answer = carried.next_management_intent(company);
+    expect(answer.verb == client::ManagementVerb::none, "backing out of a carried member menu commits nothing");
+    expect(!carried.saw_store && !carried.saw_give && !carried.saw_take,
+           "carried management exposes no shared supplies even with wallet currency and equipped items");
+    company.inventory_mode = grandleon::simulation::InventoryMode::legacy;
+    SupplySurfacePilot legacy(sink);
+    (void)legacy.next_management_intent(company);
+    expect(legacy.saw_store && legacy.saw_give && legacy.saw_take,
+           "legacy management keeps its existing store and give/take choices");
+}
+
 }  // namespace
 
 int main() {
+    carried_company_has_no_shared_supply_controls();
     const pf::LoadedPackage package = compile_the_long_company();
     if (failures != 0) {
         std::cout << "RESULT company_scroll FAIL " << failures << '\n';

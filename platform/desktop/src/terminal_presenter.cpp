@@ -252,6 +252,16 @@ public:
                               << " (" << roster.label(event.unit_id)
                               << ") held on\n";
                     break;
+                case sim::EventType::gold_gained:
+                    std::cout << "    Found " << event.amount << " gold\n";
+                    break;
+                case sim::EventType::inventory_picked_up:
+                case sim::EventType::inventory_dropped:
+                    std::cout << "    " << roster.label(event.unit_id)
+                              << (event.type == sim::EventType::inventory_picked_up
+                                      ? " picked up equipment " : " dropped equipment ")
+                              << event.content_id << '\n';
+                    break;
                 case sim::EventType::item_used:
                     std::cout << "    " << roster.label(event.unit_id)
                               << " used "

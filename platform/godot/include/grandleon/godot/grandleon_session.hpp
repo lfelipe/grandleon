@@ -281,7 +281,7 @@ public:
         std::int64_t content_id = 0
     ) const;
     [[nodiscard]] ::godot::Dictionary forecast_attack(
-        std::int64_t unit_id, std::int64_t target_id
+        std::int64_t unit_id, std::int64_t target_id, std::int64_t weapon_id = 0
     ) const;
     void submit_intent(
         const ::godot::String& kind,
@@ -290,7 +290,10 @@ public:
         std::int64_t x = 0,
         std::int64_t y = 0,
         std::int64_t content_id = 0,
-        std::int64_t request_id = 0
+        std::int64_t request_id = 0,
+        std::int64_t ground_item_id = 0,
+        const ::godot::String& carried_category = "item",
+        std::int64_t carried_content_id = 0
     );
     [[nodiscard]] bool submit_management(
         const ::godot::String& kind,

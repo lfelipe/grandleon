@@ -1031,6 +1031,15 @@ export function validateProject(filename) {
       // outcome nothing reaches. The schema cannot say "these two together"
       // without a conditional nobody would read, so it is said here, where the
       // diagnostic can point at the half that is missing.
+      if (unitType.dropWeaponId !== undefined) {
+        requireReference("weapon", unitType.dropWeaponId, `/unitTypes/${index}/dropWeaponId`);
+      }
+      if ((unitType.dropWeaponId === undefined) !== (unitType.dropWeaponChance === undefined)) {
+        const instancePath = `/unitTypes/${index}/dropWeaponId`;
+        diagnostics.push(diagnostic(filename, "SOURCE_DROP_INCOMPLETE", instancePath,
+          `unit type '${unitType.id}' must state dropWeaponId and dropWeaponChance together`,
+          document.pointers[instancePath]?.value));
+      }
       if (unitType.dropItemId !== undefined) {
         requireReference(
           "item",
@@ -1177,6 +1186,59 @@ export function validateProject(filename) {
           dialogueId,
           `/campaigns/${index}/dialogueIds/${dialogueIndex}`
         );
+      }
+      const members = [...(campaign.roster ?? []), ...(campaign.flow?.nodes ?? []).flatMap(node => node.recruits ?? [])];
+      const placements = (campaign.flow?.nodes ?? []).flatMap(node => node.placements ?? []);
+      const usedTypes = new Set([...members, ...placements].map(value => value.unitTypeId));
+      if (campaign.inventoryMode !== "carried") {
+        for (const type of (project.unitTypes ?? [])) {
+          if (!usedTypes.has(type.id) || (type.dropWeaponId === undefined && type.carryCapacity === undefined)) continue;
+          const instancePath = `/campaigns/${index}/inventoryMode`;
+          diagnostics.push(diagnostic(filename, "SOURCE_CARRIED_INVENTORY_REQUIRED", instancePath,
+            `campaign '${campaign.id}' uses '${type.id}' with physical inventory rules; explicitly enable carried inventories`,
+            document.pointers[`/campaigns/${index}`]?.value));
+        }
+        if (members.some(member => member.carryCapacity !== undefined)) {
+          const instancePath = `/campaigns/${index}/inventoryMode`;
+          diagnostics.push(diagnostic(filename, "SOURCE_CARRIED_INVENTORY_REQUIRED", instancePath,
+            `campaign '${campaign.id}' authors a personal carry capacity; explicitly enable carried inventories`,
+            document.pointers[`/campaigns/${index}`]?.value));
+        }
+      }
+      if (campaign.inventoryMode === "carried") {
+        const supplyLists = [
+          [campaign.startingStore, `/campaigns/${index}/startingStore`],
+          ...(campaign.flow?.nodes ?? []).map((node, nodeIndex) =>
+            [node.grants, `/campaigns/${index}/flow/nodes/${nodeIndex}/grants`]),
+        ];
+        for (const [grants, instancePath] of supplyLists) {
+          if (!grants?.length) continue;
+          diagnostics.push(diagnostic(filename, "SOURCE_SHARED_EQUIPMENT_DISABLED", instancePath,
+            "Personal-pack campaigns keep equipment with characters. Assign starting equipment to a hero or archetype, and enemy loot to its drop settings.",
+            document.pointers[instancePath]?.value));
+        }
+        for (const member of members) {
+          const type = (project.unitTypes ?? []).find(value => value.id === member.unitTypeId);
+          const capacity = member.carryCapacity ?? type?.carryCapacity;
+          const held = (member.startingWeaponIds ?? type?.startingWeaponIds ?? []).length + (type?.startingItemIds ?? []).length;
+          if (capacity !== undefined && held > capacity) {
+            const instancePath = `/campaigns/${index}`;
+            diagnostics.push(diagnostic(filename, "SOURCE_CARRY_CAPACITY_EXCEEDED", instancePath,
+              `member '${member.id}' starts with ${held} copies but can carry only ${capacity}`,
+              document.pointers[instancePath]?.value));
+          }
+        }
+        for (const placement of placements) {
+          if (placement.memberId !== undefined) continue;
+          const type = (project.unitTypes ?? []).find(value => value.id === placement.unitTypeId);
+          const held = (type?.startingWeaponIds ?? []).length + (type?.startingItemIds ?? []).length;
+          if (type?.carryCapacity !== undefined && held > type.carryCapacity) {
+            const instancePath = `/campaigns/${index}`;
+            diagnostics.push(diagnostic(filename, "SOURCE_CARRY_CAPACITY_EXCEEDED", instancePath,
+              `archetype '${type.id}' starts with ${held} copies but can carry only ${type.carryCapacity}`,
+              document.pointers[instancePath]?.value));
+          }
+        }
       }
       const memberUnitTypes = validateCampaignRoster(campaign, index);
       validateItemGrants(

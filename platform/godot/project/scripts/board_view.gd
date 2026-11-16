@@ -241,6 +241,10 @@ func cell_at(screen_position: Vector2) -> Vector2i:
 	return cell
 
 
+func cell_is_visible(cell: Vector2i) -> bool:
+	return _visibility.visibility_at(cell.y * int(snapshot.get("width", 0)) + cell.x) > 0.01
+
+
 func screen_position_for_cell(cell: Vector2i) -> Vector2:
 	return to_global(origin + (Vector2(cell) + Vector2(0.5, 0.35)) * tile_size)
 

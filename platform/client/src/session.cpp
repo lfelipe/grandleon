@@ -480,7 +480,7 @@ SessionError play_battle(
 
     while (true) {
         auto snapshot = created.encounter.snapshot();
-        if (snapshot.outcome != sim::Outcome::ongoing) break;
+        if (snapshot.outcome != sim::Outcome::ongoing && !snapshot.collecting_loot) break;
 
         if (snapshot.active_side != player_side) {
             play_opposing_side(
@@ -488,7 +488,7 @@ SessionError play_battle(
                 presenter, report.events
             );
             snapshot = created.encounter.snapshot();
-            if (snapshot.outcome != sim::Outcome::ongoing) break;
+            if (snapshot.outcome != sim::Outcome::ongoing && !snapshot.collecting_loot) break;
             // No draw here. Every command the opposing side had accepted was
             // drawn where it was reported, so the last of them is already the
             // board control comes back to; drawing again would be the same
@@ -533,7 +533,18 @@ SessionError play_battle(
 
         sim::Command command{};
         command.unit_id = intent.unit_id;
-        if (intent.kind == IntentKind::move_to) {
+        command.ground_item_id = intent.ground_item_id;
+        command.carried_category = intent.carried_category;
+        command.carried_content_id = intent.carried_content_id;
+        if (intent.kind == IntentKind::pick_up) {
+            command.type = sim::CommandType::pick_up;
+        } else if (intent.kind == IntentKind::drop_carried) {
+            command.type = sim::CommandType::drop_carried;
+        } else if (intent.kind == IntentKind::exchange_carried) {
+            command.type = sim::CommandType::exchange_carried;
+        } else if (intent.kind == IntentKind::finish_collection) {
+            command.type = sim::CommandType::finish_collection;
+        } else if (intent.kind == IntentKind::move_to) {
             command.type = sim::CommandType::move;
             command.destination = intent.destination;
         } else if (intent.kind == IntentKind::attack) {

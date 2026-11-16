@@ -62,7 +62,8 @@ int main() {
    const camp::PersistentEntityId id{member.persistent_id};
    operations.push_back(camp::recruit_unit(id,{package,core::ContentCategory::unit_type,member.unit_type_id}));
    for(auto item:member.starting_items)operations.push_back(camp::add_item(id,{package,core::ContentCategory::item,item},1));
-   if(member.rules.states_starting_weapons)for(auto weapon:member.rules.starting_weapons)
+   if(grandleon_generated_carried_inventory() || member.rules.states_starting_weapons)
+    for(auto weapon:grandleon_generated_carried_inventory() ? member.recruited_weapons : member.rules.starting_weapons)
     operations.push_back(camp::add_item(id,{package,core::ContentCategory::weapon,weapon},1));
   }
   assert(camp::apply_outcome(state,camp::make_outcome_batch({{package,core::ContentCategory::campaign,1},0,0},operations)));
@@ -71,8 +72,8 @@ int main() {
    for(const auto& member:grandleon_generated_campaign_members()) {
     if(member.source_id!=grandleon_generated_unit_source(unit.id))continue;
     const auto* record=camp::find_unit(state,{member.persistent_id});assert(record);
-    cr::apply_member_kit(unit,*record,&member.rules);
-    cr::apply_member_permissions(unit,&member.rules,definition.weapons);
+    assert(cr::apply_member_kit(unit,*record,&member.rules,grandleon_generated_carried_inventory()));
+    cr::apply_member_permissions(unit,&member.rules,definition.weapons,grandleon_generated_carried_inventory());
     unit.endures=grandleon_generated_company_endures();
     if(member.rules.states_starting_weapons) {
      changed=true;assert(unit.weapon_ids==member.rules.starting_weapons);

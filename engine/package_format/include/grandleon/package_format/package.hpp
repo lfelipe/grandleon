@@ -161,6 +161,10 @@ enum class SectionType : std::uint32_t {
     // Sparse character permissions, personal kit and defeat policy. Required:
     // ignoring any of these changes the authored rules. Absent preserves bytes.
     member_rules = 28,
+    unit_loot = 29,
+    campaign_inventory = 30,
+    encounter_inventory = 31,
+    currencies = 32,
 };
 
 // The presentation section holds records about the whole game, the way the

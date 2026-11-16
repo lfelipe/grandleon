@@ -12,6 +12,7 @@
 #include <grandleon/package_runtime/encounter_loader.hpp>
 #include <grandleon/storage/slot_storage.hpp>
 
+#include <algorithm>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -383,6 +384,7 @@ enum class CampaignSessionError : std::uint8_t {
     // The flow neither ended nor moved within its bound. A graph that will not
     // hand the turn back is surfaced rather than spun on.
     flow_stalled,
+    incompatible_inventory_save,
 };
 
 [[nodiscard]] std::string_view campaign_session_error_name(
@@ -473,6 +475,7 @@ struct CompanyManagement final {
     // cannot leave, in a slot that has already been written. The way out has to
     // be on the screen the refusal lands on.
     std::vector<CampaignStage> stages;
+    simulation::InventoryMode inventory_mode{simulation::InventoryMode::legacy};
 };
 
 // Whether a fixed formation is genuinely ready to enter its board without a
@@ -487,7 +490,10 @@ struct CompanyManagement final {
 ) noexcept {
     if (company.error != CampaignSessionError::none ||
         company.roster.empty() || company.has_deployment_options ||
-        !company.store.empty() ||
+        (company.inventory_mode == simulation::InventoryMode::legacy &&
+         std::any_of(company.store.begin(), company.store.end(), [](const auto& stack) {
+             return stack.item.category != core::ContentCategory::currency;
+         })) ||
         company.refused != campaign_runtime::RosterError::none) {
         return false;
     }
@@ -616,6 +622,10 @@ enum class ManagementError : std::uint8_t {
     fixed_name,
     invalid_name,
     disallowed_weapon,
+    inventory_full,
+    non_transferable_currency,
+    shared_supplies_disabled,
+
 };
 
 [[nodiscard]] std::string_view management_error_name(
@@ -857,7 +867,9 @@ public:
     // back over the top when the options ask for it. A slot that cannot
     // be honoured sets `refused` and fills `failure` in the vocabulary of
     // whichever layer refused it; the freshly founded campaign is what stays
-    // standing, and playing continues.
+    // standing, and playing continues. An inventory-mode mismatch instead
+    // returns incompatible_inventory_save, so play cannot overwrite a valid
+    // checkpoint under different ownership rules.
     [[nodiscard]] CampaignSessionError begin(
         SlotFailure& failure,
         bool& refused,

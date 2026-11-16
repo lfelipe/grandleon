@@ -390,6 +390,7 @@ std::vector<std::uint8_t> encode_section(
     const CampaignState& state
 ) {
     switch (type) {
+        case SaveSectionType::carried_inventory: return {1U};
         case SaveSectionType::roster: return encode_roster(state);
         case SaveSectionType::store: return encode_stacks(state.store);
         case SaveSectionType::objectives: return encode_objectives(state);
@@ -413,8 +414,10 @@ std::vector<std::uint8_t> encode_section(
 // presence and the campaign's `active` flag one fact with one encoding.
 [[nodiscard]] bool section_is_written(
     SaveSectionType type,
-    const CampaignState& state
+    const CampaignState& state,
+    bool carried_inventory
 ) noexcept {
+    if (type == SaveSectionType::carried_inventory) return carried_inventory;
     if (type == SaveSectionType::currency_inventory) return has_currency(state);
     if (type == SaveSectionType::progression) return state.progress.active;
     if (type == SaveSectionType::player_names) {
@@ -621,6 +624,10 @@ std::vector<std::uint8_t> encode_section(
     CampaignState& state
 ) {
     switch (type) {
+        case SaveSectionType::carried_inventory: {
+            std::uint8_t mode{};
+            return reader.u8(mode) && mode == 1U;
+        }
         case SaveSectionType::roster: return decode_roster(reader, limits, state);
         case SaveSectionType::store:
             return decode_stacks(reader, limits.maximum_stacks, state.store);
@@ -640,7 +647,7 @@ std::vector<std::uint8_t> encode_section(
     return false;
 }
 
-constexpr std::array<SaveSectionType, 8> known_sections{
+constexpr std::array<SaveSectionType, 9> known_sections{
     SaveSectionType::roster,
     SaveSectionType::store,
     SaveSectionType::objectives,
@@ -649,6 +656,7 @@ constexpr std::array<SaveSectionType, 8> known_sections{
     SaveSectionType::progression,
     SaveSectionType::player_names,
     SaveSectionType::currency_inventory,
+    SaveSectionType::carried_inventory,
 };
 
 // Field-by-field campaign equality.
@@ -762,6 +770,7 @@ std::string_view save_section_name(std::uint32_t type) noexcept {
         case SaveSectionType::progression: return "progression";
         case SaveSectionType::player_names: return "player_names";
         case SaveSectionType::currency_inventory: return "currency_inventory";
+        case SaveSectionType::carried_inventory: return "carried_inventory";
     }
     return "unknown";
 }
@@ -789,6 +798,7 @@ SaveSectionSchema save_section_schema(SaveSectionType type) noexcept {
         case SaveSectionType::progression: return {1, 0};
         case SaveSectionType::player_names: return {1, 0};
         case SaveSectionType::currency_inventory: return {1, 0};
+        case SaveSectionType::carried_inventory: return {1, 0};
     }
     return {1, 0};
 }
@@ -847,7 +857,8 @@ bool operator==(const SaveHeader& lhs, const SaveHeader& rhs) noexcept {
 
 bool operator==(const CampaignSave& lhs, const CampaignSave& rhs) noexcept {
     return lhs.header == rhs.header && lhs.packages == rhs.packages &&
-           states_equal(lhs.state, rhs.state) && lhs.retained == rhs.retained;
+           states_equal(lhs.state, rhs.state) && lhs.retained == rhs.retained &&
+           lhs.carried_inventory == rhs.carried_inventory;
 }
 
 CampaignSave make_campaign_save(
@@ -882,7 +893,7 @@ std::vector<std::uint8_t> save_campaign(const CampaignSave& save) {
     std::vector<Pending> pending;
     pending.reserve(known_sections.size() + save.retained.size());
     for (const SaveSectionType type : known_sections) {
-        if (!section_is_written(type, save.state)) {
+        if (!section_is_written(type, save.state, save.carried_inventory)) {
             continue;
         }
         const SaveSectionSchema schema = save_section_schema(type);
@@ -1217,7 +1228,8 @@ SaveLoadResult interpret_save(DecodedSave decoded, const SaveLoadOptions& option
         if (view.schema_major != save_section_schema(type).major) {
             return load_failure(SaveError::unsupported_schema, view.type);
         }
-        if (type == SaveSectionType::currency_inventory && !view.required()) {
+        if ((type == SaveSectionType::currency_inventory ||
+             type == SaveSectionType::carried_inventory) && !view.required()) {
             return load_failure(SaveError::invalid_section, view.type);
         }
         Reader reader(decoded.bytes.data() + view.offset, view.size);
@@ -1225,6 +1237,7 @@ SaveLoadResult interpret_save(DecodedSave decoded, const SaveLoadOptions& option
             !reader.done()) {
             return load_failure(SaveError::invalid_section, view.type);
         }
+        if (type == SaveSectionType::carried_inventory) result.save.carried_inventory = true;
         // The known section values are contiguous, which the array
         // below relies on; `known_sections` is the list that keeps them so.
         seen[static_cast<std::size_t>(view.type) - 1U] = true;
@@ -1235,6 +1248,8 @@ SaveLoadResult interpret_save(DecodedSave decoded, const SaveLoadOptions& option
         // section is absent from every campaign that has not entered a graph,
         // which includes every save written before the section existed, and
         // absence means exactly that: unstarted.
+        if (known_sections[index] == SaveSectionType::carried_inventory &&
+            !result.save.carried_inventory) continue;
         if (known_sections[index] == SaveSectionType::currency_inventory &&
             !has_currency(result.save.state)) continue;
         if (!seen[index] && save_section_required(known_sections[index])) {

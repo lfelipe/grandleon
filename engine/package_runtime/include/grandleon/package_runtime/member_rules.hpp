@@ -14,5 +14,7 @@ struct MemberRules final {
     bool states_weapon_affinities{false};
     bool states_starting_weapons{false};
     DefeatPolicy defeat_policy{DefeatPolicy::inherit};
+    std::uint16_t carry_capacity{};
+    bool states_carry_capacity{false};
 };
 }  // namespace grandleon::package_runtime

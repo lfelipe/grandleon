@@ -189,6 +189,7 @@ struct EncounterLoadResult final {
     // campaign loads, which is why none of them moves.
     bool company_endures{false};
     std::vector<MemberRules> member_rules;
+    bool company_permanent_loss{false};
 
     [[nodiscard]] explicit operator bool() const noexcept {
         return error == EncounterLoadError::none;
@@ -213,6 +214,12 @@ struct EncounterLoadOptions final {
 // Resolve only equipment actually carried after a roster join, including its
 // weapon-family advantages. No full-game registry is allocated.
 [[nodiscard]] bool resolve_carried_equipment(
+    const package_format::LoadedPackage& package,
+    simulation::EncounterDefinition& definition
+);
+// Targets that compile each stage into its own executable must retain the
+// game's equipment definitions: a character can bring loot from another map.
+[[nodiscard]] bool resolve_equipment_library(
     const package_format::LoadedPackage& package,
     simulation::EncounterDefinition& definition
 );

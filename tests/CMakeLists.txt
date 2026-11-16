@@ -1410,6 +1410,10 @@ add_test(
 )
 
 
+add_executable(grandleon_carried_inventory_tests simulation/carried_inventory_test.cpp)
+target_link_libraries(grandleon_carried_inventory_tests PRIVATE grandleon::simulation)
+add_test(NAME grandleon.carried_inventory COMMAND grandleon_carried_inventory_tests)
+
 add_executable(grandleon_currency_tests campaign/currency_test.cpp)
 target_link_libraries(grandleon_currency_tests PRIVATE grandleon::campaign)
 add_test(NAME grandleon.currency COMMAND grandleon_currency_tests)
@@ -1487,3 +1491,17 @@ foreach(grandleon_test_target IN LISTS grandleon_test_targets)
         )
     endif()
 endforeach()
+
+add_executable(grandleon_personal_inventory_save_tests campaign/personal_inventory_save_test.cpp)
+target_link_libraries(grandleon_personal_inventory_save_tests PRIVATE grandleon::campaign)
+add_test(NAME grandleon.personal_inventory_save COMMAND grandleon_personal_inventory_save_tests)
+
+add_executable(grandleon_client_carried_pack_tests
+    client/carried_pack_test.cpp
+    "${PROJECT_SOURCE_DIR}/platform/client/src/turn_client.cpp"
+)
+target_link_libraries(grandleon_client_carried_pack_tests PRIVATE
+    grandleon::client grandleon::package_format grandleon::package_runtime
+    grandleon::sheet grandleon::view)
+target_compile_features(grandleon_client_carried_pack_tests PRIVATE cxx_std_17)
+add_test(NAME grandleon.client_carried_pack COMMAND grandleon_client_carried_pack_tests)

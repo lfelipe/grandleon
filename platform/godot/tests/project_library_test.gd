@@ -197,7 +197,7 @@ func _init() -> void:
 			_expect("legacy archive preserves identity", legacy_import.id, created.id)
 			_expect("legacy archive migration is reported", legacy_import.migration.status, "completed")
 			_expect("legacy archive migration source", legacy_import.migration.from_schema, "1.3.0")
-			_expect("legacy archive migration target", legacy_import.migration.to_schema, "1.5.0")
+			_expect("legacy archive migration target", legacy_import.migration.to_schema, "1.6.0")
 			var imported_backup := str(legacy_import.migration.backup.file)
 			_expect("legacy archive backup is relative", imported_backup.begins_with("recovered/"), true)
 			_expect("legacy archive backup uses portable separators", imported_backup.contains("\\"), false)
@@ -300,7 +300,7 @@ func _init() -> void:
 			_expect("legacy card reports pending migration", migration_projects[0].migration.status, "pending")
 			_expect(
 				"legacy card explains update",
-				str(migration_projects[0].notice).contains("1.3 → 1.5"),
+				str(migration_projects[0].notice).contains("1.3 → 1.6"),
 				true
 			)
 			_expect(
@@ -323,8 +323,8 @@ func _init() -> void:
 		if migrated.ok:
 			_expect("stored migration is explicit", migrated.migration.status, "completed")
 			_expect("stored migration reports old schema", migrated.migration.from_schema, "1.3.0")
-			_expect("stored migration reports new schema", migrated.migration.to_schema, "1.5.0")
-			_expect("stored migration reaches new schema", str(migrated.project.schemaVersion), "1.5.0")
+			_expect("stored migration reports new schema", migrated.migration.to_schema, "1.6.0")
+			_expect("stored migration reaches new schema", str(migrated.project.schemaVersion), "1.6.0")
 			var backup_file := str(migrated.migration.backup.file)
 			_expect("stored migration backup is portable", backup_file.begins_with("recovered/"), true)
 			_expect("stored migration backup is not absolute", backup_file.begins_with("/"), false)
@@ -453,9 +453,9 @@ func _exercise_personal_schema_migration() -> void:
 		_expect("1.4 fixture writes", _write_file(file, original), true)
 		var inspected: Dictionary = library.inspect_source(str(created.id))
 		_expect("1.4 inspection offers migration", inspected.migration.status, "pending")
-		_expect("1.4 inspection only offers personal choices step", inspected.migration.steps.size(), 1)
+		_expect("1.4 inspection offers personal choices and loot steps", inspected.migration.steps.size(), 2)
 		_expect("1.4 step starts at actual version", inspected.migration.steps[0].from, "1.4.0")
-		_expect("1.4 step ends at current version", inspected.migration.steps[0].to, "1.5.0")
+		_expect("personal choices step retains its historical boundary", inspected.migration.steps[0].to, "1.5.0")
 		_expect("1.4 inspection leaves original bytes", FileAccess.get_file_as_string(file), original)
 		_expect("1.4 inspection creates no backup", DirAccess.dir_exists_absolute(directory.path_join("recovered")), false)
 		var migrated: Dictionary = library.load_source(str(created.id))

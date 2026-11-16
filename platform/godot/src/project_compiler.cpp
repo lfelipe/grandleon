@@ -611,6 +611,18 @@ void GrandleonProjectCompiler::_bind_methods() {
         &GrandleonProjectCompiler::set_unit_type_kit_entry
     );
     gd::ClassDB::bind_method(
+        gd::D_METHOD("set_unit_type_drops", "source_json", "unit_type_id", "drops_json"),
+        &GrandleonProjectCompiler::set_unit_type_drops
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD("set_unit_type_carry_capacity", "source_json", "unit_type_id", "capacity", "stated"),
+        &GrandleonProjectCompiler::set_unit_type_carry_capacity
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD("set_campaign_inventory_mode", "source_json", "campaign_id", "mode"),
+        &GrandleonProjectCompiler::set_campaign_inventory_mode
+    );
+    gd::ClassDB::bind_method(
         gd::D_METHOD(
             "insert_dialogue_line", "source_json", "dialogue_id",
             "after_line_index", "speaker", "line_text"
@@ -1750,6 +1762,50 @@ gd::Dictionary GrandleonProjectCompiler::set_unit_type_kit_entry(
     }
     result["ok"] = true;
     result["source"] = text(updated.json);
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::set_unit_type_drops(
+    const gd::String& source_json,
+    const gd::String& unit_type_id,
+    const gd::String& drops_json
+) const {
+    gd::Dictionary result;
+    const auto updated = gc::set_source_unit_type_drops_json(
+        narrow(source_json), narrow(unit_type_id), narrow(drops_json));
+    result["ok"] = static_cast<bool>(updated);
+    result["source"] = text(updated.json);
+    gd::Array diagnostics;
+    for (const auto& diagnostic : updated.diagnostics) diagnostics.push_back(source_diagnostic(diagnostic));
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::set_unit_type_carry_capacity(
+    const gd::String& source_json, const gd::String& unit_type_id,
+    std::int64_t capacity, bool stated
+) const {
+    gd::Dictionary result;
+    const auto updated = gc::set_source_unit_type_carry_capacity_json(narrow(source_json), narrow(unit_type_id), capacity, stated);
+    result["ok"] = static_cast<bool>(updated);
+    result["source"] = text(updated.json);
+    gd::Array diagnostics;
+    for (const auto& diagnostic : updated.diagnostics) diagnostics.push_back(source_diagnostic(diagnostic));
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::set_campaign_inventory_mode(
+    const gd::String& source_json, const gd::String& campaign_id,
+    const gd::String& mode
+) const {
+    gd::Dictionary result;
+    const auto updated = gc::set_source_campaign_inventory_mode_json(narrow(source_json), narrow(campaign_id), narrow(mode));
+    result["ok"] = static_cast<bool>(updated);
+    result["source"] = text(updated.json);
+    gd::Array diagnostics;
+    for (const auto& diagnostic : updated.diagnostics) diagnostics.push_back(source_diagnostic(diagnostic));
     result["diagnostics"] = diagnostics;
     return result;
 }

@@ -5,7 +5,9 @@
 #include <grandleon/client/console_localization.hpp>
 #include <grandleon/client/console_name_editor.hpp>
 #include <grandleon/client/session.hpp>
+#include <grandleon/simulation/carried_inventory.hpp>
 #include <grandleon/core/content_identity.hpp>
+#include <grandleon/core/currency.hpp>
 #include <grandleon/package_runtime/dialogue.hpp>
 #include <grandleon/package_runtime/localization.hpp>
 #include <grandleon/package_runtime/names.hpp>
@@ -120,6 +122,7 @@ struct BoardResources final {
     std::optional<storage::ByteWindowSlotStorage> saves;
     std::optional<client::PackageBoards> campaign_boards;
     std::optional<client::CampaignSession> campaign;
+    grandleon::campaign::BattleBinding battle_binding;
     std::vector<sim::Event> battle_events;
     T3DVertPacked* terrain_vertex_arena{};
     std::size_t terrain_cell_capacity{};
@@ -277,16 +280,26 @@ enum class BattleUiPhase : std::uint8_t {
     system,
     help,
     action,
+    pack,
     attack_target,
     ability_target,
     talk_target,
     result,
 };
 
+enum class PackView : std::uint8_t { hub, inventory, ground, entry, loot, exchange };
+
 struct BattleUiState final {
     BattleUiPhase phase{BattleUiPhase::board};
     sim::UnitId actor{};
     sim::ContentId ability{};
+    sim::ContentId weapon{};
+    std::uint64_t wallet{};
+    PackView pack_view{PackView::hub};
+    std::uint16_t pack_page{};
+    std::uint64_t ground_item{};
+    sim::ContentId carried_content{};
+    grandleon::core::ContentCategory carried_category{grandleon::core::ContentCategory::item};
     std::uint8_t player{};
     std::uint8_t row{};
     std::uint32_t result_until{};
@@ -2795,6 +2808,7 @@ bool stand_on_campaign_encounter() {
                 board.campaign->prepare_board();
             if (prepared.error != client::CampaignSessionError::none) return false;
             board.campaign_content = std::move(prepared.encounter.encounter);
+            board.battle_binding = std::move(prepared.encounter.binding);
             configure_campaign_board(board.campaign_content);
             shell.deployment_approved = false;
             shell.phase = ShellPhase::battle;
@@ -3912,7 +3926,9 @@ std::uint8_t action_rows();
 
 void open_action_menu(sim::UnitId actor, std::uint8_t player = 0U) {
     const sim::UnitSnapshot* unit = find_unit(actor);
-    if (unit == nullptr || !sim::on_board(*unit) || unit->has_acted) return;
+    if (unit == nullptr || !sim::on_board(*unit) ||
+        (!board.game.snapshot().collecting_loot && unit->has_acted) ||
+        unit->local_player != player + 1U) return;
     battle_ui = {};
     battle_ui.phase = BattleUiPhase::action;
     battle_ui.actor = actor;
@@ -3927,30 +3943,107 @@ enum class ActionChoiceKind : std::uint8_t {
     talk,
     wait,
     cancel,
+    pack, pack_inventory, pack_ground, pack_entry, pack_loot,
+    pack_pickup, pack_drop, pack_exchange, pack_next, pack_back,
 };
 
 struct ActionChoice final {
-    ActionChoiceKind kind{ActionChoiceKind::cancel};
     sim::ContentId content{};
+    grandleon::core::ContentCategory category{grandleon::core::ContentCategory::item};
+    std::uint16_t quantity{};
+    ActionChoiceKind kind{ActionChoiceKind::cancel};
 };
+static_assert(sizeof(ActionChoice) == 16U, "Keep the console action catalog compact");
 
 struct ActionMenu final {
     std::array<ActionChoice, 32> choices{};
     std::size_t count{};
 
-    void append(ActionChoiceKind kind, sim::ContentId content = 0U) {
-        if (count < choices.size()) choices[count++] = {kind, content};
+    void append(ActionChoiceKind kind, sim::ContentId content = 0U,
+                grandleon::core::ContentCategory category = grandleon::core::ContentCategory::item,
+                std::uint16_t quantity = 0U) {
+        if (count < choices.size()) choices[count++] = {content, category, quantity, kind};
     }
 };
 
+console::Message pack_choice_message(ActionChoiceKind kind) {
+    switch (kind) {
+        case ActionChoiceKind::pack: return console::Message::pack;
+        case ActionChoiceKind::pack_inventory: return console::Message::inventory;
+        case ActionChoiceKind::pack_ground: case ActionChoiceKind::pack_pickup: return console::Message::pick_up;
+        case ActionChoiceKind::pack_drop: return console::Message::drop;
+        case ActionChoiceKind::pack_exchange: return console::Message::exchange;
+        case ActionChoiceKind::pack_next: return console::Message::next;
+        case ActionChoiceKind::pack_back: return console::Message::back_button;
+        default: return console::Message::leave;
+    }
+}
+
+ActionMenu pack_menu() {
+    ActionMenu menu;
+    const auto* actor = find_unit(battle_ui.actor);
+    if (actor == nullptr || actor->side != sim::Side::first || actor->local_player != battle_ui.player + 1U) return menu;
+    const auto& snapshot = board.game.snapshot();
+    const auto here = [&](const sim::GroundItem& pile) { return pile.position == actor->position && pile.stack.quantity != 0U; };
+    if (battle_ui.pack_view == PackView::hub) {
+        menu.append(ActionChoiceKind::pack_inventory);
+        if (std::any_of(snapshot.ground_items.begin(), snapshot.ground_items.end(), here)) menu.append(ActionChoiceKind::pack_ground);
+    } else if (battle_ui.pack_view == PackView::entry) {
+        if (battle_ui.carried_category == grandleon::core::ContentCategory::item && !snapshot.collecting_loot) {
+            const auto forecast = sim::forecast_item(snapshot, actor->id, actor->id, board.game.encounter().items(), battle_ui.carried_content);
+            if (forecast && (forecast.kind != sim::ItemKind::restore || forecast.restored > 0)) menu.append(ActionChoiceKind::item, battle_ui.carried_content);
+        }
+        menu.append(ActionChoiceKind::pack_drop, battle_ui.carried_content, battle_ui.carried_category);
+    } else if (battle_ui.pack_view == PackView::loot) {
+        const auto pile = std::find_if(snapshot.ground_items.begin(), snapshot.ground_items.end(), [&](const auto& entry) { return entry.id == battle_ui.ground_item && here(entry); });
+        if (pile != snapshot.ground_items.end()) {
+            if (!actor->states_carry_capacity || sim::carried_count(actor->carried_inventory) < actor->carry_capacity) menu.append(ActionChoiceKind::pack_pickup);
+            else if (!actor->carried_inventory.empty()) menu.append(ActionChoiceKind::pack_exchange);
+        }
+        menu.append(ActionChoiceKind::pack_back);
+        return menu;
+    } else {
+        constexpr std::size_t page_size = 6U;
+        const bool piles = battle_ui.pack_view == PackView::ground;
+        const auto total = piles ? static_cast<std::size_t>(std::count_if(snapshot.ground_items.begin(), snapshot.ground_items.end(), here)) : actor->carried_inventory.size();
+        if (static_cast<std::size_t>(battle_ui.pack_page) * page_size >= total) battle_ui.pack_page = 0U;
+        const std::size_t begin = battle_ui.pack_page * page_size;
+        for (std::size_t i = begin; i < total && i < begin + page_size; ++i) {
+            if (piles) {
+                std::size_t ordinal = 0;
+                for (const auto& pile : snapshot.ground_items) {
+                    if (!here(pile)) continue;
+                    if (ordinal++ == i) { menu.append(ActionChoiceKind::pack_loot, pile.id, pile.stack.category, pile.stack.quantity); break; }
+                }
+            } else {
+                const auto& stack = actor->carried_inventory[i];
+                menu.append(ActionChoiceKind::pack_entry, stack.content_id, stack.category, stack.quantity);
+            }
+        }
+        if (total > page_size) menu.append(ActionChoiceKind::pack_next);
+    }
+    menu.append(ActionChoiceKind::pack_back);
+    return menu;
+}
+
+
 ActionMenu action_menu() {
+    if (battle_ui.phase == BattleUiPhase::pack) return pack_menu();
     ActionMenu menu;
     const sim::UnitSnapshot* actor = find_unit(battle_ui.actor);
     if (actor == nullptr) return menu;
-    for (const sim::UnitSnapshot& target : board.game.snapshot().units) {
-        if (sim::forecast_attack(board.game.snapshot(), actor->id, target.id)) {
-            menu.append(ActionChoiceKind::attack);
-            break;
+    if (board.game.snapshot().inventory_mode == sim::InventoryMode::carried) menu.append(ActionChoiceKind::pack);
+    if (board.game.snapshot().collecting_loot) { menu.append(ActionChoiceKind::cancel); return menu; }
+    const bool named_weapons = actor->weapon_ids.size() > 1U;
+    const std::size_t weapon_count = named_weapons ? actor->weapon_ids.size() : 1U;
+    for (std::size_t index = 0; index < weapon_count; ++index) {
+        const sim::ContentId weapon = named_weapons ? actor->weapon_ids[index] : 0U;
+        for (const sim::UnitSnapshot& target : board.game.snapshot().units) {
+            if (sim::forecast_attack(board.game.snapshot(), actor->id, target.id,
+                    board.game.encounter().weapons(), weapon)) {
+                menu.append(ActionChoiceKind::attack, weapon);
+                break;
+            }
         }
     }
     for (const sim::ContentId ability : actor->ability_ids) {
@@ -4006,6 +4099,8 @@ bool apply_battle_command(
         ? *actor : sim::UnitSnapshot{};
     const sim::UnitSnapshot target_before = target != nullptr
         ? *target : sim::UnitSnapshot{};
+    if (actor != nullptr && actor->side == sim::Side::first &&
+        actor->local_player != battle_ui.player + 1U) return false;
     const bool accepted = board.game.apply(command, battle_ui.player);
     battle_ui.phase = BattleUiPhase::result;
     battle_ui.result_command = command.type;
@@ -4081,7 +4176,57 @@ bool apply_battle_command(
     return true;
 }
 
+void back_pack_menu() {
+    switch (battle_ui.pack_view) {
+        case PackView::hub: battle_ui.phase = BattleUiPhase::action; break;
+        case PackView::entry: battle_ui.pack_view = PackView::inventory; break;
+        case PackView::loot: battle_ui.pack_view = PackView::ground; battle_ui.pack_page = 0; break;
+        case PackView::exchange: battle_ui.pack_view = PackView::loot; battle_ui.pack_page = 0; break;
+        default: battle_ui.pack_view = PackView::hub; battle_ui.pack_page = 0; break;
+    }
+    battle_ui.row = 0U;
+}
+
+bool confirm_pack_choice() {
+    const auto* actor = find_unit(battle_ui.actor);
+    if (actor == nullptr || actor->side != sim::Side::first || actor->local_player != battle_ui.player + 1U) return false;
+    const auto choice = action_choice();
+    switch (choice.kind) {
+        case ActionChoiceKind::pack_inventory: battle_ui.pack_view = PackView::inventory; battle_ui.pack_page = 0; break;
+        case ActionChoiceKind::pack_ground: battle_ui.pack_view = PackView::ground; battle_ui.pack_page = 0; break;
+        case ActionChoiceKind::pack_loot: battle_ui.ground_item = choice.content; battle_ui.pack_view = PackView::loot; battle_ui.row = static_cast<std::uint8_t>(pack_menu().count - 1U); return true;
+        case ActionChoiceKind::pack_exchange: battle_ui.pack_view = PackView::exchange; battle_ui.pack_page = 0; battle_ui.row = static_cast<std::uint8_t>(pack_menu().count - 1U); return true;
+        case ActionChoiceKind::pack_next: ++battle_ui.pack_page; break;
+        case ActionChoiceKind::pack_back: back_pack_menu(); return true;
+        case ActionChoiceKind::pack_entry:
+            if (battle_ui.pack_view != PackView::exchange) {
+                battle_ui.carried_content = choice.content; battle_ui.carried_category = choice.category; battle_ui.pack_view = PackView::entry; battle_ui.row = static_cast<std::uint8_t>(pack_menu().count - 1U); return true;
+            }
+            [[fallthrough]];
+        case ActionChoiceKind::pack_pickup:
+        case ActionChoiceKind::pack_drop:
+        case ActionChoiceKind::item: {
+            sim::Command command{};
+            command.type = choice.kind == ActionChoiceKind::pack_pickup ? sim::CommandType::pick_up :
+                choice.kind == ActionChoiceKind::pack_drop ? sim::CommandType::drop_carried :
+                choice.kind == ActionChoiceKind::item ? sim::CommandType::use_item : sim::CommandType::exchange_carried;
+            command.unit_id = actor->id; command.target_id = actor->id;
+            command.ground_item_id = battle_ui.ground_item;
+            command.carried_category = choice.category; command.carried_content_id = choice.content;
+            command.item_id = choice.content;
+            const bool accepted = apply_battle_command(command, false);
+            if (accepted) { battle_ui.phase = BattleUiPhase::pack; battle_ui.pack_view = PackView::hub; battle_ui.pack_page = 0; battle_ui.row = 0; }
+            return accepted;
+        }
+        default: return false;
+    }
+    battle_ui.row = 0U;
+    return true;
+}
+
+
 bool confirm_action_choice() {
+    if (battle_ui.phase == BattleUiPhase::pack) return confirm_pack_choice();
     const sim::UnitSnapshot* actor = find_unit(battle_ui.actor);
     if (actor == nullptr) {
         close_action_menu();
@@ -4089,9 +4234,14 @@ bool confirm_action_choice() {
     }
     const ActionChoice choice = action_choice();
     switch (choice.kind) {
+        case ActionChoiceKind::pack:
+            battle_ui.phase = BattleUiPhase::pack; battle_ui.pack_view = PackView::hub; battle_ui.pack_page = 0; battle_ui.row = 0;
+            return true;
         case ActionChoiceKind::attack:
+            battle_ui.weapon = choice.content;
             for (const sim::UnitSnapshot& target : board.game.snapshot().units) {
-                if (!sim::forecast_attack(board.game.snapshot(), actor->id, target.id)) continue;
+                if (!sim::forecast_attack(board.game.snapshot(), actor->id, target.id,
+                        board.game.encounter().weapons(), battle_ui.weapon)) continue;
                 // Cursor focus is presentation state; use directional gestures
                 // to preserve the gameplay boundary and multiplayer ownership.
                 for (unsigned step = 0; step < kMaxCells; ++step) {
@@ -4129,6 +4279,7 @@ bool confirm_action_choice() {
         case ActionChoiceKind::cancel:
             close_action_menu();
             return true;
+        default: return false;
     }
     return false;
 }
@@ -4142,12 +4293,13 @@ bool confirm_target() {
         );
         if (target == nullptr) return false;
         const sim::AttackForecast forecast = sim::forecast_attack(
-            board.game.snapshot(), actor->id, target->id
+            board.game.snapshot(), actor->id, target->id,
+            board.game.encounter().weapons(), battle_ui.weapon
         );
         if (!forecast) return false;
         return apply_battle_command({
             sim::CommandType::attack, actor->id, {}, target->id,
-            0U, 0U, 0U,
+            0U, battle_ui.weapon, 0U,
         });
     }
     if (battle_ui.phase == BattleUiPhase::ability_target) {
@@ -4201,12 +4353,35 @@ void open_system_menu(std::uint8_t player) {
     battle_ui = {};
     battle_ui.phase = BattleUiPhase::system;
     battle_ui.player = player;
+    if (board.campaign) {
+        for (const auto& stack : board.campaign->store()) {
+            if (stack.item.category == grandleon::core::ContentCategory::currency &&
+                stack.item.stable_id == grandleon::core::gold_currency_id) {
+                battle_ui.wallet += stack.quantity;
+            }
+        }
+    }
+    // Current-board earnings enter the saved store only when the battle is
+    // settled; this event list is cleared before the next board is configured.
+    for (const sim::Event& event : board.battle_events) {
+        if (event.type == sim::EventType::gold_gained && event.amount > 0 &&
+            event.content_category == grandleon::core::ContentCategory::currency &&
+            event.content_id == grandleon::core::gold_currency_id &&
+            board.battle_binding.persistent_of({event.related_unit_id}).value != 0U) {
+            battle_ui.wallet += static_cast<unsigned>(event.amount);
+        }
+    }
 }
 
 bool confirm_system_choice() {
     play_ui_cue();
     switch (battle_ui.row) {
         case 0U:
+            if (board.game.snapshot().collecting_loot) {
+                sim::Command done{}; done.type = sim::CommandType::finish_collection;
+                if (!board.game.apply(done, battle_ui.player)) return false;
+                remember_transition_events();
+            }
             battle_ui = {};
             return true;
         case 1U:
@@ -4349,7 +4524,7 @@ bool physical_input_for(
         }
         return true;
     }
-    if (battle_ui.phase == BattleUiPhase::action) {
+    if (battle_ui.phase == BattleUiPhase::action || battle_ui.phase == BattleUiPhase::pack) {
         if (player != battle_ui.player) return false;
         if (!pressed.d_up && !pressed.d_down && !pressed.a && !pressed.b) {
             return false;
@@ -4366,7 +4541,8 @@ bool physical_input_for(
         } else if (pressed.a) {
             return confirm_action_choice();
         } else if (pressed.b) {
-            close_action_menu();
+            if (battle_ui.phase == BattleUiPhase::pack) back_pack_menu();
+            else close_action_menu();
         }
         return pressed.d_up || pressed.d_down || pressed.a || pressed.b;
     }
@@ -4536,7 +4712,7 @@ bool advance_ai() {
 bool finish_battle_and_advance() {
     assert(board.campaign.has_value());
     const sim::EncounterSnapshot& snapshot = board.game.snapshot();
-    if (snapshot.outcome == sim::Outcome::ongoing) {
+    if (snapshot.outcome == sim::Outcome::ongoing || snapshot.collecting_loot) {
         return false;
     }
     client::BattleReport report;
@@ -4589,6 +4765,7 @@ void update_manual_battle() {
     }
     const sim::EncounterSnapshot& snapshot = board.game.snapshot();
     if (snapshot.outcome != sim::Outcome::ongoing) {
+        if (snapshot.collecting_loot) return;
         (void)finish_battle_and_advance();
         return;
     }
@@ -4631,26 +4808,33 @@ void update_performance_sample() {
     const std::uint64_t elapsed = now - sample_start;
     assert(shell.phase == ShellPhase::complete);
     assert(shell.campaign_advanced_checkpoint);
-    assert(shell.completed_battles == grandleon_project_encounter_count);
-    assert(shell.stage_index + 1U == grandleon_project_encounter_count);
     assert(board.saves->contains(campaign_slot()));
     assert(!combat.active);
-    if (!board.content->visual_visibility.hidden_cells.empty()) {
-        assert(board.visibility_revealed[
-            board.content->visual_visibility.hidden_cells.front()
-        ]);
-    }
-    if (!shell.resumed) {
-        assert(shell.total_commands > 0U && shell.total_enemy_commands > 0U);
-        assert(shell.total_combats > 0U);
-        if (grandleon_project_requires_scroll) {
-            assert(replay.camera_x_checkpoint || replay.camera_y_checkpoint);
+    // These describe the authored review route, not every legal player route:
+    // a short victory may precede the enemy turn, and optional rooms or campaign
+    // branches need not all be visited before a terminal node.
+    if (grandleon_project_review_driver) {
+        assert(shell.completed_battles == grandleon_project_encounter_count);
+        assert(shell.stage_index + 1U == grandleon_project_encounter_count);
+        if (!board.content->visual_visibility.hidden_cells.empty()) {
+            assert(board.visibility_revealed[
+                board.content->visual_visibility.hidden_cells.front()
+            ]);
+        }
+        if (!shell.resumed) {
+            assert(shell.total_commands > 0U && shell.total_enemy_commands > 0U);
+            assert(shell.total_combats > 0U);
+            if (grandleon_project_requires_scroll) {
+                assert(replay.camera_x_checkpoint || replay.camera_y_checkpoint);
+            }
         }
     }
-    assertf(
-        get_memory_size() <= 4 * 1024 * 1024,
-        "Pyrite campaign parity requires more than base N64 memory"
-    );
+    if (grandleon_project_review_driver) {
+        assertf(
+            get_memory_size() <= 4 * 1024 * 1024,
+            "Pyrite campaign parity requires more than base N64 memory"
+        );
+    }
     debugf(
         "GRANDLEON_PYRITE_GAMEPLAY frames=120 avg_frame_us=%llu "
         "min_frame_us=%llu max_frame_us=%llu fps_x100=%lu heap_used=%lu "
@@ -5111,6 +5295,9 @@ void draw_combat_stage_2d() {
 
 const char* command_error_label(sim::CommandError error) {
     switch (error) {
+        case sim::CommandError::inventory_full: return ui(console::Message::pack_full);
+        case sim::CommandError::unknown_ground_item: return ui(console::Message::leave);
+        case sim::CommandError::ground_out_of_reach: return ui(console::Message::walk_where);
         case sim::CommandError::none:
             return ui(console::Message::ready);
         case sim::CommandError::target_out_of_range:
@@ -5192,6 +5379,40 @@ bool draw_speaker_portrait(
     rdpq_mode_pop();
     P64::Debug::printStart();
     return true;
+}
+
+void draw_ground_equipment() {
+    const auto& snapshot = board.game.snapshot();
+    if (snapshot.ground_items.empty()) return;
+    rdpq_mode_push();
+    rdpq_mode_begin();
+        rdpq_mode_zbuf(false, false);
+        rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
+        rdpq_mode_blender(0);
+        rdpq_mode_alphacompare(0);
+        rdpq_mode_fog(0);
+    rdpq_mode_end();
+    std::array<bool, kMaxCells> marked{};
+    const float render_scale = P64::Renderer::getRenderScale();
+    const float scale = 120.0F / current_camera.ortho;
+    const float dy = current_camera.eye_y - current_camera.target_y;
+    const float depth = current_camera.eye_z - current_camera.target_z;
+    const float length = std::max(0.01F, std::sqrt(dy * dy + depth * depth));
+    for (const auto& pile : snapshot.ground_items) {
+        const auto cell = static_cast<std::size_t>(pile.position.y) * snapshot.width + pile.position.x;
+        if (cell >= board.content->terrain.size() || marked[cell] || (visibility_hidden(cell) && !board.visibility_revealed[cell])) continue;
+        marked[cell] = true;
+        const float dx = (world_x(pile.position.x, snapshot.width) + 20) / render_scale - current_camera.target_x;
+        const float dz = (world_z(pile.position.y, snapshot.height) - 20) / render_scale - current_camera.target_z;
+        const float floor = (terrain_lift(board.content->terrain[cell]) + 3) / render_scale;
+        const int x = static_cast<int>(160.0F + dx * scale);
+        const int y = static_cast<int>(120.0F + (dz * dy + (current_camera.target_y - floor) * depth) / length * scale);
+        if (x < 4 || y < 4 || x > 315 || y > 235) continue;
+        rdpq_set_prim_color({26, 32, 35, 255}); rdpq_fill_rectangle(x-3, y-3, x+4, y+4);
+        rdpq_set_prim_color({228, 188, 99, 255}); rdpq_fill_rectangle(x-2, y-1, x+3, y+3);
+        rdpq_fill_rectangle(x-1, y-2, x+2, y-1);
+    }
+    rdpq_mode_pop();
 }
 
 void draw_battle_ui() {
@@ -5279,6 +5500,11 @@ void draw_battle_ui() {
         rdpq_mode_pop();
         return;
     }
+    if (!combat.active) draw_ground_equipment();
+    if (board.game.snapshot().collecting_loot && !combat.active && battle_ui.phase == BattleUiPhase::board) {
+        ui_panel(8, 211, 304, 23, 23);
+        display_printf(17, 218, "%s  START", ui(console::Message::collect_equipment));
+    }
     if (battle_ui.phase == BattleUiPhase::board || combat.active) return;
     if (battle_ui.phase == BattleUiPhase::action && motion.active) return;
     rdpq_mode_push();
@@ -5318,7 +5544,7 @@ void draw_battle_ui() {
                 static_cast<unsigned>(battle_ui.player + 1U));
             display_printf(69, y(0), "%s %s",
                 " ",
-                ui(console::Message::resume));
+                ui(board.game.snapshot().collecting_loot ? console::Message::finish_collection : console::Message::resume));
             display_printf(69, y(1), "%s %s: %s",
                 " ",
                 ui(console::Message::close_view),
@@ -5355,6 +5581,8 @@ void draw_battle_ui() {
             display_printf(69, y(help_row), "%s %s",
                 " ",
                 ui(console::Message::help));
+            display_printf(69, 188, "%s %llu", ui(console::Message::gold),
+                static_cast<unsigned long long>(battle_ui.wallet));
             ui_button_hint(63, 207, "A", ui(console::Message::confirm));
             ui_button_hint(172, 207, "B", ui(console::Message::resume));
         }
@@ -5363,7 +5591,7 @@ void draw_battle_ui() {
     }
     struct PanelCorner { int x; int y; };
     constexpr int menu_width = 127;
-    const int menu_height = battle_ui.phase == BattleUiPhase::action
+    const int menu_height = (battle_ui.phase == BattleUiPhase::action || battle_ui.phase == BattleUiPhase::pack)
         ? 35 + static_cast<int>(std::min<std::size_t>(4U, action_rows())) * 17 : 104;
     const std::array<PanelCorner, 4> corners{{
         {5, 12}, {315 - menu_width, 12},
@@ -5401,11 +5629,14 @@ void draw_battle_ui() {
     ui_panel(menu_x, menu_y, menu_width, menu_height,
         battle_ui.phase == BattleUiPhase::action ? 23 : 19);
     P64::Debug::printStart();
-    if (battle_ui.phase == BattleUiPhase::action) {
-        display_printf(
-            menu_x + 14, menu_y + 10, "%s P%u", ui(console::Message::action_heading),
-            static_cast<unsigned>(battle_ui.player + 1U)
-        );
+    if (battle_ui.phase == BattleUiPhase::action || battle_ui.phase == BattleUiPhase::pack) {
+        const auto* pack_actor = find_unit(battle_ui.actor);
+        if (battle_ui.phase == BattleUiPhase::pack && pack_actor != nullptr) {
+            const auto used = static_cast<unsigned long>(sim::carried_count(pack_actor->carried_inventory));
+            if (pack_actor->states_carry_capacity)
+                display_printf(menu_x + 10, menu_y + 10, "%s %lu/%u", ui(console::Message::pack), used, pack_actor->carry_capacity);
+            else display_printf(menu_x + 10, menu_y + 10, "%s %lu", ui(console::Message::pack), used);
+        } else display_printf(menu_x + 14, menu_y + 10, "%s P%u", ui(console::Message::action_heading), static_cast<unsigned>(battle_ui.player + 1U));
         ui_button_hint(menu_x + 105, menu_y + 6, "A", "", player_accent(battle_ui.player));
         const sim::UnitSnapshot* menu_actor = find_unit(battle_ui.actor);
         const std::size_t total = action_rows();
@@ -5418,10 +5649,30 @@ void draw_battle_ui() {
             ui_focus(menu_x + 6, y - 2, menu_width - 12, 17, selected == row, player_accent(battle_ui.player));
             const char* marker = " ";
             const ActionChoice choice = menu.choices[row];
-            if (choice.kind == ActionChoiceKind::attack) {
-                display_printf(
-                    menu_x + 14, y, "%s %s", marker, ui(console::Message::attack)
-                );
+            if (choice.kind >= ActionChoiceKind::pack) {
+                if (choice.kind == ActionChoiceKind::pack_entry || choice.kind == ActionChoiceKind::pack_loot) {
+                    const auto section = choice.category == grandleon::core::ContentCategory::weapon
+                        ? package_format::SectionType::weapons : package_format::SectionType::items;
+                    sim::ContentId equipment = choice.content;
+                    if (choice.kind == ActionChoiceKind::pack_loot) {
+                        for (const auto& pile : board.game.snapshot().ground_items) if (pile.id == choice.content) equipment = pile.stack.content_id;
+                    }
+                    const auto name = pr::content_name(board.runtime.package(), section, equipment);
+                    const auto localized = pr::localized_content_name(board.runtime.package(), game_language(), section, equipment, name);
+                    display_printf(menu_x + 14, y, "%u %.*s", choice.quantity,
+                        static_cast<int>(console_prefix_bytes(localized, 12U)), localized.data());
+                } else display_printf(menu_x + 14, y, "%s", ui(choice.kind == ActionChoiceKind::pack_back && battle_ui.pack_view == PackView::loot ? console::Message::leave : pack_choice_message(choice.kind)));
+            } else if (choice.kind == ActionChoiceKind::attack) {
+                if (choice.content == 0U) {
+                    display_printf(menu_x + 14, y, "%s %s", marker, ui(console::Message::attack));
+                } else {
+                    const auto name = pr::content_name(board.runtime.package(),
+                        package_format::SectionType::weapons, choice.content);
+                    const auto localized = pr::localized_content_name(board.runtime.package(),
+                        game_language(), package_format::SectionType::weapons, choice.content, name);
+                    display_printf(menu_x + 14, y, "%s %.*s", marker,
+                        static_cast<int>(console_prefix_bytes(localized, 14U)), localized.data());
+                }
             } else if (choice.kind == ActionChoiceKind::ability &&
                        menu_actor != nullptr) {
                 const std::string_view name = pr::content_name(
@@ -5475,7 +5726,8 @@ void draw_battle_ui() {
     );
     if (battle_ui.phase == BattleUiPhase::attack_target && actor != nullptr) {
         const sim::AttackForecast forecast = target != nullptr
-            ? sim::forecast_attack(board.game.snapshot(), actor->id, target->id)
+            ? sim::forecast_attack(board.game.snapshot(), actor->id, target->id,
+                board.game.encounter().weapons(), battle_ui.weapon)
             : sim::AttackForecast{sim::CommandError::unknown_target};
         display_printf(
             menu_x + 12, menu_y + 5, "%s", ui(console::Message::attack_target)

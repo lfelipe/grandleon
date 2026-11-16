@@ -189,6 +189,8 @@ OutcomeError apply_operation(
             return OutcomeError::none;
         }
         case OutcomeOperationKind::record_permanent_death: {
+            if (operation.selector > static_cast<std::uint8_t>(DeathInventory::require_empty))
+                return OutcomeError::invalid_selector;
             PersistentUnit* const unit =
                 mutable_unit(state, operation.subject);
             if (unit == nullptr) {
@@ -201,6 +203,8 @@ OutcomeError apply_operation(
                 // to guess.
                 return OutcomeError::unit_is_dead;
             }
+            if (operation.selector == static_cast<std::uint8_t>(DeathInventory::require_empty) &&
+                !unit->carried.empty()) return OutcomeError::inventory_not_empty;
             std::vector<InventoryStack> carried;
             carried.swap(unit->carried);
             unit->availability = Availability::dead;
@@ -451,6 +455,8 @@ std::string_view outcome_error_name(OutcomeError error) noexcept {
             return "quantity_overflow";
         case OutcomeError::invalid_candidate:
             return "invalid_candidate";
+        case OutcomeError::inventory_not_empty:
+            return "inventory_not_empty";
     }
     return "unknown";
 }
@@ -477,9 +483,12 @@ CampaignOutcomeOperation set_availability(
     return operation;
 }
 
-CampaignOutcomeOperation record_permanent_death(PersistentEntityId id) noexcept {
+CampaignOutcomeOperation record_permanent_death(
+    PersistentEntityId id, DeathInventory inventory
+) noexcept {
     CampaignOutcomeOperation operation;
     operation.kind = OutcomeOperationKind::record_permanent_death;
+    operation.selector = static_cast<std::uint8_t>(inventory);
     operation.subject = id;
     return operation;
 }

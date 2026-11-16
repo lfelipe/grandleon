@@ -46,18 +46,25 @@ func read(slot: int) -> Dictionary:
 		error = "lan.invalid_save"
 		return {}
 	for command: Variant in value.commands:
-		if not command is Dictionary or command.get("kind") not in ["move", "attack", "ability", "talk", "wait", "deploy", "begin"]:
+		if not valid_command(command):
 			error = "lan.invalid_save"
 			return {}
-		for field: String in ["unit", "target", "x", "y", "content"]:
-			if typeof(command.get(field, 0)) != TYPE_INT:
-				error = "lan.invalid_save"
-				return {}
 	var units: Variant = value.snapshot.get("units", [])
 	if not units is Array or units.any(func(unit): return not unit is Dictionary):
 		error = "lan.invalid_save"
 		return {}
 	return value
+static func valid_command(command: Variant) -> bool:
+	if not command is Dictionary or command.get("kind") not in ["move", "attack", "ability", "item", "talk", "wait", "deploy", "begin", "pick_up", "drop_carried", "exchange_carried", "finish_collection"]:
+		return false
+	for field: String in ["unit", "target", "x", "y", "content", "ground", "carried"]:
+		if typeof(command.get(field, 0)) != TYPE_INT: return false
+	if command.get("category", "item") not in ["item", "weapon"]: return false
+	if command.kind in ["pick_up", "exchange_carried"] and int(command.get("ground", 0)) == 0: return false
+	if command.kind in ["drop_carried", "exchange_carried"] and int(command.get("carried", 0)) == 0: return false
+	if command.kind == "finish_collection" and int(command.get("unit", 0)) != 0: return false
+	return true
+
 func write(slot: int, base: PackedByteArray, commands: Array, snapshot: Dictionary) -> bool:
 	error = ""
 	if root.is_empty() or base.is_empty(): return false
@@ -101,5 +108,14 @@ static func same_state(first: Dictionary, second: Dictionary) -> bool:
 	# The host can choose another translation when resuming. Names do not
 	# change the rules or the identity of any unit.
 	for snapshot: Dictionary in [a, b]:
-		for unit: Dictionary in snapshot.get("units", []): unit.erase("name")
+		snapshot["inventory_mode"] = snapshot.get("inventory_mode", "legacy")
+		snapshot["collecting_loot"] = snapshot.get("collecting_loot", false)
+		snapshot["ground_items"] = snapshot.get("ground_items", [])
+		for ground: Dictionary in snapshot.ground_items: ground.erase("name")
+		for unit: Dictionary in snapshot.get("units", []):
+			unit.erase("name")
+			unit["states_carry_capacity"] = unit.get("states_carry_capacity", false)
+			unit["carry_capacity"] = unit.get("carry_capacity", 0)
+			unit["carried_inventory"] = unit.get("carried_inventory", [])
+			for stack: Dictionary in unit.carried_inventory: stack.erase("name")
 	return a == b

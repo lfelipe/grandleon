@@ -47,8 +47,9 @@ enum class OutcomeOperationKind : std::uint8_t {
     // its own operation because it is the one transition no rule may reverse,
     // and it should not be reachable by passing a different byte.
     set_availability = 2,
-    // End a member permanently. Their carried items return to the shared
-    // store; nothing else in the campaign forgets them.
+    // End a member permanently. selector names DeathInventory: legacy games
+    // return the kit to supplies; personal packs require it to have already
+    // been removed by the battle's local drops. Nothing else forgets them.
     record_permanent_death = 3,
     // Add `amount` experience to a member.
     grant_experience = 4,
@@ -117,8 +118,14 @@ struct CampaignOutcomeOperation final {
     Availability availability
 ) noexcept;
 
+enum class DeathInventory : std::uint8_t {
+    return_to_supplies = 0,
+    require_empty = 1,
+};
+
 [[nodiscard]] CampaignOutcomeOperation record_permanent_death(
-    PersistentEntityId id
+    PersistentEntityId id,
+    DeathInventory inventory = DeathInventory::return_to_supplies
 ) noexcept;
 
 [[nodiscard]] CampaignOutcomeOperation grant_experience(
@@ -265,6 +272,7 @@ enum class OutcomeError : std::uint8_t {
     // The complete candidate state failed `validate`. The batch is refused
     // whole; `state_error` says which invariant it broke.
     invalid_candidate,
+    inventory_not_empty,
 };
 
 [[nodiscard]] std::string_view outcome_error_name(OutcomeError error) noexcept;

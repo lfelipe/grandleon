@@ -238,6 +238,7 @@ void write_campaign(
 ) {
     output << "{\"id\":";
     write_id(output, campaign_id);
+    output << ",\"inventory_mode\":" << static_cast<unsigned>(campaign.inventory_mode);
     output << ",\"entry_node_id\":";
     write_id(output, campaign.entry_node_id);
     output << ",\"player_mode\":"
@@ -289,6 +290,12 @@ void write_campaign(
         output << ",\"defeat_policy\":" << static_cast<unsigned>(member.rules.defeat_policy);
         const auto kit = pr::load_unit_starting_items(package, member.unit_type_id);
         output << ",\"starting_items\":"; write_numbers(output, kit.items);
+        const auto role_weapons = pr::load_unit_starting_weapons(package, member.unit_type_id);
+        output << ",\"recruited_weapons\":";
+        write_numbers(output, member.rules.states_starting_weapons
+            ? member.rules.starting_weapons : role_weapons.weapons);
+        output << ",\"carry_capacity\":" << member.rules.carry_capacity
+               << ",\"states_carry_capacity\":" << member.rules.states_carry_capacity;
         output << '}';
     }
     output << "],\"nodes\":[";
@@ -383,6 +390,24 @@ void write_localizations(
         } else {
             write_string(output, {});
         }
+        output << ",\"equipment\":[";
+        bool first_equipment = true;
+        for (const auto category : {core::ContentCategory::weapon, core::ContentCategory::item}) {
+            const auto section_type = category == core::ContentCategory::weapon ? pf::SectionType::weapons : pf::SectionType::items;
+            const auto* section = package.find(section_type);
+            if (!section) continue;
+            for (const auto& record : section->records) {
+                if (!first_equipment) output << ',';
+                first_equipment = false;
+                output << "{\"category\":" << static_cast<unsigned>(category) << ",\"id\":";
+                write_id(output, record.stable_id);
+                output << ",\"name\":";
+                const auto source = pr::content_name(package, section_type, record.stable_id);
+                write_string(output, pr::localized_content_name(package, language, section_type, record.stable_id, source));
+                output << '}';
+            }
+        }
+        output << ']';
         output << ",\"members\":[";
         for (std::size_t member_index = 0;
              member_index < campaign.members.size(); ++member_index) {
@@ -545,12 +570,15 @@ int main(int argc, char** argv) {
                 if (std::find(ids.begin(), ids.end(), id) == ids.end()) ids.push_back(id);
         }
     }
-    if (!pr::resolve_carried_equipment(package.package, equipment)) {
+    if (!(campaign.definition.inventory_mode == sim::InventoryMode::carried
+            ? pr::resolve_equipment_library(package.package, equipment)
+            : pr::resolve_carried_equipment(package.package, equipment))) {
         std::cerr << "personal equipment rejected\n";
         return 65;
     }
     loaded.definition.weapons = std::move(equipment.weapons);
     loaded.definition.weapon_types = std::move(equipment.weapon_types);
+    loaded.definition.items = std::move(equipment.items);
     const sim::EncounterSnapshot snapshot = created.encounter.snapshot();
     std::ofstream output(argv[4], std::ios::binary | std::ios::trunc);
     if (!output) {
@@ -665,6 +693,7 @@ int main(int argc, char** argv) {
            << static_cast<unsigned>(loaded.definition.turn_order)
            << ",\n    \"random_seed\": ";
     write_id(output, loaded.definition.random_seed);
+    output << ",\n    \"inventory_mode\": " << static_cast<unsigned>(loaded.definition.inventory_mode);
     output << ",\n    \"movement_cost\": ";
     write_numbers(output, loaded.definition.movement_cost);
     output << ",\n    \"deployment_tiles\": ";
@@ -705,6 +734,25 @@ int main(int argc, char** argv) {
         write_ids(output, unit.item_ids);
         output << ",\"item_counts\":";
         write_numbers(output, unit.item_counts);
+        output << ",\"carry_capacity\":" << unit.carry_capacity
+               << ",\"states_carry_capacity\":" << unit.states_carry_capacity
+               << ",\"states_weapon_affinities\":" << unit.states_weapon_affinities
+               << ",\"weapon_affinities\":";
+        write_ids(output, unit.weapon_affinities);
+        output << ",\"drop_inventory_on_defeat\":" << unit.drop_inventory_on_defeat
+               << ",\"drop_gold\":" << unit.drop_gold
+               << ",\"drop_weapon_chance\":" << static_cast<unsigned>(unit.drop_weapon_chance)
+               << ",\"drop_weapon_id\":";
+        write_id(output, unit.drop_weapon_id);
+        output << ",\"carried_inventory\":[";
+        for (std::size_t stack_index = 0; stack_index < unit.carried_inventory.size(); ++stack_index) {
+            if (stack_index) output << ',';
+            const auto& stack = unit.carried_inventory[stack_index];
+            output << '[' << static_cast<unsigned>(stack.category) << ',';
+            write_id(output, stack.content_id);
+            output << ',' << stack.quantity << ']';
+        }
+        output << ']';
         output << ",\"drop_item_id\":";
         write_id(output, unit.drop_item_id);
         output << ",\"drop_chance\":" << static_cast<unsigned>(unit.drop_chance)

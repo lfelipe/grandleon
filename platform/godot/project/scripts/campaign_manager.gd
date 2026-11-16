@@ -26,6 +26,7 @@ var _action_buttons: Array[Button] = []
 var _heading: Label
 var _fielded_label: Label
 var _refusal_label: Label
+var _store_heading: Label
 var _store_label: RichTextLabel
 var _roster_list: VBoxContainer
 var _member_name: Label
@@ -251,7 +252,8 @@ func _build_interface() -> void:
 	_roster_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_roster_list.add_theme_constant_override("separation", 9)
 	roster_scroll.add_child(_roster_list)
-	roster_column.add_child(_label(_ui("player.company.store"), 16, MUTED))
+	_store_heading = _label(_ui("player.company.store"), 16, MUTED)
+	roster_column.add_child(_store_heading)
 	_store_label = RichTextLabel.new()
 	_store_label.bbcode_enabled = true
 	_store_label.fit_content = true
@@ -399,7 +401,7 @@ func _rebuild_member() -> void:
 				field_button.text += "  /  " + _ui("player.company.party_full")
 				field_button.set_meta("blocked", true)
 				field_button.disabled = true
-		for item: Dictionary in _company.get("store", []):
+		for item: Dictionary in ([] if _company.get("inventory_mode") == "carried" else _company.get("store", [])):
 			_add_action(
 				_ui("player.company.give_item", {
 					"item": String(item.get("name", _ui("player.company.item"))),
@@ -408,7 +410,7 @@ func _rebuild_member() -> void:
 				"give_weapon" if item.get("category", "item") == "weapon" else "give",
 				_selected_member_id, int(item.get("id", 0))
 			)
-		for item: Dictionary in member.get("carried", []):
+		for item: Dictionary in ([] if _company.get("inventory_mode") == "carried" else member.get("carried", [])):
 			_add_action(
 				_ui("player.company.return_item", {
 					"item": String(item.get("name", _ui("player.company.item"))),
@@ -443,6 +445,11 @@ func _update_summary() -> void:
 	_store_label.text = _inventory_text(
 		_company.get("store", []), _ui("player.company.nothing_stored")
 	)
+	_store_heading.text = _ui("player.pack.wallet") if _company.get("inventory_mode") == "carried" else _ui("player.company.store")
+	if _company.get("inventory_mode") == "carried":
+		_store_label.text = _ui("player.pack.gold", {"amount": int(_company.get("gold", 0))})
+	elif int(_company.get("gold", 0)) > 0:
+		_store_label.text = _ui("player.pack.gold", {"amount": int(_company.gold)}) + "\n" + _store_label.text
 	_update_control_hints()
 
 

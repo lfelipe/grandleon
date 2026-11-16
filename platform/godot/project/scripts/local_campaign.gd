@@ -45,8 +45,8 @@ func save_checkpoint(slot: int) -> bool: return not _replaying and native.save_c
 func is_restoring() -> bool: return _replaying
 func query_tiles(kind: String, id: int, content := 0) -> Array:
 	return [] if _replaying else native.query_tiles(kind, id, content)
-func forecast_attack(id: int, target: int) -> Dictionary:
-	return {} if _replaying else native.forecast_attack(id, target)
+func forecast_attack(id: int, target: int, weapon := 0) -> Dictionary:
+	return {} if _replaying else native.forecast_attack(id, target, weapon)
 func set_language(value: String) -> bool: return native.set_language(value)
 func submit_player_name(id: int, value: String) -> bool:
 	return not _replaying and native.submit_player_name(id, value)
@@ -90,12 +90,12 @@ func start_package(bytes: PackedByteArray, campaign: String, players := 1, save_
 	_replay_progress_at = Time.get_ticks_msec()
 	return true
 
-func submit_intent(kind: String, unit := 0, target := 0, x := 0, y := 0, content := 0, request := 0) -> void:
+func submit_intent(kind: String, unit := 0, target := 0, x := 0, y := 0, content := 0, request := 0, ground := 0, category := "item", carried := 0) -> void:
 	if _replaying or _pending.has(request):
 		_events.append({"type": "refused", "request_id": request, "message": Localization.text("player.recovery.restoring")})
 		return
-	_pending[request] = {"kind": kind, "unit": unit, "target": target, "x": x, "y": y, "content": content}
-	native.submit_intent(kind, unit, target, x, y, content, request)
+	_pending[request] = {"kind": kind, "unit": unit, "target": target, "x": x, "y": y, "content": content, "ground": ground, "category": category, "carried": carried}
+	native.submit_intent(kind, unit, target, x, y, content, request, ground, category, carried)
 
 func _remember(event: Dictionary) -> void:
 	var kind := str(event.get("type", ""))
@@ -193,7 +193,7 @@ func _replay_step(events: Array) -> void:
 		var command: Dictionary = _saved.commands[_replay_next]
 		_replay_request = REPLAY_REQUEST_BASE + _replay_next
 		_replay_next += 1
-		native.submit_intent(str(command.kind), int(command.get("unit", 0)), int(command.get("target", 0)), int(command.get("x", 0)), int(command.get("y", 0)), int(command.get("content", 0)), _replay_request)
+		native.submit_intent(str(command.kind), int(command.get("unit", 0)), int(command.get("target", 0)), int(command.get("x", 0)), int(command.get("y", 0)), int(command.get("content", 0)), _replay_request, int(command.get("ground", 0)), str(command.get("category", "item")), int(command.get("carried", 0)))
 	elif _replay_matched or Checkpoint.same_state(_snapshot, _saved.snapshot):
 		_finish_restore()
 	elif _snapshot.get("active_side", "first") != "second":

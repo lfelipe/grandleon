@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.5.0",
+  "schemaVersion": "1.6.0",
   "sourceLanguage": "en",
   "packageId": "00000000-0000-4000-8000-000000000001",
   "gameId": "new_adventure",
@@ -97,6 +97,7 @@
       "name": "First Hero",
       "classId": "young_guardian",
       "factionId": "travellers",
+      "carryCapacity": 5,
       "startingWeaponIds": ["traveller_blade"],
       "characterFigureId": "first"
     },
@@ -105,6 +106,7 @@
       "name": "Second Hero",
       "classId": "young_adept",
       "factionId": "travellers",
+      "carryCapacity": 5,
       "startingWeaponIds": ["apprentice_focus"],
       "characterFigureId": "second"
     },
@@ -113,6 +115,7 @@
       "name": "Raider",
       "classId": "road_raider",
       "factionId": "raiders",
+      "carryCapacity": 5,
       "startingWeaponIds": ["raider_blade"],
       "characterFigureId": "first"
     }
@@ -160,6 +163,7 @@
   "campaigns": [
     {
       "id": "first_adventure",
+      "inventoryMode": "carried",
       "name": "First Adventure",
       "playerMode": "choice",
       "roster": [

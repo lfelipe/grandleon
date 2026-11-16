@@ -1,0 +1,64 @@
+{
+  "description": "Actual native N64 per-attack choice of a compatible acquired second weapon, plus localized pause wallet.",
+  "date": "2026-11-16",
+  "campaign": "out/loot06/n64-second-weapon-acceptance.json",
+  "campaign_note": "Separate two-stage acceptance fixture: first enemy drops compatible Long Blade; second enemy has20HP. Production code and legal ordinary inputs unchanged. Not the demo campaign.",
+  "rom": {
+    "path": "out/n64-second-weapon06/project/grandleon_pyrite_game.z64",
+    "sha256": "5a018305821ffe455f591696324b60fa2d207edf659a315fb305c4c33b39c83d",
+    "bytes": 7815168,
+    "review_driver": false,
+    "text_bytes": 1361640,
+    "data_bytes": 491538,
+    "bss_bytes": 70032,
+    "resident_bytes": 1923210
+  },
+  "log": "out/n64-second-weapon06/ares/wallet-normal.log",
+  "source_snapshot": "out/n64-second-weapon06/final-source",
+  "native_scope": "Pinned Ares emulator, base4MiB, ordinary controller input; no hardware/FPS claim. Prior full2stage collection completion retained separately in n64-personal-pack06.json.",
+  "behavior": [
+    "Single usable weapon still offers ordinary ATTACK; with multiple usable weapons rows name each feasible weapon.",
+    "Row feasibility, auto-target, hover forecast and committed Command.weapon_id all use selected weapon.",
+    "No equip or save mechanic; owned primary remains first.",
+    "Pause GOLD total is saved gold_currency_id store plus positive typed pending gold events claimed by actual campaign-member bindings.",
+    "Pending events clear when next board configures; read-only store copied only when opening pause."
+  ],
+  "validation": {
+    "native_slice": "out/loot06/n64-second-weapon-slice.log exit0; actual kill, enemy wait, move, pickup, primary range1 refusal, acquired range2/10damage success, command.weapon_id20 and unchanged primary ownership",
+    "camera_portrait_font": "out/loot06/n64-second-weapon-projection.log 5/5pass",
+    "localization": "out/loot06/gold-label-tests.log 1/1pass",
+    "production_build": "out/loot06/n64-wallet-build.log"
+  },
+  "screenshots": {
+    "gold_before": "out/n64-second-weapon06/ares/z01-wallet-zero.png",
+    "gold_pending": "out/n64-second-weapon06/ares/z02-wallet-earned.png",
+    "owned_primary_and_acquired": "out/n64-second-weapon06/ares/z03-owned-blades.png",
+    "gold_after_settlement": "out/n64-second-weapon06/ares/z04-wallet-settled.png",
+    "two_attack_rows": "out/n64-second-weapon06/ares/z05-weapon-menu.png",
+    "chosen_second_forecast": "out/n64-second-weapon06/ares/z06-long-blade-forecast.png",
+    "actual_second_attack": "out/n64-second-weapon06/ares/z07-damage.png"
+  },
+  "limitations": [
+    "Existing compact menu truncates long equipment names.",
+    "Pause total is informational; no purchasing or shared equipment is introduced.",
+    "Native weapon fixture is a bounded menu/attack check, not another full campaign completion benchmark."
+  ],
+  "native_checkpoints": [
+    "GRANDLEON_N64_BOARD_MEMORY cells=16 used=1218312 free=986592 rdram=4194304",
+    "GRANDLEON_PYRITE_COMBAT attacker=3690084435 defender=2563079208 damage=6 counter=0 counter_damage=0 hash=14712262193494771989",
+    "CHECKPOINT PYRITE_AFTERMATH outcome=1 objectives=1 fallen=0 recruited=0 stage=1 commands=4 enemy=0 events=9 slot_bytes=821",
+    "GRANDLEON_N64_BOARD_MEMORY cells=16 used=1232048 free=972856 rdram=4194304",
+    "GRANDLEON_PYRITE_COMBAT attacker=2267359831 defender=89111788 damage=12 counter=1 counter_damage=1 hash=14675189885165977917"
+  ],
+  "observed_gold": {
+    "before_fight": 0,
+    "pending_first_victory": 11,
+    "next_stage_after_settlement": 11
+  },
+  "source_sha256": {
+    "out/n64-second-weapon06/final-source/console_localization.hpp": "3c4fcbd6b86c7e346ae961b71bb9d013eb2e467ef9d39cd4e3e9fcf02f173e6f",
+    "out/n64-second-weapon06/final-source/ProjectBoard.cpp": "47d3a6dfee06015d50be364d97d1bfcfd33d4976b112c683a79b4413a2c3a53e",
+    "out/n64-second-weapon06/final-source/gameplay_slice_test.cpp": "461a2f98325e2df65a1fb16c6c8062984b4061da7d9044cad551f9e4a3f0eaed",
+    "out/n64-second-weapon06/final-source/GameplaySlice.cpp": "49d88e3efe8d8f9e3d25f566cfc7d66864dd75166baafb9836f8d4c6d2e22328"
+  }
+}

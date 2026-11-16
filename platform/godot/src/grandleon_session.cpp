@@ -5,6 +5,8 @@
 #include <grandleon/campaign/save.hpp>
 #include <grandleon/campaign_runtime/campaign_runtime.hpp>
 #include <grandleon/core/content_identity.hpp>
+#include <grandleon/core/currency.hpp>
+#include <grandleon/package_runtime/inventory.hpp>
 #include <grandleon/game_content/compiler.hpp>
 #include <grandleon/package_runtime/encounter_loader.hpp>
 #include <grandleon/package_runtime/localization.hpp>
@@ -236,6 +238,9 @@ const char* presentation_event_name(sim::EventType type) {
         case sim::EventType::attack_missed: return "attack_missed";
         case sim::EventType::item_used: return "item_used";
         case sim::EventType::item_dropped: return "item_dropped";
+        case sim::EventType::inventory_picked_up: return "inventory_picked_up";
+        case sim::EventType::inventory_dropped: return "inventory_dropped";
+        case sim::EventType::gold_gained: return "gold_gained";
         case sim::EventType::unit_deployed: return "unit_deployed";
         case sim::EventType::deployment_ended: return "deployment_ended";
         case sim::EventType::unit_talked: return "unit_talked";
@@ -255,6 +260,10 @@ const char* intent_name(client::IntentKind kind) {
         case client::IntentKind::deploy_to: return "deploy";
         case client::IntentKind::begin_battle: return "begin";
         case client::IntentKind::talk: return "talk";
+        case client::IntentKind::pick_up: return "pick_up";
+        case client::IntentKind::drop_carried: return "drop_carried";
+        case client::IntentKind::exchange_carried: return "exchange_carried";
+        case client::IntentKind::finish_collection: return "finish_collection";
         default: return "";
     }
 }
@@ -939,16 +948,17 @@ void GrandleonSession::_bind_methods() {
         DEFVAL(0)
     );
     gd::ClassDB::bind_method(
-        gd::D_METHOD("forecast_attack", "unit_id", "target_id"),
-        &GrandleonSession::forecast_attack
+        gd::D_METHOD("forecast_attack", "unit_id", "target_id", "weapon_id"),
+        &GrandleonSession::forecast_attack, DEFVAL(0)
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD(
             "submit_intent", "kind", "unit_id", "target_id", "x", "y",
-            "content_id", "request_id"
+            "content_id", "request_id", "ground_item_id", "carried_category", "carried_content_id"
         ),
         &GrandleonSession::submit_intent,
-        DEFVAL(0), DEFVAL(0), DEFVAL(0), DEFVAL(0), DEFVAL(0), DEFVAL(0)
+        DEFVAL(0), DEFVAL(0), DEFVAL(0), DEFVAL(0), DEFVAL(0), DEFVAL(0),
+        DEFVAL(0), DEFVAL("item"), DEFVAL(0)
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD(
@@ -1179,6 +1189,7 @@ gd::Dictionary GrandleonSession::inspect_campaign(
     result["contentRevision"] = loaded.package.content_revision;
     result["campaign"] = campaign_key;
     result["playerMode"] = text(pr::local_player_mode_name(authored.definition.player_mode));
+    result["inventoryMode"] = authored.definition.inventory_mode == sim::InventoryMode::carried ? "carried" : "legacy";
     result["languages"] = languages;
     result["title"] = text(pr::content_name(loaded.package, pf::SectionType::manifest, pf::manifest_title_record_id));
     return result;
@@ -1514,11 +1525,18 @@ bool GrandleonSession::restore_campaign_checkpoint(
     }
     const std::vector<std::uint8_t> candidate(bytes.ptr(), bytes.ptr() + bytes.size());
     const auto loaded = campaign::load_campaign(candidate, {});
+    const bool carried = pr::inventory_mode(
+        package_, pf::SectionType::campaign_inventory, campaign_id_
+    ) == sim::InventoryMode::carried;
     if (!loaded || !loaded.save.state.progress.active ||
         !(loaded.save.state.progress.campaign == core::ContentRef{package_.game_id, core::ContentCategory::campaign, campaign_id_}) ||
         loaded.save.packages.size() != 1 ||
         loaded.save.packages.front().package != package_.game_id ||
-        loaded.save.packages.front().content_revision != package_.content_revision) {
+        loaded.save.packages.front().content_revision != package_.content_revision ||
+        loaded.save.carried_inventory != carried ||
+        (carried && std::any_of(loaded.save.state.store.begin(), loaded.save.state.store.end(), [](const auto& stack) {
+            return stack.item.category != core::ContentCategory::currency;
+        }))) {
         std::lock_guard<std::mutex> lock(state_mutex_);
         last_error_ = "campaign checkpoint is incompatible or damaged";
         return false;
@@ -1705,7 +1723,7 @@ gd::Array GrandleonSession::query_tiles(
 }
 
 gd::Dictionary GrandleonSession::forecast_attack(
-    std::int64_t unit_id, std::int64_t target_id
+    std::int64_t unit_id, std::int64_t target_id, std::int64_t weapon_id
 ) const {
     std::lock_guard<std::mutex> lock(state_mutex_);
     gd::Dictionary result;
@@ -1713,7 +1731,7 @@ gd::Dictionary GrandleonSession::forecast_attack(
     if (!has_snapshot_) return result;
     const auto forecast = sim::forecast_attack(
         latest_snapshot_, static_cast<sim::UnitId>(unit_id),
-        static_cast<sim::UnitId>(target_id), latest_weapons_, 0
+        static_cast<sim::UnitId>(target_id), latest_weapons_, static_cast<sim::ContentId>(weapon_id)
     );
     result["available"] = static_cast<bool>(forecast);
     if (!forecast) return result;
@@ -1734,7 +1752,10 @@ void GrandleonSession::submit_intent(
     std::int64_t x,
     std::int64_t y,
     std::int64_t content_id,
-    std::int64_t request_id
+    std::int64_t request_id,
+    std::int64_t ground_item_id,
+    const gd::String& carried_category,
+    std::int64_t carried_content_id
 ) {
     if (!presenter_) return;
     const std::string kind = narrow(kind_value);
@@ -1750,6 +1771,14 @@ void GrandleonSession::submit_intent(
     } else if (kind == "item") {
         intent.kind = client::IntentKind::use_item;
         intent.item_id = static_cast<std::uint64_t>(content_id);
+    } else if (kind == "pick_up") {
+        intent.kind = client::IntentKind::pick_up;
+    } else if (kind == "drop_carried") {
+        intent.kind = client::IntentKind::drop_carried;
+    } else if (kind == "exchange_carried") {
+        intent.kind = client::IntentKind::exchange_carried;
+    } else if (kind == "finish_collection") {
+        intent.kind = client::IntentKind::finish_collection;
     } else if (kind == "talk") {
         intent.kind = client::IntentKind::talk;
     } else if (kind == "deploy") {
@@ -1768,6 +1797,11 @@ void GrandleonSession::submit_intent(
     intent.destination = {
         static_cast<std::int16_t>(x), static_cast<std::int16_t>(y)
     };
+    intent.ground_item_id = static_cast<std::uint64_t>(ground_item_id);
+    intent.carried_content_id = static_cast<std::uint64_t>(carried_content_id);
+    intent.carried_category = carried_category == "weapon" ? core::ContentCategory::weapon
+        : carried_category == "item" ? core::ContentCategory::item
+        : static_cast<core::ContentCategory>(0);
     presenter_->submit(intent, request_id);
 }
 
@@ -1859,6 +1893,28 @@ gd::Dictionary GrandleonSession::snapshot_dictionary(
     result["outcome"] = outcome_name(snapshot.outcome);
     result["turn_order"] = turn_order_name(snapshot.turn_order);
     result["deploying"] = snapshot.deploying;
+    result["inventory_mode"] = snapshot.inventory_mode == sim::InventoryMode::carried ? "carried" : "legacy";
+    result["collecting_loot"] = snapshot.collecting_loot;
+    const auto stack_dictionary = [this](const sim::CarriedStack& stack) {
+        gd::Dictionary entry;
+        const bool weapon = stack.category == core::ContentCategory::weapon;
+        const auto section = weapon ? pf::SectionType::weapons : pf::SectionType::items;
+        entry["category"] = weapon ? "weapon" : "item";
+        entry["id"] = signed_id(stack.content_id);
+        entry["count"] = stack.quantity;
+        const auto source_name = pr::content_name(package_, section, stack.content_id);
+        entry["name"] = text(pr::localized_content_name(package_, language_, section, stack.content_id, source_name));
+        return entry;
+    };
+    gd::Array ground;
+    for (const auto& pile : snapshot.ground_items) {
+        gd::Dictionary entry = stack_dictionary(pile.stack);
+        entry["ground_item_id"] = signed_id(pile.id);
+        entry["x"] = pile.position.x;
+        entry["y"] = pile.position.y;
+        ground.push_back(entry);
+    }
+    result["ground_items"] = ground;
 
     gd::Array units;
     units.resize(static_cast<int64_t>(snapshot.units.size()));
@@ -1945,6 +2001,18 @@ gd::Dictionary GrandleonSession::snapshot_dictionary(
             items.push_back(carried);
         }
         row["items"] = items;
+        row["states_carry_capacity"] = unit.states_carry_capacity;
+        row["carry_capacity"] = unit.carry_capacity;
+        gd::Array owned;
+        for (const auto& stack : unit.carried_inventory) {
+            auto entry = stack_dictionary(stack);
+            entry["usable"] = stack.category == core::ContentCategory::item ||
+                std::find(unit.weapon_ids.begin(), unit.weapon_ids.end(), stack.content_id) != unit.weapon_ids.end();
+            entry["equipped"] = stack.category == core::ContentCategory::weapon &&
+                !unit.weapon_ids.empty() && unit.weapon_ids.front() == stack.content_id;
+            owned.push_back(entry);
+        }
+        row["carried_inventory"] = owned;
         units[static_cast<int64_t>(index)] = row;
     }
     result["units"] = units;
@@ -1960,6 +2028,7 @@ gd::Dictionary GrandleonSession::management_dictionary(
     ) {
         gd::Array result;
         for (const campaign::InventoryStack& stack : stacks) {
+            if (stack.item.category == core::ContentCategory::currency) continue;
             gd::Dictionary value;
             value["id"] = signed_id(stack.item.stable_id);
             const bool weapon = stack.item.category == core::ContentCategory::weapon;
@@ -1999,6 +2068,13 @@ gd::Dictionary GrandleonSession::management_dictionary(
         campaign_runtime::roster_error_name(company.refused)
     );
     result["store"] = inventory(company.store);
+    result["inventory_mode"] = pr::inventory_mode(package_, pf::SectionType::campaign_inventory, campaign_id_) == sim::InventoryMode::carried ? "carried" : "legacy";
+    std::int64_t gold{};
+    for (const auto& stack : company.store) {
+        if (stack.item.category == core::ContentCategory::currency && stack.item.stable_id == core::gold_currency_id)
+            gold += stack.quantity;
+    }
+    result["gold"] = gold;
 
     gd::Array stages;
     for (const client::CampaignStage& stage : company.stages) {
@@ -2325,6 +2401,9 @@ gd::Dictionary GrandleonSession::event_dictionary(
                 value["y"] = source.position.y;
                 value["amount"] = source.amount;
                 value["content_id"] = signed_id(source.content_id);
+                value["ground_item_id"] = signed_id(source.ground_item_id);
+                value["content_category"] = source.content_category == core::ContentCategory::weapon ? "weapon"
+                    : source.content_category == core::ContentCategory::currency ? "currency" : "item";
                 value["outcome"] = outcome_name(source.outcome);
                 if (source.type == sim::EventType::unit_moved &&
                     event.motion.has_value() &&

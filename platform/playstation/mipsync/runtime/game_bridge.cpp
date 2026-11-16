@@ -13,11 +13,14 @@ extern "C" {
 #include <grandleon/campaign/graph.hpp>
 #include <grandleon/campaign/outcome.hpp>
 #include <grandleon/campaign/save.hpp>
+#include <grandleon/core/currency.hpp>
 #include <grandleon/campaign_runtime/character_rules.hpp>
+#include <grandleon/campaign_runtime/inventory_consequences.hpp>
 #include <grandleon/client/console_localization.hpp>
 #include <grandleon/client/console_name_editor.hpp>
 #include <grandleon/client/member_name_tokens.hpp>
 #include <grandleon/simulation/encounter.hpp>
+#include <grandleon/simulation/carried_inventory.hpp>
 #include <grandleon/storage/byte_window_storage.hpp>
 #include <grandleon/tactics/policy.hpp>
 #include <grandleon/view/motion.hpp>
@@ -50,7 +53,7 @@ namespace {
 
 enum class InputMode : std::uint8_t {
     browse, move, action, attack, ability, talk, deployment, pause, help,
-    settings
+    settings, pack
 };
 enum class CampaignMode : std::uint8_t {
     title, players, name, prologue, objective, battle, aftermath, save_error,
@@ -85,23 +88,30 @@ struct BattleMomentState final {
 };
 
 enum class ActionKind : std::uint8_t {
-    attack, ability, item, talk, wait
+    attack, ability, item, talk, wait, pack, pick_up, drop, exchange, leave, finish_collection
 };
 
 struct ActionChoice final {
     ActionKind kind{ActionKind::wait};
     sim::ContentId content{};
+    grandleon::core::ContentCategory category{grandleon::core::ContentCategory::item};
+    std::uint64_t ground_item{};
+    std::uint16_t quantity{1};
 };
 
 struct ActionMenu final {
-    std::array<ActionChoice, 32> choices{};
+    std::vector<ActionChoice> choices;
     unsigned count{};
 
-    void append(ActionKind kind, sim::ContentId content = 0U) {
-        if (count < choices.size()) choices[count++] = {kind, content};
+    void append(ActionKind kind, sim::ContentId content = 0U,
+                grandleon::core::ContentCategory category = grandleon::core::ContentCategory::item,
+                std::uint64_t ground = 0, std::uint16_t quantity = 1) {
+        choices.push_back({kind, content, category, ground, quantity});
+        ++count;
     }
 };
 
+std::vector<sim::Event> s_inventory_events;
 sim::Encounter::CreateResult* s_created{};
 sim::EncounterSnapshot s_snapshot{};
 sim::UnitId s_selected{};
@@ -114,6 +124,8 @@ unsigned s_focus_player{};
 std::uint32_t s_ambient_ticks{};
 InputMode s_mode{InputMode::browse};
 unsigned s_menu_index{};
+std::uint64_t s_pack_ground{};
+sim::ContentId s_attack_weapon{};
 unsigned s_pause_menu_index{};
 unsigned s_settings_menu_index{};
 unsigned s_music_volume{45U};
@@ -496,8 +508,10 @@ std::vector<std::uint64_t> append_recruitment_at(
             operations.push_back(camp::add_item({member.persistent_id},
                 content_ref(grandleon::core::ContentCategory::item, item), 1U));
         }
-        if (member.rules.states_starting_weapons) {
-            for (const auto weapon : member.rules.starting_weapons) {
+        if (grandleon_generated_carried_inventory() || member.rules.states_starting_weapons) {
+            const auto& weapons = grandleon_generated_carried_inventory()
+                ? member.recruited_weapons : member.rules.starting_weapons;
+            for (const auto weapon : weapons) {
                 operations.push_back(camp::add_item({member.persistent_id},
                     content_ref(grandleon::core::ContentCategory::weapon, weapon), 1U));
             }
@@ -617,6 +631,7 @@ void begin_new_campaign(unsigned players) {
     }
     requirement.content_revision = grandleon_generated_content_revision;
     s_campaign_save = camp::make_campaign_save({}, {requirement});
+    s_campaign_save.carried_inventory = grandleon_generated_carried_inventory();
     const auto key = keyed_ref(
         grandleon::core::ContentCategory::world_flag, "local_players"
     );
@@ -659,6 +674,7 @@ bool load_saved_campaign() {
     );
     const camp::SaveLoadResult loaded = camp::load_campaign(stored.bytes, options);
     if (!loaded) return false;
+    if (loaded.save.carried_inventory != grandleon_generated_carried_inventory()) return false;
     for (const camp::PlayerName& name : loaded.save.state.player_names) {
         const auto* member = grandleon_generated_campaign_member_for(
             name.member.value
@@ -1487,6 +1503,9 @@ bool apply_command(
     else if (command.type == sim::CommandType::use_item) grandleon_audio_cue(GRANDLEON_SOUND_ITEM);
     else if (command.type == sim::CommandType::talk) grandleon_audio_cue(GRANDLEON_SOUND_TALK);
     queue_event_moments(result.events);
+    for (const auto& event : result.events) {
+        if (character::inventory_consequence_event(event.type)) s_inventory_events.push_back(event);
+    }
     s_snapshot = s_created->encounter.snapshot();
     if (!s_motion.active) (void)update_visual_visibility(s_snapshot);
     sync_scene(s_snapshot);
@@ -1565,7 +1584,7 @@ void finish_side_if_needed(const sim::EncounterSnapshot& snapshot) {
             .decimal(s_focus_player + 1U).text(" x=").signed_decimal(s_cursor.x)
             .text(" y=").signed_decimal(s_cursor.y).flush();
     }
-    if (snapshot.outcome != sim::Outcome::ongoing) {
+    if (snapshot.outcome != sim::Outcome::ongoing && !snapshot.collecting_loot) {
         s_ai_active = false;
         s_selected = 0;
         s_mode = InputMode::browse;
@@ -1665,13 +1684,47 @@ ActionMenu action_menu(
 ) {
     ActionMenu menu;
     if (!actor) return menu;
-    for (const auto& target : snapshot.units) {
-        if (sim::forecast_attack(snapshot, actor->id, target.id,
-                                 s_created->encounter.weapons(), 0)) {
-            menu.append(ActionKind::attack);
-            break;
+    if (s_mode == InputMode::pack) {
+        if (s_pack_ground) {
+            for (const auto& pile : snapshot.ground_items) {
+                if (pile.id == s_pack_ground && pile.position == actor->position &&
+                    (!actor->states_carry_capacity || sim::carried_count(actor->carried_inventory) < actor->carry_capacity)) {
+                    menu.append(ActionKind::pick_up, pile.stack.content_id, pile.stack.category, pile.id, pile.stack.quantity);
+                    break;
+                }
+            }
+        }
+        for (const auto& stack : actor->carried_inventory) {
+            menu.append(s_pack_ground ? ActionKind::exchange : ActionKind::drop,
+                        stack.content_id, stack.category, s_pack_ground, stack.quantity);
+        }
+        menu.append(ActionKind::leave);
+        return menu;
+    }
+    if (snapshot.inventory_mode == sim::InventoryMode::carried) {
+        if (!actor->carried_inventory.empty()) menu.append(ActionKind::pack);
+        for (const auto& pile : snapshot.ground_items) {
+            if (pile.position == actor->position)
+                menu.append(ActionKind::pick_up, pile.stack.content_id, pile.stack.category, pile.id, pile.stack.quantity);
         }
     }
+    if (snapshot.collecting_loot) {
+        menu.append(ActionKind::finish_collection);
+        return menu;
+    }
+    const auto offer_attack = [&](sim::ContentId weapon) {
+        for (const auto& target : snapshot.units) {
+            if (unit_visible(target, snapshot.width) &&
+                sim::forecast_attack(snapshot, actor->id, target.id,
+                                     s_created->encounter.weapons(), weapon)) {
+                menu.append(ActionKind::attack, weapon, grandleon::core::ContentCategory::weapon);
+                return;
+            }
+        }
+    };
+    if (actor->weapon_ids.size() > 1) {
+        for (const auto weapon : actor->weapon_ids) offer_attack(weapon);
+    } else offer_attack(0);
     for (const sim::ContentId ability : actor->ability_ids) {
         menu.append(ActionKind::ability, ability);
     }
@@ -1733,13 +1786,26 @@ bool advance_story() {
 bool complete_battle(bool victory, bool force_pending = false) {
     std::vector<camp::CampaignOutcomeOperation> operations;
     if (!force_pending) {
+        character::append_inventory_consequences(operations, s_campaign_graph.campaign.package_id, s_inventory_events,
+            grandleon_generated_carried_inventory() ? sim::InventoryMode::carried : sim::InventoryMode::legacy,
+            [](sim::UnitId unit) -> camp::PersistentEntityId {
+                const auto source = grandleon_generated_unit_source(unit);
+                for (const auto& member : grandleon_generated_campaign_members()) {
+                    if (member.source_id == source) return {member.persistent_id};
+                }
+                return {};
+            });
+    }
+    if (!force_pending) {
         for (const auto& unit : s_snapshot.units) {
             if (unit.health > 0 || !unit.arrived || unit.departed) continue;
             const auto source_id = grandleon_generated_unit_source(unit.id);
             for (const auto& member : grandleon_generated_campaign_members()) {
                 if (member.source_id == source_id && character::permanent_member_loss(
                         member.rules.defeat_policy, grandleon_generated_permanent_loss())) {
-                    operations.push_back(camp::record_permanent_death({member.persistent_id}));
+                    operations.push_back(camp::record_permanent_death({member.persistent_id},
+                        grandleon_generated_carried_inventory() ? camp::DeathInventory::require_empty
+                                                               : camp::DeathInventory::return_to_supplies));
                 }
             }
         }
@@ -1836,9 +1902,14 @@ bool start_encounter() {
             }
             const auto* record = camp::find_unit(s_campaign_save.state, persistent);
             if (record != nullptr) {
-                character::apply_member_kit(unit, *record, &member.rules);
-                character::apply_member_permissions(unit, &member.rules, definition.weapons);
+                if (!character::apply_member_kit(unit, *record, &member.rules,
+                        grandleon_generated_carried_inventory())) return false;
+                character::apply_member_permissions(unit, &member.rules, definition.weapons,
+                    grandleon_generated_carried_inventory());
                 unit.endures = grandleon_generated_company_endures();
+                unit.drop_inventory_on_defeat = grandleon_generated_carried_inventory() &&
+                    character::permanent_member_loss(member.rules.defeat_policy,
+                                                     grandleon_generated_permanent_loss());
             }
         }
     }
@@ -1849,6 +1920,7 @@ bool start_encounter() {
         [&](const sim::UnitDefinition& unit) {
             return std::find(excluded.begin(), excluded.end(), unit.id) != excluded.end();
         }), definition.units.end());
+    s_inventory_events.clear();
     s_created = new (std::nothrow) sim::Encounter::CreateResult(sim::create_encounter(definition));
     if (!s_created || !*s_created) {
         psx::Line().text("MIPSYNC_SIM_INIT_FAIL error=")
@@ -2019,6 +2091,25 @@ extern "C" int grandleon_game_movement_tile(uint16_t index, int32_t* x, int32_t*
     return 1;
 }
 
+extern "C" uint16_t grandleon_game_ground_count(void) {
+    if (s_campaign_mode != CampaignMode::battle) return 0;
+    return static_cast<std::uint16_t>(s_snapshot.ground_items.size());
+}
+
+extern "C" int grandleon_game_ground_tile(uint16_t index, int32_t* x, int32_t* y, int32_t* z) {
+    if (index >= s_snapshot.ground_items.size() || !x || !y || !z) return 0;
+    const auto tile = s_snapshot.ground_items[index].position;
+    for (unsigned earlier = 0; earlier < index; ++earlier)
+        if (s_snapshot.ground_items[earlier].position == tile) return 0;
+    unsigned hidden = 0;
+    if (visibility_hidden(static_cast<std::size_t>(tile.y * s_map_width + tile.x), &hidden) &&
+        !s_visibility_revealed[hidden]) return 0;
+    *x = (tile.x * 2 + 1 - s_map_width) * 65536;
+    *y = terrain_surface(tile, s_map_width) + 4096;
+    *z = (s_map_height - tile.y * 2 - 1) * 65536;
+    return 1;
+}
+
 extern "C" uint16_t grandleon_game_map_controller(uint16_t pressed) {
     // Hardware directions follow the projected board. Recorded/replay commands
     // enter grandleon_runtime_update directly and retain logical coordinates.
@@ -2104,6 +2195,7 @@ static const char* story_page_body(std::string body) {
 extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
     if (!output) return;
     *output = {};
+    output->collecting_loot = s_campaign_mode == CampaignMode::battle && s_snapshot.collecting_loot;
     if (s_campaign_mode != CampaignMode::prologue && s_campaign_mode != CampaignMode::objective &&
         s_campaign_mode != CampaignMode::aftermath) {
         s_story_page_offset = 0;
@@ -2299,7 +2391,7 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
         output->mode = GRANDLEON_UI_BATTLE_SETTINGS;
     } else if (snapshot.deploying) {
         output->mode = GRANDLEON_UI_DEPLOYMENT;
-    } else if (snapshot.outcome != sim::Outcome::ongoing) {
+    } else if (snapshot.outcome != sim::Outcome::ongoing && !snapshot.collecting_loot) {
         output->mode = GRANDLEON_UI_COMPLETE;
     } else if (s_result_frames || s_camera_return_frames) output->mode = GRANDLEON_UI_RESULT;
     else if (s_ai_active) output->mode = GRANDLEON_UI_OPPONENT;
@@ -2310,6 +2402,7 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
     else if (s_motion.active) output->mode = GRANDLEON_UI_BROWSE;
     else if (s_mode == InputMode::move) output->mode = GRANDLEON_UI_MOVE;
     else if (s_mode == InputMode::action) output->mode = GRANDLEON_UI_ACTION;
+    else if (s_mode == InputMode::pack) output->mode = GRANDLEON_UI_PACK;
     else if (s_mode == InputMode::attack) output->mode = GRANDLEON_UI_ATTACK;
     else if (s_mode == InputMode::ability) output->mode = GRANDLEON_UI_ABILITY;
     else if (s_mode == InputMode::talk) output->mode = GRANDLEON_UI_TALK;
@@ -2322,21 +2415,21 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
         output->actor_maximum = actor->maximum_health;
         output->ability_count = static_cast<std::uint8_t>(actor->ability_ids.size());
         output->local_player = actor->local_player;
-        output->menu_count = static_cast<std::uint8_t>(
+        output->menu_count = static_cast<std::uint16_t>(
             action_menu(actor, snapshot).count
         );
     }
-    output->menu_index = static_cast<std::uint8_t>(s_menu_index);
+    output->menu_index = static_cast<std::uint16_t>(s_menu_index);
     output->deployment_selected = s_selected != 0U ? 1U : 0U;
     output->result_missed = s_last_result_missed ? 1 : 0;
     output->result_damage = s_last_result_damage;
     output->result_counter_damage = s_last_result_counter_damage;
     if (s_mode == InputMode::attack && actor) {
         const sim::UnitSnapshot* target = unit_at(snapshot, s_cursor);
-        if (target) {
+        if (target && unit_visible(*target, snapshot.width)) {
             const sim::AttackForecast forecast = sim::forecast_attack(
                 snapshot, actor->id, target->id,
-                s_created->encounter.weapons(), 0
+                s_created->encounter.weapons(), s_attack_weapon
             );
             if (forecast) {
                 output->forecast_valid = 1;
@@ -2376,7 +2469,7 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
     if (s_last_result_restored) output->restored = s_last_result_damage;
 }
 
-extern "C" uint8_t grandleon_game_action_kind(uint8_t index) {
+extern "C" uint8_t grandleon_game_action_kind(uint16_t index) {
     if (!s_created || !*s_created) return GRANDLEON_ACTION_WAIT;
     const sim::UnitSnapshot* actor = find_unit(s_snapshot, s_selected);
     const ActionMenu menu = action_menu(actor, s_snapshot);
@@ -2387,8 +2480,103 @@ extern "C" uint8_t grandleon_game_action_kind(uint8_t index) {
         case ActionKind::item: return GRANDLEON_ACTION_ITEM;
         case ActionKind::talk: return GRANDLEON_ACTION_TALK;
         case ActionKind::wait: return GRANDLEON_ACTION_WAIT;
+        case ActionKind::pack:
+        case ActionKind::pick_up:
+        case ActionKind::drop:
+        case ActionKind::exchange:
+        case ActionKind::leave:
+        case ActionKind::finish_collection: return GRANDLEON_ACTION_EQUIPMENT;
     }
     return GRANDLEON_ACTION_WAIT;
+}
+
+
+const char* equipment_label(const std::string& value, unsigned columns) {
+    static std::array<char, 256> buffer{};
+    const char* begin = value.c_str();
+    const char* end = begin;
+    unsigned glyphs = 0;
+    while (*end && glyphs < columns) { (void)grandleon_text_next(&end); ++glyphs; }
+    const bool shortened = *end != 0;
+    if (shortened) {
+        end = begin;
+        for (unsigned i = 0; i + 3 < columns && *end; ++i) (void)grandleon_text_next(&end);
+    }
+    const auto bytes = std::min<std::size_t>(static_cast<std::size_t>(end - begin), buffer.size() - 4);
+    std::copy_n(begin, bytes, buffer.begin());
+    auto count = bytes;
+    if (shortened) { buffer[count++] = '.'; buffer[count++] = '.'; buffer[count++] = '.'; }
+    buffer[count] = 0;
+    return buffer.data();
+}
+
+extern "C" const char* grandleon_game_action_label(uint16_t index) {
+    const auto* actor = find_unit(s_snapshot, s_selected);
+    const auto menu = action_menu(actor, s_snapshot);
+    if (index >= menu.count) return "";
+    const auto choice = menu.choices[index];
+    console::Message word = console::Message::pack;
+    switch (choice.kind) {
+        case ActionKind::attack: word = console::Message::attack; break;
+        case ActionKind::item: word = console::Message::use_item; break;
+        case ActionKind::pick_up: word = console::Message::pick_up; break;
+        case ActionKind::drop: word = console::Message::drop; break;
+        case ActionKind::exchange: word = console::Message::exchange; break;
+        case ActionKind::leave: return ui(console::Message::leave);
+        case ActionKind::finish_collection: return ui(console::Message::finish_collection);
+        default: break;
+    }
+    std::string label{ui(word)};
+    if (choice.content) {
+        label += " ";
+        label += grandleon_generated_equipment_name(s_language_index,
+            static_cast<std::uint32_t>(choice.category), choice.content);
+        if (choice.quantity > 1) { label += " x"; label += std::to_string(choice.quantity); }
+    }
+    return equipment_label(label, s_mode == InputMode::pack ? 29U : 16U);
+}
+
+extern "C" const char* grandleon_game_pack_heading(void) {
+    const auto* actor = find_unit(s_snapshot, s_selected);
+    if (!actor) return ui(console::Message::pack);
+    const auto held = sim::carried_count(actor->carried_inventory);
+    std::string label{ui(s_pack_ground && actor->states_carry_capacity && held >= actor->carry_capacity
+        ? console::Message::pack_full : console::Message::pack)};
+    label += " "; label += std::to_string(held);
+    if (actor->states_carry_capacity) { label += "/"; label += std::to_string(actor->carry_capacity); }
+    return equipment_label(label, 30U);
+}
+
+extern "C" const char* grandleon_game_pack_incoming(void) {
+    for (const auto& pile : s_snapshot.ground_items) {
+        if (pile.id == s_pack_ground) return equipment_label(grandleon_generated_equipment_name(
+            s_language_index, static_cast<std::uint32_t>(pile.stack.category), pile.stack.content_id), 30U);
+    }
+    return "";
+}
+
+extern "C" const char* grandleon_game_gold(void) {
+    std::uint64_t total = 0;
+    for (const auto& stack : s_campaign_save.state.store) {
+        if (stack.item.category == grandleon::core::ContentCategory::currency &&
+            stack.item.stable_id == grandleon::core::gold_currency_id) total += stack.quantity;
+    }
+    if (s_campaign_mode == CampaignMode::battle && !s_campaign_completion_handled) {
+        for (const auto& event : s_inventory_events) {
+            if (event.type != sim::EventType::gold_gained || event.amount <= 0 ||
+                event.content_category != grandleon::core::ContentCategory::currency ||
+                event.content_id != grandleon::core::gold_currency_id) continue;
+            const auto source = grandleon_generated_unit_source(event.related_unit_id);
+            for (const auto& member : grandleon_generated_campaign_members()) {
+                if (member.source_id == source && camp::find_unit(s_campaign_save.state, {member.persistent_id})) {
+                    total += static_cast<unsigned>(event.amount);
+                    break;
+                }
+            }
+        }
+    }
+    if (!grandleon_generated_carried_inventory() && total == 0) return "";
+    return equipment_label(std::string{ui(console::Message::gold)} + " " + std::to_string(total), 18U);
 }
 
 extern "C" const char* grandleon_game_text(uint8_t text_id) {
@@ -2397,6 +2585,8 @@ extern "C" const char* grandleon_game_text(uint8_t text_id) {
             return ui(console::Message::new_game);
         case GRANDLEON_TEXT_CONTINUE:
             return ui(console::Message::continue_game);
+        case GRANDLEON_TEXT_COLLECTION:
+            return ui(console::Message::collect_equipment);
         case GRANDLEON_TEXT_HELP:
             return ui(console::Message::help);
         case GRANDLEON_TEXT_SETTINGS:
@@ -2804,6 +2994,7 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
         return mutated ? 1 : 0;
     }
     if (s_mode == InputMode::pause) {
+        bool committed = false;
         if (player_one & pad_up) {
             s_pause_menu_index = s_pause_menu_index == 0U
                 ? 2U : s_pause_menu_index - 1U;
@@ -2813,7 +3004,14 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
         }
         if (player_one & (pad_circle | pad_start)) s_mode = InputMode::browse;
         else if (player_one & pad_cross) {
-            if (s_pause_menu_index == 0U) s_mode = InputMode::browse;
+            if (s_pause_menu_index == 0U) {
+                if (s_snapshot.collecting_loot) {
+                    sim::Command command;
+                    command.type = sim::CommandType::finish_collection;
+                    committed = apply_command(command, "finish_collection", nullptr, nullptr);
+                }
+                s_mode = InputMode::browse;
+            }
             else if (s_pause_menu_index == 1U) {
                 s_mode = InputMode::help;
                 psx::Line().text("MIPSYNC_BATTLE_MENU screen=help").flush();
@@ -2824,7 +3022,7 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
                 psx::Line().text("MIPSYNC_BATTLE_MENU screen=settings").flush();
             }
         }
-        return 0;
+        return committed ? 1 : 0;
     }
     if (s_mode == InputMode::help) {
         if (player_one & (pad_cross | pad_circle | pad_start)) {
@@ -2856,7 +3054,7 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
         psx::Line().text("MIPSYNC_BATTLE_MENU screen=pause").flush();
         return 0;
     }
-    if (s_snapshot.outcome != sim::Outcome::ongoing &&
+    if (s_snapshot.outcome != sim::Outcome::ongoing && !s_snapshot.collecting_loot &&
         !s_campaign_completion_handled && !s_result_frames &&
         !s_camera_return_frames && s_battle_moment.dialogue_ids.empty()) {
         s_campaign_completion_handled = true;
@@ -2945,14 +3143,18 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
     s_cursor = s_player_cursors[input_player];
     sim::EncounterSnapshot snapshot = s_snapshot;
     if (snapshot.active_side != sim::Side::first ||
-        snapshot.outcome != sim::Outcome::ongoing) return 0;
+        (snapshot.outcome != sim::Outcome::ongoing && !snapshot.collecting_loot)) return 0;
 
-    if (s_mode != InputMode::action) move_cursor(pressed, snapshot);
+    if (s_mode != InputMode::action && s_mode != InputMode::pack) move_cursor(pressed, snapshot);
     if ((pressed & pad_triangle) && s_mode == InputMode::browse) {
         toggle_setting(0U);
     }
     if (pressed & pad_circle) {
-        if (s_mode == InputMode::attack || s_mode == InputMode::ability ||
+        if (s_mode == InputMode::pack) {
+            s_pack_ground = 0;
+            s_menu_index = 0;
+            s_mode = InputMode::action;
+        } else if (s_mode == InputMode::attack || s_mode == InputMode::ability ||
             s_mode == InputMode::talk) {
             s_mode = InputMode::action;
         } else if (s_mode == InputMode::action) {
@@ -2973,6 +3175,7 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
             s_mode = InputMode::move;
             s_menu_index = 0;
             s_action_content = 0U;
+            s_attack_weapon = 0;
             ++s_select_count;
             psx::Line().text("MIPSYNC_LOCAL_INPUT player=")
                 .decimal(input_player + 1U).text(" unit=")
@@ -2998,10 +3201,11 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
                 }
             }
         }
-    } else if (s_mode == InputMode::action) {
+    } else if (s_mode == InputMode::action || s_mode == InputMode::pack) {
         const sim::UnitSnapshot* actor = find_unit(snapshot, s_selected);
         const ActionMenu menu = action_menu(actor, snapshot);
         const unsigned count = menu.count;
+        if (count && s_menu_index >= count) s_menu_index = count - 1;
         if ((pressed & pad_up) && count) {
             s_menu_index = s_menu_index == 0 ? count - 1 : s_menu_index - 1;
         }
@@ -3017,14 +3221,60 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
             const char* kind = choice.kind == ActionKind::attack ? "attack"
                 : choice.kind == ActionKind::ability ? "ability"
                 : choice.kind == ActionKind::item ? "item"
-                : choice.kind == ActionKind::talk ? "talk" : "wait";
+                : choice.kind == ActionKind::talk ? "talk"
+                : choice.kind == ActionKind::pack ? "pack"
+                : choice.kind == ActionKind::pick_up ? "pick_up"
+                : choice.kind == ActionKind::drop ? "drop"
+                : choice.kind == ActionKind::exchange ? "exchange"
+                : choice.kind == ActionKind::leave ? "leave"
+                : choice.kind == ActionKind::finish_collection ? "finish_collection" : "wait";
             psx::Line().text("MIPSYNC_ACTION_CHOICE kind=").text(kind)
                 .text(" row=").decimal(s_menu_index).flush();
-            if (choice.kind == ActionKind::attack) {
+            if (choice.kind == ActionKind::pack) {
+                s_mode = InputMode::pack;
+                s_pack_ground = 0;
+                s_menu_index = action_menu(actor, snapshot).count - 1;
+            } else if (choice.kind == ActionKind::leave) {
+                s_mode = InputMode::action;
+                s_menu_index = 0;
+                s_pack_ground = 0;
+            } else if (choice.kind == ActionKind::pick_up || choice.kind == ActionKind::drop ||
+                       choice.kind == ActionKind::exchange || choice.kind == ActionKind::finish_collection) {
+                if (choice.kind == ActionKind::pick_up && s_mode != InputMode::pack) {
+                    s_mode = InputMode::pack;
+                    s_pack_ground = choice.ground_item;
+                    s_menu_index = actor->states_carry_capacity && sim::carried_count(actor->carried_inventory) >= actor->carry_capacity
+                        ? action_menu(actor, snapshot).count - 1 : 0;
+                } else {
+                    sim::Command command;
+                    command.type = choice.kind == ActionKind::pick_up ? sim::CommandType::pick_up :
+                        choice.kind == ActionKind::drop ? sim::CommandType::drop_carried :
+                        choice.kind == ActionKind::exchange ? sim::CommandType::exchange_carried : sim::CommandType::finish_collection;
+                    command.unit_id = choice.kind == ActionKind::finish_collection ? 0 : actor->id;
+                    command.ground_item_id = choice.ground_item;
+                    command.carried_category = choice.category;
+                    command.carried_content_id = choice.content;
+                    if (apply_command(command, "equipment", nullptr, &snapshot)) {
+                        mutated = true;
+                        s_mode = InputMode::action;
+                        s_pack_ground = 0;
+                        s_menu_index = 0;
+                        const auto* after = find_unit(snapshot, s_selected);
+                        if (!after || after->has_acted || !sim::on_board(*after) ||
+                            (!snapshot.collecting_loot && snapshot.outcome != sim::Outcome::ongoing)) {
+                            s_selected = 0;
+                            s_mode = InputMode::browse;
+                        }
+                        finish_side_if_needed(snapshot);
+                    }
+                }
+            } else if (choice.kind == ActionKind::attack) {
                 s_mode = InputMode::attack;
+                s_attack_weapon = choice.content;
                 for (const auto& target : snapshot.units) {
-                    if (sim::forecast_attack(snapshot, actor->id, target.id,
-                                             s_created->encounter.weapons(), 0)) {
+                    if (unit_visible(target, snapshot.width) &&
+                        sim::forecast_attack(snapshot, actor->id, target.id,
+                                             s_created->encounter.weapons(), s_attack_weapon)) {
                         s_cursor = target.position;
                         break;
                     }
@@ -3067,16 +3317,17 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
     } else if ((pressed & pad_cross) && s_mode == InputMode::attack) {
         const sim::UnitSnapshot* actor = find_unit(snapshot, s_selected);
         const sim::UnitSnapshot* target = unit_at(snapshot, s_cursor);
-        if (actor && target) {
+        if (actor && target && unit_visible(*target, snapshot.width)) {
             const sim::AttackForecast forecast = sim::forecast_attack(
                 snapshot, actor->id, target->id,
-                s_created->encounter.weapons(), 0
+                s_created->encounter.weapons(), s_attack_weapon
             );
             if (forecast) {
                 sim::Command command{};
                 command.type = sim::CommandType::attack;
                 command.unit_id = actor->id;
                 command.target_id = target->id;
+                command.weapon_id = s_attack_weapon;
                 sim::CommandResult result;
                 if (apply_command(command, "attack", &result, &snapshot)) {
                     ++s_attack_count;

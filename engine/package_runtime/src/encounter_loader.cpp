@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 #include <grandleon/package_runtime/encounter_loader.hpp>
+#include <grandleon/package_runtime/inventory.hpp>
+#include <grandleon/simulation/carried_inventory.hpp>
 
 #include <grandleon/package_runtime/progression.hpp>
 
@@ -644,6 +646,8 @@ EncounterLoadResult load_encounter(
         return fail(EncounterLoadError::missing_record);
     }
 
+    if(!validate_inventory_sections(package)) return fail(EncounterLoadError::malformed_payload);
+    const auto carrying = inventory_mode(package,SectionType::encounter_inventory,encounter_id);
     Reader reader(package, *encounter);
     std::uint64_t map_id = 0;
     std::uint8_t encoded_order = 0;
@@ -1017,6 +1021,34 @@ EncounterLoadResult load_encounter(
                 drop_chance
             }
         );
+        auto& loaded_unit = result.definition.units.back();
+        const auto inventory = unit_inventory_rules(package,unit_type_id);
+        loaded_unit.drop_gold = inventory.drop_gold;
+        loaded_unit.drop_weapon_id = inventory.drop_weapon_id;
+        loaded_unit.drop_weapon_chance = inventory.drop_weapon_chance;
+        if(carrying==simulation::InventoryMode::carried){
+            loaded_unit.carry_capacity=inventory.carry_capacity;
+            loaded_unit.states_carry_capacity=inventory.states_carry_capacity;
+            loaded_unit.weapon_affinities=inventory.weapon_affinities;
+            loaded_unit.states_weapon_affinities=inventory.states_weapon_affinities;
+            for(const auto id:weapons){
+                if(simulation::add_carried(loaded_unit.carried_inventory,
+                    {core::ContentCategory::weapon,id,1},false,0)!=simulation::InventoryError::none)
+                    return fail(EncounterLoadError::malformed_payload);
+            }
+            for(const auto id:items){
+                if(simulation::add_carried(loaded_unit.carried_inventory,
+                    {core::ContentCategory::item,id,1},false,0)!=simulation::InventoryError::none)
+                    return fail(EncounterLoadError::malformed_payload);
+            }
+            EquippedWeapon unused;
+            if(loaded_unit.drop_weapon_id && !read_carried_weapons(package,{loaded_unit.drop_weapon_id},
+                result.definition.weapons,registered_weapons,unused))
+                return fail(EncounterLoadError::malformed_payload);
+            if(loaded_unit.drop_item_id && !read_carried_items(package,{loaded_unit.drop_item_id},
+                result.definition.items,registered_items))
+                return fail(EncounterLoadError::malformed_payload);
+        }
         result.definition.units.back().local_player =
             encoded_side == 1U
                 ? (local_players > 1U && ownership != placement_players.end()
@@ -1047,6 +1079,7 @@ EncounterLoadResult load_encounter(
         objectives[index].target_unit_id = found->second;
     }
     result.definition.objectives = std::move(objectives);
+    result.definition.inventory_mode=carrying;
     result.definition.turn_order =
         encoded_order == 3U ? simulation::TurnOrder::initiative
         : encoded_order == 2U ? simulation::TurnOrder::side_blocks
@@ -1306,6 +1339,25 @@ bool load_weapon_definition(
     const LoadedPackage& package, std::uint64_t weapon_id,
     simulation::WeaponDefinition& weapon
 ) { return read_weapon(package, weapon_id, weapon); }
+
+bool resolve_equipment_library(
+    const LoadedPackage& package, simulation::EncounterDefinition& definition
+) {
+    std::vector<std::uint64_t> weapon_ids, item_ids;
+    if (const auto* section = package.find(SectionType::weapons)) {
+        for (const auto& record : section->records) weapon_ids.push_back(record.stable_id);
+    }
+    if (const auto* section = package.find(SectionType::items)) {
+        for (const auto& record : section->records) item_ids.push_back(record.stable_id);
+    }
+    std::set<std::uint64_t> weapons, items;
+    for (const auto& weapon : definition.weapons) weapons.insert(weapon.id);
+    for (const auto& item : definition.items) items.insert(item.id);
+    EquippedWeapon equipped;
+    if (!read_carried_weapons(package, weapon_ids, definition.weapons, weapons, equipped) ||
+        !read_carried_items(package, item_ids, definition.items, items)) return false;
+    return resolve_carried_equipment(package, definition);
+}
 
 bool resolve_carried_equipment(
     const LoadedPackage& package, simulation::EncounterDefinition& definition

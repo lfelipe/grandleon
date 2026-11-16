@@ -32,6 +32,7 @@ func _node_added(node: Node) -> void:
 		schedule()
 
 func _watch_layout(node: Node) -> void:
+	if node is SpinBox: _watch_layout(node.get_line_edit())
 	if node is Control:
 		if not node.visibility_changed.is_connected(schedule): node.visibility_changed.connect(schedule)
 		if not node.resized.is_connected(_schedule_focus): node.resized.connect(_schedule_focus)
@@ -69,6 +70,9 @@ func _reveal_focus() -> void:
 		parent = parent.get_parent()
 
 static func apply_tree(node: Node, sizes: Dictionary) -> void:
+	# SpinBox owns an internal LineEdit omitted by get_children(). Its visible
+	# number and keyboard focus need the same readable metrics as other fields.
+	if node is SpinBox: apply_tree(node.get_line_edit(), sizes)
 	for child: Node in node.get_children(): apply_tree(child, sizes)
 	if node is Control and node.get_meta("mobile_tile", false): return
 	if node is TabBar:
@@ -187,6 +191,7 @@ static func _layout_editor_frame(root: Control, sizes: Dictionary) -> void:
 static func _focusable_controls(node: Node) -> Array[Control]:
 	var found: Array[Control] = []
 	if node is Control and not node.is_visible_in_tree(): return found
+	if node is SpinBox: return _focusable_controls(node.get_line_edit())
 	if node is Control and node.focus_mode == Control.FOCUS_ALL and not (node is BaseButton and node.disabled):
 		found.append(node)
 	for child: Node in node.get_children(): found.append_array(_focusable_controls(child))

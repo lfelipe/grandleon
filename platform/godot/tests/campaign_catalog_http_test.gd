@@ -58,7 +58,7 @@ func _run() -> void:
 	expect((await library.install(one)).ok, "real redirected package download installs")
 	var launch: Dictionary = library.read_launch(one)
 	expect(progress_events > 0, "real request emits progress")
-	expect(launch.ok and launch.campaign == "steel_and_cedar" and launch.package.size() == 55584, "native inspected actual Steel and Cedar package launches")
+	expect(launch.ok and launch.campaign == "steel_and_cedar" and launch.package.size() == int(one.package.sizeBytes), "native inspected actual Steel and Cedar package launches")
 	var initial_hash: String = launch.package.hex_encode().sha256_text()
 	var save_scope: String = launch.save_scope
 	var original_session = ClassDB.instantiate("GrandleonSession")
@@ -75,8 +75,11 @@ func _run() -> void:
 	# A presentation-only update retains the authored save revision. Compile
 	# normally rather than mutating a loaded runtime or patching package bytes.
 	var source := FileAccess.get_file_as_string("res://fixtures/source.json")
-	source = source.replace('"title": "Steel and Cedar"', '"title": "Steel and Cedar Updated"')
 	var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
+	var original_compiled: Dictionary = compiler.compile_source_json(source)
+	expect(original_compiled.get("ok", false) and original_compiled.package == launch.package, "served package exactly matches the actual authored source fixture")
+	var current_revision: String = str(JSON.parse_string(source).contentRevision)
+	source = source.replace('"title": "Steel and Cedar"', '"title": "Steel and Cedar Updated"')
 	var compiled: Dictionary = compiler.compile_source_json(source)
 	expect(compiled.get("ok", false), "normal compiler produces updated campaign fixture: " + str(compiled.get("diagnostics", [])))
 	for policy in ["one", "two"]:
@@ -150,7 +153,9 @@ func _run() -> void:
 	expect(compatible_session.start_package(updated_launch.package, one.campaign, 1, work.path_join("saves").path_join(save_scope), "en"), "compatible updated package starts")
 	expect(compatible_session.restore_campaign_checkpoint(checkpoint), "real previous checkpoint restores into compatible updated package")
 	compatible_session.stop()
-	var breaking: Dictionary = compiler.compile_source_json(source.replace('"contentRevision": "0.1.0"', '"contentRevision": "0.2.0"'))
+	var revision_parts := current_revision.split(".")
+	var breaking_revision := "%s.%d.0" % [revision_parts[0], int(revision_parts[1]) + 1]
+	var breaking: Dictionary = compiler.compile_source_json(source.replace('"contentRevision": "%s"' % current_revision, '"contentRevision": "%s"' % breaking_revision))
 	expect(breaking.ok, "normal compiler produces an incompatible-revision fixture")
 	file = FileAccess.open(work.path_join("updated.gpk"), FileAccess.WRITE)
 	file.store_buffer(breaking.package)
