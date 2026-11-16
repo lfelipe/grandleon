@@ -215,20 +215,23 @@ tracked above.
   including defeated roster members, save/reload and newly acquired weapons.
   Both console controller probes pass permanent/withdrawn casualties,
   required-hero defeat and two fresh-process resumes in 1P and 2P. Direct
-  console checks for newly acquired weapons need the supply-transfer flow below.
+  console checks for newly acquired weapons need the carried-inventory and
+  pickup/drop flow below.
 
-### Enemy loot and campaign supplies
+### Enemy loot and carried equipment
 
 - [ ] Let creators configure an enemy's gold and weapon drops, including the
   amount and drop chance. Keep common enemy archetypes quick to reuse.
-- [ ] Carry claimed gold into a shared campaign purse and weapons into shared
-  supplies. Keep ownership separate from weapon affinities; incompatible loot
-  remains available for another character. Save and resume the same rewards in
-  solo and co-op, and prevent duplicate awards after replay or recovery.
-- [ ] Add a simple way to give supplies to heroes across all three players.
-  Console starting equipment and saved character rules work already; a normal
-  controller-driven shared-store transfer flow is still missing. PS1 campaign
-  reward export also needs to preserve grants rather than omit them.
+- [ ] Keep found weapons and items with the unit that obtains them during the
+  battle. Configure a combined carrying capacity per unit. A full bag prompts
+  the player to leave the new item or drop an older one on the map; equipment
+  must never become instantly available to a distant unit. Keep possession
+  separate from weapon affinity so incompatible loot is not destroyed. Save
+  carried and ground items and prevent duplicate awards during recovery.
+- [ ] Add nearby pickup/drop and full-bag replacement controls across all three
+  players, with readable capacity feedback and editor bag-size settings.
+  Revisit the older shared-store flow only as an explicit between-battle
+  facility, not the destination for weapon or item drops during play.
 - [ ] Once the current editor and supply changes are ready, give selected demo
   enemies gold or weapon drops. Use clear, useful rewards and verify the same
   results in Godot, Nintendo 64 and PlayStation.
@@ -499,7 +502,8 @@ iOS exports remain later milestones; they are not part of the 0.6 scope.
 ## Loot and shops
 
 - [ ] Extend the enemy loot foundation to battle rewards and map interactions.
-  Keep the same shared purse, supply store and affinity-independent ownership.
+  Keep carried equipment local to its owner; any camp storage must be an
+  explicit facility between battles, with affinity-independent ownership.
 - [ ] Let creators place simple shops between stages or in appropriate places,
   choosing stock, prices and availability. Check affordability and capacity,
   preserve purchases in saves, and support both solo and co-op campaigns.
