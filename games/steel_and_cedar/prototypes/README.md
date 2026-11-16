@@ -27,4 +27,6 @@ This prototype does not replace Steel and Cedar. Console export needs further
 work: the N64 currently reserves space for 280 cells, and both console castle
 paths assume the existing six-by-six keep. The prototype has 768 cells and
 170 covered floor cells. Keep those limits visible rather than silently
-exporting a smaller map or different renderer.
+exporting a smaller map or different renderer. The N64 exporter now reports
+its current cell limit before generating cartridge assets, so an unsupported
+layout does not produce a ROM that fails after booting.

@@ -45,6 +45,7 @@ TERRAIN_KINDS = (
     (("bamboo", "thicket"), "bamboo", (57, 119, 67), (110, 166, 79)),
     (("pave", "cobble"), "paved", (116, 121, 117), (188, 191, 177)),
 )
+MAX_BOARD_CELLS = 20 * 14  # ProjectBoard.cpp base-memory cell buffers.
 MAX_DRAWINGS = 16
 MAX_TERRAIN_KINDS = 9
 ATLAS_COLUMNS = 3
@@ -250,6 +251,17 @@ def prepare(project_path: Path, manifest_path: Path, project_root: Path,
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     campaign, encounters = linear_campaign(project)
     maps = selected_maps(project, encounters)
+    # Reject unsupported layouts before producing any cartridge assets. A
+    # compiled package can be larger than this renderer's current buffers.
+    for value in maps:
+        width, height = int(value.get("width", 0)), int(value.get("height", 0))
+        if width * height > MAX_BOARD_CELLS:
+            raise ProjectError(
+                f"map {value.get('name') or value.get('id')!r} is {width}×{height} "
+                f"({width * height} cells); the current Nintendo 64 renderer "
+                f"supports at most {MAX_BOARD_CELLS} cells. "
+                "Keep the larger map for Godot while larger console maps are being implemented."
+            )
 
     kinds = sorted({
         terrain_kind(str(cell))
