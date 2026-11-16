@@ -1,0 +1,27 @@
+{
+  "schema": "grandleon.creator-map-budget-review.v1",
+  "date": "2026-11-15",
+  "feature": "The native compiler exposes the same 768-cell N64 policy used by its renderer. The editor displays used cells and warns above the limit, including when no battle is selected. Oversized maps remain editable and valid for PC.",
+  "checks": [
+    "Native project compiler smoke passes with N64 768 cells and no size-only PS1 memory guarantee.",
+    "Normal editor resizing to 32x24 shows 768/768 without an overrun.",
+    "Resizing to 33x24 shows an explicit N64 warning; PC compilation still succeeds.",
+    "Undo restores the authored campaign exactly.",
+    "Exporter accepts 32x24 and refuses 33x24 before partial output.",
+    "Rebuilt normal N64 prototype passes real doorway movement, nine-cell reveal and both camera scrolling axes in 1P and 2P using base 4 MiB."
+  ],
+  "logs": [
+    "out/map-budget06/compiler.log",
+    "out/map-budget06/editor-final.log",
+    "out/map-budget06/localization.log",
+    "out/map-budget06/n64-export.log",
+    "out/map-budget06/n64-1p-retry.log",
+    "out/map-budget06/n64-2p.log",
+    "out/map-budget06/n64-2p-final.log"
+  ],
+  "limits": [
+    "This is board-size feedback, not a geometry or frame-time guarantee.",
+    "PS1 geometry, RAM and VRAM limits remain checked at export.",
+    "A concurrent N64 run missed a short keyboard press; the harness now holds ordinary presses for 250ms. All reveal, scrolling and resource assertions are retained."
+  ]
+}

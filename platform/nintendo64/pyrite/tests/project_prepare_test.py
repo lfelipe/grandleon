@@ -164,7 +164,7 @@ def main() -> None:
         larger_source.write_text(json.dumps(larger), encoding="utf-8")
         _large_log, large_staged = run_project(larger_source, base / "supported-large")
         assert (large_staged / "src/user/GeneratedProject.hpp").is_file()
-        larger["maps"][0].update(width=64, height=64, terrain=["grass"] * 4096)
+        larger["maps"][0].update(width=33, height=24, terrain=["grass"] * 792)
         larger_source.write_text(json.dumps(larger), encoding="utf-8")
         larger_root = base / "larger-output"
         refused = subprocess.run([
@@ -173,10 +173,10 @@ def main() -> None:
             "--project-root", str(larger_root),
         ], capture_output=True, text=True)
         assert refused.returncode == 2, refused.stderr
-        assert "64×64 (4096 cells)" in refused.stderr
+        assert "33×24 (792 cells)" in refused.stderr
         assert "supports at most 768 cells" in refused.stderr
         assert not larger_root.exists(), "unsupported maps must not leave a partial cartridge export"
-        assert json.loads(larger_source.read_text())["maps"][0]["width"] == 64
+        assert json.loads(larger_source.read_text())["maps"][0]["width"] == 33
 
     print("generic Pyrite project preparation passed: demo != Steel; refusal closed")
 

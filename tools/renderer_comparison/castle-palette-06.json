@@ -20,6 +20,6 @@
   "screenshot": "out/castle-palette06/palette-final.png",
   "limits": [
     "Doorways currently require painting two vertically adjacent cells; automatic doorway stamps remain planned.",
-    "Per-map console budget previews and physical-console playtesting remain pending."
+    "Resource-use previews beyond map-size and unit-count feedback and physical-console playtesting remain pending."
   ]
 }

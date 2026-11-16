@@ -19,6 +19,10 @@ namespace grandleon::package_runtime::target_budget {
 // to the load in the Nintendo 64 project's GPK runtime adapter.
 inline constexpr std::uint32_t nintendo64_units_per_encounter = 48U;
 
+// Largest board supported by the base-4-MiB renderer arenas. Individual asset
+// and frame-time budgets still need export-time checks.
+inline constexpr std::uint32_t nintendo64_cells_per_map = 32U * 24U;
+
 // PlayStation: the production Mipsync exporter validates this cap before it
 // writes any stage. Its build manifest also records the resulting RAM and VRAM
 // budgets so a release artifact can be audited without a second build.

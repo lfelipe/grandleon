@@ -11,12 +11,12 @@ players=$3
 repo=$(cd "$(dirname "$0")/../../../.." && pwd)
 case "$players" in
     1) choose='advance:Return/PYRITE_SAVE'; steps=2; second=0 ;;
-    2) choose='advance:Return/PYRITE_TITLE,press:Down,wait:0.4,press:Return,wait:1,advance:Return/PYRITE_SAVE'; steps=4; second=1 ;;
+    2) choose='advance:Return/PYRITE_TITLE,press:Down/0.25,wait:0.4,press:Return/0.25,wait:1,advance:Return/PYRITE_SAVE'; steps=4; second=1 ;;
     *) echo "players must be 1 or 2" >&2; exit 2 ;;
 esac
-sequence="wait:2,$choose,await:PYRITE_BATTLE_MOMENT,wait:1,advance:Return/PYRITE_BATTLE_MOMENT_DONE,wait:3,view-shot:castle-closed.png,press:Return,wait:0.4"
-for ((i=0;i<steps;i++)); do sequence+=',press:Right,wait:0.4'; done
-sequence+=',press:Return,await:PYRITE_ROOM_REVEAL,wait:3,press:space,wait:1,view-shot:castle-entry.png,press:Return/0.25,wait:0.4,press:Return/0.25,wait:0.4'
+sequence="wait:2,$choose,await:PYRITE_BATTLE_MOMENT,wait:1,advance:Return/PYRITE_BATTLE_MOMENT_DONE,wait:3,view-shot:castle-closed.png,press:Return/0.25,wait:0.4"
+for ((i=0;i<steps;i++)); do sequence+=',press:Right/0.25,wait:0.4'; done
+sequence+=',press:Return/0.25,await:PYRITE_ROOM_REVEAL,wait:3,press:space/0.25,wait:1,view-shot:castle-entry.png,press:Return/0.25,wait:0.4,press:Return/0.25,wait:0.4'
 # The current digital pad advances on presses; holding it is not analog repeat.
 for ((i=0;i<32;i++)); do sequence+=',press:Right/0.25,wait:0.15'; done
 for ((i=0;i<24;i++)); do sequence+=',press:Down/0.25,wait:0.15'; done

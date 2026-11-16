@@ -291,8 +291,11 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
 - [x] Expose castle wall, floor, doorway and dais painting in the Map Editor,
   with distinct stone-piece markers and translated labels/tooltips. Fresh
   project edits compile and undo through the native authoring path.
-- [ ] Extend larger-map creator tools with export budget feedback and
-  automatic doorway stamps. Keep console limits visible while editing.
+- [x] Show map cells used and the N64 board-size limit while editing. The
+  editor warns above 768 cells without blocking PC creation, saving or play;
+  PS1 geometry and memory still need export-time checks.
+- [ ] Extend larger-map creator tools with geometry/memory budget previews and
+  automatic doorway stamps.
   Playtest later stages where distinct flanks, cover
   and co-op routes create useful decisions rather than longer empty walks.
   Keep the tutorial compact. Continue PS1 larger-scene performance work and

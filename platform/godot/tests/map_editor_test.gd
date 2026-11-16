@@ -283,6 +283,28 @@ func _run() -> void:
 	_expect("enemy placement shown on board", editor.grid.get_child(8).tooltip_text.contains("SECOND"), true)
 	_expect("board tooltip hides enemy source identity", editor.grid.get_child(8).tooltip_text.contains("river_watch_leader"), false)
 	_expect("map selector receives controller focus", editor.map_select.has_focus(), true)
+	_expect("editor reports the native map-size limit", editor.target_budget_label.text.contains("N64 MAP 24 / 768 CELLS"), true)
+	var before_map_budget: String = editor.source
+	editor._open_resize()
+	editor._set_resize_dimensions(32, 24)
+	editor._apply_resize()
+	_expect("largest supported map is reported", editor.target_budget_label.text.contains("N64 MAP 768 / 768 CELLS"), true)
+	_expect("supported size does not raise an overrun", editor._current_map_is_over_budget(), false)
+	editor._open_resize()
+	editor._set_resize_dimensions(33, 24)
+	editor._apply_resize()
+	_expect("oversized map remains editable", _parse(editor.source).maps[0].terrain.size(), 792)
+	_expect("oversized map is clearly identified", editor.target_budget_label.text.contains("MAP TOO LARGE FOR N64"), true)
+	_expect("oversized source still compiles for PC", editor.compiler.compile_source_json(editor.source).ok, true)
+	var budget_encounter_index: int = editor.encounter_index
+	editor.encounter_index = -1
+	_expect("a map without a selected battle still shows its size warning", editor._target_impact_summary().contains("MAP TOO LARGE FOR N64"), true)
+	editor.encounter_index = budget_encounter_index
+
+	editor._undo()
+	editor._undo()
+	_expect("map size review undoes without affecting the campaign", editor.source, before_map_budget)
+	editor.redo_stack.clear()
 	var castle_original_source: String = editor.source
 	var castle_pieces := ["mountain_castle_wall", "paved_castle_floor", "paved_castle_door", "paved_castle_dais"]
 	for index in castle_pieces.size():

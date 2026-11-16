@@ -9,6 +9,7 @@
 #include <grandleon/package_runtime/dialogue.hpp>
 #include <grandleon/package_runtime/localization.hpp>
 #include <grandleon/package_runtime/names.hpp>
+#include <grandleon/package_runtime/target_budget.hpp>
 #include <grandleon/package_runtime/presentation.hpp>
 #include <grandleon/storage/byte_window_storage.hpp>
 #include <libdragon.h>
@@ -73,7 +74,8 @@ constexpr std::int16_t kCell = 52;
 // receive the shaded elevation faces built below.
 constexpr std::int16_t kHalfCell = kCell / 2;
 constexpr std::size_t kCellVertexCount = 4;
-constexpr std::size_t kMaxCells = 32U * 24U;
+constexpr std::size_t kMaxCells =
+    grandleon::package_runtime::target_budget::nintendo64_cells_per_map;
 constexpr std::size_t kBatchCells = 15U;
 constexpr std::size_t kElevationVerticesPerCell = 8U;
 constexpr std::size_t kGroundVertexCount = 4U;

@@ -309,11 +309,13 @@ gd::Dictionary target_budget(
     const gc::GameSource& source,
     std::string_view id,
     std::string_view label,
-    std::uint32_t units_per_encounter
+    std::uint32_t units_per_encounter,
+    std::uint32_t cells_per_map = 0U
 ) {
     gd::Dictionary target;
     target["id"] = text(id);
     target["label"] = text(label);
+    target["cells_per_map"] = static_cast<std::int64_t>(cells_per_map);
     target["limited"] = units_per_encounter != 0U;
     target["units_per_encounter"] =
         static_cast<std::int64_t>(units_per_encounter);
@@ -715,7 +717,8 @@ gd::Dictionary GrandleonProjectCompiler::target_budget_report(
     targets.push_back(target_budget(parsed.source, "pc", "PC", 0U));
     targets.push_back(target_budget(
         parsed.source, "nintendo64", "Nintendo 64",
-        pr::target_budget::nintendo64_units_per_encounter
+        pr::target_budget::nintendo64_units_per_encounter,
+        pr::target_budget::nintendo64_cells_per_map
     ));
     targets.push_back(target_budget(
         parsed.source, "playstation", "PlayStation",

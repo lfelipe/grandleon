@@ -1878,7 +1878,7 @@
     "map.targets.label": "ALVOS",
     "map.targets.over_budget_suffix": "  ·  A EXPORTAÇÃO PARA CONSOLE EXIGE MENOS UNIDADES",
     "map.targets.summary": "{prefix}  /  {units} EM CAMPO  ·  PC PRONTO  ·  N64 {units} / {n64_limit}  ·  PS1 {units} / {ps1_limit}",
-    "map.targets.tooltip": "Unidades em campo incluem cada chegada de uma onda recorrente. Exceder o limite de um console nunca impede salvar ou jogar a versão para PC.",
+    "map.targets.tooltip": "As unidades incluem todos os reforços recorrentes. O limite de espaços do N64 se refere ao tamanho do mapa; a geometria, a RAM e a VRAM do PS1 são verificadas na exportação. Exceder um limite de console nunca impede salvar ou jogar a versão para PC.",
     "map.targets.unavailable": "ALVOS  /  VERIFICAÇÃO INDISPONÍVEL",
     "map.terrain.bamboo": "BAMBU",
     "map.terrain.bridge": "PONTE",
@@ -2073,6 +2073,8 @@
     "map.terrain.paved_castle_door": "ENTRADA DO CASTELO",
     "map.terrain.paved_castle_door.help": "Pinte dois espaços de entrada adjacentes na vertical para formar um arco transitável.",
     "map.terrain.paved_castle_dais": "ESTRADO DO CASTELO",
-    "map.terrain.paved_castle_dais.help": "Pinte uma plataforma de pedra elevada, como um trono ou área de comando."
+    "map.terrain.paved_castle_dais.help": "Pinte uma plataforma de pedra elevada, como um trono ou área de comando.",
+    "map.targets.map_cells": "  ·  MAPA N64 {cells} / {limit} ESPAÇOS",
+    "map.targets.map_over_budget_suffix": "  ·  MAPA GRANDE DEMAIS PARA N64"
   }
 }

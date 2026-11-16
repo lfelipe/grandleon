@@ -31,7 +31,8 @@ with one press.
 This prototype does not replace Steel and Cedar. It now runs on all three
 players, with normal 1P/2P console menus, scrolling and local room reveals.
 The console pieces use the same wall, doorway and stone roof builders as Godot.
-The N64 exporter supports up to 768 cells; console asset and memory limits
+The editor shows N64 map cells used and warns above 768 cells. The N64
+exporter enforces this limit; console asset and memory limits
 still apply. Unsupported exports report the limit rather than shrinking a map.
 
 The normal N64 ROM is checked in base 4 MiB RAM, and the normal PS1 disc retains

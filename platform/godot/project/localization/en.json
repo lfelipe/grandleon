@@ -1481,7 +1481,7 @@
     "map.tool.landmark_remove_tooltip": "Remove a whole landmark by choosing any cell in its footprint.",
     "map.empty": "This project has no maps yet.\nChoose ADD NEXT CHAPTER to begin creating one.",
     "map.targets.checking": "TARGETS  /  CHECKING…",
-    "map.targets.tooltip": "Fielded units include every recurring wave arrival. A console overrun never blocks saving or playing the PC version.",
+    "map.targets.tooltip": "Fielded units include every recurring wave arrival. The N64 cell limit is a map-size limit; PS1 geometry, RAM and VRAM are checked at export. A console overrun never blocks saving or playing the PC version.",
     "map.targets.unavailable": "TARGETS  /  CHECK UNAVAILABLE",
     "map.targets.choose_battle": "TARGETS  /  PC READY  ·  CHOOSE A BATTLE FOR CONSOLE LIMITS",
     "map.targets.after_add": "AFTER ADD",
@@ -2073,6 +2073,8 @@
     "map.terrain.paved_castle_door": "CASTLE DOORWAY",
     "map.terrain.paved_castle_door.help": "Paint two vertically adjacent doorway tiles for one walkable arch.",
     "map.terrain.paved_castle_dais": "CASTLE DAIS",
-    "map.terrain.paved_castle_dais.help": "Paint a raised stone platform, such as a throne or command area."
+    "map.terrain.paved_castle_dais.help": "Paint a raised stone platform, such as a throne or command area.",
+    "map.targets.map_cells": "  ·  N64 MAP {cells} / {limit} CELLS",
+    "map.targets.map_over_budget_suffix": "  ·  MAP TOO LARGE FOR N64"
   }
 }

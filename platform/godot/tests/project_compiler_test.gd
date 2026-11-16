@@ -72,6 +72,8 @@ func _init() -> void:
 				_expect("PC source stays unbounded", targets[0].limited, false)
 				_expect("PC source fits", targets[0].fits, true)
 				_expect("Nintendo 64 limit is measured", targets[1].units_per_encounter, 48)
+				_expect("Nintendo 64 board cell limit is reported", targets[1].cells_per_map, 768)
+				_expect("PS1 does not claim a size-only memory guarantee", targets[2].cells_per_map, 0)
 				_expect("demo fits Nintendo 64", targets[1].fits, true)
 				_expect("PlayStation limit is measured", targets[2].units_per_encounter, 48)
 				_expect("demo fits PlayStation", targets[2].fits, true)

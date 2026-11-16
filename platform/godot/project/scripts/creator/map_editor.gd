@@ -568,7 +568,7 @@ func _refresh_target_budget() -> void:
 		return
 	budget_report = compiler.target_budget_report(source)
 	target_budget_label.text = _target_impact_summary()
-	var over := _current_stage_is_over_budget()
+	var over := _current_stage_is_over_budget() or _current_map_is_over_budget()
 	target_budget_label.add_theme_color_override(
 		"font_color", Color("ffca63") if over else Color("a9bdc9")
 	)
@@ -607,20 +607,34 @@ func _current_stage_is_over_budget(additional_units: int = 0) -> bool:
 	return false
 
 
+func _current_map_is_over_budget() -> bool:
+	var map := _current_map()
+	var limit := int(_budget_target("nintendo64").get("cells_per_map", 0))
+	return limit > 0 and int(map.get("width", 0)) * int(map.get("height", 0)) > limit
+
+
 func _target_impact_summary(additional_units: int = 0) -> String:
 	if not bool(budget_report.get("ok", false)):
 		return _t("map.targets.unavailable")
-	if _current_encounter().is_empty():
-		return _t("map.targets.choose_battle")
-	var units := _current_stage_units() + additional_units
-	var n64_limit := int(_budget_target("nintendo64").get("units_per_encounter", 0))
-	var ps1_limit := int(_budget_target("playstation").get("units_per_encounter", 0))
-	var prefix := _t("map.targets.after_add" if additional_units > 0 else "map.targets.label")
-	var summary := _t("map.targets.summary", {
-		"prefix": prefix, "units": units, "n64_limit": n64_limit, "ps1_limit": ps1_limit,
-	})
-	if _current_stage_is_over_budget(additional_units):
-		summary += _t("map.targets.over_budget_suffix")
+	var summary := _t("map.targets.choose_battle")
+	if not _current_encounter().is_empty():
+		var units := _current_stage_units() + additional_units
+		var n64_limit := int(_budget_target("nintendo64").get("units_per_encounter", 0))
+		var ps1_limit := int(_budget_target("playstation").get("units_per_encounter", 0))
+		var prefix := _t("map.targets.after_add" if additional_units > 0 else "map.targets.label")
+		summary = _t("map.targets.summary", {
+			"prefix": prefix, "units": units, "n64_limit": n64_limit, "ps1_limit": ps1_limit,
+		})
+		if _current_stage_is_over_budget(additional_units):
+			summary += _t("map.targets.over_budget_suffix")
+	var map := _current_map()
+	var cell_limit := int(_budget_target("nintendo64").get("cells_per_map", 0))
+	if cell_limit > 0 and not map.is_empty():
+		summary += _t("map.targets.map_cells", {
+			"cells": int(map.get("width", 0)) * int(map.get("height", 0)), "limit": cell_limit,
+		})
+	if _current_map_is_over_budget():
+		summary += _t("map.targets.map_over_budget_suffix")
 	return summary
 
 
