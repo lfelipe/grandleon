@@ -58,43 +58,30 @@ part of 0.6, alongside performance work and platform validation.
   terrain painting, unit placement, scrolling and text entry for touch and
   the on-screen keyboard. The core creation, map editing, keyboard and export
   flows have real emulator coverage.
-- [ ] Finish the phone/tablet usability pass on advanced editor forms,
-  including the campaign outline's nested chapter list, and verify external
-  keyboards and mice. Readable controls alone do not prove every form fits well.
-  Compact project hubs now use a full-width list; chapter cards stack their
-  actions, and campaign settings fold away. Phone/tablet review captures cover
-  these screens and the map editor, browser and player. Long chapter names now
-  stay within their selectors; crowded campaign-dialog actions stack instead
-  of widening the form. Local English/Portuguese layout checks cover chapter
-  reordering, scrolling to the final action, and restoring the wider layout.
-  Equipment, story and role creation now share the same bounded action rows;
-  headings wrap without making their dialogs wider. Local tests create and
-  compile all three using accented names in English and Portuguese, check
-  their final actions at three densities, and restore smaller text afterward.
-  Seventeen additional panels now adapt their rows and stat grids to the
-  available width, including growth, loadout, combat design, scene sequencing
-  and campaign conditions. Their final actions are checked at three densities
-  in English and Portuguese. These density checks do not replace Android
-  keyboard and mouse validation.
+- [x] Adapt advanced editor forms and nested chapter lists to phone/tablet
+  screens. Keep toolbars, action rows and stat grids bounded, scroll to focused
+  fields after reflow, and keep Tab navigation in the open dialog. Native
+  Android checks cover 17 panels, the on-screen keyboard, accented authoring,
+  injected keyboard/mouse events, and system save/import with exact archive
+  bytes. Physical peripherals remain in device acceptance below.
 - [x] Make the phone player board-first with contextual controls. Show legal
   unit actions after selection, target details during targeting, and compact
   dialogue/close-up controls only while those views are active. Avoid a
   permanent row of redundant Confirm/Back/Wait buttons and move secondary
   settings off the main play view. Keep controls clear of important units.
-- [ ] Use available screen space and density to adapt the shared Android app;
+- [x] Use available screen space and density to adapt the shared Android app;
   make play the main phone entry point and keep Create/Edit available on
   phones as well as tablets. Use focused phone editing forms while reserving
   more room on tablets and PCs. Keep one Android application and choose the
   layout from the available space, rather than removing the creator on phones.
-- [ ] Keep emulator screenshot/input checks for compact and wide phones,
-  tablets, cutouts, larger text and the on-screen keyboard. Emulation covers
-  layout and interaction; confirm graphics speed, audio and ergonomics on
-  actual hardware.
-  The player now uses floating context controls and a compact phone turn chip;
-  home-screen language and audio live in Settings. Existing player text sizes
-  recalculate after window/density changes. Keep cold-start device profiles
-  separate from live-resize stress checks. The native mobile smoke suite covers
-  real campaign movement/attack/wait, stale-action guards, focus and scrolling.
+- [x] Keep repeatable Android emulator screenshot/input checks for compact and
+  wide phones and tablets, including the on-screen keyboard. Check actual
+  display dimensions, physical touch targets, Tab/Shift-Tab and mouse input;
+  keep the QA package separate from the regular app. Desktop mobile checks
+  also cover larger player text, safe-area calculations and real native play.
+- [ ] Verify display cutouts, physical keyboards/controllers, larger text and
+  ergonomics on available phones/tablets. The current emulator can enable a
+  cutout overlay without exposing any inset; this does not count as coverage.
 - [x] Support importing, saving and sharing project archives through Android
   file handling. The Android editor creates and exports portable campaigns
   playable on Android and PC. Preserve an editable project export for the PC
@@ -128,7 +115,8 @@ part of 0.6, alongside performance work and platform validation.
   Android 15 x86_64 emulator restores solo movement/Wait and a second army's
   co-op action after `am force-stop`, retaining Portuguese and exact native
   snapshots. An in-place app update preserves recovery; solo and co-op remain
-  isolated. See the [recovery checks](tools/renderer_comparison/android-local-recovery-06.json).
+  isolated. Android system file pickers now preserve accented filenames and
+  byte-exact editable archives through save and import. See the [recovery checks](tools/renderer_comparison/android-local-recovery-06.json).
 - [ ] Test installation, updates, audio, graphics, translations, controllers,
   background/resume and create → save → reopen → play on actual devices.
   Measure memory, cold shader/asset loading, APK size and performance before

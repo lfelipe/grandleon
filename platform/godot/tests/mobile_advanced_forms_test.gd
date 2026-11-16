@@ -62,6 +62,10 @@ func run() -> void:
 				await settle()
 				check(scroll.get_global_rect().grow(1).encloses(final_action.get_global_rect()), "%s/%s/%s last action %s stays within scroll %s" % [form.screen, language, density, final_action.get_global_rect(), scroll.get_global_rect()])
 				check(final_action.has_focus(), "last action can receive GUI focus")
+				var widest_word := 0.0
+				for word: String in final_action.text.split(" "):
+					widest_word = maxf(widest_word, final_action.get_theme_font("font").get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, final_action.get_theme_font_size("font_size")).x)
+				check(widest_word + final_action.get_theme_stylebox("normal").get_minimum_size().x <= final_action.size.x + 1, "action labels keep individual words intact")
 				var tab := InputEventKey.new()
 				tab.keycode = KEY_TAB
 				tab.pressed = true
