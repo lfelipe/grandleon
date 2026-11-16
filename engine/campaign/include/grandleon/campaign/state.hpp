@@ -373,6 +373,8 @@ enum class StateError : std::uint8_t {
     // The mounted campaign does not allow this member's name to be replaced.
     // Content-aware session validation returns this; state alone cannot know.
     unauthorized_player_name,
+    // Currency belongs to the shared wallet, never a member's usable kit.
+    carried_currency,
 };
 
 [[nodiscard]] std::string_view state_error_name(StateError error) noexcept;

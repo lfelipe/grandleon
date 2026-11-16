@@ -373,6 +373,18 @@ std::vector<std::uint8_t> encode_progression(const CampaignState& state) {
     return out;
 }
 
+bool has_currency(const CampaignState& state) noexcept {
+    const auto contains = [](const auto& stacks) {
+        return std::any_of(stacks.begin(), stacks.end(), [](const auto& stack) {
+            return stack.item.category == core::ContentCategory::currency;
+        });
+    };
+    if (contains(state.store)) return true;
+    return std::any_of(state.units.begin(), state.units.end(), [&](const auto& unit) {
+        return contains(unit.carried);
+    });
+}
+
 std::vector<std::uint8_t> encode_section(
     SaveSectionType type,
     const CampaignState& state
@@ -385,18 +397,25 @@ std::vector<std::uint8_t> encode_section(
         case SaveSectionType::outcome_history: return encode_outcomes(state);
         case SaveSectionType::progression: return encode_progression(state);
         case SaveSectionType::player_names: return encode_player_names(state);
+        case SaveSectionType::currency_inventory: {
+            std::vector<std::uint8_t> bytes;
+            put_u32(bytes, static_cast<std::uint32_t>(core::ContentCategory::currency));
+            return bytes;
+        }
     }
     return {};
 }
 
-// Whether this campaign has anything to say in this section. Only the
-// progression section can answer no, and it answers no exactly when the
+// Whether this campaign has anything to say in this section. The
+// progression, player-name and currency sections can be absent. Progression
+// answers no exactly when the
 // campaign has not entered a graph, which is what makes the section's
 // presence and the campaign's `active` flag one fact with one encoding.
 [[nodiscard]] bool section_is_written(
     SaveSectionType type,
     const CampaignState& state
 ) noexcept {
+    if (type == SaveSectionType::currency_inventory) return has_currency(state);
     if (type == SaveSectionType::progression) return state.progress.active;
     if (type == SaveSectionType::player_names) {
         return !state.player_names.empty();
@@ -612,11 +631,16 @@ std::vector<std::uint8_t> encode_section(
             return decode_progression(reader, limits, state);
         case SaveSectionType::player_names:
             return decode_player_names(reader, limits, state);
+        case SaveSectionType::currency_inventory: {
+            std::uint32_t category{};
+            return reader.u32(category) &&
+                category == static_cast<std::uint32_t>(core::ContentCategory::currency);
+        }
     }
     return false;
 }
 
-constexpr std::array<SaveSectionType, 7> known_sections{
+constexpr std::array<SaveSectionType, 8> known_sections{
     SaveSectionType::roster,
     SaveSectionType::store,
     SaveSectionType::objectives,
@@ -624,6 +648,7 @@ constexpr std::array<SaveSectionType, 7> known_sections{
     SaveSectionType::outcome_history,
     SaveSectionType::progression,
     SaveSectionType::player_names,
+    SaveSectionType::currency_inventory,
 };
 
 // Field-by-field campaign equality.
@@ -736,6 +761,7 @@ std::string_view save_section_name(std::uint32_t type) noexcept {
         case SaveSectionType::outcome_history: return "outcome_history";
         case SaveSectionType::progression: return "progression";
         case SaveSectionType::player_names: return "player_names";
+        case SaveSectionType::currency_inventory: return "currency_inventory";
     }
     return "unknown";
 }
@@ -762,6 +788,7 @@ SaveSectionSchema save_section_schema(SaveSectionType type) noexcept {
         case SaveSectionType::outcome_history: return {1, 0};
         case SaveSectionType::progression: return {1, 0};
         case SaveSectionType::player_names: return {1, 0};
+        case SaveSectionType::currency_inventory: return {1, 0};
     }
     return {1, 0};
 }
@@ -1190,6 +1217,9 @@ SaveLoadResult interpret_save(DecodedSave decoded, const SaveLoadOptions& option
         if (view.schema_major != save_section_schema(type).major) {
             return load_failure(SaveError::unsupported_schema, view.type);
         }
+        if (type == SaveSectionType::currency_inventory && !view.required()) {
+            return load_failure(SaveError::invalid_section, view.type);
+        }
         Reader reader(decoded.bytes.data() + view.offset, view.size);
         if (!decode_section(type, reader, options.limits, result.save.state) ||
             !reader.done()) {
@@ -1205,6 +1235,8 @@ SaveLoadResult interpret_save(DecodedSave decoded, const SaveLoadOptions& option
         // section is absent from every campaign that has not entered a graph,
         // which includes every save written before the section existed, and
         // absence means exactly that: unstarted.
+        if (known_sections[index] == SaveSectionType::currency_inventory &&
+            !has_currency(result.save.state)) continue;
         if (!seen[index] && save_section_required(known_sections[index])) {
             return load_failure(
                 SaveError::missing_required_section,

@@ -104,3 +104,6 @@ unchanged for a host, a VR4300, and an R3000A.
 cmake --build build
 ctest --test-dir build -R "grandleon.core|grandleon.content_identity|grandleon.random|grandleon.bounds" --output-on-failure
 ```
+
+Currency has its own append-only identity category. The common gold identity
+lives in `currency.hpp`; an item or weapon named gold is a different reference.

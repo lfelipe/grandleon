@@ -1410,6 +1410,10 @@ add_test(
 )
 
 
+add_executable(grandleon_currency_tests campaign/currency_test.cpp)
+target_link_libraries(grandleon_currency_tests PRIVATE grandleon::campaign)
+add_test(NAME grandleon.currency COMMAND grandleon_currency_tests)
+
 add_executable(grandleon_personal_characters_tests client/personal_characters_test.cpp)
 target_link_libraries(grandleon_personal_characters_tests PRIVATE grandleon::client_campaign grandleon::game_content grandleon::storage)
 target_compile_definitions(grandleon_personal_characters_tests PRIVATE GRANDLEON_SOURCE_DIR="${PROJECT_SOURCE_DIR}")

@@ -177,6 +177,8 @@ std::string_view state_error_name(StateError error) noexcept {
             return "orphaned_player_name";
         case StateError::unauthorized_player_name:
             return "unauthorized_player_name";
+        case StateError::carried_currency:
+            return "carried_currency";
     }
     return "unknown";
 }
@@ -384,6 +386,10 @@ StateError validate(const CampaignState& state) noexcept {
         // losing it, and this layer's job is to lose nothing quietly.
         if (unit.availability == Availability::dead && !unit.carried.empty()) {
             return StateError::inconsistent_availability;
+        }
+        for (const auto& stack : unit.carried) {
+            if (stack.item.category == core::ContentCategory::currency)
+                return StateError::carried_currency;
         }
         const StateError carried = validate_stacks(unit.carried);
         if (carried != StateError::none) {

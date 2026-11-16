@@ -181,6 +181,9 @@ enum class SaveSectionType : std::uint32_t {
     // effective, which is exactly what every older save says. Written optional
     // so an older build can retain it even though it cannot present or edit it.
     player_names = 7,
+    // Required when currency exists: old readers must refuse rather than
+    // treat money as ordinary equipment. Saves without currency omit it.
+    currency_inventory = 8,
 };
 
 [[nodiscard]] std::string_view save_section_name(std::uint32_t type) noexcept;

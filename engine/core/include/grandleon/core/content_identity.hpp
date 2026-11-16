@@ -38,6 +38,8 @@ enum class ContentCategory : std::uint32_t {
     // not a stable identity. Two campaigns naming a flag the same thing they
     // named an objective must still be two identities.
     world_flag = 16,
+    // Shared campaign money; never character equipment. Values are persisted.
+    currency = 17,
 };
 
 struct ContentRef final {

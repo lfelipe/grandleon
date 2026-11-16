@@ -246,3 +246,8 @@ stand in for the other.
 cmake --build build
 ctest --test-dir build -R "grandleon.campaign|grandleon.storage" --output-on-failure
 ```
+
+Currency balances use a distinct content category in the shared inventory. They
+cannot be carried as a character's equipment. A currency-bearing save includes
+a required compatibility section, so older readers refuse it instead of
+misreading money as an item. Saves without currency keep their previous bytes.
