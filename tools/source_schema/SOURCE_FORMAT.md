@@ -7,9 +7,12 @@ cannot state: identities, cross-field rules, the diagnostics that enforce them,
 and the handful of places where a rule lives in the compiler rather than in the
 schema.
 
-The current schema version is `1.4.0`. Projects from `1.0.0` through `1.3.0`
+The current schema version is `1.5.0`. Projects from `1.0.0` through `1.4.0`
 have registered, non-destructive migrations. The `1.3.0` to `1.4.0` step makes
 the historical English source language explicit and invents no translations.
+The `1.4.0` to `1.5.0` step enables stable character appearance and personal
+weapon and defeat choices. It changes only the version: existing choices stay
+intact, and omitted choices stay omitted. Package and save formats are unchanged.
 Authors normally use the editor; the public files exist so projects stay
 portable, scriptable, source-controlled, and buildable headlessly.
 

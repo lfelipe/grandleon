@@ -6,7 +6,8 @@ const ProjectArchive = preload("res://scripts/creator/project_archive.gd")
 const PROJECT_FILE := "project.json"
 const PREVIOUS_FILE := "project.previous.json"
 const RECOVERY_DIRECTORY := "recovered"
-const CURRENT_SCHEMA_VERSION := "1.4.0"
+const CURRENT_SCHEMA_VERSION := "1.5.0"
+const PERSONAL_RULES_PREVIOUS_SCHEMA_VERSION := "1.4.0"
 const LEGACY_SCHEMA_VERSION := "1.3.0"
 
 var root_path: String
@@ -521,12 +522,14 @@ func inspect_source(project_id: String) -> Dictionary:
 		return checked
 	var migration: Dictionary = checked.migration.duplicate(true)
 	if str(migration.get("status", "")) == "not_needed":
-		var prior_backup := _existing_migration_backup(directory, LEGACY_SCHEMA_VERSION)
-		if not prior_backup.is_empty():
-			migration = _migration_details(
-				"previously_completed", LEGACY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION
-			)
-			migration["backup"] = prior_backup
+		for prior_version: String in [PERSONAL_RULES_PREVIOUS_SCHEMA_VERSION, LEGACY_SCHEMA_VERSION]:
+			var prior_backup := _existing_migration_backup(directory, prior_version)
+			if not prior_backup.is_empty():
+				migration = _migration_details(
+					"previously_completed", prior_version, CURRENT_SCHEMA_VERSION
+				)
+				migration["backup"] = prior_backup
+				break
 	return {
 		"ok": true,
 		"id": project_id,
@@ -551,7 +554,7 @@ func _upgrade_legacy_source(source: String) -> Dictionary:
 			"migrated": false,
 			"migration": _migration_details("not_needed", version, version),
 		}
-	if version != LEGACY_SCHEMA_VERSION:
+	if version not in [LEGACY_SCHEMA_VERSION, PERSONAL_RULES_PREVIOUS_SCHEMA_VERSION]:
 		return {
 			"ok": true,
 			"source": source,
@@ -563,15 +566,19 @@ func _upgrade_legacy_source(source: String) -> Dictionary:
 	# invent a translation catalog. Integer restoration keeps an otherwise
 	# unchanged legacy project valid after Godot's JSON parser represented its
 	# numbers as floats.
+	if version == LEGACY_SCHEMA_VERSION:
+		project["sourceLanguage"] = "en"
+		project["schemaVersion"] = PERSONAL_RULES_PREVIOUS_SCHEMA_VERSION
+	# 1.4 -> 1.5 introduces optional hero choices. Retain both existing
+	# development choices and their absence; never invent personal defaults.
 	project["schemaVersion"] = CURRENT_SCHEMA_VERSION
-	project["sourceLanguage"] = "en"
 	var portable: Dictionary = _integer_numbers(project)
 	return {
 		"ok": true,
 		"source": JSON.stringify(portable, "  ", true) + "\n",
 		"migrated": true,
 		"migration": _migration_details(
-			"pending", LEGACY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION
+			"pending", version, CURRENT_SCHEMA_VERSION
 		),
 	}
 
@@ -636,11 +643,13 @@ func list_projects() -> Array[Dictionary]:
 func _project_listing_notice(migration: Dictionary, recovery: Dictionary) -> Dictionary:
 	var migration_status := str(migration.get("status", ""))
 	var recovery_status := str(recovery.get("status", ""))
+	var from_version := str(migration.get("from_schema", "")).trim_suffix(".0")
+	var to_version := str(migration.get("to_schema", "")).trim_suffix(".0")
 	if migration_status == "pending" and recovery_status == "available":
 		return {
 			"kind": "warning",
 			"message": (
-				"OPENING WILL RESTORE THE PREVIOUS COPY AND UPDATE 1.3 → 1.4\n"
+				("OPENING WILL RESTORE THE PREVIOUS COPY AND UPDATE %s → %s\n" % [from_version, to_version])
 				+ "AN ORIGINAL RECOVERY COPY WILL BE KEPT"
 			),
 		}
@@ -648,7 +657,7 @@ func _project_listing_notice(migration: Dictionary, recovery: Dictionary) -> Dic
 		return {
 			"kind": "warning",
 			"message": (
-				"OPENING WILL UPDATE 1.3 → 1.4\n"
+				("OPENING WILL UPDATE %s → %s\n" % [from_version, to_version])
 				+ "AN ORIGINAL RECOVERY COPY WILL BE KEPT"
 			),
 		}
@@ -660,7 +669,7 @@ func _project_listing_notice(migration: Dictionary, recovery: Dictionary) -> Dic
 	if migration_status == "previously_completed":
 		return {
 			"kind": "completed",
-			"message": "UPDATED TO 1.4  /  ORIGINAL 1.3 RECOVERY COPY AVAILABLE",
+			"message": "UPDATED TO %s  /  ORIGINAL %s RECOVERY COPY AVAILABLE" % [to_version, from_version],
 		}
 	return {"kind": "", "message": ""}
 
@@ -840,11 +849,25 @@ func _completed_migration(pending: Dictionary) -> Dictionary:
 func _migration_details(
 	status: String = "not_needed", from_schema: String = "", to_schema: String = ""
 ) -> Dictionary:
+	var steps: Array[Dictionary] = []
+	if from_schema in [LEGACY_SCHEMA_VERSION, PERSONAL_RULES_PREVIOUS_SCHEMA_VERSION] and to_schema == CURRENT_SCHEMA_VERSION:
+		if from_schema == LEGACY_SCHEMA_VERSION:
+			steps.append({
+				"from": LEGACY_SCHEMA_VERSION, "to": PERSONAL_RULES_PREVIOUS_SCHEMA_VERSION,
+				"changed": "The game records the language its original text is written in, ready for manual translations that travel with every export.",
+				"message_key": "creator.migration.source_language",
+			})
+		steps.append({
+			"from": PERSONAL_RULES_PREVIOUS_SCHEMA_VERSION, "to": CURRENT_SCHEMA_VERSION,
+			"changed": "Heroes can keep their appearance, weapon choices and defeat rules when their role changes.",
+			"message_key": "creator.migration.personal_choices",
+		})
 	return {
 		"status": status,
 		"performed": false,
 		"from_schema": from_schema,
 		"to_schema": to_schema,
+		"steps": steps,
 		"backup": {"status": "not_needed", "file": "", "bytes": 0},
 	}
 

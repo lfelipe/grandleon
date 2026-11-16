@@ -197,7 +197,7 @@ func _init() -> void:
 			_expect("legacy archive preserves identity", legacy_import.id, created.id)
 			_expect("legacy archive migration is reported", legacy_import.migration.status, "completed")
 			_expect("legacy archive migration source", legacy_import.migration.from_schema, "1.3.0")
-			_expect("legacy archive migration target", legacy_import.migration.to_schema, "1.4.0")
+			_expect("legacy archive migration target", legacy_import.migration.to_schema, "1.5.0")
 			var imported_backup := str(legacy_import.migration.backup.file)
 			_expect("legacy archive backup is relative", imported_backup.begins_with("recovered/"), true)
 			_expect("legacy archive backup uses portable separators", imported_backup.contains("\\"), false)
@@ -300,7 +300,7 @@ func _init() -> void:
 			_expect("legacy card reports pending migration", migration_projects[0].migration.status, "pending")
 			_expect(
 				"legacy card explains update",
-				str(migration_projects[0].notice).contains("1.3 → 1.4"),
+				str(migration_projects[0].notice).contains("1.3 → 1.5"),
 				true
 			)
 			_expect(
@@ -323,8 +323,8 @@ func _init() -> void:
 		if migrated.ok:
 			_expect("stored migration is explicit", migrated.migration.status, "completed")
 			_expect("stored migration reports old schema", migrated.migration.from_schema, "1.3.0")
-			_expect("stored migration reports new schema", migrated.migration.to_schema, "1.4.0")
-			_expect("stored migration reaches new schema", str(migrated.project.schemaVersion), "1.4.0")
+			_expect("stored migration reports new schema", migrated.migration.to_schema, "1.5.0")
+			_expect("stored migration reaches new schema", str(migrated.project.schemaVersion), "1.5.0")
 			var backup_file := str(migrated.migration.backup.file)
 			_expect("stored migration backup is portable", backup_file.begins_with("recovered/"), true)
 			_expect("stored migration backup is not absolute", backup_file.begins_with("/"), false)
@@ -417,9 +417,60 @@ func _init() -> void:
 		_expect("blocked rotation preserves current source", FileAccess.get_file_as_string(prior_target), target_before)
 		_expect("blocked rotation preserves prior bytes", FileAccess.get_file_as_string(prior_copy), unreadable_prior)
 
+	_exercise_personal_schema_migration()
+
 	if failures == 0:
 		print("project library smoke passed")
 	quit(1 if failures > 0 else 0)
+
+
+func _exercise_personal_schema_migration() -> void:
+	var starter := FileAccess.get_file_as_string("res://content/templates/starter_campaign.json")
+	for explicit_choices: bool in [false, true]:
+		var library := ProjectLibrary.new("user://schema-personal-test/%s" % _new_test_id())
+		var created: Dictionary = library.create_project("Personal Choices", starter)
+		_expect("personal migration fixture creates", created.ok, true)
+		if not created.ok: continue
+		var current := _parse(str(created.source))
+		current.sourceLanguage = "pt-BR"
+		if explicit_choices:
+			current.unitTypes[0].characterArchetypeId = "mage"
+			var members: Array = current.campaigns[0].roster
+			members[0].weaponAffinityTypeIds = [str(current.weaponTypes[0].id)]
+			members[0].startingWeaponIds = []
+			members[0].defeatPolicy = "withdraw"
+			members[1].weaponAffinityTypeIds = []
+			members[1].startingWeaponIds = []
+			members[1].defeatPolicy = "loseBattle"
+		var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
+		var authored: Dictionary = compiler.compile_source_json(JSON.stringify(library._integer_numbers(current)))
+		_expect("personal choices compile before migration fixture", authored.ok, true)
+		var historical := current.duplicate(true)
+		historical.schemaVersion = "1.4.0"
+		var original := JSON.stringify(library._integer_numbers(historical), "  ", true) + "\n"
+		var directory: String = library.root_path.path_join(str(created.id))
+		var file := directory.path_join("project.json")
+		_expect("1.4 fixture writes", _write_file(file, original), true)
+		var inspected: Dictionary = library.inspect_source(str(created.id))
+		_expect("1.4 inspection offers migration", inspected.migration.status, "pending")
+		_expect("1.4 inspection only offers personal choices step", inspected.migration.steps.size(), 1)
+		_expect("1.4 step starts at actual version", inspected.migration.steps[0].from, "1.4.0")
+		_expect("1.4 step ends at current version", inspected.migration.steps[0].to, "1.5.0")
+		_expect("1.4 inspection leaves original bytes", FileAccess.get_file_as_string(file), original)
+		_expect("1.4 inspection creates no backup", DirAccess.dir_exists_absolute(directory.path_join("recovered")), false)
+		var migrated: Dictionary = library.load_source(str(created.id))
+		_expect("1.4 source upgrades", migrated.ok, true)
+		if not migrated.ok: continue
+		_expect("upgrade changes only schema version", migrated.project, current)
+		_expect("non-English source language retained", migrated.project.sourceLanguage, "pt-BR")
+		_expect("recovery copy keeps every original byte", FileAccess.get_file_as_string(directory.path_join(str(migrated.migration.backup.file))), original)
+		var compiled: Dictionary = compiler.compile_source_json(str(migrated.source))
+		_expect("migrated source compiles", compiled.ok, true)
+		_expect("migration leaves compiled package identical", compiled.package, authored.package)
+		var reopened: Dictionary = library.load_source(str(created.id))
+		_expect("reopen preserves source exactly", reopened.source, migrated.source)
+		_expect("reopen does not migrate twice", reopened.migrated, false)
+		_expect("1.4 recovery copy stays discoverable", library.inspect_source(str(created.id)).migration.from_schema, "1.4.0")
 
 
 func _parse(source: String) -> Dictionary:

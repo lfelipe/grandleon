@@ -2152,6 +2152,12 @@
     "first_battle.story_write_for": "Write a scene for {moment}",
     "first_battle.story_missing": "This scene could not be found. Open the campaign outline to check it.",
     "story.target.before_battle": "Before {battle}",
-    "story.new_scene.reuse": "USE AN EXISTING SCENE"
+    "story.new_scene.reuse": "USE AN EXISTING SCENE",
+    "creator.migration.title": "Update this project?",
+    "creator.migration.help": "This version of Grandleon can update your project with these authoring options:",
+    "creator.migration.source_language": "The game records the language its original text is written in, ready for manual translations that travel with every export.",
+    "creator.migration.personal_choices": "Heroes can keep their appearance, weapon choices and defeat rules when their role changes.",
+    "creator.migration.backup": "Your existing choices stay unchanged. An exact recovery copy will be kept before updating.",
+    "creator.migration.confirm": "Update and continue"
   }
 }

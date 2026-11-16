@@ -28,7 +28,8 @@ import {
   THIRD_CHANGE,
   FOURTH_CHANGE,
   FIFTH_CHANGE,
-  SIXTH_CHANGE
+  SIXTH_CHANGE,
+  SEVENTH_CHANGE
 } from "./migration-example.mjs";
 import { main as upgradeMain, refusalMessage } from "./upgrade.mjs";
 
@@ -1276,6 +1277,20 @@ assert.ok(
     );
   }
 
+  for (const directory of fs.readdirSync(new URL("../../games/", import.meta.url))) {
+    const file = new URL(`../../games/${directory}/source/project.json`, import.meta.url);
+    if (fs.existsSync(file)) {
+      assert.equal(JSON.parse(fs.readFileSync(file)).schemaVersion, CURRENT_SOURCE_VERSION,
+        `${directory} sample source stays current`);
+    }
+  }
+  for (const template of ["blank_project", "starter_campaign"]) {
+    assert.equal(JSON.parse(read(`../../platform/godot/project/content/templates/${template}.json`))
+      .schemaVersion, CURRENT_SOURCE_VERSION, `${template} writes the current format`);
+  }
+  assert.equal(oneOf(read("../../platform/godot/project/scripts/creator/project_library.gd"),
+    /CURRENT_SCHEMA_VERSION := "([^"]+)"/, "Godot source version"), CURRENT_SOURCE_VERSION);
+
   // These are the sites that cannot import the registry directly: a JSON
   // schema, a C++ constant, and the authored sample projects.
 }
@@ -1291,13 +1306,13 @@ assert.ok(
   // says it does.
   assert.equal(
     sourceMigrations().size,
-    4,
-    "four steps ship: the ones that reach 1.1.0 through 1.4.0"
+    5,
+    "five steps ship: the ones that reach 1.1.0 through 1.5.0"
   );
   assert.deepEqual(
     sourceMigrations().versions(),
-    [FIRST_SOURCE_VERSION, "1.1.0", "1.2.0", "1.3.0", "1.4.0"],
-    "and therefore five versions a project may have been written at"
+    [FIRST_SOURCE_VERSION, "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.5.0"],
+    "and therefore six versions a project may have been written at"
   );
 
   // A project written before moments existed walks all the way up and is left
@@ -1318,16 +1333,17 @@ assert.ok(
         "1.0.0->1.1.0",
         "1.1.0->1.2.0",
         "1.2.0->1.3.0",
-        "1.3.0->1.4.0"
+        "1.3.0->1.4.0",
+        "1.4.0->1.5.0"
       ],
       "all steps, in the order the chain holds them"
     );
-    assert.equal(walked.project.schemaVersion, "1.4.0", "arriving at the version");
+    assert.equal(walked.project.schemaVersion, "1.5.0", "arriving at the version");
     assert.equal(walked.project.sourceLanguage, "en", "with historical English made explicit");
     assert.equal(walked.project.title, "An Old Game", "with the game untouched");
     assert.equal(
       walked.changed.length,
-      4,
+      5,
       "and one sentence for each step, which is what the author is shown"
     );
     assert.equal(
@@ -1371,6 +1387,26 @@ assert.ok(
     );
   }
 
+  // This additive step changes only the version. In particular, old omitted
+  // values and already-authored development fields have different meanings.
+  for (const fixture of ["../../games/demo/source/project.json",
+    "../../platform/playstation/mipsync/tests/fixtures/personal-character-campaign.json"]) {
+    const old = JSON.parse(fs.readFileSync(new URL(fixture, import.meta.url), "utf8"));
+    old.schemaVersion = "1.4.0";
+    old.sourceLanguage = "pt-BR";
+    const before = structuredClone(old);
+    const plan = planUpgrade(sourceMigrations(), old.schemaVersion);
+    assert.deepEqual(planChanges(plan), [
+      "heroes can keep their appearance, weapon choices and defeat rules when their role changes"
+    ]);
+    const walked = upgradeProject(sourceMigrations(), old);
+    assert.equal(walked.ok, true);
+    assert.deepEqual(walked.applied.map(({from, to}) => `${from}->${to}`), ["1.4.0->1.5.0"]);
+    assert.deepEqual(walked.project, {...before, schemaVersion: "1.5.0"},
+      "the migration retains authored personal rules and never materializes omissions");
+    assert.deepEqual(old, before, "inspection and migration do not mutate the caller");
+  }
+
   // A chain runs in order, and the project it produces is the one the last step
   // left behind rather than the one any earlier step did.
   const project = { schemaVersion: EXAMPLE_OLDEST, title: "An Old Game" };
@@ -1384,7 +1420,8 @@ assert.ok(
       "1.0.0->1.1.0",
       "1.1.0->1.2.0",
       "1.2.0->1.3.0",
-      "1.3.0->1.4.0"
+      "1.3.0->1.4.0",
+      "1.4.0->1.5.0"
     ],
     "one version at a time, in order, and never in a leap"
   );
@@ -1413,7 +1450,8 @@ assert.ok(
       THIRD_CHANGE,
       FOURTH_CHANGE,
       FIFTH_CHANGE,
-      SIXTH_CHANGE
+      SIXTH_CHANGE,
+      SEVENTH_CHANGE
     ],
     "what changed, in the order it changed, in words an author can read"
   );
@@ -1425,14 +1463,15 @@ assert.ok(
       THIRD_CHANGE,
       FOURTH_CHANGE,
       FIFTH_CHANGE,
-      SIXTH_CHANGE
+      SIXTH_CHANGE,
+      SEVENTH_CHANGE
     ],
     "and the same list before anything has run, which is what the dialog asks "
       + "the author to agree to"
   );
   assert.deepEqual(
     planChanges(planUpgrade(exampleMigrations(), "0.9.0")),
-    [SECOND_CHANGE, THIRD_CHANGE, FOURTH_CHANGE, FIFTH_CHANGE, SIXTH_CHANGE],
+    [SECOND_CHANGE, THIRD_CHANGE, FOURTH_CHANGE, FIFTH_CHANGE, SIXTH_CHANGE, SEVENTH_CHANGE],
     "a project part of the way up is told only what is left to do to it"
   );
 

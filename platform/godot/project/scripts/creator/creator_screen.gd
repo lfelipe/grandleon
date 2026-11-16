@@ -21,6 +21,12 @@ var project_filter: LineEdit
 var project_buttons: Dictionary = {}
 var project_campaign_selects: Dictionary = {}
 var project_notice_labels: Dictionary = {}
+var migration_layer: Control
+var migration_body: Label
+var migration_confirm_button: Button
+var migration_cancel_button: Button
+var migration_project_id := ""
+var migration_continue := Callable()
 var new_campaign_layer: Control
 var new_campaign_title: LineEdit
 var new_campaign_create_button: Button
@@ -103,7 +109,9 @@ func _process(_delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		var viewport := get_viewport()
-		if new_campaign_layer != null and new_campaign_layer.visible:
+		if migration_layer != null and migration_layer.visible:
+			_close_migration()
+		elif new_campaign_layer != null and new_campaign_layer.visible:
 			_close_new_campaign()
 		elif export_layer != null and export_layer.visible and console_builder != null and console_builder.busy():
 			_set_export_status("BUILD IN PROGRESS  /  WAIT FOR THE CONSOLE ARTIFACT", false)
@@ -264,7 +272,86 @@ func _build_interface() -> void:
 	_build_rename_layer()
 	_build_import_layer()
 	_build_import_dialog()
+	_build_migration_layer()
 	_fit_mobile_canvas()
+
+
+func _build_migration_layer() -> void:
+	migration_layer = Control.new()
+	migration_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	migration_layer.visible = false
+	migration_layer.z_index = 40
+	add_child(migration_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.01, 0.02, 0.035, 0.88)
+	migration_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	panel.position = Vector2(-550, -330)
+	panel.size = Vector2(1100, 660)
+	panel.add_theme_stylebox_override("panel", _panel(Color("0c1d29"), 22, Color("69d9ff")))
+	migration_layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 20)
+	panel.add_child(column)
+	column.add_child(_label(_t("creator.migration.title"), 34, Color("f2f7f9")))
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	column.add_child(scroll)
+	migration_body = _label("", 24, Color("a9bdc9"))
+	migration_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	migration_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(migration_body)
+	var actions := BoxContainer.new()
+	actions.set_meta("mobile_wrap_actions", true)
+	actions.add_theme_constant_override("separation", 18)
+	column.add_child(actions)
+	migration_confirm_button = _button(_t("creator.migration.confirm"))
+	migration_confirm_button.custom_minimum_size.x = 0
+	migration_confirm_button.pressed.connect(_confirm_migration)
+	actions.add_child(migration_confirm_button)
+	migration_cancel_button = _button(_t("common.cancel"))
+	migration_cancel_button.custom_minimum_size.x = 0
+	migration_cancel_button.pressed.connect(_close_migration)
+	actions.add_child(migration_cancel_button)
+
+
+func _request_migration(project_id: String, migration: Dictionary, continuation: Callable) -> void:
+	migration_project_id = project_id
+	migration_continue = continuation
+	var paragraphs: PackedStringArray = [_t("creator.migration.help")]
+	for step: Dictionary in migration.get("steps", []):
+		paragraphs.append(_t(str(step.message_key)))
+	paragraphs.append(_t("creator.migration.backup"))
+	migration_body.text = "\n\n".join(paragraphs)
+	migration_layer.visible = true
+	migration_cancel_button.grab_focus()
+
+
+func _close_migration(restore_focus := true) -> void:
+	var project_id := migration_project_id
+	migration_layer.visible = false
+	migration_project_id = ""
+	migration_continue = Callable()
+	if not restore_focus: return
+	if project_id.is_empty():
+		_focus_import_inbox_now()
+	else:
+		_focus_project_now(project_id)
+
+
+func _confirm_migration() -> void:
+	var project_id := migration_project_id
+	var continuation := migration_continue
+	_close_migration(false)
+	if project_id.is_empty():
+		if continuation.is_valid(): continuation.call()
+		return
+	var loaded := _prepare_project_open(project_id, Callable(), true)
+	if loaded.ok and continuation.is_valid():
+		continuation.call()
 
 
 func _build_new_campaign_layer() -> void:
@@ -541,7 +628,7 @@ func _create_campaign_from(template_path: String, title: String, open_editor: bo
 
 
 func _open_project_actions(project_id: String, title: String) -> void:
-	var loaded := _prepare_project_open(project_id)
+	var loaded := _prepare_project_open(project_id, _open_project_actions.bind(project_id, title))
 	if not loaded.ok:
 		return
 	title = str(loaded.project.get("title", title))
@@ -585,7 +672,7 @@ func _army_selected_project() -> void:
 
 func _settings_selected_project() -> void:
 	var project_id := project_actions_id
-	if not _prepare_project_open(project_id).ok:
+	if not _prepare_project_open(project_id, _settings_selected_project).ok:
 		return
 	project_actions_layer.visible = false
 	project_actions_id = ""
@@ -596,7 +683,7 @@ func _settings_selected_project() -> void:
 
 func _translations_selected_project() -> void:
 	var project_id := project_actions_id
-	if not _prepare_project_open(project_id).ok:
+	if not _prepare_project_open(project_id, _translations_selected_project).ok:
 		return
 	project_actions_layer.visible = false
 	project_actions_id = ""
@@ -1180,11 +1267,19 @@ func _open_import_dialog() -> void:
 	import_dialog.popup_centered_ratio(0.78)
 
 
-func _import_project(path: String) -> void:
+func _import_project(path: String, migration_confirmed := false) -> void:
 	var staged := DocumentTransfer.stage_import(path)
 	if not staged.ok:
 		_set_import_status(_t("creator.export.error.storage_error"), true)
 		return
+	if not migration_confirmed:
+		var opened: Dictionary = library.archive.read_archive(str(staged.path))
+		if opened.ok:
+			var upgrade: Dictionary = library._upgrade_legacy_source(str(opened.source))
+			if upgrade.ok and str(upgrade.get("migration", {}).get("status", "")) == "pending":
+				if staged.get("temporary", false): DirAccess.remove_absolute(str(staged.path))
+				_request_migration("", upgrade.migration, _import_project.bind(path, true))
+				return
 	var imported: Dictionary = library.import_project(str(staged.path))
 	if staged.get("temporary", false): DirAccess.remove_absolute(str(staged.path))
 	if not imported.ok:
@@ -1287,7 +1382,12 @@ func _focus_project_now(project_id: String) -> void:
 		first_button.grab_focus()
 
 
-func _prepare_project_open(project_id: String) -> Dictionary:
+func _prepare_project_open(project_id: String, continuation := Callable(), confirmed := false) -> Dictionary:
+	if not confirmed:
+		var inspected: Dictionary = library.inspect_source(project_id)
+		if inspected.ok and str(inspected.get("migration", {}).get("status", "")) == "pending":
+			_request_migration(project_id, inspected.migration, continuation)
+			return {"ok": false, "code": "migration_pending"}
 	var loaded: Dictionary = library.load_source(project_id)
 	if not loaded.ok:
 		_set_status("OPEN FAILED  /  %s" % loaded.message, true)
@@ -1300,18 +1400,22 @@ func _prepare_project_open(project_id: String) -> Dictionary:
 		_refresh_projects()
 		if migration_completed and recovery_completed:
 			_set_status(
-				"RESTORED PREVIOUS COPY  /  UPDATED 1.3 → 1.4  /  RECOVERY COPY KEPT",
+				"RESTORED PREVIOUS COPY  /  UPDATED %s → %s  /  RECOVERY COPY KEPT" % [
+					str(migration.from_schema).trim_suffix(".0"), str(migration.to_schema).trim_suffix(".0")
+				],
 				false
 			)
 		elif migration_completed:
-			_set_status("UPDATED 1.3 → 1.4  /  ORIGINAL RECOVERY COPY KEPT", false)
+			_set_status("UPDATED %s → %s  /  ORIGINAL RECOVERY COPY KEPT" % [
+				str(migration.from_schema).trim_suffix(".0"), str(migration.to_schema).trim_suffix(".0")
+			], false)
 		else:
 			_set_status("RESTORED PREVIOUS COPY  /  PRESERVED COPY STILL AVAILABLE", false)
 	return loaded
 
 
 func _edit_project(project_id: String) -> void:
-	var loaded := _prepare_project_open(project_id)
+	var loaded := _prepare_project_open(project_id, _edit_project.bind(project_id))
 	if not loaded.ok:
 		return
 	CreatorContext.open_project(project_id)
@@ -1323,14 +1427,14 @@ func _edit_project(project_id: String) -> void:
 
 
 func _edit_campaign(project_id: String) -> void:
-	if not _prepare_project_open(project_id).ok:
+	if not _prepare_project_open(project_id, _edit_campaign.bind(project_id)).ok:
 		return
 	CreatorContext.open_project(project_id)
 	get_tree().change_scene_to_file("res://campaign_editor.tscn")
 
 
 func _edit_army(project_id: String) -> void:
-	if not _prepare_project_open(project_id).ok:
+	if not _prepare_project_open(project_id, _edit_army.bind(project_id)).ok:
 		return
 	CreatorContext.open_project(project_id)
 	get_tree().change_scene_to_file("res://army_editor.tscn")
@@ -1345,7 +1449,7 @@ func _play_selected_project(project_id: String, selector: OptionButton) -> void:
 
 func _play_project(project_id: String, selected_campaign_id := "") -> void:
 	CreatorContext.clear()
-	var loaded: Dictionary = _prepare_project_open(project_id)
+	var loaded: Dictionary = _prepare_project_open(project_id, _play_project.bind(project_id, selected_campaign_id))
 	if not loaded.ok:
 		return
 	var compiler = ClassDB.instantiate("GrandleonProjectCompiler")

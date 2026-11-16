@@ -285,7 +285,7 @@ func _exercise_migration_cards(screen: Control, project_id: String, source: Stri
 	if screen.project_notice_labels.has(project_id):
 		_expect(
 			"legacy project card explains recovery copy",
-			screen.project_notice_labels[project_id].text.contains("1.3 → 1.4"),
+			screen.project_notice_labels[project_id].text.contains("1.3 → 1.5"),
 			true
 		)
 	_expect(
@@ -330,21 +330,63 @@ func _exercise_migration_cards(screen: Control, project_id: String, source: Stri
 	_expect("unreadable fixture directory removes", DirAccess.remove_absolute(unreadable_directory), OK)
 	screen._refresh_projects()
 	screen._open_project_actions(project_id, "Signal Road")
+	_expect("opening legacy project asks before changing it", screen.migration_layer.visible, true)
+	_expect("migration describes both steps", screen.migration_body.text.contains("language") and screen.migration_body.text.contains("Heroes"), true)
+	_expect("migration defaults focus to cancel", screen.migration_cancel_button.has_focus(), true)
+	_expect("confirmation does not write yet", FileAccess.get_file_as_string(project_file), legacy_source)
+	screen.migration_cancel_button.pressed.emit()
+	_expect("cancel closes migration", screen.migration_layer.visible, false)
+	_expect("cancel preserves exact source", FileAccess.get_file_as_string(project_file), legacy_source)
+	_expect("cancel creates no recovery directory", DirAccess.dir_exists_absolute(project_directory.path_join("recovered")), false)
+	screen._open_project_actions(project_id, "Signal Road")
+	screen.migration_confirm_button.pressed.emit()
+	_expect("confirmed upgrade resumes the requested More action", screen.project_actions_layer.visible, true)
+	_expect("confirmation closes the prompt", screen.migration_layer.visible, false)
 	_expect(
 		"opening legacy project reports completed migration",
 		screen.status_label.text,
-		"UPDATED 1.3 → 1.4  /  ORIGINAL RECOVERY COPY KEPT"
+		"UPDATED 1.3 → 1.5  /  ORIGINAL RECOVERY COPY KEPT"
 	)
 	_expect(
 		"opened legacy source reaches current schema",
 		str(screen.library.inspect_source(project_id).project.schemaVersion),
-		"1.4.0"
+		"1.5.0"
 	)
 	_expect(
 		"completed migration stays visible on project card",
 		screen.project_notice_labels[project_id].text.contains("RECOVERY COPY AVAILABLE"),
 		true
 	)
+
+	# Import has the same explicit choice, before a project is added to the library.
+	var archive_path: String = screen.library.root_path.path_join("older-import.grandleon.zip")
+	var archive_source: Dictionary = JSON.parse_string(legacy_source)
+	archive_source.schemaVersion = "1.4.0"
+	archive_source.sourceLanguage = "pt-BR"
+	archive_source.packageId = "00000000-0000-4000-8000-000000000098"
+	archive_source.gameId = "older_import"
+	var archive_bytes := JSON.stringify(screen.library._integer_numbers(archive_source), "  ", true).to_utf8_buffer()
+	var archive_entries: Array[Dictionary] = [{"path": "project.json", "bytes": archive_bytes}]
+	_expect("legacy import archive writes", screen.library.archive._write_stored_zip(archive_path, archive_entries).ok, true)
+	var original_archive := FileAccess.get_file_as_bytes(archive_path)
+	var count_before: int = screen.library.list_projects().size()
+	screen._import_project(archive_path)
+	_expect("old import asks before adding a project", screen.migration_layer.visible, true)
+	_expect("1.4 import shows only personal choice step", screen.migration_body.text.contains("Heroes") and not screen.migration_body.text.contains("language"), true)
+	screen.migration_cancel_button.pressed.emit()
+	_expect("cancelled import adds no project", screen.library.list_projects().size(), count_before)
+	_expect("cancelled import preserves archive", FileAccess.get_file_as_bytes(archive_path), original_archive)
+	screen._import_project(archive_path)
+	screen.migration_confirm_button.pressed.emit()
+	_expect("confirmed import adds project", screen.library.list_projects().size(), count_before + 1)
+	_expect("confirmed import still preserves archive", FileAccess.get_file_as_bytes(archive_path), original_archive)
+	var imported: Dictionary = screen.library.inspect_source(str(archive_source.packageId))
+	_expect("confirmed import preserves source language", imported.project.sourceLanguage, "pt-BR")
+	_expect("confirmed import reaches 1.5", imported.project.schemaVersion, "1.5.0")
+	_expect("confirmed import keeps exact recovery source", FileAccess.get_file_as_bytes(screen.library.root_path.path_join(str(archive_source.packageId)).path_join(str(imported.migration.backup.file))), archive_bytes)
+	screen.library._remove_tree(screen.library.root_path.path_join(str(archive_source.packageId)))
+	screen._refresh_projects()
+	screen.project_actions_first_button.grab_focus()
 
 
 func _expect(label: String, actual: Variant, expected: Variant) -> void:

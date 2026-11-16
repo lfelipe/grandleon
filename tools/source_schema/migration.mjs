@@ -8,8 +8,8 @@
 // rather than inventing a second philosophy for the same question:
 //
 // * **Version by version, never in a leap.** A step goes from one version to
-//   the next and no further. A project at `1.0.0` reaching tooling at `1.4.0`
-//   runs each registered step in order, including 1.3.0 -> 1.4.0, rather than
+//   the next and no further. A project at `1.0.0` reaching tooling at `1.5.0`
+//   runs each registered step in order, including 1.4.0 -> 1.5.0, rather than
 //   leaping over the versions in between
 //   with its own test. One function per (old, new) pair is quadratic in the
 //   number of versions and gives the pair nobody thought to write no diagnostic
@@ -435,6 +435,10 @@ const GAMES_NAME_THEIR_SOURCE_LANGUAGE =
   "the game records the language its original text is written in, ready for " +
   "manual translations that travel with every export";
 
+/** What 1.5.0 adds without changing any existing hero. */
+const HEROES_KEEP_PERSONAL_CHOICES =
+  "heroes can keep their appearance, weapon choices and defeat rules when their role changes";
+
 /**
  * Infer the launch choice an older campaign already expressed through its
  * boards. Player-two ownership is the direct signal; two-player-only opposing
@@ -455,7 +459,11 @@ function legacyPlayerMode(campaign) {
 /**
  * Every step this build ships.
  *
- * Four, and each exists because its version exists.
+ * Five, and each exists because its version exists.
+ *
+ * `1.5.0` adds optional stable character artwork and personal hero rules.
+ * The step invents no defaults: omitted rules retain their existing behavior,
+ * while development projects that already contain these fields keep them.
  *
  * `1.4.0` makes the source language explicit and introduces optional manual
  * translation catalogs. Older games have always authored their source strings
@@ -525,6 +533,12 @@ export function sourceMigrations() {
         ...project,
         sourceLanguage: "en"
       })
+    })
+    .add({
+      from: "1.4.0",
+      to: "1.5.0",
+      changed: HEROES_KEEP_PERSONAL_CHOICES,
+      apply: (project) => project
     });
 }
 

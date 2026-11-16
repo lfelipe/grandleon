@@ -48,7 +48,7 @@
   },
   "properties": {
     "schemaVersion": {
-      "const": "1.4.0"
+      "const": "1.5.0"
     },
     "packageId": {
       "$ref": "common.schema.json#/$defs/packageId"

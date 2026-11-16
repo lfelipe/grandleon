@@ -53,8 +53,10 @@ export const FIFTH_CHANGE = "each campaign says how many local players it seats"
 /** What the sixth step tells the author. */
 export const SIXTH_CHANGE = "a game records the language its original text uses";
 
+export const SEVENTH_CHANGE = "heroes keep personal choices when their role changes";
+
 /**
- * Six steps ending at the current version. Each does something a test can see
+ * Seven steps ending at the current version. Each does something a test can see
  * and each leaves a project the schema still accepts.
  *
  * Ending at the current version is the point rather than an accident: a chain
@@ -119,6 +121,12 @@ export const EXAMPLE_STEPS = [
       project.sourceLanguage ??= "en";
       return project;
     }
+  },
+  {
+    from: "1.4.0",
+    to: "1.5.0",
+    changed: SEVENTH_CHANGE,
+    apply: (project) => project
   }
 ];
 

@@ -2152,6 +2152,12 @@
     "first_battle.story_write_for": "Escrever uma cena para {moment}",
     "first_battle.story_missing": "Esta cena não foi encontrada. Confira-a na visão geral da campanha.",
     "story.target.before_battle": "Antes de {battle}",
-    "story.new_scene.reuse": "USAR UMA CENA EXISTENTE"
+    "story.new_scene.reuse": "USAR UMA CENA EXISTENTE",
+    "creator.migration.title": "Atualizar este projeto?",
+    "creator.migration.help": "Esta versão do Grandleon pode atualizar seu projeto com estas opções de criação:",
+    "creator.migration.source_language": "O jogo registra o idioma do texto original para que as traduções manuais acompanhem cada exportação.",
+    "creator.migration.personal_choices": "Os heróis podem manter a aparência, as armas e as regras de derrota ao mudar de função.",
+    "creator.migration.backup": "Suas escolhas atuais não mudam. Uma cópia exata de recuperação será salva antes da atualização.",
+    "creator.migration.confirm": "Atualizar e continuar"
   }
 }

@@ -114,8 +114,10 @@ for downloadable campaign packages.
 ## Keep projects safe
 
 Export editable backups at useful milestones and keep copies outside the
-application's project library. Import warnings explain schema updates and
-preserve recovery data. Keep a campaign's identity stable when publishing an
+application's project library. When an older project needs an update, opening
+or importing it explains the changes before you choose **Update and continue**.
+Cancel leaves it untouched; updating keeps an exact recovery copy. The 1.5
+update preserves existing heroes and choices without adding new defaults. Keep a campaign's identity stable when publishing an
 update; change its **Content Revision** when an update needs a fresh save.
 
 > We still plan to do heavy work on the editor throughout the next releases,
