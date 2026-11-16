@@ -1,0 +1,77 @@
+{
+  "schema": "grandleon.editor-workflow-validation.v1",
+  "date": "2026-11-16",
+  "source_revision": "e7a5fcc7a6c8b89826c732d5b08f01ee78922b5e",
+  "source_schema": "1.5.0",
+  "source_tree": "clean",
+  "editor_checks": {
+    "guide": 417,
+    "project_upgrade": 123,
+    "recruit_and_full_adventure": 127,
+    "languages": [
+      "en",
+      "es",
+      "pt-BR"
+    ],
+    "scope": "Actual Godot scenes, rendered layout checks and native 1P/2P battle progression. Upgrade cancellation and exact recovery copies checked; full adventure starts with the authored opening story and recruits only at the authored point. Displayed player-count labels remain 1P/2P."
+  },
+  "native_checks": {
+    "host_ctest": "84/84 passed",
+    "windows_source_project": "1/1 passed under Wine; native Windows device acceptance remains pending",
+    "android_libraries": [
+      "arm64-v8a",
+      "x86_64"
+    ]
+  },
+  "unchanged_compiled_packages": {
+    "demo": {
+      "bytes": 6304,
+      "sha256": "7b4af92011219596f3466353c30c86494f3d59253537ab30a31d3d04f746fb2c",
+      "identical_before_after": true
+    },
+    "personal": {
+      "bytes": 3284,
+      "sha256": "f8adc3875eb2b67f96cda2f55c2f54fcd7379269806b52821e05d39f8268a326",
+      "identical_before_after": true
+    }
+  },
+  "android": {
+    "scope": "Android15 x86_64 emulator using swangle software graphics. Actual injected Android input, soft keyboard and native content-URI export/import. These results do not measure device speed or physical peripherals.",
+    "profiles": {
+      "phone": {
+        "evidence": "out/android-editor-final15-phone06",
+        "profile": "compact-phone",
+        "language": "pt-BR",
+        "cutout": "hole",
+        "panels": 17,
+        "authored_name": "Guarda de São João",
+        "apk_sha256": "5e48161cc9d8ce8ba0488119aa8b6ef6b56628fda87aa02e74562cd3301b19c9"
+      },
+      "tablet": {
+        "evidence": "out/android-editor-final15-tablet06",
+        "profile": "tablet",
+        "language": "pt-BR",
+        "cutout": null,
+        "panels": 17,
+        "authored_name": "Guarda de São João",
+        "apk_sha256": "5e48161cc9d8ce8ba0488119aa8b6ef6b56628fda87aa02e74562cd3301b19c9"
+      }
+    },
+    "keyboard_preflight": "Actual cold-boot hardware-keyboard configuration rejected before QA launch. Detaching only the emulated AT keyboard changed reported configuration to nokeys; all original IME assertions then passed.",
+    "setup_evidence": "out/casualty-board06/android-touch-only-setup.txt",
+    "negative_preflight_log": "out/casualty-board06/android-ime-keyboard-rejected-tests.log",
+    "qa_apk": "out/android-editor-final15-labels06/grandleon-android-development.apk",
+    "normal_apk": {
+      "path": "out/grandleon-android-editor-workflow06/grandleon-android-development.apk",
+      "sha256": "19b5a0b9cffe6423f3d526df4ceee23a328bf71f108a63dd4d3e715ffb1dc5ed",
+      "bytes": 464114514,
+      "scope": "Regular development application built and package/signature/native-library hashes verified; current interaction checks use separate QA package with identical product scripts and native libraries."
+    }
+  },
+  "remaining": [
+    "Physical Android phone/tablet acceptance and FPS measurements",
+    "Native Windows desktop acceptance",
+    "Console newly acquired weapon controller checks",
+    "Remaining console graphics and 30FPS performance work"
+  ]
+}
