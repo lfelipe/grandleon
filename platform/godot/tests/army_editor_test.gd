@@ -317,13 +317,15 @@ func _run() -> void:
 	editor._randomize_guided_character()
 	_expect("random start always suggests a visible name", editor.guide_name.text.is_empty(), false)
 	_expect("random start always selects a valid style", editor.guide_style.selected >= 0, true)
+	editor._select_metadata(editor.guide_template, "first_hero")
+	editor.guide_template.item_selected.emit(editor.guide_template.selected)
 	editor.guide_name.text = "Niko"
 	editor.guide_role_name.text = "Duelist"
-	editor._select_metadata(editor.guide_template, "first_hero")
 	editor._select_metadata(editor.guide_style, "sengoku")
 	editor._select_metadata(editor.guide_figure, "second")
 	editor._select_metadata(editor.guide_side, "raiders")
 	editor._select_metadata(editor.guide_weapon, "apprentice_focus")
+	editor.guide_weapon.item_selected.emit(editor.guide_weapon.selected)
 	editor.guide_join.select(0)
 	editor._create_guided_character()
 	var guided := _parse(editor.source)

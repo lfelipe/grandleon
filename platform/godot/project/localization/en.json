@@ -2135,6 +2135,12 @@
     "army.personal.defeat.loseBattle": "If defeated: lose this battle and withdraw",
     "army.personal.apply": "APPLY TO THIS CHARACTER",
     "army.personal.saved": "PERSONAL CHOICES UPDATED — SAVE WHEN READY",
-    "army.personal.invalid": "PERSONAL CHOICES NOT APPLIED  /  {detail}"
+    "army.personal.invalid": "PERSONAL CHOICES NOT APPLIED  /  {detail}",
+    "army.personal.starts_unarmed": "Starts unarmed.",
+    "army.personal.starts_equipped": "Starts with {weapon} in hand.",
+    "army.personal.also_carries": "Also carries: {weapons}.",
+    "army.personal.role_kit_summary": "Using the role's starting weapons. {summary}",
+    "army.personal.weapon_needs_affinity": "{weapon} needs {family}. Select that affinity or change the starting weapons.",
+    "army.guide.names_needed": "Give this hero and their role a name before creating them."
   }
 }

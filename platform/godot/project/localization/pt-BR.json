@@ -2135,6 +2135,12 @@
     "army.personal.defeat.loseBattle": "Se for derrotado: perder esta batalha e recuar",
     "army.personal.apply": "APLICAR A ESTE PERSONAGEM",
     "army.personal.saved": "ESCOLHAS PESSOAIS ATUALIZADAS — SALVE QUANDO TERMINAR",
-    "army.personal.invalid": "ESCOLHAS PESSOAIS NÃO APLICADAS  /  {detail}"
+    "army.personal.invalid": "ESCOLHAS PESSOAIS NÃO APLICADAS  /  {detail}",
+    "army.personal.starts_unarmed": "Começa sem armas.",
+    "army.personal.starts_equipped": "Começa com {weapon} em mãos.",
+    "army.personal.also_carries": "Também carrega: {weapons}.",
+    "army.personal.role_kit_summary": "Usa as armas iniciais da função. {summary}",
+    "army.personal.weapon_needs_affinity": "{weapon} exige {family}. Selecione essa afinidade ou altere as armas iniciais.",
+    "army.guide.names_needed": "Dê um nome ao herói e à função antes de criá-lo."
   }
 }

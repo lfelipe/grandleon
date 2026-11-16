@@ -2135,6 +2135,12 @@
     "army.personal.defeat.loseBattle": "Si es derrotado: perder esta batalla y retirarse",
     "army.personal.apply": "APLICAR A ESTE PERSONAJE",
     "army.personal.saved": "ELECCIONES PERSONALES ACTUALIZADAS — GUARDA CUANDO TERMINES",
-    "army.personal.invalid": "ELECCIONES PERSONALES NO APLICADAS  /  {detail}"
+    "army.personal.invalid": "ELECCIONES PERSONALES NO APLICADAS  /  {detail}",
+    "army.personal.starts_unarmed": "Empieza sin armas.",
+    "army.personal.starts_equipped": "Empieza con {weapon} en la mano.",
+    "army.personal.also_carries": "También lleva: {weapons}.",
+    "army.personal.role_kit_summary": "Usa las armas iniciales del rol. {summary}",
+    "army.personal.weapon_needs_affinity": "{weapon} requiere {family}. Selecciona esa afinidad o cambia las armas iniciales.",
+    "army.guide.names_needed": "Dale un nombre al héroe y a su rol antes de crearlo."
   }
 }

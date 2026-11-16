@@ -28,6 +28,11 @@ starting kit independently; the first selected weapon starts in hand. Leaving
 the personal kit empty starts the hero unarmed. Turn off a personal override
 to use the existing role behavior.
 
+The weapon summary shows what starts in hand and what else the hero carries.
+If a starting weapon needs an affinity the hero lacks, the form names both
+and explains what to change. Apply becomes available when the choices agree.
+Creation and editing errors appear inside the open form, including on phones.
+
 **If defeated** controls what happens when that hero falls:
 
 - **Follow the game rule** follows the campaign's default.

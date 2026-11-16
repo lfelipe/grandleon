@@ -108,6 +108,8 @@ var guide_rng := RandomNumberGenerator.new()
 var guide_affinities: MenuButton
 var guide_affinity_ids: Array = []
 var guide_defeat: OptionButton
+var guide_kit_label: Label
+var guide_feedback_label: Label
 var rules_layer: Control
 var rules_affinities: MenuButton
 var rules_weapons: MenuButton
@@ -116,6 +118,9 @@ var rules_personal_kit: CheckButton
 var rules_defeat: OptionButton
 var rules_affinity_ids: Array = []
 var rules_weapon_ids: Array = []
+var rules_kit_label: Label
+var rules_feedback_label: Label
+var rules_apply_button: Button
 var modifier_layer: Control
 var modifier_role_label: Label
 var modifier_value_labels: Dictionary = {}
@@ -1897,6 +1902,10 @@ func _random_option(option: OptionButton) -> void:
 
 
 func _create_guided_character() -> void:
+	_refresh_guide_feedback()
+	if guide_create_button.disabled:
+		_reveal_form_feedback(guide_feedback_label)
+		return
 	var character_name := guide_name.text.strip_edges()
 	var role_name := guide_role_name.text.strip_edges()
 	if (
@@ -1951,7 +1960,6 @@ func _create_guided_character() -> void:
 	if not member_result.ok:
 		_set_status(_t("army.error.character_not_added", {"detail": _diagnostic_detail(member_result)}), true)
 		return
-	_ensure_guide_weapon_affinity()
 	var rules := {
 		"startingWeaponIds": [] if selected_weapon_id.is_empty() else [selected_weapon_id],
 		"defeatPolicy": _selected_metadata(guide_defeat),
@@ -2784,9 +2792,11 @@ func _build_guided_character_layer() -> void:
 	columns.add_child(identity)
 	identity.add_child(_label(_t("army.character_name"), 14, Color("69d9ff")))
 	guide_name = _guide_line_edit()
+	guide_name.text_changed.connect(_refresh_guide_feedback)
 	identity.add_child(guide_name)
 	identity.add_child(_label(_t("army.guide.role_name"), 14, Color("69d9ff")))
 	guide_role_name = _guide_line_edit()
+	guide_role_name.text_changed.connect(_refresh_guide_feedback)
 	identity.add_child(guide_role_name)
 	identity.add_child(_label(_t("army.guide.template"), 14, Color("69d9ff")))
 	guide_template = _guide_option()
@@ -2823,6 +2833,9 @@ func _build_guided_character_layer() -> void:
 	weapon_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	weapon_note.custom_minimum_size.y = 78
 	presentation.add_child(weapon_note)
+	guide_kit_label = _label("", 18, Color("72e08f"))
+	guide_kit_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	presentation.add_child(guide_kit_label)
 	var randomize := _button(_t("army.guide.random"), 670, 56)
 	randomize.tooltip_text = _t("army.guide.random_tooltip")
 	randomize.pressed.connect(_randomize_guided_character)
@@ -2833,6 +2846,10 @@ func _build_guided_character_layer() -> void:
 	)
 	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(guidance)
+	guide_feedback_label = _label("", 19, Color("ff7a83"))
+	guide_feedback_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	guide_feedback_label.hide()
+	column.add_child(guide_feedback_label)
 	var actions := BoxContainer.new()
 	actions.set_meta("mobile_wrap_actions", true)
 	actions.add_theme_constant_override("separation", 14)
@@ -3457,6 +3474,17 @@ func _set_status(message: String, failure: bool) -> void:
 	status_label.add_theme_color_override(
 		"font_color", Color("ff7a83") if failure else Color("72e08f")
 	)
+	# A form must explain a refused edit inside the form, above its actions.
+	# The main editor's status is covered by the modal's background.
+	var feedback: Label = null
+	if guide_layer != null and guide_layer.visible:
+		feedback = guide_feedback_label
+	elif rules_layer != null and rules_layer.visible:
+		feedback = rules_feedback_label
+	if feedback != null:
+		_set_form_feedback(feedback, message, failure)
+		if failure:
+			_reveal_form_feedback(feedback)
 
 
 func _stat_label(key: String) -> String:
@@ -3565,7 +3593,7 @@ func _multi_choice_button() -> MenuButton:
 	return button
 
 
-func _fill_multi_choice(button: MenuButton, values: Array, selected: Array, title: String) -> void:
+func _fill_multi_choice(button: MenuButton, values: Array, selected: Array, title: String, changed: Callable = Callable()) -> void:
 	var popup := button.get_popup()
 	for connection: Dictionary in popup.id_pressed.get_connections():
 		popup.id_pressed.disconnect(connection.callable)
@@ -3592,7 +3620,9 @@ func _fill_multi_choice(button: MenuButton, values: Array, selected: Array, titl
 			selected.erase(identity)
 		else:
 			selected.append(identity)
-		_fill_multi_choice(button, values, selected, title)
+		_fill_multi_choice(button, values, selected, title, changed)
+		if changed.is_valid():
+			changed.call()
 	)
 
 
@@ -3610,7 +3640,89 @@ func _ensure_guide_weapon_affinity(_index: int = 0) -> void:
 	var family := str(weapon.get("weaponTypeId", ""))
 	if not family.is_empty() and not guide_affinity_ids.has(family):
 		guide_affinity_ids.append(family)
-	_fill_multi_choice(guide_affinities, project.get("weaponTypes", []), guide_affinity_ids, _t("army.personal.affinities"))
+	_fill_multi_choice(guide_affinities, project.get("weaponTypes", []), guide_affinity_ids, _t("army.personal.affinities"), _refresh_guide_feedback)
+	_refresh_guide_feedback()
+
+
+func _starting_weapon_summary(identities: Array) -> String:
+	if identities.is_empty():
+		return _t("army.personal.starts_unarmed")
+	var first := _weapon_by_id(str(identities[0]))
+	var summary := _t("army.personal.starts_equipped", {
+		"weapon": str(first.get("name", identities[0])),
+	})
+	if identities.size() > 1:
+		var others: Array[String] = []
+		for identity: Variant in identities.slice(1):
+			others.append(str(_weapon_by_id(str(identity)).get("name", identity)))
+		summary += "\n" + _t("army.personal.also_carries", {"weapons": ", ".join(others)})
+	return summary
+
+
+func _weapon_affinity_problem(affinities: Array, weapons: Array) -> String:
+	for identity: Variant in weapons:
+		var weapon := _weapon_by_id(str(identity))
+		var family_id := str(weapon.get("weaponTypeId", ""))
+		# Untyped legacy weapons retain their existing unrestricted behavior.
+		if family_id.is_empty() or affinities.has(family_id):
+			continue
+		var family_name := family_id
+		for family: Variant in project.get("weaponTypes", []):
+			if family is Dictionary and str(family.get("id", "")) == family_id:
+				family_name = str(family.get("name", family_id))
+				break
+		return _t("army.personal.weapon_needs_affinity", {
+			"weapon": str(weapon.get("name", identity)), "family": family_name,
+		})
+	return ""
+
+
+func _refresh_guide_feedback(_value: Variant = null) -> void:
+	if guide_create_button == null or guide_feedback_label == null:
+		return
+	var weapon := _selected_metadata(guide_weapon)
+	var kit: Array = [] if weapon.is_empty() else [weapon]
+	guide_kit_label.text = _starting_weapon_summary(kit)
+	var problem := _weapon_affinity_problem(guide_affinity_ids, kit)
+	if guide_name.text.strip_edges().is_empty() or guide_role_name.text.strip_edges().is_empty():
+		problem = _t("army.guide.names_needed")
+	elif guide_template.selected < 0 or guide_join.selected < 0:
+		problem = _t("army.error.guided_required")
+	guide_create_button.disabled = not problem.is_empty()
+	_set_form_feedback(guide_feedback_label, problem, true)
+
+
+func _refresh_personal_rules_feedback() -> void:
+	if rules_apply_button == null:
+		return
+	var role := _unit_type(str(_current_member().get("unitTypeId", "")))
+	var kit: Array = rules_weapon_ids if rules_personal_kit.button_pressed else role.get("startingWeaponIds", [])
+	var affinities: Array = rules_affinity_ids if rules_personal_affinities.button_pressed else _role_weapon_affinities(role)
+	var summary := _starting_weapon_summary(kit)
+	rules_kit_label.text = summary if rules_personal_kit.button_pressed else _t("army.personal.role_kit_summary", {"summary": summary})
+	var problem := _weapon_affinity_problem(affinities, kit)
+	rules_apply_button.disabled = not problem.is_empty()
+	_set_form_feedback(rules_feedback_label, problem, true)
+
+
+func _set_form_feedback(label: Label, message: String, failure: bool) -> void:
+	label.text = message
+	label.visible = not message.is_empty()
+	label.add_theme_color_override("font_color", Color("ff7a83") if failure else Color("72e08f"))
+
+
+func _reveal_form_feedback(label: Label) -> void:
+	# A newly shown/wrapped message changes the form height after container
+	# sorting. Reveal its final bounds, including on a dense mobile display.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if not is_instance_valid(label) or not label.is_visible_in_tree():
+		return
+	var parent := label.get_parent()
+	while parent != null:
+		if parent is ScrollContainer:
+			parent.call_deferred("ensure_control_visible", label)
+		parent = parent.get_parent()
 
 
 func _build_personal_rules_layer() -> void:
@@ -3645,20 +3757,33 @@ func _build_personal_rules_layer() -> void:
 	column.add_child(rules_personal_affinities)
 	rules_affinities = _multi_choice_button()
 	column.add_child(rules_affinities)
-	rules_personal_affinities.toggled.connect(func(enabled: bool): rules_affinities.disabled = not enabled)
+	rules_personal_affinities.toggled.connect(func(enabled: bool):
+		rules_affinities.disabled = not enabled
+		_refresh_personal_rules_feedback()
+	)
 	rules_personal_kit = CheckButton.new()
 	rules_personal_kit.text = _t("army.personal.override_kit")
 	rules_personal_kit.custom_minimum_size.y = 54
 	column.add_child(rules_personal_kit)
 	rules_weapons = _multi_choice_button()
 	column.add_child(rules_weapons)
-	rules_personal_kit.toggled.connect(func(enabled: bool): rules_weapons.disabled = not enabled)
+	rules_personal_kit.toggled.connect(func(enabled: bool):
+		rules_weapons.disabled = not enabled
+		_refresh_personal_rules_feedback()
+	)
+	rules_kit_label = _label("", 18, Color("72e08f"))
+	rules_kit_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(rules_kit_label)
 	column.add_child(_label(_t("army.personal.if_defeated"), 18, Color("e6b86d")))
 	rules_defeat = _defeat_choice()
 	column.add_child(rules_defeat)
-	var apply := _button(_t("army.personal.apply"), 670, 60)
-	apply.pressed.connect(_apply_personal_rules)
-	column.add_child(apply)
+	rules_feedback_label = _label("", 19, Color("ff7a83"))
+	rules_feedback_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	rules_feedback_label.hide()
+	column.add_child(rules_feedback_label)
+	rules_apply_button = _button(_t("army.personal.apply"), 670, 60)
+	rules_apply_button.pressed.connect(_apply_personal_rules)
+	column.add_child(rules_apply_button)
 	var cancel := _button(_t("army.back"), 670, 60)
 	cancel.pressed.connect(func(): rules_layer.visible = false)
 	column.add_child(cancel)
@@ -3675,13 +3800,18 @@ func _open_personal_rules() -> void:
 	rules_personal_kit.set_pressed_no_signal(member.has("startingWeaponIds"))
 	rules_affinities.disabled = not rules_personal_affinities.button_pressed
 	rules_weapons.disabled = not rules_personal_kit.button_pressed
-	_fill_multi_choice(rules_affinities, project.get("weaponTypes", []), rules_affinity_ids, _t("army.personal.affinities"))
-	_fill_multi_choice(rules_weapons, project.get("weapons", []), rules_weapon_ids, _t("army.personal.kit"))
+	_fill_multi_choice(rules_affinities, project.get("weaponTypes", []), rules_affinity_ids, _t("army.personal.affinities"), _refresh_personal_rules_feedback)
+	_fill_multi_choice(rules_weapons, project.get("weapons", []), rules_weapon_ids, _t("army.personal.kit"), _refresh_personal_rules_feedback)
 	_select_metadata(rules_defeat, str(member.get("defeatPolicy", "inherit")))
+	_refresh_personal_rules_feedback()
 	rules_layer.visible = true
 
 
 func _apply_personal_rules() -> void:
+	_refresh_personal_rules_feedback()
+	if rules_apply_button.disabled:
+		_reveal_form_feedback(rules_feedback_label)
+		return
 	var member := _current_member()
 	var rules: Dictionary = {}
 	if rules_personal_affinities.button_pressed:
