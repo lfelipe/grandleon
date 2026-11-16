@@ -28,6 +28,10 @@ entry groups rather than one central blob. The same authored placements can
 also give Rowan a closer solo start and a more separated two-player start
 without creating a second copy of the character.
 
+A separate [larger castle study](prototypes/README.md) explores a 32×24 map
+with three hidden chambers and split co-op approaches. It does not replace
+the five-battle campaign.
+
 ## Environment direction
 
 The campaign follows one road from orchard country through Cedar forest and

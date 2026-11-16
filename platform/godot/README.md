@@ -64,7 +64,10 @@ covered and choose how far a friendly unit reveals after entering. The map
 preview shows the covered cells before testing. This is deliberately visual:
 it makes building exploration easier to read without silently changing legal
 moves, targets, enemies, objectives, or AI behavior. Gameplay fog of war and
-matching console presentation are still future work.
+matching console presentation are still future work. Larger castle layouts now
+use cell-based masonry walls and individually fading stone roof sections in
+Godot; the [32×24 castle study](../../games/steel_and_cedar/prototypes/README.md)
+provides an editable example without replacing the built-in campaign.
 
 [Creating a game](../../docs/CREATING_A_GAME.md) is the short visual tour. The
 [artwork roster](../../docs/ARTWORK.md) shows the included themes, characters,

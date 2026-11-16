@@ -275,6 +275,18 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   multiple authored connected rooms. Keep the underlying map, movement and
   units authoritative, with straightforward editor placement and previews.
   Gameplay fog of war and nighttime sight rules remain separate later work.
+  A separate [32×24 castle study](games/steel_and_cedar/prototypes/README.md) now
+  starts and accepts real doorway movement in Godot in both player modes. Its
+  three chambers use 170 individually revealed roof cells, with an open court
+  and split co-op approaches. The existing demo remains unchanged.
+- [ ] Support larger maps across all three players, beginning with the 32×24
+  prototype. Replace N64's 280-cell fixed render allocations with measured,
+  appropriately sized buffers or visible pages while retaining base 4 MiB.
+  Generalize console castle geometry and per-cell room reveals; neither a
+  larger source map nor a Godot capture proves console readiness. Extend
+  editor previews, export budgets and scrolling checks alongside this work.
+  Keep the tutorial compact; expand later stages where distinct flanks, cover
+  and co-op routes create useful decisions rather than longer empty walks.
 
 - [x] Add subtle water-surface motion on both consoles using the existing
   artwork and geometry. Keep fixed ground and bridges, with native campaign

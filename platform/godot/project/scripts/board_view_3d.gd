@@ -91,6 +91,7 @@ var _castle_upper_materials: Array[StandardMaterial3D] = []
 var _castle_reveal_progress := 0.0
 var _castle_reveal_target := 0.0
 var _castle_revealed := false
+var _modular_castle_roof_count := 0
 var _visibility = VisualVisibility.new()
 var _visibility_cover_root: Node3D
 var _visibility_cover_materials: Dictionary = {}
@@ -1071,7 +1072,7 @@ func _update_castle_reveal(delta: float) -> void:
 	for index: int in _visibility_cover_materials:
 		var cover_material: StandardMaterial3D = _visibility_cover_materials[index]
 		var cover_colour := cover_material.albedo_color
-		cover_colour.a = 0.82 * (1.0 - _visibility.visibility_at(index))
+		cover_colour.a = float(cover_material.get_meta("visibility_opacity", 0.82)) * (1.0 - _visibility.visibility_at(index))
 		cover_material.albedo_color = cover_colour
 	if _castle_roof == null or _castle_roof_material == null:
 		return
@@ -1122,6 +1123,7 @@ func castle_presentation_state() -> Dictionary:
 	return {
 		"bounds": _castle_bounds,
 		"valid_footprint": _castle_bounds.size == Vector2i(6, 6),
+		"modular_roof_cells": _modular_castle_roof_count,
 		"revealed": _castle_revealed,
 		"terrain_family": _natural_terrain_family(),
 		"target": _castle_reveal_target,
@@ -1148,6 +1150,7 @@ func _configure_visual_visibility() -> void:
 	_visibility_cover_root.name = "VisualVisibility"
 	_terrain_root.add_child(_visibility_cover_root)
 	var width := int(snapshot.get("width", 0))
+	_modular_castle_roof_count = 0
 	for index: int in _visibility.hidden_cells():
 		var material := StandardMaterial3D.new()
 		material.albedo_color = Color(0.025, 0.045, 0.065, 0.82)
@@ -1156,10 +1159,16 @@ func _configure_visual_visibility() -> void:
 		material.cull_mode = BaseMaterial3D.CULL_DISABLED
 		var x := index % width
 		var y := index / width
+		var modular_roof := _castle_roof == null and _terrain_feature_at(x, y) in ["castle_floor", "castle_dais"]
+		if modular_roof:
+			material.albedo_color = Color("aaa191")
+			material.albedo_texture = StoneKeep.masonry_texture()
+			material.set_meta("visibility_opacity", 1.0)
+			_modular_castle_roof_count += 1
 		var cover := _box(
 			_visibility_cover_root,
-			_cell_position(x, y) + Vector3(0, _surface_height(x, y) + 0.055, 0),
-			Vector3(0.96, 0.035, 0.96), material
+			_cell_position(x, y) + Vector3(0, _surface_height(x, y) + (1.26 if modular_roof else 0.055), 0),
+			Vector3(0.998, 0.18, 0.998) if modular_roof else Vector3(0.96, 0.035, 0.96), material
 		)
 		cover.set_meta("visual_visibility_cell", index)
 		_visibility_cover_materials[index] = material
@@ -1661,7 +1670,21 @@ func _build_medieval_castle_cell(
 			stone_light.albedo_texture = StoneKeep.masonry_texture()
 			var cell := Vector2i(_cell_from_world(parent.position))
 			var local := cell - _castle_bounds.position
-			if local.x in [0, 5] and local.y in [0, 5]:
+			if _castle_bounds.size != Vector2i(6, 6):
+				# Modular masonry follows authored walls on larger/irregular plans.
+				# No global rectangle or fixed six-cell shell may cover the court.
+				var north := _terrain_feature_at(cell.x, cell.y - 1) in ["castle_wall", "castle_door"]
+				var south := _terrain_feature_at(cell.x, cell.y + 1) in ["castle_wall", "castle_door"]
+				var west := _terrain_feature_at(cell.x - 1, cell.y) in ["castle_wall", "castle_door"]
+				var east := _terrain_feature_at(cell.x + 1, cell.y) in ["castle_wall", "castle_door"]
+				var upright := (north or south) and not (west or east)
+				var wall_size := Vector3(0.56, 1.24, 0.998) if upright else Vector3(0.998, 1.24, 0.56)
+				if (north or south) and (west or east): wall_size = Vector3(0.998, 1.24, 0.998)
+				StoneKeep.box(parent, Vector3(0, top + 0.62, 0), wall_size, stone)
+				StoneKeep.box(parent, Vector3(0, top + 1.28, 0), Vector3(wall_size.x, 0.10, wall_size.z), stone_light)
+				for tooth in [-0.32, 0.32]:
+					StoneKeep.box(parent, Vector3(0 if upright else tooth, top + 1.44, tooth if upright else 0), Vector3(0.28, 0.24, 0.28), stone_light)
+			elif local.x in [0, 5] and local.y in [0, 5]:
 				StoneKeep.column(parent, Vector3(0, 0.67, 0), 0.47, 0.90, stone)
 			else:
 				var at := Vector3(0, top + 0.34, 0)
