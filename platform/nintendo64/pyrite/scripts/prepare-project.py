@@ -45,7 +45,7 @@ TERRAIN_KINDS = (
     (("bamboo", "thicket"), "bamboo", (57, 119, 67), (110, 166, 79)),
     (("pave", "cobble"), "paved", (116, 121, 117), (188, 191, 177)),
 )
-MAX_BOARD_CELLS = 20 * 14  # ProjectBoard.cpp base-memory cell buffers.
+MAX_BOARD_CELLS = 32 * 24  # Matches ProjectBoard.cpp; arenas grow with loaded maps.
 MAX_DRAWINGS = 16
 MAX_TERRAIN_KINDS = 9
 ATLAS_COLUMNS = 3
@@ -260,7 +260,7 @@ def prepare(project_path: Path, manifest_path: Path, project_root: Path,
                 f"map {value.get('name') or value.get('id')!r} is {width}×{height} "
                 f"({width * height} cells); the current Nintendo 64 renderer "
                 f"supports at most {MAX_BOARD_CELLS} cells. "
-                "Keep the larger map for Godot while larger console maps are being implemented."
+                "Use a smaller console map or test this layout in Godot."
             )
 
     kinds = sorted({

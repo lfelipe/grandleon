@@ -156,11 +156,15 @@ def main() -> None:
         assert "supports at most 9" in refused.stderr
         assert "export refused" in refused.stderr
 
-        # A valid larger layout must be refused before staging a cartridge
-        # that would assert only after booting. Preserve its authored size.
+        # Supported larger maps keep their authored size. Oversized layouts
+        # still fail before staging a cartridge that could assert after boot.
         larger = json.loads(demo_source.read_text())
         larger["maps"][0].update(width=32, height=24, terrain=["grass"] * 768)
         larger_source = base / "larger.json"
+        larger_source.write_text(json.dumps(larger), encoding="utf-8")
+        _large_log, large_staged = run_project(larger_source, base / "supported-large")
+        assert (large_staged / "src/user/GeneratedProject.hpp").is_file()
+        larger["maps"][0].update(width=64, height=64, terrain=["grass"] * 4096)
         larger_source.write_text(json.dumps(larger), encoding="utf-8")
         larger_root = base / "larger-output"
         refused = subprocess.run([
@@ -169,10 +173,10 @@ def main() -> None:
             "--project-root", str(larger_root),
         ], capture_output=True, text=True)
         assert refused.returncode == 2, refused.stderr
-        assert "32×24 (768 cells)" in refused.stderr
-        assert "supports at most 280 cells" in refused.stderr
+        assert "64×64 (4096 cells)" in refused.stderr
+        assert "supports at most 768 cells" in refused.stderr
         assert not larger_root.exists(), "unsupported maps must not leave a partial cartridge export"
-        assert json.loads(larger_source.read_text())["maps"][0]["width"] == 32
+        assert json.loads(larger_source.read_text())["maps"][0]["width"] == 64
 
     print("generic Pyrite project preparation passed: demo != Steel; refusal closed")
 

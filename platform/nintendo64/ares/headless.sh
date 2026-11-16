@@ -142,6 +142,17 @@ if [ -n "${input_sequence}" ]; then
         --setting "VirtualPad1/R-Trigger=0x1/0/95"
         --setting "VirtualPad1/Start=0x1/0/15"
     )
+    if [ "${ARES_SECOND_CONTROLLER:-0}" = 1 ]; then
+        input_settings+=(
+            --setting "Nintendo64/Input/Controller.Port.2=Gamepad"
+            --setting "VirtualPad2/Pad.Up=0x1/0/57"
+            --setting "VirtualPad2/Pad.Down=0x1/0/53"
+            --setting "VirtualPad2/Pad.Left=0x1/0/35"
+            --setting "VirtualPad2/Pad.Right=0x1/0/38"
+            --setting "VirtualPad2/A..South=0x1/0/40"
+            --setting "VirtualPad2/B..East=0x1/0/41"
+        )
+    fi
 fi
 
 # A clocked silent sink is useful for real-time external video capture.

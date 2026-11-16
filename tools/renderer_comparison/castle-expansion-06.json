@@ -2,7 +2,7 @@
   "schema": "grandleon.castle-expansion-prototype.v1",
   "date": "2026-11-15",
   "source_revision": "d4c12d88f36fb4a230fd14ada3633fb9afaf1126",
-  "status": "Godot prototype; existing demo campaign unchanged. Console expansion is pending.",
+  "status": "Initial Godot prototype evidence; console expansion completed in modular-castle-06.json.",
   "map": {
     "width": 32,
     "height": 24,
@@ -69,9 +69,8 @@
   "limitations": [
     "Layout and rendering study; difficulty has not been tuned or human-playtested.",
     "Use the current local 0.6 Godot build for the modular castle presentation.",
-    "N64 still caps the board at 280 cells; its fixed render buffers need redesign while retaining base 4 MiB.",
-    "Both console castle paths still assume a 6 by 6 keep and reveal the one existing region as a whole. The larger prototype is not console-ready.",
     "Overview images use a deliberately wide review camera; regular play uses normal zoom and scrolling.",
     "Rendered checks use a software-rendered desktop session, not Android or hardware performance evidence."
-  ]
+  ],
+  "superseded_by": "modular-castle-06.json"
 }

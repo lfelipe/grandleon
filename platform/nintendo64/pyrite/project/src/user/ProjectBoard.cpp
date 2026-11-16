@@ -30,6 +30,8 @@
 #include "audio/audioManager.h"
 #include "BoardShadows.hpp"
 #include "StoneKeep.hpp"
+#include "ModularCastle.hpp"
+#include "GeneratedSettlement.hpp"
 #include <grandleon/view/stage_overview.hpp>
 #include "SettlementScenery.hpp"
 #include "ScenerySprites.hpp"
@@ -71,7 +73,7 @@ constexpr std::int16_t kCell = 52;
 // receive the shaded elevation faces built below.
 constexpr std::int16_t kHalfCell = kCell / 2;
 constexpr std::size_t kCellVertexCount = 4;
-constexpr std::size_t kMaxCells = 20U * 14U;
+constexpr std::size_t kMaxCells = 32U * 24U;
 constexpr std::size_t kBatchCells = 15U;
 constexpr std::size_t kElevationVerticesPerCell = 8U;
 constexpr std::size_t kGroundVertexCount = 4U;
@@ -159,6 +161,7 @@ struct BoardResources final {
     std::array<bool, kMaxTrees> tree_broadleaf{};
     std::size_t landmark_vertex_count{};
     gp::StoneKeep keep{};
+    gp::ModularCastle modular_castle{};
     gp::SettlementScenery settlement{};
     gp::ScenerySprites scenery_sprites{};
     std::size_t visibility_vertex_count{};
@@ -1415,7 +1418,8 @@ void build_terrain_form_vertices() {
     const auto height = board.content->definition.height;
     for (std::size_t index = 0; index < board.content->terrain.size(); ++index) {
         const auto id = board.content->terrain[index];
-        if (settlement_model(id) >= 0 || river_crossing_axis(index)) continue;
+        if (settlement_model(id) >= 0 || river_crossing_axis(index) ||
+            id == grandleon::core::stable_content_id_v1("mountain_castle_wall")) continue;
         const std::uint8_t kind = terrain_kind(id);
         const auto x = static_cast<std::int16_t>(index % width);
         const auto z = static_cast<std::int16_t>(index / width);
@@ -1544,6 +1548,8 @@ void append_river_bridge(std::size_t index, int axis) {
         plank(0, side * 11, 27, 1, top, 5, pack_rgba(101U, 69U, 38U));
 }
 
+bool visibility_hidden(std::size_t index);
+
 void build_landmark_vertices() {
     board.landmark_vertex_count = 0;
     board.settlement.begin();
@@ -1555,6 +1561,7 @@ void build_landmark_vertices() {
     constexpr std::uint64_t castle_dais =
         grandleon::core::stable_content_id_v1("paved_castle_dais");
     board.keep.clear();
+    board.modular_castle.begin();
     int min_x = width, max_x = -1, min_y = height, max_y = -1, walls = 0;
     for (std::size_t index = 0; index < board.content->terrain.size(); ++index) {
         if (board.content->terrain[index] != castle_wall) continue;
@@ -1564,9 +1571,8 @@ void build_landmark_vertices() {
         min_y = std::min(min_y, y); max_y = std::max(max_y, y);
         ++walls;
     }
-    if (walls > 0) {
-        assertf(walls == 18 && max_x - min_x == 5 && max_y - min_y == 5,
-                "Stone keep requires the authored six-by-six footprint");
+    const bool modular = walls > 0 && !(walls == 18 && max_x - min_x == 5 && max_y - min_y == 5);
+    if (walls > 0 && !modular) {
         assertf(board.keep.build(
             (world_x(min_x, width) + world_x(max_x, width)) / 2,
             (world_z(min_y, height) + world_z(max_y, height)) / 2, 13, 4),
@@ -1575,15 +1581,21 @@ void build_landmark_vertices() {
     std::array<bool, kMaxCells> landmark_cells_seen{};
     for (std::size_t index = 0; index < board.content->terrain.size(); ++index) {
         const std::uint64_t terrain = board.content->terrain[index];
-        if (const int crossing = river_crossing_axis(index)) {
-            append_river_bridge(index, crossing);
-            continue;
-        }
         const auto x = static_cast<std::int16_t>(index % width);
         const auto y = static_cast<std::int16_t>(index / width);
         const std::int16_t cx = world_x(x, width);
         const std::int16_t cz = world_z(y, height);
         const std::int16_t floor = terrain_lift(terrain);
+        if (!board.keep.active() && visibility_hidden(index)) {
+            const auto cover = terrain == castle_dais ||
+                terrain == grandleon::core::stable_content_id_v1("paved_castle_floor")
+                ? gp::settlement_art::model_castle_roof : gp::settlement_art::model_visual_cover;
+            board.modular_castle.add(cover, index, cx, floor, cz, true);
+        }
+        if (const int crossing = river_crossing_axis(index)) {
+            append_river_bridge(index, crossing);
+            continue;
+        }
         const int model = settlement_model(terrain);
         if (model >= 0) {
             const bool single = model >= 5 && model != 26;
@@ -1621,9 +1633,29 @@ void build_landmark_vertices() {
             }
             continue;
         }
+        if (modular && terrain == grandleon::core::stable_content_id_v1("paved_castle_door")) {
+            if (y == 0 || board.content->terrain[index - width] != terrain)
+                board.modular_castle.add(gp::settlement_art::model_castle_door, index, cx, floor, cz);
+        }
         if (terrain == castle_wall) {
-            continue; // The shared Godot model supplies the complete masonry.
+            if (modular) {
+                const auto wall_at = [&](int nx, int ny) {
+                    if (nx < 0 || ny < 0 || nx >= width || ny >= height) return false;
+                    const auto id = board.content->terrain[ny * width + nx];
+                    return id == castle_wall || id == grandleon::core::stable_content_id_v1("paved_castle_door");
+                };
+                const bool vertical = wall_at(x,y-1) || wall_at(x,y+1);
+                const bool horizontal = wall_at(x-1,y) || wall_at(x+1,y);
+                const auto model = vertical && horizontal ? gp::settlement_art::model_castle_wall_join :
+                    vertical ? gp::settlement_art::model_castle_wall_vertical : gp::settlement_art::model_castle_wall_horizontal;
+                board.modular_castle.add(model, index, cx, floor, cz);
+            }
+            continue; // Godot-derived masonry follows the authored footprint.
         } else if (terrain == castle_dais) {
+            if (modular) {
+                board.modular_castle.add(gp::settlement_art::model_castle_dais, index, cx, floor, cz);
+                continue;
+            }
             append_box(
                 cx, floor, cz, kHalfCell - 4, 8, kHalfCell - 4,
                 pack_rgba(133U, 75U, 57U)
@@ -1632,6 +1664,7 @@ void build_landmark_vertices() {
         }
     }
     assertf(board.settlement.finish(), "Settlement scenery exceeds available memory");
+    assertf(board.modular_castle.finish(), "Modular castle exceeds available memory");
 }
 
 bool visibility_hidden(std::size_t index) {
@@ -1645,7 +1678,7 @@ void update_visual_visibility() {
     }
     const std::uint32_t first_hidden =
         board.content->visual_visibility.hidden_cells.front();
-    if (board.visibility_revealed[first_hidden]) return;
+    if (board.keep.active() && board.visibility_revealed[first_hidden]) return;
     const int width = board.content->definition.width;
     for (const sim::UnitSnapshot& unit : board.game.snapshot().units) {
         if (!sim::on_board(unit) || unit.side != sim::Side::first) continue;
@@ -1653,9 +1686,24 @@ void update_visual_visibility() {
             unit.position.y * width + unit.position.x
         );
         if (!visibility_hidden(origin)) continue;
+        unsigned newly_revealed = 0U;
         for (const std::uint32_t candidate :
              board.content->visual_visibility.hidden_cells) {
-            board.visibility_revealed[candidate] = true;
+            const int distance = std::abs(int(candidate % width) - int(unit.position.x)) +
+                                 std::abs(int(candidate / width) - int(unit.position.y));
+            if ((board.keep.active() || distance <= board.content->visual_visibility.reveal_radius) &&
+                !board.visibility_revealed[candidate]) {
+                board.visibility_revealed[candidate] = true;
+                ++newly_revealed;
+            }
+        }
+        if (!board.keep.active()) {
+            if (newly_revealed) {
+                const auto explored = std::count(board.visibility_revealed.begin(), board.visibility_revealed.end(), true);
+                debugf("CHECKPOINT PYRITE_ROOM_REVEAL new=%u explored=%u total=%lu\n", newly_revealed,
+                       unsigned(explored), static_cast<unsigned long>(board.content->visual_visibility.hidden_cells.size()));
+            }
+            continue;
         }
         debugf(
             "CHECKPOINT PYRITE_CASTLE_REVEALED cells=%lu\n",
@@ -1669,7 +1717,7 @@ void update_visual_visibility() {
 
 void build_visibility_vertices() {
     board.visibility_vertex_count = 0U;
-    if (board.keep.active()) return;
+    if (board.keep.active() || board.modular_castle.active()) return;
     const int width = board.content->definition.width;
     const int height = board.content->definition.height;
     const fm_vec3_t up = {{0.0F, 1.0F, 0.0F}};
@@ -2416,6 +2464,7 @@ bool load_battle_moment_dialogue() {
         }
         ++battle_moment.dialogue_index;
     }
+    if (battle_moment.active) debugf("CHECKPOINT PYRITE_BATTLE_MOMENT_DONE\n");
     battle_moment = {};
     return false;
 }
@@ -2581,6 +2630,12 @@ void configure_campaign_board(const pr::EncounterLoadResult& content) {
         queue_battle_moments(pr::MomentTrigger::stage_opens, 0U, true);
         (void)load_battle_moment_dialogue();
     }
+    heap_stats_t board_heap{};
+    sys_get_heap_stats(&board_heap);
+    debugf("GRANDLEON_N64_BOARD_MEMORY cells=%lu used=%lu free=%lu rdram=%lu\n",
+           static_cast<unsigned long>(content.terrain.size()),
+           static_cast<unsigned long>(board_heap.used), static_cast<unsigned long>(board_heap.total - board_heap.used),
+           static_cast<unsigned long>(get_memory_size()));
     debugf(
         "GRANDLEON_PYRITE_CAMPAIGN_BOARD encounter=%llu map=%llu size=%ux%u "
         "players=%u stage=%lu apron=%lu\n",
@@ -6062,6 +6117,7 @@ void onScenePreDraw3D() {
     board.settlement.draw();
     const auto& hidden = board.content->visual_visibility.hidden_cells;
     board.keep.draw(!hidden.empty() && !board.visibility_revealed[hidden.front()]);
+    board.modular_castle.draw(board.visibility_revealed.data(), board.content->terrain.size());
     draw_trees();
     board.scenery_sprites.draw(current_camera.eye_x,current_camera.eye_y,current_camera.eye_z,current_camera.target_x,current_camera.target_y,current_camera.target_z);
     draw_visual_visibility();

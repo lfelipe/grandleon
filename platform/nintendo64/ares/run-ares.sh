@@ -201,6 +201,7 @@ set +e
     --env "ARES_FILM_NAME=${GRANDLEON_N64_ARES_FILM:-film}" \
     --env "ARES_POLL_SECONDS=${GRANDLEON_N64_ARES_POLL_SECONDS:-1}" \
     --env "ARES_INPUT_SEQUENCE=${GRANDLEON_N64_ARES_INPUT_SEQUENCE:-}" \
+    --env "ARES_SECOND_CONTROLLER=${GRANDLEON_N64_ARES_SECOND_CONTROLLER:-0}" \
     --env "ARES_AUDIO_DRIVER=${GRANDLEON_N64_ARES_AUDIO_DRIVER:-None}" \
     "${save_mount[@]}" \
     --volume "${rom_dir}:/rom:ro" \

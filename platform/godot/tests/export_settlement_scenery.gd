@@ -73,6 +73,48 @@ func _run() -> void:
 		models[key] = []
 		_collect(tree, models[key], true)
 		tree.queue_free()
+	# Modular castle pieces come from the exact builders used by larger maps.
+	board.snapshot = {"width": 3, "height": 3, "units": []}
+	board.terrain = [12,12,12,12,12,12,12,12,12]
+	board._castle_bounds = Rect2i()
+	for layout: String in ["horizontal", "vertical", "join", "door"]:
+		board.terrain_features = ["", "", "", "", "castle_wall", "", "", "", ""]
+		if layout in ["vertical", "join"]:
+			board.terrain_features[1] = "castle_wall"
+			board.terrain_features[7] = "castle_wall"
+		if layout in ["horizontal", "join"]:
+			board.terrain_features[3] = "castle_wall"
+			board.terrain_features[5] = "castle_wall"
+		if layout == "door": board.terrain_features[4] = "castle_door"
+		var piece := Node3D.new()
+		world.add_child(piece)
+		board._build_medieval_castle_cell(piece, "castle_door" if layout == "door" else "castle_wall", 0.0, 0)
+		var key := "castle_door" if layout == "door" else "castle_wall_" + layout
+		models[key] = []
+		_collect(piece, models[key])
+		piece.queue_free()
+	var dais := Node3D.new()
+	world.add_child(dais)
+	board._build_medieval_castle_cell(dais, "castle_dais", 0.0, 0)
+	models.castle_dais = []
+	_collect(dais, models.castle_dais)
+	dais.queue_free()
+	board.terrain_features = ["", "", "", "", "castle_floor", "", "", "", ""]
+	board.visual_visibility = {"hidden_cells": [4], "reveal_radius": 2}
+	board._terrain_root = world
+	board._configure_visual_visibility()
+	models.castle_roof = []
+	_collect(board._visibility_cover_root, models.castle_roof)
+	var roof_floor: float = board._surface_height(1, 1)
+	for part: Dictionary in models.castle_roof:
+		for point: Array in part.vertices: point[1] = snappedf(float(point[1]) - roof_floor, 0.00001)
+	board.terrain_features = ["", "", "", "", "", "", "", "", ""]
+	board._configure_visual_visibility()
+	models.visual_cover = []
+	_collect(board._visibility_cover_root, models.visual_cover)
+	var cover_floor: float = board._surface_height(1, 1)
+	for part: Dictionary in models.visual_cover:
+		for point: Array in part.vertices: point[1] = snappedf(float(point[1]) - cover_floor, 0.00001)
 	var nature_hash := FileAccess.get_file_as_string("res://scripts/natural_scenery.gd").replace("\r\n", "\n").sha256_text()
 	var board_hash := FileAccess.get_file_as_string(BOARD_SOURCE).replace("\r\n", "\n").sha256_text()
 	board.queue_free()

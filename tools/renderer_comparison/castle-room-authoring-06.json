@@ -32,7 +32,7 @@
   ],
   "reproduce": "platform/godot/scripts/check-castle-expansion.sh build-godot out/castle-room-review",
   "limits": [
-    "This validates desktop rendering and native authoring/player paths, not a new physical Android-device acceptance run.",
-    "Large multi-room console rendering remains pending; this does not lift the N64 export limit."
-  ]
+    "This validates desktop rendering and native authoring/player paths, not a new physical Android-device acceptance run."
+  ],
+  "console_followup": "modular-castle-06.json"
 }

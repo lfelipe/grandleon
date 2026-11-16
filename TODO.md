@@ -271,29 +271,29 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   per console from normal campaign builds. Nintendo 64 passes all five
   battles in base 4 MiB; PS1 fits all five memory budgets. Hardware review
   and the existing heavy-map PS1 frame-pacing work remain open.
-- [ ] Extend rendered hidden interiors beyond Twin Gate's single region to
-  multiple authored connected rooms. Keep the underlying map, movement and
-  units authoritative, with straightforward editor placement and previews.
-  Gameplay fog of war and nighttime sight rules remain separate later work.
-  A separate [32×24 castle study](games/steel_and_cedar/prototypes/README.md) now
-  starts and accepts real doorway movement in Godot in both player modes. Its
-  three chambers use 170 individually revealed roof cells, with an open court
-  and split co-op approaches. The existing demo remains unchanged.
-  The editor can now mark or unmark whole room rectangles with two corner
-  selections and a single undo step; the 170-cell castle masks save and play
-  in both player modes. See the [room authoring checks](tools/renderer_comparison/castle-room-authoring-06.json).
-- [ ] Support larger maps across all three players, beginning with the 32×24
-  prototype. Replace N64's 280-cell fixed render allocations with measured,
-  appropriately sized buffers or visible pages while retaining base 4 MiB.
-  Ground/roof arenas now grow with loaded maps, and movement highlights grow
-  with the legal range. The current five-stage N64 review saves 76.5 KiB of
-  highlight storage; the exported cell limit remains 280 pending larger-map
-  rendering and memory validation. See the [N64 memory review](tools/renderer_comparison/n64-map-buffers-06.json).
-  Generalize console castle geometry and per-cell room reveals; neither a
-  larger source map nor a Godot capture proves console readiness. Extend
-  editor previews, export budgets and scrolling checks alongside this work.
-  Keep the tutorial compact; expand later stages where distinct flanks, cover
+- [x] Extend rendered hidden interiors beyond Twin Gate's single region to
+  multiple authored rooms on all three players. The separate
+  [32×24 castle study](games/steel_and_cedar/prototypes/README.md) has three
+  chambers, 170 individually revealed roof cells, an open court and split
+  co-op approaches. A real doorway move reveals the same nine nearby cells in
+  Godot, Nintendo 64 and PlayStation. Looking across the map leaves the other
+  rooms covered. The existing demo remains unchanged; gameplay fog of war and
+  nighttime sight rules remain separate later work.
+- [x] Support the 32×24 castle map in normal 1P/2P builds on both consoles.
+  N64 arenas grow with loaded maps and legal movement ranges, supporting up
+  to 768 cells within base 4 MiB. PS1 shares the wall/arch/roof pieces and keeps
+  its full 2 MiB resource reserves. Both consoles exercise horizontal and
+  vertical scrolling through ordinary controller input. See the
+  [cross-platform castle review](tools/renderer_comparison/modular-castle-06.json).
+- [x] Let creators mark or unmark a room rectangle with two corner selections
+  and a single undo step. The 170-cell masks save, compile and play in both
+  player modes. See the [authoring checks](tools/renderer_comparison/castle-room-authoring-06.json).
+- [ ] Extend larger-map creator tools: straightforward castle wall/floor/door
+  placement, clear previews and export budget feedback. Keep console limits
+  visible while editing. Playtest later stages where distinct flanks, cover
   and co-op routes create useful decisions rather than longer empty walks.
+  Keep the tutorial compact. Continue PS1 larger-scene performance work and
+  physical-console testing; current emulator coverage does not complete these.
 
 - [x] Add subtle water-surface motion on both consoles using the existing
   artwork and geometry. Keep fixed ground and bridges, with native campaign

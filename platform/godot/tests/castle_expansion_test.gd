@@ -71,6 +71,10 @@ func run() -> void:
 		board._focus_tactical_camera(Vector2i(16, 12))
 		board._update_tactical_camera(10)
 		await capture(board, "overview-%dp" % players)
+		board._camera.size = 13
+		board._focus_tactical_camera(Vector2i(13, 6))
+		board._update_tactical_camera(10)
+		await capture(board, "closed-%dp" % players)
 		var rowan: Dictionary = allies.filter(func(u): return u.name.contains("Rowan"))[0]
 		game.submit_intent("move", int(rowan.id), 0, 10, 5, 0, 1)
 		var moved := false
@@ -88,7 +92,7 @@ func run() -> void:
 			deadline = Time.get_ticks_msec() + 10000
 			while board.is_unit_moving(int(rowan.id)) and Time.get_ticks_msec() < deadline: await process_frame
 			for frame in 40: await process_frame
-			check(board.visibility_presentation_state().explored_count > 0, "rendered threshold crossing reveals guardhouse cells")
+			check(board.visibility_presentation_state().explored_count == 9, "rendered threshold crossing reveals exactly nine local guardhouse cells")
 			check(board._visibility.visibility_at(3 * 32 + 21) == 0, "council chamber remains hidden")
 			check(board._visibility.visibility_at(12 * 32 + 21) == 0, "great hall remains hidden")
 			board._camera.size = 13

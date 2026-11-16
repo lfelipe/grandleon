@@ -9,7 +9,8 @@ Set ARES_INPUT_SEQUENCE to comma-separated actions, for example:
 
     wait:3,press:Return,wait:1,shot:title.png
 
-Supported actions are wait (seconds), press (X11 keysym), keydown, keyup,
+Supported actions include await (checkpoint name), advance (keysym/checkpoint;
+press until the observed checkpoint), wait (seconds), press (X11 keysym), keydown, keyup,
 shot (a filename written below ARES_OUT_DIR), view-shot (the actual 768x576
 emulator viewport, without window chrome), film-start (ffmpeg capture while later
 controller actions continue; requires ffmpeg in the capture image), and film (seconds with no input,
@@ -78,10 +79,28 @@ def main() -> None:
                 raise ValueError(f"action needs a value: {raw}")
             if action == "wait":
                 time.sleep(float(value))
+            elif action in ("await", "advance"):
+                key_name, marker = value.split("/", 1) if action == "advance" else ("", value)
+                deadline = time.monotonic() + 60
+                log_path = OUT_DIR / os.environ.get("ARES_LOG_NAME", "isviewer.log")
+                while True:
+                    lines = log_path.read_text(errors="replace").splitlines() if log_path.exists() else []
+                    if any(line.split()[:2] == ["CHECKPOINT", marker] for line in lines): break
+                    if time.monotonic() >= deadline:
+                        raise RuntimeError(f"controller timed out awaiting {marker}")
+                    if key_name:
+                        key(key_name, True)
+                        time.sleep(0.12)
+                        key(key_name, False)
+                    time.sleep(0.5)
             elif action == "press":
-                key(value, True)
-                time.sleep(0.12)
-                key(value, False)
+                name, separator, duration = value.partition("/")
+                seconds = float(duration) if separator else 0.12
+                if not math.isfinite(seconds) or not 0.02 <= seconds <= 2:
+                    raise ValueError("key press must last between 0.02 and 2 seconds")
+                key(name, True)
+                time.sleep(seconds)
+                key(name, False)
             elif action == "keydown":
                 key(value, True)
             elif action == "keyup":

@@ -88,7 +88,7 @@ def create_project():
     project.pop('translations', None)
     project['notes'] = ('Playable 32×24 layout study, not a tuned replacement campaign. '
                         'Three covered rooms, a visible gallery/courtyard, two co-op approaches and a final hall. '
-                        'Console capacity and modular castle rendering must be extended before console export.')
+                        'Playable on Godot and the current Nintendo 64/PlayStation renderers; console frame pacing and encounter balance still need review.')
     return project
 
 

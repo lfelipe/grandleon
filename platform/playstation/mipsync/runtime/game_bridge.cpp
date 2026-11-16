@@ -807,33 +807,57 @@ const grandleon_generated_dialogue_line* current_battle_moment_line() {
 bool reveal_visual_visibility_at(std::size_t cell) {
     if (!visibility_hidden(cell)) return false;
     bool changed = false;
+    unsigned newly_revealed = 0;
     for (unsigned index = 0;
          index < g_grandleon_visibility_cell_count; ++index) {
+        if (g_grandleon_visibility_per_cell) {
+            const auto other = g_grandleon_visibility_cell_indices[index];
+            const int width = s_snapshot.width;
+            const int dx = int(cell % width) - int(other % width);
+            const int dy = int(cell / width) - int(other / width);
+            const int distance = (dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy);
+            if (distance > int(g_grandleon_visibility_reveal_radius)) continue;
+        }
         if (!s_visibility_revealed[index]) {
             s_visibility_revealed[index] = true;
             changed = true;
+            ++newly_revealed;
         }
     }
     if (changed) {
-        psx::Line().text("MIPSYNC_VISIBILITY_REVEAL cells=")
-            .decimal(g_grandleon_visibility_cell_count).flush();
+        if (g_grandleon_visibility_per_cell) {
+            psx::Line().text("MIPSYNC_ROOM_REVEAL new=").decimal(newly_revealed)
+                .text(" total=").decimal(g_grandleon_visibility_cell_count).flush();
+        } else {
+            psx::Line().text("MIPSYNC_VISIBILITY_REVEAL cells=")
+                .decimal(g_grandleon_visibility_cell_count).flush();
+        }
     }
     return changed;
 }
 
 bool update_visual_visibility(const sim::EncounterSnapshot& snapshot) {
+    bool changed = false;
     for (const sim::UnitSnapshot& unit : snapshot.units) {
         if (!sim::on_board(unit) || unit.side != sim::Side::first) continue;
         const std::size_t origin = static_cast<std::size_t>(
             unit.position.y * snapshot.width + unit.position.x
         );
-        if (reveal_visual_visibility_at(origin)) return true;
+        changed = reveal_visual_visibility_at(origin) || changed;
     }
-    return false;
+    return changed;
 }
 
 void sync_visibility_entities(bool close_combat) {
     if (g_grandleon_visibility_cell_count == 0U) return;
+    if (g_grandleon_visibility_per_cell) {
+        for (unsigned index = 0; index < g_grandleon_visibility_cell_count; ++index) {
+            ps1_entity* cell = grandleon_scene_mutable_entity(g_grandleon_visibility_entity_indices[index]);
+            // tick_camera has already applied the normal scenery culling.
+            if (cell) cell->mesh_enabled = cell->mesh_enabled && !close_combat && !s_visibility_revealed[index];
+        }
+        return;
+    }
     ps1_entity* cover = grandleon_scene_mutable_entity(
         g_grandleon_visibility_entity_index
     );

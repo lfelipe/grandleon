@@ -1,0 +1,57 @@
+{
+  "schema": "grandleon.modular-castle-review.v1",
+  "date": "2026-11-15",
+  "status": "Playable larger-map study across all three renderers; not a release acceptance result.",
+  "map": {
+    "width": 32,
+    "height": 24,
+    "hidden_cells": 170,
+    "doorway_reveals": 9,
+    "reveal_radius": 2,
+    "rooms": 3
+  },
+  "checks": [
+    "Normal 1P and 2P menus reach the same authored prototype on both consoles.",
+    "Actual controller doorway movement reveals exactly nine cells; other rooms stay covered.",
+    "Horizontal and vertical camera scrolling pass on both consoles without revealing unexplored cells.",
+    "Godot native accepted doorway movement and both player modes pass.",
+    "N64 uses base 4 MiB; loaded 768-cell board leaves 424704 heap bytes in the 1P check.",
+    "PS1 packaged executable verification and complete resource reserves pass.",
+    "Original 26 settlement models are unchanged; castle pieces export from actual Godot geometry."
+  ],
+  "logs": [
+    "out/modular-castle06/godot-test-complete.log",
+    "out/modular-castle06/n64-complete-1p.log",
+    "out/modular-castle06/n64-complete-2p.log",
+    "out/modular-castle06/ps1-scroll-1p.log",
+    "out/modular-castle06/ps1-scroll-2p.log",
+    "out/modular-castle06/n64-prepare-tests.log",
+    "out/modular-castle06/ps1-generator-tests-complete.log",
+    "out/modular-castle06/ps1-default-test.log"
+  ],
+  "limits": [
+    "Emulator and software-rendered desktop checks, not physical console or Android acceptance.",
+    "PS1 normal prototype has only 3852 bytes of committed memory headroom after gameplay heap, audio and stack reserves.",
+    "PS1 heavy-scene frame pacing still fails the strict 30 FPS gate; full existing campaign functional traversal, saves and co-op pass.",
+    "Layout difficulty is not tuned. Existing five-stage demo remains unchanged.",
+    "Creator room rectangle editing works; direct castle wall/floor/door placement and larger-map budget previews remain pending."
+  ],
+  "artifacts": {
+    "n64/grandleon_pyrite_game.z64": {
+      "sha256": "c5a711299bf7fe3e7d43a41ab9c2aa7b9af38a87d7ed558e55cdab362c3782fc",
+      "bytes": 8306688
+    },
+    "ps1-normal/game.cue": {
+      "sha256": "fa63c3fead879ddeb40fd71564ffb93beda586da1168f5ffa90fd32218a5b122",
+      "bytes": 433
+    },
+    "ps1-normal/game.bin": {
+      "sha256": "ab5d1e79ea8dddb3dc039a8e0dfd315fae96dd690a08cf3a4cdbce3f652c4db3",
+      "bytes": 95258352
+    },
+    "godot-complete/three-courts.gpk": {
+      "sha256": "fa349ea31940ffd7e1cdff3b575721754272a4d17ab2cfcc597b665e35b46af2",
+      "bytes": 17920
+    }
+  }
+}

@@ -320,7 +320,7 @@ def test_scenery_compaction_preserves_drawn_faces_and_texture_seams() -> None:
     savings = 0
     for kind in models:
         vertices, uvs, triangles = [], [], []
-        SCENE.append_settlement_model(vertices, uvs, triangles, kind, models, {-3: 7})
+        SCENE.append_settlement_model(vertices, uvs, triangles, kind, models, {-3: 7, -4: 8})
         compact = SCENE.compact_flat_mesh(vertices, uvs, triangles)
         assert drawn_faces(*compact) == drawn_faces(vertices, uvs, triangles), kind
         savings += len(vertices) - len(compact[0])
@@ -491,7 +491,39 @@ def test_river_crossings_keep_water_and_a_narrow_raised_deck() -> None:
         assert max(v[0 if axis==1 else 2] for v in vertices)-min(v[0 if axis==1 else 2] for v in vertices)>=128, "deck reaches both banks"
 
 
+def test_modular_castle_uses_authored_walls_and_independent_roof_cells() -> None:
+    source = ROOT.parents[2] / "games/steel_and_cedar/prototypes/castle_expansion.py"
+    spec = spec_from_file_location("castle_prototype", source)
+    module = module_from_spec(spec)
+    spec.loader.exec_module(module)
+    layout = module.create_project()["maps"][0]
+    identities = [SCENE.content_id(tile) for tile in layout["terrain"]]
+    hidden = [cell["y"] * 32 + cell["x"] for cell in layout["visualVisibility"]["hiddenCells"]]
+    placements = SCENE.modular_castle_placements(identities,32,24,hidden,SCENE.content_id)
+    roofs = {(x,y) for x,y,kind,_size in placements if kind == "castle_roof"}
+    assert {y*32+x for x,y in roofs} == set(hidden)
+    assert (18,15) not in roofs, "the open court must not acquire a roof"
+    doors = [(x,y) for x,y,kind,_size in placements if kind == "castle_door"]
+    assert len(doors) == 5, "one shared arch per real two-cell doorway"
+    walls = {(x,y) for x,y,kind,_size in placements if kind.startswith("castle_wall_")}
+    assert walls == {(i%32,i//32) for i,t in enumerate(layout["terrain"]) if t == "mountain_castle_wall"}
+    mixed = SCENE.modular_castle_placements(identities,32,24,hidden+[15*32+18],SCENE.content_id)
+    assert (18,15,"visual_cover",1) in mixed, "generic covered areas may coexist with castle rooms"
+    models = SCENE.load_settlement_models(ROOT.parents[2])
+    for kind in {p[2] for p in mixed}:
+        vertices,uvs,faces = [],[],[]
+        SCENE.append_settlement_model(vertices,uvs,faces,kind,models,{-4:4,-3:3})
+        vertices,uvs,faces = SCENE.compact_flat_mesh(vertices,uvs,faces)
+        assert faces and len(vertices) <= SCENE.MAX_CACHE_VERTICES
+        assert all(0 <= i < len(vertices) for face in faces for i in face[:3])
+        if any(part["masonry"] for part in models[kind]):
+            assert any(face[3] == 4 for face in faces), "shared castle masonry uses the castle texture"
+        else:
+            assert all(face[3] == 0 for face in faces), "untextured Godot stone keeps its authored material"
+
+
 if __name__ == "__main__":
+    test_modular_castle_uses_authored_walls_and_independent_roof_cells()
     test_river_crossings_keep_water_and_a_narrow_raised_deck()
     test_camera_pages_keep_separate_fixed_canopy_meshes()
     test_foliage_pages_preserve_every_face_and_leave_trunks_static()

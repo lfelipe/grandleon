@@ -18,7 +18,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "platform/console_art"))
 from scenery_style import HOUSE_FAMILIES, document as scenery_style, house_at, house_image, grove_image, ground_image, materials as ground_materials
-from settlement_scenery import load_models as load_settlement_models, placements as settlement_placements
+from settlement_scenery import load_models as load_settlement_models, placements as settlement_placements, modular_castle_placements
 from stone_keep import load_keep, textured_part_mesh, face_normal, lit_colour
 
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageOps
@@ -78,6 +78,8 @@ UNIT_POSES = (
 UnitTextureIndices = tuple[int, int, int, int, int, int, int, int, int]
 MAX_CACHE_VERTICES = 1024
 MAX_CACHE_TOTAL = 1280  # Minimum pools; stage audits size them within hard limits.
+MAX_CACHE_VERTEX_POOL = 4352  # Modular room grids; final 2 MiB reserves are checked at link time.
+MAX_CACHE_TRIANGLE_POOL = 4096
 
 # Colour and proportions for the tiny low-poly forms embedded into each
 # terrain page. The same bounded topology reads as reeds, rubble, crops,
@@ -1248,7 +1250,7 @@ def append_settlement_model(board_vertices, board_uvs, board_triangles, kind, se
                     board_uvs.append((max(0, min(31, round(uv[0] * 31))), max(0, min(31, round(uv[1] * 31)))))
                 mapped.append(remap[key])
             board_triangles.append(tuple(mapped) +
-                (terrain_indices[-3] if part["masonry"] else 0, 255,
+                (terrain_indices[-4 if kind.startswith("castle_") else -3] if part["masonry"] else 0, 255,
                  *lit_colour(part["colour"], normal)))
 
 
@@ -1294,6 +1296,7 @@ def write_meshes(
     surface_count: int = 0,
     foliage_metadata: list | None = None,
     bridges: dict | None = None,
+    per_cell_roofs: bool = False,
 ) -> tuple[int, int, list[tuple[int, int, int, int, int, int, int]]]:
     keep_parts = keep_parts or []
     bridges = bridges or {}
@@ -1483,7 +1486,7 @@ def write_meshes(
         if part["upper"]:
             append_keep_part(visibility_vertices, visibility_uvs, visibility_triangles, part,
                              keep_centre_x, keep_centre_z, terrain_indices[-4], cell_lifts, width, height)
-    for order, cell in enumerate([] if keep_parts else hidden_cells):
+    for order, cell in enumerate([] if keep_parts or per_cell_roofs else hidden_cells):
         x = cell % width
         y = cell // width
         left = (x * 2 - width) * 64
@@ -1613,7 +1616,7 @@ def write_meshes(
         chunk_descriptors.append((chunk_index + 2, *bounds, focus_x, focus_z))
     scenery_mesh_lines = []
     scenery_indices = {}
-    scenery_mesh_start = len(board_groups) + 7 + (1 if hidden_cells else 0)
+    scenery_mesh_start = len(board_groups) + 7 + (1 if hidden_cells and not per_cell_roofs else 0)
     for model_index, (kind, (verts, uvs, tris)) in enumerate(scenery_groups.items()):
         scenery_indices[kind] = scenery_mesh_start + model_index
         name = "k_scenery_" + kind
@@ -1632,7 +1635,7 @@ def write_meshes(
         for x,y,kind,size in settlement_instances:
             floor = max(surface_relief(x+dx,y+dy,cell_lifts) for dy in range(size) for dx in range(size)) if relief_mode == "smooth" else 0
             px, pz = scenery_position(Path(__file__).resolve().parents[4], x, y, kind, size, width, height)
-            scenery_metadata.append((scenery_indices[kind], px, floor, pz, kind.startswith("house_cutout_") or kind == "grove_cutout"))
+            scenery_metadata.append((scenery_indices[kind], px, floor, pz, kind.startswith("house_cutout_") or kind == "grove_cutout", y * width + x if kind == "castle_roof" else -1))
     foliage_mesh_lines = []
     foliage_mesh_start = scenery_mesh_start + len(scenery_groups)
     for page, (verts, uvs, tris) in enumerate(foliage_groups):
@@ -1858,6 +1861,7 @@ def write_scene(
     surface_count: int = 0,
     foliage_metadata: list | None = None,
     water_texture_index: int = 0,
+    per_cell_roofs: bool = False,
 ) -> int:
     foliage_metadata = foliage_metadata or [0] * len(terrain_chunks)
     if len(foliage_metadata) != len(terrain_chunks):
@@ -1870,9 +1874,8 @@ def write_scene(
     visibility = document["visual_visibility"]
     assert isinstance(visibility, dict)
     hidden_cells = [int(value) for value in visibility["hidden_cells"]]
-    mirrored_billboard_mesh_index = (
-        len(terrain_chunks) + 4 + (1 if hidden_cells else 0)
-    )
+    legacy_cover = bool(hidden_cells) and not per_cell_roofs
+    mirrored_billboard_mesh_index = len(terrain_chunks) + 4 + int(legacy_cover)
     directional_billboard_mesh_index = mirrored_billboard_mesh_index + 1
     directional_mirrored_billboard_mesh_index = mirrored_billboard_mesh_index + 2
     if len(units) > 64:
@@ -1890,7 +1893,9 @@ def write_scene(
         )
         next_id += 1
         entity_index += 1
-    for mesh_index,x,y,z,is_house in scenery_metadata:
+    roof_entity_indices = {}
+    for mesh_index,x,y,z,is_house,roof_cell in scenery_metadata:
+        if roof_cell >= 0: roof_entity_indices[roof_cell] = entity_index
         tree_entity_indices.append(entity_index)
         preset = "PS1_RENDER_PRESET_CHARACTER" if is_house else "PS1_RENDER_PRESET_FLOOR"
         lines.append(f"    {{.id={next_id}u,.name=\"settlement_landmark\",.parent_entity_index=-1,.position={{{fixed(x/64)},{fixed(y/64)},{fixed(z/64)}}},.scale={{65536,65536,65536}},.mesh=PS1_MESH_CUSTOM,.mesh_index={mesh_index},.mesh_size=65536,.mesh_enabled=0,.color_r=255,.color_g=255,.color_b=255,.texture_tiling_u_q8=256,.texture_tiling_v_q8=256,.render_unlit=1,.render_preset={preset},.rigid_root_entity_index=-1,.collider_shape=-1,.camera_shot_trigger_index=-1,.collider_camera_target_index=-1}},")
@@ -1925,13 +1930,15 @@ def write_scene(
         entity_index += 1
     cursor_mesh_index = 3 + len(terrain_chunks)
     visibility_entity_index = 0
-    if hidden_cells:
+    if legacy_cover:
         visibility_entity_index = entity_index
         lines.append(
             f"    {{ .id={next_id}u, .name=\"visual_visibility_roof\", .parent_entity_index=-1, .scale={{65536,65536,65536}}, .mesh=PS1_MESH_CUSTOM, .mesh_index={cursor_mesh_index + 1}, .mesh_size=65536, .mesh_enabled=1, .color_r=255, .color_g=255, .color_b=255, .texture_tiling_u_q8=256, .texture_tiling_v_q8=256, .render_unlit=1, .render_preset=PS1_RENDER_PRESET_FLOOR, .rigid_root_entity_index=-1, .collider_shape=-1, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},"
         )
         next_id += 1
         entity_index += 1
+    if per_cell_roofs and set(hidden_cells) != set(roof_entity_indices):
+        raise ValueError("every covered cell must have an exported roof or visual cover")
     simulation = document["simulation"]
     assert isinstance(simulation, dict)
     deployment_tiles = simulation.get("deployment_tiles", [])
@@ -2022,6 +2029,11 @@ def write_scene(
         f"const unsigned int g_grandleon_directional_mirrored_billboard_mesh_index = {directional_mirrored_billboard_mesh_index}u;",
         "const unsigned int g_grandleon_unit_count = sizeof(g_grandleon_unit_ids) / sizeof(g_grandleon_unit_ids[0]);",
         f"const unsigned int g_grandleon_visibility_entity_index = {visibility_entity_index}u;",
+        f"const unsigned int g_grandleon_visibility_per_cell = {int(per_cell_roofs)}u;",
+        "const unsigned int g_grandleon_visibility_entity_indices[] = {",
+        *(f"    {roof_entity_indices[cell] if per_cell_roofs else visibility_entity_index}u," for cell in hidden_cells),
+        "    0u," if not hidden_cells else "",
+        "};",
         "const uint16_t g_grandleon_visibility_cell_indices[] = {",
         *(f"    {cell}u," for cell in hidden_cells),
         "    0u," if not hidden_cells else "",
@@ -2092,6 +2104,8 @@ extern const unsigned int g_grandleon_directional_billboard_mesh_index;
 extern const unsigned int g_grandleon_directional_mirrored_billboard_mesh_index;
 extern const unsigned int g_grandleon_unit_count;
 extern const unsigned int g_grandleon_visibility_entity_index;
+extern const unsigned int g_grandleon_visibility_per_cell;
+extern const unsigned int g_grandleon_visibility_entity_indices[];
 extern const uint16_t g_grandleon_visibility_cell_indices[];
 extern const unsigned int g_grandleon_visibility_cell_count;
 extern const unsigned int g_grandleon_visibility_reveal_radius;
@@ -2228,11 +2242,16 @@ def main() -> int:
                     for index, value in enumerate(document.get("terrain_ids", []))
                     if int(value) == content_id("mountain_castle_wall")]
     keep_parts = []
-    if castle_cells:
-        if len(castle_cells) != 18 or max(x for x, _ in castle_cells) - min(x for x, _ in castle_cells) != 5 or max(y for _, y in castle_cells) - min(y for _, y in castle_cells) != 5:
-            raise ValueError("stone keep requires the authored six-by-six castle footprint")
+    modular_castle = bool(castle_cells) and not (len(castle_cells) == 18 and
+        max(x for x, _ in castle_cells) - min(x for x, _ in castle_cells) == 5 and
+        max(y for _, y in castle_cells) - min(y for _, y in castle_cells) == 5)
+    if castle_cells and not modular_castle:
         keep_parts = load_keep(repo, "ps1")
+    per_cell_roofs = not keep_parts and bool(document["visual_visibility"]["hidden_cells"])
     settlement_instances = settlement_placements(document["terrain_ids"], width, height, content_id)
+    if modular_castle or per_cell_roofs:
+        settlement_instances += modular_castle_placements(document["terrain_ids"], width, height,
+            document["visual_visibility"]["hidden_cells"], content_id)
     settlement_models = load_settlement_models(repo) if settlement_instances else {}
     house_instances = []
     for x, y, kind, size in settlement_instances:
@@ -2248,12 +2267,12 @@ def main() -> int:
     terrain_indices, unit_indices, ui_texture, texture_metrics, speaker_indices = write_textures(
         output, repo, all_kinds, typed_units, str(document.get("map_id", "0")),
         document.get("speakers", []),
-        castle=bool(keep_parts), houses=any(k.startswith("house_cutout_") for _x,_y,k,_size in settlement_instances), theme=int(document.get("theme",0)), grove=any(k == "grove_cutout" for _x,_y,k,_size in settlement_instances),
+        castle=bool(keep_parts) or modular_castle, houses=any(k.startswith("house_cutout_") for _x,_y,k,_size in settlement_instances), theme=int(document.get("theme",0)), grove=any(k == "grove_cutout" for _x,_y,k,_size in settlement_instances),
         house_drawings=tuple(sorted({int(k.split("_")[2]) for _x,_y,k,_size in settlement_instances if k.startswith("house_cutout_")})),
     )
     terrain_form_cells = [cell for cell in select_terrain_form_cells(
         terrain, width, height, args.surroundings_seed,
-    ) if (cell[0], cell[1]) not in bridges]
+    ) if (cell[0], cell[1]) not in bridges and (cell[0], cell[1]) not in castle_cells]
     floor_groups = surface_strips(cells, width, height, depth)
     terrain_groups = floor_groups + page_cells(cells, width, height, depth)
     distant_kind = max(
@@ -2280,7 +2299,7 @@ def main() -> int:
         args.terrain_relief, cell_lifts, hidden_cells, castle_cells,
         keep_parts, settlement_instances, settlement_models,
         MAX_CACHE_VERTICES, scenery_metadata, surface_count=len(floor_groups),
-        foliage_metadata=foliage_metadata, bridges=bridges,
+        foliage_metadata=foliage_metadata, bridges=bridges, per_cell_roofs=per_cell_roofs,
     )
     entities = write_scene(
         output, document, unit_indices, terrain_chunks,
@@ -2290,12 +2309,14 @@ def main() -> int:
         speaker_indices, scenery_metadata, surface_count=len(floor_groups),
         foliage_metadata=foliage_metadata,
         water_texture_index=terrain_indices.get(0, 0),
+        per_cell_roofs=per_cell_roofs,
     )
     visible_units = visible_position_peak(
         [(int(unit["x"]), int(unit["y"])) for unit in typed_units],
         width, height,
     )
-    visible_covers = len(hidden_cells)
+    # Modular roofs are already included in the visible scenery instance budget.
+    visible_covers = 0 if per_cell_roofs else len(hidden_cells)
     simulation = document["simulation"]
     assert isinstance(simulation, dict)
     deployment_tiles = simulation.get("deployment_tiles", [])
@@ -2310,8 +2331,8 @@ def main() -> int:
     ) * 2
     cache_vertex_limit = max(MAX_CACHE_TOTAL, (cache_vertices + 63) // 64 * 64)
     cache_triangle_limit = max(MAX_CACHE_TOTAL, (cache_triangles + 63) // 64 * 64)
-    if cache_vertex_limit > 4096 or cache_triangle_limit > 4096:
-        raise ValueError("authored scenery exceeds the bounded static geometry pools")
+    if cache_vertex_limit > MAX_CACHE_VERTEX_POOL or cache_triangle_limit > MAX_CACHE_TRIANGLE_POOL:
+        raise ValueError(f"authored scenery needs {cache_vertices} vertices and {cache_triangles} triangles; bounded static pools support {MAX_CACHE_VERTEX_POOL} vertices and {MAX_CACHE_TRIANGLE_POOL} triangles")
     if cache_vertices > cache_vertex_limit or cache_triangles > cache_triangle_limit:
         raise ValueError(
             f"visible scene exceeds Mipsync static pools: {cache_vertices}/{cache_vertex_limit} vertices, "
@@ -2332,8 +2353,8 @@ def main() -> int:
         "terrain_material": "relay",
         "visibility": {
             "cells": len(hidden_cells),
-            "entities": 1 if hidden_cells else 0,
-            "reveal": "whole_authored_region_on_entry",
+            "entities": len(hidden_cells) if per_cell_roofs else (1 if hidden_cells else 0),
+            "reveal": "local_radius_on_entry" if per_cell_roofs else "whole_authored_region_on_entry",
         },
         "deployment_markers": deployment_markers,
         "visible": {"units": visible_units, "covers": visible_covers},

@@ -7,7 +7,9 @@ from scenery_style import HOUSE_FAMILIES
 
 SETTLEMENT_KINDS = ("village_house", "abandoned_cart", "village_well", "watchtower", "walled_garden", "town_wall", "town_wall_join")
 
-KINDS = SETTLEMENT_KINDS + ("orchard_bell",) + tuple(f"signal_beacon_{v}" for v in range(6)) + tuple(f"watch_ruin_{edge}_{v}" for edge in range(4) for v in range(2)) + tuple(f"orchard_tree_{v}" for v in range(4))
+CASTLE_KINDS = ("castle_wall_horizontal", "castle_wall_vertical", "castle_wall_join", "castle_door", "castle_dais", "castle_roof", "visual_cover")
+
+KINDS = SETTLEMENT_KINDS + ("orchard_bell",) + tuple(f"signal_beacon_{v}" for v in range(6)) + tuple(f"watch_ruin_{edge}_{v}" for edge in range(4) for v in range(2)) + tuple(f"orchard_tree_{v}" for v in range(4)) + CASTLE_KINDS
 
 
 def load_models(repo: Path) -> dict:
@@ -74,6 +76,31 @@ def placements(identities: list[int], width: int, height: int, content_id) -> li
     return result
 
 
+def modular_castle_placements(identities, width, height, hidden_cells, content_id):
+    """Match the larger Godot board's adjacent walls and two-cell doorways."""
+    wall, door, floor, dais = [content_id(k) for k in
+        ("mountain_castle_wall", "paved_castle_door", "paved_castle_floor", "paved_castle_dais")]
+    hidden = set(hidden_cells)
+    def wall_at(x, y):
+        return 0 <= x < width and 0 <= y < height and int(identities[y * width + x]) in (wall, door)
+    result = []
+    for index, value in enumerate(identities):
+        x, y = index % width, index // width
+        value = int(value)
+        if value == wall:
+            vertical = wall_at(x,y-1) or wall_at(x,y+1)
+            horizontal = wall_at(x-1,y) or wall_at(x+1,y)
+            kind = "join" if vertical and horizontal else "vertical" if vertical else "horizontal"
+            result.append((x,y,"castle_wall_" + kind,1))
+        elif value == door and (y == 0 or int(identities[index - width]) != door):
+            result.append((x,y,"castle_door",1))
+        elif value == dais:
+            result.append((x,y,"castle_dais",1))
+        if index in hidden:
+            result.append((x,y,"castle_roof" if value in (floor,dais) else "visual_cover",1))
+    return result
+
+
 def write_n64_header(repo: Path, output: Path) -> None:
     models = load_models(repo)
     vertices, indices, batches, descriptors = [], [], [], []
@@ -121,5 +148,7 @@ def write_n64_header(repo: Path, output: Path) -> None:
     lines += ["{" + ",".join(str(v).lower() for v in batch) + "}," for batch in batches]
     lines += ["}};", f"inline constexpr std::array<Model,{len(descriptors)}> models = {{{{"]
     lines += ["{" + ",".join(map(str,model)) + "}," for model in descriptors]
-    lines += ["}};", "}", ""]
+    lines += ["}};"]
+    lines += [f"inline constexpr std::uint8_t model_{kind} = {index}U;" for index, kind in enumerate(KINDS)]
+    lines += ["}", ""]
     output.write_text("\n".join(lines))
