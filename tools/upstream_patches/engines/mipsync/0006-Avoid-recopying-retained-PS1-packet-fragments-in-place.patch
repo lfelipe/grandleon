@@ -1,4 +1,4 @@
-From 09a44c81bfc1d543c6d00271584d1922ef019a5c Mon Sep 17 00:00:00 2001
+From 39313dc2a3025e785cd2e4ba21f45cecc7e1f17a Mon Sep 17 00:00:00 2001
 From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
 Date: Sun, 15 Nov 2026 07:33:48 -0800
 Subject: [PATCH] Avoid recopying retained PS1 packet fragments in place
@@ -49,7 +49,7 @@ index 2444bd9..dde99ad 100644
      for (size_t i = 0; i < entry_count; ++i) {
          const ps1_packet_fragment_bucket entry = entries[i];
 diff --git a/tests/Ps1PacketFragmentTests.c b/tests/Ps1PacketFragmentTests.c
-index ea23a1a..20c1be2 100644
+index aa34679..02c02c4 100644
 --- a/tests/Ps1PacketFragmentTests.c
 +++ b/tests/Ps1PacketFragmentTests.c
 @@ -85,6 +85,39 @@ int main(void) {

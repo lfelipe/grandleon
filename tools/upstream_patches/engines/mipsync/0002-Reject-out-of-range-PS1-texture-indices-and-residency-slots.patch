@@ -1,4 +1,4 @@
-From 6a62d4856dd1510f6f19a30847eb98c1ea219ee4 Mon Sep 17 00:00:00 2001
+From 9921176ae4ce658e55ecc863cd37f593fa260b06 Mon Sep 17 00:00:00 2001
 From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
 Date: Fri, 13 Nov 2026 19:46:53 -0800
 Subject: [PATCH] Reject out-of-range PS1 texture indices and residency slots

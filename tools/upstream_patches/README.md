@@ -27,37 +27,30 @@ the small demo and Steel and Cedar built and booted in the PS1 emulator, followe
 by the CD-audio and independent volume-setting checks. This does not replace
 upstream's full desktop editor validation.
 
-The first three local runtime changes are proposed together in
+The six runtime changes are proposed together in
 [upstream PR #2](https://github.com/KasaBranca/Mipsync/pull/2):
 
 - reuse certified visibility for cached flat draws;
 - reject texture indices and residency slots beyond the fixed arrays;
-- batch safe world projection, retaining exact scalar clipping at boundaries.
+- batch safe world projection, retaining scalar clipping at boundaries;
+- skip per-face fog work for static custom meshes entirely before fog starts;
+- provide opt-in entity-packet reuse hooks and a portable DMA-fragment helper;
+- avoid recopying retained fragments when CPU storage and DMA addresses match.
 
-The last two changes have portable sanitizer coverage. The full Mipsync Windows
-Release cross-build succeeds and 38 tests run successfully under Wine; six
-PowerShell integration tests still require native Windows validation. Grandleon
-performance and image comparisons are recorded in
-[the renderer evidence](../renderer_comparison/mipsync-followups-06.json).
+The hooks are disabled by default. Cache policy, keys, capacities, application
+state and game assets remain in Grandleon's adapter. The upstream documentation
+covers invalidation, source lifetimes, GPU ownership and ordering-table joins.
+Portable regressions cover fog boundaries, malformed chains, payloads, overlap,
+repeated reuse and the largest supported fragment and bucket.
 
-A fourth local patch skips per-face fog work for static custom meshes entirely
-before the fog range. It has a portable boundary/overflow test and remains
-separate from that PR. The richer castle capture improves average render time
-from 515 to 499 HBlanks, with all 131 movement frames pixel-identical. This is
-an incremental gain; the castle still misses its 30 FPS target. See the
-[castle measurements](../renderer_comparison/ps1-castle-fog-06.json).
-
-A fifth local patch adds optional PS1 entity-packet reuse hooks and a portable
-DMA-fragment helper. Hooks are disabled by default. The helper preserves live
-ordering-table predecessors when a caller reuses a static mesh's commands;
-portable tests cover ownership, bounds, malformed chains, overlap and buffer
-swaps. Grandleon's cache policy stays in its platform adapter. This patch has
-not been added to the public upstream PR.
-
-A sixth local patch avoids recopying a fragment when both its CPU storage and
-DMA address are unchanged. It still joins bucket tails to the current frame
-and retains copying and relocation for other callers. Portable sanitizer tests
-cover repeated reuse and both address edge cases. This patch is also local.
+All seven portable upstream PS1 tests pass under GCC and Clang with ASan/UBSan.
+The new fog and fragment tests also pass with strict warnings. Windows
+cross-build validation and its Wine limits are recorded on the PR. Performance
+comparisons remain examples from Grandleon, separate from upstream test results:
+[projection and safety](../renderer_comparison/mipsync-followups-06.json),
+[fog bounds](../renderer_comparison/ps1-castle-fog-06.json), and
+[in-place fragments](../renderer_comparison/ps1-inplace-fragments-06.json).
+These are incremental gains; the larger castle still misses its 30 FPS target.
 
 ## Making an engine fix
 

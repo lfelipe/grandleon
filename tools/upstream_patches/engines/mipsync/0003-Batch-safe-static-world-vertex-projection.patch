@@ -1,4 +1,4 @@
-From 2cf1e3c652d2811f69914a9c91bea1de9a388734 Mon Sep 17 00:00:00 2001
+From 9db84ef3ec592c136f94a9e01c076749725d1a94 Mon Sep 17 00:00:00 2001
 From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
 Date: Fri, 13 Nov 2026 20:13:23 -0800
 Subject: [PATCH] Batch safe static-world vertex projection
@@ -57,7 +57,7 @@ index b1fd3fc..7c8cb59 100644
     crossing either depth plane must still draw its remaining visible part. */
  static inline int ps1_clipped_face_sort_depth(int32_t z0, int32_t z1, int32_t z2,
 diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c
-index c05252c..f901a3d 100644
+index ff55f5a..057e42a 100644
 --- a/templates/ps1/starter/runtime/render.c
 +++ b/templates/ps1/starter/runtime/render.c
 @@ -760,7 +760,11 @@ static uint16_t s_visibility_vertices[PS1_STATIC_TRI_CACHE_TOTAL * 3];
@@ -73,7 +73,7 @@ index c05252c..f901a3d 100644
  static uint16_t s_visibility_vertex_stamp[PS1_STATIC_VERTEX_CACHE_MAX];
  
  typedef struct {
-@@ -3024,6 +3028,38 @@ static int visibility_batch_outside(const ps1_visibility_batch* batch,
+@@ -3028,6 +3032,38 @@ static int visibility_batch_outside(const ps1_visibility_batch* batch,
          ((int64_t)center.vy - radius[1])*s_geom_screen > (s_screen_h-s_screen_h/2+2)*farthest;
  }
  
@@ -112,7 +112,7 @@ index c05252c..f901a3d 100644
  static void __attribute__((noinline)) cache_world_visibility(
          const ps1_entity* ent, const ps1_mesh* m,
          ps1_static_entity_cache* static_cache, int entity_near_z, const MATRIX* composed) {
-@@ -3037,8 +3073,8 @@ static void __attribute__((noinline)) cache_world_visibility(
+@@ -3041,8 +3077,8 @@ static void __attribute__((noinline)) cache_world_visibility(
      int mirrored = 0;
      const int floor_eye_valid = (ent->render_preset == PS1_RENDER_PRESET_FLOOR ||
          ent->render_preset == PS1_RENDER_PRESET_CORRIDOR) && floor_camera_y(composed,&eye_y,&mirrored);
@@ -122,7 +122,7 @@ index c05252c..f901a3d 100644
          for (unsigned bi = 0; bi < batch_count; ++bi) {
              const unsigned index = visibility->batch_offset+bi;
              const ps1_visibility_batch* batch = &s_visibility_batches[index];
-@@ -3049,34 +3085,44 @@ static void __attribute__((noinline)) cache_world_visibility(
+@@ -3053,34 +3089,44 @@ static void __attribute__((noinline)) cache_world_visibility(
              const int outside = backface || visibility_batch_outside(batch,composed,entity_near_z);
              s_visibility_batch_outside[index] = outside;
              if (!outside) for (unsigned v = 0; v < batch->vertex_count; ++v)
@@ -193,7 +193,7 @@ index c05252c..f901a3d 100644
                          static_cache->visible_triangle_count = 0;
                          for(unsigned bi=0;bi<batch_count;++bi) {
                              const ps1_visibility_batch* batch = visibility
-@@ -3120,11 +3166,16 @@ static void __attribute__((noinline)) cache_world_visibility(
+@@ -3124,11 +3170,16 @@ static void __attribute__((noinline)) cache_world_visibility(
                                  if (!screen_front_facing_strict((int16_t)xy0, (int16_t)(xy0 >> 16),
                                          (int16_t)xy1, (int16_t)(xy1 >> 16), (int16_t)xy2, (int16_t)(xy2 >> 16)))
                                      continue;
@@ -212,7 +212,7 @@ index c05252c..f901a3d 100644
                              int needs_clip = projection_flags != 0;
                              if (!needs_clip) {
                                  int min_x=(int16_t)xy0,max_x=min_x,min_y=(int16_t)(xy0>>16),max_y=min_y;
-@@ -3140,6 +3191,11 @@ static void __attribute__((noinline)) cache_world_visibility(
+@@ -3144,6 +3195,11 @@ static void __attribute__((noinline)) cache_world_visibility(
                                  needs_clip=max_x-min_x>1020 || max_y-min_y>508 ||
                                      (!authored_floor_face(ent,face) && (max_x-min_x>64 || max_y-min_y>64) && max_z-min_z>min_z/8);
                              }
@@ -225,10 +225,10 @@ index c05252c..f901a3d 100644
                              if (needs_clip) static_cache->needs_safe_clip = 1;
                              s_static_visible_triangles[static_triangle_offset + static_cache->visible_triangle_count++] = ti;
 diff --git a/tests/Ps1GpuClippingTests.c b/tests/Ps1GpuClippingTests.c
-index 672be30..92d60e3 100644
+index 65b7688..6834394 100644
 --- a/tests/Ps1GpuClippingTests.c
 +++ b/tests/Ps1GpuClippingTests.c
-@@ -35,5 +35,33 @@ int main(void) {
+@@ -48,5 +48,33 @@ int main(void) {
            "GTE division saturation must still clip");
      check(!ps1_projection_vertex_needs_clip(0, 100, 2, 5000, 160),
            "Valid depth must remain eligible");

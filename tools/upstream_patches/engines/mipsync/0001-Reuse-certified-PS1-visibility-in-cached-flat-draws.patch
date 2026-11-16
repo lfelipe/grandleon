@@ -4,9 +4,13 @@ Date: Tue, 10 Nov 2026 17:45:41 -0800
 Subject: [PATCH] Reuse certified PS1 visibility in cached flat draws
 
 The static visibility list has already validated face indices, depth and strict winding. Reuse that classification while submitting its safe triangles and native pairs, keeping the original checks for uncached projections. Preserve the combined quad GPU bounds test: two individually safe triangles can still form an oversized native quad.
+---
+ templates/ps1/starter/runtime/render.c | 26 +++++++++++++++-----------
+ tests/Ps1GpuClippingTests.c            | 13 +++++++++++++
+ 2 files changed, 28 insertions(+), 11 deletions(-)
 
 diff --git a/templates/ps1/starter/runtime/render.c b/templates/ps1/starter/runtime/render.c
-index c05252cd3d00c195cfcae31553825b232aa97365..ff55f5adeab4e005ba7196a55641fe90f07fe60d 100644
+index c05252c..ff55f5a 100644
 --- a/templates/ps1/starter/runtime/render.c
 +++ b/templates/ps1/starter/runtime/render.c
 @@ -2170,6 +2170,7 @@ typedef struct {
@@ -96,7 +100,7 @@ index c05252cd3d00c195cfcae31553825b232aa97365..ff55f5adeab4e005ba7196a55641fe90
              continue;
  
 diff --git a/tests/Ps1GpuClippingTests.c b/tests/Ps1GpuClippingTests.c
-index 672be3072b3b6579dd008caf3da87283d5b7a00f..65b7688e610f4f515b527207a5bea53022f3b1d9 100644
+index 672be30..65b7688 100644
 --- a/tests/Ps1GpuClippingTests.c
 +++ b/tests/Ps1GpuClippingTests.c
 @@ -22,6 +22,19 @@ int main(void) {

@@ -1,4 +1,4 @@
-From b47cef960aa9cb6f9cf251dc589e5994c6b55197 Mon Sep 17 00:00:00 2001
+From 53907ecd2b47b8be349b1d2fb9ef4b85172629b4 Mon Sep 17 00:00:00 2001
 From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
 Date: Sat, 14 Nov 2026 21:45:20 -0800
 Subject: [PATCH] Add opt-in PS1 entity packet reuse hooks
@@ -7,15 +7,74 @@ Let applications retain immutable entity commands while preserving the renderer'
 
 Provide a portable fragment helper that rebases internal DMA links and joins each bucket to its current predecessor. Cover malformed chains, shared ownership, overlapping copies, payload preservation and repeated buffer swaps with a portable PS1 test.
 ---
- src/CMakeLists.txt                            |  3 +
- .../ps1/starter/runtime/packet_fragment.h     | 93 ++++++++++++++++++
- templates/ps1/starter/runtime/render.c        | 19 ++++
- templates/ps1/starter/runtime/render.h        | 18 ++++
- tests/Ps1PacketFragmentTests.c                | 95 +++++++++++++++++++
- 5 files changed, 228 insertions(+)
+ docs/PS1PacketReuse.md                        |  51 +++++++
+ src/CMakeLists.txt                            |   3 +
+ .../ps1/starter/runtime/packet_fragment.h     |  93 +++++++++++++
+ templates/ps1/starter/runtime/render.c        |  19 +++
+ templates/ps1/starter/runtime/render.h        |  18 +++
+ tests/Ps1PacketFragmentTests.c                | 127 ++++++++++++++++++
+ 6 files changed, 311 insertions(+)
+ create mode 100644 docs/PS1PacketReuse.md
  create mode 100644 templates/ps1/starter/runtime/packet_fragment.h
  create mode 100644 tests/Ps1PacketFragmentTests.c
 
+diff --git a/docs/PS1PacketReuse.md b/docs/PS1PacketReuse.md
+new file mode 100644
+index 0000000..dc81995
+--- /dev/null
++++ b/docs/PS1PacketReuse.md
+@@ -0,0 +1,51 @@
++# Reusing PS1 entity packets
++
++The normal renderer regenerates entity commands on every draw. A custom
++project renderer can retain unchanged commands by defining
++`PS1_RENDER_ENTITY_PACKET_HOOKS=1` when compiling the runtime and providing
++the two callbacks declared in `render.h`. The default is disabled: ordinary
++projects need no callbacks and retain the existing drawing path.
++
++`ps1_render_entity_packet_replay` runs at the entity's normal submission
++position. Return a negative value for a cache miss and leave the ordering
++table and packet cursor unchanged. On a hit, append the complete fragment,
++advance the cursor, update the relevant ordering-table buckets, and return
++the number of primitives submitted. Zero is a valid cached empty draw.
++
++On a miss, the normal renderer draws the entity, then calls
++`ps1_render_entity_packet_capture` with the exact emitted packet range.
++Capture can decline to retain a draw. It must not alter emitted commands or
++their submission order, and must not retain pointers beyond the source
++buffer's lifetime.
++
++The application owns its cache and invalidation rules. Include every input
++that can affect emitted commands: camera and projection, transforms, mesh
++and animation, materials and texture residency, lighting, fog and viewmodel
++state. A matching entity pointer alone does not prove a cache hit. Do not
++overwrite packet memory while the GPU is still consuming it.
++
++## Packet fragments
++
++`packet_fragment.h` provides helpers without choosing a cache policy or
++allocating storage:
++
++- `ps1_packet_fragment_capture` discovers the bucket-local chains owned by
++  one contiguous packet range. Supply a bitset of at least
++  `(words + 31) / 32` words and enough bucket entries. It rejects truncated
++  packets, payload links, cycles, shared ownership and unreachable headers.
++  Check its return value before using the entries.
++- `ps1_packet_fragment_copy` copies a validated fragment, relocates internal
++  DMA links, and attaches its tails to the current ordering-table heads.
++  Unowned buckets stay unchanged. The caller must check destination capacity
++  and aligned 24-bit DMA ranges. Source packets and captured entries must
++  remain valid; this hot-path function does not revalidate them.
++
++Separate buffers and downward overlapping copies are supported. Upward
++overlap is not. When CPU storage and DMA base are both unchanged, the helper
++retains payload and internal links and only rejoins the current frame's
++bucket predecessors. Equal DMA bases with different CPU buffers still copy;
++changing the DMA base still relocates links.
++
++The hooks do not reserve packet memory or increase the renderer's cache
++capacities. Measure the cache's memory use and hit rate for the project;
++dynamic entities can simply keep using normal drawing.
 diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
 index 69a3c86..dafe141 100644
 --- a/src/CMakeLists.txt
@@ -197,10 +256,10 @@ index 3635b45..e6a3eb8 100644
  void ps1_render_frame(uint32_t* ot, char** nextpri, const char* packet_end);
 diff --git a/tests/Ps1PacketFragmentTests.c b/tests/Ps1PacketFragmentTests.c
 new file mode 100644
-index 0000000..ea23a1a
+index 0000000..aa34679
 --- /dev/null
 +++ b/tests/Ps1PacketFragmentTests.c
-@@ -0,0 +1,95 @@
+@@ -0,0 +1,127 @@
 +#include <stdio.h>
 +#include <stdlib.h>
 +#include <string.h>
@@ -292,6 +351,38 @@ index 0000000..ea23a1a
 +        uint32_t packet=0x00ffffffu, table[1]={0xfffffcu};
 +        check(ps1_packet_fragment_capture(&packet,1,0xfffffcu,table,1,entries,4,scratch,2,&count),
 +              "The DMA terminator stays a terminator at the 24-bit boundary");
++    }
++    {
++        const size_t words = PS1_PACKET_FRAGMENT_MAX_WORDS;
++        uint32_t* source = malloc(words * sizeof *source);
++        uint32_t* target = malloc(words * sizeof *target);
++        uint32_t* heads = malloc(65536u * sizeof *heads);
++        uint32_t* bits = malloc(((words + 31u) / 32u) * sizeof *bits);
++        ps1_packet_fragment_bucket boundary;
++        check(source && target && heads && bits, "Boundary test storage is available");
++        for (size_t i = 0; i < words; ++i)
++            source[i] = i ? 0x4000u + (uint32_t)(i - 1u) * 4u : 0xffffffu;
++        for (size_t i = 0; i < 65536u; ++i) heads[i] = 0xffffffu;
++        heads[65535] = 0x4000u + (uint32_t)(words - 1u) * 4u;
++        check(ps1_packet_fragment_capture(source, words, 0x4000u, heads, 65536u,
++                  &boundary, 1, bits, (words + 31u) / 32u, &count),
++              "The largest representable fragment and bucket are supported");
++        check(count == 1 && boundary.bucket == 65535u &&
++                  boundary.head == 65535u && boundary.tail == 0,
++              "Maximum header and bucket offsets do not wrap");
++        heads[65535] = 0xb000u;
++        ps1_packet_fragment_copy(target, source, words, 0x4000u, 0x80000u,
++                                 heads, &boundary, count);
++        check(heads[65535] == 0xbfffcu && target[0] == 0xb000u &&
++                  target[65535] == 0xbfff8u,
++              "The largest fragment relocates and rejoins its predecessor");
++        check(!ps1_packet_fragment_capture(source, words, 0x4000u, heads, 65537u,
++                  &boundary, 1, bits, (words + 31u) / 32u, &count),
++              "Bucket indices beyond the compact representation are refused");
++        free(bits);
++        free(heads);
++        free(target);
++        free(source);
 +    }
 +    puts("PS1 packet-fragment tests passed");
 +    return 0;
