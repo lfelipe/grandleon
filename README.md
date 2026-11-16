@@ -222,8 +222,10 @@ touch controls and portable campaign exports. On phones, the board fills the
 screen and actions appear when a unit is selected. Language and audio are in
 Settings; Create/Edit remains available. See the
 [Android build instructions](docs/SETUP.md#android-development-build-for-06).
-Phone and tablet testing is still in progress. Building N64 and PS1 games
-continues to require the PC editor.
+Editor forms scroll to keep fields visible while typing, and Android’s file
+picker saves and opens editable projects with accented names. Phone and tablet
+layouts pass emulator checks; physical-device acceptance is still in progress.
+Building N64 and PS1 games continues to require the PC editor.
 
 Importing external artwork may be explored later, but it is not part of the
 current roadmap commitment.
