@@ -94,6 +94,10 @@ func run() -> void:
 		root.add_child(guide)
 		current_scene = guide
 		await settle()
+		check(guide.campaign_solo_button.text.ends_with("1P"), language + " adventure button preserves 1P")
+		check(guide.campaign_coop_button.text.ends_with("2P"), language + " adventure button preserves 2P")
+		check(guide.solo_button.text.ends_with("1P"), language + " battle button preserves 1P")
+		check(guide.coop_button.text.ends_with("2P"), language + " battle button preserves 2P")
 		for density: float in [2.625, 3.6, 1.0]:
 			Layout.apply_tree(guide, Layout.metrics(density))
 			await settle()
