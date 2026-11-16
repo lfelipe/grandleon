@@ -302,6 +302,50 @@ func _run() -> void:
 	_expect("radius editing is undoable", editor.undo_stack.size(), visibility_history + 1)
 	editor._clear_visibility()
 	_expect("clearing visibility removes the optional source object", _parse(editor.source).maps[0].has("visualVisibility"), false)
+	var before_visibility_rectangle: String = editor.source
+	var rectangle_undo_count: int = editor.undo_stack.size()
+	var visibility_width := int(_parse(editor.source).maps[0].width)
+	editor._begin_visibility_paint(true)
+	editor._paint_cell(visibility_width + 2)
+	_expect("first rectangle corner does not edit the project", editor.source, before_visibility_rectangle)
+	_expect("rectangle anchor is visibly labelled", editor.grid.get_child(visibility_width + 2).get_node("VisibilityRectangleCorner").text, "CORNER")
+	editor._paint_cell(0)
+	_expect("reverse-order corners cover a complete six-cell rectangle", _parse(editor.source).maps[0].visualVisibility.hiddenCells.size(), 6)
+	_expect("the entire rectangle is one undo step", editor.undo_stack.size(), rectangle_undo_count + 1)
+	_expect("covering a room does not repaint its terrain", _parse(editor.source).maps[0].terrain, _parse(before_visibility_rectangle).maps[0].terrain)
+	editor._undo()
+	_expect("one undo removes the complete room cover", editor.source, before_visibility_rectangle)
+	editor._redo()
+	_expect("redo restores all room cover cells", _parse(editor.source).maps[0].visualVisibility.hiddenCells.size(), 6)
+	var visibility_screenshot := _argument_path("--visibility-screenshot=")
+	if not visibility_screenshot.is_empty():
+		await process_frame
+		await process_frame
+		await RenderingServer.frame_post_draw
+		get_root().get_texture().get_image().save_png(visibility_screenshot)
+	var unrelated_covered_cell: int = _parse(editor.source).maps[0].terrain.size() - 1
+	editor._begin_visibility_paint()
+	editor._paint_cell(unrelated_covered_cell)
+	editor._begin_visibility_paint(true)
+	editor._paint_cell(0)
+	editor._paint_cell(visibility_width + 2)
+	_expect("removing a rectangle preserves unrelated covered cells", _parse(editor.source).maps[0].visualVisibility.hiddenCells.size(), 1)
+	editor._begin_visibility_paint()
+	editor._paint_cell(unrelated_covered_cell)
+	_expect("clearing the last covered cell removes the optional source object", _parse(editor.source).maps[0].has("visualVisibility"), false)
+	editor._begin_visibility_paint(true)
+	editor._paint_cell(0)
+	var cancel_rectangle := InputEventAction.new()
+	cancel_rectangle.action = "ui_cancel"
+	cancel_rectangle.pressed = true
+	editor._unhandled_input(cancel_rectangle)
+	_expect("cancel abandons the first corner without an edit", editor.rectangle_anchor, -1)
+	_expect("cancel keeps the rectangle tool available", editor.active_tool, "visibility")
+	_expect("cancel does not author a partial rectangle", _parse(editor.source).maps[0].has("visualVisibility"), false)
+	editor._paint_cell(0)
+	editor._select_tool("brush")
+	_expect("switching tools removes the pending corner marker", editor.grid.get_child(0).has_node("VisibilityRectangleCorner"), false)
+
 	editor.interior_visibility_layer.visible = false
 	editor.setup_layer.visible = false
 	editor._select_tool("brush")

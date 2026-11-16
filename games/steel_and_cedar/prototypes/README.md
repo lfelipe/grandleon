@@ -23,6 +23,11 @@ the Godot player. The review test below produces both archives and screenshots:
 platform/godot/scripts/check-castle-expansion.sh
 ```
 
+In **Map & Battle → Interior Visibility → Cover a rectangle**, select two
+opposite corners to mark a room in one edit. Repeat a fully covered rectangle
+to uncover it, or use individual cells to refine an edge. Each room can be undone
+with one press.
+
 This prototype does not replace Steel and Cedar. Console export needs further
 work: the N64 currently reserves space for 280 cells, and both console castle
 paths assume the existing six-by-six keep. The prototype has 768 cells and

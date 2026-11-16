@@ -279,9 +279,16 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   starts and accepts real doorway movement in Godot in both player modes. Its
   three chambers use 170 individually revealed roof cells, with an open court
   and split co-op approaches. The existing demo remains unchanged.
+  The editor can now mark or unmark whole room rectangles with two corner
+  selections and a single undo step; the 170-cell castle masks save and play
+  in both player modes. See the [room authoring checks](tools/renderer_comparison/castle-room-authoring-06.json).
 - [ ] Support larger maps across all three players, beginning with the 32×24
   prototype. Replace N64's 280-cell fixed render allocations with measured,
   appropriately sized buffers or visible pages while retaining base 4 MiB.
+  Ground/roof arenas now grow with loaded maps, and movement highlights grow
+  with the legal range. The current five-stage N64 review saves 76.5 KiB of
+  highlight storage; the exported cell limit remains 280 pending larger-map
+  rendering and memory validation. See the [N64 memory review](tools/renderer_comparison/n64-map-buffers-06.json).
   Generalize console castle geometry and per-cell room reveals; neither a
   larger source map nor a Godot capture proves console readiness. Extend
   editor previews, export budgets and scrolling checks alongside this work.

@@ -1931,7 +1931,7 @@
     "map.visibility.help": "Pinta habitaciones u otras zonas que deban empezar cubiertas visualmente. Las unidades aliadas descubren las casillas marcadas cercanas al entrar y las casillas exploradas permanecen visibles durante esta batalla. Es solo un efecto visual: no cambia el movimiento, los objetivos, la IA ni la selección de blancos.",
     "map.visibility.summary": "{count} CASILLAS CUBIERTAS",
     "map.visibility.radius": "RADIO DE REVELADO  /  {radius}",
-    "map.visibility.paint": "PINTAR CASILLAS CUBIERTAS EN EL MAPA",
+    "map.visibility.paint": "PINTAR CASILLAS",
     "map.visibility.clear": "BORRAR TODAS LAS CASILLAS CUBIERTAS",
     "map.visibility.cell_badge": "CUBIERTA",
     "map.visibility.cell_tooltip": "Empieza cubierta visualmente; entra en la zona para revelarla.",
@@ -2059,6 +2059,12 @@
     "catalog.updated_fresh": "Actualizado. Empieza una nueva partida; se han conservado las partidas anteriores.",
     "player.recovery.restoring": "Restaurando la batalla…",
     "player.recovery.unavailable": "No se pudo restaurar la batalla interrumpida. Se conservó su archivo de recuperación; se cargará el punto de control de la campaña.",
-    "player.recovery.save_failed": "No se pudo guardar la batalla actual. Las partidas guardadas anteriores no han cambiado."
+    "player.recovery.save_failed": "No se pudo guardar la batalla actual. Las partidas guardadas anteriores no han cambiado.",
+    "map.visibility.rectangle": "CUBRIR RECTÁNGULO",
+    "map.visibility.rectangle_ready": "ELIGE DOS ESQUINAS; REPITE PARA DESCUBRIR",
+    "map.visibility.corner": "ESQUINA",
+    "map.visibility.rectangle_added": "{count} CASILLAS EMPEZARÁN CUBIERTAS",
+    "map.visibility.rectangle_removed": "{count} CASILLAS EMPEZARÁN VISIBLES",
+    "map.back_setup": "VOLVER A CONFIGURACIÓN"
   }
 }

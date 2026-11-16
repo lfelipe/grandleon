@@ -23,4 +23,8 @@ if [[ -z "${DISPLAY:-}" ]]; then runner=(xvfb-run -a -s '-screen 0 1600x1000x24'
 cat "$output/test.log"
 if rg -q 'SCRIPT ERROR:|^ERROR:|Parse Error:|CASTLE_EXPANSION_FAIL' "$output/test.log"; then exit 1; fi
 rg -q 'CASTLE_EXPANSION_PASS' "$output/test.log"
+"${runner[@]}" timeout 120s "$godot" --path "$app" --script "$root/platform/godot/tests/castle_room_authoring_test.gd" -- --source="$output/project.json" --output="$output" > "$output/authoring.log" 2>&1
+cat "$output/authoring.log"
+if rg -q 'SCRIPT ERROR:|^ERROR:|Parse Error:|CASTLE_ROOM_AUTHORING_FAIL' "$output/authoring.log"; then exit 1; fi
+rg -q 'CASTLE_ROOM_AUTHORING_PASS' "$output/authoring.log"
 echo "Prototype archives and captures: $output"

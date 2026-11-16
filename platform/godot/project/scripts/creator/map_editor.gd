@@ -216,6 +216,7 @@ var visibility_help_label: Label
 var visibility_radius_label: Label
 var visibility_summary_label: Label
 var visibility_radius := 2
+var visibility_rectangle := false
 var board_panel: PanelContainer
 var setup_button: Button
 var setup_layer: Control
@@ -315,6 +316,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			_cancel_deployment_edit()
 		elif patrol_editing:
 			_cancel_patrol_edit()
+		elif active_tool == "visibility" and visibility_rectangle and rectangle_anchor >= 0:
+			var anchor := rectangle_anchor
+			rectangle_anchor = -1
+			_refresh_grid(anchor)
+			_set_status(_t("map.visibility.rectangle_ready"), false)
 		else:
 			_request_projects()
 		if viewport != null: viewport.set_input_as_handled()
@@ -697,8 +703,11 @@ func _select_tool(name: String) -> void:
 				if str(landmark_select.get_item_metadata(index)) == name:
 					landmark_select.select(index)
 					landmark_select.tooltip_text = _t(str(LANDMARKS[name].label_key))
+	var clear_visibility_corner := active_tool == "visibility" and visibility_rectangle and rectangle_anchor >= 0
 	active_tool = name
 	rectangle_anchor = -1
+	if clear_visibility_corner:
+		_refresh_grid()
 	selected_placement_id = ""
 	if name != "add_unit":
 		pending_placement = {}
@@ -825,7 +834,7 @@ func _refresh_grid(focus_index := -1) -> void:
 					outer_x, outer_y, width, height, outside_depth
 				):
 					outside_name = str(outside.get("terrainId", selected_terrain))
-				var outside_cell := _button("", tile_size, tile_size)
+				var outside_cell := _map_tile_button(tile_size)
 				outside_cell.mouse_filter = Control.MOUSE_FILTER_IGNORE if mobile_pan_mode else Control.MOUSE_FILTER_STOP
 				outside_cell.set_meta("mobile_tile", true)
 				outside_cell.icon = _terrain_icon(outside_name, 255)
@@ -840,7 +849,7 @@ func _refresh_grid(focus_index := -1) -> void:
 				continue
 			var index := outer_y * width + outer_x
 			var name := str(terrain[index]) if index < terrain.size() else "grass"
-			var cell := _button("", tile_size, tile_size)
+			var cell := _map_tile_button(tile_size)
 			cell.mouse_filter = Control.MOUSE_FILTER_IGNORE if mobile_pan_mode else Control.MOUSE_FILTER_STOP
 			cell.set_meta("mobile_tile", true)
 			cell.icon = _terrain_icon(name, _terrain_mask(index, width, height, terrain))
@@ -857,6 +866,15 @@ func _refresh_grid(focus_index := -1) -> void:
 			})
 			if visibility_cells.has(index):
 				_add_visibility_marker(cell, tile_size)
+			if active_tool == "visibility" and visibility_rectangle and index == rectangle_anchor:
+				var corner := _label(_t("map.visibility.corner"), clampi(tile_size / 7, 7, 12), Color("e3ccff"))
+				corner.name = "VisibilityRectangleCorner"
+				corner.position = Vector2(1, 1)
+				corner.size = Vector2(tile_size - 2, 16)
+				corner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				corner.clip_text = true
+				corner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				cell.add_child(corner)
 			_add_playable_boundary(cell, outer_x, outer_y, width, height, tile_size)
 			if not landmark.is_empty() and landmark.anchor == Vector2i(outer_x, outer_y):
 				_add_landmark_badge(cell, str(landmark.kind), tile_size)
@@ -1179,9 +1197,10 @@ func _add_visibility_marker(cell: Button, tile_size: int) -> void:
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cell.add_child(shade)
-	var label := _label(_t("map.visibility.cell_badge"), 9, Color("d6c8ff"))
+	var label := _label("●" if tile_size < 48 else _t("map.visibility.cell_badge"), 9, Color("d6c8ff"))
 	label.position = Vector2(4, tile_size - 22)
-	label.size = Vector2(maxi(28, tile_size - 8), 18)
+	label.size = Vector2(maxi(1, tile_size - 8), 18)
+	label.clip_text = true
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cell.add_child(label)
@@ -1297,7 +1316,10 @@ func _paint_cell(index: int) -> void:
 	elif active_tool == "talk":
 		_toggle_placement_talk_at(index, width)
 	elif active_tool == "visibility":
-		_toggle_visibility_cell(index)
+		if visibility_rectangle:
+			_visibility_rectangle_at(index, width)
+		else:
+			_toggle_visibility_cell(index)
 	elif active_tool == "unit":
 		_move_unit_at(index, width)
 	elif LANDMARKS.has(active_tool):
@@ -3896,10 +3918,13 @@ func _close_visibility() -> void:
 	tool_buttons["visibility"].call_deferred("grab_focus")
 
 
-func _begin_visibility_paint() -> void:
+func _begin_visibility_paint(rectangle := false) -> void:
 	interior_visibility_layer.visible = false
 	setup_layer.visible = false
 	_select_tool("visibility")
+	visibility_rectangle = rectangle
+	if rectangle:
+		_set_status(_t("map.visibility.rectangle_ready"), false)
 
 
 func _change_visibility_radius(delta: int) -> void:
@@ -3918,6 +3943,29 @@ func _clear_visibility() -> void:
 		return
 	_apply_visual_visibility([], -1, _t("map.visibility.cleared"))
 	_update_visibility_summary()
+
+
+func _visibility_rectangle_at(index: int, width: int) -> void:
+	if rectangle_anchor < 0:
+		rectangle_anchor = index
+		_refresh_grid(index)
+		_set_status(_t("map.rectangle.choose_corner"), false)
+		return
+	var cells := _visibility_cells(_current_map())
+	var area: Array[int] = []
+	for y in range(mini(rectangle_anchor / width, index / width), maxi(rectangle_anchor / width, index / width) + 1):
+		for x in range(mini(rectangle_anchor % width, index % width), maxi(rectangle_anchor % width, index % width) + 1):
+			area.append(y * width + x)
+	var remove := area.all(func(cell): return cells.has(cell))
+	for cell: int in area:
+		if remove: cells.erase(cell)
+		elif not cells.has(cell): cells.append(cell)
+	cells.sort()
+	rectangle_anchor = -1
+	_apply_visual_visibility(cells, index, _t(
+		"map.visibility.rectangle_removed" if remove else "map.visibility.rectangle_added",
+		{"count": area.size()}
+	))
 
 
 func _toggle_visibility_cell(index: int) -> void:
@@ -6281,9 +6329,15 @@ func _build_visibility_overlay() -> void:
 	var radius_plus := _button("+", 100, 60)
 	radius_plus.pressed.connect(_change_visibility_radius.bind(1))
 	radius_row.add_child(radius_plus)
-	var paint := _button(_t("map.visibility.paint"), 880, 68)
+	var paint_row := HBoxContainer.new()
+	paint_row.add_theme_constant_override("separation", 12)
+	column.add_child(paint_row)
+	var paint := _button(_t("map.visibility.paint"), 434, 68)
 	paint.pressed.connect(_begin_visibility_paint)
-	column.add_child(paint)
+	paint_row.add_child(paint)
+	var rectangle := _button(_t("map.visibility.rectangle"), 434, 68)
+	rectangle.pressed.connect(_begin_visibility_paint.bind(true))
+	paint_row.add_child(rectangle)
 	var clear := _button(_t("map.visibility.clear"), 880, 62)
 	clear.pressed.connect(_clear_visibility)
 	column.add_child(clear)
@@ -6413,6 +6467,20 @@ func _label(value: String, size: int, colour: Color) -> Label:
 	label.add_theme_font_size_override("font_size", size)
 	label.add_theme_color_override("font_color", colour)
 	return label
+
+
+func _map_tile_button(tile_size: int) -> Button:
+	var button := _button("", tile_size, tile_size)
+	# Toolbar margins consume almost all of a small tile on a larger map.
+	# Keep the terrain artwork readable in both the board and its apron.
+	for state: String in ["normal", "hover", "pressed", "focus", "disabled"]:
+		var style: StyleBox = button.get_theme_stylebox(state).duplicate()
+		style.content_margin_left = 2
+		style.content_margin_right = 2
+		style.content_margin_top = 2
+		style.content_margin_bottom = 2
+		button.add_theme_stylebox_override(state, style)
+	return button
 
 
 func _button(value: String, width: int, height: int) -> Button:

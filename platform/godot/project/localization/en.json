@@ -1931,7 +1931,7 @@
     "map.visibility.help": "Paint rooms or other areas that should begin visually covered. Friendly units uncover nearby marked cells after entering them, and explored cells stay visible for this battle. This is a visual effect only: movement, targeting, AI and objectives do not change.",
     "map.visibility.summary": "{count} COVERED CELLS",
     "map.visibility.radius": "REVEAL RADIUS  /  {radius}",
-    "map.visibility.paint": "PAINT COVERED CELLS ON THE MAP",
+    "map.visibility.paint": "PAINT SINGLE CELLS",
     "map.visibility.clear": "CLEAR ALL COVERED CELLS",
     "map.visibility.cell_badge": "COVERED",
     "map.visibility.cell_tooltip": "Begins visually covered; enter the area to reveal it.",
@@ -2059,6 +2059,12 @@
     "catalog.updated_fresh": "Updated. Start a new game; previous saves have been kept.",
     "player.recovery.restoring": "Restoring your battle…",
     "player.recovery.unavailable": "The interrupted battle could not be restored. Its recovery file was kept; the campaign checkpoint will be loaded instead.",
-    "player.recovery.save_failed": "The current battle could not be saved. Earlier saves are unchanged."
+    "player.recovery.save_failed": "The current battle could not be saved. Earlier saves are unchanged.",
+    "map.visibility.rectangle": "COVER A RECTANGLE",
+    "map.visibility.rectangle_ready": "CHOOSE TWO CORNERS; REPEAT TO UNCOVER",
+    "map.visibility.corner": "CORNER",
+    "map.visibility.rectangle_added": "{count} CELLS WILL BEGIN COVERED",
+    "map.visibility.rectangle_removed": "{count} CELLS WILL BEGIN VISIBLE",
+    "map.back_setup": "BACK TO SETUP"
   }
 }

@@ -1,0 +1,38 @@
+{
+  "schema": "grandleon.castle-room-authoring.v1",
+  "date": "2026-11-15",
+  "feature": "Interior Visibility can cover a rectangle with two corner selections. Selecting a fully covered rectangle uncovers it. Each complete rectangle is one undoable native edit.",
+  "smoke": "out/editor-room-rectangle06/final-smoke.log: map editor smoke passed",
+  "checks": [
+    "First corner does not modify source.",
+    "Corners may be selected in either order.",
+    "One undo/redo handles the complete rectangle.",
+    "Other covered areas survive rectangle removal.",
+    "Cancel and changing tools discard the pending corner.",
+    "Terrain and other campaign content stay unchanged.",
+    "Real 32\u00d724 Three Courts project: six corner selections recreate its 170 authored hidden cells.",
+    "Saved edited project compiles and reaches native visibility metadata in both 1P and 2P.",
+    "English and Brazilian Portuguese actual rendered editor runs pass."
+  ],
+  "logs": [
+    "out/editor-room-rectangle06/final-large-en.log",
+    "out/editor-room-rectangle06/final-large-pt.log",
+    "out/editor-room-rectangle06/localization.log"
+  ],
+  "rendered_review": [
+    "out/editor-room-rectangle06/final-en/room-controls.png",
+    "out/editor-room-rectangle06/final-en/room-authoring.png",
+    "out/editor-room-rectangle06/final-pt/room-controls.png"
+  ],
+  "additional_fixes": [
+    "Map tile icon padding no longer consumes the artwork on large maps.",
+    "Small covered cells use compact dots rather than overlapping labels.",
+    "Corner label is an overlay so it cannot widen a grid column.",
+    "Back to Setup label is translated in all three editor languages."
+  ],
+  "reproduce": "platform/godot/scripts/check-castle-expansion.sh build-godot out/castle-room-review",
+  "limits": [
+    "This validates desktop rendering and native authoring/player paths, not a new physical Android-device acceptance run.",
+    "Large multi-room console rendering remains pending; this does not lift the N64 export limit."
+  ]
+}
