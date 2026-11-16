@@ -2143,6 +2143,9 @@
     "army.personal.weapon_needs_affinity": "{weapon} requiere {family}. Selecciona esa afinidad o cambia las armas iniciales.",
     "army.guide.names_needed": "Dale un nombre al héroe y a su rol antes de crearlo.",
     "map.encounter.choose": "Elige una batalla para editar y probar",
-    "map.test_battle_tooltip": "Guarda los cambios y prueba la batalla seleccionada. Al terminar, vuelve aquí."
+    "map.test_battle_tooltip": "Guarda los cambios y prueba la batalla seleccionada. Al terminar, vuelve aquí.",
+    "map.placement.joins_after": "Se une después de {stage}. Solo aparece tras su incorporación.",
+    "first_battle.hero_joins_after": "{name} se une después de {stage}.",
+    "map.test_battle": "PROBAR BATALLA"
   }
 }

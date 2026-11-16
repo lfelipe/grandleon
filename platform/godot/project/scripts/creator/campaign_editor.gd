@@ -2,6 +2,7 @@
 extends Control
 
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
+const CampaignRoster = preload("res://scripts/creator/campaign_roster.gd")
 const CampaignReadiness = preload("res://scripts/creator/campaign_readiness.gd")
 const ProjectContentDependencyIndex = preload(
 	"res://scripts/creator/project_content_dependency_index.gd"
@@ -1688,7 +1689,7 @@ func _talk_placement_name(placement: Dictionary) -> String:
 	if not authored_name.is_empty():
 		return authored_name
 	var member_id := str(placement.get("memberId", ""))
-	for value: Variant in campaign.get("roster", []):
+	for value: Variant in CampaignRoster.members(campaign):
 		if value is Dictionary and str(value.get("id", "")) == member_id:
 			return str(value.get("name", _t("campaign.fallback.character")))
 	return _unit_type_name(str(placement.get("unitTypeId", "")))

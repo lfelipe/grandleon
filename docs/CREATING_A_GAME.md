@@ -62,7 +62,9 @@ corners, then reveal nearby floor as characters explore it.
 ![Painting terrain and arranging a battlefield](screenshots/native-guide/02-shape-a-battle.gif)
 
 Use **Place Heroes and Extras** to choose a named ally or an enemy archetype,
-then choose its starting tile. Under **Battle Setup**, you can also arrange
+then choose its starting tile. Heroes who join later are listed with their
+join stage; a placement appears in the full campaign only after that hero
+has joined. Under **Battle Setup**, you can also arrange
 reinforcements, patrols and the differences between solo and co-op forces.
 Choose the battle's goal, then use **Test 1 Player** or **Test 2 Players** from
 the guide. The player returns to the same editing workflow afterwards.

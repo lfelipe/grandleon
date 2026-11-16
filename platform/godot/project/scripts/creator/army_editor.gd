@@ -2,6 +2,7 @@
 extends Control
 
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
+const CampaignRoster = preload("res://scripts/creator/campaign_roster.gd")
 const ArtLibrary = preload("res://scripts/art_library.gd")
 const ProjectContentDependencyIndex = preload(
 	"res://scripts/creator/project_content_dependency_index.gd"
@@ -280,18 +281,9 @@ func _member_location_for_unit(unit_type_id: String) -> Dictionary:
 		if not campaigns[index] is Dictionary:
 			continue
 		var candidate: Dictionary = campaigns[index]
-		for member_value: Variant in candidate.get("roster", []):
-			if member_value is Dictionary and str(member_value.get("unitTypeId", "")) == unit_type_id:
+		for member_value: Dictionary in CampaignRoster.members(candidate):
+			if str(member_value.get("unitTypeId", "")) == unit_type_id:
 				return {"campaign_index": index, "member_id": str(member_value.get("id", ""))}
-		var flow: Variant = candidate.get("flow", {})
-		if not flow is Dictionary:
-			continue
-		for node_value: Variant in flow.get("nodes", []):
-			if not node_value is Dictionary:
-				continue
-			for member_value: Variant in node_value.get("recruits", []):
-				if member_value is Dictionary and str(member_value.get("unitTypeId", "")) == unit_type_id:
-					return {"campaign_index": index, "member_id": str(member_value.get("id", ""))}
 	return {}
 
 
@@ -356,31 +348,12 @@ func _refresh_campaigns(preferred_member_id := "") -> void:
 
 
 func _collect_members() -> void:
-	members.clear()
-	var campaign := _current_campaign()
-	for value: Variant in campaign.get("roster", []):
-		if value is Dictionary:
-			var member: Dictionary = value.duplicate(true)
-			member["join_node_id"] = ""
-			member["join_label"] = _t("army.join.starting_company")
-			members.append(member)
-	var flow: Variant = campaign.get("flow", {})
-	if not flow is Dictionary:
-		return
-	for node_value: Variant in flow.get("nodes", []):
-		if not node_value is Dictionary:
-			continue
-		var node: Dictionary = node_value
-		for value: Variant in node.get("recruits", []):
-			if value is Dictionary:
-				var recruit: Dictionary = value.duplicate(true)
-				recruit["join_node_id"] = str(node.get("id", ""))
-				recruit["join_label"] = _t("army.join.after", {
-					"chapter": str(node.get(
-						"name", node.get("id", _t("army.fallback.chapter"))
-					)).to_upper(),
-				})
-				members.append(recruit)
+	members = CampaignRoster.members(_current_campaign())
+	for member: Dictionary in members:
+		member["join_label"] = (
+			_t("army.join.starting_company") if str(member.join_node_id).is_empty()
+			else _t("army.join.after", {"chapter": str(member.join_node_name).to_upper()})
+		)
 
 
 func _refresh_members() -> void:

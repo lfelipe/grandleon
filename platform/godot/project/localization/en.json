@@ -2143,6 +2143,9 @@
     "army.personal.weapon_needs_affinity": "{weapon} needs {family}. Select that affinity or change the starting weapons.",
     "army.guide.names_needed": "Give this hero and their role a name before creating them.",
     "map.encounter.choose": "Choose a battle to edit and test",
-    "map.test_battle_tooltip": "Saves your changes, then tests the selected battle. Return here when finished."
+    "map.test_battle_tooltip": "Saves your changes, then tests the selected battle. Return here when finished.",
+    "map.placement.joins_after": "Joins after {stage}. Only appears once recruited.",
+    "first_battle.hero_joins_after": "{name} joins after {stage}.",
+    "map.test_battle": "TEST BATTLE"
   }
 }

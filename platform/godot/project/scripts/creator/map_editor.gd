@@ -4,6 +4,7 @@ extends Control
 const SceneryStyle = preload("res://scripts/scenery_style.gd")
 const ArtLibrary = preload("res://scripts/art_library.gd")
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
+const CampaignRoster = preload("res://scripts/creator/campaign_roster.gd")
 const CampaignEditor = preload("res://scripts/creator/campaign_editor.gd")
 const ProjectContentDependencyIndex = preload(
 	"res://scripts/creator/project_content_dependency_index.gd"
@@ -1604,7 +1605,7 @@ func _member_display_name(member_id: String) -> String:
 	var encounter := _current_encounter()
 	if encounter.is_empty():
 		return ""
-	for value: Variant in encounter.campaign.get("roster", []):
+	for value: Variant in CampaignRoster.members(encounter.campaign):
 		if value is Dictionary and str(value.get("id", "")) == member_id:
 			return str(value.get("name", _t("map.fallback.character")))
 	return ""
@@ -1951,7 +1952,7 @@ func _coop_opening_character() -> Dictionary:
 		for campaign_value: Variant in project.get("campaigns", []):
 			if not campaign_value is Dictionary or str(campaign_value.get("id", "")) != campaign_id:
 				continue
-			for member_value: Variant in campaign_value.get("roster", []):
+			for member_value: Variant in CampaignRoster.members(campaign_value):
 				if member_value is Dictionary and str(member_value.get("id", "")) == member_id:
 					unit_type_id = str(member_value.get("unitTypeId", unit_type_id))
 					display_name = str(member_value.get("name", display_name))
@@ -2812,7 +2813,7 @@ func _refresh_placement_candidates() -> void:
 				if not used.is_empty():
 					used_members.append(used)
 		var campaign: Dictionary = encounter.campaign
-		for member_value: Variant in campaign.get("roster", []):
+		for member_value: Variant in CampaignRoster.members(campaign):
 			if not member_value is Dictionary:
 				continue
 			var member_id := str(member_value.get("id", ""))
@@ -2822,6 +2823,7 @@ func _refresh_placement_candidates() -> void:
 				"name": str(member_value.get("name", member_id)),
 				"unit_type_id": str(member_value.get("unitTypeId", "")),
 				"member_id": member_id,
+				"join_node_name": str(member_value.get("join_node_name", "")),
 				"side": "first",
 			})
 	else:
@@ -2866,6 +2868,9 @@ func _update_placement_candidate() -> void:
 		"current": placement_candidate_index + 1,
 		"total": placement_candidates.size(),
 	})
+	var join_name := str(candidate.get("join_node_name", ""))
+	if not join_name.is_empty():
+		placement_candidate_label.text += "\n" + _t("map.placement.joins_after", {"stage": join_name})
 	placement_candidate_label.text += "\n%s" % _target_impact_summary(1)
 
 
@@ -2962,7 +2967,7 @@ func _refresh_objective_targets() -> void:
 		return
 	var member_names := {}
 	var campaign: Dictionary = encounter.campaign
-	for member_value: Variant in campaign.get("roster", []):
+	for member_value: Variant in CampaignRoster.members(campaign):
 		if member_value is Dictionary:
 			member_names[str(member_value.get("id", ""))] = str(
 				member_value.get("name", member_value.get("id", "Member"))
@@ -4372,7 +4377,7 @@ func _play_draft() -> void:
 	_remember_battle_selection()
 	LaunchContext.stage_package(
 		compiled.package, str(encounter.campaign_id), true, preview_players,
-		"res://map_editor.tscn", str(encounter.node.get("name", _t("map.test")))
+		"res://map_editor.tscn", str(encounter.node.get("name", _t("map.test_battle")))
 	)
 	get_tree().change_scene_to_file("res://main.tscn")
 
@@ -4513,7 +4518,7 @@ func _build_interface() -> void:
 	undo_button = _button(_t("map.undo"), 130, 58)
 	undo_button.pressed.connect(_undo)
 	toolbar.add_child(undo_button)
-	play_button = _button(_t("map.test"), 240, 58)
+	play_button = _button(_t("map.test_battle"), 240, 58)
 	play_button.tooltip_text = _t("map.test_battle_tooltip")
 	play_button.pressed.connect(_play_draft)
 	toolbar.add_child(play_button)
@@ -5927,6 +5932,7 @@ func _build_placement_overlay() -> void:
 	placement_side_button = placement_first_button
 	column.add_child(placement_side_button)
 	placement_candidate_label = _label("", 25, Color("f2f7f9"))
+	placement_candidate_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	placement_candidate_label.custom_minimum_size.y = 110
 	placement_candidate_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	column.add_child(placement_candidate_label)

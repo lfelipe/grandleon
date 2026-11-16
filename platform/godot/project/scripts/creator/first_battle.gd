@@ -2,6 +2,7 @@
 extends Control
 
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
+const CampaignRoster = preload("res://scripts/creator/campaign_roster.gd")
 const CampaignEditor = preload("res://scripts/creator/campaign_editor.gd")
 
 var library
@@ -79,9 +80,14 @@ func _select_battle(index: int) -> void:
 func _refresh_facts() -> void:
 	title_label.text = _t("first_battle.title" if battle_select.item_count <= 1 else "first_battle.stage_title")
 	var heroes: Array[String] = []
-	for value: Variant in campaign.get("roster", []):
-		if value is Dictionary: heroes.append(str(value.get("name", value.get("id", ""))))
+	var later_heroes: Array[String] = []
+	for member: Dictionary in CampaignRoster.members(campaign):
+		var hero_name := str(member.get("name", member.get("id", "")))
+		heroes.append(hero_name)
+		if not str(member.join_node_id).is_empty():
+			later_heroes.append(_t("first_battle.hero_joins_after", {"name": hero_name, "stage": str(member.join_node_name)}))
 	hero_summary.text = _t("first_battle.heroes_summary", {"count": heroes.size(), "names": ", ".join(heroes)}) if not heroes.is_empty() else _t("first_battle.no_heroes")
+	if not later_heroes.is_empty(): hero_summary.text += "\n" + "\n".join(later_heroes)
 	var map := _record(project.get("maps", []), str(encounter.get("mapId", "")))
 	map_summary.text = _t("first_battle.map_summary", {"name": str(map.get("name", "")), "width": int(map.get("width", 0)), "height": int(map.get("height", 0))})
 	var solo_allies := 0
