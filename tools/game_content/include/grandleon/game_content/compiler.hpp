@@ -231,6 +231,36 @@ inline constexpr std::uint8_t character_figure_unnamed = character_figure_count;
 //: menu does not hold.
 [[nodiscard]] std::uint8_t character_figure_index(std::string_view name) noexcept;
 
+//: How many character archetypes the art library draws, in every style: knight,
+//: archer, mage, stormcaller, healer, commander, rogue, beast. The roster is
+//: closed at this length: a ninth would cost one draw routine in every style.
+//: A style may not add, remove or rename one, so a class name selects the same
+//: archetype whichever style draws it.
+inline constexpr std::uint8_t archetype_count = 8;
+
+//: No explicit archetype: retain legacy class/name inference.
+inline constexpr std::uint8_t archetype_unnamed = archetype_count;
+
+//: The archetype a unit type that names none wears: the first on the roster,
+//: which is the knight every client already drew for it.
+inline constexpr std::uint8_t archetype_default = 0;
+
+//: The archetype an authored name spells: the first on the art library's
+//: roster whose own name appears in the lowered text, or `archetype_unnamed`.
+//:
+//: This is the whole convention, and it runs over more than unit types (a
+//: console resolves a dialogue speaker's portrait through it too), so it is
+//: published beside the resolved rule rather than hidden inside it.
+[[nodiscard]] std::uint8_t archetype_index(std::string_view name) noexcept;
+
+// Exact source IDs, in the existing presentation byte order. Unlike the
+// legacy keyword lookup, an authored ID must match one complete name.
+inline constexpr std::array<std::string_view, archetype_count> character_archetype_ids{
+    "knight", "archer", "mage", "stormcaller",
+    "healer", "commander", "rogue", "beast",
+};
+[[nodiscard]] std::uint8_t character_archetype_index(std::string_view id) noexcept;
+
 struct UnitType final {
     StableId id{};
     std::string name;
@@ -266,6 +296,9 @@ struct UnitType final {
     //: appended for the same reason: a positionally built unit type names no
     //: figure, which is what every unit type written before figures says.
     std::uint8_t character_figure{character_figure_unnamed};
+    // Presentation only. Omission retains the class/name convention; clones
+    // snapshot the template's resolved appearance before changing its name.
+    std::uint8_t character_archetype{archetype_unnamed};
 };
 
 //: How many terrain kinds the art library draws, and therefore how many an
@@ -934,29 +967,6 @@ inline constexpr std::uint8_t backdrop_count = 7;
 //: not an entry of this menu and must never resolve to one.
 [[nodiscard]] std::uint8_t backdrop_index(std::string_view name) noexcept;
 
-//: How many character archetypes the art library draws, in every style: knight,
-//: archer, mage, stormcaller, healer, commander, rogue, beast. The roster is
-//: closed at this length: a ninth would cost one draw routine in every style.
-//: A style may not add, remove or rename one, so a class name selects the same
-//: archetype whichever style draws it.
-inline constexpr std::uint8_t archetype_count = 8;
-
-//: A name none of the roster's words appear in. Only the keyword lookup ever
-//: returns this; a unit type always resolves to a drawable archetype.
-inline constexpr std::uint8_t archetype_unnamed = archetype_count;
-
-//: The archetype a unit type that names none wears: the first on the roster,
-//: which is the knight every client already drew for it.
-inline constexpr std::uint8_t archetype_default = 0;
-
-//: The archetype an authored name spells: the first on the art library's
-//: roster whose own name appears in the lowered text, or `archetype_unnamed`.
-//:
-//: This is the whole convention, and it runs over more than unit types (a
-//: console resolves a dialogue speaker's portrait through it too), so it is
-//: published beside the resolved rule rather than hidden inside it.
-[[nodiscard]] std::uint8_t archetype_index(std::string_view name) noexcept;
-
 struct TranslationEntry final {
     std::string id;
     std::string source;
@@ -1037,9 +1047,8 @@ struct GameSource final {
     std::vector<Campaign> campaigns;
 };
 
-//: The archetype a unit type's characters are drawn as: the one its class name
-//: spells, or, when the class spells none, the one its own name spells, or
-//: `archetype_default` when neither does.
+//: The explicit visual archetype, otherwise the legacy class-name then
+//: unit-name convention, with `archetype_default` when neither name matches.
 //:
 //: The class is searched first because that is what an author keys a role on,
 //: and the unit type's own name after because a game may spell the role only

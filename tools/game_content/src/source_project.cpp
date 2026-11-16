@@ -1547,6 +1547,20 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                         );
                     }
                 }
+                const auto unit_archetype =
+                    mapper.string(value, "characterArchetypeId", path, false);
+                if (unit_archetype) {
+                    const auto index = character_archetype_index(*unit_archetype);
+                    if (index < archetype_count) {
+                        result.character_archetype = index;
+                    } else {
+                        mapper.error(
+                            SourceDiagnosticCode::invalid_value,
+                            path + ".characterArchetypeId",
+                            "not a character archetype the art library draws"
+                        );
+                    }
+                }
                 // What a battle is worth and what a level costs. Absent means
                 // the defaults every unit type authored before growth existed
                 // reads as: nothing to defeat, a hundred per level.
@@ -6849,6 +6863,15 @@ SourceTextResult add_source_unit_type_from_template_json(
         return result;
     }
     Object copied = *role;
+    const StableId template_id = core::stable_content_id_v1(template_unit_type_id);
+    for (const UnitType& unit : before.source.unit_types) {
+        if (unit.id == template_id) {
+            copied["characterArchetypeId"] = Json{std::string(
+                character_archetype_ids[resolved_archetype(before.source, unit)]
+            )};
+            break;
+        }
+    }
     copied["id"] = Json{std::string(unit_type_id)};
     copied["name"] = Json{std::string(name)};
     unit_types->push_back(Json{std::move(copied)});

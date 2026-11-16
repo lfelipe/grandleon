@@ -630,10 +630,6 @@ std::uint8_t backdrop_index(std::string_view name) noexcept {
 // archetype a name spelling two of them wears, and it is the order every
 // client searched in before this function existed.
 std::uint8_t archetype_index(std::string_view name) noexcept {
-    constexpr std::string_view roster[archetype_count] = {
-        "knight", "archer", "mage", "stormcaller",
-        "healer", "commander", "rogue", "beast",
-    };
     std::string lowered(name);
     for (char& character : lowered) {
         if (character >= 'A' && character <= 'Z') {
@@ -641,7 +637,14 @@ std::uint8_t archetype_index(std::string_view name) noexcept {
         }
     }
     for (std::uint8_t index = 0; index < archetype_count; ++index) {
-        if (lowered.find(roster[index]) != std::string::npos) return index;
+        if (lowered.find(character_archetype_ids[index]) != std::string::npos) return index;
+    }
+    return archetype_unnamed;
+}
+
+std::uint8_t character_archetype_index(std::string_view id) noexcept {
+    for (std::uint8_t index = 0; index < archetype_count; ++index) {
+        if (character_archetype_ids[index] == id) return index;
     }
     return archetype_unnamed;
 }
@@ -650,6 +653,9 @@ std::uint8_t resolved_archetype(
     const GameSource& source,
     const UnitType& unit_type
 ) noexcept {
+    if (unit_type.character_archetype != archetype_unnamed) {
+        return unit_type.character_archetype;
+    }
     for (const UnitClass& unit_class : source.classes) {
         if (unit_class.id != unit_type.class_id) continue;
         const std::uint8_t named = archetype_index(unit_class.name);
@@ -948,6 +954,12 @@ CompileResult compile(const GameSource& source) {
         unit_types_by_id.emplace(definition.id, &definition);
         const std::string path =
             "unit_types[" + std::to_string(definition.id) + "]";
+        if (definition.character_archetype > archetype_unnamed) {
+            result.diagnostics.push_back({
+                DiagnosticCode::invalid_range,
+                path + ".character_archetype", definition.id
+            });
+        }
         validate_reference(
             definition.class_id,
             class_ids,

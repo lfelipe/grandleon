@@ -26,6 +26,11 @@
       "items": { "$ref": "common.schema.json#/$defs/stableId" },
       "uniqueItems": true
     },
+    "characterArchetypeId": {
+      "type": "string",
+      "enum": ["knight", "archer", "mage", "stormcaller", "healer", "commander", "rogue", "beast"],
+      "description": "Visual archetype, independent of the character's or class's display name. Changes appearance only. When omitted, existing projects retain class-name then unit-name inference and the knight fallback. Cloning a role records the template's resolved archetype so custom names preserve its appearance."
+    },
     "characterStyleId": {
       "type": "string",
       "enum": ["medieval", "scifi", "mythical", "nature", "sengoku", "undead", "pirates"],

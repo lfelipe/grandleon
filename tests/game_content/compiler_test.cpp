@@ -1597,6 +1597,53 @@ void resolves_archetype_from_class_then_name() {
     );
 }
 
+void compiles_explicit_character_archetypes_without_changing_the_format() {
+    const auto legacy = valid_source();
+    const auto legacy_bytes = gc::compile(legacy).package;
+    auto explicit_legacy = legacy;
+    for (auto& unit : explicit_legacy.unit_types) {
+        unit.character_archetype = gc::resolved_archetype(legacy, unit);
+    }
+    expect(
+        gc::compile(explicit_legacy).package == legacy_bytes,
+        "explicitly recording legacy appearance leaves every package byte unchanged"
+    );
+
+    for (std::uint8_t index = 0; index < gc::archetype_count; ++index) {
+        auto source = valid_source();
+        source.classes.front().name = "Royal Archer";
+        source.unit_types.front().name = "Wandering Mage";
+        source.unit_types.front().character_archetype = index;
+        expect(gc::resolved_archetype(source, source.unit_types.front()) == index,
+               "explicit appearance takes precedence over both display names");
+        const auto compiled = gc::compile(source);
+        const auto loaded = load(compiled.package);
+        expect(compiled && loaded, "every explicit appearance compiles and loads");
+        if (!loaded) continue;
+        const auto* record = loaded.package.find(
+            pf::SectionType::presentation, pf::presentation_archetype_record_id
+        );
+        expect(record != nullptr && record->payload_size == 4U + 2U * 9U,
+               "appearance uses the existing two-row presentation record");
+        if (record == nullptr || record->payload_size != 22U) continue;
+        expect(loaded.package.bytes[record->payload_offset + 12U] == index,
+               "the existing presentation archetype byte carries the chosen appearance");
+        expect(loaded.package.bytes[record->payload_offset + 21U] ==
+                   gc::resolved_archetype(source, source.unit_types.back()),
+               "an explicit appearance does not change neighboring legacy characters");
+    }
+    for (const auto invalid : {9U, 255U}) {
+        auto source = valid_source();
+        source.unit_types.front().character_archetype =
+            static_cast<std::uint8_t>(invalid);
+        const auto compiled = gc::compile(source);
+        expect(!compiled && compiled.package.empty() && has_diagnostic(
+                   compiled, gc::DiagnosticCode::invalid_range,
+                   "unit_types[60].character_archetype"),
+               "programmatic out-of-menu appearances are refused before emitting a package");
+    }
+}
+
 // The package carries one terrain kind per identity, so a project in which one
 // identity draws two ways would compile into a join that is true of one map
 // and false of another. Parsing cannot produce it, which is exactly why it is
@@ -2221,6 +2268,7 @@ int main() {
     a_weapon_or_item_may_name_no_type();
     resolves_faction_colour_from_position();
     resolves_archetype_from_class_then_name();
+    compiles_explicit_character_archetypes_without_changing_the_format();
     rejects_one_terrain_identity_drawn_two_ways();
     output_is_canonical();
     rejects_missing_references_atomically();

@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
@@ -67,6 +68,36 @@ try {
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const fixtures = path.resolve(directory, "../../tests/fixtures/source_projects");
+
+// Exercise every exact visual ID through the public schema validator. A
+// temporary source document also proves canonical source round trips keep it.
+{
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "grandleon-archetype-schema-"));
+  const filename = path.join(temp, "project.json");
+  try {
+    const project = JSON.parse(fs.readFileSync(path.join(fixtures, "valid/minimal.json"), "utf8"));
+    const ids = ["knight", "archer", "mage", "stormcaller", "healer", "commander", "rogue", "beast"];
+    for (const id of ids) {
+      project.unitTypes[0].characterArchetypeId = id;
+      fs.writeFileSync(filename, serializeCanonical(project));
+      assert.deepEqual(validateProject(filename), [], `visual archetype ${id} is supported`);
+      assert.equal(JSON.parse(fs.readFileSync(filename, "utf8")).unitTypes[0].characterArchetypeId, id);
+    }
+    for (const invalid of ["scholar", "Mage", "royal mage", "mage ", "", 2, null, true, [], {}]) {
+      project.unitTypes[0].characterArchetypeId = invalid;
+      fs.writeFileSync(filename, JSON.stringify(project));
+      assert.ok(validateProject(filename).some(({ instancePath }) =>
+        instancePath === "/unitTypes/0/characterArchetypeId"
+      ), `invalid visual archetype ${JSON.stringify(invalid)} is rejected at its field`);
+    }
+    delete project.unitTypes[0].characterArchetypeId;
+    fs.writeFileSync(filename, serializeCanonical(project));
+    assert.deepEqual(validateProject(filename), [], "legacy projects need no visual-archetype field");
+    assert.ok(!Object.hasOwn(JSON.parse(fs.readFileSync(filename, "utf8")).unitTypes[0], "characterArchetypeId"));
+  } finally {
+    fs.rmSync(temp, { recursive: true, force: true });
+  }
+}
 
 const validDiagnostics = validateProject(path.join(fixtures, "valid/minimal.json"));
 assert.deepEqual(validDiagnostics, [], "minimal project must be valid");

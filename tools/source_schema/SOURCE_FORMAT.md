@@ -85,6 +85,13 @@ New typed content should select an explicit type even though legacy imports
 stay valid. A future major version may require type assignments, through a
 migration.
 
+## Character appearance
+
+A unit type may set `characterArchetypeId` to a library archetype such as
+`mage` or `archer`. It changes the artwork, not combat rules. When omitted,
+legacy class/unit name inference still applies. Copying a role records its
+resolved appearance so a custom name cannot accidentally change the artwork.
+
 ## What a cell's name decides
 
 A map's `terrain` is a list of authored names, one per cell. What a cell is

@@ -1883,6 +1883,106 @@ void maps_a_characters_own_style() {
     );
 }
 
+void maps_explicit_character_archetypes_and_preserves_cloned_appearance() {
+    const std::string needle = R"json("factionId":"blue",)json";
+    const auto with_archetype = [&needle](std::string_view value) {
+        std::string project{source};
+        project.insert(project.find(needle) + needle.size(),
+                       "\"characterArchetypeId\":" + std::string(value) + ",");
+        return project;
+    };
+    const auto plain = gc::parse_source_project_json(source);
+    expect(plain && plain.source.unit_types.front().character_archetype ==
+                       gc::archetype_unnamed,
+           "an omitted visual archetype retains legacy inference");
+    constexpr std::array<std::string_view, 8> ids{
+        "knight", "archer", "mage", "stormcaller",
+        "healer", "commander", "rogue", "beast",
+    };
+    for (std::uint8_t index = 0; index < ids.size(); ++index) {
+        const auto parsed = gc::parse_source_project_json(
+            with_archetype("\"" + std::string(ids[index]) + "\"")
+        );
+        expect(parsed && parsed.source.unit_types.front().character_archetype == index,
+               "every exact archetype ID maps to its established presentation byte");
+        expect(gc::character_archetype_index(ids[index]) == index &&
+                   gc::character_archetype_ids[index] == ids[index],
+               "exact source lookup and clone serialization share the art-library order");
+    }
+    for (const std::string_view invalid : {
+             "\"scholar\"", "\"Mage\"", "\"royal mage\"", "\"mage \"", "\"\"",
+             "2", "null", "true", "[]", "{}"
+         }) {
+        const auto parsed = gc::parse_source_project_json(with_archetype(invalid));
+        expect(!parsed && std::any_of(
+            parsed.diagnostics.begin(), parsed.diagnostics.end(),
+            [](const gc::SourceDiagnostic& diagnostic) {
+                return diagnostic.path == "$.unitTypes[0].characterArchetypeId";
+            }), "invalid archetype values are rejected at the character's exact field");
+    }
+    const auto explicit_default = gc::parse_source_project_json(with_archetype("\"knight\""));
+    expect(explicit_default && gc::compile(explicit_default.source).package ==
+                                  gc::compile(plain.source).package,
+           "recording the inferred default introduces no package bytes or format changes");
+
+    for (const bool infer_from_class : {false, true}) {
+        std::string mage_source{source};
+        const std::string old_name = infer_from_class ? "Vanguard" : "Blue unit";
+        mage_source.replace(mage_source.find(old_name), old_name.size(), "Mage");
+        for (const bool independent_class : {false, true}) {
+            const auto copied = independent_class
+                ? gc::add_source_role_from_template_json(
+                      mage_source, "blue_unit", "scholar", "scholar_class", "Scholar")
+                : gc::add_source_unit_type_from_template_json(
+                      mage_source, "blue_unit", "scholar", "Scholar");
+            const auto reopened = gc::parse_source_project_json(copied.json);
+            expect(copied && reopened, "copied appearance survives source serialization and reopen");
+            if (!reopened) continue;
+            const auto& scholar = reopened.source.unit_types.back();
+            expect(scholar.name == "Scholar" && scholar.character_archetype == 2 &&
+                       gc::resolved_archetype(reopened.source, scholar) == 2 &&
+                       reopened.source.unit_types.front().character_archetype == gc::archetype_unnamed,
+                   "copying a Mage preserves its appearance and the exact custom name without rewriting its template");
+            if (independent_class) {
+                expect(reopened.source.classes.back().name == "Scholar",
+                       "an independent class keeps the author's exact custom name");
+            }
+            auto renamed = reopened.source;
+            renamed.unit_types.back().name = "Sage";
+            for (auto& role : renamed.classes) {
+                if (role.id == scholar.class_id) role.name = "Healer";
+            }
+            expect(gc::resolved_archetype(renamed, renamed.unit_types.back()) == 2,
+                   "later class and role renames cannot redraw a cloned character");
+            const auto compiled = gc::compile(renamed);
+            const auto loaded = pf::load_mock_package(
+                compiled.package, {{0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 1024}
+            );
+            expect(compiled && loaded, "the renamed role remains a valid portable package");
+            if (!loaded) continue;
+            const auto* record = loaded.package.find(
+                pf::SectionType::presentation, pf::presentation_archetype_record_id
+            );
+            bool retained = false;
+            if (record != nullptr) {
+                for (std::uint32_t offset = 4; offset + 9 <= record->payload_size; offset += 9) {
+                    std::uint64_t id = 0;
+                    for (unsigned byte = 0; byte < 8; ++byte) {
+                        id |= static_cast<std::uint64_t>(loaded.package.bytes[record->payload_offset + offset + byte]) << (byte * 8U);
+                    }
+                    if (id == scholar.id) retained = loaded.package.bytes[record->payload_offset + offset + 8] == 2;
+                }
+            }
+            expect(retained, "the compiled presentation still draws the renamed Scholar as the original Mage");
+        }
+    }
+    const auto explicit_beast = gc::add_source_role_from_template_json(
+        with_archetype("\"beast\""), "blue_unit", "companion", "companion_class", "Companion");
+    const auto beast = gc::parse_source_project_json(explicit_beast.json);
+    expect(beast && beast.source.unit_types.back().character_archetype == 7,
+           "cloning also preserves an already-explicit visual archetype");
+}
+
 // What a conversation between maps is drawn against. The fourth presentation
 // choice and the first authored per record rather than per project, so the
 // three things worth asserting are that a named backdrop is carried, that a
@@ -3650,6 +3750,7 @@ int main() {
     maps_the_battle_closeup_default();
     maps_authored_character_style();
     maps_a_characters_own_style();
+    maps_explicit_character_archetypes_and_preserves_cloned_appearance();
     maps_a_scene_backdrop();
     maps_a_scene_cast();
     maps_the_game_wide_turn_order();
