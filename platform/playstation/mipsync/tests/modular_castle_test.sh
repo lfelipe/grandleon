@@ -31,18 +31,18 @@ symbol() { awk -v p="$1" '$3 ~ p { print "0x" substr($1,length($1)-7); found=1; 
 image=${GRANDLEON_PLAYSTATION_EMULATOR_IMAGE:-grandleon/playstation-emulator:a415a98e6c347b41ca5a1d3f23bbc4eb26059687}
 timeout --kill-after=10 180 docker run --rm --user "$(id -u):$(id -g)" --env HOME=/tmp \
     --env "GRANDLEON_UPDATE_ADDRESS=$(symbol '^grandleon_game_update$')" \
-    --env "GRANDLEON_CAMPAIGN_MODE_ADDRESS=$(symbol 's_campaign_modeE$')" \
-    --env "GRANDLEON_MENU_ADDRESS=$(symbol 's_campaign_menu_indexE$')" \
-    --env "GRANDLEON_MOMENT_ADDRESS=$(symbol 's_battle_momentE$')" \
-    --env "GRANDLEON_CURSOR_ADDRESS=$(symbol 's_cursorE$')" \
-    --env "GRANDLEON_REVEALED_ADDRESS=$(symbol 's_visibility_revealedE$')" \
+    --env "GRANDLEON_CAMPAIGN_MODE_ADDRESS=$(symbol 's_campaign_modeE([.]lto_priv[.][0-9]+)?$')" \
+    --env "GRANDLEON_MENU_ADDRESS=$(symbol 's_campaign_menu_indexE([.]lto_priv[.][0-9]+)?$')" \
+    --env "GRANDLEON_MOMENT_ADDRESS=$(symbol 's_battle_momentE([.]lto_priv[.][0-9]+)?$')" \
+    --env "GRANDLEON_CURSOR_ADDRESS=$(symbol 's_cursorE([.]lto_priv[.][0-9]+)?$')" \
+    --env "GRANDLEON_REVEALED_ADDRESS=$(symbol 's_visibility_revealedE([.]lto_priv[.][0-9]+)?$')" \
     --env "GRANDLEON_COVER_CELLS_ADDRESS=$(symbol '^g_grandleon_visibility_cell_indices$')" \
     --env "GRANDLEON_COVER_COUNT_ADDRESS=$(symbol '^g_grandleon_visibility_cell_count$')" \
     --env "GRANDLEON_PER_CELL_ADDRESS=$(symbol '^g_grandleon_visibility_per_cell$')" \
-    --env "GRANDLEON_CAMERA_MIN_X=$(symbol 's_camera_min_xE$')" \
-    --env "GRANDLEON_CAMERA_MAX_X=$(symbol 's_camera_max_xE$')" \
-    --env "GRANDLEON_CAMERA_MIN_Z=$(symbol 's_camera_min_zE$')" \
-    --env "GRANDLEON_CAMERA_MAX_Z=$(symbol 's_camera_max_zE$')" \
+    --env "GRANDLEON_CAMERA_MIN_X=$(symbol 's_camera_min_xE([.]lto_priv[.][0-9]+)?$')" \
+    --env "GRANDLEON_CAMERA_MAX_X=$(symbol 's_camera_max_xE([.]lto_priv[.][0-9]+)?$')" \
+    --env "GRANDLEON_CAMERA_MIN_Z=$(symbol 's_camera_min_zE([.]lto_priv[.][0-9]+)?$')" \
+    --env "GRANDLEON_CAMERA_MAX_Z=$(symbol 's_camera_max_zE([.]lto_priv[.][0-9]+)?$')" \
     --env "GRANDLEON_ROOM_PLAYERS=$players" \
     --env "GRANDLEON_INITIAL_X=$initial_x" --env "GRANDLEON_INITIAL_Y=$initial_y" \
     --volume "$build:/disc:ro" --volume "$script_dir:/probe:ro" --volume "$output:/out" \

@@ -14,7 +14,7 @@ docker run --rm --volume "$build:/disc:ro" "$toolchain" \
     mipsel-linux-gnu-nm -n /disc/grandleon_mipsync.elf > "$out/symbols.txt"
 address() { awk -v symbol="$1" '$3 == symbol {print "0x" $1; found=1} END {if (!found) exit 1}' "$out/symbols.txt"; }
 update=$(address grandleon_runtime_update)
-moment=$(awk '$3 ~ /s_battle_momentE$/ {print "0x" $1; found=1} END {if (!found) exit 1}' "$out/symbols.txt")
+moment=$(awk '$3 ~ /s_battle_momentE([.]lto_priv[.][0-9]+)?$/ {print "0x" $1; found=1} END {if (!found) exit 1}' "$out/symbols.txt")
 timeout --kill-after=10 180 docker run --rm --user "$(id -u):$(id -g)" \
     --env HOME=/tmp --env "GRANDLEON_UPDATE_ADDRESS=$update" \
     --env "GRANDLEON_MOMENT_ADDRESS=$moment" \

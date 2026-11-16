@@ -16,11 +16,11 @@ language=$(python3 -c 'import json,sys; p=json.load(open(sys.argv[1])); print(ne
 env_args=(--env HOME=/tmp --env "GRANDLEON_STORY_LANGUAGE_INDEX=$language")
 while read -r variable symbol; do env_args+=(--env "$variable=$(address "$symbol")"); done <<'SYMBOLS'
 GRANDLEON_UPDATE_ADDRESS ^grandleon_runtime_update$
-GRANDLEON_CAMPAIGN_MODE_ADDRESS s_campaign_modeE$
-GRANDLEON_CAMPAIGN_MENU_ADDRESS s_campaign_menu_indexE$
-GRANDLEON_LANGUAGE_INDEX_ADDRESS s_language_indexE$
-GRANDLEON_STORY_LINE_ADDRESS s_story_line_indexE$
-GRANDLEON_STORY_PAGE_ADDRESS s_story_page_offsetE$
+GRANDLEON_CAMPAIGN_MODE_ADDRESS s_campaign_modeE([.]lto_priv[.][0-9]+)?$
+GRANDLEON_CAMPAIGN_MENU_ADDRESS s_campaign_menu_indexE([.]lto_priv[.][0-9]+)?$
+GRANDLEON_LANGUAGE_INDEX_ADDRESS s_language_indexE([.]lto_priv[.][0-9]+)?$
+GRANDLEON_STORY_LINE_ADDRESS s_story_line_indexE([.]lto_priv[.][0-9]+)?$
+GRANDLEON_STORY_PAGE_ADDRESS s_story_page_offsetE([.]lto_priv[.][0-9]+)?$
 GRANDLEON_SPEAKER_IDS_ADDRESS ^g_grandleon_speaker_unit_type_ids$
 GRANDLEON_SPEAKER_TEXTURES_ADDRESS ^g_grandleon_speaker_texture_indices$
 GRANDLEON_SPEAKER_COUNT_ADDRESS ^g_grandleon_speaker_count$

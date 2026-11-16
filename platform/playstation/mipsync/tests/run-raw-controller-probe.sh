@@ -15,7 +15,7 @@ docker run --rm --volume "$build:/disc:ro" "$toolchain" \
 address() { awk -v symbol="$1" '$3 == symbol {print "0x" $1; found=1} END {if (!found) exit 1}' "$out/symbols.txt"; }
 update=$(address grandleon_runtime_update)
 pad=$(address s_pad_buffers)
-cursor=$(awk '$3 ~ /s_cursorE$/ {print "0x" $1; found=1} END {if (!found) exit 1}' "$out/symbols.txt")
+cursor=$(awk '$3 ~ /s_cursorE([.]lto_priv[.][0-9]+)?$/ {print "0x" $1; found=1} END {if (!found) exit 1}' "$out/symbols.txt")
 timeout --kill-after=10 180 docker run --rm --user "$(id -u):$(id -g)" \
     --env HOME=/tmp --env "GRANDLEON_UPDATE_ADDRESS=$update" \
     --env "GRANDLEON_PAD_BUFFER_ADDRESS=$pad" --env "GRANDLEON_CURSOR_ADDRESS=$cursor" \

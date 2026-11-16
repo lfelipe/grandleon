@@ -13,13 +13,13 @@ address(){ awk -v pattern="$1" '$3~pattern {print "0x"$1;found=1} END{if(!found)
 envargs=(--env HOME=/tmp)
 while read -r key pattern; do envargs+=(--env "$key=$(address "$pattern")");done <<'SYMS'
 UPDATE ^grandleon_runtime_update$
-CAMP s_campaign_modeE$
-MODE s_modeE$
-MOMENT s_battle_momentE$
-MENU s_campaign_menu_indexE$
-SETTINGS s_settings_menu_indexE$
-CURSOR 8s_cursorE$
-SELECTED s_selectedE$
+CAMP s_campaign_modeE([.]lto_priv[.][0-9]+)?$
+MODE s_modeE([.]lto_priv[.][0-9]+)?$
+MOMENT s_battle_momentE([.]lto_priv[.][0-9]+)?$
+MENU s_campaign_menu_indexE([.]lto_priv[.][0-9]+)?$
+SETTINGS s_settings_menu_indexE([.]lto_priv[.][0-9]+)?$
+CURSOR 8s_cursorE([.]lto_priv[.][0-9]+)?$
+SELECTED s_selectedE([.]lto_priv[.][0-9]+)?$
 SYMS
 timeout --kill-after=10 180 docker run --rm --user "$(id -u):$(id -g)" "${envargs[@]}" --volume "$build:/disc:ro" --volume "$scripts:/probe:ro" --volume "$out:/out" --workdir /tmp grandleon/playstation-emulator:a415a98e6c347b41ca5a1d3f23bbc4eb26059687 stdbuf -oL -eL pcsx-redux -no-ui -run -softgpu -bios /usr/local/share/pcsx-redux/openbios.bin -testmode -interpreter -debugger -memcard1 /out/ui.mcd -dofile /probe/ui_capture_probe.lua -iso /disc/game.cue > "$out/emulator.log" 2>&1
 rg -q 'PS1_UI_CAPTURE_PASS states=6' "$out/emulator.log"

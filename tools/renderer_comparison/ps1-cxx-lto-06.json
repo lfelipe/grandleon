@@ -1,0 +1,49 @@
+{
+  "schema": "grandleon.ps1-cxx-lto-review.v1",
+  "date": "2026-11-16",
+  "change": "Use link-time optimization on the existing size-optimized C++ sources; retain the C renderer at its existing optimization settings.",
+  "memory": {
+    "before_lto_committed_bytes": 2099444,
+    "after_lto_committed_bytes": 2087192,
+    "headroom_bytes": 9960,
+    "gameplay_heap_bytes": 524288,
+    "audio_reserve_bytes": 65536,
+    "stack_reserve_bytes": 32768,
+    "reserves_unchanged": true
+  },
+  "artifacts": {
+    "grandleon_mipsync.elf": {
+      "bytes": 6661816,
+      "sha256": "e08615d5b7bf6429b7b3c8d570f6d8e8120267dd9f4cb900d6c93343bb0245ff"
+    },
+    "grandleon_mipsync.exe": {
+      "bytes": 1095680,
+      "sha256": "97f9c92015217ac373ddb0ffed31893fe19789475fe560ead883cf563c985e87"
+    },
+    "game.cue": {
+      "bytes": 433,
+      "sha256": "f218158c06b9a9ef24761465d9a19cf76d0c97a0c3e63ae2d966b6bce05da612"
+    },
+    "game.bin": {
+      "bytes": 95251296,
+      "sha256": "b8edf63929c338f9c2ab266d37bb64712899f351464d90b824a0e2efd6b43573"
+    }
+  },
+  "checks": [
+    "Normal paired 32x24 campaign boots through actual solo and co-op menus.",
+    "Legal doorway movement reveals exactly nine of170 cells and leaves other rooms covered.",
+    "Both scrolling axes pass from ordinary controller inputs.",
+    "All six raw framebuffers match the previously accepted normal build byte-for-byte.",
+    "Read-only private-symbol lookups accept GCC .lto_priv.N suffixes; no behavior assertions are removed."
+  ],
+  "logs": [
+    "out/personal-character06/ps1-lto-build.log",
+    "out/personal-character06/ps1-normal-lto-1p.log",
+    "out/personal-character06/ps1-normal-lto-2p.log"
+  ],
+  "limits": [
+    "This verifies code size and functional presentation, not a 30 FPS pass.",
+    "Actual explicit-personal-rule fixture and full-campaign checks still follow.",
+    "These images are emulator results, not physical-device acceptance."
+  ]
+}

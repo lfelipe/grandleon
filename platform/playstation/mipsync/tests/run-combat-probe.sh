@@ -57,14 +57,14 @@ audio_address=$(
     "$nm" -n "$elf" | awk '$3 == "grandleon_audio_cue" {print "0x" substr($1, length($1) - 7); found=1} END {if (!found) exit 1}'
 )
 duration_address=$(
-    "$nm" -n "$elf" | awk '$3 ~ /s_result_durationE$/ {print "0x" substr($1, length($1) - 7); found=1} END {if (!found) exit 1}'
+    "$nm" -n "$elf" | awk '$3 ~ /s_result_durationE([.]lto_priv[.][0-9]+)?$/ {print "0x" substr($1, length($1) - 7); found=1} END {if (!found) exit 1}'
 )
 remaining_address=$(
-    "$nm" -n "$elf" | awk '$3 ~ /s_result_framesE$/ {print "0x" substr($1, length($1) - 7); found=1} END {if (!found) exit 1}'
+    "$nm" -n "$elf" | awk '$3 ~ /s_result_framesE([.]lto_priv[.][0-9]+)?$/ {print "0x" substr($1, length($1) - 7); found=1} END {if (!found) exit 1}'
 )
-cursor_address=$("$nm" -n "$elf" | awk '$3 ~ /8s_cursorE$/ {print "0x" substr($1, length($1) - 7); found=1} END {if (!found) exit 1}')
-players_address=$("$nm" -n "$elf" | awk '$3 ~ /16s_player_cursorsE$/ {print "0x" substr($1, length($1) - 7); found=1} END {if (!found) exit 1}')
-ai_address=$("$nm" -n "$elf" | awk '$3 ~ /11s_ai_activeE$/ {print "0x" substr($1, length($1) - 7); found=1} END {if (!found) exit 1}')
+cursor_address=$("$nm" -n "$elf" | awk '$3 ~ /8s_cursorE([.]lto_priv[.][0-9]+)?$/ {print "0x" substr($1, length($1) - 7); found=1} END {if (!found) exit 1}')
+players_address=$("$nm" -n "$elf" | awk '$3 ~ /16s_player_cursorsE([.]lto_priv[.][0-9]+)?$/ {print "0x" substr($1, length($1) - 7); found=1} END {if (!found) exit 1}')
+ai_address=$("$nm" -n "$elf" | awk '$3 ~ /11s_ai_activeE([.]lto_priv[.][0-9]+)?$/ {print "0x" substr($1, length($1) - 7); found=1} END {if (!found) exit 1}')
 
 log=$output/emulator.log
 set +e

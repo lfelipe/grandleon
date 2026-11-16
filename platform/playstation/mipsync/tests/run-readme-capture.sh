@@ -15,20 +15,20 @@ address() { awk -v symbol="$1" '$3 ~ symbol {print "0x" $1; found=1} END {if (!f
 env_args=(--env HOME=/tmp)
 while read -r variable symbol; do env_args+=(--env "$variable=$(address "$symbol")"); done <<'SYMBOLS'
 GRANDLEON_UPDATE_ADDRESS ^grandleon_runtime_update$
-GRANDLEON_CAMPAIGN_MODE_ADDRESS s_campaign_modeE$
-GRANDLEON_INPUT_MODE_ADDRESS s_modeE$
-GRANDLEON_MOMENT_ADDRESS s_battle_momentE$
-GRANDLEON_CURSOR_ADDRESS 8s_cursorE$
-GRANDLEON_SELECTED_ADDRESS s_selectedE$
-GRANDLEON_RESULT_FRAMES_ADDRESS s_result_framesE$
-GRANDLEON_CAMERA_RETURN_ADDRESS s_camera_return_framesE$
-GRANDLEON_ATTACKER_ADDRESS s_combat_attackerE$
-GRANDLEON_TARGET_ADDRESS s_combat_targetE$
-GRANDLEON_ATTACKER_CELL_ADDRESS s_combat_attacker_positionE$
-GRANDLEON_TARGET_CELL_ADDRESS s_combat_target_positionE$
-GRANDLEON_DAMAGE_ADDRESS s_last_result_damageE$
-GRANDLEON_COUNTER_DAMAGE_ADDRESS s_last_result_counter_damageE$
-GRANDLEON_COUNTER_ADDRESS s_combat_counterE$
+GRANDLEON_CAMPAIGN_MODE_ADDRESS s_campaign_modeE([.]lto_priv[.][0-9]+)?$
+GRANDLEON_INPUT_MODE_ADDRESS s_modeE([.]lto_priv[.][0-9]+)?$
+GRANDLEON_MOMENT_ADDRESS s_battle_momentE([.]lto_priv[.][0-9]+)?$
+GRANDLEON_CURSOR_ADDRESS 8s_cursorE([.]lto_priv[.][0-9]+)?$
+GRANDLEON_SELECTED_ADDRESS s_selectedE([.]lto_priv[.][0-9]+)?$
+GRANDLEON_RESULT_FRAMES_ADDRESS s_result_framesE([.]lto_priv[.][0-9]+)?$
+GRANDLEON_CAMERA_RETURN_ADDRESS s_camera_return_framesE([.]lto_priv[.][0-9]+)?$
+GRANDLEON_ATTACKER_ADDRESS s_combat_attackerE([.]lto_priv[.][0-9]+)?$
+GRANDLEON_TARGET_ADDRESS s_combat_targetE([.]lto_priv[.][0-9]+)?$
+GRANDLEON_ATTACKER_CELL_ADDRESS s_combat_attacker_positionE([.]lto_priv[.][0-9]+)?$
+GRANDLEON_TARGET_CELL_ADDRESS s_combat_target_positionE([.]lto_priv[.][0-9]+)?$
+GRANDLEON_DAMAGE_ADDRESS s_last_result_damageE([.]lto_priv[.][0-9]+)?$
+GRANDLEON_COUNTER_DAMAGE_ADDRESS s_last_result_counter_damageE([.]lto_priv[.][0-9]+)?$
+GRANDLEON_COUNTER_ADDRESS s_combat_counterE([.]lto_priv[.][0-9]+)?$
 SYMBOLS
 timeout --kill-after=10 240 docker run --rm --user "$(id -u):$(id -g)" "${env_args[@]}" \
     --volume "$build:/disc:ro" --volume "$scripts:/probe:ro" --volume "$out:/out" \

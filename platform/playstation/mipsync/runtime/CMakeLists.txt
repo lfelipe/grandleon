@@ -47,6 +47,8 @@ add_executable(grandleon_mipsync
 set_target_properties(grandleon_mipsync PROPERTIES OUTPUT_NAME grandleon_mipsync SUFFIX ".elf")
 target_compile_features(grandleon_mipsync PRIVATE cxx_std_17)
 target_compile_options(grandleon_mipsync PRIVATE -O2)
+# Share native rule/template instantiations without changing the hot C renderer.
+target_link_options(grandleon_mipsync PRIVATE -flto)
 set_source_files_properties(runtime/render.c PROPERTIES COMPILE_OPTIONS "-O3")
 # Turn resolution and campaign/menu code run outside the renderer's hot loops.
 # Avoid duplicating inlined C++ helpers into every stage; retain the renderer's
@@ -54,7 +56,7 @@ set_source_files_properties(runtime/render.c PROPERTIES COMPILE_OPTIONS "-O3")
 get_target_property(grandleon_stage_sources grandleon_mipsync SOURCES)
 foreach(stage_source IN LISTS grandleon_stage_sources)
     if(stage_source MATCHES "\\.cpp$")
-        set_source_files_properties("${stage_source}" PROPERTIES COMPILE_OPTIONS "-Os")
+        set_source_files_properties("${stage_source}" PROPERTIES COMPILE_OPTIONS "-Os;-flto")
     endif()
 endforeach()
 target_include_directories(grandleon_mipsync PRIVATE
@@ -62,6 +64,8 @@ target_include_directories(grandleon_mipsync PRIVATE
     "$<$<COMPILE_LANGUAGE:C>:${PSN00BSDK_ROOT}/include/libpsn00b>"
     "${GRANDLEON_SOURCE_ROOT}/engine/core/include"
     "${GRANDLEON_SOURCE_ROOT}/engine/campaign/include"
+    "${GRANDLEON_SOURCE_ROOT}/engine/campaign_runtime/include"
+    "${GRANDLEON_SOURCE_ROOT}/engine/package_runtime/include"
     "${GRANDLEON_SOURCE_ROOT}/engine/simulation/include"
     "${GRANDLEON_SOURCE_ROOT}/engine/tactics/include"
     "${GRANDLEON_SOURCE_ROOT}/platform/view/include"
