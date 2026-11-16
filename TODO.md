@@ -14,7 +14,7 @@ part of 0.6, alongside performance work and platform validation.
 
 - [x] Build the Windows x64 native extension and campaign compiler with
   MinGW-w64, verify DLL exports and dependencies, and pass the complete
-  74-check Windows-target CTest suite under Wine, including installed SDK
+  85-check Windows-target CTest suite under Wine, including installed SDK
   consumers and console text helpers. Real Windows desktop validation remains below.
 - [x] Add Windows creator/player packaging with the native extension, pinned
   runtime, imported resources, launcher and license notices. Users need no
@@ -232,9 +232,11 @@ tracked above.
   players, with readable capacity feedback and editor bag-size settings.
   Revisit the older shared-store flow only as an explicit between-battle
   facility, not the destination for weapon or item drops during play.
-- [ ] Once the current editor and supply changes are ready, give selected demo
-  enemies gold or weapon drops. Use clear, useful rewards and verify the same
-  results in Godot, Nintendo 64 and PlayStation.
+- [x] Give selected demo enemies modest gold and weapon drops, with one
+  guaranteed early sword pickup and a final-boss reward. Heroes start with
+  five-slot personal packs and a single-use tonic. Verify actual ownership,
+  pickup, weapon choice and stage/save transitions across all three players;
+  retain separate physical-device acceptance checks.
 
 ### Graphics and animation
 

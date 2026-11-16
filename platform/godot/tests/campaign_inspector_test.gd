@@ -18,7 +18,9 @@ func _run() -> void:
 		elif argument.begins_with("--source-project="):
 			source_path = argument.trim_prefix("--source-project=")
 	var bytes := FileAccess.get_file_as_bytes(package_path)
-	_expect("real compiled Steel and Cedar package supplied", bytes.size() == 55584)
+	var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
+	var authored: Dictionary = compiler.compile_source_json(FileAccess.get_file_as_string(source_path))
+	_expect("real compiled Steel and Cedar package supplied", authored.get("ok", false) and bytes == authored.get("package", PackedByteArray()))
 	if bytes.is_empty():
 		quit(1)
 		return
@@ -35,6 +37,7 @@ func _run() -> void:
 	else:
 		_expect("authored campaign key is retained", inspected.campaign == "steel_and_cedar")
 		_expect("co-op policy comes from the compiled campaign", inspected.playerMode == "choice")
+		_expect("personal inventory mode comes from the compiled campaign", inspected.inventoryMode == "carried")
 		_expect("native identity comes from the package envelope", inspected.gameId.length() == 32)
 		_expect("English, Spanish and Brazilian Portuguese are present", "en" in inspected.languages and "es" in inspected.languages and "pt-BR" in inspected.languages)
 		_expect("inspection reports actual product version", inspected.playerVersion == expected_version)
@@ -85,7 +88,6 @@ func _run() -> void:
 	var source := FileAccess.get_file_as_string(source_path)
 	_expect("real campaign source supplied for authored player policies", source.contains('"playerMode": "choice"'))
 	if source.contains('"playerMode": "choice"'):
-		var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 		for mode: String in ["one", "two"]:
 			var variant := source.replace('"playerMode": "choice"', '"playerMode": "%s"' % mode)
 			var compiled: Dictionary = compiler.compile_source_json(variant)

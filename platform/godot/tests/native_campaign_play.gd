@@ -48,6 +48,12 @@ func _play_to_checkpoint(session) -> Dictionary:
 			if not expect(session.save_checkpoint(1), "Victory checkpoint must save between battles"):
 				return {}
 			return {"ok": true, "commands": commands, "moves": moves}
+		if snapshot.get("collecting_loot", false) and not waiting:
+			# The checkpoint pilot explicitly leaves the remaining ground loot.
+			# Victory alone must never skip the player's Continue decision.
+			commands += 1
+			session.submit_intent("finish_collection", 0, 0, 0, 0, 0, commands)
+			waiting = true
 		if not snapshot.is_empty() and not waiting and snapshot.active_side == "first" and snapshot.outcome == "ongoing":
 			var intent := _ordinary_intent(session, snapshot, abilities)
 			if not expect(not intent.is_empty(), "An authored player unit must have an ordinary action"):

@@ -60,7 +60,7 @@ python3 platform/godot/scripts/check-pc-acceptance.py \
 
 Compile the supplied package from Steel and Cedar. Packaging verifies the pinned
 runtime download, imports Windows resources and refuses to overwrite an existing
-output. The complete 74-check Windows-target suite and rendered creator-to-victory
+output. The Windows-target test suite and rendered creator-to-victory
 flow pass under Wine. Wine runs the engine directly because its console relay can
 hang after the game exits; the native Windows check uses `launch-pc.cmd`.
 

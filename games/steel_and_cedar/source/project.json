@@ -4,7 +4,7 @@
   "packageId": "751d322d-dc60-4c6d-a1e1-821e4dd7c617",
   "gameId": "grandleon.steel_and_cedar",
   "title": "Steel and Cedar",
-  "contentRevision": "0.3.0",
+  "contentRevision": "0.4.0",
   "themeId": "temperate",
   "characterStyleId": "medieval",
   "characterFigureId": "first",
@@ -24,7 +24,12 @@
       "name": "Focus"
     }
   ],
-  "itemTypes": [],
+  "itemTypes": [
+    {
+      "id": "field_supplies",
+      "name": "Field Supplies"
+    }
+  ],
   "classes": [
     {
       "id": "knight",
@@ -321,7 +326,16 @@
       "accuracy": 95
     }
   ],
-  "items": [],
+  "items": [
+    {
+      "id": "field_tonic",
+      "name": "Field Tonic",
+      "itemTypeId": "field_supplies",
+      "stackLimit": 5,
+      "kind": "restore",
+      "power": 2
+    }
+  ],
   "factions": [
     {
       "id": "concord",
@@ -380,8 +394,12 @@
       ],
       "characterStyleId": "medieval",
       "characterFigureId": "first",
+      "carryCapacity": 5,
       "notes": "ALLIED COMMANDER: persistent protect target and visual anchor for the shared commander treatment.",
-      "experiencePerLevel": 80
+      "experiencePerLevel": 80,
+      "startingItemIds": [
+        "field_tonic"
+      ]
     },
     {
       "id": "akari_mori",
@@ -393,7 +411,11 @@
       ],
       "characterStyleId": "sengoku",
       "characterFigureId": "second",
-      "experiencePerLevel": 80
+      "carryCapacity": 5,
+      "experiencePerLevel": 80,
+      "startingItemIds": [
+        "field_tonic"
+      ]
     },
     {
       "id": "tomas_reed",
@@ -405,10 +427,14 @@
       ],
       "characterStyleId": "medieval",
       "characterFigureId": "second",
+      "carryCapacity": 5,
       "abilityIds": [
         "field_mend"
       ],
-      "experiencePerLevel": 80
+      "experiencePerLevel": 80,
+      "startingItemIds": [
+        "field_tonic"
+      ]
     },
     {
       "id": "ren_sato",
@@ -420,7 +446,11 @@
       ],
       "characterStyleId": "sengoku",
       "characterFigureId": "first",
-      "experiencePerLevel": 80
+      "carryCapacity": 5,
+      "experiencePerLevel": 80,
+      "startingItemIds": [
+        "field_tonic"
+      ]
     },
     {
       "id": "red_retainer",
@@ -432,7 +462,9 @@
       ],
       "characterStyleId": "sengoku",
       "characterFigureId": "first",
-      "experienceAward": 45
+      "carryCapacity": 5,
+      "experienceAward": 45,
+      "dropGold": 2
     },
     {
       "id": "march_sword",
@@ -444,7 +476,11 @@
       ],
       "characterStyleId": "medieval",
       "characterFigureId": "second",
-      "experienceAward": 45
+      "carryCapacity": 5,
+      "experienceAward": 45,
+      "dropGold": 2,
+      "dropWeaponId": "march_blade",
+      "dropWeaponChance": 15
     },
     {
       "id": "cedar_archer",
@@ -456,7 +492,9 @@
       ],
       "characterStyleId": "sengoku",
       "characterFigureId": "second",
-      "experienceAward": 40
+      "carryCapacity": 5,
+      "experienceAward": 40,
+      "dropGold": 2
     },
     {
       "id": "march_archer",
@@ -468,7 +506,9 @@
       ],
       "characterStyleId": "medieval",
       "characterFigureId": "first",
-      "experienceAward": 40
+      "carryCapacity": 5,
+      "experienceAward": 40,
+      "dropGold": 2
     },
     {
       "id": "gate_mystic",
@@ -480,10 +520,14 @@
       ],
       "characterStyleId": "sengoku",
       "characterFigureId": "second",
+      "carryCapacity": 5,
       "abilityIds": [
         "wind_lance"
       ],
-      "experienceAward": 60
+      "experienceAward": 60,
+      "dropGold": 2,
+      "dropWeaponId": "war_focus",
+      "dropWeaponChance": 15
     },
     {
       "id": "court_knife",
@@ -495,7 +539,9 @@
       ],
       "characterStyleId": "medieval",
       "characterFigureId": "first",
-      "experienceAward": 50
+      "carryCapacity": 5,
+      "experienceAward": 50,
+      "dropGold": 2
     },
     {
       "id": "castellan_vere_unit",
@@ -507,7 +553,9 @@
       ],
       "characterStyleId": "medieval",
       "characterFigureId": "second",
-      "experienceAward": 120
+      "carryCapacity": 5,
+      "experienceAward": 120,
+      "dropGold": 10
     },
     {
       "id": "lord_masatora_unit",
@@ -519,11 +567,31 @@
       ],
       "characterStyleId": "sengoku",
       "characterFigureId": "first",
+      "carryCapacity": 5,
       "abilityIds": [
         "gatefall"
       ],
       "notes": "FINAL BOSS COMMANDER: named visual anchor for the shared boss treatment.",
-      "experienceAward": 300
+      "experienceAward": 300,
+      "dropGold": 25,
+      "dropWeaponId": "gate_glaive",
+      "dropWeaponChance": 100
+    },
+    {
+      "id": "march_sergeant",
+      "name": "March Sergeant",
+      "classId": "knight",
+      "factionId": "war_host",
+      "startingWeaponIds": [
+        "march_blade"
+      ],
+      "characterStyleId": "medieval",
+      "characterFigureId": "second",
+      "carryCapacity": 5,
+      "experienceAward": 45,
+      "dropGold": 2,
+      "dropWeaponId": "march_blade",
+      "dropWeaponChance": 100
     }
   ],
   "maps": [
@@ -2042,6 +2110,7 @@
       "id": "steel_and_cedar",
       "name": "Steel and Cedar",
       "playerMode": "choice",
+      "inventoryMode": "carried",
       "roster": [
         {
           "id": "rowan",
@@ -2051,7 +2120,11 @@
         {
           "id": "tomas",
           "name": "Tomas Reed",
-          "unitTypeId": "tomas_reed"
+          "unitTypeId": "tomas_reed",
+          "weaponAffinityTypeIds": [
+            "focus",
+            "blade"
+          ]
         },
         {
           "id": "akari",
@@ -2164,7 +2237,7 @@
               },
               {
                 "id": "orchard_sword",
-                "unitTypeId": "march_sword",
+                "unitTypeId": "march_sergeant",
                 "side": "second",
                 "x": 5,
                 "y": 1,
@@ -3936,6 +4009,16 @@
           "text": "A Hoste de Guerra"
         },
         {
+          "id": "item_types.field_supplies.name",
+          "source": "Field Supplies",
+          "text": "Suprimentos de Campo"
+        },
+        {
+          "id": "items.field_tonic.name",
+          "source": "Field Tonic",
+          "text": "Tônico de Campo"
+        },
+        {
           "id": "maps.bell_orchard.name",
           "source": "The Bell Orchard",
           "text": "O Pomar do Sino"
@@ -4024,6 +4107,11 @@
           "id": "unit_types.march_archer.name",
           "source": "March Archer",
           "text": "Arqueiro da Marca"
+        },
+        {
+          "id": "unit_types.march_sergeant.name",
+          "source": "March Sergeant",
+          "text": "Sargento da Marca"
         },
         {
           "id": "unit_types.march_sword.name",
@@ -4806,6 +4894,16 @@
           "text": "La Hueste de Guerra"
         },
         {
+          "id": "item_types.field_supplies.name",
+          "source": "Field Supplies",
+          "text": "Provisiones de campaña"
+        },
+        {
+          "id": "items.field_tonic.name",
+          "source": "Field Tonic",
+          "text": "Tónico de campaña"
+        },
+        {
           "id": "maps.bell_orchard.name",
           "source": "The Bell Orchard",
           "text": "El Huerto de la Campana"
@@ -4894,6 +4992,11 @@
           "id": "unit_types.march_archer.name",
           "source": "March Archer",
           "text": "Arquero de la Marca"
+        },
+        {
+          "id": "unit_types.march_sergeant.name",
+          "source": "March Sergeant",
+          "text": "Sargento de la Marca"
         },
         {
           "id": "unit_types.march_sword.name",

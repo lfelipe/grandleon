@@ -194,6 +194,7 @@ def unit(key: str, name: str, unit_class: str, faction: str, weapon: str,
         "id": key, "name": name, "classId": unit_class,
         "factionId": faction, "startingWeaponIds": [weapon],
         "characterStyleId": style, "characterFigureId": figure,
+        "carryCapacity": 5,
     }
     if abilities:
         value["abilityIds"] = list(abilities)
@@ -201,8 +202,10 @@ def unit(key: str, name: str, unit_class: str, faction: str, weapon: str,
         value["notes"] = notes
     if faction == "concord":
         value["experiencePerLevel"] = 80
+        value["startingItemIds"] = ["field_tonic"]
     else:
         value["experienceAward"] = experience
+        value["dropGold"] = 2
     return value
 
 
@@ -361,6 +364,19 @@ def build_project() -> dict:
             notes="FINAL BOSS COMMANDER: named visual anchor for the shared boss treatment.",
         ),
     ]
+    by_id = {role["id"]: role for role in unit_types}
+    by_id["march_sword"].update(dropWeaponId="march_blade", dropWeaponChance=15)
+    by_id["gate_mystic"].update(dropWeaponId="war_focus", dropWeaponChance=15)
+    by_id["castellan_vere_unit"]["dropGold"] = 10
+    by_id["lord_masatora_unit"].update(
+        dropGold=25, dropWeaponId="gate_glaive", dropWeaponChance=100,
+    )
+    # One existing orchard opponent demonstrates a guaranteed physical pickup.
+    # The reusable officer keeps the ordinary sword's combat rules and art.
+    unit_types.append(dict(
+        by_id["march_sword"], id="march_sergeant", name="March Sergeant",
+        dropWeaponChance=100,
+    ))
     maps = [
         map_record("bell_orchard", "The Bell Orchard"),
         map_record("cedar_deepwood", "Cedar Deepwood"),
@@ -489,7 +505,7 @@ def build_project() -> dict:
                 "ren_orchard", "ren_sato", "first", 2, 4,
                 member="ren", player=2, coop=True,
             ),
-            placement("orchard_sword", "march_sword", "second", 5, 1, behavior="pursue"),
+            placement("orchard_sword", "march_sergeant", "second", 5, 1, behavior="pursue"),
             placement("orchard_retainer", "red_retainer", "second", 6, 4, behavior="pursue"),
             placement("orchard_archer", "cedar_archer", "second", 5, 4, behavior="hold"),
             placement("orchard_coop", "march_sword", "second", 7, 2, behavior="pursue", coop=True),
@@ -632,7 +648,7 @@ def build_project() -> dict:
         "packageId": "751d322d-dc60-4c6d-a1e1-821e4dd7c617",
         "gameId": "grandleon.steel_and_cedar",
         "title": "Steel and Cedar",
-        "contentRevision": "0.3.0",
+        "contentRevision": "0.4.0",
         "themeId": "temperate",
         "characterStyleId": "medieval",
         "characterFigureId": "first",
@@ -643,7 +659,7 @@ def build_project() -> dict:
             {"id": "bow", "name": "Bow"},
             {"id": "focus", "name": "Focus"},
         ],
-        "itemTypes": [],
+        "itemTypes": [{"id": "field_supplies", "name": "Field Supplies"}],
         "classes": classes,
         "weapons": [
             {"id": "march_blade", "name": "March Sword", "weaponTypeId": "blade", "power": 2, "minimumRange": 1, "maximumRange": 1, "accuracy": 95},
@@ -658,7 +674,11 @@ def build_project() -> dict:
             {"id": "pilgrim_focus", "name": "Pilgrim Bell", "weaponTypeId": "focus", "power": 1, "minimumRange": 1, "maximumRange": 2, "accuracy": 100},
             {"id": "war_focus", "name": "War Fan", "weaponTypeId": "focus", "power": 2, "minimumRange": 1, "maximumRange": 2, "accuracy": 95},
         ],
-        "items": [],
+        "items": [{
+            "id": "field_tonic", "name": "Field Tonic",
+            "itemTypeId": "field_supplies", "stackLimit": 5,
+            "kind": "restore", "power": 2,
+        }],
         "factions": [
             {"id": "concord", "name": "The Concord", "color": "blue"},
             {"id": "war_host", "name": "The War Host", "color": "red"},
@@ -680,9 +700,11 @@ def build_project() -> dict:
         "dialogues": dialogues,
         "campaigns": [{
             "id": "steel_and_cedar", "name": "Steel and Cedar", "playerMode": "choice",
+            "inventoryMode": "carried",
             "roster": [
                 {"id": "rowan", "name": "Ser Rowan Vale", "unitTypeId": "rowan_vale"},
-                {"id": "tomas", "name": "Tomas Reed", "unitTypeId": "tomas_reed"},
+                {"id": "tomas", "name": "Tomas Reed", "unitTypeId": "tomas_reed",
+                 "weaponAffinityTypeIds": ["focus", "blade"]},
                 {"id": "akari", "name": "Akari Mori", "unitTypeId": "akari_mori"},
                 {"id": "ren", "name": "Ren Sato", "unitTypeId": "ren_sato"},
             ],

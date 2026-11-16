@@ -324,7 +324,8 @@ AutoplayResult autoplay(
     const pr::EncounterLoadResult& board,
     bool passive_first_side = false,
     const std::vector<sim::UnitId>& first_order = {},
-    std::uint32_t first_hold_rounds = 0U
+    std::uint32_t first_hold_rounds = 0U,
+    bool use_tonics = false
 ) {
     auto created = sim::create_encounter(board.definition);
     if (!created) return {};
@@ -335,16 +336,19 @@ AutoplayResult autoplay(
     while (created.encounter.snapshot().outcome == sim::Outcome::ongoing &&
            created.encounter.snapshot().round < 100U &&
            commands < 10'000U) {
-        sim::EncounterSnapshot snapshot = created.encounter.snapshot();
+        const sim::EncounterSnapshot snapshot = created.encounter.snapshot();
+        // Forecasts require the native snapshot's ID ordering. Only the player
+        // choice list is reordered; never mutate the board passed to queries.
+        auto candidates = snapshot.units;
         if (snapshot.active_side == sim::Side::first && !first_order.empty()) {
-            std::stable_sort(snapshot.units.begin(), snapshot.units.end(),
+            std::stable_sort(candidates.begin(), candidates.end(),
                 [&first_order](const auto& a, const auto& b) {
                     return std::find(first_order.begin(), first_order.end(), a.id) <
                            std::find(first_order.begin(), first_order.end(), b.id);
                 });
         }
         bool applied_anything = false;
-        for (const sim::UnitSnapshot& unit : snapshot.units) {
+        for (const sim::UnitSnapshot& unit : candidates) {
             if (unit.side != snapshot.active_side || !sim::on_board(unit) ||
                 unit.has_acted) {
                 continue;
@@ -363,7 +367,7 @@ AutoplayResult autoplay(
                 behavior = authored == board.behaviors.end()
                     ? tac::Behavior::hold : authored->behavior;
             }
-            const tac::Plan plan = passive_first_side &&
+            tac::Plan plan = passive_first_side &&
                     unit.side == sim::Side::first
                 ? tac::Plan{
                     {sim::CommandType::wait, unit.id, {}, 0}, true,
@@ -372,6 +376,19 @@ AutoplayResult autoplay(
                     snapshot, unit.id, behavior, {},
                     created.encounter.abilities(), created.encounter.weapons()
                 );
+            if (use_tonics && !passive_first_side && unit.side == sim::Side::first &&
+                unit.maximum_health - unit.health >= 2 && !unit.item_ids.empty()) {
+                const auto healing = sim::forecast_item(snapshot, unit.id, unit.id,
+                    created.encounter.items(), unit.item_ids.front());
+                if (healing.error == sim::CommandError::none) {
+                    plan.command = {};
+                    plan.command.type = sim::CommandType::use_item;
+                    plan.command.unit_id = unit.id;
+                    plan.command.target_id = unit.id;
+                    plan.command.item_id = unit.item_ids.front();
+                    plan.actionable = true;
+                }
+            }
             if (!plan.actionable) continue;
             sim::CommandResult applied = created.encounter.apply(plan.command);
             if (!applied) {
@@ -412,6 +429,17 @@ AutoplayResult autoplay(
             break;
         }
         if (!applied_anything) return {};
+        ++commands;
+    }
+    if (created.encounter.snapshot().collecting_loot) {
+        // This battle-only pilot deliberately leaves the remaining drops. A
+        // decided victory is not a completed encounter until Continue.
+        sim::Command leave;
+        leave.type = sim::CommandType::finish_collection;
+        expect(static_cast<bool>(created.encounter.apply(leave)),
+               "ordinary Continue completes post-victory collection");
+        expect(!created.encounter.snapshot().collecting_loot,
+               "the pilot does not stop in an unfinished collection phase");
         ++commands;
     }
     const sim::EncounterSnapshot final = created.encounter.snapshot();
@@ -484,7 +512,7 @@ int main() {
     expect(source.campaigns.size() == 1U, "there is one focused campaign");
     expect(source.encounters.size() == stages.size(), "it has five battles");
     expect(source.maps.size() == stages.size(), "every battle has its own map");
-    expect(source.unit_types.size() == 12U, "the cast stays purposefully small");
+    expect(source.unit_types.size() == 13U, "the original cast adds only a reusable March Sergeant");
     if (!source.campaigns.empty()) {
         const gc::Campaign& campaign = source.campaigns.front();
         expect(
@@ -531,9 +559,62 @@ int main() {
         }
     }
     expect(
-        styles[0] == 6 && styles[1] == 6,
-        "the cast balances Medieval and Sengoku presentation"
+        styles[0] == 7 && styles[1] == 6,
+        "the original balanced cast adds one Medieval sword variant"
     );
+
+    const auto content = [](const char* key) { return core::stable_content_id_v1(key); };
+    std::map<gc::StableId, const gc::UnitType*> roles;
+    for (const auto& role : source.unit_types) {
+        roles.emplace(role.id, &role);
+        expect(role.states_carry_capacity && role.carry_capacity == 5U,
+               "every demo role authors a combined five-copy pack");
+        if (role.faction_id == content("concord")) {
+            expect(role.starting_items == std::vector<gc::StableId>{content("field_tonic")},
+                   "each hero starts with one tonic, not a recurring stage grant");
+        } else {
+            expect(role.starting_items.empty(), "enemy loadouts are unchanged");
+            const auto gold = role.id == boss_id ? 25U :
+                role.id == content("castellan_vere_unit") ? 10U : 2U;
+            expect(role.drop_gold == gold, "enemy gold stays modest and explicitly authored");
+        }
+    }
+    const auto& ordinary = *roles.at(content("march_sword"));
+    const auto& sergeant = *roles.at(content("march_sergeant"));
+    expect(sergeant.class_id == ordinary.class_id &&
+           sergeant.faction_id == ordinary.faction_id &&
+           sergeant.starting_weapons == ordinary.starting_weapons &&
+           sergeant.abilities == ordinary.abilities &&
+           sergeant.experience_award == ordinary.experience_award &&
+           gc::resolved_archetype(source, sergeant) == gc::resolved_archetype(source, ordinary) &&
+           sergeant.character_style == ordinary.character_style &&
+           sergeant.character_figure == ordinary.character_figure,
+           "the Sergeant changes loot/name, not the orchard opponent's combat or art");
+    expect(sergeant.drop_weapon_id == content("march_blade") && sergeant.drop_weapon_chance == 100U &&
+           ordinary.drop_weapon_id == content("march_blade") && ordinary.drop_weapon_chance == 15U,
+           "one reusable officer guarantees a sword; ordinary swords remain rare drops");
+    expect(roles.at(content("gate_mystic"))->drop_weapon_id == content("war_focus") &&
+           roles.at(content("gate_mystic"))->drop_weapon_chance == 15U &&
+           roles.at(boss_id)->drop_weapon_id == content("gate_glaive") &&
+           roles.at(boss_id)->drop_weapon_chance == 100U,
+           "mystic and final boss drop their actual weapons at the authored rates");
+    expect(source.items.size() == 1U && source.items.front().id == content("field_tonic") &&
+           source.items.front().kind == gc::ItemKind::restore && source.items.front().power == 2,
+           "the Field Tonic restores exactly two health");
+    const auto& company = source.campaigns.front();
+    expect(company.inventory_mode == gc::InventoryMode::carried,
+           "the demo explicitly opts into personal physical inventory");
+    for (const auto& member : company.roster) {
+        if (member.id == content("tomas")) {
+            expect(member.states_weapon_affinities &&
+                   member.weapon_affinities == std::vector<gc::StableId>{content("focus"), content("blade")} &&
+                   !member.states_starting_weapons,
+                   "Tomas learns blades personally and retains his inherited Pilgrim Bell");
+        } else {
+            expect(!member.states_weapon_affinities,
+                   "other heroes preserve their existing class permissions");
+        }
+    }
 
     std::map<std::uint64_t, const gc::Map*> maps;
     std::set<std::vector<std::uint8_t>> layouts;
@@ -836,6 +917,23 @@ int main() {
         expect(solo && coop, std::string(stage.key) + " loads for 1P and 2P");
         if (!solo || !coop) continue;
 
+        expect(solo.definition.inventory_mode == sim::InventoryMode::carried &&
+               coop.definition.inventory_mode == sim::InventoryMode::carried,
+               std::string(stage.key) + " loads physical inventory in both modes");
+        for (const auto& actor : coop.definition.units) {
+            expect(actor.states_carry_capacity && actor.carry_capacity == 5U,
+                   "compiled placement retains its role's five-copy pack");
+        }
+        if (index == 0U) {
+            for (const auto* board : {&solo, &coop}) {
+                const auto* officer = unit_from_source_key(*board, content("orchard_sword"));
+                expect(officer && officer->unit_type_id == content("march_sergeant") &&
+                       officer->position == sim::Position{5, 1} &&
+                       officer->drop_weapon_id == content("march_blade") && officer->drop_weapon_chance == 100U,
+                       "both modes keep the same orchard placement and guarantee its physical sword");
+            }
+        }
+
         expect(
             count_units(solo, sim::Side::first) == 2U &&
                 count_units(solo, sim::Side::second) == stage.solo_enemies &&
@@ -920,9 +1018,8 @@ int main() {
                     " gives the March a terrain route to every opponent and wave"
             );
             // Human players choose which unit acts first. Exercise all fixed
-            // party orders and brief defensive openings through real commands,
-            // rather than designing maps
-            // around the bot's incidental ID ordering. Enemies retain their
+            // party orders, brief defensive openings, and authored tonic use
+            // through real commands. Enemies retain their
             // authored policies in every trace; no outcome is injected.
             std::vector<sim::UnitId> party_order;
             for (const auto& unit : board->definition.units) {
@@ -932,22 +1029,27 @@ int main() {
             AutoplayResult played = autoplay(*board);
             std::vector<sim::UnitId> winning_order;
             std::uint32_t winning_hold_rounds = 0U;
+            bool winning_tonics = false;
             do {
                 for (const std::uint32_t hold_rounds : {0U, 2U, 4U}) {
-                    const auto candidate = autoplay(*board, false, party_order, hold_rounds);
-                    if (candidate.outcome == sim::Outcome::first_side_won &&
-                        (played.outcome != sim::Outcome::first_side_won ||
-                         std::tuple{candidate.round, -candidate.first_health} <
-                         std::tuple{played.round, -played.first_health})) {
-                        played = candidate;
-                        winning_order = party_order;
-                        winning_hold_rounds = hold_rounds;
+                    for (const bool use_tonics : {false, true}) {
+                        const auto candidate = autoplay(*board, false, party_order, hold_rounds, use_tonics);
+                        if (candidate.outcome == sim::Outcome::first_side_won &&
+                            (played.outcome != sim::Outcome::first_side_won ||
+                             std::tuple{candidate.round, -candidate.first_health} <
+                             std::tuple{played.round, -played.first_health})) {
+                            played = candidate;
+                            winning_order = party_order;
+                            winning_hold_rounds = hold_rounds;
+                            winning_tonics = use_tonics;
+                        }
                     }
                 }
             } while (std::next_permutation(party_order.begin(), party_order.end()));
             if (!winning_order.empty()) {
                 std::cout << "party order " << stage.key << ' ' << mode
-                          << " hold_rounds=" << winning_hold_rounds;
+                          << " hold_rounds=" << winning_hold_rounds
+                          << " tonics=" << winning_tonics;
                 for (const auto id : winning_order) std::cout << ' ' << id;
                 std::cout << '\n';
             }
