@@ -73,9 +73,10 @@ platform/nintendo64/pyrite/scripts/build.sh \
 ```
 
 An unsupported project is refused with a human diagnostic; the exporter never
-substitutes Steel content. The current base-memory contract accepts one
-unambiguous campaign victory route, up to 16 distinct character drawings and
-up to nine recognized terrain families.
+substitutes Steel content. Assets include every reachable battle, including
+defeat branches; the campaign runtime decides which route players take.
+The current base-memory contract accepts a campaign without cycles, up to
+16 distinct character drawings and up to nine recognized terrain families.
 
 The wrapper requires Docker or Podman, CMake, Python 3, curl, unzip, and the
 AppImage runtime's normal host libraries. It creates a pinned toolchain image,

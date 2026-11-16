@@ -62,6 +62,13 @@ def main() -> None:
         base = Path(temp)
         demo_log, demo = run_project(demo_source, base / "demo")
         steel_log, steel = run_project(steel_source, base / "steel")
+        # Defeat routes can continue to another battle. Every reachable
+        # encounter needs its assets, including those off the victory route.
+        personal_source = REPO / "platform/playstation/mipsync/tests/fixtures/personal-character-campaign.json"
+        _personal_log, personal = run_project(personal_source, base / "personal")
+        personal_header = (personal / "src/user/GeneratedProject.hpp").read_text()
+        assert count(personal_header, "grandleon_project_encounter_count") == 3
+        assert len(list((personal / "assets").glob("combat_stage_*.png"))) == 3
 
         demo_header = (demo / "src/user/GeneratedProject.hpp").read_text()
         steel_header = (steel / "src/user/GeneratedProject.hpp").read_text()

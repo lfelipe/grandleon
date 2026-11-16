@@ -120,8 +120,19 @@ def project_drawings(project: dict[str, object]) -> tuple[Drawing, ...]:
         style = str(unit.get("characterStyleId") or default_style)
         figure = str(unit.get("characterFigureId") or default_figure)
         class_id = str(unit.get("classId") or "")
-        words = f"{classes.get(class_id, class_id)} {unit.get('name', '')}".lower()
-        archetype = next((name for name in ARCHETYPES if name in words), "knight")
+        if "characterArchetypeId" in unit:
+            archetype = unit["characterArchetypeId"]
+            if not isinstance(archetype, str) or archetype not in ARCHETYPES:
+                raise ValueError(f"project asks for unknown character archetype {archetype!r}")
+        else:
+            # Match the native presentation resolver: class first, then unit
+            # name, and only then the legacy Knight default.
+            archetype = "knight"
+            for authored in (classes.get(class_id, ""), unit.get("name", "")):
+                found = next((name for name in ARCHETYPES if name in str(authored).lower()), None)
+                if found is not None:
+                    archetype = found
+                    break
         faction = unit.get("factionId")
         colours = (factions[str(faction)],) if faction is not None and str(faction) in factions else ("blue", "red")
         if style not in STYLES:

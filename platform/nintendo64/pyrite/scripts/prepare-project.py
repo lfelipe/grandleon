@@ -82,7 +82,7 @@ def terrain_kind(name: str) -> int:
     )
 
 
-def linear_campaign(project: dict) -> tuple[dict, list[dict]]:
+def reachable_campaign(project: dict) -> tuple[dict, list[dict]]:
     campaigns = project.get("campaigns")
     if not isinstance(campaigns, list) or not campaigns or not isinstance(campaigns[0], dict):
         raise ProjectError("the selected project has no playable campaign")
@@ -98,48 +98,34 @@ def linear_campaign(project: dict) -> tuple[dict, list[dict]]:
     current = str(flow.get("entryNodeId") or "")
     if current not in nodes:
         raise ProjectError("the selected campaign entry node is missing")
+    # Stage assets for every reachable battle. Runtime campaign predicates,
+    # rather than the exporter, decide whether play follows victory or defeat.
     route: list[dict] = []
     visited: set[str] = set()
-    while True:
-        if current in visited:
-            raise ProjectError("the selected campaign route contains a cycle")
-        visited.add(current)
-        node = nodes[current]
-        route.append(node)
-        if str(node.get("kind")) == "terminal":
-            break
-        transitions = node.get("transitions", [])
-        if not isinstance(transitions, list) or not transitions:
-            raise ProjectError(
-                f"campaign node {current!r} has no route to another node"
-            )
-        chosen = transitions[0]
-        if len(transitions) > 1:
-            def contains_victory(value: object) -> bool:
-                if isinstance(value, dict):
-                    return value.get("result") == "victory" or any(
-                        contains_victory(child) for child in value.values()
-                    )
-                if isinstance(value, list):
-                    return any(contains_victory(child) for child in value)
-                return False
+    active: set[str] = set()
 
-            victories = [
-                transition for transition in transitions
-                if isinstance(transition, dict) and
-                contains_victory(transition.get("when"))
-            ]
-            if len(victories) != 1:
-                raise ProjectError(
-                    "Nintendo 64 Pyrite needs one unambiguous victory route "
-                    f"from campaign node {current!r}; this node has "
-                    f"{len(transitions)} authored branches"
-                )
-            chosen = victories[0]
-        target = str(chosen.get("targetNodeId") or "")
-        if target not in nodes:
-            raise ProjectError(f"campaign node {current!r} targets a missing node")
-        current = target
+    def visit(identity: str) -> None:
+        if identity in active:
+            raise ProjectError("the selected campaign route contains a cycle")
+        if identity in visited:
+            return
+        if identity not in nodes:
+            raise ProjectError(f"campaign targets missing node {identity!r}")
+        active.add(identity)
+        node = nodes[identity]
+        route.append(node)
+        if str(node.get("kind")) != "terminal":
+            transitions = node.get("transitions", [])
+            if not isinstance(transitions, list) or not transitions:
+                raise ProjectError(f"campaign node {identity!r} has no route to another node")
+            for transition in transitions:
+                if not isinstance(transition, dict):
+                    raise ProjectError(f"campaign node {identity!r} has an invalid transition")
+                visit(str(transition.get("targetNodeId") or ""))
+        active.remove(identity)
+        visited.add(identity)
+
+    visit(current)
     encounters = [node for node in route if str(node.get("kind")) == "encounter"]
     if not encounters:
         raise ProjectError("the selected campaign contains no battles")
@@ -249,7 +235,7 @@ def prepare(project_path: Path, manifest_path: Path, project_root: Path,
             review_driver: bool = False) -> None:
     project = json.loads(project_path.read_text(encoding="utf-8"))
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    campaign, encounters = linear_campaign(project)
+    campaign, encounters = reachable_campaign(project)
     maps = selected_maps(project, encounters)
     # Reject unsupported layouts before producing any cartridge assets. A
     # compiled package can be larger than this renderer's current buffers.
