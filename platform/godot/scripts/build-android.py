@@ -28,6 +28,24 @@ def run(*args, env=None):
     subprocess.run([str(a) for a in args], cwd=ROOT, env=env, check=True)
 
 
+def run_godot(*args, env=None):
+    # Godot can exit successfully after reporting a GDScript parse error.
+    # A signed APK is not usable if its application scripts failed to import.
+    failed = False
+    with subprocess.Popen([str(a) for a in args], cwd=ROOT, env=env,
+                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                          text=True, bufsize=1) as process:
+        for line in process.stdout:
+            print(line, end='', flush=True)
+            if re.search(r'SCRIPT ERROR:|(?:^|\s)ERROR:|Parse Error:', line):
+                failed = True
+        code = process.wait()
+    if code:
+        raise subprocess.CalledProcessError(code, args)
+    if failed:
+        raise RuntimeError('Godot reported script/import errors; refusing to package this application')
+
+
 def digest(path):
     with path.open('rb') as source:
         return hashlib.file_digest(source, 'sha256').hexdigest()
@@ -86,6 +104,7 @@ def main():
     parser.add_argument('--output', type=Path, default=ROOT / 'out/grandleon-android-development')
     parser.add_argument('--templates-archive', type=Path, default=ROOT / f'build-tools/godot-android-{GODOT_VERSION}' / TEMPLATES_NAME)
     parser.add_argument('--native-library', action='append', default=[], metavar='ABI=FILE', help='Reuse a prebuilt library for an ABI')
+    parser.add_argument('--ui-test', action='store_true', help='Build a separate QA application that exercises real Android editor panels')
     parser.add_argument('--no-host-build', action='store_true', help='Reuse the host compiler and extension in --host-build-dir')
     args = parser.parse_args()
     sdk, java, build, host, output, godot = [p.resolve() for p in [args.sdk, args.java_home, args.build_dir, args.host_build_dir, args.output, args.godot]]
@@ -189,11 +208,23 @@ def main():
     (stage / 'android_background.svg').write_text(
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 432 432">'
         '<rect width="432" height="432" fill="#07111b"/></svg>')
+    if args.ui_test:
+        shutil.copy2(ROOT / 'platform/godot/tests/android_ui_driver.gd', stage / 'android_ui_driver.gd')
+        (stage / 'android_ui_driver.tscn').write_text(
+            '[gd_scene load_steps=2 format=3]\n'
+            '[ext_resource type="Script" path="res://android_ui_driver.gd" id="1"]\n'
+            '[node name="AndroidUIChecks" type="Control"]\n'
+            'layout_mode=3\nanchors_preset=15\nanchor_right=1.0\nanchor_bottom=1.0\n'
+            'grow_horizontal=2\ngrow_vertical=2\nscript=ExtResource("1")\n')
+    package_id = 'org.grandleon.app.qa' if args.ui_test else 'org.grandleon.app.dev'
     project = stage / 'project.godot'
     project.write_text(project.read_text().replace('config/name="Grandleon PC"', 'config/name="Grandleon"').replace(
         'renderer/rendering_method.mobile="gl_compatibility"',
         'renderer/rendering_method.mobile="gl_compatibility"\ntextures/vram_compression/import_etc2_astc=true',
     ))
+    if args.ui_test:
+        project.write_text(project.read_text().replace('run/main_scene="res://home.tscn"',
+                                                     'run/main_scene="res://android_ui_driver.tscn"'))
     state = build / 'godot-state'
     for name in ['config', 'data', 'cache', 'tmp']:
         (state / name).mkdir(parents=True, exist_ok=True)
@@ -224,7 +255,7 @@ def main():
                    'gradle_build/use_gradle_build=false\n'
                    'architectures/armeabi-v7a=false\narchitectures/arm64-v8a=true\n'
                    'architectures/x86=false\narchitectures/x86_64=true\nversion/code=1\nversion/name="0.6-dev"\n'
-                   'package/unique_name="org.grandleon.app.dev"\npackage/name="Grandleon"\n'
+                   f'package/unique_name={json.dumps(package_id)}\npackage/name={json.dumps("Grandleon UI checks" if args.ui_test else "Grandleon")}\n'
                    'launcher_icons/main_192x192="res://icon.png"\n'
                    'launcher_icons/adaptive_foreground_432x432="res://android_icon.svg"\n'
                    'launcher_icons/adaptive_background_432x432="res://android_background.svg"\n'
@@ -234,18 +265,18 @@ def main():
                    'permissions/internet=true\npermissions/change_wifi_multicast_state=true\npermissions/access_wifi_state=true\npermissions/read_external_storage=false\npermissions/write_external_storage=false\n'
                    'screen/support_small=true\nscreen/support_normal=true\nscreen/support_large=true\nscreen/support_xlarge=true\n'
                    'texture_format/s3tc_bptc=false\ntexture_format/etc2_astc=true\n')
-    run(godot, '--headless', '--editor', '--import', '--quit', '--path', stage, env=env)
+    run_godot(godot, '--headless', '--editor', '--import', '--quit', '--path', stage, env=env)
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix=output.name + '.tmp-', dir=output.parent))
     try:
         apk = temporary / 'grandleon-android-development.apk'
-        run(godot, '--headless', '--path', stage, '--export-debug', 'Android development', apk, env=env)
+        run_godot(godot, '--headless', '--path', stage, '--export-debug', 'Android development', apk, env=env)
         run(signer, 'verify', '--verbose', apk, env=env)
         run(sdk / 'build-tools' / BUILD_TOOLS / 'zipalign', '-c', '-P', '16', '4', apk, env=env)
         manifest = subprocess.check_output([
             str(sdk / 'build-tools' / BUILD_TOOLS / 'aapt'), 'dump', 'badging', str(apk),
         ], text=True, env=env)
-        for expected in ["name='org.grandleon.app.dev'", "sdkVersion:'24'", "targetSdkVersion:'36'"]:
+        for expected in [f"name='{package_id}'", "sdkVersion:'24'", "targetSdkVersion:'36'"]:
             if expected not in manifest:
                 raise ValueError(f'Unexpected Android manifest; missing {expected}')
         with zipfile.ZipFile(apk) as package:
@@ -256,7 +287,7 @@ def main():
         revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
         dirty = subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True)
         (temporary / 'BUILD-INFO.json').write_text(json.dumps({
-            'development': True, 'milestone': '0.6', 'sourceRevision': revision,
+            'development': True, 'uiTest': args.ui_test, 'packageId': package_id, 'milestone': '0.6', 'sourceRevision': revision,
             'sourceTree': 'dirty' if dirty else 'clean', 'godotVersion': GODOT_VERSION,
             'templatesSha256': TEMPLATES_SHA256, 'ndkVersion': NDK_VERSION,
             'buildTools': BUILD_TOOLS, 'nativeLibraries': native_proof,

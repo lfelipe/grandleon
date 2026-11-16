@@ -100,14 +100,14 @@ A 64-bit Android 7.0 or newer device with OpenGL ES 3.0 is required. The APK inc
 built-in artwork and audio, so it is currently about 436 MB. Physical phone
 and tablet testing remains on the [Android work list](../TODO.md#android-player-and-editor).
 
-For emulator testing, use host graphics. Godot 4.7.2 can show a black screen
-with `swiftshader_indirect` because of an
-[upstream shader compiler issue](https://github.com/godotengine/godot/issues/109550).
-On a headless Linux machine, run the emulator under Xvfb with `-gpu host`.
+For emulator testing, use host graphics, or `-gpu swangle` on a headless
+machine. Direct SwiftShader modes can fail to compile Godot canvas shaders.
+Software emulation is useful for interaction checks; it does not measure
+phone or tablet graphics performance.
 
-Tap to select units and destinations; drag to pan and pinch to zoom. The
-bottom buttons provide confirm, cancel, wait, end turn and the game menu.
-Two-player games also have a player-switch button. Android Back cancels the
+Tap to select units and destinations; drag to pan and pinch to zoom. Unit
+actions appear after selection; secondary controls live in the game menu.
+Same-device two-player games also have a player-switch button. Android Back cancels the
 current action or opens the menu. Returning from the background leaves the
 game paused until you resume it.
 
@@ -127,6 +127,24 @@ Android or PC installation can open with **Open campaign file**. Use
 Android uses the system file picker, so no broad storage permission is needed.
 N64 ROM and PS1 disc builds remain PC-only: transfer the editable project to
 the PC editor when you need those exports.
+
+For automated Android editor checks, build a separate test application with
+`build-android.py --ui-test --output out/android-ui-checks`. It uses its own
+package and storage, leaving the regular app's campaigns and saves alone.
+With an Android emulator running, use:
+
+```sh
+python3 platform/godot/scripts/test-android-ui.py --serial emulator-5554 \
+    --apk out/android-ui-checks/grandleon-android-development.apk \
+    --profile compact-phone --output out/android-ui-results
+```
+
+The other profiles are `wide-phone` and `tablet`; `--cutout corner` also
+checks an Android display cutout. The runner uses actual Android input and
+system file pickers, writes screenshots and results, and needs a keyboard-free
+emulator configuration to exercise the on-screen keyboard. Hardware keyboards,
+controllers, audio and graphics speed still need device testing. Do not share
+the test APK as the player application.
 
 ### Campaign library in 0.6
 
