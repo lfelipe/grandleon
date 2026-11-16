@@ -11,6 +11,8 @@ Open **Create / Edit Games**, start a new campaign and give it a name. The
 play. Its summaries come from your saved project, so you can leave and return
 without losing your place.
 
+![The Battle Guide, from heroes to a playable stage](screenshots/native-guide/00-battle-guide.png)
+
 Choose **Create Hero** to give a playable character a name, appearance, role
 and starting weapon. Start from a working role and tune it afterwards.
 **Edit Heroes** returns to the main roster. A custom role name keeps its

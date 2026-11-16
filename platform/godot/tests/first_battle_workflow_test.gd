@@ -106,6 +106,13 @@ func run() -> void:
 			scroll.ensure_control_visible(guide.next_battle_button)
 			await settle()
 			check(scroll.get_global_rect().grow(1).encloses(guide.next_battle_button.get_global_rect()), "Add Next Battle can be reached by scrolling")
+			if language == "en" and density == 1.0 and DisplayServer.get_name() != "headless":
+				for argument: String in OS.get_cmdline_user_args():
+					if argument.begins_with("--screenshot-en="):
+						guide.create_hero_button.grab_focus()
+						scroll.scroll_vertical = 0
+						await settle()
+						root.get_texture().get_image().save_png(argument.trim_prefix("--screenshot-en="))
 			if language == "pt-BR" and density == 2.625 and DisplayServer.get_name() != "headless":
 				for argument: String in OS.get_cmdline_user_args():
 					if argument.begins_with("--screenshot="):
