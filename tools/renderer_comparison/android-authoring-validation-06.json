@@ -1,0 +1,87 @@
+{
+  "schema": "grandleon.android.authoring-validation.v1",
+  "date": "2026-11-15",
+  "source_revision": "0a16f5da4431a210cf5bb5006d0164ae3bbae8a6",
+  "scope": "Actual Android 15 x86_64 emulator, ANGLE over SwiftShader; production editor scenes and native compiler. Separate QA entrypoint and package. Software graphics are not device performance evidence.",
+  "profiles": {
+    "compact-phone": {
+      "display_pixels": [
+        1280,
+        720
+      ],
+      "dpi": 320,
+      "language": "pt-BR",
+      "panels": 17,
+      "native_mouse": true,
+      "export_uri_scheme": "content",
+      "import_uri_scheme": "content",
+      "evidence_directory": "out/android-ui-final06-compact-phone",
+      "apk_sha256": "74a5a2535bcf854696a7b42690742500f87630a0a0f26ed02d0abc338c6e7563"
+    },
+    "wide-phone": {
+      "display_pixels": [
+        1920,
+        864
+      ],
+      "dpi": 420,
+      "language": "en",
+      "panels": 17,
+      "native_mouse": true,
+      "export_uri_scheme": "content",
+      "import_uri_scheme": "content",
+      "evidence_directory": "out/android-ui-final06-wide-phone",
+      "apk_sha256": "74a5a2535bcf854696a7b42690742500f87630a0a0f26ed02d0abc338c6e7563"
+    },
+    "tablet": {
+      "display_pixels": [
+        1280,
+        800
+      ],
+      "dpi": 160,
+      "language": "pt-BR",
+      "panels": 17,
+      "native_mouse": true,
+      "export_uri_scheme": "content",
+      "import_uri_scheme": "content",
+      "evidence_directory": "out/android-ui-final06-tablet",
+      "apk_sha256": "74a5a2535bcf854696a7b42690742500f87630a0a0f26ed02d0abc338c6e7563"
+    }
+  },
+  "checks": [
+    "17 advanced editor panels with actual safe bounds and physical 48dp targets",
+    "Real Android soft keyboard and Back dismissal; accented name entered through Ctrl+V",
+    "Tab and Shift-Tab remain in open modal; injected Android mouse creates equipment",
+    "Native authoring saves and compiles an accented project",
+    "Native SAVE picker writes a complete editable ZIP through its granted content URI; byte-exact comparison",
+    "Native OPEN picker imports the saved ZIP and retains accented text; imported campaign compiles",
+    "QA application scripts match the final committed product scripts byte for byte",
+    "Mobile smoke suite: 981 panel checks, 151 creation form checks, 40 campaign-form checks and real native movement/attack/wait",
+    "Desktop army, equipment, story and Back-navigation regressions pass",
+    "Build guard rejects actual GDScript parse errors and retains reused native inputs across staging replacement"
+  ],
+  "normal_apk": {
+    "path": "out/grandleon-android06-ready/grandleon-android-development.apk",
+    "sha256": "81da26e6ed4f4abe1113fc2085b4ca1dc390e582faa53bb4fd80cc1fcddfb3f7",
+    "bytes": 463946011,
+    "source_tree": "clean",
+    "abis": [
+      "arm64-v8a",
+      "x86_64"
+    ],
+    "page_alignment_bytes": 16384,
+    "qa_entrypoint": false,
+    "checks": [
+      "Final normal app restores prior solo battle at Rowan (4,2), with Wait already completed and Portuguese retained.",
+      "Solo and co-op save bytes match the earlier pre-update recovery captures; another in-place install preserves both exactly.",
+      "Actual Large text setting fits tablet settings; Android touch swipes reach the last settings action on a compact phone.",
+      "Review inbox opt-in removed after the checks."
+    ],
+    "player_evidence": "out/android-ready06-player"
+  },
+  "limitations": [
+    "No physical Android devices connected or discoverable during this pass.",
+    "Injected mouse/keyboard events exercise Android input delivery, not actual peripherals.",
+    "A prior cutout-overlay run exposed no inset and silently capped the requested display size. It is excluded from cutout and wide-phone coverage. Current wide-phone coverage uses verified 1920x864.",
+    "Physical FPS, audio, controllers, display cutouts, thermal behavior and OEM lifecycle acceptance remain open."
+  ]
+}
