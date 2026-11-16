@@ -14,6 +14,7 @@
 #include "runtime/textures.h"
 #include "terrain_motion.h"
 #include "packet_relocation.h"
+#include "exact_snapshot.h"
 #include "generated/grandleon_scene.h"
 
 #define SCREEN_WIDTH 320
@@ -54,6 +55,7 @@ __attribute__((noinline)) int grandleon_runtime_update(
  * Templates remain in the same retained command arena. */
 _Static_assert(sizeof(ps1_entity) % sizeof(uint32_t) == 0, "entity snapshots need whole words");
 static uint32_t s_world_entities[GRANDLEON_WORLD_ENTITY_CAPACITY * sizeof(ps1_entity) / sizeof(uint32_t)];
+static struct grandleon_exact_snapshot s_world_key;
 #define WORLD_CACHE_HEAD_CAPACITY 512
 static struct { uint32_t tag; uint16_t bucket; } s_world_heads[WORLD_CACHE_HEAD_CAPACITY];
 static unsigned s_world_head_count;
@@ -70,8 +72,7 @@ static uint16_t s_world_render_started, s_world_ui_started, s_world_ui_ticks;
  * invalidate this cache; engine-driven animation and VM bindings opt out. */
 static int scene_cache_supported(void) {
     unsigned i;
-    if (g_ps1_scene.entity_count > GRANDLEON_WORLD_ENTITY_CAPACITY ||
-        g_ps1_scene.binding_count || g_ps1_scene.rigid_anim_frame_count ||
+    if (g_ps1_scene.binding_count || g_ps1_scene.rigid_anim_frame_count ||
         g_ps1_scene.transform_anim_key_count || g_ps1_scene.background_texture_index)
         return 0;
     for (i = 0; i < g_ps1_scene.entity_count; ++i) {
@@ -86,24 +87,22 @@ static int scene_cache_supported(void) {
 /* Read object representations through memcpy to preserve strict aliasing.
  * Constant-size copies become word loads instead of the CRT's byte loop. */
 static int world_entities_match(void) {
-    const unsigned char* source = (const unsigned char*)g_ps1_scene.entities;
-    const size_t words = g_ps1_scene.entity_count * sizeof(ps1_entity) / sizeof(uint32_t);
-    for (size_t i = 0; i < words; ++i) {
-        uint32_t value;
-        __builtin_memcpy(&value, source + i * sizeof(uint32_t), sizeof(value));
-        if (s_world_entities[i] != value) return 0;
-    }
-    return 1;
+    return grandleon_snapshot_matches(&s_world_key, s_world_entities,
+        g_ps1_scene.entities, g_ps1_scene.entity_count, sizeof(ps1_entity) / 4u);
 }
 
 static void static_group_before_world_snapshot(void);
+static void static_group_invalidate(void);
 
-static void world_entities_capture(void) {
+static int world_entities_capture(void) {
     static_group_before_world_snapshot();
-    const unsigned char* source = (const unsigned char*)g_ps1_scene.entities;
-    const size_t words = g_ps1_scene.entity_count * sizeof(ps1_entity) / sizeof(uint32_t);
-    for (size_t i = 0; i < words; ++i)
-        __builtin_memcpy(&s_world_entities[i], source + i * sizeof(uint32_t), sizeof(uint32_t));
+    if (!grandleon_snapshot_capture(&s_world_key, s_world_entities, sizeof(s_world_entities),
+            g_ps1_scene.entities, g_ps1_scene.entity_count, sizeof(ps1_entity) / 4u)) {
+        /* Partial keys invalidate both consumers of the shared allocation. */
+        static_group_invalidate();
+        return 0;
+    }
+    return 1;
 }
 
 static uint32_t dma_address(const void* pointer) {
@@ -146,7 +145,7 @@ static void static_packets_begin_frame(int supported) {
             break;
         }
     }
-    s_static_targets[2] = g_grandleon_visibility_cell_count
+    s_static_targets[2] = !g_grandleon_visibility_per_cell && g_grandleon_visibility_cell_count
         ? &g_ps1_scene.entities[g_grandleon_visibility_entity_index] : 0;
     if (s_static_targets[2] && !s_static_targets[2]->mesh_enabled)
         s_static_targets[2] = 0;
@@ -255,14 +254,12 @@ static int s_group_primitives;
 static const char* s_group_begin;
 
 static int group_keys_match(void) {
-    const unsigned char* source = (const unsigned char*)g_ps1_scene.entities;
-    const size_t words = s_group_count * sizeof(ps1_entity) / 4u;
-    for (size_t i = 0; i < words; ++i) {
-        uint32_t word;
-        __builtin_memcpy(&word, source + i * 4u, 4u);
-        if (s_world_entities[i] != word) return 0;
-    }
-    return 1;
+    return grandleon_snapshot_matches(&s_world_key, s_world_entities,
+        g_ps1_scene.entities, s_group_count, sizeof(ps1_entity) / 4u);
+}
+
+static void static_group_invalidate(void) {
+    s_static_fragments[0].ready = 0;
 }
 
 static void static_group_before_world_snapshot(void) {
@@ -286,7 +283,7 @@ static void static_group_begin_frame(void) {
         const unsigned next = g_grandleon_board_surface_entity_indices[i] + 1u;
         if (next > count) count = next;
     }
-    if (!count || count > g_ps1_scene.entity_count || count > GRANDLEON_WORLD_ENTITY_CAPACITY)
+    if (!count || count > g_ps1_scene.entity_count)
         active = 0;
     if (active) {
         for (unsigned i = 0; i < count; ++i) {
@@ -360,11 +357,10 @@ void ps1_render_entity_packet_capture(uint32_t* ot, const char* begin, const cha
         individual_packet_capture(ot, s_group_begin, next, end,
             &g_ps1_scene.entities[0], 0, s_group_primitives);
         if (s_static_fragments[0].ready) {
-            const unsigned char* source = (const unsigned char*)g_ps1_scene.entities;
-            const size_t words = s_group_count * sizeof(ps1_entity) / 4u;
             s_world_ready = 0;
-            for (size_t i = 0; i < words; ++i)
-                __builtin_memcpy(&s_world_entities[i], source + i * 4u, 4u);
+            if (!grandleon_snapshot_capture(&s_world_key, s_world_entities, sizeof(s_world_entities),
+                    g_ps1_scene.entities, s_group_count, sizeof(ps1_entity) / 4u))
+                static_group_invalidate();
         }
         return;
     }
@@ -409,7 +405,7 @@ static void capture_world_packets(uint32_t* ot, char** next_packet) {
         s_world_heads[s_world_head_count].tag = ot[i];
         s_world_heads[s_world_head_count++].bucket = (uint16_t)i;
     }
-    world_entities_capture();
+    if (!world_entities_capture()) return;
     s_world_bytes = ranges.packet_bytes;
     s_world_ready = 1;
 }

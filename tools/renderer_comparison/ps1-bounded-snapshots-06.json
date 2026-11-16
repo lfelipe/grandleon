@@ -1,0 +1,117 @@
+{
+  "schema": "grandleon.ps1-bounded-snapshot-review.v1",
+  "date": "2026-11-15",
+  "change": "Lossless bounded entity-state snapshots enable static command reuse in larger scenes without increasing the snapshot allocation. Small scenes keep direct word keys.",
+  "upstream_changes": false,
+  "snapshot_storage_bytes": 22720,
+  "castle": {
+    "1p": {
+      "before_render_hbl_avg": 1293,
+      "after_render_hbl_avg": 959,
+      "cpu_reduction_percent": 25.8,
+      "exact_framebuffer_matches": [
+        "closed",
+        "entry",
+        "far-corner"
+      ],
+      "log": "out/ps1-snapshot06/final-1p/emulator.log"
+    },
+    "2p": {
+      "before_render_hbl_avg": 1198,
+      "after_render_hbl_avg": 1009,
+      "cpu_reduction_percent": 15.8,
+      "exact_framebuffer_matches": [
+        "closed",
+        "entry",
+        "far-corner"
+      ],
+      "log": "out/ps1-snapshot06/final-2p/emulator.log"
+    }
+  },
+  "checks": [
+    "Native exact-key tests and Address/UndefinedBehavior sanitizers pass.",
+    "Every entity word is tested for cache invalidation; prefix matching, unaligned storage, overflow invalidation and raw/compressed key replacement are covered.",
+    "Normal console menus, doorway reveal and scrolling on both axes pass in solo and co-op."
+  ],
+  "limitations": [
+    "Emulator CPU measurements are not physical-hardware FPS.",
+    "Larger castle still falls below 30 FPS during rendering and scrolling.",
+    "The existing strict Twin Gate 30 FPS gate remains open."
+  ],
+  "memory": {
+    "text_bytes": 422376,
+    "data_bytes": 679412,
+    "bss_bytes": 368952,
+    "resident_bytes": 1470740,
+    "packet_bytes_per_frame": 57344,
+    "packet_arena_bytes": 57344,
+    "packet_arena_count": 1,
+    "ordering_table_bytes": 8192,
+    "end_address": "0x80176938",
+    "renderer_probe_budget_bytes": 524288,
+    "platform_audio_reserve_bytes": 65536,
+    "stack_reserve_bytes": 32768,
+    "minimum_gameplay_heap_bytes": 524288,
+    "main_ram_bytes": 2097152,
+    "renderer_and_audio_reserve_bytes": 1536276,
+    "passes_renderer_only_probe_budget": false,
+    "playable_slice_committed_bytes": 2093332,
+    "passes_playable_slice_budget": true,
+    "unchanged_reserves": true
+  },
+  "artifacts": {
+    "grandleon_mipsync.elf": {
+      "bytes": 7351152,
+      "sha256": "ae3b60e6a49b5609bbe26c583d94ff4a3734966c40caeecabe273c84db6c6d88"
+    },
+    "grandleon_mipsync.exe": {
+      "bytes": 1101824,
+      "sha256": "f0ce379012e311ba975b7b008f398e45b54acb04ca589a18517856385fa95d1f"
+    },
+    "game.cue": {
+      "bytes": 433,
+      "sha256": "fa63c3fead879ddeb40fd71564ffb93beda586da1168f5ffa90fd32218a5b122"
+    },
+    "game.bin": {
+      "bytes": 95258352,
+      "sha256": "e08dbcc04e8e57eaf3b9c865bb2583d543b638f0b7ee9cc07d1fdb3c0fdd42e1"
+    }
+  },
+  "logs": [
+    "out/ps1-snapshot06/native-tests.log",
+    "out/ps1-snapshot06/sanitizer-test-final.log",
+    "out/ps1-snapshot-default06/final-tests.log"
+  ],
+  "existing_campaign": {
+    "functional_traversal_saves_coop_solo": "pass",
+    "exact_framebuffer_matches": [
+      "continue-deepwood.bin",
+      "continue-gate.bin",
+      "continue-title.bin",
+      "continue-village.bin",
+      "continue-watch.bin",
+      "new-bell-dialogue.bin",
+      "new-bell.bin",
+      "new-deepwood.bin",
+      "new-title.bin",
+      "solo-solo-bell.bin",
+      "solo-solo-deepwood.bin",
+      "solo-solo-gate.bin",
+      "solo-solo-village.bin",
+      "solo-solo-watch.bin",
+      "solo-title.bin"
+    ],
+    "strict_30fps_gate": "fail, same 94 missed retraces as baseline",
+    "small_scene_renderer_hblank_average": {
+      "deepwood": {
+        "before": 181,
+        "after": 184
+      },
+      "twin_gate": {
+        "before": 226,
+        "after": 232
+      }
+    },
+    "note": "The extra exact-key bookkeeping slightly increases small-scene CPU time; Deepwood still has zero missed retraces and Twin Gate retains the same missed-retrace count."
+  }
+}

@@ -72,6 +72,7 @@ stage_scene() {
     cp "$mipsync_dir/runtime/game_bridge.h" "$stage/game_bridge.h"
     cp "$mipsync_dir/runtime/text_paging.h" "$stage/text_paging.h"
     cp "$mipsync_dir/runtime/packet_relocation.h" "$stage/packet_relocation.h"
+    cp "$mipsync_dir/runtime/exact_snapshot.h" "$stage/exact_snapshot.h"
     cp "$mipsync_dir/runtime/terrain_motion.h" "$stage/terrain_motion.h"
     cp "$mipsync_dir/runtime/grandleon_audio.c" "$stage/grandleon_audio.c"
     cp "$mipsync_dir/runtime/grandleon_audio.h" "$stage/grandleon_audio.h"

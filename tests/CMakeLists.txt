@@ -971,6 +971,12 @@ target_include_directories(grandleon_ps1_packet_relocation_tests PRIVATE
     ../platform/playstation/mipsync/runtime)
 add_test(NAME grandleon.ps1_packet_relocation COMMAND grandleon_ps1_packet_relocation_tests)
 
+add_executable(grandleon_ps1_exact_snapshot_tests
+    ../platform/playstation/mipsync/tests/exact_snapshot_test.cpp)
+target_include_directories(grandleon_ps1_exact_snapshot_tests PRIVATE
+    ../platform/playstation/mipsync/runtime)
+add_test(NAME grandleon.ps1_exact_snapshot COMMAND grandleon_ps1_exact_snapshot_tests)
+
 add_executable(grandleon_ps1_terrain_motion_tests
     ../platform/playstation/mipsync/tests/terrain_motion_test.cpp)
 target_include_directories(grandleon_ps1_terrain_motion_tests PRIVATE

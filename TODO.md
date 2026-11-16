@@ -311,6 +311,12 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   needs less CPU time when unit poses or foliage change, but camera-motion
   bursts and the strict keep frame-pacing check remain open.
   [Current measurements](tools/renderer_comparison/ps1-display-deadlines-06.json)
+- [x] Retain exact PS1 static-command reuse on larger scenes without increasing
+  the entity-key reservation. Lossless snapshots remove the 80-object cutoff;
+  small scenes retain direct word keys. The 32×24 castle reduces renderer CPU
+  time by 16–26% with identical solo/co-op captures. Full demo traversal, saves
+  and co-op pass; the strict 30 FPS keep gate remains open.
+  [Measurements](tools/renderer_comparison/ps1-bounded-snapshots-06.json)
 - [x] Reuse unchanged PS1 scenery during unit movement when the camera remains
   still; retain exact camera invalidation and normal actor drawing.
 - [x] Pace completed PS1 images from actual display deadlines and keep game
