@@ -1,0 +1,77 @@
+{
+  "schema": "grandleon.castle-expansion-prototype.v1",
+  "date": "2026-11-15",
+  "source_revision": "d4c12d88f36fb4a230fd14ada3633fb9afaf1126",
+  "status": "Godot prototype; existing demo campaign unchanged. Console expansion is pending.",
+  "map": {
+    "width": 32,
+    "height": 24,
+    "playable_cells": 768,
+    "covered_cells": 170,
+    "reveal_radius": 2,
+    "rooms": [
+      "guardhouse",
+      "council chamber",
+      "great hall"
+    ],
+    "open_court": true
+  },
+  "checks": [
+    "Source compiles with the real native campaign compiler.",
+    "Both one- and two-player native sessions reach the 32 by 24 battle with their authored forces.",
+    "A native accepted movement enters the guardhouse through its real doorway; the rendered walk reveals nearby cells.",
+    "Council and great hall remain covered when entering the guardhouse.",
+    "Camera can pan to both legitimate limits on both axes and remains within the playable board.",
+    "Independent layout checks cover room reachability, player starts, boss position, separate room reveals and isolated saves.",
+    "Editable project and playable campaign bundles export through the real creator services.",
+    "Existing 6 by 6 keep smoke passes and all 151 portable geometry parts are identical."
+  ],
+  "evidence": {
+    "rendered_test": "out/castle-expansion06-review/test.log",
+    "final_native_camera_test": "out/castle-expansion06/final-native-test-v2.log",
+    "layout": "out/castle-expansion06/layout-final.log",
+    "legacy_keep": "out/castle-expansion06/legacy-keep.log"
+  },
+  "artifacts": {
+    "project.json": {
+      "sha256": "2283d43cd34f3dfbf19eb161b476a1b0d83cc96f11bcbe1468937a4b167b1c44",
+      "bytes": 60990
+    },
+    "plan.svg": {
+      "sha256": "e6f5c2500c3c1b148809096cf16dcb1950951fbe9a55899982aa5954169f634b",
+      "bytes": 75938
+    },
+    "overview-1p.png": {
+      "sha256": "ea4487f9a26db44b174ead2fccbb6b3a6869e284da256e13b3f60641fc7bfb92",
+      "bytes": 1334141
+    },
+    "overview-2p.png": {
+      "sha256": "13c1cb60f0e9b817a9673844df5c37859d8d51228ce835297e8e7ce7f6c0e2bd",
+      "bytes": 1335165
+    },
+    "guardhouse-1p.png": {
+      "sha256": "36fa4ee5cfc329dc669cfeeb74a17a2c92aafb271fc93b2d3c57150163ea2d18",
+      "bytes": 2351068
+    },
+    "guardhouse-2p.png": {
+      "sha256": "29bc281077b65aef4d9a461ecc630f5c25fb42c94b534281c58198840a54b952",
+      "bytes": 2356041
+    },
+    "The Three Courts.grandleon.zip": {
+      "sha256": "882479fcf6b7705ed0ddd6a5c199e2497a44fdabf9b3dd5f21fb21e726cbd175",
+      "bytes": 61231
+    },
+    "three-courts.grandleon.game.zip": {
+      "sha256": "4c3c8312d2f0db43538ae7e72618606448f78ffff728e6ac7b6de32b705808d6",
+      "bytes": 18485
+    }
+  },
+  "limitations": [
+    "Layout and rendering study; difficulty has not been tuned or human-playtested.",
+    "Use the current local 0.6 Godot build for the modular castle presentation.",
+    "N64 still caps the board at 280 cells; its fixed render buffers need redesign while retaining base 4 MiB.",
+    "Both console castle paths still assume a 6 by 6 keep and reveal the one existing region as a whole. The larger prototype is not console-ready.",
+    "Overview images use a deliberately wide review camera; regular play uses normal zoom and scrolling.",
+    "Rendered checks use a software-rendered desktop session, not Android or hardware performance evidence."
+  ]
+}

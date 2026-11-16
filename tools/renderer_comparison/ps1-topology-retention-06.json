@@ -1,0 +1,62 @@
+{
+  "schema": "grandleon.ps1-topology-retention-experiment.v1",
+  "date": "2026-11-15",
+  "decision": "Not integrated: no observed frame-time or display-deadline benefit.",
+  "change": "Isolated Mipsync candidate retains immutable visibility and triangle-pair topology when projection storage is reclaimed, and reclaims each immutable arena only on its own capacity pressure.",
+  "scenario": "Identical native two-player Bell Orchard combat/ability/counterattack/controller sequence; same source campaign, scene quality, memory limits and test assertions.",
+  "measurements": {
+    "baseline": {
+      "rendered_frames": 299,
+      "scheduled_frames": 300,
+      "missed_vblanks": 3,
+      "max_elapsed_vblanks": 5,
+      "render_hbl_avg": 106,
+      "render_hbl_max": 1134,
+      "ready_hbl_max": 1146
+    },
+    "candidate": {
+      "rendered_frames": 299,
+      "scheduled_frames": 300,
+      "missed_vblanks": 3,
+      "max_elapsed_vblanks": 5,
+      "render_hbl_avg": 106,
+      "render_hbl_max": 1137,
+      "ready_hbl_max": 1148
+    }
+  },
+  "identical_captures": [
+    {
+      "file": "mipsync-combat-forecast.bin",
+      "bytes": 153600,
+      "sha256": "d9c690a725e4036e99bbb7486feb8a8f884a62857b12a854d417f2481aa86ba7"
+    },
+    {
+      "file": "mipsync-combat-close.bin",
+      "bytes": 153600,
+      "sha256": "a443e03979cd6aeca8388825d4e5369809b3b802c96a3addce45a758f86ea6ad"
+    },
+    {
+      "file": "mipsync-combat-final.bin",
+      "bytes": 153600,
+      "sha256": "20697005b8817149cfb68e45decf4d0b147bbcf3a8d1949d34bb94c114cea22d"
+    }
+  ],
+  "functional_checks": [
+    "same final canonical hash 2ea20447a61b5d9a",
+    "attack/counterattack side stability and restoration",
+    "launch/impact audio at updates 28/37/68/77",
+    "second-player camera return"
+  ],
+  "memory": {
+    "baseline_resident_bytes": 1157796,
+    "candidate_resident_bytes": 1157796,
+    "baseline_bss_bytes": 297704,
+    "candidate_bss_bytes": 297704
+  },
+  "evidence_directory": "out/ps1-topology-retention06",
+  "limitations": [
+    "This is an emulator experiment, not physical performance evidence.",
+    "A cache-focused experiment that does not improve measured behavior is not a release fix.",
+    "No upstream patch, public PR or production renderer change was made."
+  ]
+}
