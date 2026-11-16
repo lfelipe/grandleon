@@ -290,7 +290,9 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
 
 - [x] Add subtle water-surface motion on both consoles using the existing
   artwork and geometry. Keep fixed ground and bridges, with native campaign
-  checks and all memory reserves preserved.
+  checks and all memory reserves preserved. Narrow raised timber bridges now
+  preserve a connected water surface on all three players; authored movement
+  cells remain unchanged. See the [river review](tools/renderer_comparison/river-continuity-06.json).
 
 ### Performance and memory
 

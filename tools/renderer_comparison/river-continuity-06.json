@@ -1,0 +1,65 @@
+{
+  "schema": "grandleon.river-continuity-review.v1",
+  "date": "2026-11-15",
+  "change": "Water continues below narrow raised plank bridges; authored gameplay cells and campaign data are unchanged.",
+  "source": "games/steel_and_cedar/source/project.json",
+  "package_sha256": "3f9c6fab1e82f1ff8db048b7dac2a800b964ace07a106585b534f02150b7039c",
+  "crossings": {
+    "map": "steel_and_cedar/cedar_deepwood",
+    "size": [
+      14,
+      9
+    ],
+    "river_column": 12,
+    "crossing_rows": [
+      2,
+      4,
+      6
+    ]
+  },
+  "checks": {
+    "ps1_generator": "out/river-continuity06/generator-tests-v2.log",
+    "godot_actual_campaign": "out/river-continuity06/godot-river.log: RIVER_CROSSING_PASS failures=0",
+    "n64_actual_campaign": {
+      "log": "out/river-continuity06/n64-campaign/ares/campaign.log",
+      "verdict": "RESULT PASS PYRITE_GAMEPLAY",
+      "battles": 5,
+      "commands": 287,
+      "enemy_commands": 165,
+      "final_hash": "600017321675168062",
+      "rdram_bytes": 4194304,
+      "final_heap_free_bytes": 234232,
+      "castle_hidden_reveal_pass": true
+    },
+    "ps1_scene": {
+      "schema": "grandleon.scene-review.v1",
+      "scene": "out/river-continuity06/deepwood-current.json",
+      "canonical_hash": "1691153257528373808",
+      "capture_verified": true,
+      "metrics": {
+        "frames": 600,
+        "rendered_frames": 300,
+        "scheduled_frames": 299,
+        "deferred_frames": 1,
+        "missed_vblanks": 0,
+        "max_elapsed_vblanks": 2,
+        "render_hbl_avg": 100,
+        "render_hbl_max": 424
+      },
+      "scope": "Emulator visual review. Frame-budget misses are recorded, not treated as a passed performance test."
+    }
+  },
+  "captures": {
+    "ps1": "out/river-continuity06/ps1-river.gif",
+    "n64": "out/river-continuity06/n64-river.png",
+    "godot": "out/river-continuity06/godot-river.png"
+  },
+  "scenery_export": "All 26 settlement models compare identically; only the board source signature was refreshed by the rendered Godot exporter.",
+  "site_source_commit": "10b6a05c36f32addf5daddcee500d13f7d995118",
+  "limits": [
+    "Emulator and rendered desktop checks, not physical-console validation.",
+    "PS1 GIF uses sampled snapshots replayed at a nominal 15 FPS; it is not a native display-pacing measurement.",
+    "The older N64 motion clip is labelled as predating the crossing fix; the river section contains the new capture.",
+    "The PS1 check covers the selected Deepwood scene, not a new full campaign run."
+  ]
+}

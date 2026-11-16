@@ -472,7 +472,27 @@ def test_house_only_bank_does_not_require_a_shared_unit_palette() -> None:
             assert words[1] & 8, "a bank with only independently paletted textures must own every CLUT"
 
 
+def test_river_crossings_keep_water_and_a_narrow_raised_deck() -> None:
+    # Full cells remain traversable roads in the simulation. The presentation
+    # must keep water on both sides of a smaller timber crossing.
+    terrain = [9,0,9, 1,1,1, 9,0,9]
+    assert SCENE.river_crossings(terrain,3,3) == {(1,1):1}
+    assert SCENE.river_crossings([9,1,9, 0,1,0, 9,1,9],3,3) == {(1,1):2}
+    assert SCENE.river_crossings([9,0,9, 9,1,1, 9,9,9],3,3) == {}, "one bank is not a bridge"
+    for axis in [1,2]:
+        vertices,uvs,faces = [],[],[]
+        SCENE.append_river_bridge(vertices,uvs,faces,1,1,axis,3,3,6,2)
+        assert len(vertices)==len(uvs) and faces
+        deck=[face for face in faces if all(vertices[i][1] == 6 for i in face[:3])]
+        assert deck, "the walking deck is above water"
+        perpendicular=2 if axis==1 else 0
+        assert max(abs(vertices[i][perpendicular]) for f in faces for i in f[:3]) < 32, "water shoulders remain visible instead of a full-width dam"
+        assert all(min(face[:3])>=0 and max(face[:3])<len(vertices) for face in faces)
+        assert max(v[0 if axis==1 else 2] for v in vertices)-min(v[0 if axis==1 else 2] for v in vertices)>=128, "deck reaches both banks"
+
+
 if __name__ == "__main__":
+    test_river_crossings_keep_water_and_a_narrow_raised_deck()
     test_camera_pages_keep_separate_fixed_canopy_meshes()
     test_foliage_pages_preserve_every_face_and_leave_trunks_static()
     test_house_only_bank_does_not_require_a_shared_unit_palette()

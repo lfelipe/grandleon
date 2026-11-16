@@ -1482,7 +1482,7 @@ func _prepare_natural_terrain(width: int, height: int, depth: int) -> void:
 			else:
 				kind = _surrounding_kind(x, y, outside_index)
 				outside_index += 1
-			_natural_ground.cells[Vector2i(x, y)] = 9 if kind == 255 else kind
+			_natural_ground.cells[Vector2i(x, y)] = 0 if _river_crossing_axis(x, y) else (9 if kind == 255 else kind)
 			var feature := _terrain_feature_at(x, y)
 			if not feature.is_empty() and feature not in ["orchard_tree", "none"]:
 				for dz in range(-1, 2):
@@ -1503,9 +1503,13 @@ func _build_natural_tile(x: int, y: int, kind: int) -> void:
 	var ground := MeshInstance3D.new()
 	ground.name = "NaturalGround"
 	ground.mesh = _natural_ground.mesh_for(Vector2i(x, y))
-	ground.material_override = _natural_ground.material_for(kind)
+	var crossing := _river_crossing_axis(x, y)
+	ground.material_override = _natural_ground.material_for(0 if crossing else kind)
 	cell.add_child(ground)
 	var top: float = _natural_ground.height_at(Vector2i(x, y))
+	if crossing:
+		_build_river_bridge(cell, top, crossing)
+		return
 	var height_sampler := func(uv: Vector2) -> float:
 		return _natural_ground.sample_height(Vector2i(x, y), uv)
 	var feature := _terrain_feature_at(x, y)
@@ -1896,6 +1900,31 @@ func _relay_beacon(centre: Vector3, top: float, voxel: bool) -> void:
 		_sphere(_terrain_root, centre + Vector3(0, top + 0.69, 0), Vector3(0.10, 0.10, 0.10), glow)
 
 
+func _river_crossing_axis(x: int, y: int) -> int:
+	var width := int(snapshot.get("width", 0))
+	var height := int(snapshot.get("height", 0))
+	if x < 0 or y < 0 or x >= width or y >= height or terrain[y * width + x] != 1: return 0
+	if y > 0 and y + 1 < height and terrain[(y-1)*width+x] == 0 and terrain[(y+1)*width+x] == 0: return 1
+	if x > 0 and x + 1 < width and terrain[y*width+x-1] == 0 and terrain[y*width+x+1] == 0: return 2
+	return 0
+
+
+func _build_river_bridge(parent: Node3D, top: float, axis: int) -> void:
+	var bridge := Node3D.new()
+	bridge.name = "RiverBridge"
+	bridge.set_meta("river_crossing_axis", axis)
+	if axis == 2: bridge.rotation.y = PI * 0.5
+	parent.add_child(bridge)
+	var wood := _material("river_bridge_wood", Color("93663b"), 0.94)
+	var rail := _material("river_bridge_rail", Color("664c32"), 0.94)
+	for step in 6:
+		_box(bridge, Vector3(-0.445 + step * 0.178, top + 0.06, 0), Vector3(0.168, 0.12, 0.38), wood)
+	for side in [-1.0, 1.0]:
+		_box(bridge, Vector3(0, top + 0.25, side * 0.22), Vector3(1.06, 0.055, 0.045), rail)
+		for end in [-0.46, 0.46]:
+			_box(bridge, Vector3(end, top + 0.12, side * 0.22), Vector3(0.055, 0.29, 0.055), rail)
+
+
 func _touches_water(x: int, y: int) -> bool:
 	if snapshot.is_empty():
 		return false
@@ -2226,7 +2255,7 @@ func _surface_height(x: int, y: int) -> float:
 	if snapshot.is_empty() or terrain.is_empty():
 		return 0.1
 	if _uses_natural_terrain() and _natural_ground != null:
-		return _natural_ground.height_at(Vector2i(x, y))
+		return _natural_ground.height_at(Vector2i(x, y)) + (0.12 if _river_crossing_axis(x, y) else 0.0)
 	var index := y * int(snapshot.width) + x
 	if index < 0 or index >= terrain.size():
 		return 0.1

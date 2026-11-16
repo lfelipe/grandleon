@@ -801,6 +801,49 @@ def page_starts(extent: int, visible: int) -> list[int]:
     return starts
 
 
+def river_crossings(terrain: list[int], width: int, height: int) -> dict[tuple[int, int], int]:
+    """Road/bridge crossings with opposing water: 1 spans X, 2 spans Z.
+
+    This changes drawing only. The original road-kind cell remains walkable.
+    A road merely approaching one bank must not become a bridge.
+    """
+    def water(x, y): return 0 <= x < width and 0 <= y < height and terrain[y * width + x] == 0
+    result = {}
+    for y in range(height):
+        for x in range(width):
+            if terrain[y * width + x] != 1: continue
+            if water(x, y - 1) and water(x, y + 1): result[x, y] = 1
+            elif water(x - 1, y) and water(x + 1, y): result[x, y] = 2
+    return result
+
+
+def append_river_bridge(vertices, uvs, triangles, x, y, axis, width, height, top, texture):
+    """Narrow plank crossing above an unbroken water tile; native PS1 units."""
+    cx, cz = (x * 2 + 1 - width) * 64, (height - y * 2 - 1) * 64
+    def point(px, py, pz):
+        if axis == 2: px, pz = pz, -px
+        return (cx + px, top + py, cz + pz, 0)
+    for step in range(4):
+        left = -64 + step * 32
+        first = len(vertices)
+        vertices.extend(point(px, 0, pz) for px, pz in [(left, 23), (left + 30, 23), (left, -23), (left + 30, -23)])
+        uvs.extend([(0, 0), (31, 0), (0, 31), (31, 31)])
+        colour = (133 + step * 3, 92 + step * 2, 49)
+        triangles.extend([(first, first+1, first+2, texture, 255, *colour),
+                          (first+2, first+1, first+3, texture, 255, *colour)])
+    # A pair of low timber rails gives the crossing volume without masking
+    # the water shoulders or requiring another texture/palette allocation.
+    for z in [-25, 25]:
+        first = len(vertices)
+        vertices.extend(point(px, py, pz) for px, py, pz in [
+            (-66,0,z+2),(66,0,z+2),(66,0,z-2),(-66,0,z-2),
+            (-66,12,z+2),(66,12,z+2),(66,12,z-2),(-66,12,z-2)])
+        uvs.extend([(0,0),(31,0),(31,31),(0,31)]*2)
+        faces=[(4,5,6),(4,6,7),(0,4,7),(0,7,3),(1,2,6),(1,6,5),
+               (0,1,5),(0,5,4),(3,7,6),(3,6,2)]
+        triangles.extend((first+a,first+b,first+c,texture,255,101,69,38) for a,b,c in faces)
+
+
 def relief_height(kind: int, x: int, y: int, seed: int) -> int:
     """Return a deterministic, restrained height for one terrain cell."""
     base = TERRAIN_RELIEF_HEIGHTS[kind]
@@ -1250,8 +1293,10 @@ def write_meshes(
     scenery_metadata: list | None = None,
     surface_count: int = 0,
     foliage_metadata: list | None = None,
+    bridges: dict | None = None,
 ) -> tuple[int, int, list[tuple[int, int, int, int, int, int, int]]]:
     keep_parts = keep_parts or []
+    bridges = bridges or {}
     settlement_instances = settlement_instances or []
     settlement_models = settlement_models or {}
     occupied = {(x + dx, y + dy) for x, y, _kind, size in settlement_instances for dy in range(size) for dx in range(size)}
@@ -1346,6 +1391,11 @@ def write_meshes(
                     (first + 2, first + 1, first + 3, texture, shade,
                      255, 255, 255),
                 ))
+        for (bx, by), axis in bridges.items():
+            if any(x <= bx < x + sx and y <= by < y + sy for x,y,_kind,_authored,sx,sy in floor_cells):
+                top = surface_relief(bx, by, cell_lifts) + 6 if relief_mode == "smooth" else 6
+                append_river_bridge(board_vertices, board_uvs, board_triangles,
+                                    bx, by, axis, width, height, top, terrain_indices[-1])
         foliage_triangles = []
         for x, y, kind in ([] if surface_count and group_index < surface_count else terrain_form_cells):
             if (x, y) in castle_cells or (x, y) in occupied:
@@ -2100,9 +2150,10 @@ def main() -> int:
     for index, kind in enumerate(fixed_terrain):
         require_int(kind, f"surroundings terrain[{index}]", 0, len(TERRAIN_NAMES) - 1)
 
+    bridges = river_crossings(terrain, width, height)
     def kind_at(x: int, y: int) -> int:
         if 0 <= x < width and 0 <= y < height:
-            return terrain[y * width + x]
+            return 0 if (x, y) in bridges else terrain[y * width + x]
         return apron_kind(
             terrain, width, height, x, y, policy, fixed_terrain,
             args.surroundings_seed,
@@ -2149,11 +2200,11 @@ def main() -> int:
         for y in range(height):
             x = 0
             while x < width:
-                kind = terrain[y * width + x]
+                kind = kind_at(x, y)
                 span = 1
                 while (
                     kind not in (8, 12) and span < 4 and x + span < width
-                    and terrain[y * width + x + span] == kind
+                    and kind_at(x + span, y) == kind
                 ):
                     span += 1
                 cells.append((x, y, kind, True, span, 1))
@@ -2200,9 +2251,9 @@ def main() -> int:
         castle=bool(keep_parts), houses=any(k.startswith("house_cutout_") for _x,_y,k,_size in settlement_instances), theme=int(document.get("theme",0)), grove=any(k == "grove_cutout" for _x,_y,k,_size in settlement_instances),
         house_drawings=tuple(sorted({int(k.split("_")[2]) for _x,_y,k,_size in settlement_instances if k.startswith("house_cutout_")})),
     )
-    terrain_form_cells = select_terrain_form_cells(
+    terrain_form_cells = [cell for cell in select_terrain_form_cells(
         terrain, width, height, args.surroundings_seed,
-    )
+    ) if (cell[0], cell[1]) not in bridges]
     floor_groups = surface_strips(cells, width, height, depth)
     terrain_groups = floor_groups + page_cells(cells, width, height, depth)
     distant_kind = max(
@@ -2219,6 +2270,8 @@ def main() -> int:
         ]
         if args.terrain_relief == "smooth" else [0] * (width * height)
     )
+    for x, y in bridges:
+        surface_lifts[y * width + x] += 6
     scenery_metadata = []
     foliage_metadata = []
     board_vertices, board_triangles, terrain_chunks = write_meshes(
@@ -2227,7 +2280,7 @@ def main() -> int:
         args.terrain_relief, cell_lifts, hidden_cells, castle_cells,
         keep_parts, settlement_instances, settlement_models,
         MAX_CACHE_VERTICES, scenery_metadata, surface_count=len(floor_groups),
-        foliage_metadata=foliage_metadata,
+        foliage_metadata=foliage_metadata, bridges=bridges,
     )
     entities = write_scene(
         output, document, unit_indices, terrain_chunks,

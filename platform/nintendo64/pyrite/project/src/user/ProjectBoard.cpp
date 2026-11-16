@@ -997,6 +997,30 @@ std::int16_t terrain_lift(std::uint64_t id) {
     return 0;
 }
 
+// Crossings retain their road-kind gameplay cell. Only the rendered ground
+// becomes water, with a narrower timber deck at the original road height.
+int river_crossing_axis(std::size_t index) {
+    const int width = board.content->definition.width;
+    const int height = board.content->definition.height;
+    const int x = static_cast<int>(index % width);
+    const int y = static_cast<int>(index / width);
+    if (terrain_kind(board.content->terrain[index]) != 1U) return 0;
+    const auto water = [&](int nx, int ny) {
+        return nx >= 0 && ny >= 0 && nx < width && ny < height &&
+            terrain_kind(board.content->terrain[static_cast<std::size_t>(ny * width + nx)]) == 0U;
+    };
+    if (water(x, y - 1) && water(x, y + 1)) return 1;
+    if (water(x - 1, y) && water(x + 1, y)) return 2;
+    return 0;
+}
+
+std::uint64_t river_surface_id(std::size_t index) {
+    const int axis = river_crossing_axis(index);
+    if (axis == 1) return board.content->terrain[index - board.content->definition.width];
+    if (axis == 2) return board.content->terrain[index - 1U];
+    return board.content->terrain[index];
+}
+
 void terrain_uv(
     std::uint64_t id,
     std::size_t index,
@@ -1082,17 +1106,18 @@ void build_cell_vertices() {
         const std::int16_t z = static_cast<std::int16_t>(index / width);
         const std::int16_t cx = world_x(x, width);
         const std::int16_t cz = world_z(z, height);
-        const std::int16_t lift = terrain_lift(board.content->terrain[index]);
+        const auto surface = river_surface_id(index);
+        const std::int16_t lift = terrain_lift(surface);
         std::int16_t s0 = 0;
         std::int16_t t0 = 0;
         std::int16_t s1 = 0;
         std::int16_t t1 = 0;
-        terrain_uv(board.content->terrain[index], index, s0, t0, s1, t1);
+        terrain_uv(surface, index, s0, t0, s1, t1);
         const auto tint = [&](int gx, int gz) {
-            return ground_corner_tint(board.content->terrain[index], index, gx, gz);
+            return ground_corner_tint(surface, index, gx, gz);
         };
         const std::size_t first = index * kCellVertexCount;
-        if (terrain_kind(board.content->terrain[index]) == 0U)
+        if (terrain_kind(surface) == 0U)
             board.water_quads.push_back(static_cast<std::uint16_t>(index));
         set_vertex(board.cells, first + 0U, cx - kHalfCell, lift, cz - kHalfCell, tint(x, z), s0, t0, normal);
         set_vertex(board.cells, first + 1U, cx + kHalfCell, lift, cz - kHalfCell, tint(x + 1, z), s1, t0, normal);
@@ -1281,7 +1306,7 @@ std::int16_t lift_at(int x, int y) {
     const int width = board.content->definition.width;
     const int height = board.content->definition.height;
     if (x < 0 || y < 0 || x >= width || y >= height) return 0;
-    return terrain_lift(board.content->terrain[static_cast<std::size_t>(y * width + x)]);
+    return terrain_lift(river_surface_id(static_cast<std::size_t>(y * width + x)));
 }
 
 void build_elevation_vertices() {
@@ -1387,7 +1412,7 @@ void build_terrain_form_vertices() {
     const auto height = board.content->definition.height;
     for (std::size_t index = 0; index < board.content->terrain.size(); ++index) {
         const auto id = board.content->terrain[index];
-        if (settlement_model(id) >= 0) continue;
+        if (settlement_model(id) >= 0 || river_crossing_axis(index)) continue;
         const std::uint8_t kind = terrain_kind(id);
         const auto x = static_cast<std::int16_t>(index % width);
         const auto z = static_cast<std::int16_t>(index / width);
@@ -1497,6 +1522,25 @@ int settlement_model(std::uint64_t id) {
     return -1;
 }
 
+void append_river_bridge(std::size_t index, int axis) {
+    const int width = board.content->definition.width;
+    const auto cx = world_x(static_cast<std::int16_t>(index % width), width);
+    const auto cz = world_z(static_cast<std::int16_t>(index / width), board.content->definition.height);
+    const auto plank = [&](int along, int across, int half_along, int half_across,
+                           int bottom, int height, std::uint32_t colour) {
+        append_box(cx + (axis == 1 ? along : across), bottom,
+                   cz + (axis == 1 ? across : along),
+                   axis == 1 ? half_along : half_across, height,
+                   axis == 1 ? half_across : half_along, colour);
+    };
+    const int top = terrain_lift(board.content->terrain[index]);
+    for (int step = 0; step < 4; ++step)
+        plank(-20 + step * 13, 0, 6, 9, top - 3, 3,
+              pack_rgba(139U + step * 3U, 96U + step * 2U, 52U));
+    for (int side : {-1, 1})
+        plank(0, side * 11, 27, 1, top, 5, pack_rgba(101U, 69U, 38U));
+}
+
 void build_landmark_vertices() {
     board.landmark_vertex_count = 0;
     board.settlement.begin();
@@ -1528,6 +1572,10 @@ void build_landmark_vertices() {
     std::array<bool, kMaxCells> landmark_cells_seen{};
     for (std::size_t index = 0; index < board.content->terrain.size(); ++index) {
         const std::uint64_t terrain = board.content->terrain[index];
+        if (const int crossing = river_crossing_axis(index)) {
+            append_river_bridge(index, crossing);
+            continue;
+        }
         const auto x = static_cast<std::int16_t>(index % width);
         const auto y = static_cast<std::int16_t>(index / width);
         const std::int16_t cx = world_x(x, width);
