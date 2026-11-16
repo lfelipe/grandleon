@@ -34,12 +34,19 @@ func _run() -> void:
 	rich.bbcode_enabled = true
 	rich.text = "[b]Bold[/b] [i]Italic[/i] [code]Code[/code]"
 	contents.add_child(rich)
+	var tabs := TabBar.new()
+	tabs.add_tab("1P")
+	tabs.add_tab("2P")
+	contents.add_child(tabs)
 	var normal := Layout.metrics(2.625)
 	Layout.apply_tree(screen, normal)
 	await process_frame
 	await process_frame
 	for variant: String in ["normal_font_size", "bold_font_size", "italics_font_size", "bold_italics_font_size", "mono_font_size"]:
 		check(rich.get_theme_font_size(variant) >= 37, "Every rich-text style must remain readable at phone density: " + variant)
+	for at in tabs.tab_count:
+		check(tabs.get_tab_rect(at).size.x >= normal.touch and tabs.get_tab_rect(at).size.y >= normal.touch, "Placement tabs must provide a full 48dp touch target")
+	var original_tab_width := tabs.get_tab_rect(0).size.x
 	check(first.mouse_filter == Control.MOUSE_FILTER_PASS, "Form buttons must allow native scroll gestures to reach their container")
 	check(first.custom_minimum_size.y >= 126 and first.get_theme_font_size("font_size") >= 42, "Pixel 6 density must retain 48dp targets and 16sp button text")
 	check(panel.size.y == 500 and panel.get_child(0) is ScrollContainer, "A tall form must scroll within its fixed panel")
@@ -53,6 +60,9 @@ func _run() -> void:
 	Layout.apply_tree(screen, normal)
 	check(first.custom_minimum_size.y == 126 and first.get_theme_font_size("font_size") == 42, "Repeated resize/keyboard close must restore metrics without growing fonts")
 	check(panel.get_child(0) == scroll and scroll.get_child(0) == contents, "Repeated layout must preserve one scroll wrapper and original controls")
+	await process_frame
+	await process_frame
+	check(is_equal_approx(tabs.get_tab_rect(0).size.x, original_tab_width), "Repeated phone layout must restore tab widths without accumulating padding")
 	var tile := Button.new()
 	tile.set_meta("mobile_tile", true)
 	tile.custom_minimum_size = Vector2(64, 64)

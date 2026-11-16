@@ -119,7 +119,7 @@ var moment_two_player_only := false
 var title_label: Label
 var map_select: OptionButton
 var encounter_select: OptionButton
-var experience_select: OptionButton
+var experience_tabs: TabBar
 var tool_buttons: Dictionary = {}
 var landmark_select: OptionButton
 var selected_landmark_tool := "landmark_house"
@@ -560,13 +560,16 @@ func _select_encounter(index: int) -> void:
 
 
 func _select_experience_preview(index: int) -> void:
-	if experience_select == null or index < 0 or index >= experience_select.item_count:
+	if experience_tabs == null or index < 0 or index >= experience_tabs.tab_count:
 		return
-	preview_players = clampi(int(experience_select.get_item_metadata(index)), 1, 2)
+	if experience_tabs.current_tab != index:
+		experience_tabs.current_tab = index
+		return
+	preview_players = index + 1
 	CreatorContext.map_preview_players = preview_players
 	selected_placement_id = ""
 	pending_placement = {}
-	_refresh_grid(0)
+	_refresh_grid()
 	_set_status(
 		_t("map.status.preview", {"mode": _t(
 			"map.preview.solo" if preview_players == 1 else "map.preview.coop"
@@ -4361,7 +4364,7 @@ func _play_draft() -> void:
 	if not builder._battle_player_count_allowed(encounter.node, preview_players):
 		builder.free()
 		_set_status(_t("campaign.error.battle_player_count"), true)
-		experience_select.grab_focus()
+		experience_tabs.grab_focus()
 		return
 	var preview: Dictionary = builder._battle_preview_source(str(encounter.node.get("id", "")))
 	builder.free()
@@ -4560,18 +4563,6 @@ func _build_interface() -> void:
 	encounter_select.add_theme_font_size_override("font_size", 15)
 	encounter_select.item_selected.connect(_select_encounter)
 	tools_column.add_child(encounter_select)
-	tools_column.add_child(_label(_t("map.experience_preview"), 17, Color("69d9ff")))
-	experience_select = OptionButton.new()
-	experience_select.custom_minimum_size = Vector2(330, 52)
-	experience_select.add_theme_font_size_override("font_size", 15)
-	experience_select.add_item(_t("map.preview.option.solo"))
-	experience_select.set_item_metadata(0, 1)
-	experience_select.add_item(_t("map.preview.option.coop"))
-	experience_select.set_item_metadata(1, 2)
-	experience_select.select(preview_players - 1)
-	experience_select.tooltip_text = _t("map.preview.tooltip")
-	experience_select.item_selected.connect(_select_experience_preview)
-	tools_column.add_child(experience_select)
 	var tool_label := _label(_t("map.tool_label"), 17, Color("69d9ff"))
 	tools_column.add_child(tool_label)
 	var tool_row := HBoxContainer.new()
@@ -4697,6 +4688,20 @@ func _build_interface() -> void:
 	var board_column := VBoxContainer.new()
 	board_column.add_theme_constant_override("separation", 10)
 	board_panel.add_child(board_column)
+	experience_tabs = TabBar.new()
+	experience_tabs.custom_minimum_size = Vector2(0, 58)
+	experience_tabs.add_theme_font_size_override("font_size", 22)
+	experience_tabs.add_theme_stylebox_override("tab_selected", _panel(Color("16384b"), 10, Color("69d9ff")))
+	experience_tabs.add_theme_stylebox_override("tab_unselected", _panel(Color("0c1d29"), 10, Color("345163")))
+	experience_tabs.add_theme_color_override("font_selected_color", Color("f2f7f9"))
+	experience_tabs.add_theme_color_override("font_unselected_color", Color("a9bdc9"))
+	for players: int in [1, 2]:
+		experience_tabs.add_tab("%dP" % players)
+		experience_tabs.set_tab_metadata(players - 1, players)
+		experience_tabs.set_tab_tooltip(players - 1, _t("map.preview.option.solo" if players == 1 else "map.preview.option.coop"))
+	experience_tabs.current_tab = preview_players - 1
+	experience_tabs.tab_changed.connect(_select_experience_preview)
+	board_column.add_child(experience_tabs)
 	var board_title := _label(_t("map.board"), 17, Color("69d9ff"))
 	if OS.has_feature("android"):
 		var map_controls := HBoxContainer.new()

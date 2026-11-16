@@ -64,7 +64,9 @@ corners, then reveal nearby floor as characters explore it.
 Use **Place Heroes and Extras** to choose a named ally or an enemy archetype,
 then choose its starting tile. Heroes who join later are listed with their
 join stage; a placement appears in the full campaign only after that hero
-has joined. Under **Battle Setup**, you can also arrange
+has joined. Switch the **1P** and **2P** tabs above the map to compare and edit
+each formation in the same view. Moving a unit in 2P keeps its 1P position.
+Under **Battle Setup**, you can also arrange
 reinforcements, patrols and the differences between solo and co-op forces.
 Choose the battle's goal, then use **Test 1 Player** or **Test 2 Players** from
 the guide. The player returns to the same editing workflow afterwards.

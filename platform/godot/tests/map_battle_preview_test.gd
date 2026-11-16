@@ -113,8 +113,7 @@ func run() -> void:
 func test_battle(campaign_id: String, battle_id: String, map_id: String, players: int) -> void:
 	var editor = current_scene
 	var project_id: String = context.project_id
-	editor.experience_select.select(players - 1)
-	editor.experience_select.item_selected.emit(players - 1)
+	editor.experience_tabs.current_tab = players - 1
 	editor._select_terrain("road")
 	editor._paint_cell(0)
 	var authored: String = editor.source

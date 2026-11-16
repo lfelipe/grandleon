@@ -51,8 +51,8 @@ func _run() -> void:
 	)
 	_expect(
 		"Portuguese solo preview is visible",
-		localized_editor.experience_select.get_item_text(0),
-		"1P  /  CAMPANHA BASE"
+		localized_editor.experience_tabs.get_tab_title(0),
+		"1P"
 	)
 	_expect(
 		"Portuguese long status copy keeps smart wrapping",
@@ -1124,7 +1124,7 @@ func _run() -> void:
 			coop_cell = candidate_cell
 			break
 	_expect("fixture has room for a distinct co-op start", coop_cell >= 0, true)
-	editor._select_experience_preview(1)
+	editor.experience_tabs.current_tab = 1
 	_expect("map can preview the co-op variant", editor.preview_players, 2)
 	editor._select_tool("unit")
 	editor._paint_cell(baseline_cell)
@@ -1141,8 +1141,20 @@ func _run() -> void:
 		editor.grid.get_child(editor._map_grid_child(coop_cell)).tooltip_text.contains("1P"),
 		true
 	)
-	editor._select_experience_preview(0)
+	var variant_source: String = editor.source
+	var variant_undo_size: int = editor.undo_stack.size()
+	editor.experience_tabs.current_tab = 0
 	_expect("solo preview returns the ally to its baseline", editor._placement_at(baseline_cell, baseline_width).is_empty(), false)
+	_expect("map tabs sit directly above the board", editor.experience_tabs.get_parent(), editor.mobile_board_scroll.get_parent())
+	_expect("map offers two placement tabs", editor.experience_tabs.tab_count, 2)
+	_expect("solo tab retains its universal shorthand", editor.experience_tabs.get_tab_title(0), "1P")
+	_expect("co-op tab retains its universal shorthand", editor.experience_tabs.get_tab_title(1), "2P")
+	editor.experience_tabs.current_tab = 1
+	_expect("returning to co-op retains its edited position", editor._placement_at(coop_cell, baseline_width).get("id"), baseline_ally.id)
+	editor.experience_tabs.current_tab = 0
+	_expect("comparing placement tabs never edits the source", editor.source, variant_source)
+	_expect("comparing placement tabs never adds undo entries", editor.undo_stack.size(), variant_undo_size)
+
 
 	editor._open_forces()
 	await process_frame

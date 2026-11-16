@@ -89,11 +89,26 @@ func _run() -> void:
 	_expect("1P Rowan starts at the forward command court", map_editor._placement_preview_position(rowan), Vector2i(7, 6))
 	_expect("1P Tomas starts beside Rowan", map_editor._placement_preview_position(tomas), Vector2i(6, 6))
 
-	var two_player_index := _metadata_index(map_editor.experience_select, 2)
+	# Compare formations while looking at the same scrolled part of a large map.
+	var original_panel_size: Vector2 = map_editor.board_panel.size
+	map_editor.board_panel.size = Vector2(600, 400)
+	for frame in 5: await process_frame
+	map_editor.mobile_board_scroll.scroll_horizontal = 80
+	map_editor.mobile_board_scroll.scroll_vertical = 120
+	for frame in 3: await process_frame
+	var compared_scroll := Vector2i(map_editor.mobile_board_scroll.scroll_horizontal, map_editor.mobile_board_scroll.scroll_vertical)
+	_expect("comparison map can scroll horizontally", compared_scroll.x > 0, true)
+	_expect("comparison map can scroll vertically", compared_scroll.y > 0, true)
+	var two_player_index := 1 if map_editor.experience_tabs.get_tab_metadata(1) == 2 else -1
 	_expect("Map Editor offers an explicit 2P preview", two_player_index >= 0, true)
 	if two_player_index >= 0:
-		map_editor._select_experience_preview(two_player_index)
+		map_editor.experience_tabs.current_tab = two_player_index
 	_expect("Map Editor switches to the 2P variant", map_editor.preview_players, 2)
+	for frame in 5: await process_frame
+	_expect("switching formations preserves horizontal map position", map_editor.mobile_board_scroll.scroll_horizontal, compared_scroll.x)
+	_expect("switching formations preserves vertical map position", map_editor.mobile_board_scroll.scroll_vertical, compared_scroll.y)
+	map_editor.board_panel.size = original_panel_size
+
 	_expect("2P moves Rowan to the western front", map_editor._placement_preview_position(rowan), Vector2i(4, 5))
 	_expect("2P moves Tomas with Rowan", map_editor._placement_preview_position(tomas), Vector2i(4, 6))
 	_expect("2P adds Akari's separate eastern army", map_editor._placement_visible_in_preview(akari), true)
