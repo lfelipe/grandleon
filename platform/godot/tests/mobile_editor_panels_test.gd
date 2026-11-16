@@ -55,6 +55,7 @@ func run() -> void:
 					if not panel is PanelContainer: continue
 					var controls := fields(panel)
 					var context := "%s/%s/%s/%s" % [language, entry[0], entry[2], density]
+					check(Rect2(Vector2.ZERO, Vector2(1920, 1080)).grow(1).encloses(panel.get_global_rect()), context + " keeps the entire dialog within the screen")
 					check(not controls.is_empty(), context + " has usable fields/actions")
 					check(controls.all(func(field): return field.get_global_rect().end.x <= panel.get_global_rect().end.x + 1), context + " keeps fields within dialog width")
 					check(controls.all(func(field): return field.size.y >= floorf(48 * density)), context + " preserves touch targets")

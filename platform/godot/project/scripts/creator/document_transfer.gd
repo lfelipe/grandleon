@@ -22,7 +22,13 @@ func save_document(path: String, suggested_name: String) -> void:
 	dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
 	dialog.use_native_dialog = OS.has_feature("android")
 	dialog.current_file = suggested_name
-	dialog.add_filter("*.grandleon.game.zip" if suggested_name.ends_with(".grandleon.game.zip") else "*.grandleon.zip", Localization.text("creator.export.campaign") if suggested_name.ends_with(".grandleon.game.zip") else Localization.text("creator.export.source"), "application/zip")
+	var pattern := "*.grandleon.game.zip" if suggested_name.ends_with(".grandleon.game.zip") else "*.grandleon.zip"
+	if OS.has_feature("android"):
+		# Document providers return opaque content:// IDs, not filenames. A
+		# suffix filter makes FileDialog append .zip to the granted URI itself.
+		# The MIME filter and suggested name identify the archive on Android.
+		pattern = "*"
+	dialog.add_filter(pattern, Localization.text("creator.export.campaign") if suggested_name.ends_with(".grandleon.game.zip") else Localization.text("creator.export.source"), "application/zip")
 	dialog.file_selected.connect(_save_selected)
 	dialog.canceled.connect(func():
 		pending_bytes.clear()

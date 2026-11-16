@@ -59,6 +59,23 @@ func _run() -> void:
 	contents.add_child(tile)
 	Layout.apply_tree(screen, normal)
 	check(tile.custom_minimum_size == Vector2(64, 64), "Overview map tiles must keep their intentional zoom geometry")
+	var adapter = load("res://scripts/creator/mobile_creator_layout.gd").new()
+	adapter.screen = screen
+	screen.add_child(adapter)
+	adapter._apply()
+	await process_frame
+	last.grab_focus()
+	scroll.ensure_control_visible(last)
+	await process_frame
+	var inserted := Label.new()
+	inserted.text = "Additional guidance above the focused action"
+	inserted.custom_minimum_size.y = 500
+	contents.add_child(inserted)
+	contents.move_child(inserted, 0)
+	for frame in 8: await process_frame
+	check(scroll.get_global_rect().grow(1).encloses(last.get_global_rect()), "A late form reflow keeps the focused action visible: last=%s viewport=%s focus=%s" % [last.get_global_rect(), scroll.get_global_rect(), root.gui_get_focus_owner()])
+	adapter.queue_free()
+	await process_frame
 	var home = load("res://scripts/home_menu.gd").new()
 	home.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	home.catalog = load("res://scripts/campaign_catalog.gd").new("user://mobile-home-layout-" + str(Time.get_ticks_usec()), "")

@@ -5,6 +5,7 @@ extends Node
 const MobileLayout = preload("res://scripts/mobile_layout.gd")
 var screen: Control
 var pending := false
+var focus_pending := false
 var last_keyboard_height := 0
 
 static func metrics(units_per_dp: float, canvas_scale := 1.0) -> Dictionary:
@@ -23,9 +24,19 @@ static func install(control: Control) -> void:
 
 func _ready() -> void:
 	get_tree().node_added.connect(_node_added)
+	_watch_layout(screen)
 
 func _node_added(node: Node) -> void:
-	if screen != null and screen.is_ancestor_of(node): schedule()
+	if screen != null and screen.is_ancestor_of(node):
+		_watch_layout(node)
+		schedule()
+
+func _watch_layout(node: Node) -> void:
+	if node is Control:
+		if not node.visibility_changed.is_connected(schedule): node.visibility_changed.connect(schedule)
+		if not node.resized.is_connected(_schedule_focus): node.resized.connect(_schedule_focus)
+		if not node.focus_entered.is_connected(_schedule_focus): node.focus_entered.connect(_schedule_focus)
+	for child: Node in node.get_children(): _watch_layout(child)
 
 func schedule() -> void:
 	if pending: return
@@ -36,6 +47,26 @@ func _apply() -> void:
 	pending = false
 	if not is_instance_valid(screen) or not screen.is_inside_tree(): return
 	apply_tree(screen, metrics(MobileLayout.units_per_dp(screen.get_viewport()), screen.scale.x))
+	_schedule_focus()
+
+func _schedule_focus() -> void:
+	if focus_pending or not is_inside_tree(): return
+	focus_pending = true
+	# ScrollContainer applies its new offset during container sorting. Avoid
+	# adding another correction in the same frame using the old child positions.
+	get_tree().process_frame.connect(_reveal_focus, CONNECT_ONE_SHOT)
+
+func _reveal_focus() -> void:
+	focus_pending = false
+	if not is_instance_valid(screen) or not screen.is_inside_tree(): return
+	var focused := screen.get_viewport().gui_get_focus_owner()
+	if focused == null or not screen.is_ancestor_of(focused) or not focused.is_visible_in_tree(): return
+	# Container sorting and Android IME/window changes can move a focused field
+	# after follow_focus has already scrolled once. Reveal it again after layout.
+	var parent := focused.get_parent()
+	while parent != null and parent != screen:
+		if parent is ScrollContainer: parent.ensure_control_visible(focused)
+		parent = parent.get_parent()
 
 static func apply_tree(node: Node, sizes: Dictionary) -> void:
 	for child: Node in node.get_children(): apply_tree(child, sizes)
@@ -104,6 +135,29 @@ static func apply_tree(node: Node, sizes: Dictionary) -> void:
 			contents.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			contents.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
+	if node is PanelContainer and node.get_parent() is Control and node.get_parent().z_index >= 20:
+		# Enlarging fields can expand the panel before its contents are moved
+		# into a scroll area. Restore a bounded modal after that minimum changes.
+		var bounds: Vector2 = node.get_parent().size
+		var margin := 24.0
+		node.size = node.size.min((bounds - Vector2.ONE * margin * 2).max(Vector2.ONE))
+		node.position = node.position.clamp(Vector2.ONE * margin, (bounds - node.size - Vector2.ONE * margin).max(Vector2.ONE * margin))
+		_cycle_modal_focus(node)
+
+static func _focusable_controls(node: Node) -> Array[Control]:
+	var found: Array[Control] = []
+	if node is Control and not node.is_visible_in_tree(): return found
+	if node is Control and node.focus_mode == Control.FOCUS_ALL and not (node is BaseButton and node.disabled):
+		found.append(node)
+	for child: Node in node.get_children(): found.append_array(_focusable_controls(child))
+	return found
+
+static func _cycle_modal_focus(panel: PanelContainer) -> void:
+	var controls := _focusable_controls(panel)
+	for index in controls.size():
+		controls[index].focus_next = controls[index].get_path_to(controls[(index + 1) % controls.size()])
+		controls[index].focus_previous = controls[index].get_path_to(controls[(index - 1 + controls.size()) % controls.size()])
+
 
 static func _original(node: Node, key: String, value: Variant) -> Variant:
 	var stored: Dictionary = node.get_meta("mobile_original_metrics", {})
@@ -119,6 +173,7 @@ static func keyboard_pan_delta(field: Rect2, keyboard_top: float, padding: float
 
 func _process(_delta: float) -> void:
 	if not is_instance_valid(screen) or not screen.is_inside_tree(): return
+	if not DisplayServer.has_feature(DisplayServer.FEATURE_VIRTUAL_KEYBOARD): return
 	var height := DisplayServer.virtual_keyboard_get_height()
 	if height <= 0:
 		if last_keyboard_height > 0:

@@ -62,6 +62,15 @@ func run() -> void:
 				await settle()
 				check(scroll.get_global_rect().grow(1).encloses(final_action.get_global_rect()), "%s/%s/%s last action %s stays within scroll %s" % [form.screen, language, density, final_action.get_global_rect(), scroll.get_global_rect()])
 				check(final_action.has_focus(), "last action can receive GUI focus")
+				var tab := InputEventKey.new()
+				tab.keycode = KEY_TAB
+				tab.pressed = true
+				Input.parse_input_event(tab)
+				await settle()
+				var focused := root.gui_get_focus_owner()
+				check(focused != null and layer.is_ancestor_of(focused), "Tab from the last action stays in the open dialog")
+				tab.pressed = false
+				Input.parse_input_event(tab)
 				check(final_action.size.y >= 48 * density, "action keeps its physical touch target")
 			var name_field: LineEdit = editor.get(form.name)
 			name_field.text = "Guarda de São João"
