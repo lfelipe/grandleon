@@ -6,6 +6,8 @@ var campaign_id := ""
 var map_id := ""
 var encounter_id := ""
 var dialogue_id := ""
+var story_target: Dictionary = {}
+var story_action := ""
 var member_id := ""
 var army_action := ""
 var guided_workflow := false
@@ -21,6 +23,8 @@ func open_project(value: String) -> void:
 	map_id = ""
 	encounter_id = ""
 	dialogue_id = ""
+	story_target = {}
+	story_action = ""
 	member_id = ""
 	army_action = ""
 	guided_workflow = false
@@ -41,6 +45,20 @@ func choose_map(value: String, encounter := "") -> void:
 
 func choose_dialogue(value: String) -> void:
 	dialogue_id = value
+	story_target = {}
+	story_action = ""
+
+
+func request_story(campaign: String, node: String, dialogue := "", create := false) -> void:
+	choose_dialogue(dialogue)
+	story_target = {"campaign_id": campaign, "node_id": node}
+	story_action = "create" if create else "edit"
+
+
+func take_story_action() -> String:
+	var value := story_action
+	story_action = ""
+	return value
 
 
 func take_army_action() -> String:
@@ -75,6 +93,8 @@ func clear() -> void:
 	map_id = ""
 	encounter_id = ""
 	dialogue_id = ""
+	story_target = {}
+	story_action = ""
 	member_id = ""
 	army_action = ""
 	guided_workflow = false

@@ -28,6 +28,10 @@ var map_button: Button
 var sides_button: Button
 var objective_button: Button
 var next_battle_button: Button
+var story_button: Button
+var story_layer: Control
+var story_choices_column: VBoxContainer
+var story_choice_buttons: Array[Button] = []
 
 func _ready() -> void:
 	library = ProjectLibrary.new()
@@ -119,7 +123,7 @@ func _refresh_facts() -> void:
 	test_summary.text = _t("first_battle.test_help")
 	if mode != "one" and not player_two:
 		test_summary.text += "\n" + _t("first_battle.needs_player_two")
-	for button: Button in [map_button, sides_button, objective_button, next_battle_button]:
+	for button: Button in [map_button, sides_button, objective_button, next_battle_button, story_button]:
 		button.disabled = encounter.is_empty()
 	create_hero_button.disabled = campaign.is_empty()
 	edit_heroes_button.disabled = campaign.is_empty()
@@ -139,16 +143,68 @@ func _open_map(action: String) -> void:
 	get_tree().change_scene_to_file("res://map_editor.tscn")
 
 func _open_story() -> void:
-	# Start with a scene attached to this campaign, keeping reusable scenes in
-	# the story editor available without silently choosing another campaign.
-	CreatorContext.choose_dialogue("")
-	for value: Variant in campaign.get("flow", {}).get("nodes", []):
-		if value is Dictionary and str(value.get("kind", "")) == "story":
-			var scenes: Array = value.get("dialogueIds", [])
-			if not scenes.is_empty():
-				CreatorContext.choose_dialogue(str(scenes[0]))
-				break
+	if encounter.is_empty(): return
+	var choices := _story_choices()
+	if choices.size() == 1:
+		_edit_story_choice(choices[0])
+		return
+	for child: Node in story_choices_column.get_children():
+		story_choices_column.remove_child(child)
+		child.queue_free()
+	story_choice_buttons.clear()
+	story_choices_column.add_child(_label(_t("first_battle.story_choose"), 28))
+	story_choices_column.add_child(_label(_t("first_battle.story_choose_help", {"battle": str(encounter.get("name", ""))}), 20))
+	for choice: Dictionary in choices:
+		var button := _button(story_choices_column, "", _edit_story_choice.bind(choice))
+		button.text = str(choice.label)
+		story_choice_buttons.append(button)
+	_button(story_choices_column, "map.cancel", _close_story_choices)
+	story_layer.visible = true
+	if not story_choice_buttons.is_empty(): story_choice_buttons[0].call_deferred("grab_focus")
+
+func _story_choices() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if not encounter.get("dialogueIds", []).is_empty():
+		_append_story_choices(result, encounter, _t("story.target.before_battle", {"battle": str(encounter.get("name", ""))}))
+	# Walk incoming story nodes only. A preceding battle marks another stage;
+	# transition conditions stay authored facts, never inferred route choices.
+	var pending: Array[String] = [str(encounter.get("id", ""))]
+	var seen := {pending[0]: true}
+	while not pending.is_empty():
+		var target_id: String = pending.pop_front()
+		for value: Variant in campaign.get("flow", {}).get("nodes", []):
+			if not value is Dictionary or str(value.get("kind", "")) != "story": continue
+			var identity := str(value.get("id", ""))
+			if seen.has(identity): continue
+			for edge: Variant in value.get("transitions", []):
+				if edge is Dictionary and str(edge.get("targetNodeId", "")) == target_id:
+					seen[identity] = true
+					pending.append(identity)
+					_append_story_choices(result, value, str(value.get("name", identity)))
+					break
+	if result.is_empty():
+		_append_story_choices(result, encounter, _t("story.target.before_battle", {"battle": str(encounter.get("name", ""))}))
+	return result
+
+func _append_story_choices(result: Array[Dictionary], node: Dictionary, label: String) -> void:
+	var ids: Array = node.get("dialogueIds", [])
+	if ids.is_empty():
+		result.append({"node_id": str(node.id), "dialogue_id": "", "label": _t("first_battle.story_write_for", {"moment": label})})
+	for identity: Variant in ids:
+		var scene := _record(project.get("dialogues", []), str(identity))
+		result.append({"node_id": str(node.id), "dialogue_id": str(identity), "label": "%s / %s" % [label, str(scene.get("name", identity))]})
+
+func _edit_story_choice(choice: Dictionary) -> void:
+	var dialogue_id := str(choice.get("dialogue_id", ""))
+	if not dialogue_id.is_empty() and _record(project.get("dialogues", []), dialogue_id).is_empty():
+		_set_status(_t("first_battle.story_missing"), true)
+		return
+	CreatorContext.request_story(str(campaign.get("id", "")), str(choice.node_id), dialogue_id, dialogue_id.is_empty())
 	get_tree().change_scene_to_file("res://story_editor.tscn")
+
+func _close_story_choices() -> void:
+	story_layer.visible = false
+	story_button.grab_focus()
 
 func _open_outline() -> void:
 	CreatorContext.guided_workflow = false
@@ -251,13 +307,41 @@ func _build_interface() -> void:
 	tools_row.add_theme_constant_override("h_separation", 12)
 	tools_row.add_theme_constant_override("v_separation", 12)
 	column.add_child(tools_row)
-	_button(tools_row, "first_battle.story", _open_story)
+	story_button = _button(tools_row, "first_battle.story", _open_story)
 	_button(tools_row, "first_battle.outline", _open_outline)
 	_button(tools_row, "first_battle.translations", _open_translations)
 	_button(tools_row, "first_battle.export", _open_export)
 	_button(tools_row, "first_battle.projects", _open_projects)
 	status_label = _label("", 18)
 	column.add_child(status_label)
+	story_layer = Control.new()
+	story_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	story_layer.z_index = 40
+	story_layer.hide()
+	add_child(story_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.92)
+	story_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(440, 180)
+	panel.size = Vector2(1040, 720)
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color("0c1d29")
+	panel_style.border_color = Color("69d9ff")
+	panel_style.set_border_width_all(1)
+	panel_style.set_corner_radius_all(14)
+	for edge: String in ["left", "right", "top", "bottom"]: panel_style.set("content_margin_" + edge, 24)
+	panel.add_theme_stylebox_override("panel", panel_style)
+	story_layer.add_child(panel)
+	var story_scroll := ScrollContainer.new()
+	story_scroll.follow_focus = true
+	story_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	panel.add_child(story_scroll)
+	story_choices_column = VBoxContainer.new()
+	story_choices_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	story_choices_column.add_theme_constant_override("separation", 18)
+	story_scroll.add_child(story_choices_column)
 
 func _card(parent: Container, heading: String) -> VBoxContainer:
 	var panel := PanelContainer.new()
@@ -333,9 +417,11 @@ func _fit_mobile_canvas() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		var viewport := get_viewport()
-		_open_projects()
+		if story_layer.visible: _close_story_choices()
+		else: _open_projects()
 		if viewport != null: viewport.set_input_as_handled()
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
-		_open_projects()
+		if story_layer.visible: _close_story_choices()
+		else: _open_projects()

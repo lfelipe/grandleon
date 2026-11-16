@@ -1020,7 +1020,10 @@ func _open_story_node(node: Dictionary) -> void:
 	if dirty and not _save():
 		return
 	var dialogue_ids: Array = node.get("dialogueIds", [])
-	CreatorContext.choose_dialogue(str(dialogue_ids[0]) if not dialogue_ids.is_empty() else "")
+	CreatorContext.request_story(
+		str(campaign.get("id", "")), str(node.get("id", "")),
+		str(dialogue_ids[0]) if not dialogue_ids.is_empty() else "", dialogue_ids.is_empty()
+	)
 	get_tree().change_scene_to_file("res://story_editor.tscn")
 
 

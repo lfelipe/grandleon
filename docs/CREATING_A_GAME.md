@@ -85,7 +85,10 @@ when you need it.
 ![Adding stages and connecting a campaign](screenshots/native-guide/04-build-the-campaign.gif)
 
 Story scenes are optional. Add an opening, conversations or an ending when
-they help explain what happens. Named speakers and battlefield moments can
+they help explain what happens. **Write Story** follows the selected battle;
+choose a scene when several lead into it, or create one where none exists.
+You can also attach an existing scene without changing the campaign's routes.
+Named speakers and battlefield moments can
 reuse your characters. **Translations** lets you translate the game's copy
 and names, directly or through gettext-compatible PO files. Pending text is
 saved when moving between entries; **Discard Text Changes** restores the

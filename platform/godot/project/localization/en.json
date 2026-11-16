@@ -2146,6 +2146,12 @@
     "map.test_battle_tooltip": "Saves your changes, then tests the selected battle. Return here when finished.",
     "map.placement.joins_after": "Joins after {stage}. Only appears once recruited.",
     "first_battle.hero_joins_after": "{name} joins after {stage}.",
-    "map.test_battle": "TEST BATTLE"
+    "map.test_battle": "TEST BATTLE",
+    "first_battle.story_choose": "Which scene would you like to write?",
+    "first_battle.story_choose_help": "Scenes leading into {battle}. Choose a scene or a place to add one.",
+    "first_battle.story_write_for": "Write a scene for {moment}",
+    "first_battle.story_missing": "This scene could not be found. Open the campaign outline to check it.",
+    "story.target.before_battle": "Before {battle}",
+    "story.new_scene.reuse": "USE AN EXISTING SCENE"
   }
 }

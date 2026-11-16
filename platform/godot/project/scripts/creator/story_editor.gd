@@ -22,6 +22,7 @@ var project: Dictionary = {}
 var dialogues: Array = []
 var story_targets: Array[Dictionary] = []
 var scene_characters: Array[Dictionary] = []
+var preferred_story_target: Dictionary = {}
 var dialogue_index := 0
 var line_index := 0
 var dirty := false
@@ -71,6 +72,8 @@ var new_scene_character: OptionButton
 var new_scene_backdrop: OptionButton
 var new_scene_text: TextEdit
 var create_scene_button: Button
+var reuse_scene_button: Button
+var new_scene_feedback: Label
 var sequence_layer: Control
 var sequence_button: Button
 var sequence_story_select: OptionButton
@@ -99,6 +102,7 @@ func _ready() -> void:
 	compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 	art = ArtLibrary.new()
 	project_id = CreatorContext.project_id
+	preferred_story_target = CreatorContext.story_target.duplicate()
 	_build_interface()
 	_load_project()
 
@@ -142,6 +146,9 @@ func _load_project() -> void:
 	var diagnostic_focus: Dictionary = CreatorContext.take_diagnostic_focus()
 	if not diagnostic_focus.is_empty():
 		_apply_diagnostic_focus(diagnostic_focus)
+		return
+	if CreatorContext.take_story_action() == "create":
+		_open_new_scene()
 		return
 	if not dialogues.is_empty():
 		if not CreatorContext.dialogue_id.is_empty() and not _current_lines().is_empty():
@@ -230,13 +237,18 @@ func _collect_story_options() -> void:
 				_add_scene_character(
 					recruit_value, seen_characters, campaign_id, unit_names
 				)
-			if str(node.get("kind", "")) != "story":
+			var kind := str(node.get("kind", ""))
+			if kind not in ["story", "encounter"]:
 				continue
 			story_targets.append({
 				"campaign_id": campaign_id,
 				"node_id": str(node.get("id", "")),
+				"kind": kind,
 				"label": "%s  /  %s" % [
-					campaign_name, str(node.get("name", node.get("id", _t("story.fallback.story"))))
+					campaign_name, (
+						_t("story.target.before_battle", {"battle": str(node.get("name", node.get("id", "")))})
+						if kind == "encounter" else str(node.get("name", node.get("id", _t("story.fallback.story"))))
+					)
 				],
 				"dialogue_ids": node.get("dialogueIds", []).duplicate(),
 			})
@@ -949,9 +961,22 @@ func _open_new_scene() -> void:
 	new_scene_id_label.text = _t("story.new_scene.automatic_id")
 	new_scene_title.text = "New Scene %s" % scene_id.trim_prefix("scene_")
 	new_scene_text.text = "A new conversation begins."
-	new_scene_target.select(0)
-	_select_scene_target(0)
+	new_scene_feedback.text = ""
+	var target_index := 0
+	# Generic New Scene retains its existing story-moment default. Guided
+	# requests below select their exact story or battle-arrival target instead.
+	for index in story_targets.size():
+		if str(story_targets[index].get("kind", "")) == "story":
+			target_index = index
+			break
+	for index in story_targets.size():
+		if _story_target_key(story_targets[index]) == _story_target_key(preferred_story_target):
+			target_index = index
+			break
+	new_scene_target.select(target_index)
+	_select_scene_target(target_index)
 	new_scene_backdrop.select(0)
+	reuse_scene_button.disabled = dialogues.is_empty()
 	new_scene_layer.visible = true
 	new_scene_target.grab_focus()
 	call_deferred("_hide_new_scene_popups")
@@ -960,6 +985,7 @@ func _open_new_scene() -> void:
 func _select_scene_target(index: int) -> void:
 	if index < 0 or index >= story_targets.size():
 		return
+	preferred_story_target = story_targets[index].duplicate()
 	var campaign_id := str(story_targets[index].campaign_id)
 	for character_index in scene_characters.size():
 		var character: Dictionary = scene_characters[character_index]
@@ -1006,17 +1032,14 @@ func _create_new_scene() -> void:
 		"" if new_scene_backdrop.selected <= 0
 		else BACKDROPS[new_scene_backdrop.selected - 1]
 	)
-	var added: Dictionary = compiler.add_dialogue_scene(
-		source,
-		str(target.campaign_id),
-		str(target.node_id),
-		scene_id,
-		title,
-		backdrop,
-		str(character.speaker),
-		str(character.unit_type_id),
-		opening
-	)
+	var added: Dictionary
+	if str(target.get("kind", "story")) == "encounter":
+		added = _add_arrival_scene(target, scene_id, title, backdrop, character, opening)
+	else:
+		added = compiler.add_dialogue_scene(
+			source, str(target.campaign_id), str(target.node_id), scene_id,
+			title, backdrop, str(character.speaker), str(character.unit_type_id), opening
+		)
 	if not added.ok:
 		_set_status(_t("story.error.scene_not_created", {
 			"detail": _diagnostic_detail(added),
@@ -1042,18 +1065,56 @@ func _create_new_scene() -> void:
 	dialogue_select.grab_focus()
 
 
-func _open_sequence() -> void:
+func _add_arrival_scene(target: Dictionary, scene_id: String, title: String, backdrop: String, character: Dictionary, opening: String) -> Dictionary:
+	# Arrival dialogueIds already belong to any campaign node. Add a scene to
+	# that field without inventing a story node or rewriting incoming branches.
+	var candidate: Dictionary = project.duplicate(true)
+	var found := false
+	for adventure: Dictionary in candidate.get("campaigns", []):
+		if str(adventure.get("id", "")) != str(target.campaign_id): continue
+		for node: Dictionary in adventure.get("flow", {}).get("nodes", []):
+			if str(node.get("id", "")) != str(target.node_id) or str(node.get("kind", "")) != "encounter": continue
+			var ids: Array = node.get("dialogueIds", []).duplicate()
+			ids.append(scene_id)
+			node["dialogueIds"] = ids
+			found = true
+	if not found: return {"ok": false, "diagnostics": [{"code": "missing_reference"}]}
+	var scene := {
+		"id": scene_id, "name": title,
+		"cast": [{"speaker": str(character.speaker), "unitTypeId": str(character.unit_type_id)}],
+		"lines": [{"speaker": str(character.speaker), "text": opening}],
+	}
+	if not backdrop.is_empty(): scene["backgroundId"] = backdrop
+	var scenes: Array = candidate.get("dialogues", [])
+	scenes.append(scene)
+	candidate["dialogues"] = scenes
+	var candidate_source := JSON.stringify(_integer_numbers(candidate), "  ", true) + "\n"
+	var checked: Dictionary = compiler.compile_source_json(candidate_source)
+	if not checked.get("ok", false): return checked
+	return {"ok": true, "source": candidate_source}
+
+
+func _reuse_new_scene() -> void:
+	if new_scene_target.selected < 0: return
+	preferred_story_target = story_targets[new_scene_target.selected].duplicate()
+	_close_new_scene()
+	_open_sequence(_story_target_key(preferred_story_target))
+
+
+func _open_sequence(preferred_key := "") -> void:
 	if not _commit_visible_line(false):
 		return
 	if story_targets.is_empty() or dialogues.is_empty():
 		_set_status(_t("story.error.sequence_needs_content"), true)
 		return
 	var current_id := str(_current_dialogue().get("id", ""))
-	var preferred_key := ""
-	for target: Dictionary in story_targets:
-		if current_id in target.get("dialogue_ids", []):
-			preferred_key = _story_target_key(target)
-			break
+	if preferred_key.is_empty() and not preferred_story_target.is_empty():
+		preferred_key = _story_target_key(preferred_story_target)
+	if preferred_key.is_empty():
+		for target: Dictionary in story_targets:
+			if current_id in target.get("dialogue_ids", []):
+				preferred_key = _story_target_key(target)
+				break
 	_refresh_sequence_stories(preferred_key)
 	_refresh_sequence_lists(current_id, current_id)
 	sequence_layer.visible = true
@@ -1114,6 +1175,7 @@ func _dialogue_name(dialogue_id: String) -> String:
 func _select_sequence_story(_index: int) -> void:
 	if sequence_refreshing:
 		return
+	preferred_story_target = _selected_sequence_target().duplicate()
 	_refresh_sequence_lists()
 
 
@@ -1270,7 +1332,7 @@ func _commit_story_sequence(
 			if (
 				node_value is Dictionary
 				and str(node_value.get("id", "")) == str(target.node_id)
-				and str(node_value.get("kind", "")) == "story"
+				and str(node_value.get("kind", "")) in ["story", "encounter"]
 			):
 				node_value["dialogueIds"] = ids.duplicate()
 				changed = true
@@ -1395,7 +1457,7 @@ func _play_draft() -> void:
 		return
 	if dirty and not _save():
 		return
-	CreatorContext.choose_dialogue(str(_current_dialogue().get("id", "")))
+	_remember_story_context()
 	LaunchContext.stage_package(
 		compiled.package, campaign, true, int(preview_player_select.get_selected_metadata()),
 		"res://story_editor.tscn", str(selected_campaign.get("name", ""))
@@ -1405,6 +1467,14 @@ func _play_draft() -> void:
 
 func _request_maps() -> void:
 	_request_leave("maps")
+
+
+func _remember_story_context() -> void:
+	var dialogue_id := str(_current_dialogue().get("id", ""))
+	if preferred_story_target.is_empty():
+		CreatorContext.choose_dialogue(dialogue_id)
+	else:
+		CreatorContext.request_story(str(preferred_story_target.campaign_id), str(preferred_story_target.node_id), dialogue_id)
 
 
 func _request_projects() -> void:
@@ -1417,7 +1487,7 @@ func _request_leave(destination: String) -> void:
 	if CreatorContext.guided_workflow:
 		if dirty and not _save():
 			return
-		CreatorContext.choose_dialogue(str(_current_dialogue().get("id", "")))
+		_remember_story_context()
 		get_tree().change_scene_to_file("res://first_battle.tscn")
 		return
 	if destination != "projects" and dirty and not _save():
@@ -1909,6 +1979,9 @@ func _build_new_scene_layer() -> void:
 	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	guidance.custom_minimum_size.y = 42
 	column.add_child(guidance)
+	new_scene_feedback = _label("", 18, Color("ff7a83"))
+	new_scene_feedback.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(new_scene_feedback)
 	var actions := BoxContainer.new()
 	actions.set_meta("mobile_wrap_actions", true)
 	actions.add_theme_constant_override("separation", 14)
@@ -1916,6 +1989,9 @@ func _build_new_scene_layer() -> void:
 	create_scene_button = _button(_t("story.new_scene.create"), 340, 62)
 	create_scene_button.pressed.connect(_create_new_scene)
 	actions.add_child(create_scene_button)
+	reuse_scene_button = _button(_t("story.new_scene.reuse"), 340, 62)
+	reuse_scene_button.pressed.connect(_reuse_new_scene)
+	actions.add_child(reuse_scene_button)
 	var back := _button(_t("story.back"), 220, 62)
 	back.pressed.connect(_close_new_scene)
 	actions.add_child(back)
@@ -2098,6 +2174,19 @@ func _set_status(message: String, failure: bool) -> void:
 	status_label.add_theme_color_override(
 		"font_color", Color("ff7a83") if failure else Color("72e08f")
 	)
+	if new_scene_layer != null and new_scene_layer.visible and new_scene_feedback != null:
+		new_scene_feedback.text = message
+		new_scene_feedback.add_theme_color_override("font_color", Color("ff7a83") if failure else Color("72e08f"))
+		if failure: _reveal_new_scene_feedback.call_deferred()
+
+
+func _reveal_new_scene_feedback() -> void:
+	await get_tree().process_frame
+	if not new_scene_layer.visible: return
+	var parent := new_scene_feedback.get_parent()
+	while parent != null and parent != self:
+		if parent is ScrollContainer: parent.ensure_control_visible(new_scene_feedback)
+		parent = parent.get_parent()
 
 
 func _t(message_id: String, values: Dictionary = {}) -> String:

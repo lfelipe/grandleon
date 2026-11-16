@@ -2146,6 +2146,12 @@
     "map.test_battle_tooltip": "Guarda los cambios y prueba la batalla seleccionada. Al terminar, vuelve aquí.",
     "map.placement.joins_after": "Se une después de {stage}. Solo aparece tras su incorporación.",
     "first_battle.hero_joins_after": "{name} se une después de {stage}.",
-    "map.test_battle": "PROBAR BATALLA"
+    "map.test_battle": "PROBAR BATALLA",
+    "first_battle.story_choose": "¿Qué escena quieres escribir?",
+    "first_battle.story_choose_help": "Escenas que preceden a {battle}. Elige una escena o dónde añadirla.",
+    "first_battle.story_write_for": "Escribir una escena para {moment}",
+    "first_battle.story_missing": "No se encontró esta escena. Revísala en el esquema de la campaña.",
+    "story.target.before_battle": "Antes de {battle}",
+    "story.new_scene.reuse": "USAR UNA ESCENA EXISTENTE"
   }
 }
