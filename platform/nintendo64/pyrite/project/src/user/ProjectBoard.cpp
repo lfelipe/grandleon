@@ -73,7 +73,7 @@ constexpr std::int16_t kHalfCell = kCell / 2;
 constexpr std::size_t kCellVertexCount = 4;
 constexpr std::size_t kMaxCells = 20U * 14U;
 constexpr std::size_t kBatchCells = 15U;
-constexpr std::size_t kMaxElevationVertices = kMaxCells * 8U;
+constexpr std::size_t kElevationVerticesPerCell = 8U;
 constexpr std::size_t kGroundVertexCount = 4U;
 constexpr std::size_t kMaxApronCells = 800U;
 constexpr std::size_t kTreeVertexCount = 20U;
@@ -117,6 +117,8 @@ struct BoardResources final {
     std::optional<client::PackageBoards> campaign_boards;
     std::optional<client::CampaignSession> campaign;
     std::vector<sim::Event> battle_events;
+    T3DVertPacked* terrain_vertex_arena{};
+    std::size_t terrain_cell_capacity{};
     T3DVertPacked* cells{};
     T3DVertPacked* ground{};
     std::vector<std::uint16_t> water_quads;
@@ -163,6 +165,7 @@ struct BoardResources final {
     std::array<bool, kMaxCells> visibility_revealed{};
     std::size_t unit_count{};
     std::size_t cursor_vertex_count{kCursorVerticesPerPlayer};
+    std::size_t cursor_vertex_capacity{};
     sim::UnitId rowan_id{};
     sim::UnitId tomas_id{};
     std::int16_t rowan_x{-1};
@@ -1292,7 +1295,7 @@ void append_elevation_face(
     std::uint32_t colour,
     const fm_vec3_t& normal
 ) {
-    assert(board.elevation_vertex_count + 4U <= kMaxElevationVertices);
+    assert(board.elevation_vertex_count + 4U <= board.terrain_cell_capacity * kElevationVerticesPerCell);
     const std::uint16_t packed_normal = t3d_vert_pack_normal(&normal);
     const std::size_t first = board.elevation_vertex_count;
     set_vertex(board.elevation, first + 0U, x0, bottom, z0, darken(colour, 128U), 0, 0, packed_normal);
@@ -1687,7 +1690,7 @@ void build_visibility_vertices() {
         const std::uint32_t colour = (index & 1U)
             ? pack_rgba(91U, 48U, 43U) : pack_rgba(109U, 59U, 49U);
         const std::size_t first = board.visibility_vertex_count;
-        assert(first + 4U <= kMaxCells * kCellVertexCount);
+        assert(first + 4U <= board.terrain_cell_capacity * kCellVertexCount);
         set_vertex(board.visibility, first + 0U, cx - kHalfCell, roof,
             cz - kHalfCell, colour, 0, 0, normal);
         set_vertex(board.visibility, first + 1U, cx + kHalfCell, roof,
@@ -2204,9 +2207,35 @@ void cursor_quad(
     set_vertex(board.cursor, first + 3U, x0, floor, z1, colour, 0, 0, normal);
 }
 
+// Movement highlights need space for the current legal range, not every cell
+// in the campaign's largest map. Grow only when a larger range is selected.
+void reserve_cursor_vertices(std::size_t required) {
+    assert(required <= kCursorVertexCount);
+    if (required <= board.cursor_vertex_capacity) return;
+    const auto capacity = std::min(kCursorVertexCount, (required + 255U) / 256U * 256U);
+    const auto bytes = sizeof(T3DVertPacked) * (capacity / 2U);
+    auto* replacement = static_cast<T3DVertPacked*>(malloc_uncached(bytes));
+    assertf(replacement, "Movement highlights exceed available Nintendo 64 memory");
+    // Earlier command lists can still reference the old uncached arena.
+    rspq_wait();
+    if (board.cursor) free_uncached(board.cursor);
+    board.cursor = replacement;
+    board.cursor_vertex_capacity = capacity;
+    debugf("GRANDLEON_N64_HIGHLIGHT_BUFFER vertices=%lu bytes=%lu\n",
+           static_cast<unsigned long>(capacity), static_cast<unsigned long>(bytes));
+}
+
 void build_cursor_vertices() {
     const auto width = board.content->definition.width;
     const auto height = board.content->definition.height;
+    const sim::EncounterSnapshot& snapshot = board.game.snapshot();
+    const std::uint8_t active = board.game.active_player();
+    const sim::UnitId selected = board.game.selected(active);
+    const std::vector<sim::Position> reach = !snapshot.deploying && selected != 0U
+        ? sim::reachable_tiles(snapshot, selected) : std::vector<sim::Position>{};
+    const auto& highlights = snapshot.deploying ? snapshot.deployment_tiles : reach;
+    reserve_cursor_vertices(highlights.size() * kReachVerticesPerCell +
+                            board.game.local_players() * kCursorVerticesPerPlayer);
     constexpr std::int16_t outer = kHalfCell - 2;
     constexpr std::int16_t inner = kHalfCell - 5;
     std::size_t first = 0U;
@@ -2216,7 +2245,7 @@ void build_cursor_vertices() {
             (cell < board.content->terrain.size() ? terrain_lift(board.content->terrain[cell]) : 0) + 3);
         const std::int16_t cx = world_x(tile.x, width);
         const std::int16_t cz = world_z(tile.y, height);
-        assert(first + (fill ? kReachVerticesPerCell : 16U) <= kCursorVertexCount);
+        assert(first + (fill ? kReachVerticesPerCell : 16U) <= board.cursor_vertex_capacity);
         if (fill) {
             cursor_quad(first, cx - outer, cz - outer, cx + outer, cz + outer, floor,
                 (colour & 0xffffff00U) | 38U);
@@ -2228,14 +2257,9 @@ void build_cursor_vertices() {
         cursor_quad(first + 12U, cx + inner, cz - inner, cx + outer, cz + inner, floor, colour);
         first += 16U;
     };
-    const sim::EncounterSnapshot& snapshot = board.game.snapshot();
-    const std::uint8_t active = board.game.active_player();
-    const sim::UnitId selected = board.game.selected(active);
-    const std::vector<sim::Position> reach = !snapshot.deploying && selected != 0U
-        ? sim::reachable_tiles(snapshot, selected) : std::vector<sim::Position>{};
     const std::uint32_t reach_colour = active == 0U
         ? pack_rgba(104U, 207U, 231U, 175U) : pack_rgba(235U, 147U, 184U, 175U);
-    for (const sim::Position tile : snapshot.deploying ? snapshot.deployment_tiles : reach) {
+    for (const sim::Position tile : highlights) {
         ring(tile, reach_colour, true);
     }
     for (std::uint8_t player = 0U; player < board.game.local_players(); ++player) {
@@ -2261,6 +2285,26 @@ void build_cursor_vertices() {
     board.cursor_vertex_count = first;
 }
 
+// Keep the ground, elevation faces and roof covers together. Their lifetimes
+// match the encounter; small maps need not reserve the largest map's arenas.
+void reserve_terrain_vertices(std::size_t cells) {
+    assert(cells > 0U && cells <= kMaxCells);
+    if (cells <= board.terrain_cell_capacity) return;
+    constexpr auto vertices_per_cell = kCellVertexCount * 2U + kElevationVerticesPerCell;
+    const auto bytes = sizeof(T3DVertPacked) * (cells * vertices_per_cell / 2U);
+    auto* replacement = static_cast<T3DVertPacked*>(malloc_uncached(bytes));
+    assertf(replacement, "Authored terrain exceeds available Nintendo 64 memory");
+    rspq_wait();
+    if (board.terrain_vertex_arena) free_uncached(board.terrain_vertex_arena);
+    board.terrain_vertex_arena = replacement;
+    board.terrain_cell_capacity = cells;
+    board.cells = replacement;
+    board.elevation = replacement + cells * kCellVertexCount / 2U;
+    board.visibility = replacement + cells * (kCellVertexCount + kElevationVerticesPerCell) / 2U;
+    debugf("GRANDLEON_N64_TERRAIN_BUFFER cells=%lu bytes=%lu\n",
+           static_cast<unsigned long>(cells), static_cast<unsigned long>(bytes));
+}
+
 void load_runtime_board() {
     const bool loaded = board.runtime.load_package("rom:/game.gpk");
     assertf(
@@ -2273,14 +2317,10 @@ void load_runtime_board() {
     );
     assertf(static_cast<bool>(presentation), "Project presentation is malformed");
     board.presentation = presentation.presentation;
-    board.cells = static_cast<T3DVertPacked*>(malloc_uncached(
-        sizeof(T3DVertPacked) * (kMaxCells * kCellVertexCount / 2U)));
     board.ground = static_cast<T3DVertPacked*>(malloc_uncached(
         sizeof(T3DVertPacked) * (kGroundVertexCount / 2U)));
     board.apron = static_cast<T3DVertPacked*>(malloc_uncached(
         sizeof(T3DVertPacked) * (kMaxApronCells * kCellVertexCount / 2U)));
-    board.elevation = static_cast<T3DVertPacked*>(malloc_uncached(
-        sizeof(T3DVertPacked) * (kMaxElevationVertices / 2U)));
     board.terrain_forms = static_cast<T3DVertPacked*>(malloc_uncached(
         sizeof(T3DVertPacked) *
             (kMaxTerrainForms * kTerrainFormVertexCount / 2U)));
@@ -2288,16 +2328,11 @@ void load_runtime_board() {
         sizeof(T3DVertPacked) * (kMaxTrees * kTreeVertexCount / 2U)));
     board.landmark = static_cast<T3DVertPacked*>(malloc_uncached(
         sizeof(T3DVertPacked) * (kMaxLandmarkVertices / 2U)));
-    board.visibility = static_cast<T3DVertPacked*>(malloc_uncached(
-        sizeof(T3DVertPacked) *
-            (kMaxCells * kCellVertexCount / 2U)));
     board.units = static_cast<T3DVertPacked*>(malloc_uncached(
         sizeof(T3DVertPacked) * (kMaxUnits * kUnitVertexCount / 2U)));
-    board.cursor = static_cast<T3DVertPacked*>(malloc_uncached(
-        sizeof(T3DVertPacked) * (kCursorVertexCount / 2U)));
-    assert(board.cells && board.ground && board.apron && board.elevation &&
-        board.terrain_forms && board.trees && board.landmark &&
-        board.visibility && board.units && board.cursor);
+    reserve_cursor_vertices(kCursorVerticesPerPlayer * 2U);
+    assert(board.ground && board.apron && board.terrain_forms &&
+        board.trees && board.landmark && board.units && board.cursor);
     board.terrain = sprite_load("rom:/material_atlas.sprite");
     board.surface_detail = sprite_load("rom:/surface_detail.sprite");
     // The title and first combat share the first authored plate. Keep just
@@ -2454,6 +2489,7 @@ void configure_campaign_board(const pr::EncounterLoadResult& content) {
             content.definition.units.size() <= kMaxUnits,
         "Authored battle exceeds Pyrite base-memory board limits"
     );
+    reserve_terrain_vertices(content.terrain.size());
     for (std::size_t index = 0; index < content.placements.size(); ++index) {
         if (index >= content.definition.units.size()) break;
         const sim::UnitDefinition& unit = content.definition.units[index];

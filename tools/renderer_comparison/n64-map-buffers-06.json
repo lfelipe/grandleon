@@ -1,0 +1,81 @@
+{
+  "schema": "grandleon.n64-map-buffer-review.v1",
+  "date": "2026-11-15",
+  "change": "Terrain/elevation/roof vertex storage grows to the largest map loaded; cursor/highlight storage grows to the actual legal range. Geometry, gameplay, campaign and current 280-cell export limit are unchanged.",
+  "baseline": {
+    "log": "out/river-continuity06/n64-campaign/ares/campaign.log",
+    "checkpoint": {
+      "heap_used": 2027056,
+      "heap_total": 2261288,
+      "heap_free": 234232,
+      "rdram": 4194304,
+      "battles": 5,
+      "commands": 287,
+      "enemy_commands": 165,
+      "hash": 600017321675168062
+    },
+    "highlight_vertices": 5664,
+    "highlight_bytes": 90624,
+    "terrain_bytes_from_start": 71680
+  },
+  "candidate": {
+    "log": "out/n64-map-buffers06/review/ares/campaign.log",
+    "verdict": "RESULT PASS PYRITE_GAMEPLAY",
+    "checkpoint": {
+      "heap_used": 1948704,
+      "heap_total": 2260312,
+      "heap_free": 311608,
+      "rdram": 4194304,
+      "battles": 5,
+      "commands": 287,
+      "enemy_commands": 165,
+      "hash": 600017321675168062
+    },
+    "highlight_growth": [
+      {
+        "vertices": 256,
+        "bytes": 4096
+      },
+      {
+        "vertices": 768,
+        "bytes": 12288
+      }
+    ],
+    "terrain_growth": [
+      {
+        "cells": 48,
+        "bytes": 12288
+      },
+      {
+        "cells": 126,
+        "bytes": 32256
+      },
+      {
+        "cells": 192,
+        "bytes": 49152
+      },
+      {
+        "cells": 216,
+        "bytes": 55296
+      },
+      {
+        "cells": 280,
+        "bytes": 71680
+      }
+    ],
+    "rom_sha256": "2ab149da54580f5d1990b3680d729f9bf89282b7de68dde705884f2b6e314185"
+  },
+  "highlight_storage_saved_bytes": 78336,
+  "normal_boot": {
+    "log": "out/n64-map-buffers06/manual/ares/manual.log",
+    "result": "Production ROM waits at title and battle; review_driver=0. Ordinary controller input reaches the authored first stage."
+  },
+  "memory_lifetime": "Before replacing uncached arenas, rspq_wait retires commands referencing the old storage. Map changes rebuild geometry. No per-frame allocations occur while the retained capacity is sufficient.",
+  "scope": [
+    "Pinned ares emulator, base 4 MiB, five-stage 1P native campaign including movement and hidden keep reveal.",
+    "Normal ROM startup and board wait checked separately without the review driver.",
+    "Final checkpoint free memory is not a peak heap or fragmentation measurement.",
+    "No new two-player console or physical-hardware acceptance run.",
+    "Larger multi-room castle geometry and the console map limit still need work."
+  ]
+}
