@@ -527,6 +527,13 @@ int main(int argc, char** argv) {
         return 65;
     }
 
+    if (!campaign.definition.grants.empty()) {
+        std::cerr << "campaign rejected: shared campaign supplies and rewards are not yet "
+                     "supported by the PlayStation player. Use character starting "
+                     "equipment or play this campaign in Godot.\n";
+        return 65;
+    }
+
     // Generated stages carry only personal equipment for characters placed
     // here. Resolve dependencies through the same package decoder as desktop.
     auto equipment = loaded.definition;

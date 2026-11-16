@@ -212,3 +212,7 @@ The large-scene paging regression uses the two-player Cedar Watch scene. Run
 with an empty output directory. It drives the controller through nine camera
 positions and verifies that every canopy page reaches the actual renderer,
 including scene entries beyond index 63.
+
+Campaign shared supplies and stage rewards are not supported yet. Export
+refuses campaigns using them rather than losing authored rewards or leaving
+supplies inaccessible. Character starting equipment remains supported.

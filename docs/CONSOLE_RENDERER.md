@@ -101,8 +101,11 @@ in every ROM or disc image and stays a session-local testing preference.
 Choosing **1 Player** leads to the save choice and then the first playable
 stage. Founding or resuming a campaign no longer pauses on a separate roster
 summary. A fixed ready-to-play company, including characters carrying their
-normal equipment, does not stop at a roster or deployment screen; management
-appears only for a real shared-store, deployment, or recovery decision.
+normal equipment, does not stop at a roster summary. A deployment screen
+appears when the stage needs a deployment choice. Shared campaign supplies and
+rewards currently need Godot: console export refuses them until the console
+players can give those supplies to characters. Personal starting equipment
+remains supported.
 **Help** is available from the title screen instead of appearing as a mandatory
 page. Choosing **2 Players** retains each unit's authored local owner, with one
 independent cursor and menu state per controller.

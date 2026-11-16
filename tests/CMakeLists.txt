@@ -1423,6 +1423,12 @@ if(NOT CMAKE_CROSSCOMPILING)
         "${PROJECT_SOURCE_DIR}/platform/nintendo64/pyrite/tests/personal_character_save_inspect.cpp")
     target_link_libraries(grandleon_n64_personal_save_inspect
         PRIVATE grandleon::client_campaign grandleon::storage)
+    add_test(NAME grandleon.console_supplies_export
+        COMMAND "${GRANDLEON_PYTHON_EXECUTABLE}"
+            "${PROJECT_SOURCE_DIR}/tests/console_supplies_export_test.py"
+            --content-compiler "$<TARGET_FILE:grandleon_content_compile>"
+            --scene-export "$<TARGET_FILE:grandleon_ps1_mipsync_scene_export>"
+    )
     add_test(NAME grandleon.ps1_personal_character_rules
         COMMAND "${GRANDLEON_PYTHON_EXECUTABLE}"
             "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/tests/personal_character_rules_test.py"

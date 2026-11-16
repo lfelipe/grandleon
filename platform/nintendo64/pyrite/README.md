@@ -187,3 +187,7 @@ The Pyrite editor is not part of the runtime workflow. The checked-in scene is
 a small declarative boot shell; the official headless CLI generates and builds
 the engine project. See `PARITY.md` for the fail-closed cutover checklist and
 `THIRD_PARTY.md` before distribution.
+
+Campaign shared supplies and stage rewards are not supported yet. Export
+refuses campaigns using them rather than losing authored rewards or leaving
+supplies inaccessible. Character starting equipment remains supported.
