@@ -215,7 +215,23 @@ tracked above.
   including defeated roster members, save/reload and newly acquired weapons.
   Both console controller probes pass permanent/withdrawn casualties,
   required-hero defeat and two fresh-process resumes in 1P and 2P. Direct
-  console checks for newly acquired weapons remain.
+  console checks for newly acquired weapons need the supply-transfer flow below.
+
+### Enemy loot and campaign supplies
+
+- [ ] Let creators configure an enemy's gold and weapon drops, including the
+  amount and drop chance. Keep common enemy archetypes quick to reuse.
+- [ ] Carry claimed gold into a shared campaign purse and weapons into shared
+  supplies. Keep ownership separate from weapon affinities; incompatible loot
+  remains available for another character. Save and resume the same rewards in
+  solo and co-op, and prevent duplicate awards after replay or recovery.
+- [ ] Add a simple way to give supplies to heroes across all three players.
+  Console starting equipment and saved character rules work already; a normal
+  controller-driven shared-store transfer flow is still missing. PS1 campaign
+  reward export also needs to preserve grants rather than omit them.
+- [ ] Once the current editor and supply changes are ready, give selected demo
+  enemies gold or weapon drops. Use clear, useful rewards and verify the same
+  results in Godot, Nintendo 64 and PlayStation.
 
 ### Graphics and animation
 
@@ -473,11 +489,17 @@ iOS exports remain later milestones; they are not part of the 0.6 scope.
   Treat the current Steel and Cedar campaign as a feature and translation test
   while this design work is planned.
 
+## After 1.0: weapon wear and blacksmiths
+
+- [ ] Explore weapons wearing down through use, with clear remaining-condition
+  feedback and authored rules. This is not part of the current loot work.
+- [ ] Let a blacksmith restore worn weapons, with creator-defined repair costs
+  and availability. Preserve each weapon's condition in saves and co-op play.
+
 ## Loot and shops
 
-- [ ] Add gold and weapon rewards from battles, enemies and map interactions.
-  Keep a shared gold purse and supply store distinct from each hero's usable
-  loadout, so an affinity never silently destroys incompatible loot.
+- [ ] Extend the enemy loot foundation to battle rewards and map interactions.
+  Keep the same shared purse, supply store and affinity-independent ownership.
 - [ ] Let creators place simple shops between stages or in appropriate places,
   choosing stock, prices and availability. Check affordability and capacity,
   preserve purchases in saves, and support both solo and co-op campaigns.
