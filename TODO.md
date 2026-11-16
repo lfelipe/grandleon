@@ -452,6 +452,8 @@ iOS exports remain later milestones; they are not part of the 0.6 scope.
 
 ## Prior to 1.0: a polished demo campaign
 
+- [ ] Publish approachable tutorials for making a first battle, growing a
+  campaign and sharing a playable game once the editor workflow settles.
 - [ ] Design and playtest a cohesive campaign that introduces the rules through
   a gentle opening, builds tactical challenge across varied maps, and ends in
   a final boss battle. Give solo and local co-op distinct, balanced experiences.

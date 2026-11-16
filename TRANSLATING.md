@@ -9,7 +9,7 @@ You can translate Grandleon's menus with a small pull request:
 1. Copy `platform/godot/project/localization/en.json` to a file named with your
    language code, such as `fr.json`.
 2. Translate the text on the right of each `:`. Keep the message IDs on the
-   left and placeholders such as `{name}` unchanged.
+   left, placeholders such as `{name}`, and the shorthand `1P` / `2P` unchanged.
 3. Add the language to
    `platform/godot/project/localization/languages.json`.
 4. Open a pull request titled `Add <language> translation`.

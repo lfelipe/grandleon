@@ -47,7 +47,7 @@ func _run() -> void:
 	_expect(
 		"Portuguese solo preview is visible",
 		localized_editor.experience_select.get_item_text(0),
-		"1J  /  CAMPANHA BASE"
+		"1P  /  CAMPANHA BASE"
 	)
 	_expect(
 		"Portuguese long status copy keeps smart wrapping",
