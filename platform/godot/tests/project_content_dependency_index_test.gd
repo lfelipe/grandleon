@@ -85,6 +85,14 @@ func _init() -> void:
 	_expect("rebuild clears old references", index.where_used("map", "cedar_field").size(), 0)
 	_expect("rebuild registers new unused content", index.can_delete("map", "new_map"), true)
 
+	var personal := _fixture()
+	personal.campaigns[0].roster[0]["startingWeaponIds"] = ["unused_sword"]
+	personal.campaigns[0].roster[0]["weaponAffinityTypeIds"] = ["blade"]
+	index.rebuild(personal)
+	_expect("a personal starting weapon cannot be deleted as unused", index.can_delete("weapon", "unused_sword"), false)
+	_expect("personal weapon dependency names the persistent hero", _labels_contain(index.where_used("weapon", "unused_sword"), "Rowan"), true)
+	_expect("personal affinities are indexed independently of class", _paths_contain(index.where_used("weapon_type", "blade"), ".weaponAffinityTypeIds[0]"), true)
+
 	if failures == 0:
 		print("project content dependency index smoke passed")
 	quit(1 if failures > 0 else 0)

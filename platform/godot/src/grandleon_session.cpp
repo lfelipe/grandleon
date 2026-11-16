@@ -10,6 +10,7 @@
 #include <grandleon/package_runtime/localization.hpp>
 #include <grandleon/package_runtime/names.hpp>
 #include <grandleon/view/motion.hpp>
+#include <grandleon/storage/memory_storage.hpp>
 
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
@@ -1362,13 +1363,28 @@ bool GrandleonSession::launch_worker() {
                 );
             }
         } else {
-            const client::SessionOptions options{players};
-            const client::SessionError status = client::run_campaign(
-                package_, campaign_id, sim::Side::first, *presenter, options
-            );
-            succeeded = status == client::SessionError::none;
-            if (!succeeded) {
-                event.message = std::string(client::error_name(status));
+            const auto authored = pr::load_campaign(package_, campaign_id);
+            if (authored && !authored.definition.members.empty()) {
+                // Creator tests use the same company and personal-character
+                // rules as saved play. This storage belongs to this worker run:
+                // leaving/restarting a preview always starts a fresh company.
+                storage::MemorySlotStorage temporary;
+                client::CampaignSessionOptions options;
+                options.slot = "preview";
+                options.local_players = players;
+                const auto status = client::run_persistent_campaign(
+                    package_, campaign_id, *presenter, *presenter, temporary, options
+                );
+                succeeded = status == client::CampaignSessionError::none;
+                if (!succeeded) event.message = std::string(client::campaign_session_error_name(status));
+            } else {
+                // Legacy standalone boards have no persistent roster to join.
+                const client::SessionOptions options{players};
+                const client::SessionError status = client::run_campaign(
+                    package_, campaign_id, sim::Side::first, *presenter, options
+                );
+                succeeded = status == client::SessionError::none;
+                if (!succeeded) event.message = std::string(client::error_name(status));
             }
         }
         if (succeeded) {
@@ -1586,6 +1602,13 @@ gd::Array GrandleonSession::poll() {
     gd::Array result;
     if (!presenter_) return result;
     std::deque<FrontendEvent> events = presenter_->take_events();
+    if (!storage_) {
+        // In-memory creator progress ends with this preview. Do not advertise
+        // its temporary transactions as installed, resumable checkpoints.
+        events.erase(std::remove_if(events.begin(), events.end(), [](const FrontendEvent& event) {
+            return event.kind == FrontendEvent::Kind::checkpoint_saved;
+        }), events.end());
+    }
     result.resize(static_cast<int64_t>(events.size()));
     for (std::size_t index = 0; index < events.size(); ++index) {
         const FrontendEvent& event = events[index];
@@ -1757,9 +1780,9 @@ bool GrandleonSession::submit_management(
     if (!presenter_) return false;
     const std::string kind = narrow(kind_value);
     client::ManagementIntent intent;
-    if (kind == "give") {
+    if (kind == "give" || kind == "give_weapon") {
         intent.verb = client::ManagementVerb::give;
-    } else if (kind == "take") {
+    } else if (kind == "take" || kind == "take_weapon") {
         intent.verb = client::ManagementVerb::take;
     } else if (kind == "field") {
         intent.verb = client::ManagementVerb::field;
@@ -1777,7 +1800,8 @@ bool GrandleonSession::submit_management(
     };
     intent.item = campaign::DefinitionRef{
         package_.game_id,
-        core::ContentCategory::item,
+        (kind == "give_weapon" || kind == "take_weapon")
+            ? core::ContentCategory::weapon : core::ContentCategory::item,
         static_cast<std::uint64_t>(item_id)
     };
     intent.stage = static_cast<std::uint64_t>(stage_id);
@@ -1938,14 +1962,16 @@ gd::Dictionary GrandleonSession::management_dictionary(
         for (const campaign::InventoryStack& stack : stacks) {
             gd::Dictionary value;
             value["id"] = signed_id(stack.item.stable_id);
+            const bool weapon = stack.item.category == core::ContentCategory::weapon;
+            const auto section = weapon ? pf::SectionType::weapons : pf::SectionType::items;
+            value["category"] = weapon ? "weapon" : "item";
             const std::string_view name = pr::content_name(
-                package_, pf::SectionType::items, stack.item.stable_id
+                package_, section, stack.item.stable_id
             );
             value["name"] = name.empty()
-                                ? gd::String("Item")
+                                ? gd::String(weapon ? "Weapon" : "Item")
                                 : text(pr::localized_content_name(
-                                      package_, language_,
-                                      pf::SectionType::items,
+                                      package_, language_, section,
                                       stack.item.stable_id, name
                                   ));
             value["count"] = static_cast<std::int64_t>(stack.quantity);

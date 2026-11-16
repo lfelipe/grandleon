@@ -1403,6 +1403,27 @@ add_test(
         "${GRANDLEON_PYTHON_EXECUTABLE}"
         "${PROJECT_SOURCE_DIR}/platform/console_art/check-directional-bank.py"
 )
+add_test(
+    NAME grandleon.console_character_drawings
+    COMMAND "${GRANDLEON_PYTHON_EXECUTABLE}"
+        "${PROJECT_SOURCE_DIR}/platform/console_art/test_character_drawings.py"
+)
+
+
+add_executable(grandleon_personal_characters_tests client/personal_characters_test.cpp)
+target_link_libraries(grandleon_personal_characters_tests PRIVATE grandleon::client_campaign grandleon::game_content grandleon::storage)
+target_compile_definitions(grandleon_personal_characters_tests PRIVATE GRANDLEON_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+add_test(NAME grandleon.personal_characters COMMAND grandleon_personal_characters_tests)
+
+if(NOT CMAKE_CROSSCOMPILING)
+    add_test(NAME grandleon.ps1_personal_character_rules
+        COMMAND "${GRANDLEON_PYTHON_EXECUTABLE}"
+            "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/tests/personal_character_rules_test.py"
+            --content-compiler "$<TARGET_FILE:grandleon_content_compile>"
+            --scene-export "$<TARGET_FILE:grandleon_ps1_mipsync_scene_export>"
+            --compiler "${CMAKE_CXX_COMPILER}"
+    )
+endif()
 
 # The warning standard, applied to every test executable this file defines.
 #

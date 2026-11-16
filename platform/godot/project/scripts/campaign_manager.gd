@@ -405,7 +405,8 @@ func _rebuild_member() -> void:
 					"item": String(item.get("name", _ui("player.company.item"))),
 					"count": int(item.get("count", 0)),
 				}),
-				"give", _selected_member_id, int(item.get("id", 0))
+				"give_weapon" if item.get("category", "item") == "weapon" else "give",
+				_selected_member_id, int(item.get("id", 0))
 			)
 		for item: Dictionary in member.get("carried", []):
 			_add_action(
@@ -413,7 +414,8 @@ func _rebuild_member() -> void:
 					"item": String(item.get("name", _ui("player.company.item"))),
 					"count": int(item.get("count", 0)),
 				}),
-				"take", _selected_member_id, int(item.get("id", 0))
+				"take_weapon" if item.get("category", "item") == "weapon" else "take",
+				_selected_member_id, int(item.get("id", 0))
 			)
 	if _action_buttons.is_empty():
 		var unavailable := _label(_ui("player.company.no_orders"), 18, MUTED)

@@ -444,8 +444,7 @@ public:
             // recognise the second. Which word that is belongs to the campaign
             // and not to this screen, so it is read off the aftermath rather
             // than decided here.
-            const bool buried = aftermath.character_loss ==
-                                package_runtime::CharacterLoss::permanent;
+            const bool buried = entry->availability == campaign::Availability::dead;
             std::cout << "  " << member_name(*entry, package_) << ", unit "
                       << board_.label(
                              aftermath.binding.battle_of(member).value
@@ -976,10 +975,14 @@ private:
     // know is a death whatever rule the company plays under, as is everybody on
     // a board played outside a campaign at all.
     [[nodiscard]] const char* fall_word(sim::UnitId id) const {
-        if (loss_ != package_runtime::CharacterLoss::recoverable) return "died";
-        return binding_.persistent_of(campaign::BattleEntityId{id}).value != 0U
-                   ? "fell"
-                   : "died";
+        const auto member = binding_.persistent_of(campaign::BattleEntityId{id});
+        for (const auto& entry : roster_) {
+            if (entry.member != member) continue;
+            const bool permanent = entry.defeat_policy == package_runtime::DefeatPolicy::permanent ||
+                (entry.defeat_policy == package_runtime::DefeatPolicy::inherit && loss_ == package_runtime::CharacterLoss::permanent);
+            return permanent ? "died" : "fell";
+        }
+        return "died";
     }
 
     // The campaign's own name for whoever stands in a board unit, or null when

@@ -829,6 +829,10 @@ struct CampaignMemberSpecificity final {
     }
 };
 
+enum class DefeatPolicy : std::uint8_t {
+    inherit = 0, permanent = 1, withdraw = 2, lose_battle = 3,
+};
+
 struct CampaignMember final {
     StableId id{};
     std::string name;
@@ -848,6 +852,13 @@ struct CampaignMember final {
     //: every project authored before this option means. Last so positional
     //: aggregate initializers do not change meaning.
     bool player_nameable{false};
+    // Personal permissions replace class permissions only when explicitly set.
+    std::vector<StableId> weapon_affinities;
+    bool states_weapon_affinities{false};
+    // Personal kit does not alter a shared role or its class's valid base kit.
+    std::vector<StableId> starting_weapons;
+    bool states_starting_weapons{false};
+    DefeatPolicy defeat_policy{DefeatPolicy::inherit};
 };
 
 // A quantity of one item the campaign puts into its shared store, and where in

@@ -427,6 +427,13 @@ struct SourceMapCell final {
     bool player_nameable
 );
 
+// Replaces only this member's three optional personal rule fields. Omission
+// removes an override; an empty array remains an explicit empty choice.
+[[nodiscard]] SourceTextResult set_source_campaign_member_rules_json(
+    std::string_view source_json, std::string_view campaign_id,
+    std::string_view member_id, std::string_view rules_json
+);
+
 // Changes one portable character modifier. Stat names use the source schema's
 // statDeltaBlock vocabulary; `rangeBonus` uses its own bounded positive value.
 // Zero removes that modifier and removes an empty specificity object, which is

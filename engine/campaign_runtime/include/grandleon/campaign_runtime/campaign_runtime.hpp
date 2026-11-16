@@ -268,6 +268,12 @@ struct CampaignEncounter final {
 // authored member order, which is the order the campaign record carries.
 [[nodiscard]] std::vector<package_runtime::MemberSpecificity>
 member_specificities(const package_runtime::CampaignDefinition& definition);
+[[nodiscard]] std::vector<package_runtime::MemberRules>
+member_rules(const package_runtime::CampaignDefinition& definition);
+// Resolve a member's authored override against the project's legacy rule.
+[[nodiscard]] package_runtime::DefeatPolicy member_defeat_policy(
+    const package_runtime::CampaignDefinition& definition, std::uint64_t source_member_id
+) noexcept;
 
 // The same join, over a board the caller already has.
 //
@@ -285,7 +291,8 @@ member_specificities(const package_runtime::CampaignDefinition& definition);
 [[nodiscard]] CampaignEncounter join_campaign_roster(
     package_runtime::EncounterLoadResult&& loaded,
     const campaign::CampaignState& state,
-    const std::vector<RosterAssignment>& roster
+    const std::vector<RosterAssignment>& roster,
+    const package_format::LoadedPackage* package = nullptr
 );
 
 // Which members this board has a placement for, ascending.
@@ -387,7 +394,8 @@ struct StartingKit final {
 [[nodiscard]] StartingKit starting_kit(
     const package_format::LoadedPackage& package,
     campaign::PersistentEntityId member,
-    std::uint64_t unit_type_id
+    std::uint64_t unit_type_id,
+    const package_runtime::MemberRules* rules = nullptr
 );
 
 // ---------------------------------------------------------------------------

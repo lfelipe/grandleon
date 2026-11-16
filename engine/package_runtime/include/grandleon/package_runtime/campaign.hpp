@@ -3,6 +3,7 @@
 
 #include <grandleon/package_format/package.hpp>
 #include <grandleon/package_runtime/specificity.hpp>
+#include <grandleon/package_runtime/member_rules.hpp>
 #include <grandleon/simulation/encounter.hpp>
 
 #include <cstdint>
@@ -92,15 +93,15 @@ struct CampaignMember final {
     // whoever assembled it. A pointer captured while it was decoded would be
     // pointing into a freed buffer after either, while an offset resolved
     // against `byte_data()` at the moment of asking is right in both cases.
-    // Nothing is copied out of the package, so a decoded campaign still costs
-    // no allocation and this header still pulls in no `std::string`, which is
-    // what both consoles need of it.
+    // Names are never copied out of the package and require no allocation.
+    // Personal rule lists below allocate only when explicitly authored.
     std::uint32_t name_offset{};
     std::uint16_t name_size{};
     // Optional author permission to replace the default name. Missing from an
     // older package, or omitted for this member, means false. Last so existing
     // positional aggregate initializers retain their meaning.
     bool player_nameable{false};
+    MemberRules rules;
 
     // The name, read out of the package it was decoded from. Empty for a
     // member with no name, and empty when the package handed in is not the one

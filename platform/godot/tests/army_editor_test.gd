@@ -333,8 +333,9 @@ func _run() -> void:
 	_expect("guided role keeps its chosen style", str(guided.unitTypes[-1].characterStyleId), "sengoku")
 	_expect("guided role keeps its chosen body", str(guided.unitTypes[-1].characterFigureId), "second")
 	_expect("guided role keeps its chosen side", str(guided.unitTypes[-1].factionId), "raiders")
-	_expect("guided role begins with the chosen weapon", str(guided.unitTypes[-1].startingWeaponIds[0]), "apprentice_focus")
-	_expect("guided baseline allows the chosen weapon family", guided.classes[-1].allowedWeaponTypeIds.has("focus"), true)
+	_expect("guided personal kit begins with the chosen weapon", str(editor._current_member().startingWeaponIds[0]), "apprentice_focus")
+	_expect("guided hero personally allows the chosen weapon family", editor._current_member().weaponAffinityTypeIds.has("focus"), true)
+	_expect("guided weapon choice keeps the role default intact", str(guided.unitTypes[-1].startingWeaponIds[0]), "traveller_blade")
 	_expect("guided creation leaves the new character selected", str(editor._current_member().name), "Niko")
 	editor._undo()
 	_expect("guided character and role undo as one change", editor.members.size(), 2)
@@ -592,6 +593,9 @@ func _exercise_guided_character_archetype() -> void:
 	hero._apply_guide_template_defaults()
 	hero.guide_name.text = "Elin"
 	hero.guide_role_name.text = "Scholar"
+	hero._select_metadata(hero.guide_weapon, "traveller_blade")
+	hero.guide_weapon.item_selected.emit(hero.guide_weapon.selected)
+	hero._select_metadata(hero.guide_defeat, "loseBattle")
 	hero._create_guided_character()
 	var member: Dictionary = hero._current_member()
 	var unit_id := str(member.get("unitTypeId", ""))
@@ -601,6 +605,28 @@ func _exercise_guided_character_archetype() -> void:
 	_expect("guided creation retains the exact role name", str(unit.get("name", "")), "Scholar")
 	_expect("guided creation retains the exact class name", str(role.get("name", "")), "Scholar")
 	_expect("guided role records the template's visual identity", str(unit.get("characterArchetypeId", "")), "mage")
+	_expect("Mage hero retains multiple personal weapon families", member.get("weaponAffinityTypeIds", []).has("blade") and member.get("weaponAffinityTypeIds", []).has("focus"), true)
+	_expect("Mage hero starts with personal sword", member.get("startingWeaponIds", []), ["traveller_blade"])
+	_expect("required hero choice is native authored policy", str(member.get("defeatPolicy", "")), "loseBattle")
+	_expect("Mage class does not gain sword permission", role.get("allowedWeaponTypeIds", []).has("blade"), false)
+	hero._open_personal_rules()
+	_expect("normal hero rules editor opens", hero.rules_layer.visible, true)
+	hero._select_metadata(hero.rules_defeat, "withdraw")
+	hero._apply_personal_rules()
+	_expect("rules apply updates only named hero", str(hero._current_member().get("defeatPolicy", "")), "withdraw")
+	_expect("rules apply retains personal sword", hero._current_member().get("startingWeaponIds", []), ["traveller_blade"])
+	hero._open_personal_rules()
+	var popup: PopupMenu = hero.rules_affinities.get_popup()
+	for index in popup.item_count:
+		if str(popup.get_item_metadata(index)) == "blade":
+			popup.id_pressed.emit(index)
+			break
+	var unchanged: String = hero.source
+	hero._apply_personal_rules()
+	_expect("incompatible personal weapon choice stays reviewable", hero.rules_layer.visible, true)
+	_expect("rejected choices preserve authored source", hero.source, unchanged)
+	hero.rules_layer.visible = false
+
 	var after: Dictionary = hero.compiler.source_character_preview(hero.source, unit_id)
 	_expect("custom role name cannot turn a Mage into a Knight", int(after.get("archetype", -1)), 2)
 	_expect("visual identity keeps the selected style", after.get("style"), before.get("style"))
@@ -609,9 +635,36 @@ func _exercise_guided_character_archetype() -> void:
 	var loaded: Dictionary = library.load_source(str(made.id))
 	var reopened: Dictionary = hero.compiler.source_character_preview(str(loaded.source), unit_id)
 	_expect("the saved hero reopens with the original visual archetype", int(reopened.get("archetype", -1)), 2)
+	var saved_project: Dictionary = JSON.parse_string(str(loaded.source))
+	var saved_member: Dictionary = saved_project.campaigns[0].roster[-1]
+	_expect("saved personal kit survives reopen", saved_member.get("startingWeaponIds", []), ["traveller_blade"])
+	_expect("saved personal defeat policy survives reopen", saved_member.get("defeatPolicy", ""), "withdraw")
 	_expect("the saved hero compiles portably", hero.compiler.compile_source_json(str(loaded.source)).get("ok", false), true)
 	hero.queue_free()
 	await process_frame
+	var legacy: Dictionary = JSON.parse_string(fixture)
+	legacy.erase("weaponTypes")
+	for value: Dictionary in legacy.get("classes", []):
+		value.erase("allowedWeaponTypeIds")
+	for value: Dictionary in legacy.get("weapons", []):
+		value.erase("weaponTypeId")
+	var legacy_made: Dictionary = library.create_project("Legacy weapon choices", JSON.stringify(library._integer_numbers(legacy)))
+	_expect("legacy untyped project remains valid", legacy_made.get("ok", false), true)
+	if legacy_made.get("ok", false):
+		context.open_project(str(legacy_made.id))
+		var legacy_hero = load("res://army_editor.tscn").instantiate()
+		root.add_child(legacy_hero)
+		await process_frame
+		legacy_hero._open_add()
+		legacy_hero._open_guided_character()
+		legacy_hero.guide_name.text = "Legacy Hero"
+		legacy_hero.guide_role_name.text = "Legacy Role"
+		legacy_hero._create_guided_character()
+		_expect("legacy guided character still creates", legacy_hero._current_member().get("name", ""), "Legacy Hero")
+		_expect("legacy untyped creation does not invent restrictive affinities", legacy_hero._current_member().has("weaponAffinityTypeIds"), false)
+		_expect("legacy personal kit still compiles", legacy_hero.compiler.compile_source_json(legacy_hero.source).get("ok", false), true)
+		legacy_hero.queue_free()
+		await process_frame
 	context.open_project(original_project)
 	context.choose_campaign(original_campaign)
 	context.member_id = original_member

@@ -370,6 +370,10 @@ gd::Array budget_stages(const gc::GameSource& source) {
 
 void GrandleonProjectCompiler::_bind_methods() {
     gd::ClassDB::bind_method(
+        gd::D_METHOD("set_campaign_member_rules", "source_json", "campaign_id", "member_id", "rules_json"),
+        &GrandleonProjectCompiler::set_campaign_member_rules
+    );
+    gd::ClassDB::bind_method(
         gd::D_METHOD("compile_source_json", "source_json"),
         &GrandleonProjectCompiler::compile_source_json
     );
@@ -1595,6 +1599,34 @@ gd::Dictionary GrandleonProjectCompiler::set_campaign_member_player_nameable(
         gc::set_source_campaign_member_player_nameable_json(
             narrow(source_json), narrow(campaign_id), narrow(member_id),
             player_nameable
+        );
+    if (!updated) {
+        for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {
+            diagnostics.push_back(source_diagnostic(diagnostic));
+        }
+        result["diagnostics"] = diagnostics;
+        return result;
+    }
+    result["ok"] = true;
+    result["source"] = text(updated.json);
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::set_campaign_member_rules(
+    const gd::String& source_json,
+    const gd::String& campaign_id,
+    const gd::String& member_id,
+    const gd::String& rules_json
+) const {
+    gd::Dictionary result;
+    result["ok"] = false;
+    result["source"] = "";
+    gd::Array diagnostics;
+    const gc::SourceTextResult updated =
+        gc::set_source_campaign_member_rules_json(
+            narrow(source_json), narrow(campaign_id), narrow(member_id),
+            narrow(rules_json)
         );
     if (!updated) {
         for (const gc::SourceDiagnostic& diagnostic : updated.diagnostics) {

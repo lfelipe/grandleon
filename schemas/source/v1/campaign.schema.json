@@ -335,6 +335,34 @@
         },
         "notes": {
           "$ref": "common.schema.json#/$defs/notes"
+        },
+        "weaponAffinityTypeIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 65535,
+          "items": {
+            "$ref": "common.schema.json#/$defs/stableId"
+          },
+          "description": "Personal weapon families, replacing class permissions. Omitted preserves legacy rules; empty permits no weapons."
+        },
+        "startingWeaponIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 65535,
+          "items": {
+            "$ref": "common.schema.json#/$defs/stableId"
+          },
+          "description": "Personal starting weapons in equipped-first order. Omitted inherits the role kit; empty starts unarmed."
+        },
+        "defeatPolicy": {
+          "type": "string",
+          "enum": [
+            "inherit",
+            "permanent",
+            "withdraw",
+            "loseBattle"
+          ],
+          "description": "Inherit the game rule, die permanently, withdraw for later battles, or withdraw and trigger the battle defeat outcome."
         }
       },
       "required": [
@@ -419,10 +447,21 @@
           "type": "object",
           "description": "Where this same placement starts when two local players participate. Omitted means its ordinary x and y are used in both modes. This changes an opening layout without duplicating a persistent roster member or changing its identity.",
           "properties": {
-            "x": { "type": "integer", "minimum": 0, "maximum": 4095 },
-            "y": { "type": "integer", "minimum": 0, "maximum": 4095 }
+            "x": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4095
+            },
+            "y": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4095
+            }
           },
-          "required": ["x", "y"],
+          "required": [
+            "x",
+            "y"
+          ],
           "additionalProperties": false
         },
         "talk": {
@@ -724,7 +763,9 @@
         },
         "minimumPlayers": {
           "type": "integer",
-          "enum": [2],
+          "enum": [
+            2
+          ],
           "description": "Plays this scene only when two local players participate. Omitted means the moment belongs to both variants. This keeps one campaign graph while allowing a second army's story beats to appear only in co-op."
         }
       }

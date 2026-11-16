@@ -8,6 +8,7 @@
 #include <grandleon/package_format/package.hpp>
 #include <grandleon/package_runtime/encounter_loader.hpp>
 #include <grandleon/package_runtime/campaign.hpp>
+#include <grandleon/package_runtime/starting_kit.hpp>
 #include <grandleon/package_runtime/dialogue.hpp>
 #include <grandleon/package_runtime/localization.hpp>
 #include <grandleon/package_runtime/manifest.hpp>
@@ -15,6 +16,7 @@
 #include <grandleon/package_runtime/presentation.hpp>
 #include <grandleon/simulation/encounter.hpp>
 
+#include <algorithm>
 #include <cstdint>
 #include <fstream>
 #include <iostream>
@@ -103,6 +105,10 @@ void write_dialogue_lines(
     output << ']';
 }
 
+unsigned resolved_presentation_value(std::uint8_t value) {
+    return value == 255U ? 0U : static_cast<unsigned>(value);
+}
+
 void write_speakers(
     std::ostream& output, const pf::LoadedPackage& package,
     const pr::CampaignDefinition& campaign,
@@ -121,9 +127,6 @@ void write_speakers(
     for (const auto& moment : moments) collect(moment.dialogue_id);
     output << '[';
     bool first = true;
-    const auto resolved = [](std::uint8_t value) {
-        return value == 255U ? 0U : static_cast<unsigned>(value);
-    };
     for (const auto type : types) {
         if (!first) output << ',';
         first = false;
@@ -131,10 +134,10 @@ void write_speakers(
         write_id(output, type);
         output << ",\"name\":";
         write_string(output, pr::content_name(package, pf::SectionType::unit_types, type));
-        output << ",\"style\":" << resolved(presentation.character_style_of_unit_type(type))
-               << ",\"archetype\":" << resolved(presentation.archetype_of_unit_type(type))
-               << ",\"figure\":" << resolved(presentation.character_figure_of_unit_type(type))
-               << ",\"colour\":" << resolved(presentation.colour_of_unit_type(type)) << '}';
+        output << ",\"style\":" << resolved_presentation_value(presentation.character_style_of_unit_type(type))
+               << ",\"archetype\":" << resolved_presentation_value(presentation.archetype_of_unit_type(type))
+               << ",\"figure\":" << resolved_presentation_value(presentation.character_figure_of_unit_type(type))
+               << ",\"colour\":" << resolved_presentation_value(presentation.colour_of_unit_type(type)) << '}';
     }
     output << ']';
 }
@@ -222,6 +225,8 @@ void write_localized_moments(
     output << ']';
 }
 
+template<class T> void write_numbers(std::ostream&, const std::vector<T>&);
+
 void write_campaign(
     std::ostream& output,
     const pf::LoadedPackage& package,
@@ -237,6 +242,8 @@ void write_campaign(
     write_id(output, campaign.entry_node_id);
     output << ",\"player_mode\":"
            << static_cast<unsigned>(campaign.player_mode);
+    output << ",\"permanent_loss\":" << (campaign.character_loss == pr::CharacterLoss::permanent ? 1 : 0);
+    output << ",\"company_endures\":" << (campaign.invulnerable_for_testing ? 1 : 0);
     output << ",\"current_node_id\":";
     std::uint64_t current_node_id = 0U;
     for (const pr::CampaignNode& node : campaign.nodes) {
@@ -274,8 +281,15 @@ void write_campaign(
         write_id(output, member.join_node_id);
         output << ",\"name\":";
         write_string(output, member.name_in(package));
-        output << ",\"player_nameable\":"
-               << (member.player_nameable ? 1 : 0) << '}';
+        output << ",\"player_nameable\":" << (member.player_nameable ? 1 : 0);
+        output << ",\"weapon_affinities\":"; write_numbers(output, member.rules.weapon_affinities);
+        output << ",\"starting_weapons\":"; write_numbers(output, member.rules.starting_weapons);
+        output << ",\"states_weapon_affinities\":" << (member.rules.states_weapon_affinities ? 1 : 0);
+        output << ",\"states_starting_weapons\":" << (member.rules.states_starting_weapons ? 1 : 0);
+        output << ",\"defeat_policy\":" << static_cast<unsigned>(member.rules.defeat_policy);
+        const auto kit = pr::load_unit_starting_items(package, member.unit_type_id);
+        output << ",\"starting_items\":"; write_numbers(output, kit.items);
+        output << '}';
     }
     output << "],\"nodes\":[";
     for (std::size_t node_index = 0;
@@ -483,7 +497,7 @@ int main(int argc, char** argv) {
     }
 
     const std::uint64_t encounter_id = core::stable_content_id_v1(argv[2]);
-    const pr::EncounterLoadResult loaded = pr::load_encounter(
+    pr::EncounterLoadResult loaded = pr::load_encounter(
         package.package, encounter_id,
         {static_cast<std::uint8_t>(local_players)}
     );
@@ -513,6 +527,23 @@ int main(int argc, char** argv) {
         return 65;
     }
 
+    // Generated stages carry only personal equipment for characters placed
+    // here. Resolve dependencies through the same package decoder as desktop.
+    auto equipment = loaded.definition;
+    for (std::size_t index = 0; index < loaded.placements.size(); ++index) {
+        for (const auto& member : campaign.definition.members) {
+            if (member.id != loaded.placements[index].source_key_id || !member.rules.states_starting_weapons) continue;
+            auto& ids = equipment.units[index].weapon_ids;
+            for (const auto id : member.rules.starting_weapons)
+                if (std::find(ids.begin(), ids.end(), id) == ids.end()) ids.push_back(id);
+        }
+    }
+    if (!pr::resolve_carried_equipment(package.package, equipment)) {
+        std::cerr << "personal equipment rejected\n";
+        return 65;
+    }
+    loaded.definition.weapons = std::move(equipment.weapons);
+    loaded.definition.weapon_types = std::move(equipment.weapon_types);
     const sim::EncounterSnapshot snapshot = created.encounter.snapshot();
     std::ofstream output(argv[4], std::ios::binary | std::ios::trunc);
     if (!output) {
@@ -610,13 +641,13 @@ int main(int argc, char** argv) {
                << ", \"y\": " << unit.position.y
                << ", \"health\": " << unit.health
                << ", \"maximum_health\": " << unit.maximum_health
-               << ", \"colour\": " << static_cast<unsigned>(
+               << ", \"colour\": " << resolved_presentation_value(
                       shown.presentation.colour_of_unit_type(unit.unit_type_id))
-               << ", \"archetype\": " << static_cast<unsigned>(
+               << ", \"archetype\": " << resolved_presentation_value(
                       shown.presentation.archetype_of_unit_type(unit.unit_type_id))
-               << ", \"style\": " << static_cast<unsigned>(
+               << ", \"style\": " << resolved_presentation_value(
                       shown.presentation.character_style_of_unit_type(unit.unit_type_id))
-               << ", \"figure\": " << static_cast<unsigned>(
+               << ", \"figure\": " << resolved_presentation_value(
                       shown.presentation.character_figure_of_unit_type(unit.unit_type_id))
                << '}';
         if (index + 1 != snapshot.units.size()) output << ',';
@@ -638,6 +669,8 @@ int main(int argc, char** argv) {
         write_id(output, unit.id);
         output << ",\"unit_type_id\":";
         write_id(output, unit.unit_type_id);
+        output << ",\"source_id\":";
+        write_id(output, loaded.placements[index].source_key_id);
         output << ",\"side\":" << static_cast<unsigned>(unit.side)
                << ",\"position\":[" << unit.position.x << ',' << unit.position.y << ']'
                << ",\"health\":" << unit.health

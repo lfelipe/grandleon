@@ -3712,6 +3712,35 @@ void names_both_versions_when_it_refuses_one() {
     );
 }
 
+void personal_rules_parse_edit_and_reopen() {
+    const auto original = gc::parse_source_project_json(source);
+    const auto bytes = gc::compile(original.source).package;
+    for (const std::string_view policy : {"inherit", "permanent", "withdraw", "loseBattle"}) {
+        const std::string rules = "{\"weaponAffinityTypeIds\":[\"blade\"],\"startingWeaponIds\":[\"sword\"],\"defeatPolicy\":\"" + std::string(policy) + "\"}";
+        const auto edited = gc::set_source_campaign_member_rules_json(source, "demo", "blue_one", rules);
+        expect(bool(edited), "personal rules use native atomic character edit");
+        const auto reopened = gc::parse_source_project_json(edited.json);
+        expect(reopened && reopened.source.campaigns[0].roster[0].states_weapon_affinities &&
+            reopened.source.campaigns[0].roster[0].states_starting_weapons &&
+            reopened.source.campaigns[0].roster[0].starting_weapons.size() == 1,
+            "save/reopen retains personal permissions and kit");
+        const auto renamed = gc::rename_source_campaign_member_json(edited.json, "demo", "blue_one", "Lia");
+        expect(renamed && renamed.json.find("weaponAffinityTypeIds") != std::string::npos,
+            "normal character rename preserves personal fields");
+        const auto cleared = gc::set_source_campaign_member_rules_json(edited.json, "demo", "blue_one", "{}");
+        const auto legacy = gc::parse_source_project_json(cleared.json);
+        expect(legacy && gc::compile(legacy.source).package == bytes,
+            "removing optional rules restores legacy package bytes");
+    }
+    const auto empty = gc::set_source_campaign_member_rules_json(source, "demo", "blue_one",
+        R"({"weaponAffinityTypeIds":[],"startingWeaponIds":[]})");
+    expect(bool(empty), "explicit empty permissions and empty kit remain valid");
+    for (const std::string_view bad : {R"({"defeatPolicy":"dead"})", R"({"defeatPolicy":2})", R"({"defeatPolicy":null})", R"({"weaponAffinityTypeIds":"blade"})", R"({"weaponAffinityTypeIds":["blade","blade"]})", R"({"weaponAffinityTypeIds":["unknown"]})", R"({"startingWeaponIds":["unknown"]})", R"({"startingWeaponIds":true})", R"({"weaponAffinityTypeIds":[]})", R"({"unexpected":true})"}) {
+        expect(!gc::set_source_campaign_member_rules_json(source, "demo", "blue_one", bad),
+            "malformed or incompatible personal rules are refused atomically");
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -3751,6 +3780,7 @@ int main() {
     maps_authored_character_style();
     maps_a_characters_own_style();
     maps_explicit_character_archetypes_and_preserves_cloned_appearance();
+    personal_rules_parse_edit_and_reopen();
     maps_a_scene_backdrop();
     maps_a_scene_cast();
     maps_the_game_wide_turn_order();

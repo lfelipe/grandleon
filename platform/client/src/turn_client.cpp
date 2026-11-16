@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+#include <algorithm>
 #include <grandleon/client/turn_client.hpp>
 
 #include <grandleon/client/attack_gesture.hpp>
@@ -1119,11 +1120,14 @@ const char* TurnClient::fall_word(sim::UnitId unit) const noexcept {
     //
     // Whether this character is one of the company is the join's answer, which
     // is the same question `character_called` asks a line earlier.
-    if (board_ != nullptr &&
-        board_->character_loss == pr::CharacterLoss::recoverable &&
-        board_->binding.persistent_of(campaign::BattleEntityId{unit}).value !=
-            0U) {
-        return " FELL";
+    if (board_ != nullptr) {
+        const auto member = board_->binding.persistent_of(campaign::BattleEntityId{unit});
+        for (const auto& entry : campaign_roster_) {
+            if (entry.member != member) continue;
+            const bool permanent = entry.defeat_policy == pr::DefeatPolicy::permanent ||
+                (entry.defeat_policy == pr::DefeatPolicy::inherit && board_->character_loss == pr::CharacterLoss::permanent);
+            if (!permanent) return " FELL";
+        }
     }
 #endif
     static_cast<void>(unit);
@@ -4316,19 +4320,22 @@ void TurnClient::battle_aftermath(const client::BattleAftermath& aftermath) {
     // dead and the company buries them; under the recoverable rule they were
     // carried off and they are back, which is a very different screen to read
     // and must not be worded like the first one.
-    if (!aftermath.fallen.empty()) {
-        const bool buried =
-            aftermath.character_loss == pr::CharacterLoss::permanent;
-        push_line(console::text(
-            language(), buried ? console::Message::company_buries
-                               : console::Message::carried_off_back
-        ));
+    for (const bool buried : {true, false}) {
+        bool heading = false;
         for (const campaign::PersistentEntityId member : aftermath.fallen) {
+            const auto found = std::find_if(campaign_roster_.begin(), campaign_roster_.end(),
+                [member](const client::RosterEntry& entry) { return entry.member == member; });
+            const bool died = found != campaign_roster_.end() && found->availability == campaign::Availability::dead;
+            if (died != buried) continue;
+            if (!heading) {
+                push_line(console::text(language(), buried ? console::Message::company_buries : console::Message::carried_off_back));
+                heading = true;
+            }
             Text row;
             row.text("  ").text(member_name(campaign_roster_, member));
             push_line(row.c_str());
         }
-        push_line("");
+        if (heading) push_line("");
     }
     for (const client::RosterEntry& member : campaign_roster_) {
         Text row;
@@ -4352,9 +4359,7 @@ void TurnClient::battle_aftermath(const client::BattleAftermath& aftermath) {
             )
             .text("  ")
             .text(
-                aftermath.character_loss == pr::CharacterLoss::permanent
-                    ? console::text(language(), console::Message::lost)
-                    : console::text(language(), console::Message::fell)
+                console::text(language(), console::Message::fell)
             )
             .text(" ")
             .number(static_cast<std::int32_t>(aftermath.fallen.size()))

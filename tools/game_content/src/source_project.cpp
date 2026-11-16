@@ -862,6 +862,22 @@ CampaignMember read_member(
         }
     }
 
+    member.states_weapon_affinities =
+        mapper.member(*object, "weaponAffinityTypeIds", path, false) != nullptr;
+    member.weapon_affinities = mapper.references(*object, "weaponAffinityTypeIds", path);
+    member.states_starting_weapons =
+        mapper.member(*object, "startingWeaponIds", path, false) != nullptr;
+    member.starting_weapons = mapper.references(*object, "startingWeaponIds", path);
+    const auto policy = mapper.string(*object, "defeatPolicy", path, false);
+    if (policy) {
+        if (*policy == "inherit") member.defeat_policy = DefeatPolicy::inherit;
+        else if (*policy == "permanent") member.defeat_policy = DefeatPolicy::permanent;
+        else if (*policy == "withdraw") member.defeat_policy = DefeatPolicy::withdraw;
+        else if (*policy == "loseBattle") member.defeat_policy = DefeatPolicy::lose_battle;
+        else mapper.error(SourceDiagnosticCode::invalid_value, path + ".defeatPolicy",
+                          "expected inherit, permanent, withdraw, or loseBattle");
+    }
+
     // What makes this character more than their class, if the author said
     // anything. Read as written and not checked here: whether a delta is
     // reachable depends on the class it lands on, which this pass does not
@@ -7326,6 +7342,116 @@ SourceTextResult set_source_campaign_member_player_nameable_json(
         (*member)["playerNameable"] = Json{true};
     } else {
         member->erase("playerNameable");
+    }
+    const bool was_playable = static_cast<bool>(compile(before.source));
+    finish_document_edit(document, result);
+    if (!result || !was_playable) return result;
+    const SourceParseResult after = parse_source_project_json(result.json);
+    const CompileResult compiled = after ? compile(after.source) : CompileResult{};
+    if (after && compiled) return result;
+    result.json.clear();
+    refuse_edit(
+        result, SourceDiagnosticCode::invalid_value, member_path,
+        "character edit would make this playable project invalid"
+    );
+    return result;
+}
+
+SourceTextResult set_source_campaign_member_rules_json(
+    std::string_view source_json,
+    std::string_view campaign_id,
+    std::string_view member_id,
+    std::string_view rules_json
+) {
+    SourceTextResult result;
+    if (!valid_source_key(campaign_id) || !valid_source_key(member_id)) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.campaigns",
+            "campaign and member identities must be stable source-key strings"
+        );
+        return result;
+    }
+    const SourceParseResult before = parse_source_project_json(source_json);
+    if (!before) {
+        result.diagnostics = before.diagnostics;
+        return result;
+    }
+    Json document;
+    try {
+        document = JsonParser(source_json).parse();
+    } catch (const JsonError& error) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_json, "$",
+            "JSON parse error at byte " + std::to_string(error.offset()) +
+                ": " + error.what()
+        );
+        return result;
+    }
+    auto* root = std::get_if<Object>(&document.value);
+    Array* campaigns =
+        root == nullptr ? nullptr : mutable_array(*root, "campaigns");
+    std::size_t campaign_index = 0;
+    Object* campaign = campaigns == nullptr
+                           ? nullptr
+                           : find_object_by_id(
+                                 *campaigns, campaign_id, &campaign_index
+                             );
+    if (campaign == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, "$.campaigns",
+            "campaign was not found"
+        );
+        return result;
+    }
+    const std::string campaign_path =
+        "$.campaigns[" + std::to_string(campaign_index) + "]";
+    Object* member = nullptr;
+    std::string member_path = campaign_path + ".roster";
+    Array* roster = mutable_array(*campaign, "roster");
+    if (roster != nullptr) member = find_object_by_id(*roster, member_id);
+    Object* flow = mutable_object(*campaign, "flow");
+    Array* nodes = flow == nullptr ? nullptr : mutable_array(*flow, "nodes");
+    for (std::size_t node_index = 0;
+         member == nullptr && nodes != nullptr && node_index < nodes->size();
+         ++node_index) {
+        auto* node = std::get_if<Object>(&(*nodes)[node_index].value);
+        Array* recruits =
+            node == nullptr ? nullptr : mutable_array(*node, "recruits");
+        if (recruits == nullptr) continue;
+        member = find_object_by_id(*recruits, member_id);
+        if (member != nullptr) {
+            member_path = campaign_path + ".flow.nodes[" +
+                          std::to_string(node_index) + "].recruits";
+        }
+    }
+    if (member == nullptr) {
+        refuse_edit(
+            result, SourceDiagnosticCode::invalid_value, member_path,
+            "character was not found"
+        );
+        return result;
+    }
+    Json requested;
+    try { requested = JsonParser(rules_json).parse(); }
+    catch (const JsonError&) {
+        refuse_edit(result, SourceDiagnosticCode::invalid_json, member_path, "character rules must be JSON");
+        return result;
+    }
+    const auto* fields = std::get_if<Object>(&requested.value);
+    if (fields == nullptr) {
+        refuse_edit(result, SourceDiagnosticCode::invalid_value, member_path, "character rules must be an object");
+        return result;
+    }
+    for (const auto& entry : *fields) {
+        if (entry.first != "weaponAffinityTypeIds" && entry.first != "startingWeaponIds" && entry.first != "defeatPolicy") {
+            refuse_edit(result, SourceDiagnosticCode::invalid_value, member_path, "unknown character rule");
+            return result;
+        }
+    }
+    for (const char* key : {"weaponAffinityTypeIds", "startingWeaponIds", "defeatPolicy"}) {
+        const auto value = fields->find(key);
+        if (value == fields->end()) member->erase(key);
+        else (*member)[key] = value->second;
     }
     const bool was_playable = static_cast<bool>(compile(before.source));
     finish_document_edit(document, result);

@@ -659,8 +659,14 @@ def main() -> int:
             f"{int(member['unit_type_id'])}ULL, "
             f"{int(member.get('join_node_id', 0))}ULL, "
             f"{cpp_string(member.get('name', ''))}, "
-            f"{'true' if int(member.get('player_nameable', 0)) else 'false'}"
-            "},"
+            f"{'true' if int(member.get('player_nameable', 0)) else 'false'}, "
+            "{" + f"{int(member['source_id'])}ULL, " +
+            ids(member.get("weapon_affinities", [])) + ", " +
+            ids(member.get("starting_weapons", [])) + ", " +
+            f"{'true' if member.get('states_weapon_affinities', 0) else 'false'}, " +
+            f"{'true' if member.get('states_starting_weapons', 0) else 'false'}, " +
+            f"static_cast<grandleon::package_runtime::DefeatPolicy>({int(member.get('defeat_policy', 0))})" + "}, " +
+            ids(member.get("starting_items", [])) + "},"
         )
     lines += [
         "    };", "    return values;", "}", "",
@@ -706,11 +712,18 @@ def main() -> int:
     for identifier, unit in presentation_units.items():
         lines.append(f"    case {identifier}ULL: return {int(unit['unit_type_id'])}ULL;")
     lines += ["    default: return 0;", "    }", "}"]
+    lines += ["std::uint64_t grandleon_generated_unit_source(std::uint64_t id) {", "    switch (id) {"]
+    for identifier, unit in presentation_units.items():
+        lines.append(f"    case {identifier}ULL: return {int(unit.get('source_id', 0))}ULL;")
+    lines += ["    default: return 0;", "    }", "}",
+        "bool grandleon_generated_permanent_loss() { return " + ("true" if campaign.get("permanent_loss", 1) else "false") + "; }",
+        "bool grandleon_generated_company_endures() { return " + ("true" if campaign.get("company_endures", 0) else "false") + "; }"]
     args.output.mkdir(parents=True, exist_ok=True)
     (args.output / "simulation_data.cpp").write_text("\n".join(lines), encoding="utf-8")
     header = f"""/* Generated from a real Grandleon package. Do not edit. */
 #pragma once
 #include <grandleon/campaign/graph.hpp>
+#include <grandleon/package_runtime/member_rules.hpp>
 #include <grandleon/simulation/encounter.hpp>
 #include <grandleon/tactics/policy.hpp>
 #include <cstdint>
@@ -728,6 +741,9 @@ struct grandleon_generated_campaign_node final {{
     const char* dialogue{{}};
     const char* disc_path{{}};
 }};
+std::uint64_t grandleon_generated_unit_source(std::uint64_t id);
+bool grandleon_generated_permanent_loss();
+bool grandleon_generated_company_endures();
 struct grandleon_generated_campaign_member final {{
     std::uint64_t persistent_id{{}};
     std::uint64_t source_id{{}};
@@ -735,6 +751,8 @@ struct grandleon_generated_campaign_member final {{
     std::uint64_t join_node_id{{}};
     const char* authored_name{{}};
     bool player_nameable{{}};
+    grandleon::package_runtime::MemberRules rules;
+    std::vector<std::uint64_t> starting_items;
 }};
 struct grandleon_generated_moment final {{
     std::uint64_t id{{}};

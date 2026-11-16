@@ -13,6 +13,7 @@ extern "C" {
 #include <grandleon/campaign/graph.hpp>
 #include <grandleon/campaign/outcome.hpp>
 #include <grandleon/campaign/save.hpp>
+#include <grandleon/campaign_runtime/character_rules.hpp>
 #include <grandleon/client/console_localization.hpp>
 #include <grandleon/client/console_name_editor.hpp>
 #include <grandleon/client/member_name_tokens.hpp>
@@ -38,6 +39,7 @@ namespace sim = grandleon::simulation;
 namespace tac = grandleon::tactics;
 namespace psx = grandleon::playstation;
 namespace camp = grandleon::campaign;
+namespace character = grandleon::campaign_runtime;
 namespace storage = grandleon::storage;
 namespace card = grandleon::playstation::card;
 namespace view = grandleon::view;
@@ -490,6 +492,16 @@ std::vector<std::uint64_t> append_recruitment_at(
                 member.unit_type_id
             )
         ));
+        for (const auto item : member.starting_items) {
+            operations.push_back(camp::add_item({member.persistent_id},
+                content_ref(grandleon::core::ContentCategory::item, item), 1U));
+        }
+        if (member.rules.states_starting_weapons) {
+            for (const auto weapon : member.rules.starting_weapons) {
+                operations.push_back(camp::add_item({member.persistent_id},
+                    content_ref(grandleon::core::ContentCategory::weapon, weapon), 1U));
+            }
+        }
         joined.push_back(member.persistent_id);
     }
     return joined;
@@ -1720,6 +1732,18 @@ bool advance_story() {
 
 bool complete_battle(bool victory, bool force_pending = false) {
     std::vector<camp::CampaignOutcomeOperation> operations;
+    if (!force_pending) {
+        for (const auto& unit : s_snapshot.units) {
+            if (unit.health > 0 || !unit.arrived || unit.departed) continue;
+            const auto source_id = grandleon_generated_unit_source(unit.id);
+            for (const auto& member : grandleon_generated_campaign_members()) {
+                if (member.source_id == source_id && character::permanent_member_loss(
+                        member.rules.defeat_policy, grandleon_generated_permanent_loss())) {
+                    operations.push_back(camp::record_permanent_death({member.persistent_id}));
+                }
+            }
+        }
+    }
     if (force_pending) {
         for (const std::uint64_t objective : grandleon_generated_objective_ids()) {
             operations.push_back(camp::record_objective(
@@ -1789,9 +1813,43 @@ void route_active_campaign_node() {
 
 bool start_encounter() {
     if (s_created) return static_cast<bool>(*s_created);
-    s_created = new (std::nothrow) sim::Encounter::CreateResult(
-        sim::create_encounter(grandleon_generated_definition(s_local_players))
-    );
+    auto definition = grandleon_generated_definition(s_local_players);
+    {
+        // Validate generated content before joining saved campaign state. A
+        // casualty or personal kit must change the live board's identity.
+        auto authored = sim::create_encounter(definition);
+        if (!authored || authored.encounter.canonical_hash() != grandleon_generated_canonical_hash(s_local_players)) {
+            psx::Line().text("MIPSYNC_SIM_HASH_FAIL generated content").flush();
+            return false;
+        }
+    }
+    std::vector<sim::UnitId> excluded;
+    for (auto& unit : definition.units) {
+        if (!s_campaign_save.state.progress.active) break;
+        const auto source_id = grandleon_generated_unit_source(unit.id);
+        for (const auto& member : grandleon_generated_campaign_members()) {
+            if (member.source_id != source_id) continue;
+            const camp::PersistentEntityId persistent{member.persistent_id};
+            if (!camp::is_deployable(s_campaign_save.state, persistent)) {
+                excluded.push_back(unit.id);
+                break;
+            }
+            const auto* record = camp::find_unit(s_campaign_save.state, persistent);
+            if (record != nullptr) {
+                character::apply_member_kit(unit, *record, &member.rules);
+                character::apply_member_permissions(unit, &member.rules, definition.weapons);
+                unit.endures = grandleon_generated_company_endures();
+            }
+        }
+    }
+    for (const auto& objective : definition.objectives) {
+        if (std::find(excluded.begin(), excluded.end(), objective.target_unit_id) != excluded.end()) return false;
+    }
+    definition.units.erase(std::remove_if(definition.units.begin(), definition.units.end(),
+        [&](const sim::UnitDefinition& unit) {
+            return std::find(excluded.begin(), excluded.end(), unit.id) != excluded.end();
+        }), definition.units.end());
+    s_created = new (std::nothrow) sim::Encounter::CreateResult(sim::create_encounter(definition));
     if (!s_created || !*s_created) {
         psx::Line().text("MIPSYNC_SIM_INIT_FAIL error=")
             .decimal(s_created ? static_cast<unsigned>(s_created->error) : 255U)
@@ -1812,13 +1870,6 @@ bool start_encounter() {
     (void)update_visual_visibility(snapshot);
     s_map_width = snapshot.width;
     s_map_height = snapshot.height;
-    if (s_created->encounter.canonical_hash() !=
-        grandleon_generated_canonical_hash(s_local_players)) {
-        psx::Line().text("MIPSYNC_SIM_HASH_FAIL expected=")
-            .hex64(grandleon_generated_canonical_hash(s_local_players)).text(" actual=")
-            .hex64(s_created->encounter.canonical_hash()).flush();
-        return false;
-    }
     bool cursor_found[2]{};
     for (const auto& unit : snapshot.units) {
         if (unit.side != sim::Side::first || !sim::on_board(unit)) continue;
@@ -2657,7 +2708,11 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
                 s_campaign_mode = CampaignMode::title;
                 return 0;
             }
-            if (node && node->kind == 3U && advance_story()) {
+            if (node && node->kind == 1U) {
+                // Completing a battle may lead straight to the next battle.
+                // Its checkpoint is already saved; only stories need advancing.
+                route_after_player_names();
+            } else if (node && node->kind == 3U && advance_story()) {
                 route_after_player_names();
             } else {
                 s_campaign_mode = CampaignMode::save_error;

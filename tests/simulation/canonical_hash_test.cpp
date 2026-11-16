@@ -254,7 +254,7 @@ void every_field_of_a_character_is_folded() {
         minimum_reach, maximum_reach, ability_ids, has_acted, has_moved,
         weapon_ids, crossings, accuracy, item_ids, item_counts, drop_item_id,
         drop_chance, reach_bonus, talk_record_id, departed, arrival_round,
-        arrived, endures, weapon_type, local_player
+        arrived, endures, weapon_type, local_player, defeat_ends_battle
     ] = character;
 
     const auto folded = [&](std::string_view field) {
@@ -367,6 +367,8 @@ void every_field_of_a_character_is_folded() {
     folded("whether it has");
     endures = false;
     folded("whether it can be felled at all");
+    defeat_ends_battle = true;
+    folded("whether its defeat ends the battle");
 
     // And the one that is deliberately not folded.
     //
@@ -700,6 +702,7 @@ void every_field_of_a_character_definition_reaches_the_snapshot() {
     described.arrival_times = 3;
     described.endures = true;
     described.local_player = 2;
+    described.defeat_ends_battle = true;
 
     // The character under test is a wave, so somebody of its side has to be
     // standing when the battle opens: a board one of whose sides is entirely
@@ -736,7 +739,7 @@ void every_field_of_a_character_definition_reaches_the_snapshot() {
         acts_after_attacking, minimum_reach, maximum_reach, ability_ids,
         weapon_ids, crossings, accuracy, item_ids, item_counts, drop_item_id,
         drop_chance, reach_bonus, talk_record_id, arrival_round, arrival_every,
-        arrival_times, endures, local_player
+        arrival_times, endures, local_player, defeat_ends_battle
     ] = described;
 
     const auto carried = [&](std::string_view field, bool held) {
@@ -776,6 +779,7 @@ void every_field_of_a_character_definition_reaches_the_snapshot() {
     carried("arrival round", character.arrival_round == arrival_round);
     carried("floor", character.endures == endures);
     carried("local player", character.local_player == local_player);
+    carried("required hero", character.defeat_ends_battle == defeat_ends_battle);
 
     // The four the engine resolves rather than copies. A character carrying a
     // weapon holds that weapon's power, band and accuracy rather than whatever

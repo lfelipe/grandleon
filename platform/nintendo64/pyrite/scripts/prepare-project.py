@@ -104,28 +104,32 @@ def reachable_campaign(project: dict) -> tuple[dict, list[dict]]:
     visited: set[str] = set()
     active: set[str] = set()
 
-    def visit(identity: str) -> None:
+    pending = [(current, False)]
+    while pending:
+        identity, exiting = pending.pop()
+        if exiting:
+            active.remove(identity)
+            visited.add(identity)
+            continue
         if identity in active:
             raise ProjectError("the selected campaign route contains a cycle")
         if identity in visited:
-            return
+            continue
         if identity not in nodes:
             raise ProjectError(f"campaign targets missing node {identity!r}")
         active.add(identity)
         node = nodes[identity]
         route.append(node)
+        pending.append((identity, True))
         if str(node.get("kind")) != "terminal":
             transitions = node.get("transitions", [])
             if not isinstance(transitions, list) or not transitions:
                 raise ProjectError(f"campaign node {identity!r} has no route to another node")
-            for transition in transitions:
+            for transition in reversed(transitions):
                 if not isinstance(transition, dict):
                     raise ProjectError(f"campaign node {identity!r} has an invalid transition")
-                visit(str(transition.get("targetNodeId") or ""))
-        active.remove(identity)
-        visited.add(identity)
+                pending.append((str(transition.get("targetNodeId") or ""), False))
 
-    visit(current)
     encounters = [node for node in route if str(node.get("kind")) == "encounter"]
     if not encounters:
         raise ProjectError("the selected campaign contains no battles")

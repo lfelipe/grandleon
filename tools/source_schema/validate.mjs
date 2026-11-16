@@ -475,6 +475,24 @@ export function validateProject(filename) {
           `${memberPath}/unitTypeId`
         );
         validateMemberSpecificity(member, memberPath);
+        for (const [index, id] of (member.weaponAffinityTypeIds ?? []).entries())
+          requireReference("weapon_type", id, `${memberPath}/weaponAffinityTypeIds/${index}`);
+        for (const [index, id] of (member.startingWeaponIds ?? []).entries())
+          requireReference("weapon", id, `${memberPath}/startingWeaponIds/${index}`);
+        const type = (project.unitTypes ?? []).find(value => value.id === member.unitTypeId);
+        const role = (project.classes ?? []).find(value => value.id === type?.classId);
+        const allowed = member.weaponAffinityTypeIds ??
+          (member.startingWeaponIds === undefined ? undefined : role?.allowedWeaponTypeIds);
+        if (allowed !== undefined) {
+          for (const id of (member.startingWeaponIds ?? type?.startingWeaponIds ?? [])) {
+            const weapon = (project.weapons ?? []).find(value => value.id === id);
+            if (weapon && !allowed.includes(weapon.weaponTypeId)) {
+              const instancePath = `${memberPath}/startingWeaponIds`;
+              diagnostics.push(diagnostic(filename, "SOURCE_MEMBER_WEAPON_DISALLOWED", instancePath,
+                `member '${member.id}' cannot use weapon '${id}'`, document.pointers[memberPath]?.value));
+            }
+          }
+        }
       };
 
       for (const [memberIndex, member] of (campaign.roster ?? []).entries()) {

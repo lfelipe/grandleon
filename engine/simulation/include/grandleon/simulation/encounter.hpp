@@ -463,6 +463,8 @@ struct UnitDefinition final {
     // to player one for the first side and to nobody for the second. This is
     // input routing rather than a battle rule and is not canonical state.
     std::uint8_t local_player{};
+    // Defeat of this arrived character ends its side's battle before other goals.
+    bool defeat_ends_battle{false};
 };
 
 // The most arrivals one authored character may make. A bound rather than a
@@ -847,6 +849,8 @@ struct UnitSnapshot final {
     // the simulation never does, so it is deliberately absent from the
     // canonical hash.
     std::uint8_t local_player{};
+    // Defeat of this arrived character ends its side's battle before other goals.
+    bool defeat_ends_battle{false};
 };
 
 // Whether a character is still this battle's to lose: alive, and not talked off

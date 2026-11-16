@@ -194,14 +194,17 @@ tracked above.
   names. Existing campaigns retain their compiled presentation and save format.
 - [x] Preserve pending translation text across navigation, search, filters,
   preview and PO export; keep translated forms usable on phone/tablet layouts.
-- [ ] Give named roster members multiple personal weapon affinities and their
+- [x] Give named roster members multiple personal weapon affinities and their
   own starting weapons, independent of role/class changes. Enforce the same
   rules across all players while preserving legacy campaigns.
-- [ ] Add per-character defeat choices: permanent death, withdrawal and return,
+- [x] Add per-character defeat choices: permanent death, withdrawal and return,
   or a required hero whose defeat follows the battle's loss route. Keep this
   on the main roster and handle simultaneous outcomes consistently.
 - [ ] Complete direct console parity checks for those character rules,
   including defeated roster members, save/reload and newly acquired weapons.
+  The PS1 controller probe passes casualties, required-hero defeat and two
+  fresh-process card resumes in both 1P and 2P. The same N64 campaign builds
+  and launches; its complete casualty/recovery playthrough remains to check.
 
 ### Graphics and animation
 

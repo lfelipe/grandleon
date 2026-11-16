@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
 
 
@@ -56,6 +58,31 @@ def digest(path: Path) -> str:
 
 
 def main() -> None:
+    sys.path.insert(0, str(PREPARE.parent))
+    spec = importlib.util.spec_from_file_location("pyrite_prepare", PREPARE)
+    prepare = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(prepare)
+    # A valid long story chain must not hit Python's recursion limit.
+    chain = [{"id": str(i), "kind": "story", "transitions": [
+        {"targetNodeId": str(i + 1)}]} for i in range(1500)]
+    chain.append({"id": "1500", "kind": "encounter", "transitions": [
+        {"targetNodeId": "end"}]})
+    chain.append({"id": "end", "kind": "terminal"})
+    project = {"campaigns": [{"flow": {"entryNodeId": "0", "nodes": chain}}]}
+    assert [node["id"] for node in prepare.reachable_campaign(project)[1]] == ["1500"]
+    chain[-2]["transitions"][0]["targetNodeId"] = "0"
+    try:
+        prepare.reachable_campaign(project)
+        raise AssertionError("cyclic asset routes must be refused")
+    except prepare.ProjectError as error:
+        assert "cycle" in str(error)
+    chain[-2]["transitions"][0]["targetNodeId"] = "missing"
+    try:
+        prepare.reachable_campaign(project)
+        raise AssertionError("missing target nodes must be refused")
+    except prepare.ProjectError as error:
+        assert "missing" in str(error)
+
     demo_source = REPO / "games/demo/source/project.json"
     steel_source = REPO / "games/steel_and_cedar/source/project.json"
     with tempfile.TemporaryDirectory(prefix="grandleon-pyrite-export-") as temp:

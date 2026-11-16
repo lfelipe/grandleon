@@ -1697,6 +1697,37 @@ CompileResult compile(const GameSource& source) {
                 member, unit_types_by_id, classes_by_id, member_path,
                 result.diagnostics
             );
+            validate_references(member.weapon_affinities, weapon_type_ids,
+                                member_path + ".weapon_affinities", result.diagnostics);
+            validate_references(member.starting_weapons, weapon_ids,
+                                member_path + ".starting_weapons", result.diagnostics);
+            if ((!member.states_weapon_affinities && !member.weapon_affinities.empty()) ||
+                (!member.states_starting_weapons && !member.starting_weapons.empty()) ||
+                static_cast<std::uint8_t>(member.defeat_policy) > 3U) {
+                result.diagnostics.push_back({DiagnosticCode::invalid_range,
+                    member_path + ".character_rules", member.id});
+            }
+            const auto type = unit_types_by_id.find(member.unit_type_id);
+            if (type != unit_types_by_id.end()) {
+                const auto& kit = member.states_starting_weapons
+                    ? member.starting_weapons : type->second->starting_weapons;
+                const auto cls = classes_by_id.find(type->second->class_id);
+                const bool constrained = member.states_weapon_affinities ||
+                    (member.states_starting_weapons && cls != classes_by_id.end() &&
+                     cls->second->states_allowed_weapon_types);
+                if (constrained) {
+                    const auto& allowed = member.states_weapon_affinities
+                        ? member.weapon_affinities : cls->second->allowed_weapon_types;
+                    for (const StableId weapon : kit) {
+                        const auto family = weapon_type_by_weapon_id.find(weapon);
+                        if (family != weapon_type_by_weapon_id.end() &&
+                            std::find(allowed.begin(), allowed.end(), family->second) == allowed.end()) {
+                            result.diagnostics.push_back({DiagnosticCode::disallowed_weapon,
+                                member_path + ".starting_weapons", weapon});
+                        }
+                    }
+                }
+            }
             if (member.join_node_id == 0) ++founding_members;
         }
         // A campaign nobody can be founded from: no roster at all, or a roster
@@ -2998,6 +3029,34 @@ CompileResult compile(const GameSource& source) {
                     static_cast<std::uint8_t>(campaign->player_mode)
                 );
                 section.records.push_back({campaign->id, std::move(bytes)});
+            }
+            return section;
+        }(),
+        [&source]() {
+            package_format::SectionSource section;
+            section.type = package_format::SectionType::member_rules;
+            for (const Campaign& campaign : source.campaigns) {
+                Bytes rows;
+                std::uint16_t count = 0;
+                for (const CampaignMember& member : campaign.roster) {
+                    const auto policy = static_cast<std::uint8_t>(member.defeat_policy);
+                    const std::uint8_t flags =
+                        (member.states_weapon_affinities ? 1U : 0U) |
+                        (member.states_starting_weapons ? 2U : 0U) |
+                        (policy != 0U ? 4U : 0U);
+                    if (flags == 0U) continue;
+                    ++count;
+                    put_u64(rows, member.id);
+                    rows.push_back(flags);
+                    if (member.states_weapon_affinities) put_ids(rows, member.weapon_affinities);
+                    if (member.states_starting_weapons) put_ids(rows, member.starting_weapons);
+                    if (policy != 0U) rows.push_back(policy);
+                }
+                if (count == 0U) continue;
+                Bytes bytes;
+                put_u16(bytes, count);
+                bytes.insert(bytes.end(), rows.begin(), rows.end());
+                section.records.push_back({campaign.id, std::move(bytes)});
             }
             return section;
         }(),

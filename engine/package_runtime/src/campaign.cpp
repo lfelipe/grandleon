@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 #include <grandleon/package_runtime/campaign.hpp>
+#include <grandleon/package_runtime/encounter_loader.hpp>
+#include <grandleon/package_runtime/starting_kit.hpp>
 
 #include <algorithm>
 #include <cstddef>
@@ -172,6 +174,17 @@ CampaignLoadResult load_campaign(
         package.find(package_format::SectionType::campaigns, campaign_id);
     if (record == nullptr) return fail(CampaignError::missing_record);
 
+    // Every rule record must belong to an existing campaign, even if this
+    // caller selected a different one. Optional flags would let older engines
+    // silently ignore gameplay rules, so only the required encoding is valid.
+    if (const auto* rules = package.find(package_format::SectionType::member_rules)) {
+        if (rules->flags != package_format::section_flag_required || rules->records.empty())
+            return fail(CampaignError::malformed_payload);
+        for (const auto& entry : rules->records) {
+            if (package.find(package_format::SectionType::campaigns, entry.stable_id) == nullptr)
+                return fail(CampaignError::missing_reference);
+        }
+    }
     CampaignLoadResult result;
     const package_format::SectionView* player_modes =
         package.find(package_format::SectionType::campaign_players);
@@ -572,6 +585,68 @@ CampaignLoadResult load_campaign(
         }
         if (!nameable_reader.finished()) {
             return fail(CampaignError::malformed_payload);
+        }
+    }
+
+    if (const auto* record = package.find(package_format::SectionType::member_rules, campaign_id)) {
+        Reader rules_reader(package, *record);
+        std::uint16_t count = 0;
+        if (!rules_reader.u16(count) || count == 0U ||
+            static_cast<std::size_t>(count) > rules_reader.remaining() / 9U) {
+            return fail(CampaignError::malformed_payload);
+        }
+        for (std::uint16_t index = 0; index < count; ++index) {
+            std::uint64_t id = 0;
+            std::uint8_t flags = 0;
+            if (!rules_reader.u64(id) || !rules_reader.u8(flags) || flags == 0U || (flags & ~7U) != 0U)
+                return fail(CampaignError::malformed_payload);
+            const auto found = std::find_if(result.definition.members.begin(), result.definition.members.end(),
+                [id](const CampaignMember& member) { return member.id == id; });
+            if (found == result.definition.members.end() || found->rules.member_id != 0U)
+                return fail(CampaignError::malformed_payload);
+            MemberRules& rules = found->rules;
+            rules.member_id = id;
+            const auto read_ids = [&](std::vector<std::uint64_t>& ids, package_format::SectionType category) {
+                std::uint16_t size = 0;
+                if (!rules_reader.u16(size) || static_cast<std::size_t>(size) > rules_reader.remaining() / 8U) return false;
+                ids.reserve(size);
+                for (std::uint16_t entry = 0; entry < size; ++entry) {
+                    std::uint64_t value = 0;
+                    if (!rules_reader.u64(value) || value == 0U ||
+                        package.find(category, value) == nullptr ||
+                        std::find(ids.begin(), ids.end(), value) != ids.end()) return false;
+                    ids.push_back(value);
+                }
+                return true;
+            };
+            rules.states_weapon_affinities = (flags & 1U) != 0U;
+            rules.states_starting_weapons = (flags & 2U) != 0U;
+            if (rules.states_weapon_affinities && !read_ids(rules.weapon_affinities, package_format::SectionType::weapon_types))
+                return fail(CampaignError::malformed_payload);
+            if (rules.states_starting_weapons && !read_ids(rules.starting_weapons, package_format::SectionType::weapons))
+                return fail(CampaignError::malformed_payload);
+            if ((flags & 4U) != 0U) {
+                std::uint8_t policy = 0;
+                if (!rules_reader.u8(policy) || policy < 1U || policy > 3U)
+                    return fail(CampaignError::malformed_payload);
+                rules.defeat_policy = static_cast<DefeatPolicy>(policy);
+            }
+        }
+        if (!rules_reader.finished()) return fail(CampaignError::malformed_payload);
+        for (const auto& member : result.definition.members) {
+            const auto& rules = member.rules;
+            if (rules.member_id == 0U) continue;
+            const auto inherited = load_unit_starting_weapons(package, member.unit_type_id);
+            if (!inherited) return fail(CampaignError::missing_reference);
+            const auto& kit = rules.states_starting_weapons ? rules.starting_weapons : inherited.weapons;
+            for (const auto id : kit) {
+                simulation::WeaponDefinition weapon;
+                if (!load_weapon_definition(package, id, weapon) ||
+                    (weapon.weapon_type != 0U && package.find(package_format::SectionType::weapon_types, weapon.weapon_type) == nullptr))
+                    return fail(CampaignError::missing_reference);
+                if (rules.states_weapon_affinities && std::find(rules.weapon_affinities.begin(), rules.weapon_affinities.end(), weapon.weapon_type) == rules.weapon_affinities.end())
+                    return fail(CampaignError::malformed_payload);
+            }
         }
     }
 

@@ -238,6 +238,10 @@ public:
         const ::godot::String& member_id,
         const ::godot::String& name
     ) const;
+    [[nodiscard]] ::godot::Dictionary set_campaign_member_rules(
+        const ::godot::String& source_json, const ::godot::String& campaign_id,
+        const ::godot::String& member_id, const ::godot::String& rules_json
+    ) const;
     [[nodiscard]] ::godot::Dictionary set_campaign_member_player_nameable(
         const ::godot::String& source_json,
         const ::godot::String& campaign_id,

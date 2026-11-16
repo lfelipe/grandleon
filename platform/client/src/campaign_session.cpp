@@ -126,6 +126,7 @@ std::string_view management_error_name(ManagementError error) noexcept {
         case ManagementError::unknown_member: return "unknown_member";
         case ManagementError::fixed_name: return "fixed_name";
         case ManagementError::invalid_name: return "invalid_name";
+        case ManagementError::disallowed_weapon: return "disallowed_weapon";
     }
     return "unknown";
 }
@@ -200,6 +201,7 @@ CampaignSessionError CampaignSession::begin(
         };
         member.entry.availability = campaign::Availability::unrecruited;
         member.join_node_id = authored.join_node_id;
+        member.entry.defeat_policy = cr::member_defeat_policy(authored_, authored.id);
         // Everybody is assigned, including those who have not joined yet: a
         // board that places a future recruit leaves them off, because the
         // campaign does not hold them, rather than fielding a stranger.
@@ -363,8 +365,13 @@ std::vector<campaign::CampaignOutcomeOperation> CampaignSession::recruitment_at(
         // at: `begin` refuses a founding it could not build, and a node that
         // recruits a type this package does not carry has a bigger problem than
         // an empty satchel.
+        const pr::MemberRules* rules = nullptr;
+        for (const auto& authored : authored_.members) {
+            if (authored.unit_type_id == member.entry.unit_type.stable_id &&
+                authored.id == member.entry.placement_source_key) rules = &authored.rules;
+        }
         const cr::StartingKit kit = cr::starting_kit(
-            *package_, member.entry.member, member.entry.unit_type.stable_id
+            *package_, member.entry.member, member.entry.unit_type.stable_id, rules
         );
         operations.insert(
             operations.end(), kit.operations.begin(), kit.operations.end()
@@ -511,6 +518,7 @@ CampaignSession::PreparedBoard CampaignSession::prepare_board() {
     // own and go through this same pass.
     pr::EncounterLoadResult loaded = boards_->board(where.encounter_id);
     loaded.member_specificities = specificities_;
+    loaded.member_rules = cr::member_rules(authored_);
     // And whether this campaign has declared that its company cannot be felled.
     // Attached here for the reason the specificities are attached here: the join
     // takes a board rather than a package, precisely so that a front end holding
@@ -518,7 +526,7 @@ CampaignSession::PreparedBoard CampaignSession::prepare_board() {
     // session is the thing that knows which campaign is being played.
     loaded.company_endures = authored_.invulnerable_for_testing;
     cr::CampaignEncounter board =
-        cr::join_campaign_roster(std::move(loaded), live_.state, assignments_);
+        cr::join_campaign_roster(std::move(loaded), live_.state, assignments_, package_);
     if (!board) {
         prepared.error = CampaignSessionError::board_rejected;
         prepared.roster_error = board.error;
@@ -771,8 +779,7 @@ CampaignSessionError CampaignSession::commit_battle(
     // what the battle left them with, and still on the next board. That the
     // softer rule is spelled by *omitting* an operation rather than by adding a
     // reviving one is the reason this option costs a byte and not a migration.
-    const bool losses_are_permanent =
-        authored_.character_loss == pr::CharacterLoss::permanent;
+
     std::vector<campaign::PersistentEntityId> fallen;
     for (const sim::UnitSnapshot& unit : battle.final_snapshot.units) {
         // Alive, and deliberately not `sim::on_board`. This asks who *fell*,
@@ -786,7 +793,11 @@ CampaignSessionError CampaignSession::commit_battle(
             prepared_binding_.persistent_of(campaign::BattleEntityId{unit.id});
         if (member.value == 0U) continue;
         fallen.push_back(member);
-        if (losses_are_permanent) {
+        const auto entry = std::find_if(members_.begin(), members_.end(),
+            [member](const AuthoredMember& candidate) { return candidate.entry.member == member; });
+        const bool permanent = entry != members_.end() &&
+            entry->entry.defeat_policy == pr::DefeatPolicy::permanent;
+        if (permanent) {
             operations.push_back(campaign::record_permanent_death(member));
         }
     }
@@ -937,6 +948,22 @@ ManagementCommit CampaignSession::give_item(
     campaign::PersistentEntityId member,
     const campaign::DefinitionRef& item
 ) {
+    if (item.category == core::ContentCategory::weapon) {
+        const auto found = std::find_if(members_.begin(), members_.end(),
+            [member](const AuthoredMember& candidate) { return candidate.entry.member == member; });
+        if (found != members_.end()) {
+            for (const auto& authored : authored_.members) {
+                if (authored.id != found->entry.placement_source_key || !authored.rules.states_weapon_affinities) continue;
+                sim::WeaponDefinition weapon;
+                if (item.package_id != package_->game_id || !pr::load_weapon_definition(*package_, item.stable_id, weapon) ||
+                    std::find(authored.rules.weapon_affinities.begin(), authored.rules.weapon_affinities.end(), weapon.weapon_type) == authored.rules.weapon_affinities.end()) {
+                    ManagementCommit refused;
+                    refused.error = ManagementError::disallowed_weapon;
+                    return refused;
+                }
+            }
+        }
+    }
     // Out of the store before into the hands. The batch is atomic either way,
     // since `apply_outcome` validates a complete candidate before it swaps. All
     // the order decides is which name the player is shown, and "the store has

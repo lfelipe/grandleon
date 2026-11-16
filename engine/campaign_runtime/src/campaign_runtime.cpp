@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include <grandleon/campaign_runtime/campaign_runtime.hpp>
+#include <grandleon/campaign_runtime/character_rules.hpp>
 
 #include <grandleon/core/random.hpp>
 
@@ -345,90 +346,6 @@ void apply_authored_specificity(
 // is written. Walking the unit type's own list first, and appending anything
 // else the kit holds after it, is what makes a member holding one of each
 // authored item field a board identical to the authored one.
-void apply_roster_kit(
-    simulation::UnitDefinition& unit,
-    const campaign::PersistentUnit& record
-) {
-    std::vector<simulation::ContentId> identities;
-    std::vector<std::uint16_t> counts;
-    identities.reserve(record.carried.size());
-    counts.reserve(record.carried.size());
-
-    // A stack's quantity is wider than a battle pack's count. A campaign that
-    // has somehow accumulated more than a battle can carry brings as many as it
-    // can rather than wrapping to none.
-    const auto brought = [](std::uint32_t quantity) -> std::uint16_t {
-        constexpr std::uint32_t ceiling = 0xffffU;
-        return static_cast<std::uint16_t>(
-            quantity > ceiling ? ceiling : quantity
-        );
-    };
-
-    std::vector<bool> taken(record.carried.size(), false);
-    for (const simulation::ContentId authored : unit.item_ids) {
-        for (std::size_t index = 0; index < record.carried.size(); ++index) {
-            const campaign::InventoryStack& stack = record.carried[index];
-            if (taken[index] || stack.item.stable_id != authored ||
-                stack.item.category != core::ContentCategory::item) {
-                continue;
-            }
-            identities.push_back(authored);
-            counts.push_back(brought(stack.quantity));
-            taken[index] = true;
-            break;
-        }
-    }
-    // Anything else the campaign holds for them, in the order the kit is kept.
-    // Unreachable while kit movement is deferred, and carried through rather
-    // than dropped so that the day it is reachable the board says so.
-    for (std::size_t index = 0; index < record.carried.size(); ++index) {
-        if (taken[index]) continue;
-        const campaign::InventoryStack& stack = record.carried[index];
-        if (stack.item.category != core::ContentCategory::item) continue;
-        identities.push_back(stack.item.stable_id);
-        counts.push_back(brought(stack.quantity));
-    }
-
-    unit.item_ids = std::move(identities);
-    unit.item_counts = std::move(counts);
-
-    // And the same pass over what they are armed with.
-    //
-    // A weapon carries no count into a battle: `weapon_ids` is a list of what
-    // is in the pack and the first of them is what is in hand, so a campaign
-    // holding three of one weapon arms the character with it once. That is not
-    // a loss of information - the store still holds three - it is that a
-    // second copy of the same weapon is nothing a battle can express.
-    //
-    // The authored order comes first for the reason it does above: a character
-    // the campaign has not re-armed takes the field holding exactly what their
-    // unit type says, which is what makes a board with nobody from the roster
-    // on it the board the package alone produces. Anything the campaign holds
-    // for them beyond that follows, and the first authored weapon stays the
-    // one in hand.
-    std::vector<simulation::ContentId> armed;
-    armed.reserve(unit.weapon_ids.size());
-    std::vector<bool> claimed(record.carried.size(), false);
-    for (const simulation::ContentId authored : unit.weapon_ids) {
-        armed.push_back(authored);
-        for (std::size_t index = 0; index < record.carried.size(); ++index) {
-            const campaign::InventoryStack& stack = record.carried[index];
-            if (claimed[index] || stack.item.stable_id != authored ||
-                stack.item.category != core::ContentCategory::weapon) {
-                continue;
-            }
-            claimed[index] = true;
-            break;
-        }
-    }
-    for (std::size_t index = 0; index < record.carried.size(); ++index) {
-        if (claimed[index]) continue;
-        const campaign::InventoryStack& stack = record.carried[index];
-        if (stack.item.category != core::ContentCategory::weapon) continue;
-        armed.push_back(stack.item.stable_id);
-    }
-    unit.weapon_ids = std::move(armed);
-}
 
 // What the roster brings to the board: what a member has become, and what the
 // campaign holds for them.
@@ -450,7 +367,8 @@ void apply_roster_kit(
 // reason.
 void apply_roster_join(
     CampaignEncounter& result,
-    const campaign::CampaignState& state
+    const campaign::CampaignState& state,
+    const package_format::LoadedPackage* package
 ) {
     // What the author wrote about the character standing in one placement, or
     // nothing for a character who is exactly their unit type. That is every
@@ -544,7 +462,30 @@ void apply_roster_join(
             unit.magic, progression.gain_in(campaign::GrowableStat::magic),
             rules_stat_ceiling
         );
-        apply_roster_kit(unit, *record);
+        const package_runtime::MemberRules* rules = nullptr;
+        for (const auto& placement : result.encounter.placements) {
+            if (placement.unit_id != unit.id) continue;
+            for (const auto& candidate : result.encounter.member_rules) {
+                if (candidate.member_id == placement.source_key_id) rules = &candidate;
+            }
+        }
+        unit.defeat_ends_battle = rules != nullptr &&
+            rules->defeat_policy == package_runtime::DefeatPolicy::lose_battle;
+        apply_member_kit(unit, *record, rules);
+    }
+    if (package != nullptr && !package_runtime::resolve_carried_equipment(*package, result.encounter.definition)) {
+        result.error = RosterError::encounter_rejected;
+        result.load_error = package_runtime::EncounterLoadError::malformed_payload;
+        return;
+    }
+    for (auto& unit : result.encounter.definition.units) {
+        for (const auto& placement : result.encounter.placements) {
+            if (placement.unit_id != unit.id) continue;
+            for (const auto& rules : result.encounter.member_rules) {
+                if (rules.member_id == placement.source_key_id)
+                    apply_member_permissions(unit, &rules, result.encounter.definition.weapons);
+            }
+        }
     }
 }
 
@@ -572,6 +513,27 @@ void apply_roster_join(
 }
 
 }  // namespace
+
+std::vector<package_runtime::MemberRules> member_rules(
+    const package_runtime::CampaignDefinition& definition
+) {
+    std::vector<package_runtime::MemberRules> rules;
+    for (const auto& member : definition.members) {
+        if (member.rules.member_id != 0U) rules.push_back(member.rules);
+    }
+    return rules;
+}
+
+package_runtime::DefeatPolicy member_defeat_policy(
+    const package_runtime::CampaignDefinition& definition, std::uint64_t source_member_id
+) noexcept {
+    for (const auto& member : definition.members) {
+        if (member.id == source_member_id && member.rules.defeat_policy != package_runtime::DefeatPolicy::inherit)
+            return member.rules.defeat_policy;
+    }
+    return definition.character_loss == package_runtime::CharacterLoss::permanent
+        ? package_runtime::DefeatPolicy::permanent : package_runtime::DefeatPolicy::withdraw;
+}
 
 std::vector<package_runtime::MemberSpecificity> member_specificities(
     const package_runtime::CampaignDefinition& definition
@@ -629,15 +591,18 @@ CampaignEncounter load_encounter_for_campaign(
         if (authored) {
             loaded.member_specificities =
                 member_specificities(authored.definition);
+            loaded.member_rules = member_rules(authored.definition);
+            loaded.company_endures = authored.definition.invulnerable_for_testing;
         }
     }
-    return join_campaign_roster(std::move(loaded), state, roster);
+    return join_campaign_roster(std::move(loaded), state, roster, &package);
 }
 
 CampaignEncounter join_campaign_roster(
     package_runtime::EncounterLoadResult&& loaded,
     const campaign::CampaignState& state,
-    const std::vector<RosterAssignment>& roster
+    const std::vector<RosterAssignment>& roster,
+    const package_format::LoadedPackage* package
 ) {
     CampaignEncounter result;
     result.error = assignments_rejected(roster);
@@ -706,7 +671,7 @@ CampaignEncounter join_campaign_roster(
         // takes, and it must stay indistinguishable from no campaign at all.
         result.encounter = std::move(loaded);
         std::sort(result.excluded.begin(), result.excluded.end());
-        apply_roster_join(result, state);
+        apply_roster_join(result, state, package);
         return result;
     }
 
@@ -777,6 +742,8 @@ CampaignEncounter join_campaign_roster(
     // same reason the registries are: a table rebuilt from who is standing
     // would make what an author wrote depend on a save file.
     kept.member_specificities = std::move(loaded.member_specificities);
+    kept.member_rules = std::move(loaded.member_rules);
+    kept.definition.weapon_types = std::move(loaded.definition.weapon_types);
     // And the campaign's own declaration about whether its company can be
     // felled, which is a fact about the campaign rather than about who happens
     // to be standing on this board. Carried across for the same reason as
@@ -798,7 +765,7 @@ CampaignEncounter join_campaign_roster(
 
     result.encounter = std::move(kept);
     std::sort(result.excluded.begin(), result.excluded.end());
-    apply_roster_join(result, state);
+    apply_roster_join(result, state, package);
     return result;
 }
 
@@ -849,7 +816,8 @@ std::vector<campaign::PersistentEntityId> members_a_board_fields(
 StartingKit starting_kit(
     const package_format::LoadedPackage& package,
     campaign::PersistentEntityId member,
-    std::uint64_t unit_type_id
+    std::uint64_t unit_type_id,
+    const package_runtime::MemberRules* rules
 ) {
     StartingKit result;
     if (member.value == 0U) {
@@ -861,6 +829,12 @@ StartingKit starting_kit(
         return result;
     }
     result.found = true;
+    if (rules != nullptr && rules->states_starting_weapons) {
+        for (const auto weapon : rules->starting_weapons) {
+            result.operations.push_back(campaign::add_item(member,
+                {package.game_id, core::ContentCategory::weapon, weapon}, 1U));
+        }
+    }
     for (const std::uint64_t item : authored.items) {
         if (item == 0U) continue;
         result.operations.push_back(campaign::add_item(

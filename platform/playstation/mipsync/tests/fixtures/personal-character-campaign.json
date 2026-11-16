@@ -1,0 +1,513 @@
+{
+  "schemaVersion": "1.4.0",
+  "sourceLanguage": "en",
+  "packageId": "d2b54e18-936c-45e5-a7f2-1308bb001907",
+  "gameId": "d2b54e18-936c-45e5-a7f2-1308bb001906",
+  "title": "Personal Hero Rules",
+  "contentRevision": "0.1.0",
+  "themeId": "temperate",
+  "characterStyleId": "medieval",
+  "defaultTurnOrder": "sideBlocks",
+  "characterLoss": "recoverable",
+  "weaponTypes": [
+    {
+      "id": "blade",
+      "name": "Blade"
+    },
+    {
+      "id": "focus",
+      "name": "Focus"
+    }
+  ],
+  "itemTypes": [],
+  "classes": [
+    {
+      "id": "mage",
+      "name": "Mage",
+      "baseStats": {
+        "health": 30,
+        "movement": 5,
+        "strength": 20,
+        "defense": 10,
+        "actionPoints": 2
+      },
+      "allowedWeaponTypeIds": [
+        "focus"
+      ]
+    },
+    {
+      "id": "fragile",
+      "name": "Knight",
+      "baseStats": {
+        "health": 1,
+        "movement": 3,
+        "strength": 0,
+        "defense": 0,
+        "actionPoints": 2
+      },
+      "allowedWeaponTypeIds": [
+        "blade"
+      ]
+    },
+    {
+      "id": "enemy",
+      "name": "Raider",
+      "baseStats": {
+        "health": 5,
+        "movement": 1,
+        "strength": 5,
+        "defense": 0,
+        "actionPoints": 2
+      },
+      "allowedWeaponTypeIds": [
+        "blade"
+      ]
+    }
+  ],
+  "weapons": [
+    {
+      "id": "traveller_blade",
+      "name": "Personal Sword",
+      "weaponTypeId": "blade",
+      "power": 1,
+      "minimumRange": 1,
+      "maximumRange": 1,
+      "accuracy": 100
+    },
+    {
+      "id": "apprentice_focus",
+      "name": "Apprentice Focus",
+      "weaponTypeId": "focus",
+      "power": 1,
+      "minimumRange": 1,
+      "maximumRange": 2,
+      "accuracy": 100
+    },
+    {
+      "id": "raider_blade",
+      "name": "Raider Blade",
+      "weaponTypeId": "blade",
+      "power": 1,
+      "minimumRange": 1,
+      "maximumRange": 1,
+      "accuracy": 100
+    }
+  ],
+  "items": [],
+  "factions": [
+    {
+      "id": "travellers",
+      "name": "Travellers"
+    },
+    {
+      "id": "raiders",
+      "name": "Road Raiders"
+    }
+  ],
+  "abilities": [],
+  "unitTypes": [
+    {
+      "id": "scholar_role",
+      "name": "Scholar",
+      "classId": "mage",
+      "characterArchetypeId": "mage",
+      "factionId": "travellers",
+      "startingWeaponIds": [
+        "apprentice_focus"
+      ]
+    },
+    {
+      "id": "companion",
+      "name": "Companion",
+      "classId": "fragile",
+      "factionId": "travellers",
+      "startingWeaponIds": []
+    },
+    {
+      "id": "raider",
+      "name": "Raider",
+      "classId": "enemy",
+      "factionId": "raiders",
+      "startingWeaponIds": [
+        "raider_blade"
+      ]
+    }
+  ],
+  "maps": [
+    {
+      "id": "proof_field",
+      "name": "Proof Field",
+      "width": 5,
+      "height": 5,
+      "terrain": [
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass"
+      ],
+      "surroundings": {
+        "mode": "continue",
+        "depth": 1
+      }
+    }
+  ],
+  "objectives": [
+    {
+      "id": "win",
+      "name": "Defeat all opponents"
+    }
+  ],
+  "dialogues": [
+    {
+      "id": "intro",
+      "name": "A personal promise",
+      "cast": [
+        {
+          "speaker": "Scholar",
+          "unitTypeId": "scholar_role"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Scholar",
+          "text": "My role is Mage. My sword and my two affinities belong to me."
+        }
+      ]
+    },
+    {
+      "id": "loss",
+      "name": "Regroup",
+      "cast": [
+        {
+          "speaker": "Scholar",
+          "unitTypeId": "scholar_role"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Scholar",
+          "text": "Rhea fell. We lost this battle, but she and Willow can return. Perman cannot."
+        }
+      ]
+    }
+  ],
+  "campaigns": [
+    {
+      "id": "personal_rules",
+      "name": "Personal Hero Rules",
+      "playerMode": "choice",
+      "roster": [
+        {
+          "id": "scholar",
+          "name": "Scholar",
+          "unitTypeId": "scholar_role",
+          "defeatPolicy": "withdraw",
+          "playerNameable": true,
+          "weaponAffinityTypeIds": [
+            "blade",
+            "focus"
+          ],
+          "startingWeaponIds": [
+            "traveller_blade"
+          ]
+        },
+        {
+          "id": "permanent",
+          "name": "Perman",
+          "unitTypeId": "companion",
+          "defeatPolicy": "permanent"
+        },
+        {
+          "id": "withdraw",
+          "name": "Willow",
+          "unitTypeId": "companion",
+          "defeatPolicy": "withdraw"
+        },
+        {
+          "id": "required",
+          "name": "Rhea",
+          "unitTypeId": "companion",
+          "defeatPolicy": "loseBattle"
+        }
+      ],
+      "dialogueIds": [
+        "intro",
+        "loss"
+      ],
+      "objectiveIds": [
+        "win"
+      ],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "intro",
+        "nodes": [
+          {
+            "id": "intro",
+            "name": "A personal promise",
+            "kind": "story",
+            "dialogueIds": [
+              "intro"
+            ],
+            "transitions": [
+              {
+                "id": "begin",
+                "targetNodeId": "casualties",
+                "priority": 1
+              }
+            ]
+          },
+          {
+            "id": "casualties",
+            "name": "I. Casualties",
+            "kind": "encounter",
+            "mapId": "proof_field",
+            "turnOrder": "sideBlocks",
+            "placements": [
+              {
+                "id": "scholar",
+                "memberId": "scholar",
+                "unitTypeId": "scholar_role",
+                "side": "first",
+                "x": 1,
+                "y": 2
+              },
+              {
+                "id": "permanent",
+                "memberId": "permanent",
+                "unitTypeId": "companion",
+                "side": "first",
+                "x": 2,
+                "y": 1
+              },
+              {
+                "id": "withdraw",
+                "memberId": "withdraw",
+                "unitTypeId": "companion",
+                "side": "first",
+                "x": 2,
+                "y": 3,
+                "player": 2
+              },
+              {
+                "id": "north",
+                "unitTypeId": "raider",
+                "side": "second",
+                "x": 3,
+                "y": 1,
+                "behavior": "pursue"
+              },
+              {
+                "id": "south",
+                "unitTypeId": "raider",
+                "side": "second",
+                "x": 3,
+                "y": 3,
+                "behavior": "pursue"
+              }
+            ],
+            "objectiveIds": [
+              "win"
+            ],
+            "transitions": [
+              {
+                "id": "won",
+                "targetNodeId": "required_loss",
+                "priority": 0,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "win",
+                  "result": "victory"
+                }
+              },
+              {
+                "id": "unexpected_loss",
+                "targetNodeId": "unexpected",
+                "priority": 1
+              }
+            ]
+          },
+          {
+            "id": "required_loss",
+            "name": "II. Required Hero",
+            "kind": "encounter",
+            "mapId": "proof_field",
+            "turnOrder": "sideBlocks",
+            "placements": [
+              {
+                "id": "scholar",
+                "memberId": "scholar",
+                "unitTypeId": "scholar_role",
+                "side": "first",
+                "x": 0,
+                "y": 0
+              },
+              {
+                "id": "permanent",
+                "memberId": "permanent",
+                "unitTypeId": "companion",
+                "side": "first",
+                "x": 0,
+                "y": 2
+              },
+              {
+                "id": "withdraw",
+                "memberId": "withdraw",
+                "unitTypeId": "companion",
+                "side": "first",
+                "x": 0,
+                "y": 3,
+                "player": 2
+              },
+              {
+                "id": "required",
+                "memberId": "required",
+                "unitTypeId": "companion",
+                "side": "first",
+                "x": 2,
+                "y": 1,
+                "player": 2
+              },
+              {
+                "id": "guard",
+                "unitTypeId": "raider",
+                "side": "second",
+                "x": 3,
+                "y": 1,
+                "behavior": "pursue"
+              }
+            ],
+            "objectiveIds": [
+              "win"
+            ],
+            "transitions": [
+              {
+                "id": "failed",
+                "targetNodeId": "regroup",
+                "priority": 0,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "win",
+                  "result": "defeat"
+                }
+              },
+              {
+                "id": "unexpected_win",
+                "targetNodeId": "unexpected",
+                "priority": 1
+              }
+            ]
+          },
+          {
+            "id": "regroup",
+            "name": "The authored defeat route",
+            "kind": "story",
+            "dialogueIds": [
+              "loss"
+            ],
+            "transitions": [
+              {
+                "id": "recover",
+                "targetNodeId": "recovery",
+                "priority": 1
+              }
+            ]
+          },
+          {
+            "id": "recovery",
+            "name": "III. Return",
+            "kind": "encounter",
+            "mapId": "proof_field",
+            "turnOrder": "sideBlocks",
+            "placements": [
+              {
+                "id": "scholar",
+                "memberId": "scholar",
+                "unitTypeId": "scholar_role",
+                "side": "first",
+                "x": 0,
+                "y": 0
+              },
+              {
+                "id": "permanent",
+                "memberId": "permanent",
+                "unitTypeId": "companion",
+                "side": "first",
+                "x": 0,
+                "y": 2
+              },
+              {
+                "id": "withdraw",
+                "memberId": "withdraw",
+                "unitTypeId": "companion",
+                "side": "first",
+                "x": 0,
+                "y": 3,
+                "player": 2
+              },
+              {
+                "id": "required",
+                "memberId": "required",
+                "unitTypeId": "companion",
+                "side": "first",
+                "x": 2,
+                "y": 1,
+                "player": 2
+              },
+              {
+                "id": "guard",
+                "unitTypeId": "raider",
+                "side": "second",
+                "x": 4,
+                "y": 4,
+                "behavior": "pursue"
+              }
+            ],
+            "objectiveIds": [
+              "win"
+            ],
+            "transitions": [
+              {
+                "id": "finish",
+                "targetNodeId": "complete",
+                "priority": 1
+              }
+            ]
+          },
+          {
+            "id": "complete",
+            "name": "Proof complete",
+            "kind": "terminal",
+            "transitions": []
+          },
+          {
+            "id": "unexpected",
+            "name": "Unexpected outcome",
+            "kind": "terminal",
+            "transitions": []
+          }
+        ]
+      }
+    }
+  ]
+}

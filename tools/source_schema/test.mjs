@@ -99,6 +99,26 @@ const fixtures = path.resolve(directory, "../../tests/fixtures/source_projects")
   }
 }
 
+{
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "grandleon-character-rules-"));
+  const filename = path.join(temp, "project.json");
+  try {
+    const project = JSON.parse(fs.readFileSync(path.join(fixtures, "valid/campaign-roster.json"), "utf8"));
+    const member = project.campaigns[0].roster[0];
+    for (const policy of ["inherit", "permanent", "withdraw", "loseBattle"]) {
+      Object.assign(member, {weaponAffinityTypeIds: [], startingWeaponIds: [], defeatPolicy: policy});
+      fs.writeFileSync(filename, serializeCanonical(project));
+      assert.deepEqual(validateProject(filename), [], `personal policy ${policy} validates`);
+    }
+    for (const [field, bad] of [["defeatPolicy", "dead"], ["defeatPolicy", 2], ["defeatPolicy", null], ["weaponAffinityTypeIds", true], ["weaponAffinityTypeIds", ["unknown"]], ["startingWeaponIds", ["unknown"]]]) {
+      const before = member[field]; member[field] = bad;
+      fs.writeFileSync(filename, JSON.stringify(project));
+      assert.ok(validateProject(filename).length, `${field} refuses ${JSON.stringify(bad)}`);
+      member[field] = before;
+    }
+  } finally { fs.rmSync(temp, {recursive:true, force:true}); }
+}
+
 const validDiagnostics = validateProject(path.join(fixtures, "valid/minimal.json"));
 assert.deepEqual(validDiagnostics, [], "minimal project must be valid");
 assert.deepEqual(

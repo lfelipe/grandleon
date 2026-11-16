@@ -1666,7 +1666,8 @@ Encounter::CreateResult create_encounter(
                     unit.side == Side::first
                         ? (unit.local_player == 0U ? 1U : unit.local_player)
                         : 0U
-                )
+                ),
+                unit.defeat_ends_battle
             }
         );
     }
@@ -1831,7 +1832,21 @@ void Encounter::evaluate_objectives(
     CommandResult& result
 ) {
     Outcome decided = Outcome::ongoing;
-    for (std::size_t index = 0; index < objectives_.size(); ++index) {
+    // Required characters are loss conditions, not competing win objectives.
+    // Resolve before all ordinary goals, including a simultaneous final kill.
+    const auto required = std::find_if(state_.units.begin(), state_.units.end(),
+        [](const UnitSnapshot& unit) {
+            return unit.defeat_ends_battle && unit.arrived && !unit.departed && unit.health <= 0;
+        });
+    const bool required_defeat = required != state_.units.end();
+    if (required_defeat) {
+        decided = required->side == Side::first ? Outcome::second_side_won : Outcome::first_side_won;
+        for (std::size_t index = 0; index < objectives_.size(); ++index) {
+            if (objectives_[index].side == required->side)
+                state_.objectives[index].state = ObjectiveState::failed;
+        }
+    }
+    for (std::size_t index = 0; !required_defeat && index < objectives_.size(); ++index) {
         const ObjectiveDefinition& objective = objectives_[index];
         ObjectiveResult& record = state_.objectives[index];
         if (record.state != ObjectiveState::pending) continue;
@@ -4353,6 +4368,19 @@ std::uint64_t canonical_hash(const EncounterSnapshot& state) noexcept {
     // value, so all three are distinct.
     if (state.turn_order != TurnOrder::alternating) {
         hash_integer(hash, static_cast<std::uint8_t>(state.turn_order));
+    }
+    // Sparse terminal extension: no bytes for older boards. The marker and
+    // count separate this list from every preceding optional tail.
+    std::uint32_t required_count = 0;
+    for (const UnitSnapshot& unit : state.units) {
+        if (unit.defeat_ends_battle) ++required_count;
+    }
+    if (required_count != 0U) {
+        hash_integer(hash, std::uint32_t{0x52455155U});
+        hash_integer(hash, required_count);
+        for (const UnitSnapshot& unit : state.units) {
+            if (unit.defeat_ends_battle) hash_integer(hash, unit.id);
+        }
     }
     return hash;
 }

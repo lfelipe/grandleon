@@ -92,6 +92,27 @@ A unit type may set `characterArchetypeId` to a library archetype such as
 legacy class/unit name inference still applies. Copying a role records its
 resolved appearance so a custom name cannot accidentally change the artwork.
 
+## Personal character rules
+
+Campaign roster members may set `weaponAffinityTypeIds`, `startingWeaponIds`
+and `defeatPolicy`. Affinities replace the role's weapon permissions for that
+character; they stay with the character through role changes. An omitted list
+inherits existing behaviour, while an empty list permits no weapon families
+or supplies no starting weapons. Personal starting weapons must match the
+character's affinities. Incompatible inventory remains owned but cannot be
+equipped in battle.
+
+`defeatPolicy` accepts `inherit`, `permanent`, `withdraw` or `loseBattle`.
+The last choice loses the battle when the deployed character is defeated,
+even if a victory condition is satisfied at the same time. That character
+withdraws rather than dying permanently. A required character who is benched
+or has not arrived does not trigger a loss. Existing authored defeat routes
+decide what happens next.
+
+Explicit personal rules compile into a required package section, so older
+players refuse those packages instead of ignoring the rules. Projects that
+omit the fields retain their previous compiled representation and save format.
+
 ## What a cell's name decides
 
 A map's `terrain` is a list of authored names, one per cell. What a cell is

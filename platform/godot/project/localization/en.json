@@ -1183,7 +1183,7 @@
     "army.guide.style": "CHARACTER STYLE",
     "army.guide.body": "BODY",
     "army.guide.weapon": "FIRST WEAPON",
-    "army.guide.weapon_help": "The new role is made compatible with the chosen weapon family automatically. Other copied gear and abilities remain available to tune afterwards.",
+    "army.guide.weapon_help": "The first weapon belongs to this hero. Its family is included in their personal affinities; select more families above to retain them through role changes.",
     "army.guide.random": "RANDOM STARTING POINT",
     "army.guide.random_tooltip": "Suggest a name and valid role, look, side, and weapon. Review every choice before creating.",
     "army.guide.undo_help": "This is one undoable creation. Battle Setup still decides where the character appears on each map.",
@@ -2119,6 +2119,22 @@
     "first_battle.new_name": "ADVENTURE NAME",
     "first_battle.new_default": "My Adventure",
     "first_battle.new_steps": "Next: your heroes → map → forces → objective → play",
-    "first_battle.new_create": "CREATE & MEET YOUR HEROES"
+    "first_battle.new_create": "CREATE & MEET YOUR HEROES",
+    "army.personal.open": "WEAPONS & DEFEAT",
+    "army.personal.title": "This character’s weapons and defeat",
+    "army.personal.help": "Personal choices stay with this hero when their role changes. Select every weapon family they can use. The first starting weapon selected is equipped first; shared stores can hold any weapon.",
+    "army.personal.none": "None",
+    "army.personal.affinities": "Weapon affinities",
+    "army.personal.kit": "Starting weapons",
+    "army.personal.override_affinities": "Choose personal weapon affinities",
+    "army.personal.override_kit": "Choose personal starting weapons",
+    "army.personal.if_defeated": "If defeated",
+    "army.personal.defeat.inherit": "If defeated: follow the game rule",
+    "army.personal.defeat.permanent": "If defeated: permanent death",
+    "army.personal.defeat.withdraw": "If defeated: withdraw and return later",
+    "army.personal.defeat.loseBattle": "If defeated: lose this battle and withdraw",
+    "army.personal.apply": "APPLY TO THIS CHARACTER",
+    "army.personal.saved": "PERSONAL CHOICES UPDATED — SAVE WHEN READY",
+    "army.personal.invalid": "PERSONAL CHOICES NOT APPLIED  /  {detail}"
   }
 }

@@ -1302,4 +1302,30 @@ EncounterLoadResult load_encounter(
     return result;
 }
 
+bool load_weapon_definition(
+    const LoadedPackage& package, std::uint64_t weapon_id,
+    simulation::WeaponDefinition& weapon
+) { return read_weapon(package, weapon_id, weapon); }
+
+bool resolve_carried_equipment(
+    const LoadedPackage& package, simulation::EncounterDefinition& definition
+) {
+    std::set<std::uint64_t> weapons, items, kinds;
+    for (const auto& weapon : definition.weapons) weapons.insert(weapon.id);
+    for (const auto& item : definition.items) items.insert(item.id);
+    for (const auto& kind : definition.weapon_types) kinds.insert(kind.id);
+    for (const auto& unit : definition.units) {
+        EquippedWeapon equipped;
+        if (!read_carried_weapons(package, unit.weapon_ids, definition.weapons, weapons, equipped) ||
+            !read_carried_items(package, unit.item_ids, definition.items, items)) return false;
+    }
+    for (const auto& weapon : definition.weapons) {
+        if (weapon.weapon_type == 0U || !kinds.insert(weapon.weapon_type).second) continue;
+        simulation::WeaponTypeDefinition type;
+        if (!read_weapon_type(package, weapon.weapon_type, type)) return false;
+        if (!type.strong_against.empty()) definition.weapon_types.push_back(std::move(type));
+    }
+    return true;
+}
+
 }  // namespace grandleon::package_runtime

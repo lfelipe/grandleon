@@ -158,6 +158,9 @@ enum class SectionType : std::uint32_t {
     // Optional and sparse: runtimes that do not know it draw the same playable
     // board fully visible, while rules and canonical state remain unchanged.
     map_visual_visibility = 27,
+    // Sparse character permissions, personal kit and defeat policy. Required:
+    // ignoring any of these changes the authored rules. Absent preserves bytes.
+    member_rules = 28,
 };
 
 // The presentation section holds records about the whole game, the way the

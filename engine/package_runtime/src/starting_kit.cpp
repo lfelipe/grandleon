@@ -112,4 +112,14 @@ UnitStartingItemsLoad load_unit_starting_items(
     return result;
 }
 
+UnitStartingWeaponsLoad load_unit_starting_weapons(
+    const LoadedPackage& package, std::uint64_t unit_type_id
+) {
+    UnitStartingWeaponsLoad result;
+    const auto* record = package.find(SectionType::unit_types, unit_type_id);
+    if (record == nullptr) return result;
+    Reader reader(package, *record);
+    result.found = reader.skip_string() && reader.skip(16) && reader.ids(result.weapons);
+    return result;
+}
 }  // namespace grandleon::package_runtime

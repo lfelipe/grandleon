@@ -1183,7 +1183,7 @@
     "army.guide.style": "ESTILO DEL PERSONAJE",
     "army.guide.body": "CUERPO",
     "army.guide.weapon": "PRIMERA ARMA",
-    "army.guide.weapon_help": "El rol nuevo se hace compatible con la familia del arma elegida. El resto del equipo y habilidades copiados se puede ajustar después.",
+    "army.guide.weapon_help": "La primera arma pertenece a este héroe. Su familia se incluye en sus afinidades personales; elige más familias arriba para conservarlas al cambiar de rol.",
     "army.guide.random": "PUNTO DE PARTIDA ALEATORIO",
     "army.guide.random_tooltip": "Sugiere nombre, rol, aspecto, bando y arma válidos. Revisa todo antes de crear.",
     "army.guide.undo_help": "Es una sola creación que se puede deshacer. Preparar batalla aún decide dónde aparece en cada mapa.",
@@ -2119,6 +2119,22 @@
     "first_battle.new_name": "NOMBRE DE LA AVENTURA",
     "first_battle.new_default": "Mi aventura",
     "first_battle.new_steps": "Siguiente: héroes → mapa → bandos → objetivo → jugar",
-    "first_battle.new_create": "CREAR Y CONOCER A TUS HÉROES"
+    "first_battle.new_create": "CREAR Y CONOCER A TUS HÉROES",
+    "army.personal.open": "ARMAS Y DERROTA",
+    "army.personal.title": "Armas y derrota de este personaje",
+    "army.personal.help": "Las elecciones personales se conservan al cambiar de rol. Elige todas las familias de armas que puede usar. La primera arma inicial elegida se equipa primero; el almacén compartido admite cualquier arma.",
+    "army.personal.none": "Ninguna",
+    "army.personal.affinities": "Afinidades con armas",
+    "army.personal.kit": "Armas iniciales",
+    "army.personal.override_affinities": "Elegir afinidades personales con armas",
+    "army.personal.override_kit": "Elegir armas iniciales personales",
+    "army.personal.if_defeated": "Si es derrotado",
+    "army.personal.defeat.inherit": "Si es derrotado: seguir la regla del juego",
+    "army.personal.defeat.permanent": "Si es derrotado: muerte permanente",
+    "army.personal.defeat.withdraw": "Si es derrotado: retirarse y volver después",
+    "army.personal.defeat.loseBattle": "Si es derrotado: perder esta batalla y retirarse",
+    "army.personal.apply": "APLICAR A ESTE PERSONAJE",
+    "army.personal.saved": "ELECCIONES PERSONALES ACTUALIZADAS — GUARDA CUANDO TERMINES",
+    "army.personal.invalid": "ELECCIONES PERSONALES NO APLICADAS  /  {detail}"
   }
 }

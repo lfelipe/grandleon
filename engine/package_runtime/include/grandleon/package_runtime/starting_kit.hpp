@@ -54,4 +54,12 @@ struct UnitStartingItemsLoad final {
     std::uint64_t unit_type_id
 );
 
+struct UnitStartingWeaponsLoad final {
+    bool found{false};
+    std::vector<std::uint64_t> weapons;
+    [[nodiscard]] explicit operator bool() const noexcept { return found; }
+};
+[[nodiscard]] UnitStartingWeaponsLoad load_unit_starting_weapons(
+    const package_format::LoadedPackage& package, std::uint64_t unit_type_id
+);
 }  // namespace grandleon::package_runtime

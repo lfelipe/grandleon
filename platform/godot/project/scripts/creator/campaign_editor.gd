@@ -1156,11 +1156,16 @@ func _battle_preview_source(node_id: String) -> Dictionary:
 		# available so a later battle can field its real roster without replaying
 		# prior chapters; none of this disposable source is written to the project.
 		var roster: Array = preview_campaign.get("roster", [])
-		for member_index in roster.size():
-			if roster[member_index] is Dictionary:
-				var member: Dictionary = roster[member_index]
-				member.erase("joinNodeId")
-				roster[member_index] = member
+		for member_value: Variant in roster:
+			if member_value is Dictionary:
+				member_value.erase("joinNodeId")
+		for node_value: Variant in nodes:
+			if not node_value is Dictionary:
+				continue
+			for member_value: Variant in node_value.get("recruits", []):
+				if member_value is Dictionary:
+					roster.append(member_value.duplicate(true))
+			node_value.erase("recruits")
 		preview_campaign["roster"] = roster
 
 		var terminal_id := "editor_battle_test_complete"

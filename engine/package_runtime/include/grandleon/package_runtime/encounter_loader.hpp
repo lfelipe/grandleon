@@ -3,6 +3,7 @@
 
 #include <grandleon/package_format/package.hpp>
 #include <grandleon/package_runtime/specificity.hpp>
+#include <grandleon/package_runtime/member_rules.hpp>
 #include <grandleon/simulation/encounter.hpp>
 #include <grandleon/tactics/policy.hpp>
 
@@ -187,6 +188,7 @@ struct EncounterLoadResult final {
     // conformance replay, a rosterless playtest or a console ROM without a
     // campaign loads, which is why none of them moves.
     bool company_endures{false};
+    std::vector<MemberRules> member_rules;
 
     [[nodiscard]] explicit operator bool() const noexcept {
         return error == EncounterLoadError::none;
@@ -206,6 +208,17 @@ struct EncounterLoadOptions final {
     const package_format::LoadedPackage& package,
     std::uint64_t encounter_id,
     const EncounterLoadOptions& options = {}
+);
+
+// Resolve only equipment actually carried after a roster join, including its
+// weapon-family advantages. No full-game registry is allocated.
+[[nodiscard]] bool resolve_carried_equipment(
+    const package_format::LoadedPackage& package,
+    simulation::EncounterDefinition& definition
+);
+[[nodiscard]] bool load_weapon_definition(
+    const package_format::LoadedPackage& package, std::uint64_t weapon_id,
+    simulation::WeaponDefinition& weapon
 );
 
 }  // namespace grandleon::package_runtime

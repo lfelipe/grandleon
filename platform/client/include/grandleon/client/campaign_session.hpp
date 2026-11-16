@@ -152,6 +152,7 @@ struct RosterEntry final {
     std::string authored_name;
     bool player_nameable{false};
     bool has_player_name{false};
+    package_runtime::DefeatPolicy defeat_policy{package_runtime::DefeatPolicy::inherit};
 };
 
 // Why a named slot did not become a campaign.
@@ -333,14 +334,11 @@ struct BattleAftermath final {
     // standing in, which is why it means the same thing under either rule: it
     // is who fell, and never who was buried.
     //
-    // What became of them is `character_loss` below. Under the permanent rule
-    // every one of these is dead and their availability says so; under the
-    // recoverable rule every one of them is still available and still carrying
-    // what the battle left them with. A client that named these people without
-    // reading that rule would be a client that told a player somebody had died
-    // and then showed them on the next board.
+    // Each roster entry carries its resolved personal defeat policy. Read
+    // that entry's availability after commit to distinguish permanent death
+    // from withdrawal; different members may follow different rules.
     std::vector<campaign::PersistentEntityId> fallen;
-    // The rule that was in force, so a client may word the two cases apart.
+    // The legacy project fallback. Individual roster entries may override it.
     package_runtime::CharacterLoss character_loss{
         package_runtime::CharacterLoss::permanent
     };
@@ -617,6 +615,7 @@ enum class ManagementError : std::uint8_t {
     unknown_member,
     fixed_name,
     invalid_name,
+    disallowed_weapon,
 };
 
 [[nodiscard]] std::string_view management_error_name(

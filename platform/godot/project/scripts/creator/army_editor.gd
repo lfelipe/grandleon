@@ -105,6 +105,17 @@ var guide_weapon: OptionButton
 var guide_join: OptionButton
 var guide_create_button: Button
 var guide_rng := RandomNumberGenerator.new()
+var guide_affinities: MenuButton
+var guide_affinity_ids: Array = []
+var guide_defeat: OptionButton
+var rules_layer: Control
+var rules_affinities: MenuButton
+var rules_weapons: MenuButton
+var rules_personal_affinities: CheckButton
+var rules_personal_kit: CheckButton
+var rules_defeat: OptionButton
+var rules_affinity_ids: Array = []
+var rules_weapon_ids: Array = []
 var modifier_layer: Control
 var modifier_role_label: Label
 var modifier_value_labels: Dictionary = {}
@@ -182,6 +193,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		var viewport := get_viewport()
 		if dependency_layer != null and dependency_layer.visible:
 			_close_dependency_review()
+		elif rules_layer != null and rules_layer.visible:
+			rules_layer.visible = false
 		elif guide_layer != null and guide_layer.visible:
 			_close_guided_character()
 		elif new_role_layer.visible:
@@ -1814,6 +1827,7 @@ func _open_guided_character() -> void:
 		guide_figure.set_item_metadata(guide_figure.item_count - 1, str(figure.id))
 	_copy_option_items(add_join, guide_join)
 	_apply_guide_template_defaults()
+	_select_metadata(guide_defeat, "inherit")
 	guide_layer.visible = true
 	guide_name.grab_focus()
 	guide_name.select_all()
@@ -1860,6 +1874,8 @@ func _apply_guide_template_defaults(_index: int = 0) -> void:
 	var weapons: Variant = unit_type.get("startingWeaponIds", [])
 	if weapons is Array and not weapons.is_empty():
 		_select_metadata(guide_weapon, str(weapons[0]))
+	guide_affinity_ids = _role_weapon_affinities(unit_type)
+	_ensure_guide_weapon_affinity()
 
 
 func _randomize_guided_character() -> void:
@@ -1871,6 +1887,7 @@ func _randomize_guided_character() -> void:
 	_random_option(guide_figure)
 	_random_option(guide_side)
 	_random_option(guide_weapon)
+	_ensure_guide_weapon_affinity()
 	_set_status(_t("army.status.random_ready"), false)
 
 
@@ -1905,12 +1922,9 @@ func _create_guided_character() -> void:
 		return
 	var candidate: Dictionary = candidate_value
 	var selected_weapon_id := _selected_metadata(guide_weapon)
-	var selected_weapon := _weapon_by_id(selected_weapon_id)
-	var new_class_id := ""
 	for value: Variant in candidate.get("unitTypes", []):
 		if not value is Dictionary or str(value.get("id", "")) != role_id:
 			continue
-		new_class_id = str(value.get("classId", ""))
 		value["characterStyleId"] = _selected_metadata(guide_style)
 		value["characterFigureId"] = _selected_metadata(guide_figure)
 		var side_id := _selected_metadata(guide_side)
@@ -1918,21 +1932,7 @@ func _create_guided_character() -> void:
 			value.erase("factionId")
 		else:
 			value["factionId"] = side_id
-		if selected_weapon_id.is_empty():
-			value.erase("startingWeaponIds")
-		else:
-			value["startingWeaponIds"] = [selected_weapon_id]
 		break
-	if not selected_weapon.is_empty():
-		var family_id := str(selected_weapon.get("weaponTypeId", ""))
-		for value: Variant in candidate.get("classes", []):
-			if not value is Dictionary or str(value.get("id", "")) != new_class_id:
-				continue
-			var allowed: Array = value.get("allowedWeaponTypeIds", []).duplicate()
-			if not family_id.is_empty() and not allowed.has(family_id):
-				allowed.append(family_id)
-			value["allowedWeaponTypeIds"] = allowed
-			break
 	var candidate_source := JSON.stringify(_integer_numbers(candidate), "  ", true) + "\n"
 	var checked: Dictionary = compiler.compile_source_json(candidate_source)
 	if not checked.ok:
@@ -1951,6 +1951,20 @@ func _create_guided_character() -> void:
 	if not member_result.ok:
 		_set_status(_t("army.error.character_not_added", {"detail": _diagnostic_detail(member_result)}), true)
 		return
+	_ensure_guide_weapon_affinity()
+	var rules := {
+		"startingWeaponIds": [] if selected_weapon_id.is_empty() else [selected_weapon_id],
+		"defeatPolicy": _selected_metadata(guide_defeat),
+	}
+	if not project.get("weaponTypes", []).is_empty():
+		rules["weaponAffinityTypeIds"] = guide_affinity_ids.duplicate()
+	var personal: Dictionary = compiler.set_campaign_member_rules(
+		str(member_result.source), str(campaign.get("id", "")), member_id, JSON.stringify(rules)
+	)
+	if not personal.ok:
+		_set_status(_t("army.error.character_not_added", {"detail": _diagnostic_detail(personal)}), true)
+		return
+	member_result = personal
 	_push_history(undo_stack, source)
 	redo_stack.clear()
 	source = str(member_result.source)
@@ -2432,17 +2446,20 @@ func _build_interface() -> void:
 	role_actions.set_meta("mobile_wrap_actions", true)
 	role_actions.add_theme_constant_override("separation", 14)
 	editor_column.add_child(role_actions)
-	customize_button = _button(_t("army.hero.open"), 330, 56)
+	customize_button = _button(_t("army.hero.open"), 250, 56)
 	customize_button.pressed.connect(_open_modifiers)
 	role_actions.add_child(customize_button)
-	role_button = _button(_t("army.role.open"), 330, 56)
+	role_button = _button(_t("army.role.open"), 250, 56)
 	role_button.tooltip_text = _t("army.role.open_tooltip")
 	role_button.pressed.connect(_open_role)
 	role_actions.add_child(role_button)
-	loadout_button = _button(_t("army.loadout.open"), 330, 56)
+	loadout_button = _button(_t("army.loadout.open"), 250, 56)
 	loadout_button.tooltip_text = _t("army.loadout.open_tooltip")
 	loadout_button.pressed.connect(_open_loadout)
 	role_actions.add_child(loadout_button)
+	var personal_button := _button(_t("army.personal.open"), 250, 56)
+	personal_button.pressed.connect(_open_personal_rules)
+	role_actions.add_child(personal_button)
 	var role_note := _label(
 		_t("army.role_note"),
 		17, Color("718896")
@@ -2464,6 +2481,7 @@ func _build_interface() -> void:
 	_build_add_layer()
 	_build_new_role_layer()
 	_build_guided_character_layer()
+	_build_personal_rules_layer()
 	_build_supply_layer()
 	_build_role_layer()
 	_build_side_layer()
@@ -2738,9 +2756,14 @@ func _build_guided_character_layer() -> void:
 		"panel", _panel(Color("0a1823"), 24, Color("72e08f"))
 	)
 	guide_layer.add_child(panel)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	panel.add_child(scroll)
 	var column := VBoxContainer.new()
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.add_theme_constant_override("separation", 12)
-	panel.add_child(column)
+	scroll.add_child(column)
 	column.add_child(_label(_t("army.guide.heading"), 19, Color("72e08f")))
 	column.add_child(_label(_t("army.guide.title"), 30, Color("f2f7f9")))
 	var explanation := _label(
@@ -2787,7 +2810,12 @@ func _build_guided_character_layer() -> void:
 	presentation.add_child(guide_figure)
 	presentation.add_child(_label(_t("army.guide.weapon"), 14, Color("e6b86d")))
 	guide_weapon = _guide_option()
+	guide_weapon.item_selected.connect(_ensure_guide_weapon_affinity)
 	presentation.add_child(guide_weapon)
+	guide_affinities = _multi_choice_button()
+	presentation.add_child(guide_affinities)
+	guide_defeat = _defeat_choice()
+	presentation.add_child(guide_defeat)
 	var weapon_note := _label(
 		_t("army.guide.weapon_help"),
 		15, Color("a9bdc9")
@@ -3509,3 +3537,172 @@ func _notification(what: int) -> void:
 		cancel.action = "ui_cancel"
 		cancel.pressed = true
 		_unhandled_input(cancel)
+
+
+func _role_weapon_affinities(unit_type: Dictionary) -> Array:
+	for value: Variant in project.get("classes", []):
+		if value is Dictionary and str(value.get("id", "")) == str(unit_type.get("classId", "")):
+			if value.has("allowedWeaponTypeIds"):
+				return value.get("allowedWeaponTypeIds", []).duplicate()
+	var all: Array = []
+	for value: Variant in project.get("weaponTypes", []):
+		if value is Dictionary:
+			all.append(str(value.get("id", "")))
+	return all
+
+
+func _multi_choice_button() -> MenuButton:
+	var button := MenuButton.new()
+	button.custom_minimum_size = Vector2(670, 54)
+	button.add_theme_font_size_override("font_size", 18)
+	button.get_popup().hide_on_checkable_item_selection = false
+	button.get_popup().add_theme_font_size_override("font_size", 20)
+	button.get_popup().about_to_popup.connect(func():
+		var font := button.get_theme_font_size("font_size")
+		button.get_popup().add_theme_font_size_override("font_size", font)
+		button.get_popup().add_theme_constant_override("v_separation", maxi(20, font * 2))
+	)
+	return button
+
+
+func _fill_multi_choice(button: MenuButton, values: Array, selected: Array, title: String) -> void:
+	var popup := button.get_popup()
+	for connection: Dictionary in popup.id_pressed.get_connections():
+		popup.id_pressed.disconnect(connection.callable)
+	popup.clear()
+	var names: Array[String] = []
+	for value: Variant in values:
+		if not value is Dictionary:
+			continue
+		var identity := str(value.get("id", ""))
+		var label := str(value.get("name", identity))
+		popup.add_check_item(label)
+		var index := popup.item_count - 1
+		popup.set_item_metadata(index, identity)
+		popup.set_item_checked(index, selected.has(identity))
+	for identity: Variant in selected:
+		for value: Variant in values:
+			if value is Dictionary and str(value.get("id", "")) == str(identity):
+				names.append(str(value.get("name", identity)))
+				break
+	button.text = title + ": " + (", ".join(names) if not names.is_empty() else _t("army.personal.none"))
+	popup.id_pressed.connect(func(index: int) -> void:
+		var identity := str(popup.get_item_metadata(index))
+		if selected.has(identity):
+			selected.erase(identity)
+		else:
+			selected.append(identity)
+		_fill_multi_choice(button, values, selected, title)
+	)
+
+
+func _defeat_choice() -> OptionButton:
+	var option := _guide_option()
+	for policy: String in ["inherit", "permanent", "withdraw", "loseBattle"]:
+		option.add_item(_t("army.personal.defeat." + policy))
+		option.set_item_metadata(option.item_count - 1, policy)
+	return option
+
+
+func _ensure_guide_weapon_affinity(_index: int = 0) -> void:
+	guide_affinities.visible = not project.get("weaponTypes", []).is_empty()
+	var weapon := _weapon_by_id(_selected_metadata(guide_weapon))
+	var family := str(weapon.get("weaponTypeId", ""))
+	if not family.is_empty() and not guide_affinity_ids.has(family):
+		guide_affinity_ids.append(family)
+	_fill_multi_choice(guide_affinities, project.get("weaponTypes", []), guide_affinity_ids, _t("army.personal.affinities"))
+
+
+func _build_personal_rules_layer() -> void:
+	rules_layer = Control.new()
+	rules_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	rules_layer.visible = false
+	rules_layer.z_index = 75
+	add_child(rules_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.003, 0.008, 0.014, 0.97)
+	rules_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(310, 90)
+	panel.size = Vector2(1300, 900)
+	panel.add_theme_stylebox_override("panel", _panel(Color("0a1823"), 24, Color("72e08f")))
+	rules_layer.add_child(panel)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	panel.add_child(scroll)
+	var column := VBoxContainer.new()
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.add_theme_constant_override("separation", 16)
+	scroll.add_child(column)
+	column.add_child(_label(_t("army.personal.title"), 28, Color("72e08f")))
+	var help := _label(_t("army.personal.help"), 18, Color("a9bdc9"))
+	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(help)
+	rules_personal_affinities = CheckButton.new()
+	rules_personal_affinities.text = _t("army.personal.override_affinities")
+	rules_personal_affinities.custom_minimum_size.y = 54
+	column.add_child(rules_personal_affinities)
+	rules_affinities = _multi_choice_button()
+	column.add_child(rules_affinities)
+	rules_personal_affinities.toggled.connect(func(enabled: bool): rules_affinities.disabled = not enabled)
+	rules_personal_kit = CheckButton.new()
+	rules_personal_kit.text = _t("army.personal.override_kit")
+	rules_personal_kit.custom_minimum_size.y = 54
+	column.add_child(rules_personal_kit)
+	rules_weapons = _multi_choice_button()
+	column.add_child(rules_weapons)
+	rules_personal_kit.toggled.connect(func(enabled: bool): rules_weapons.disabled = not enabled)
+	column.add_child(_label(_t("army.personal.if_defeated"), 18, Color("e6b86d")))
+	rules_defeat = _defeat_choice()
+	column.add_child(rules_defeat)
+	var apply := _button(_t("army.personal.apply"), 670, 60)
+	apply.pressed.connect(_apply_personal_rules)
+	column.add_child(apply)
+	var cancel := _button(_t("army.back"), 670, 60)
+	cancel.pressed.connect(func(): rules_layer.visible = false)
+	column.add_child(cancel)
+
+
+func _open_personal_rules() -> void:
+	if not _commit_visible_member(false):
+		return
+	var member := _current_member()
+	var role := _unit_type(str(member.get("unitTypeId", "")))
+	rules_affinity_ids = member.get("weaponAffinityTypeIds", _role_weapon_affinities(role)).duplicate()
+	rules_weapon_ids = member.get("startingWeaponIds", role.get("startingWeaponIds", [])).duplicate()
+	rules_personal_affinities.set_pressed_no_signal(member.has("weaponAffinityTypeIds"))
+	rules_personal_kit.set_pressed_no_signal(member.has("startingWeaponIds"))
+	rules_affinities.disabled = not rules_personal_affinities.button_pressed
+	rules_weapons.disabled = not rules_personal_kit.button_pressed
+	_fill_multi_choice(rules_affinities, project.get("weaponTypes", []), rules_affinity_ids, _t("army.personal.affinities"))
+	_fill_multi_choice(rules_weapons, project.get("weapons", []), rules_weapon_ids, _t("army.personal.kit"))
+	_select_metadata(rules_defeat, str(member.get("defeatPolicy", "inherit")))
+	rules_layer.visible = true
+
+
+func _apply_personal_rules() -> void:
+	var member := _current_member()
+	var rules: Dictionary = {}
+	if rules_personal_affinities.button_pressed:
+		rules["weaponAffinityTypeIds"] = rules_affinity_ids.duplicate()
+	if rules_personal_kit.button_pressed:
+		rules["startingWeaponIds"] = rules_weapon_ids.duplicate()
+	var policy := _selected_metadata(rules_defeat)
+	if policy != "inherit":
+		rules["defeatPolicy"] = policy
+	var updated: Dictionary = compiler.set_campaign_member_rules(
+		source, str(_current_campaign().get("id", "")), str(member.get("id", "")), JSON.stringify(rules)
+	)
+	if not updated.ok:
+		_set_status(_t("army.personal.invalid", {"detail": _diagnostic_detail(updated)}), true)
+		return
+	_push_history(undo_stack, source)
+	redo_stack.clear()
+	source = str(updated.source)
+	dirty = source != saved_source
+	_read_source()
+	_collect_members()
+	_refresh_members()
+	rules_layer.visible = false
+	_set_status(_t("army.personal.saved"), false)

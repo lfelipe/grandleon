@@ -20,8 +20,31 @@ chosen artwork.
 
 ![Creating and editing named characters](screenshots/native-guide/05-grow-the-army.gif)
 
-Named heroes persist through the campaign. Ordinary enemies can be placed
-from reusable archetypes; they do not need their own hero or class definition.
+Named heroes persist through the campaign. In **Weapons & Defeat**, choose
+which weapon families each hero can use. A hero can have several affinities:
+for example, sword and focus, even while taking a Mage role. Personal
+weapon choices stay with that hero when their role changes. Choose a personal
+starting kit independently; the first selected weapon starts in hand. Leaving
+the personal kit empty starts the hero unarmed. Turn off a personal override
+to use the existing role behavior.
+
+**If defeated** controls what happens when that hero falls:
+
+- **Follow the game rule** follows the campaign's default.
+- **Permanent death** removes the hero from later battles.
+- **Withdraw and return** lets the hero fight again in a later battle.
+- **Lose this battle and withdraw** makes this a required hero: their defeat
+  loses the battle and follows its authored defeat route. The hero can return
+  for another attempt.
+
+Affinities control weapon use. The shared store can still hold weapons that
+none of the current heroes can use. **Apply** keeps the character edit; save
+the project before leaving. Test the full campaign to check losses and returns
+across stages. Each creator preview starts fresh and leaves installed saves
+alone.
+
+Ordinary enemies can be placed from reusable archetypes; they do not need
+their own hero or class definition.
 
 ## Make the first battle
 

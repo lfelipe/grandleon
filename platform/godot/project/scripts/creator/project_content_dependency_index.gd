@@ -438,6 +438,11 @@ func _index_member(value: Variant, prefix: String, campaign_name: String, path: 
 		path + ".unitTypeId", "roster_member", str(member.get("id", ""))
 	)
 
+	var owner_id := str(member.get("id", ""))
+	var label := "%s %s in campaign %s" % [prefix, _quote(_name(member, "Unnamed member")), _quote(campaign_name)]
+	_index_id_array(member, "weaponAffinityTypeIds", "weapon_type", "Rosters", label + " can use this weapon family.", path, "roster_member", owner_id)
+	_index_id_array(member, "startingWeaponIds", "weapon", "Rosters", label + " starts with this personal weapon.", path, "roster_member", owner_id)
+
 
 func _index_placement(
 	value: Variant,
