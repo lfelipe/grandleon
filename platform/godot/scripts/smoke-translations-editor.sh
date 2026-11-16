@@ -33,3 +33,8 @@ XDG_CONFIG_HOME="${state_dir}/config" \
 XDG_CACHE_HOME="${state_dir}/cache" \
     timeout 60s "${godot_binary}" --headless --path "${stage_dir}" \
     --script "${repo_root}/platform/godot/tests/translations_editor_test.gd"
+XDG_DATA_HOME="${state_dir}/data" \
+XDG_CONFIG_HOME="${state_dir}/config" \
+XDG_CACHE_HOME="${state_dir}/cache" \
+    timeout 60s "${godot_binary}" --headless --path "${stage_dir}" \
+    --script "${repo_root}/platform/godot/tests/mobile_translations_editor_test.gd"

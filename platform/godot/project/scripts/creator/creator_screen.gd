@@ -80,6 +80,11 @@ func _ready() -> void:
 	_refresh_projects()
 	if first_button != null:
 		first_button.grab_focus()
+	if CreatorContext.hub_action == "export":
+		CreatorContext.hub_action = ""
+		var loaded: Dictionary = library.load_source(CreatorContext.project_id)
+		if bool(loaded.get("ok", false)):
+			_open_export_center(CreatorContext.project_id, str(loaded.project.get("title", "")))
 
 
 func _process(_delta: float) -> void:
@@ -283,28 +288,27 @@ func _build_new_campaign_layer() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 18)
 	panel.add_child(column)
-	column.add_child(_label("NEW CAMPAIGN", 18, Color("69d9ff")))
-	column.add_child(_label("What is your adventure called?", 38, Color("f2f7f9")))
+	column.add_child(_label(_t("first_battle.new_heading"), 18, Color("69d9ff")))
+	column.add_child(_label(_t("first_battle.new_question"), 38, Color("f2f7f9")))
 	var explanation := _label(
-		"You will begin with one complete battle, two heroes, enemies, a goal, and "
-		+ "a short story scene. Everything can be replaced as your campaign grows.",
+		_t("first_battle.new_help"),
 		19,
 		Color("a9bdc9")
 	)
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explanation.custom_minimum_size.y = 86
 	column.add_child(explanation)
-	column.add_child(_label("CAMPAIGN NAME", 16, Color("69d9ff")))
+	column.add_child(_label(_t("first_battle.new_name"), 16, Color("69d9ff")))
 	new_campaign_title = LineEdit.new()
-	new_campaign_title.text = "My Adventure"
-	new_campaign_title.placeholder_text = "My Adventure"
+	new_campaign_title.text = _t("first_battle.new_default")
+	new_campaign_title.placeholder_text = _t("first_battle.new_default")
 	new_campaign_title.max_length = 160
 	new_campaign_title.custom_minimum_size = Vector2(980, 72)
 	new_campaign_title.add_theme_font_size_override("font_size", 25)
 	new_campaign_title.text_submitted.connect(_create_named_campaign_from_text)
 	column.add_child(new_campaign_title)
 	var guidance := _label(
-		"Next: shape the first map  →  write the story  →  test the campaign",
+		_t("first_battle.new_steps"),
 		18,
 		Color("72e08f")
 	)
@@ -313,11 +317,11 @@ func _build_new_campaign_layer() -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
-	new_campaign_create_button = _button("CREATE & OPEN FIRST MAP")
+	new_campaign_create_button = _button(_t("first_battle.new_create"))
 	new_campaign_create_button.custom_minimum_size = Vector2(470, 82)
 	new_campaign_create_button.pressed.connect(_create_named_campaign)
 	actions.add_child(new_campaign_create_button)
-	var cancel := _button("BACK")
+	var cancel := _button(_t("common.back"))
 	cancel.custom_minimum_size = Vector2(300, 82)
 	cancel.pressed.connect(_close_new_campaign)
 	actions.add_child(cancel)
@@ -474,7 +478,7 @@ func _build_export_layer() -> void:
 
 
 func _open_new_campaign() -> void:
-	new_campaign_title.text = "My Adventure"
+	new_campaign_title.text = _t("first_battle.new_default")
 	new_campaign_layer.visible = true
 	new_campaign_title.grab_focus()
 	new_campaign_title.select_all()
@@ -528,7 +532,12 @@ func _create_campaign_from(template_path: String, title: String, open_editor: bo
 		_focus_project(str(created.id))
 		return
 	CreatorContext.open_project(str(created.id))
-	get_tree().change_scene_to_file("res://map_editor.tscn")
+	var created_project: Variant = JSON.parse_string(str(created.get("source", "{}")))
+	if created_project is Dictionary and not created_project.get("campaigns", []).is_empty():
+		CreatorContext.guided_workflow = true
+		get_tree().change_scene_to_file("res://first_battle.tscn")
+	else:
+		get_tree().change_scene_to_file("res://map_editor.tscn")
 
 
 func _open_project_actions(project_id: String, title: String) -> void:
@@ -1302,10 +1311,15 @@ func _prepare_project_open(project_id: String) -> Dictionary:
 
 
 func _edit_project(project_id: String) -> void:
-	if not _prepare_project_open(project_id).ok:
+	var loaded := _prepare_project_open(project_id)
+	if not loaded.ok:
 		return
 	CreatorContext.open_project(project_id)
-	get_tree().change_scene_to_file("res://campaign_editor.tscn")
+	if not loaded.project.get("campaigns", []).is_empty():
+		CreatorContext.guided_workflow = true
+		get_tree().change_scene_to_file("res://first_battle.tscn")
+	else:
+		get_tree().change_scene_to_file("res://map_editor.tscn")
 
 
 func _edit_campaign(project_id: String) -> void:

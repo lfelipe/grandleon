@@ -79,6 +79,7 @@ var save_button: Button
 var undo_button: Button
 var redo_button: Button
 var play_button: Button
+var preview_player_select: OptionButton
 var add_button: Button
 var more_layer: Control
 var more_gear_button: Button
@@ -221,11 +222,15 @@ func _load_project() -> void:
 	title_label.text = _t("army.project_title", {
 		"project": str(project.get("title", _t("army.fallback.untitled_game"))).to_upper(),
 	})
-	_refresh_campaigns()
+	_refresh_campaigns(CreatorContext.member_id)
 	_set_status(_t("army.status.ready"), false)
 	var diagnostic_focus: Dictionary = CreatorContext.take_diagnostic_focus()
 	if not diagnostic_focus.is_empty():
 		_apply_diagnostic_focus(diagnostic_focus)
+		return
+	if CreatorContext.take_army_action() == "create_hero":
+		_open_add()
+		_open_guided_character()
 		return
 	campaign_select.call_deferred("grab_focus")
 
@@ -321,6 +326,7 @@ func _refresh_campaigns(preferred_member_id := "") -> void:
 	campaign_index = clampi(campaign_index, 0, campaigns.size() - 1)
 	campaign_select.select(campaign_index)
 	CreatorContext.choose_campaign(str(_current_campaign().get("id", "")))
+	_refresh_preview_players()
 	_collect_members()
 	if not preferred_member_id.is_empty():
 		for index in members.size():
@@ -1636,6 +1642,7 @@ func _select_campaign(index: int) -> void:
 		return
 	campaign_index = index
 	CreatorContext.choose_campaign(str(_current_campaign().get("id", "")))
+	_refresh_preview_players()
 	member_index = 0
 	_collect_members()
 	_refresh_members()
@@ -2163,8 +2170,29 @@ func _play_draft() -> void:
 		return
 	if dirty and not _save():
 		return
-	LaunchContext.stage_package(compiled.package, str(campaign.get("id", "")), true)
+	CreatorContext.member_id = str(_current_member().get("id", ""))
+	LaunchContext.stage_package(
+		compiled.package, str(campaign.get("id", "")), true,
+		int(preview_player_select.get_selected_metadata()),
+		"res://army_editor.tscn", str(campaign.get("name", ""))
+	)
 	get_tree().change_scene_to_file("res://main.tscn")
+
+
+func _refresh_preview_players() -> void:
+	if preview_player_select == null:
+		return
+	var previous := int(preview_player_select.get_selected_metadata()) if preview_player_select.selected >= 0 else 1
+	preview_player_select.clear()
+	var mode := str(_current_campaign().get("playerMode", "one"))
+	for players: int in [1, 2]:
+		if (mode == "one" and players == 2) or (mode == "two" and players == 1):
+			continue
+		preview_player_select.add_item(_t("translations.preview.player_count", {"count": players}))
+		preview_player_select.set_item_metadata(preview_player_select.item_count - 1, players)
+		if players == previous:
+			preview_player_select.select(preview_player_select.item_count - 1)
+	preview_player_select.disabled = preview_player_select.item_count <= 1
 
 
 func _request_maps() -> void:
@@ -2177,6 +2205,12 @@ func _request_projects() -> void:
 
 func _request_leave(destination: String) -> void:
 	if not _commit_visible_member(false):
+		return
+	if CreatorContext.guided_workflow:
+		if dirty and not _save():
+			return
+		CreatorContext.member_id = str(_current_member().get("id", ""))
+		get_tree().change_scene_to_file("res://first_battle.tscn")
 		return
 	if destination == "maps" and dirty and not _save():
 		return
@@ -2282,11 +2316,15 @@ func _build_interface() -> void:
 	undo_button = _button(_t("army.undo"), 170, 58)
 	undo_button.pressed.connect(_undo)
 	toolbar.add_child(undo_button)
+	preview_player_select = OptionButton.new()
+	preview_player_select.custom_minimum_size = Vector2(120, 58)
+	preview_player_select.tooltip_text = _t("translations.preview.players")
+	toolbar.add_child(preview_player_select)
 	play_button = _button(_t("army.test"), 270, 58)
 	play_button.tooltip_text = _t("army.test_tooltip")
 	play_button.pressed.connect(_play_draft)
 	toolbar.add_child(play_button)
-	var map_button := _button(_t("army.back_map"), 230, 58)
+	var map_button := _button(_t("first_battle.back" if CreatorContext.guided_workflow else "army.back_map"), 230, 58)
 	map_button.tooltip_text = _t("army.back_map_tooltip")
 	map_button.pressed.connect(_request_maps)
 	toolbar.add_child(map_button)

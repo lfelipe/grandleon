@@ -6,6 +6,10 @@ var campaign_id := ""
 var map_id := ""
 var encounter_id := ""
 var dialogue_id := ""
+var member_id := ""
+var army_action := ""
+var guided_workflow := false
+var hub_action := ""
 var map_action := ""
 var diagnostic_focus: Dictionary = {}
 
@@ -16,6 +20,10 @@ func open_project(value: String) -> void:
 	map_id = ""
 	encounter_id = ""
 	dialogue_id = ""
+	member_id = ""
+	army_action = ""
+	guided_workflow = false
+	hub_action = ""
 	map_action = ""
 	diagnostic_focus = {}
 
@@ -31,6 +39,12 @@ func choose_map(value: String, encounter := "") -> void:
 
 func choose_dialogue(value: String) -> void:
 	dialogue_id = value
+
+
+func take_army_action() -> String:
+	var value := army_action
+	army_action = ""
+	return value
 
 
 func request_map_action(value: String) -> void:
@@ -59,5 +73,9 @@ func clear() -> void:
 	map_id = ""
 	encounter_id = ""
 	dialogue_id = ""
+	member_id = ""
+	army_action = ""
+	guided_workflow = false
+	hub_action = ""
 	map_action = ""
 	diagnostic_focus = {}

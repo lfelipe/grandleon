@@ -410,6 +410,7 @@ func _run() -> void:
 		_expect("shared baseline can be copied safely", str(detached.unitTypes[0].classId) != str(detached.unitTypes[-1].classId), true)
 		_expect("detached baseline enables stat tuning", editor.role_stat_buttons[0].disabled, false)
 
+	await _exercise_guided_character_archetype()
 	var screenshot_path := _argument_path("--screenshot=")
 	if not screenshot_path.is_empty():
 		if _has_argument("--role-preview"):
@@ -563,3 +564,55 @@ func _expect(label: String, actual: Variant, expected: Variant) -> void:
 	if actual != expected:
 		failures += 1
 		push_error("%s: expected %s, got %s" % [label, expected, actual])
+
+
+func _exercise_guided_character_archetype() -> void:
+	var context = root.get_node("CreatorContext")
+	var original_project: String = context.project_id
+	var original_campaign: String = context.campaign_id
+	var original_member: String = context.member_id
+	var original_guided: bool = context.guided_workflow
+	var library = ProjectLibrary.new()
+	var fixture := FileAccess.get_file_as_string("res://content/templates/starter_campaign.json").replace(
+		'"name": "Young Adept"', '"name": "Young Mage"'
+	).replace('"name": "Second Hero"', '"name": "Apprentice Mage"')
+	var made: Dictionary = library.create_project("Preserved hero appearance", fixture)
+	_expect("mage-template project is valid", made.get("ok", false), true)
+	if not made.get("ok", false): return
+	context.open_project(str(made.id))
+	var hero = load("res://army_editor.tscn").instantiate()
+	root.add_child(hero)
+	await process_frame
+	await process_frame
+	var before: Dictionary = hero.compiler.source_character_preview(hero.source, "second_hero")
+	_expect("real guided template initially draws as a mage", int(before.get("archetype", -1)), 2)
+	hero._open_add()
+	hero._open_guided_character()
+	hero._select_metadata(hero.guide_template, "second_hero")
+	hero._apply_guide_template_defaults()
+	hero.guide_name.text = "Elin"
+	hero.guide_role_name.text = "Scholar"
+	hero._create_guided_character()
+	var member: Dictionary = hero._current_member()
+	var unit_id := str(member.get("unitTypeId", ""))
+	var unit: Dictionary = hero._unit_type(unit_id)
+	var role: Dictionary = hero._member_class(member)
+	_expect("guided creation retains the exact hero name", str(member.get("name", "")), "Elin")
+	_expect("guided creation retains the exact role name", str(unit.get("name", "")), "Scholar")
+	_expect("guided creation retains the exact class name", str(role.get("name", "")), "Scholar")
+	_expect("guided role records the template's visual identity", str(unit.get("characterArchetypeId", "")), "mage")
+	var after: Dictionary = hero.compiler.source_character_preview(hero.source, unit_id)
+	_expect("custom role name cannot turn a Mage into a Knight", int(after.get("archetype", -1)), 2)
+	_expect("visual identity keeps the selected style", after.get("style"), before.get("style"))
+	_expect("visual identity keeps the selected figure", after.get("figure"), before.get("figure"))
+	_expect("hero appearance saves through the real library", hero._save(), true)
+	var loaded: Dictionary = library.load_source(str(made.id))
+	var reopened: Dictionary = hero.compiler.source_character_preview(str(loaded.source), unit_id)
+	_expect("the saved hero reopens with the original visual archetype", int(reopened.get("archetype", -1)), 2)
+	_expect("the saved hero compiles portably", hero.compiler.compile_source_json(str(loaded.source)).get("ok", false), true)
+	hero.queue_free()
+	await process_frame
+	context.open_project(original_project)
+	context.choose_campaign(original_campaign)
+	context.member_id = original_member
+	context.guided_workflow = original_guided

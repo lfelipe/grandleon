@@ -50,6 +50,8 @@ var save_button: Button
 var undo_button: Button
 var redo_button: Button
 var play_button: Button
+var preview_campaign_select: OptionButton
+var preview_player_select: OptionButton
 var previous_button: Button
 var next_button: Button
 var add_line_button: Button
@@ -192,6 +194,7 @@ func _read_source() -> bool:
 				dialogue_index = index
 				break
 	_collect_story_options()
+	_refresh_preview_campaigns()
 	return true
 
 
@@ -1328,6 +1331,48 @@ func _integer_numbers(value: Variant) -> Variant:
 	return value
 
 
+func _refresh_preview_campaigns() -> void:
+	if preview_campaign_select == null:
+		return
+	var preferred := CreatorContext.campaign_id
+	preview_campaign_select.clear()
+	for value: Variant in project.get("campaigns", []):
+		if not value is Dictionary:
+			continue
+		preview_campaign_select.add_item(str(value.get("name", value.get("id", ""))))
+		preview_campaign_select.set_item_metadata(preview_campaign_select.item_count - 1, str(value.get("id", "")))
+		if str(value.get("id", "")) == preferred:
+			preview_campaign_select.select(preview_campaign_select.item_count - 1)
+	preview_campaign_select.disabled = preview_campaign_select.item_count <= 1
+	_select_preview_campaign(preview_campaign_select.selected)
+
+
+func _preview_campaign() -> Dictionary:
+	if preview_campaign_select == null or preview_campaign_select.selected < 0:
+		return {}
+	var identity := str(preview_campaign_select.get_selected_metadata())
+	for value: Variant in project.get("campaigns", []):
+		if value is Dictionary and str(value.get("id", "")) == identity:
+			return value
+	return {}
+
+
+func _select_preview_campaign(_index: int) -> void:
+	var selected := _preview_campaign()
+	CreatorContext.choose_campaign(str(selected.get("id", "")))
+	var previous := int(preview_player_select.get_selected_metadata()) if preview_player_select.selected >= 0 else 1
+	preview_player_select.clear()
+	var mode := str(selected.get("playerMode", "one"))
+	for players: int in [1, 2]:
+		if (mode == "one" and players == 2) or (mode == "two" and players == 1):
+			continue
+		preview_player_select.add_item(_t("translations.preview.player_count", {"count": players}))
+		preview_player_select.set_item_metadata(preview_player_select.item_count - 1, players)
+		if players == previous:
+			preview_player_select.select(preview_player_select.item_count - 1)
+	preview_player_select.disabled = preview_player_select.item_count <= 1
+
+
 func _play_draft() -> void:
 	if not _commit_visible_line(false):
 		return
@@ -1340,17 +1385,21 @@ func _play_draft() -> void:
 			"detail": _diagnostic_detail(compiled),
 		}), true)
 		return
-	var campaigns: Array = project.get("campaigns", [])
-	if campaigns.is_empty() or not campaigns[0] is Dictionary:
+	var selected_campaign := _preview_campaign()
+	if selected_campaign.is_empty():
 		_set_status(_t("story.error.add_campaign"), true)
 		return
-	var campaign := str(campaigns[0].get("id", ""))
+	var campaign := str(selected_campaign.get("id", ""))
 	if campaign.is_empty():
 		_set_status(_t("story.error.campaign_id"), true)
 		return
 	if dirty and not _save():
 		return
-	LaunchContext.stage_package(compiled.package, campaign, true)
+	CreatorContext.choose_dialogue(str(_current_dialogue().get("id", "")))
+	LaunchContext.stage_package(
+		compiled.package, campaign, true, int(preview_player_select.get_selected_metadata()),
+		"res://story_editor.tscn", str(selected_campaign.get("name", ""))
+	)
 	get_tree().change_scene_to_file("res://main.tscn")
 
 
@@ -1364,6 +1413,12 @@ func _request_projects() -> void:
 
 func _request_leave(destination: String) -> void:
 	if not _commit_visible_line(false):
+		return
+	if CreatorContext.guided_workflow:
+		if dirty and not _save():
+			return
+		CreatorContext.choose_dialogue(str(_current_dialogue().get("id", "")))
+		get_tree().change_scene_to_file("res://first_battle.tscn")
 		return
 	if destination != "projects" and dirty and not _save():
 		return
@@ -1527,11 +1582,22 @@ func _build_interface() -> void:
 	undo_button = _button(_t("story.undo"), 170, 58)
 	undo_button.pressed.connect(_undo)
 	toolbar.add_child(undo_button)
+	preview_campaign_select = OptionButton.new()
+	preview_campaign_select.custom_minimum_size = Vector2(220, 58)
+	preview_campaign_select.fit_to_longest_item = false
+	preview_campaign_select.clip_text = true
+	preview_campaign_select.tooltip_text = _t("translations.preview.campaign")
+	preview_campaign_select.item_selected.connect(_select_preview_campaign)
+	toolbar.add_child(preview_campaign_select)
+	preview_player_select = OptionButton.new()
+	preview_player_select.custom_minimum_size = Vector2(120, 58)
+	preview_player_select.tooltip_text = _t("translations.preview.players")
+	toolbar.add_child(preview_player_select)
 	play_button = _button(_t("story.test"), 270, 58)
 	play_button.tooltip_text = _t("story.test_tooltip")
 	play_button.pressed.connect(_play_draft)
 	toolbar.add_child(play_button)
-	var maps_button := _button(_t("story.back_map"), 230, 58)
+	var maps_button := _button(_t("first_battle.back" if CreatorContext.guided_workflow else "story.back_map"), 230, 58)
 	maps_button.tooltip_text = _t("story.back_map_tooltip")
 	maps_button.pressed.connect(_request_maps)
 	toolbar.add_child(maps_button)

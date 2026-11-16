@@ -93,6 +93,8 @@ func _run() -> void:
 		_expect("export removes runtime saves", DirAccess.dir_exists_absolute(output.path_join("runtime")), false)
 		_expect("export removes local controls", FileAccess.file_exists(output.path_join("controls.local.json")), false)
 		_expect("export removes creator scenes", FileAccess.file_exists(output.path_join("project/creator.tscn")), false)
+		for creator_file: String in ["first_battle.tscn", "campaign_editor.tscn", "scripts/creator/first_battle.gd", "scripts/creator/campaign_editor.gd"]:
+			_expect("export removes authoring workflow: " + creator_file, FileAccess.file_exists(output.path_join("project/" + creator_file)), false)
 		_expect("export removes Game Settings", FileAccess.file_exists(output.path_join("project/game_settings.tscn")), false)
 		_expect("export removes source templates", DirAccess.dir_exists_absolute(output.path_join("project/content/templates")), false)
 		_expect("export removes creator implementation", FileAccess.file_exists(output.path_join("project/scripts/creator/creator_screen.gd")), false)
@@ -223,6 +225,8 @@ func _make_fake_shell(root_path: String) -> void:
 	_write(root_path.path_join(_extension_name()), "fake extension\n")
 	_write(root_path.path_join("project/game.gpk"), "old package\n")
 	_write(root_path.path_join("project/creator.tscn"), "creator\n")
+	for creator_file: String in ["first_battle.tscn", "campaign_editor.tscn", "scripts/creator/first_battle.gd", "scripts/creator/campaign_editor.gd"]:
+		_write(root_path.path_join("project/" + creator_file), "authoring workflow\n")
 	_write(root_path.path_join("project/game_settings.tscn"), "settings\n")
 	_write(root_path.path_join("project/scripts/creator/creator_screen.gd"), "creator\n")
 	_write(root_path.path_join("project/scripts/creator/campaign_readiness.gd"), "readiness\n")

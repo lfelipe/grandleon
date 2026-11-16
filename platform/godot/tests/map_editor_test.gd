@@ -330,6 +330,54 @@ func _run() -> void:
 	for index in castle_pieces.size(): editor._undo()
 	_expect("castle painting undoes without affecting the campaign", editor.source, castle_original_source)
 	editor.redo_stack.clear()
+	var doorway_original: String = editor.source
+	editor._select_terrain("paved_castle_door")
+	_expect("doorway selects the single-stamp brush", editor.active_tool, "brush")
+	_expect("doorway does not offer a misleading flood fill", editor.tool_buttons.fill.disabled, true)
+	editor._preview_doorway(4, 6)
+	_expect("doorway previews its first cell", editor.grid.get_child(4).has_node("DoorwayPreview"), true)
+	_expect("doorway previews its second cell", editor.grid.get_child(10).has_node("DoorwayPreview"), true)
+	var doorway_undo: int = editor.undo_stack.size()
+	editor._paint_cell(4)
+	_expect("one click places both doorway cells", _parse(editor.source).maps[0].terrain.count("paved_castle_door"), 2)
+	_expect("doorway stamp is one undo step", editor.undo_stack.size(), doorway_undo + 1)
+	var stamped_source: String = editor.source
+	editor._paint_cell(10)
+	_expect("clicking an existing arch does not extend it", editor.source, stamped_source)
+	editor._paint_cell(16)
+	_expect("a joined third doorway cell is refused atomically", editor.source, stamped_source)
+	editor._paint_cell(22)
+	_expect("bottom-edge doorway cannot leave a partial stamp", editor.source, stamped_source)
+	editor._undo()
+	_expect("one undo removes the complete doorway", editor.source, doorway_original)
+	editor._redo()
+	_expect("redo restores both doorway cells", editor.source, stamped_source)
+	editor._undo()
+	await process_frame
+	await process_frame
+	var doorway_touch := InputEventScreenTouch.new()
+	doorway_touch.index = 0
+	doorway_touch.pressed = true
+	doorway_touch.position = editor.grid.get_child(4).get_global_rect().get_center()
+	root.push_input(doorway_touch, true)
+	await process_frame
+	var doorway_drag := InputEventScreenDrag.new()
+	doorway_drag.index = 0
+	doorway_drag.position = editor.grid.get_child(5).get_global_rect().get_center()
+	root.push_input(doorway_drag, true)
+	await process_frame
+	doorway_touch.pressed = false
+	doorway_touch.position = doorway_drag.position
+	root.push_input(doorway_touch, true)
+	await process_frame
+	_expect("one touch gesture stamps one arch instead of a trail", _parse(editor.source).maps[0].terrain.count("paved_castle_door"), 2)
+	_expect("touch stamp remains anchored to the pressed tile", _parse(editor.source).maps[0].terrain[4], "paved_castle_door")
+	_expect("touch stamp includes the second footprint cell", _parse(editor.source).maps[0].terrain[10], "paved_castle_door")
+	editor._undo()
+	_expect("touch doorway also undoes in one step", editor.source, doorway_original)
+	editor._select_terrain("grass")
+	_expect("ordinary terrain restores fill", editor.tool_buttons.fill.disabled, false)
+	editor.redo_stack.clear()
 	var visibility_original_source: String = editor.source
 	editor._open_visibility()
 	_expect("interior visibility controls open", editor.interior_visibility_layer.visible, true)
@@ -1227,6 +1275,7 @@ func _run() -> void:
 	var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 	_expect("saved edit compiles", compiler.compile_source_json(stored.source).ok, true)
 
+	var editor_preview_players: int = editor.preview_players
 	editor._play_draft()
 	# Draft compilation and the native campaign worker are asynchronous. Wait for
 	# both the scene handoff and its separate presentation event instead of
@@ -1243,6 +1292,8 @@ func _run() -> void:
 	if current_scene.name == "PC":
 		_expect("edited draft campaign selected", current_scene.campaign_key, "demo_campaign")
 		_expect("edited draft is marked as a preview", current_scene.draft_preview, true)
+		_expect("map test uses the selected solo/co-op preview", current_scene.player_count, editor_preview_players)
+		_expect("map test returns to the map editor", current_scene.preview_return_scene, "res://map_editor.tscn")
 		_expect("draft preview cannot alter installed checkpoints", current_scene.campaign_save_root, "")
 		_expect("draft publishes outside presentation", current_scene.battle_surroundings.get("mode", ""), "blend")
 		_expect("draft publishes every decorative perimeter cell", current_scene.battle_surroundings.get("terrain", []).size(), 78)

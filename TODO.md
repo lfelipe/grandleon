@@ -184,6 +184,25 @@ victory, checkpoint save and offline resume without modifying built-in saves.
 The Android development APK includes the same browser; device validation is
 tracked above.
 
+### First battle and named characters
+
+- [x] Start new adventures with a heroes-first battle guide, then map, forces,
+  goals and real solo/co-op playtests. Keep the same editing context on return
+  and let creators add the next battle when ready. Enemy extras reuse existing
+  archetypes rather than requiring unique character definitions.
+- [x] Preserve a copied character's visual archetype independently of custom
+  names. Existing campaigns retain their compiled presentation and save format.
+- [x] Preserve pending translation text across navigation, search, filters,
+  preview and PO export; keep translated forms usable on phone/tablet layouts.
+- [ ] Give named roster members multiple personal weapon affinities and their
+  own starting weapons, independent of role/class changes. Enforce the same
+  rules across all players while preserving legacy campaigns.
+- [ ] Add per-character defeat choices: permanent death, withdrawal and return,
+  or a required hero whose defeat follows the battle's loss route. Keep this
+  on the main roster and handle simultaneous outcomes consistently.
+- [ ] Complete direct console parity checks for those character rules,
+  including defeated roster members, save/reload and newly acquired weapons.
+
 ### Graphics and animation
 
 Prioritize visibly richer console scenes, then profile and recover performance.
@@ -435,6 +454,18 @@ iOS exports remain later milestones; they are not part of the 0.6 scope.
   a final boss battle. Give solo and local co-op distinct, balanced experiences.
   Treat the current Steel and Cedar campaign as a feature and translation test
   while this design work is planned.
+
+## Loot and shops
+
+- [ ] Add gold and weapon rewards from battles, enemies and map interactions.
+  Keep a shared gold purse and supply store distinct from each hero's usable
+  loadout, so an affinity never silently destroys incompatible loot.
+- [ ] Let creators place simple shops between stages or in appropriate places,
+  choosing stock, prices and availability. Check affordability and capacity,
+  preserve purchases in saves, and support both solo and co-op campaigns.
+- [ ] Keep ordinary allied extras easy to author from archetypes with an
+  explicit battle-only lifetime; promoting one to a recurring hero should be
+  deliberate rather than required just to populate a map.
 
 ## Creator audio customization
 

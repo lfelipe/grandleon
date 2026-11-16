@@ -350,6 +350,10 @@ func _load_project() -> void:
 	var requested_action: String = CreatorContext.take_map_action()
 	if requested_action == "add_chapter":
 		call_deferred("_open_new_chapter")
+	elif requested_action == "place_sides":
+		call_deferred("_open_add_placement")
+	elif requested_action == "objectives":
+		call_deferred("_open_objectives")
 	else:
 		map_select.call_deferred("grab_focus")
 
@@ -697,12 +701,20 @@ func _select_terrain(name: String) -> void:
 		_select_tool(str(landmark.tool))
 		return
 	selected_terrain = name
+	_clear_doorway_preview()
+	if name == "paved_castle_door":
+		_select_tool("brush")
+	_update_tool_selection()
 	_update_palette_selection()
 	_set_status(_t("map.status.terrain", {"terrain": _terrain_label(name)}), false)
 	_focus_cell(0)
 
 
 func _select_tool(name: String) -> void:
+	_clear_doorway_preview()
+	if name in ["fill", "rectangle"] and selected_terrain == "paved_castle_door":
+		_set_status(_t("map.terrain.paved_castle_door.help"), false)
+		return
 	if mobile_pan_button != null:
 		mobile_pan_button.set_pressed_no_signal(false)
 		mobile_pan_mode = false
@@ -742,6 +754,7 @@ func _select_tool(name: String) -> void:
 func _update_tool_selection() -> void:
 	for name: String in tool_buttons:
 		var button: Button = tool_buttons[name]
+		button.disabled = name in ["fill", "rectangle"] and selected_terrain == "paved_castle_door"
 		var landmark := LANDMARKS.has(name)
 		if landmark and name != selected_landmark_tool:
 			continue # Landmark types share one stamp button.
@@ -908,6 +921,8 @@ func _refresh_grid(focus_index := -1) -> void:
 				_add_objective_marker(cell, objective_targets_by_cell[index])
 			cell.set_meta("terrain_index", index)
 			cell.pressed.connect(_paint_cell.bind(index))
+			cell.mouse_entered.connect(_preview_doorway.bind(index, width))
+			cell.mouse_exited.connect(_clear_doorway_preview)
 			grid.add_child(cell)
 	if focus_index >= 0:
 		call_deferred("_focus_cell", focus_index)
@@ -1372,6 +1387,15 @@ func _paint_cell(index: int) -> void:
 		_place_landmark_at(index, width, terrain, active_tool)
 	elif active_tool == "landmark_remove":
 		_remove_landmark_at(index, width, terrain)
+	elif selected_terrain == "paved_castle_door" and active_tool == "brush":
+		var footprint := _doorway_stamp(index, width, terrain)
+		if not footprint.ok:
+			_set_status(_t(str(footprint.error)), true)
+			_focus_cell(index)
+			return
+		var changed := terrain.duplicate()
+		for cell: int in footprint.cells: changed[cell] = selected_terrain
+		_apply_terrain(changed, index, _t("map.edit.painted", {"terrain": _terrain_label(selected_terrain)}))
 	elif active_tool == "fill":
 		_fill_from(index, width, terrain)
 	elif active_tool == "rectangle":
@@ -1380,6 +1404,48 @@ func _paint_cell(index: int) -> void:
 		var changed := terrain.duplicate()
 		changed[index] = selected_terrain
 		_apply_terrain(changed, index, _t("map.edit.painted", {"terrain": _terrain_label(selected_terrain)}))
+
+
+func _doorway_stamp(index: int, width: int, terrain: Array) -> Dictionary:
+	if width <= 0 or index < 0 or index >= terrain.size():
+		return {"ok": false, "error": "map.castle.doorway_needs_space", "cells": []}
+	# Clicking either half of an existing doorway never extends or duplicates it.
+	if str(terrain[index]) == "paved_castle_door":
+		return {"ok": true, "cells": []}
+	if index + width >= terrain.size():
+		return {"ok": false, "error": "map.castle.doorway_needs_space", "cells": []}
+	for neighbour: int in [index - width, index + width, index + width * 2]:
+		if neighbour >= 0 and neighbour < terrain.size() and str(terrain[neighbour]) == "paved_castle_door":
+			return {"ok": false, "error": "map.castle.doorway_overlap", "cells": []}
+	return {"ok": true, "cells": [index, index + width]}
+
+
+func _clear_doorway_preview() -> void:
+	if grid == null: return
+	for cell: Node in grid.get_children():
+		var preview := cell.get_node_or_null("DoorwayPreview")
+		if preview != null:
+			cell.remove_child(preview)
+			preview.queue_free()
+
+
+func _preview_doorway(index: int, width: int) -> void:
+	_clear_doorway_preview()
+	if active_tool != "brush" or selected_terrain != "paved_castle_door": return
+	var footprint := _doorway_stamp(index, width, _current_map().get("terrain", []))
+	var cells: Array = footprint.cells if footprint.ok else [index]
+	for cell: Node in grid.get_children():
+		if not cells.has(int(cell.get_meta("terrain_index", -1))): continue
+		var preview := Panel.new()
+		preview.name = "DoorwayPreview"
+		preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var border := StyleBoxFlat.new()
+		border.bg_color = Color(0.9, 0.7, 0.25, 0.10) if footprint.ok else Color(0.9, 0.2, 0.2, 0.10)
+		border.border_color = Color("f4d181") if footprint.ok else Color("ff7a83")
+		border.set_border_width_all(3)
+		preview.add_theme_stylebox_override("panel", border)
+		cell.add_child(preview)
+		preview.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 
 func _landmark_footprint_blocker(cells: Array[int], width: int) -> String:
@@ -4268,7 +4334,10 @@ func _play_draft() -> void:
 		return
 	if dirty and not _save():
 		return
-	LaunchContext.stage_package(compiled.package, campaign, true)
+	LaunchContext.stage_package(
+		compiled.package, campaign, true, preview_players,
+		"res://map_editor.tscn", _t("map.test")
+	)
 	get_tree().change_scene_to_file("res://main.tscn")
 
 
@@ -4285,6 +4354,10 @@ func _open_army() -> void:
 
 
 func _request_projects() -> void:
+	if CreatorContext.guided_workflow:
+		if dirty and not _save(): return
+		get_tree().change_scene_to_file("res://first_battle.tscn")
+		return
 	if dirty and Time.get_ticks_msec() > discard_armed_until:
 		discard_armed_until = Time.get_ticks_msec() + 3500
 		_set_status(_t("map.error.unsaved_changes"), true)
@@ -4408,9 +4481,9 @@ func _build_interface() -> void:
 	play_button.tooltip_text = _t("map.test_tooltip")
 	play_button.pressed.connect(_play_draft)
 	toolbar.add_child(play_button)
-	var story := _button(_t("map.next_story"), 220, 58)
-	story.tooltip_text = _t("map.next_story_tooltip")
-	story.pressed.connect(_open_story)
+	var story := _button(_t("first_battle.back") if CreatorContext.guided_workflow else _t("map.next_story"), 220, 58)
+	story.tooltip_text = _t("first_battle.back") if CreatorContext.guided_workflow else _t("map.next_story_tooltip")
+	story.pressed.connect(_request_projects if CreatorContext.guided_workflow else _open_story)
 	toolbar.add_child(story)
 	more_button = _button(_t("map.more"), 160, 58)
 	more_button.pressed.connect(_open_more)
@@ -6607,9 +6680,21 @@ func _touch_brush_at(position: Vector2) -> void:
 		if not child.get_global_rect().has_point(position): continue
 		var index := int(child.get_meta("terrain_index"))
 		if index >= 0 and index < touch_brush_terrain.size():
-			touch_brush_terrain[index] = selected_terrain
+			if selected_terrain == "paved_castle_door":
+				if touch_brush_last >= 0: return
+				var width := int(_current_map().get("width", 0))
+				var footprint := _doorway_stamp(index, width, touch_brush_terrain)
+				if not footprint.ok:
+					_set_status(_t(str(footprint.error)), true)
+					return
+				for cell_index: int in footprint.cells: touch_brush_terrain[cell_index] = selected_terrain
+				for cell: Node in grid.get_children():
+					if cell is Control and footprint.cells.has(int(cell.get_meta("terrain_index", -1))):
+						cell.self_modulate = Color("69d9ff")
+			else:
+				touch_brush_terrain[index] = selected_terrain
+				child.self_modulate = Color("69d9ff")
 			touch_brush_last = index
-			child.self_modulate = Color("69d9ff")
 		return
 
 

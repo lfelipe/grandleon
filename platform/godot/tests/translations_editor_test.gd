@@ -199,8 +199,7 @@ func _run() -> void:
 		_expect("localized project compiles portably", compiled.ok, true)
 		_expect("localized package carries more than an empty envelope", compiled.package.size() > 64, true)
 
-	editor.queue_free()
-	await process_frame
+	await _verify_draft_navigation(editor, library, str(created.id))
 	if failures == 0:
 		print("translations editor smoke passed")
 	quit(1 if failures > 0 else 0)
@@ -217,3 +216,113 @@ func _messages_contain_source(messages: Array[Dictionary], needle: String) -> bo
 		if str(message.get("source", "")).contains(needle):
 			return true
 	return false
+
+
+class FailedSaveLibrary:
+	extends RefCounted
+	func save_source(_project_id: String, _source: String) -> Dictionary:
+		return {"ok": false, "message": "Review test storage failure"}
+
+
+func _select_message_id(editor: Control, identity: String) -> void:
+	for index: int in editor.message_list.item_count:
+		if str(editor.message_list.get_item_metadata(index)) == identity:
+			editor.message_list.select(index)
+			editor.message_list.item_selected.emit(index)
+			return
+	_expect("message is available for ordinary selection: " + identity, false, true)
+
+
+func _type_translation(editor: Control, text: String) -> void:
+	editor.translation_input.text = text
+	editor.translation_input.text_changed.emit()
+
+
+func _stored_translation(library: RefCounted, project_id: String, language: String, identity: String) -> String:
+	var stored: Dictionary = library.load_source(project_id)
+	for catalog: Dictionary in stored.project.get("translations", []):
+		if str(catalog.language) != language:
+			continue
+		for entry: Dictionary in catalog.get("entries", []):
+			if str(entry.id) == identity:
+				return str(entry.text)
+	return ""
+
+
+func _verify_draft_navigation(editor: Control, library: RefCounted, project_id: String) -> void:
+	editor.filter_select.select(0)
+	editor.filter_select.item_selected.emit(0)
+	for option: int in editor.language_select.item_count:
+		if str(editor.language_select.get_item_metadata(option)) == "pt-BR":
+			editor.language_select.select(option)
+			editor.language_select.item_selected.emit(option)
+	_select_message_id(editor, "project.title")
+	_type_translation(editor, "Uma nova aventura")
+	_expect("typing exposes an explicit enabled Save action", editor.save_translation_button.disabled, false)
+	_select_message_id(editor, "objectives.defeat_all_opponents.name")
+	_expect("selecting another message preserves the previous draft on disk", _stored_translation(library, project_id, "pt-BR", "project.title"), "Uma nova aventura")
+	_type_translation(editor, "Proteja a estrada")
+	editor.search_input.text = "title"
+	editor.search_input.text_changed.emit("title")
+	_expect("searching preserves the current translation before rebuilding the list", _stored_translation(library, project_id, "pt-BR", "objectives.defeat_all_opponents.name"), "Proteja a estrada")
+	_expect("the search applies normally after saving", editor.message_list.item_count, 1)
+	_type_translation(editor, "O caminho de volta")
+	editor.filter_select.select(1)
+	editor.filter_select.item_selected.emit(1)
+	_expect("filtering saves the visible draft before hiding it", _stored_translation(library, project_id, "pt-BR", "project.title"), "O caminho de volta")
+	_expect("translated draft leaves the missing-only list", editor.message_list.item_count, 0)
+	editor.filter_select.select(0)
+	editor.filter_select.item_selected.emit(0)
+	editor.search_input.text = ""
+	editor.search_input.text_changed.emit("")
+	_select_message_id(editor, "project.title")
+	_type_translation(editor, "A estrada de casa")
+	for option: int in editor.language_select.item_count:
+		if str(editor.language_select.get_item_metadata(option)) == "es":
+			editor.language_select.select(option)
+			editor.language_select.item_selected.emit(option)
+	_expect("switching language saves under the original language", _stored_translation(library, project_id, "pt-BR", "project.title"), "A estrada de casa")
+	_expect("switching language never copies the previous draft to the next language", _stored_translation(library, project_id, "es", "project.title"), "")
+	_type_translation(editor, "El camino de casa")
+	var preview: Dictionary = editor._language_preview_request()
+	_expect("preview commits pending text before compiling", preview.get("ok", false), true)
+	_expect("preview uses the newly saved translation", _stored_translation(library, project_id, "es", "project.title"), "El camino de casa")
+	_type_translation(editor, "El camino iluminado")
+	var po_path := "user://pending-draft.po"
+	_expect("PO export accepts and saves pending text", editor._export_po_to(po_path), true)
+	_expect("PO export includes the field's latest text", FileAccess.get_file_as_string(po_path).contains("El camino iluminado"), true)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(po_path))
+
+	# A failed save must leave the original message, language and draft intact.
+	editor.library = FailedSaveLibrary.new()
+	_type_translation(editor, "Texto que no se debe perder")
+	_select_message_id(editor, "objectives.defeat_all_opponents.name")
+	_expect("failed save keeps the original message selected", editor.selected_message_id, "project.title")
+	_expect("failed save keeps the visible selection consistent", str(editor.message_list.get_item_metadata(editor.message_list.get_selected_items()[0])), "project.title")
+	editor.search_input.text = "unmatched"
+	editor.search_input.text_changed.emit("unmatched")
+	_expect("failed save restores the last applied search", editor.search_input.text, "")
+	editor.filter_select.select(1)
+	editor.filter_select.item_selected.emit(1)
+	_expect("failed save restores the previous filter", editor.filter_select.selected, 0)
+	for option: int in editor.language_select.item_count:
+		if str(editor.language_select.get_item_metadata(option)) == "pt-BR":
+			editor.language_select.select(option)
+			editor.language_select.item_selected.emit(option)
+	_expect("failed save keeps the original translation language", editor.selected_language, "es")
+	_expect("failed save keeps the language control consistent", str(editor.language_select.get_item_metadata(editor.language_select.selected)), "es")
+	editor._preview_selected_language()
+	_expect("failed preview stays in the editor", current_scene == editor, true)
+	editor._back_to_projects()
+	_expect("failed Back stays in the editor", current_scene == editor, true)
+	_expect("all failed actions retain the exact pending text", editor.translation_input.text, "Texto que no se debe perder")
+	editor.discard_translation_button.pressed.emit()
+	_expect("explicit discard restores only the saved field", editor.translation_input.text, "El camino iluminado")
+	_expect("discard leaves the saved translation unchanged", _stored_translation(library, project_id, "es", "project.title"), "El camino iluminado")
+	editor.library = library
+	_type_translation(editor, "La aventura continúa")
+	editor._back_to_projects()
+	_expect("Back saves the latest field before leaving", _stored_translation(library, project_id, "es", "project.title"), "La aventura continúa")
+	await process_frame
+	await process_frame
+	_expect("successful Back reaches the projects screen", current_scene.scene_file_path, "res://creator.tscn")

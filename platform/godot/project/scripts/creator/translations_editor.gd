@@ -20,6 +20,8 @@ var visible_messages: Array[Dictionary] = []
 var selected_language := ""
 var selected_message_id := ""
 var active_filter := "all"
+var applied_search := ""
+var loaded_translation_text := ""
 
 var title_label: Label
 var source_language_input: LineEdit
@@ -34,6 +36,8 @@ var translation_input: TextEdit
 var preview_label: Label
 var status_label: Label
 var save_translation_button: Button
+var discard_translation_button: Button
+var mobile_layout_pending := false
 var export_po_button: Button
 var import_po_button: Button
 var export_po_dialog: FileDialog
@@ -265,16 +269,25 @@ func _build_interface() -> void:
 	background.color = Color("07111b")
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(background)
+	var frame := MarginContainer.new()
+	frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	frame.add_theme_constant_override("margin_left", 60)
+	frame.add_theme_constant_override("margin_right", 60)
+	frame.add_theme_constant_override("margin_top", 34)
+	frame.add_theme_constant_override("margin_bottom", 30)
+	add_child(frame)
+	var contents := VBoxContainer.new()
+	contents.add_theme_constant_override("separation", 12)
+	frame.add_child(contents)
 	title_label = _label(_t("translations.heading"), 30, Color("f2f7f9"))
-	title_label.position = Vector2(60, 34)
-	title_label.size = Vector2(1800, 50)
-	add_child(title_label)
+	title_label.custom_minimum_size.y = 50
+	title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title_label.max_lines_visible = 1
+	title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	contents.add_child(title_label)
 
-	var top := HBoxContainer.new()
-	top.position = Vector2(60, 98)
-	top.size = Vector2(1800, 70)
-	top.add_theme_constant_override("separation", 12)
-	add_child(top)
+	var top_scroll := _horizontal_actions(contents)
+	var top: HBoxContainer = top_scroll.get_child(0)
 	top.add_child(_label(_t("translations.source_language"), 17, Color("69d9ff")))
 	source_language_input = LineEdit.new()
 	source_language_input.custom_minimum_size = Vector2(150, 54)
@@ -301,11 +314,8 @@ func _build_interface() -> void:
 	portuguese.pressed.connect(_add_language_code.bind("pt-BR"))
 	top.add_child(portuguese)
 
-	var filters := HBoxContainer.new()
-	filters.position = Vector2(60, 177)
-	filters.size = Vector2(1800, 60)
-	filters.add_theme_constant_override("separation", 12)
-	add_child(filters)
+	var filters_scroll := _horizontal_actions(contents)
+	var filters: HBoxContainer = filters_scroll.get_child(0)
 	filters.add_child(_label(_t("translations.show"), 17, Color("69d9ff")))
 	filter_select = OptionButton.new()
 	filter_select.custom_minimum_size = Vector2(250, 50)
@@ -331,24 +341,34 @@ func _build_interface() -> void:
 	import_po_button.pressed.connect(_choose_po_import)
 	filters.add_child(import_po_button)
 
+	var body := HBoxContainer.new()
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.add_theme_constant_override("separation", 24)
+	contents.add_child(body)
 	var left := PanelContainer.new()
-	left.position = Vector2(60, 250)
-	left.size = Vector2(760, 690)
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left.size_flags_stretch_ratio = 0.42
 	left.add_theme_stylebox_override("panel", _panel(Color("0c1d29"), Color(0.20, 0.62, 0.78, 0.35)))
-	add_child(left)
+	body.add_child(left)
 	message_list = ItemList.new()
+	message_list.max_text_lines = 2
 	message_list.add_theme_font_size_override("font_size", 17)
 	message_list.item_selected.connect(_select_message)
 	left.add_child(message_list)
 
 	var right := PanelContainer.new()
-	right.position = Vector2(845, 250)
-	right.size = Vector2(1015, 690)
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right.size_flags_stretch_ratio = 0.58
 	right.add_theme_stylebox_override("panel", _panel(Color("0c1d29"), Color(0.20, 0.62, 0.78, 0.35)))
-	add_child(right)
+	body.add_child(right)
+	var editor_scroll := ScrollContainer.new()
+	editor_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	editor_scroll.follow_focus = true
+	right.add_child(editor_scroll)
 	var column := VBoxContainer.new()
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.add_theme_constant_override("separation", 10)
-	right.add_child(column)
+	editor_scroll.add_child(column)
 	column.add_child(_label(_t("translations.source_copy"), 16, Color("69d9ff")))
 	source_label = _label(_t("translations.choose_string"), 20, Color("f2f7f9"))
 	source_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -358,11 +378,17 @@ func _build_interface() -> void:
 	translation_input = TextEdit.new()
 	translation_input.custom_minimum_size.y = 190
 	translation_input.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
+	translation_input.text_changed.connect(_translation_changed)
+	translation_input.theme_changed.connect(_schedule_mobile_list_metrics)
 	column.add_child(translation_input)
 	save_translation_button = _button(_t("translations.save_translation"), 0)
 	save_translation_button.disabled = true
 	save_translation_button.pressed.connect(_save_translation)
 	column.add_child(save_translation_button)
+	discard_translation_button = _button(_t("translations.discard"), 0)
+	discard_translation_button.disabled = true
+	discard_translation_button.pressed.connect(_discard_translation)
+	column.add_child(discard_translation_button)
 	column.add_child(_label(_t("translations.player_preview"), 16, Color("69d9ff")))
 	preview_label = _label("", 19, Color("a9bdc9"))
 	preview_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -370,31 +396,62 @@ func _build_interface() -> void:
 	column.add_child(preview_label)
 
 	status_label = _label("", 16, Color("a9bdc9"))
-	status_label.position = Vector2(60, 960)
-	status_label.size = Vector2(980, 55)
-	add_child(status_label)
+	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	status_label.custom_minimum_size.y = 40
+	contents.add_child(status_label)
+	var preview_scroll := _horizontal_actions(contents)
+	var preview_actions: HBoxContainer = preview_scroll.get_child(0)
 	preview_campaign_select = OptionButton.new()
-	preview_campaign_select.position = Vector2(1060, 952)
-	preview_campaign_select.size = Vector2(210, 62)
+	preview_campaign_select.custom_minimum_size = Vector2(320, 62)
+	preview_campaign_select.fit_to_longest_item = false
+	preview_campaign_select.clip_text = true
 	preview_campaign_select.tooltip_text = _t("translations.preview.campaign")
 	preview_campaign_select.item_selected.connect(_select_preview_campaign)
-	add_child(preview_campaign_select)
+	preview_actions.add_child(preview_campaign_select)
 	preview_player_select = OptionButton.new()
-	preview_player_select.position = Vector2(1280, 952)
-	preview_player_select.size = Vector2(90, 62)
+	preview_player_select.custom_minimum_size = Vector2(110, 62)
 	preview_player_select.tooltip_text = _t("translations.preview.players")
-	add_child(preview_player_select)
+	preview_actions.add_child(preview_player_select)
 	play_language_button = _button(_t("translations.preview.play"), 175)
-	play_language_button.position = Vector2(1380, 952)
-	play_language_button.size = Vector2(175, 62)
+	play_language_button.custom_minimum_size = Vector2(175, 62)
 	play_language_button.pressed.connect(_preview_selected_language)
-	add_child(play_language_button)
+	preview_actions.add_child(play_language_button)
 	var back := _button(_t("common.back"), 300)
-	back.position = Vector2(1560, 952)
-	back.size = Vector2(300, 62)
+	back.custom_minimum_size = Vector2(300, 62)
 	back.pressed.connect(_back_to_projects)
-	add_child(back)
+	preview_actions.add_child(back)
 	_build_po_dialogs()
+
+
+func _horizontal_actions(parent: Container) -> ScrollContainer:
+	var scroll := ScrollContainer.new()
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	parent.add_child(scroll)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	scroll.add_child(row)
+	return scroll
+
+
+func _schedule_mobile_list_metrics() -> void:
+	if mobile_layout_pending:
+		return
+	mobile_layout_pending = true
+	call_deferred("_apply_mobile_list_metrics")
+
+
+func _apply_mobile_list_metrics() -> void:
+	mobile_layout_pending = false
+	if not is_inside_tree() or message_list == null:
+		return
+	# ItemList is not a form field in the shared adapter. Match the actual
+	# editor's current density without accumulating overrides after resizes.
+	var font_size := maxi(17, translation_input.get_theme_font_size("font_size"))
+	message_list.add_theme_font_size_override("font_size", font_size)
+	var line_height := message_list.get_theme_font("font").get_height(font_size)
+	var gap := maxi(4, ceili(save_translation_button.custom_minimum_size.y - line_height))
+	message_list.add_theme_constant_override("v_separation", gap)
 
 
 func _refresh_languages() -> void:
@@ -482,9 +539,12 @@ func _selected_preview_campaign() -> Dictionary:
 
 
 func _refresh_messages() -> void:
+	if not _commit_pending_translation():
+		return
 	visible_messages.clear()
 	message_list.clear()
 	var query := "" if search_input == null else search_input.text.strip_edges().to_lower()
+	applied_search = search_input.text
 	var missing := 0
 	var outdated := 0
 	var translated := 0
@@ -505,7 +565,7 @@ func _refresh_messages() -> void:
 			continue
 		visible_messages.append(message)
 		var marker := "✓" if state == "translated" else ("!" if state == "outdated" else "·")
-		message_list.add_item("%s  %s\n%s" % [marker, str(message.context), str(message.source)])
+		message_list.add_item("%s  %s · %s" % [marker, str(message.context), str(message.source)])
 		message_list.set_item_metadata(message_list.item_count - 1, str(message.id))
 	summary_label.text = _t(
 		"translations.summary",
@@ -525,12 +585,18 @@ func _refresh_messages() -> void:
 		selected_message_id = ""
 		source_label.text = _t("translations.no_strings")
 		translation_input.text = ""
+		loaded_translation_text = ""
 		preview_label.text = ""
 		save_translation_button.disabled = true
 
 
 func _select_catalog(index: int) -> void:
 	if language_select.disabled or index < 0:
+		return
+	if not _commit_pending_translation():
+		for option: int in language_select.item_count:
+			if str(language_select.get_item_metadata(option)) == selected_language:
+				language_select.select(option)
 		return
 	selected_language = str(language_select.get_item_metadata(index))
 	_refresh_messages()
@@ -539,27 +605,73 @@ func _select_catalog(index: int) -> void:
 func _select_filter(index: int) -> void:
 	if index < 0:
 		return
+	if not _commit_pending_translation():
+		filter_select.select(FILTERS.find(active_filter))
+		return
 	active_filter = str(filter_select.get_item_metadata(index))
 	_refresh_messages()
 
 
 func _search_messages(_value: String) -> void:
+	if not _commit_pending_translation():
+		search_input.text = applied_search
+		return
 	_refresh_messages()
 
 
 func _select_message(index: int) -> void:
 	if index < 0 or index >= message_list.item_count:
 		return
+	if not _commit_pending_translation():
+		for option: int in message_list.item_count:
+			if str(message_list.get_item_metadata(option)) == selected_message_id:
+				message_list.select(option)
+		return
 	selected_message_id = str(message_list.get_item_metadata(index))
 	var message := _message_by_id(selected_message_id)
 	var entry := _entry(selected_language, selected_message_id)
 	source_label.text = "%s\n%s" % [str(message.context).to_upper(), str(message.source)]
 	translation_input.text = str(entry.get("text", ""))
+	loaded_translation_text = translation_input.text
 	preview_label.text = "%s  /  %s" % [
 		translation_status(selected_language, selected_message_id).to_upper(),
 		fallback_text(selected_language, selected_message_id)
 	]
-	save_translation_button.disabled = selected_language.is_empty()
+	_update_translation_actions()
+
+
+func _translation_is_dirty() -> bool:
+	return (
+		not selected_language.is_empty() and not selected_message_id.is_empty()
+		and translation_input.text != loaded_translation_text
+	)
+
+
+func _update_translation_actions() -> void:
+	translation_input.editable = not selected_language.is_empty() and not selected_message_id.is_empty()
+	save_translation_button.disabled = (
+		selected_language.is_empty() or selected_message_id.is_empty()
+		or (not _translation_is_dirty() and translation_status(selected_language, selected_message_id) != "outdated")
+	)
+	discard_translation_button.disabled = not _translation_is_dirty()
+
+
+func _discard_translation() -> void:
+	translation_input.text = loaded_translation_text
+	_update_translation_actions()
+	_set_status(_t("translations.discarded"), false)
+
+
+func _translation_changed() -> void:
+	_update_translation_actions()
+	if _translation_is_dirty():
+		_set_status(_t("translations.pending"), false)
+
+
+func _commit_pending_translation() -> bool:
+	if not _translation_is_dirty():
+		return true
+	return _save_translation(false)
 
 
 func _add_language() -> void:
@@ -567,6 +679,8 @@ func _add_language() -> void:
 
 
 func _add_language_code(language: String) -> void:
+	if not _commit_pending_translation():
+		return
 	var expression := RegEx.new()
 	expression.compile(LANGUAGE_PATTERN)
 	if expression.search(language) == null:
@@ -594,6 +708,8 @@ func _add_language_code(language: String) -> void:
 
 
 func _save_source_language() -> void:
+	if not _commit_pending_translation():
+		return
 	var language := source_language_input.text.strip_edges()
 	var expression := RegEx.new()
 	expression.compile(LANGUAGE_PATTERN)
@@ -609,13 +725,13 @@ func _save_source_language() -> void:
 		_set_status(_t("translations.source_saved", {"language": language}), false)
 
 
-func _save_translation() -> void:
+func _save_translation(refresh_messages := true) -> bool:
 	if selected_language.is_empty() or selected_message_id.is_empty():
-		return
+		return false
 	var text := translation_input.text.strip_edges()
 	if text.is_empty():
 		_set_status(_t("translations.error.empty"), true)
-		return
+		return false
 	var message := _message_by_id(selected_message_id)
 	var candidate := project.duplicate(true)
 	var catalogs: Array = candidate.get("translations", [])
@@ -650,8 +766,14 @@ func _save_translation() -> void:
 		break
 	candidate["translations"] = catalogs
 	if _save_candidate(candidate):
-		_refresh_messages()
+		translation_input.text = text
+		loaded_translation_text = text
+		_update_translation_actions()
+		if refresh_messages:
+			_refresh_messages()
 		_set_status(_t("translations.translation_saved"), false)
+		return true
+	return false
 
 
 func _build_po_dialogs() -> void:
@@ -673,6 +795,8 @@ func _build_po_dialogs() -> void:
 
 
 func _choose_po_export() -> void:
+	if not _commit_pending_translation():
+		return
 	if selected_language.is_empty():
 		_set_status(_t("translations.po.error.no_language"), true)
 		return
@@ -683,6 +807,8 @@ func _choose_po_export() -> void:
 
 
 func _choose_po_import() -> void:
+	if not _commit_pending_translation():
+		return
 	if selected_language.is_empty():
 		_set_status(_t("translations.po.error.no_language"), true)
 		return
@@ -690,6 +816,8 @@ func _choose_po_import() -> void:
 
 
 func _export_po_to(path: String) -> bool:
+	if not _commit_pending_translation():
+		return false
 	if selected_language.is_empty():
 		_set_status(_t("translations.po.error.no_language"), true)
 		return false
@@ -711,6 +839,8 @@ func _export_po_to(path: String) -> bool:
 
 
 func _import_po_from(path: String) -> bool:
+	if not _commit_pending_translation():
+		return false
 	if selected_language.is_empty():
 		_set_status(_t("translations.po.error.no_language"), true)
 		return false
@@ -754,6 +884,10 @@ func _import_po_from(path: String) -> bool:
 	candidate["translations"] = catalogs
 	if not _save_candidate(candidate):
 		return false
+	# Imported text replaces the saved catalog deliberately. Reload this field
+	# before rebuilding the list so the old field is not mistaken for a draft.
+	translation_input.text = str(_entry(selected_language, selected_message_id).get("text", ""))
+	loaded_translation_text = translation_input.text
 	_refresh_messages()
 	_set_status(_t("translations.po.imported", {
 		"count": int(imported.get("imported", 0)),
@@ -764,6 +898,8 @@ func _import_po_from(path: String) -> bool:
 
 
 func _language_preview_request() -> Dictionary:
+	if not _commit_pending_translation():
+		return {"ok": false, "error": "pending_translation"}
 	if selected_language.is_empty():
 		return {"ok": false, "error": "no_language"}
 	var campaign := _selected_preview_campaign()
@@ -790,6 +926,8 @@ func _preview_selected_language() -> void:
 	var request := _language_preview_request()
 	if not bool(request.get("ok", false)):
 		var error := str(request.get("error", "compile"))
+		if error == "pending_translation":
+			return # Keep the actionable save error and the unsaved text visible.
 		_set_status(_t("translations.preview.error.%s" % error), true)
 		return
 	LaunchContext.stage_package(
@@ -880,6 +1018,11 @@ func _integer_numbers(value: Variant) -> Variant:
 
 
 func _back_to_projects() -> void:
+	if not _commit_pending_translation():
+		return
+	if CreatorContext.guided_workflow:
+		get_tree().change_scene_to_file("res://first_battle.tscn")
+		return
 	CreatorContext.clear()
 	get_tree().change_scene_to_file("res://creator.tscn")
 
