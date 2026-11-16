@@ -44,6 +44,21 @@ func run() -> void:
 			var editor = load("res://%s_editor.tscn" % entry[0]).instantiate()
 			root.add_child(editor)
 			await settle()
+			for toolbar_density: float in [2.625, 3.6, 1.0]:
+				Layout.apply_tree(editor, Layout.metrics(toolbar_density))
+				await settle()
+				if editor.get_meta("mobile_editor_root", false):
+					var toolbar_scroll: ScrollContainer = editor.get_node("MobileEditorToolbar")
+					var toolbar: HBoxContainer = toolbar_scroll.get_child(0)
+					var action: Control = toolbar.get_child(toolbar.get_child_count() - 1)
+					action.grab_focus()
+					toolbar_scroll.ensure_control_visible(action)
+					await settle()
+					check(toolbar_scroll.get_global_rect().grow(1).encloses(action.get_global_rect()), entry[0] + " toolbar scrolls to its last complete action")
+					for body: Node in editor.get_children():
+						if body is Control and body.get_meta("mobile_editor_body", false):
+							check(body.position.y >= toolbar_scroll.position.y + toolbar_scroll.size.y, entry[0] + " editor body clears the toolbar")
+							check(body.position.y + body.size.y <= 953, entry[0] + " editor body remains above its status line")
 			if entry[0] == "campaign": editor._open_outcomes("first_battle")
 			if entry[1] != "_open_outcomes": editor.call(entry[1])
 			var layer: Control = editor.get(entry[2])
@@ -65,9 +80,10 @@ func run() -> void:
 					if actions.is_empty(): continue
 					var last: Control = actions[-1]
 					last.grab_focus()
+					await settle() # Allow follow_focus to apply before an explicit reveal.
 					scroll.ensure_control_visible(last)
 					await settle()
-					check(scroll.get_global_rect().grow(1).encloses(last.get_global_rect()), context + " scrolls the complete final action into view")
+					check(scroll.get_global_rect().grow(1).encloses(last.get_global_rect()), context + " scrolls the complete final action into view: %s within %s" % [last.get_global_rect(), scroll.get_global_rect()])
 			# Exercise a real rules-backed stat mutation from the densely laid out
 			# panel, rather than proving only that a button can be drawn.
 			if entry[2] == "modifier_layer":

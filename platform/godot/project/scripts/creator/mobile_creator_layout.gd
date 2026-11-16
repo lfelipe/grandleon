@@ -108,7 +108,10 @@ static func apply_tree(node: Node, sizes: Dictionary) -> void:
 		var count := 0
 		for child: Node in node.get_children():
 			if child is Control and child.visible:
-				width += child.get_combined_minimum_size().x
+				var natural: float = child.get_combined_minimum_size().x
+				if child is Button and not child is OptionButton:
+					natural = maxf(natural, child.get_theme_font("font").get_string_size(child.text, HORIZONTAL_ALIGNMENT_LEFT, -1, child.get_theme_font_size("font_size")).x + child.get_theme_stylebox("normal").get_minimum_size().x)
+				width += natural
 				count += 1
 		width += maxi(0, count - 1) * node.get_theme_constant("separation")
 		# Recompute from the children, so a larger viewport or smaller text can
@@ -143,6 +146,34 @@ static func apply_tree(node: Node, sizes: Dictionary) -> void:
 		node.size = node.size.min((bounds - Vector2.ONE * margin * 2).max(Vector2.ONE))
 		node.position = node.position.clamp(Vector2.ONE * margin, (bounds - node.size - Vector2.ONE * margin).max(Vector2.ONE * margin))
 		_cycle_modal_focus(node)
+	if node is Control and node.get_meta("mobile_editor_root", false):
+		_layout_editor_frame(node, sizes)
+
+static func _layout_editor_frame(root: Control, sizes: Dictionary) -> void:
+	var scroll: ScrollContainer = root.get_node_or_null("MobileEditorToolbar")
+	if scroll == null:
+		for child: Node in root.get_children():
+			if child is HBoxContainer and child.get_meta("mobile_editor_toolbar", false):
+				scroll = ScrollContainer.new()
+				scroll.name = "MobileEditorToolbar"
+				scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+				scroll.follow_focus = true
+				root.remove_child(child)
+				root.add_child(scroll)
+				scroll.add_child(child)
+				break
+	if scroll == null: return
+	var toolbar: HBoxContainer = scroll.get_child(0)
+	scroll.position = Vector2(80, 106)
+	scroll.size = Vector2(1760, maxf(sizes.touch, toolbar.get_combined_minimum_size().y) + 24)
+	toolbar.position = Vector2.ZERO
+	for child: Node in root.get_children():
+		if child is Label: child.clip_text = true
+		if child.get_meta("mobile_editor_subtitle", false): child.hide()
+		if child is PanelContainer and child.get_meta("mobile_editor_body", false):
+			var bottom := float(child.get_meta("mobile_editor_bottom", child.position.y + child.size.y))
+			child.position.y = scroll.position.y + scroll.size.y + 24
+			child.size.y = maxf(160, bottom - child.position.y)
 
 static func _focusable_controls(node: Node) -> Array[Control]:
 	var found: Array[Control] = []

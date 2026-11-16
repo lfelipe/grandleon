@@ -1344,6 +1344,7 @@ func _preview_cell_indices(
 
 
 func _build_interface() -> void:
+	set_meta("mobile_editor_root", true)
 	_fit_mobile_canvas()
 	var background := ColorRect.new()
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -1355,10 +1356,12 @@ func _build_interface() -> void:
 	title_label.size = Vector2(1760, 42)
 	add_child(title_label)
 	var subtitle := _label(_t("gear.subtitle"), 34, Color("f2f7f9"))
+	subtitle.set_meta("mobile_editor_subtitle", true)
 	subtitle.position = Vector2(80, 84)
 	subtitle.size = Vector2(1760, 54)
 	add_child(subtitle)
 	var toolbar := HBoxContainer.new()
+	toolbar.set_meta("mobile_editor_toolbar", true)
 	toolbar.position = Vector2(80, 148)
 	toolbar.size = Vector2(1760, 62)
 	toolbar.add_theme_constant_override("separation", 12)
@@ -1381,8 +1384,10 @@ func _build_interface() -> void:
 	toolbar.add_child(back)
 
 	var list_panel := PanelContainer.new()
+	list_panel.set_meta("mobile_editor_body", true)
 	list_panel.position = Vector2(80, 232)
 	list_panel.size = Vector2(540, 720)
+	list_panel.set_meta("mobile_editor_bottom", list_panel.position.y + list_panel.size.y)
 	list_panel.add_theme_stylebox_override("panel", _panel(Color("0c1d29"), 18, Color(0.72, 0.48, 0.24, 0.52)))
 	add_child(list_panel)
 	var list_column := VBoxContainer.new()
@@ -1421,8 +1426,10 @@ func _build_interface() -> void:
 	list_column.add_child(guidance)
 
 	var editor_panel := PanelContainer.new()
+	editor_panel.set_meta("mobile_editor_body", true)
 	editor_panel.position = Vector2(650, 232)
 	editor_panel.size = Vector2(1190, 720)
+	editor_panel.set_meta("mobile_editor_bottom", editor_panel.position.y + editor_panel.size.y)
 	editor_panel.add_theme_stylebox_override("panel", _panel(Color("091721"), 18, Color(0.72, 0.48, 0.24, 0.42)))
 	add_child(editor_panel)
 	editor_column = VBoxContainer.new()
