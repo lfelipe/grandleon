@@ -4,6 +4,7 @@ extends Control
 const SceneryStyle = preload("res://scripts/scenery_style.gd")
 const ArtLibrary = preload("res://scripts/art_library.gd")
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
+const CampaignEditor = preload("res://scripts/creator/campaign_editor.gd")
 const ProjectContentDependencyIndex = preload(
 	"res://scripts/creator/project_content_dependency_index.gd"
 )
@@ -274,6 +275,7 @@ func _ready() -> void:
 		library = ProjectLibrary.new()
 	compiler = ClassDB.instantiate("GrandleonProjectCompiler")
 	project_id = CreatorContext.project_id
+	preview_players = clampi(CreatorContext.map_preview_players, 1, 2)
 	_build_interface()
 	_load_project()
 
@@ -470,7 +472,8 @@ func _select_map(index: int) -> void:
 func _refresh_encounters() -> void:
 	encounters.clear()
 	encounter_select.clear()
-	var requested_encounter_index := -1
+	var requested_indices: Array[int] = []
+	var campaign_indices: Array[int] = []
 	var map_id := str(_current_map().get("id", ""))
 	for campaign_value: Variant in project.get("campaigns", []):
 		if not campaign_value is Dictionary:
@@ -491,6 +494,8 @@ func _refresh_encounters() -> void:
 				"campaign": campaign,
 				"node": node,
 			})
+			if str(campaign.get("id", "")) == CreatorContext.campaign_id:
+				campaign_indices.append(encounters.size() - 1)
 			if (
 				str(node.get("id", "")) == CreatorContext.encounter_id
 				and (
@@ -498,7 +503,7 @@ func _refresh_encounters() -> void:
 					or str(campaign.get("id", "")) == CreatorContext.campaign_id
 				)
 			):
-				requested_encounter_index = encounters.size() - 1
+				requested_indices.append(encounters.size() - 1)
 			encounter_select.add_item(
 				"%s / %s" % [
 					str(campaign.get("name", _t("map.fallback.campaign"))),
@@ -508,20 +513,39 @@ func _refresh_encounters() -> void:
 	encounter_select.disabled = encounters.is_empty()
 	if encounters.is_empty():
 		encounter_select.add_item(_t("map.encounter.none"))
-		encounter_index = 0
+		encounter_index = -1
 	else:
-		encounter_index = (
-			requested_encounter_index
-			if requested_encounter_index >= 0
-			else clampi(encounter_index, 0, encounters.size() - 1)
-		)
+		# A map can belong to several battles, even in different campaigns.
+		# Preserve an unambiguous authored context; never silently choose the
+		# first encounter merely because it appears first in the source array.
+		encounter_index = -1
+		if requested_indices.size() == 1:
+			encounter_index = requested_indices[0]
+		elif requested_indices.is_empty() and campaign_indices.size() == 1:
+			encounter_index = campaign_indices[0]
+		elif encounters.size() == 1:
+			encounter_index = 0
 		encounter_select.select(encounter_index)
+		if encounter_index < 0:
+			encounter_select.text = _t("map.encounter.choose")
+	_remember_battle_selection()
+
+
+func _remember_battle_selection() -> void:
+	var encounter := _current_encounter()
+	CreatorContext.choose_map(
+		str(_current_map().get("id", "")),
+		str(encounter.get("node", {}).get("id", ""))
+	)
+	if not encounter.is_empty():
+		CreatorContext.choose_campaign(str(encounter.campaign_id))
 
 
 func _select_encounter(index: int) -> void:
 	if index < 0 or index >= encounters.size():
 		return
 	encounter_index = index
+	_remember_battle_selection()
 	_refresh_target_budget()
 	_reset_deployment_edit()
 	_reset_patrol_edit()
@@ -538,6 +562,7 @@ func _select_experience_preview(index: int) -> void:
 	if experience_select == null or index < 0 or index >= experience_select.item_count:
 		return
 	preview_players = clampi(int(experience_select.get_item_metadata(index)), 1, 2)
+	CreatorContext.map_preview_players = preview_players
 	selected_placement_id = ""
 	pending_placement = {}
 	_refresh_grid(0)
@@ -4318,25 +4343,36 @@ func _play_draft() -> void:
 	if compiler == null:
 		_set_status(_t("map.error.compiler_unavailable"), true)
 		return
-	var compiled: Dictionary = compiler.compile_source_json(source)
+	var encounter := _current_encounter()
+	if encounter.is_empty():
+		_set_status(_t("map.error.play_choose_battle"), true)
+		encounter_select.grab_focus()
+		return
+	# Use the same disposable direct-battle campaign as the guide and outline.
+	# Compiling the full source here would replay its opening and earlier battles.
+	var builder = CampaignEditor.new()
+	builder.project = project
+	builder.campaign = encounter.campaign
+	if not builder._battle_player_count_allowed(encounter.node, preview_players):
+		builder.free()
+		_set_status(_t("campaign.error.battle_player_count"), true)
+		experience_select.grab_focus()
+		return
+	var preview: Dictionary = builder._battle_preview_source(str(encounter.node.get("id", "")))
+	builder.free()
+	if not bool(preview.get("ok", false)):
+		_set_status(str(preview.get("message", _t("campaign.error.battle_test_unavailable"))), true)
+		return
+	var compiled: Dictionary = compiler.compile_source_json(str(preview.source))
 	if not compiled.ok:
 		_set_status(_t("map.error.not_playable", {"detail": _diagnostic_code(compiled)}), true)
 		return
-	var campaigns: Array = project.get("campaigns", [])
-	if campaigns.is_empty():
-		_set_status(_t("map.error.play_needs_campaign"), true)
-		return
-	var campaign := str(_current_encounter().get("campaign_id", CreatorContext.campaign_id))
-	if campaign.is_empty() and campaigns.size() == 1 and campaigns[0] is Dictionary:
-		campaign = str(campaigns[0].get("id", ""))
-	if campaign.is_empty():
-		_set_status(_t("map.error.play_choose_battle"), true)
-		return
 	if dirty and not _save():
 		return
+	_remember_battle_selection()
 	LaunchContext.stage_package(
-		compiled.package, campaign, true, preview_players,
-		"res://map_editor.tscn", _t("map.test")
+		compiled.package, str(encounter.campaign_id), true, preview_players,
+		"res://map_editor.tscn", str(encounter.node.get("name", _t("map.test")))
 	)
 	get_tree().change_scene_to_file("res://main.tscn")
 
@@ -4478,7 +4514,7 @@ func _build_interface() -> void:
 	undo_button.pressed.connect(_undo)
 	toolbar.add_child(undo_button)
 	play_button = _button(_t("map.test"), 240, 58)
-	play_button.tooltip_text = _t("map.test_tooltip")
+	play_button.tooltip_text = _t("map.test_battle_tooltip")
 	play_button.pressed.connect(_play_draft)
 	toolbar.add_child(play_button)
 	var story := _button(_t("first_battle.back") if CreatorContext.guided_workflow else _t("map.next_story"), 220, 58)
@@ -4527,7 +4563,7 @@ func _build_interface() -> void:
 	experience_select.set_item_metadata(0, 1)
 	experience_select.add_item(_t("map.preview.option.coop"))
 	experience_select.set_item_metadata(1, 2)
-	experience_select.select(0)
+	experience_select.select(preview_players - 1)
 	experience_select.tooltip_text = _t("map.preview.tooltip")
 	experience_select.item_selected.connect(_select_experience_preview)
 	tools_column.add_child(experience_select)

@@ -66,6 +66,8 @@ then choose its starting tile. Under **Battle Setup**, you can also arrange
 reinforcements, patrols and the differences between solo and co-op forces.
 Choose the battle's goal, then use **Test 1 Player** or **Test 2 Players** from
 the guide. The player returns to the same editing workflow afterwards.
+The map editor's **Test** also starts the selected battle directly and returns
+to the same map. If several battles share that map, choose the battle first.
 
 A direct battle test starts from the authored roster and does not change your
 installed game's saves. Test the whole campaign when you need to check earlier

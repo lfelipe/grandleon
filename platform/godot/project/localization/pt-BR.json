@@ -2141,6 +2141,8 @@
     "army.personal.also_carries": "Também carrega: {weapons}.",
     "army.personal.role_kit_summary": "Usa as armas iniciais da função. {summary}",
     "army.personal.weapon_needs_affinity": "{weapon} exige {family}. Selecione essa afinidade ou altere as armas iniciais.",
-    "army.guide.names_needed": "Dê um nome ao herói e à função antes de criá-lo."
+    "army.guide.names_needed": "Dê um nome ao herói e à função antes de criá-lo.",
+    "map.encounter.choose": "Escolha uma batalha para editar e testar",
+    "map.test_battle_tooltip": "Salva as alterações e testa a batalha selecionada. Ao terminar, volte para cá."
   }
 }

@@ -20,6 +20,11 @@ func _run() -> void:
 		return
 	var creator_context = root.get_node("CreatorContext")
 	creator_context.open_project(created.id)
+	# This fixture reuses Dawn Bridge in three battles. Open the intended
+	# campaign/node just as the guide or outline does, rather than relying on
+	# whichever shared-map encounter happens to be first in the source.
+	creator_context.choose_campaign("demo_campaign")
+	creator_context.choose_map("dawn_bridge", "bridge_encounter")
 	var localization = root.get_node("Localization")
 	var prior_language := str(localization.call("current_language"))
 	localization.call("select_language", "pt-BR", false)
@@ -948,7 +953,7 @@ func _run() -> void:
 	_expect("chapter redo restores map", _parse(editor.source).maps.size(), 3)
 	_expect("chapter redo restores flow", _parse(editor.source).campaigns[0].flow.nodes.size(), 4)
 	_expect("chapter redo refreshes selector", editor.map_select.item_count, 3)
-	editor._select_map(0)
+	_choose_demo_battle(editor)
 	var objective_count_before: int = _parse(editor.source).objectives.size()
 	editor._open_objectives()
 	_expect("objective editor opens", editor.objective_layer.visible, true)
@@ -1059,7 +1064,7 @@ func _run() -> void:
 	_expect("rename redo restores map name", str(_parse(editor.source).maps[0].name), "Fordlight Crossing")
 	_expect("rename redo restores battle name", str(_parse(editor.source).campaigns[0].flow.nodes[0].name), "First Stand at Fordlight")
 
-	editor._select_map(0)
+	_choose_demo_battle(editor)
 	var used_map_source: String = editor.source
 	editor._open_more()
 	editor._more_delete_map()
@@ -1104,7 +1109,7 @@ func _run() -> void:
 	editor.dependency_id = "missing_map"
 	_expect("missing map deletion is refused", editor._confirm_map_delete(), false)
 	_expect("missing map refusal preserves source", editor.source, protected_map_source)
-	editor._select_map(0)
+	_choose_demo_battle(editor)
 
 	var before_variant := _parse(editor.source)
 	var baseline_ally: Dictionary = before_variant.campaigns[0].flow.nodes[0].placements[0]
@@ -1381,3 +1386,15 @@ func _expect(label: String, actual: Variant, expected: Variant) -> void:
 func _fail(message: String) -> void:
 	failures += 1
 	push_error(message)
+
+
+func _choose_demo_battle(editor: Control) -> void:
+	editor.map_select.select(0)
+	editor.map_select.item_selected.emit(0)
+	for index in editor.encounters.size():
+		var encounter: Dictionary = editor.encounters[index]
+		if str(encounter.campaign_id) == "demo_campaign" and str(encounter.node.id) == "bridge_encounter":
+			editor.encounter_select.select(index)
+			editor.encounter_select.item_selected.emit(index)
+			return
+	_fail("demo battle remains available on its shared map")

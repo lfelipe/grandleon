@@ -11,6 +11,7 @@ var army_action := ""
 var guided_workflow := false
 var hub_action := ""
 var map_action := ""
+var map_preview_players := 1
 var diagnostic_focus: Dictionary = {}
 
 
@@ -25,6 +26,7 @@ func open_project(value: String) -> void:
 	guided_workflow = false
 	hub_action = ""
 	map_action = ""
+	map_preview_players = 1
 	diagnostic_focus = {}
 
 
@@ -78,4 +80,5 @@ func clear() -> void:
 	guided_workflow = false
 	hub_action = ""
 	map_action = ""
+	map_preview_players = 1
 	diagnostic_focus = {}

@@ -2141,6 +2141,8 @@
     "army.personal.also_carries": "Also carries: {weapons}.",
     "army.personal.role_kit_summary": "Using the role's starting weapons. {summary}",
     "army.personal.weapon_needs_affinity": "{weapon} needs {family}. Select that affinity or change the starting weapons.",
-    "army.guide.names_needed": "Give this hero and their role a name before creating them."
+    "army.guide.names_needed": "Give this hero and their role a name before creating them.",
+    "map.encounter.choose": "Choose a battle to edit and test",
+    "map.test_battle_tooltip": "Saves your changes, then tests the selected battle. Return here when finished."
   }
 }
