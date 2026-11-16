@@ -2065,6 +2065,14 @@
     "map.visibility.corner": "ESQUINA",
     "map.visibility.rectangle_added": "{count} CASILLAS EMPEZARÁN CUBIERTAS",
     "map.visibility.rectangle_removed": "{count} CASILLAS EMPEZARÁN VISIBLES",
-    "map.back_setup": "VOLVER A CONFIGURACIÓN"
+    "map.back_setup": "VOLVER A CONFIGURACIÓN",
+    "map.terrain.mountain_castle_wall": "MURALLA DEL CASTILLO",
+    "map.terrain.mountain_castle_wall.help": "Conecta murallas de piedra alrededor de una sala. Pinta el suelo y una entrada.",
+    "map.terrain.paved_castle_floor": "SUELO DEL CASTILLO",
+    "map.terrain.paved_castle_floor.help": "Pinta el interior transitable. Usa Visibilidad del Interior para cubrir la sala hasta que las unidades la exploren.",
+    "map.terrain.paved_castle_door": "ENTRADA DEL CASTILLO",
+    "map.terrain.paved_castle_door.help": "Pinta dos casillas de entrada adyacentes en vertical para formar un arco transitable.",
+    "map.terrain.paved_castle_dais": "ESTRADO DEL CASTILLO",
+    "map.terrain.paved_castle_dais.help": "Pinta una plataforma de piedra elevada, como un trono o zona de mando."
   }
 }

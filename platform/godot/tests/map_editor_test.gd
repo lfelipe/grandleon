@@ -283,6 +283,31 @@ func _run() -> void:
 	_expect("enemy placement shown on board", editor.grid.get_child(8).tooltip_text.contains("SECOND"), true)
 	_expect("board tooltip hides enemy source identity", editor.grid.get_child(8).tooltip_text.contains("river_watch_leader"), false)
 	_expect("map selector receives controller focus", editor.map_select.has_focus(), true)
+	var castle_original_source: String = editor.source
+	var castle_pieces := ["mountain_castle_wall", "paved_castle_floor", "paved_castle_door", "paved_castle_dais"]
+	for index in castle_pieces.size():
+		var piece: String = castle_pieces[index]
+		_expect("castle piece is available in a fresh project: " + piece, editor.palette_buttons.has(piece), true)
+		editor._select_tool("brush")
+		editor._select_terrain(piece)
+		editor._paint_cell(index)
+		_expect("castle paint reaches the native source", _parse(editor.source).maps[0].terrain[index], piece)
+		_expect("castle piece has a distinct map preview", editor.grid.get_child(index).has_node("CastlePieceMarker"), true)
+	_expect("painted castle pieces compile", editor.compiler.compile_source_json(editor.source).ok, true)
+	var castle_capture := _argument_path("--castle-palette-screenshot=")
+	if not castle_capture.is_empty():
+		for frame in 3: await process_frame
+		var palette_scroll: ScrollContainer = editor.palette_list.get_parent()
+		palette_scroll.ensure_control_visible(editor.palette_buttons["paved_castle_dais"])
+		for frame in 8: await process_frame
+		get_root().get_texture().get_image().save_png(castle_capture)
+		print("castle palette capture saved: %s" % castle_capture)
+		quit(1 if failures else 0)
+		return
+
+	for index in castle_pieces.size(): editor._undo()
+	_expect("castle painting undoes without affecting the campaign", editor.source, castle_original_source)
+	editor.redo_stack.clear()
 	var visibility_original_source: String = editor.source
 	editor._open_visibility()
 	_expect("interior visibility controls open", editor.interior_visibility_layer.visible, true)

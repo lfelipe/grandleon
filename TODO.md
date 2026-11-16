@@ -288,9 +288,12 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
 - [x] Let creators mark or unmark a room rectangle with two corner selections
   and a single undo step. The 170-cell masks save, compile and play in both
   player modes. See the [authoring checks](tools/renderer_comparison/castle-room-authoring-06.json).
-- [ ] Extend larger-map creator tools: straightforward castle wall/floor/door
-  placement, clear previews and export budget feedback. Keep console limits
-  visible while editing. Playtest later stages where distinct flanks, cover
+- [x] Expose castle wall, floor, doorway and dais painting in the Map Editor,
+  with distinct stone-piece markers and translated labels/tooltips. Fresh
+  project edits compile and undo through the native authoring path.
+- [ ] Extend larger-map creator tools with export budget feedback and
+  automatic doorway stamps. Keep console limits visible while editing.
+  Playtest later stages where distinct flanks, cover
   and co-op routes create useful decisions rather than longer empty walks.
   Keep the tutorial compact. Continue PS1 larger-scene performance work and
   physical-console testing; current emulator coverage does not complete these.

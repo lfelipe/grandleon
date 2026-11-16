@@ -37,3 +37,8 @@ still apply. Unsupported exports report the limit rather than shrinking a map.
 The normal N64 ROM is checked in base 4 MiB RAM, and the normal PS1 disc retains
 its audio, stack and gameplay-heap reserves in 2 MiB. These are emulator checks;
 PS1 frame pacing, physical-console review and encounter balancing remain open.
+
+To build your own rooms, the Map Editor palette includes **Castle Wall**,
+**Castle Floor**, **Castle Doorway** and **Castle Dais**. Paint two doorway
+cells next to each other vertically to form an arch. Use **Interior Visibility**
+and its rectangle tool to cover each room; play the draft to check the reveal.

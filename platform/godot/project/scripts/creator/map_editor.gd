@@ -14,6 +14,7 @@ const SURROUNDINGS_RECOMMENDED_DEPTH := 3
 const TERRAIN_PALETTE := [
 	"grass", "forest", "mountain", "water", "road", "bridge", "sand",
 	"ruins", "farmland", "snow", "swamp", "hills", "bamboo", "paved",
+	"mountain_castle_wall", "paved_castle_floor", "paved_castle_door", "paved_castle_dais",
 ]
 const LANDMARKS := {
 	"landmark_scifi_house": {"kind": "scifi_house", "source_id": "mountain_scifi_house", "label_key": "map.landmark.scifi_house", "clear_terrain": "paved"},
@@ -659,7 +660,10 @@ func _refresh_palette() -> void:
 	for name: String in names:
 		var button := _button(_terrain_label(name), 250 if OS.has_feature("android") else 330, 54)
 		button.icon = _terrain_icon(name, 0)
-		button.tooltip_text = _t("map.terrain.paint_tooltip", {"terrain": _terrain_label(name)})
+		button.tooltip_text = (
+			_t("map.terrain." + name + ".help") if name.contains("_castle_")
+			else _t("map.terrain.paint_tooltip", {"terrain": _terrain_label(name)})
+		)
 		button.pressed.connect(_select_terrain.bind(name))
 		palette_list.add_child(button)
 		palette_buttons[name] = button
@@ -864,6 +868,8 @@ func _refresh_grid(focus_index := -1) -> void:
 					if not landmark.is_empty() else ""
 				),
 			})
+			if name.contains("_castle_"):
+				_add_castle_piece_marker(cell, name, tile_size)
 			if visibility_cells.has(index):
 				_add_visibility_marker(cell, tile_size)
 			if active_tool == "visibility" and visibility_rectangle and index == rectangle_anchor:
@@ -891,6 +897,32 @@ func _refresh_grid(focus_index := -1) -> void:
 			grid.add_child(cell)
 	if focus_index >= 0:
 		call_deferred("_focus_cell", focus_index)
+
+
+func _add_castle_piece_marker(cell: Control, terrain_id: String, tile_size: int) -> void:
+	var marker := Control.new()
+	marker.name = "CastlePieceMarker"
+	marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var inset := maxf(3.0, tile_size * 0.22)
+	var size := tile_size - inset * 2
+	marker.draw.connect(func() -> void:
+		var colour := Color("f0d99c")
+		var box := Rect2(inset, inset, size, size)
+		match terrain_id:
+			"mountain_castle_wall":
+				marker.draw_rect(box, Color("554d45"))
+				marker.draw_rect(box, colour, false, 1.0)
+				marker.draw_line(Vector2(inset, tile_size * 0.5), Vector2(inset + size, tile_size * 0.5), colour)
+			"paved_castle_door":
+				marker.draw_rect(box, Color("a97535"), false, 2.0)
+				marker.draw_line(Vector2(inset, tile_size * 0.5), Vector2(inset + size, tile_size * 0.5), colour, 2.0)
+			"paved_castle_dais":
+				marker.draw_rect(box, Color("9f5e49"))
+				marker.draw_rect(box.grow(-size * 0.2), colour, false, 1.0)
+			_:
+				marker.draw_rect(box, colour, false, 1.0)
+	)
+	cell.add_child(marker)
 
 
 func _add_playable_boundary(
@@ -6351,13 +6383,10 @@ func _t(message_id: String, values: Dictionary = {}) -> String:
 
 
 func _terrain_label(terrain_id: String) -> String:
-	var known := [
-		"grass", "forest", "mountain", "water", "road", "bridge", "sand",
-		"ruins", "farmland", "snow", "swamp", "hills", "bamboo", "paved",
-	]
+
 	return (
 		_t("map.terrain." + terrain_id)
-		if known.has(terrain_id)
+		if TERRAIN_PALETTE.has(terrain_id)
 		else terrain_id.replace("_", " ").to_upper()
 	)
 

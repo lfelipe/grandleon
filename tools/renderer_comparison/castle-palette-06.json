@@ -1,0 +1,25 @@
+{
+  "schema": "grandleon.castle-palette-review.v1",
+  "date": "2026-11-15",
+  "features": [
+    "Castle wall, floor, doorway and dais are available in a fresh Map Editor project.",
+    "Distinct inset piece markers identify stone geometry on the editing grid.",
+    "Labels and usage tips are available in English, Brazilian Portuguese and Spanish."
+  ],
+  "checks": [
+    "Each palette choice paints through the native authoring service.",
+    "The edited fresh project compiles.",
+    "Undo restores the original source exactly.",
+    "Full map editor smoke and localization checks pass."
+  ],
+  "logs": [
+    "out/castle-palette06/smoke-final.log",
+    "out/castle-palette06/localization.log",
+    "out/castle-palette06/capture-final.log"
+  ],
+  "screenshot": "out/castle-palette06/palette-final.png",
+  "limits": [
+    "Doorways currently require painting two vertically adjacent cells; automatic doorway stamps remain planned.",
+    "Per-map console budget previews and physical-console playtesting remain pending."
+  ]
+}

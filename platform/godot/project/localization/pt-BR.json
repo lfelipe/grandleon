@@ -2065,6 +2065,14 @@
     "map.visibility.corner": "CANTO",
     "map.visibility.rectangle_added": "{count} CASAS COMEÇARÃO ENCOBERTAS",
     "map.visibility.rectangle_removed": "{count} CASAS COMEÇARÃO VISÍVEIS",
-    "map.back_setup": "VOLTAR À CONFIGURAÇÃO"
+    "map.back_setup": "VOLTAR À CONFIGURAÇÃO",
+    "map.terrain.mountain_castle_wall": "MURALHA DO CASTELO",
+    "map.terrain.mountain_castle_wall.help": "Ligue as muralhas de pedra ao redor de uma sala. Pinte o piso e uma entrada.",
+    "map.terrain.paved_castle_floor": "PISO DO CASTELO",
+    "map.terrain.paved_castle_floor.help": "Pinte o interior transitável. Use Visibilidade do Interior para cobrir a sala até que as unidades a explorem.",
+    "map.terrain.paved_castle_door": "ENTRADA DO CASTELO",
+    "map.terrain.paved_castle_door.help": "Pinte dois espaços de entrada adjacentes na vertical para formar um arco transitável.",
+    "map.terrain.paved_castle_dais": "ESTRADO DO CASTELO",
+    "map.terrain.paved_castle_dais.help": "Pinte uma plataforma de pedra elevada, como um trono ou área de comando."
   }
 }

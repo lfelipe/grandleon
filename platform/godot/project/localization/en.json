@@ -2065,6 +2065,14 @@
     "map.visibility.corner": "CORNER",
     "map.visibility.rectangle_added": "{count} CELLS WILL BEGIN COVERED",
     "map.visibility.rectangle_removed": "{count} CELLS WILL BEGIN VISIBLE",
-    "map.back_setup": "BACK TO SETUP"
+    "map.back_setup": "BACK TO SETUP",
+    "map.terrain.mountain_castle_wall": "CASTLE WALL",
+    "map.terrain.mountain_castle_wall.help": "Connect stone walls around a room. Paint floors and a doorway for the entrance.",
+    "map.terrain.paved_castle_floor": "CASTLE FLOOR",
+    "map.terrain.paved_castle_floor.help": "Paint the walkable interior. Use Interior Visibility to cover a room until units explore it.",
+    "map.terrain.paved_castle_door": "CASTLE DOORWAY",
+    "map.terrain.paved_castle_door.help": "Paint two vertically adjacent doorway tiles for one walkable arch.",
+    "map.terrain.paved_castle_dais": "CASTLE DAIS",
+    "map.terrain.paved_castle_dais.help": "Paint a raised stone platform, such as a throne or command area."
   }
 }
