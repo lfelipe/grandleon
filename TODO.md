@@ -203,6 +203,12 @@ tracked above.
 - [x] Keep hero-form validation visible beside Apply, explain incompatible
   weapons and show the effective starting kit. Test the selected battle from
   the map editor and preserve its map, stage and 1P/2P view on return.
+- [x] Keep later recruits visible in authoring without joining them early, and
+  open the selected battle's story scenes directly from the guide. Offer full
+  adventure playtests as well as single-battle tests, returning to the same
+  editing stage.
+- [x] Explain older-project upgrades before changing files, preserve an exact
+  recovery copy and leave cancelled imports and opens untouched.
 - [x] Preserve map scenery, hidden rooms, conversations, terrain costs and the
   battle seed when casualties or retired heroes are excluded from a stage.
 - [ ] Complete direct console parity checks for those character rules,
