@@ -2329,8 +2329,11 @@ def main() -> int:
     cache_triangles = board_triangles + (
         visible_units + visible_covers + deployment_markers
     ) * 2
-    cache_vertex_limit = max(MAX_CACHE_TOTAL, (cache_vertices + 63) // 64 * 64)
-    cache_triangle_limit = max(MAX_CACHE_TOTAL, (cache_triangles + 63) // 64 * 64)
+    # These are CPU array capacities, not GPU texture pages. Small rounding
+    # avoids reserving dozens of unused entries in each parallel cache; every
+    # authored vertex/triangle remains represented and bounded below.
+    cache_vertex_limit = max(MAX_CACHE_TOTAL, (cache_vertices + 7) // 8 * 8)
+    cache_triangle_limit = max(MAX_CACHE_TOTAL, (cache_triangles + 7) // 8 * 8)
     if cache_vertex_limit > MAX_CACHE_VERTEX_POOL or cache_triangle_limit > MAX_CACHE_TRIANGLE_POOL:
         raise ValueError(f"authored scenery needs {cache_vertices} vertices and {cache_triangles} triangles; bounded static pools support {MAX_CACHE_VERTEX_POOL} vertices and {MAX_CACHE_TRIANGLE_POOL} triangles")
     if cache_vertices > cache_vertex_limit or cache_triangles > cache_triangle_limit:

@@ -1,0 +1,249 @@
+{
+  "date": "2026-11-16",
+  "description": "Full production MIPSYNC Steel and Cedar demo, with physical RAM accounting including the reserved load prefix.",
+  "source": {
+    "path": "games/steel_and_cedar/source/project.json",
+    "sha256": "d0254fa16f832aaa10f6088bf4f7261a72b9cdb9e94b260c9a7b0cb6fb059b11"
+  },
+  "package": {
+    "path": "out/loot06/ps1-demo-physical-budget06/game.gpk",
+    "bytes": 57092,
+    "sha256": "d52b5a2eddbee18e3493f693c86ae8dcf55affd9b8cdf06cc39561985684bbd0"
+  },
+  "disc": {
+    "cue": "out/loot06/ps1-demo-physical-budget06/game.cue",
+    "bin": "out/loot06/ps1-demo-physical-budget06/game.bin",
+    "bin_sha256": "b5de55d1df3d48af4942d0d98b07e97e0e0618d871d9abbb2aaa39c74bc70155"
+  },
+  "stages": [
+    {
+      "stage": "01",
+      "physical_ram": {
+        "text_bytes": 373016,
+        "data_bytes": 495284,
+        "bss_bytes": 318080,
+        "resident_bytes": 1186380,
+        "occupied_ram_prefix_bytes": 1249920,
+        "reserved_prefix_and_alignment_bytes": 63540,
+        "packet_bytes_per_frame": 57344,
+        "packet_arena_bytes": 57344,
+        "packet_arena_count": 1,
+        "ordering_table_bytes": 8192,
+        "end_address": "0x80131280",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1251916,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 1872512,
+        "passes_playable_slice_budget": true
+      },
+      "vram": {
+        "texture_count": 79,
+        "texture_depth_bits": 8,
+        "material_depth_bits": 4,
+        "font_depth_bits": 4,
+        "font_glyph_count": 96,
+        "font_clut_row": 508,
+        "palette_colours": 256,
+        "palette_strategy": "shared_stage_clut",
+        "house_palette_count": 0,
+        "residency_strategy": "resident_idle_combat_paged_walk",
+        "combat_plate": true,
+        "texture_bytes": 213312,
+        "embedded_texture_bytes": 358396,
+        "vram_reserved_bytes": 507584
+      }
+    },
+    {
+      "stage": "02",
+      "physical_ram": {
+        "text_bytes": 374648,
+        "data_bytes": 499828,
+        "bss_bytes": 232908,
+        "resident_bytes": 1107384,
+        "occupied_ram_prefix_bytes": 1170892,
+        "reserved_prefix_and_alignment_bytes": 63508,
+        "packet_bytes_per_frame": 57344,
+        "packet_arena_bytes": 57344,
+        "packet_arena_count": 1,
+        "ordering_table_bytes": 8192,
+        "end_address": "0x8011ddcc",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1172920,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 1793484,
+        "passes_playable_slice_budget": true
+      },
+      "vram": {
+        "texture_count": 93,
+        "texture_depth_bits": 8,
+        "material_depth_bits": 4,
+        "font_depth_bits": 4,
+        "font_glyph_count": 96,
+        "font_clut_row": 508,
+        "palette_colours": 256,
+        "palette_strategy": "shared_stage_clut",
+        "house_palette_count": 0,
+        "residency_strategy": "resident_idle_combat_paged_walk",
+        "combat_plate": false,
+        "texture_bytes": 175904,
+        "embedded_texture_bytes": 362204,
+        "vram_reserved_bytes": 544992
+      }
+    },
+    {
+      "stage": "03",
+      "physical_ram": {
+        "text_bytes": 391768,
+        "data_bytes": 669044,
+        "bss_bytes": 245052,
+        "resident_bytes": 1305864,
+        "occupied_ram_prefix_bytes": 1369404,
+        "reserved_prefix_and_alignment_bytes": 63540,
+        "packet_bytes_per_frame": 57344,
+        "packet_arena_bytes": 57344,
+        "packet_arena_count": 1,
+        "ordering_table_bytes": 8192,
+        "end_address": "0x8014e53c",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1371400,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 1991996,
+        "passes_playable_slice_budget": true
+      },
+      "vram": {
+        "texture_count": 106,
+        "texture_depth_bits": 8,
+        "material_depth_bits": 4,
+        "font_depth_bits": 4,
+        "font_glyph_count": 96,
+        "font_clut_row": 508,
+        "palette_colours": 256,
+        "palette_strategy": "shared_stage_clut",
+        "house_palette_count": 0,
+        "residency_strategy": "resident_idle_combat_paged_walk",
+        "combat_plate": true,
+        "texture_bytes": 262464,
+        "embedded_texture_bytes": 469528,
+        "vram_reserved_bytes": 458432
+      }
+    },
+    {
+      "stage": "04",
+      "physical_ram": {
+        "text_bytes": 378888,
+        "data_bytes": 753588,
+        "bss_bytes": 278248,
+        "resident_bytes": 1410724,
+        "occupied_ram_prefix_bytes": 1474280,
+        "reserved_prefix_and_alignment_bytes": 63556,
+        "packet_bytes_per_frame": 57344,
+        "packet_arena_bytes": 57344,
+        "packet_arena_count": 1,
+        "ordering_table_bytes": 8192,
+        "end_address": "0x80167ee8",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1476260,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 2096872,
+        "passes_playable_slice_budget": true
+      },
+      "vram": {
+        "texture_count": 118,
+        "texture_depth_bits": 8,
+        "material_depth_bits": 4,
+        "font_depth_bits": 4,
+        "font_glyph_count": 96,
+        "font_clut_row": 508,
+        "palette_colours": 256,
+        "palette_strategy": "shared_units_private_houses",
+        "house_palette_count": 4,
+        "residency_strategy": "resident_idle_combat_paged_walk",
+        "combat_plate": true,
+        "texture_bytes": 316736,
+        "embedded_texture_bytes": 544568,
+        "vram_reserved_bytes": 404160
+      }
+    },
+    {
+      "stage": "05",
+      "physical_ram": {
+        "text_bytes": 377400,
+        "data_bytes": 716212,
+        "bss_bytes": 279632,
+        "resident_bytes": 1373244,
+        "occupied_ram_prefix_bytes": 1436752,
+        "reserved_prefix_and_alignment_bytes": 63508,
+        "packet_bytes_per_frame": 57344,
+        "packet_arena_bytes": 57344,
+        "packet_arena_count": 1,
+        "ordering_table_bytes": 8192,
+        "end_address": "0x8015ec50",
+        "renderer_probe_budget_bytes": 524288,
+        "platform_audio_reserve_bytes": 65536,
+        "stack_reserve_bytes": 32768,
+        "minimum_gameplay_heap_bytes": 524288,
+        "main_ram_bytes": 2097152,
+        "renderer_and_audio_reserve_bytes": 1438780,
+        "passes_renderer_only_probe_budget": false,
+        "playable_slice_committed_bytes": 2059344,
+        "passes_playable_slice_budget": true
+      },
+      "vram": {
+        "texture_count": 98,
+        "texture_depth_bits": 8,
+        "material_depth_bits": 4,
+        "font_depth_bits": 4,
+        "font_glyph_count": 96,
+        "font_clut_row": 508,
+        "palette_colours": 256,
+        "palette_strategy": "shared_stage_clut",
+        "house_palette_count": 0,
+        "residency_strategy": "resident_idle_combat_paged_walk",
+        "combat_plate": true,
+        "texture_bytes": 255360,
+        "embedded_texture_bytes": 441808,
+        "vram_reserved_bytes": 465536
+      }
+    }
+  ],
+  "checks": {
+    "build": "out/loot06/ps1-demo-physical-budget-build.log; initial validation rejected LTO-private arena symbol names, subsequently normalized by the production validator",
+    "production_validator_and_renderer_guard": "out/loot06/ps1-physical-budget-validation.log; all five demo stages and two fixture stages PASS, exact executable-in-disc checks retained",
+    "normal_demo_pack": "out/loot06/ps1-demo-physical-pack.log; ordinary controller inputs open Rowan pack, 2/5 slots, Concord Sword and Field Tonic",
+    "compatible_acquired_weapon": "out/loot06/ps1-weapon-lto-probe.log; ordinary controls, full pack exchange retaining original primary, gold11 saved into stage2, Long Blade forecast12 and actual20to8HP",
+    "linux": "out/loot06/inventory-demo-native-tests-final.log; 90/90",
+    "windows_Wine": "out/loot06/windows-physical-budget-tests.log; 86/86",
+    "android_ARM64_extension": "out/loot06/android-arm64-inventory-build.log; compile/link PASS only"
+  },
+  "screenshots": {
+    "actual_demo_pack": "out/loot06/ps1-demo-starting-pack.png"
+  },
+  "memory_changes": [
+    "Account from cached RAM base through linked __heap_base, including firmware/load prefix and alignment, instead of only summing ELF sections.",
+    "Retain original64KiB audio,32KiB stack and512KiB minimum gameplay heap.",
+    "Use size optimization and whole-stage LTO, retaining MIPS-I arithmetic helper objects outside LTO.",
+    "Round generated CPU geometry-array capacities to8entries rather than64; preserve every authored vertex/triangle and existing minimum/maximum guards."
+  ],
+  "limitations": [
+    "No physical hardware or new FPS measurement; compiler optimization affects timing and needs profiling.",
+    "Village uses2096872 of2097152bytes including all original reserves: only280bytes beyond those reserves remain.",
+    "Native PS1 acceptance here covers opening demo pack and the separate two-stage equipment fixture, not a full five-stage controller playthrough.",
+    "Earlier O3/O2 build budgets without reserved-prefix accounting are superseded; their images are not current validation evidence."
+  ]
+}

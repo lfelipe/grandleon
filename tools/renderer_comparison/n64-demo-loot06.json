@@ -1,0 +1,97 @@
+{
+  "description": "Production Pyrite build of actual Steel and Cedar with personal packs and authored loot; emulator-only normal controller opening.",
+  "date": "2026-11-16",
+  "status": "PASS: final production build, full five-stage1P/2P portable campaign semantics and native normal1P/2P openings",
+  "source": {
+    "path": "games/steel_and_cedar/source/project.json",
+    "snapshot": "out/n64-demo-loot06/final-source/project.json",
+    "sha256": "d0254fa16f832aaa10f6088bf4f7261a72b9cdb9e94b260c9a7b0cb6fb059b11",
+    "inventory_mode": "carried",
+    "player_mode": "choice"
+  },
+  "normal_rom": {
+    "path": "out/n64-demo-loot06/project/grandleon_pyrite_game.z64",
+    "sha256": "9bbc6678f0ac20ef1406cc147897ce87e54783356acc0ff77dc0c04080c0d117",
+    "bytes": 8404992,
+    "renderer": "Pyrite/tiny3d only",
+    "review_driver": false,
+    "resident_bytes": 1959642,
+    "text_bytes": 1364008,
+    "data_bytes": 525602,
+    "bss_bytes": 70032
+  },
+  "package": {
+    "path": "out/n64-demo-loot06/project/assets/game.gpk",
+    "bytes": 57092,
+    "sha256": "d52b5a2eddbee18e3493f693c86ae8dcf55affd9b8cdf06cc39561985684bbd0",
+    "encounter_count": 5,
+    "maps": [
+      {
+        "id": "bell_orchard",
+        "width": 8,
+        "height": 6
+      },
+      {
+        "id": "cedar_deepwood",
+        "width": 14,
+        "height": 9
+      },
+      {
+        "id": "cedar_watch",
+        "width": 16,
+        "height": 12
+      },
+      {
+        "id": "gate_village",
+        "width": 18,
+        "height": 12
+      },
+      {
+        "id": "twin_gate",
+        "width": 20,
+        "height": 14
+      }
+    ],
+    "n64_budget_guard": "Production native GpkRuntimeAdapter loads the entire actual package with maximum_units_per_encounter48; both normal launches succeeded. Largest authored map20x14 is within32x24 supported cells. This does not replace per-stage native heap/frame verification."
+  },
+  "native": {
+    "emulator": "grandleon/n64-ares:0aafd85789215e84e1e43415c07d4c88461b7899",
+    "one_player_initial_log": "out/n64-demo-loot06/ares/normal.log",
+    "two_player_initial_log": "out/n64-demo-loot06/ares/two-player.log",
+    "final_two_player_log": "out/n64-demo-loot06/ares/final-two-player.log",
+    "initial_package_note": "57088-byte pre-translation-key correction; mechanics identical. Its ROM/GPK/ELF preserved under pre-translation-fix.",
+    "captures": {
+      "rowan_pack_2of5": "out/n64-demo-loot06/ares/d04-rowan-starting-pack.png",
+      "akari_controller2_action": "out/n64-demo-loot06/ares/c03-akari-action.png",
+      "akari_pack_2of5_initial": "out/n64-demo-loot06/ares/c04-akari-pack.png",
+      "akari_pack_2of5_final_source": "out/n64-demo-loot06/ares/e05-final-akari-pack.png"
+    },
+    "checkpoints": [
+      "CHECKPOINT PYRITE_PLAYERS count=1",
+      "GRANDLEON_PYRITE_CAMPAIGN_BEGIN players=1 requested_resume=0 resumed=0 refused=0 slot_bytes=0",
+      "GRANDLEON_N64_BOARD_MEMORY cells=48 used=1792600 free=375872 rdram=4194304",
+      "GRANDLEON_PYRITE_CAMPAIGN_BOARD encounter=5505608642713436430 map=10618084736004793148 size=8x6 players=1 stage=1 apron=240",
+      "CHECKPOINT PYRITE_PLAYERS count=2",
+      "GRANDLEON_PYRITE_CAMPAIGN_BEGIN players=2 requested_resume=0 resumed=0 refused=0 slot_bytes=0",
+      "GRANDLEON_N64_BOARD_MEMORY cells=48 used=1794400 free=374072 rdram=4194304",
+      "GRANDLEON_PYRITE_CAMPAIGN_BOARD encounter=5505608642713436430 map=10618084736004793148 size=8x6 players=2 stage=1 apron=240",
+      "CHECKPOINT PYRITE_PLAYERS count=2",
+      "GRANDLEON_PYRITE_CAMPAIGN_BEGIN players=2 requested_resume=0 resumed=0 refused=0 slot_bytes=0",
+      "GRANDLEON_N64_BOARD_MEMORY cells=48 used=1794336 free=374136 rdram=4194304",
+      "GRANDLEON_PYRITE_CAMPAIGN_BOARD encounter=5505608642713436430 map=10618084736004793148 size=8x6 players=2 stage=1 apron=240"
+    ]
+  },
+  "host_campaign_suite": {
+    "log": "out/loot06/n64-demo-campaign-tests.log",
+    "status": "PASS: final actual campaign suite, all10stage/mode variants, deterministic legal play and five-battle progression. Test pilot fixed by its owner to preserve authoritative sorted-unit snapshot; rules and thresholds unchanged.",
+    "initial_log": "out/loot06/n64-demo-campaign-tests-initial-failure.log",
+    "prior_pilot_failure_log": "out/loot06/n64-demo-campaign-tests-pilot-failure.log"
+  },
+  "build_log": "out/loot06/n64-demo-loot-final-build.log",
+  "limitations": [
+    "No complete native five-stage playthrough in this bounded pass; native opening memory only.",
+    "No real hardware or FPS measurement.",
+    "Early demo enemy loot authored but not actually collected in this opening check; separate production two-stage inventory acceptance covers actual pickup/exchange/drop/persistence.",
+    "No commit, public push, hardware deployment, or code/game changes in this task."
+  ]
+}

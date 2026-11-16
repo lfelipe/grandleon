@@ -18,13 +18,15 @@ parser.add_argument('build', type=Path)
 parser.add_argument('output', type=Path)
 parser.add_argument('--nm', default='nm')
 parser.add_argument('--weapon-choice', action='store_true')
+parser.add_argument('--hero', default='aren', help='Authored roster member ID')
+parser.add_argument('--stages', nargs='+', default=['01', '02'])
 args = parser.parse_args()
 path = Path(__file__).with_name('personal-character-bindings.py')
 spec = importlib.util.spec_from_file_location('bindings', path)
 bindings = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bindings)
 modules = []
-for stage in ('01', '02'):
+for stage in args.stages:
     directory = args.build / 'stages' / stage
     elf = directory / 'build/grandleon_mipsync.elf'
     image = (directory / 'build/grandleon_mipsync.exe').read_bytes()
@@ -36,7 +38,7 @@ for stage in ('01', '02'):
     def symbol(name, private=False):
         found = [row for row in rows if len(row) == 4 and (
             re.search(r'\d+' + re.escape(name) + r'E(?:\.lto_priv\.\d+)?$', row[-1])
-            if private else row[-1] == name)]
+            if private else re.fullmatch(re.escape(name) + r'(?:\.lto_priv\.\d+)?', row[-1]))]
         assert len(found) == 1, (name, found)
         return int(found[0][0], 16), int(found[0][1], 16)
 
@@ -53,7 +55,7 @@ for stage in ('01', '02'):
     assert 0 <= offset and size <= length - offset
     manifest = json.loads((directory / 'one.json').read_text())
     heroes = [unit for unit in manifest['simulation']['units']
-              if str(unit['source_id']) == bindings.stable_id('aren')]
+              if str(unit['source_id']) == bindings.stable_id(args.hero)]
     assert len(heroes) == 1
     modules.append({
         'name': stage,

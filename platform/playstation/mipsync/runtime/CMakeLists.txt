@@ -46,13 +46,17 @@ add_executable(grandleon_mipsync
 )
 set_target_properties(grandleon_mipsync PROPERTIES OUTPUT_NAME grandleon_mipsync SUFFIX ".elf")
 target_compile_features(grandleon_mipsync PRIVATE cxx_std_17)
-target_compile_options(grandleon_mipsync PRIVATE -O2)
-# Share native rule/template instantiations without changing the hot C renderer.
+target_compile_options(grandleon_mipsync PRIVATE -Os -flto)
+# Optimize the complete stage together without changing its rendered detail.
 target_link_options(grandleon_mipsync PRIVATE -flto)
-set_source_files_properties(runtime/render.c PROPERTIES COMPILE_OPTIONS "-O3")
+# Backend-generated MIPS-I arithmetic calls appear after LTO's reachability
+# pass. Keep their implementations as native objects so they remain available.
+set_source_files_properties(
+    "${GRANDLEON_SOURCE_ROOT}/platform/playstation/src/psx_arith.c"
+    PROPERTIES COMPILE_OPTIONS "-fno-lto")
 # Turn resolution and campaign/menu code run outside the renderer's hot loops.
 # Avoid duplicating inlined C++ helpers into every stage; retain the renderer's
-# speed settings and the full gameplay/audio/stack RAM reserves.
+# full gameplay/audio/stack RAM reserves.
 get_target_property(grandleon_stage_sources grandleon_mipsync SOURCES)
 foreach(stage_source IN LISTS grandleon_stage_sources)
     if(stage_source MATCHES "\\.cpp$")

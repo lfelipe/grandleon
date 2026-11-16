@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
 import subprocess
 
 
@@ -17,6 +18,16 @@ def digest(path: Path) -> str:
         while chunk := source.read(1024 * 1024):
             hasher.update(chunk)
     return hasher.hexdigest()
+
+
+def ram_frontier(resident_bytes: int, end_address: int) -> int:
+    """Include the executable's reserved prefix and linker alignment in RAM use."""
+    if not 0x80000000 <= end_address <= 0x80200000:
+        raise ValueError("linked heap base is outside PS1 main RAM")
+    frontier = end_address - 0x80000000
+    if not 0 <= resident_bytes <= frontier:
+        raise ValueError("linked sections exceed the physical RAM frontier")
+    return frontier
 
 
 def disc_contains_executable(path: Path, executable: bytes) -> bool:
@@ -112,6 +123,8 @@ def main() -> int:
     ordering_table_bytes = None
     for line in nm_output:
         fields = line.split()
+        if fields:
+            fields[-1] = re.sub(r"\.lto_priv\.\d+$", "", fields[-1])
         if len(fields) >= 3 and fields[-1] in ("_end", "__heap_base"):
             end_address = int(fields[0], 16) & 0xFFFFFFFF
         if len(fields) == 4 and fields[-1] == "grandleon_packet_arena":
@@ -130,8 +143,9 @@ def main() -> int:
     stack_reserve_bytes = 32768
     minimum_gameplay_heap_bytes = 524288
     main_ram_bytes = 2097152
+    occupied_prefix_bytes = ram_frontier(resident_bytes, end_address)
     committed_bytes = (
-        resident_bytes + audio_reserve_bytes + stack_reserve_bytes +
+        occupied_prefix_bytes + audio_reserve_bytes + stack_reserve_bytes +
         minimum_gameplay_heap_bytes
     )
     result = {
@@ -151,6 +165,8 @@ def main() -> int:
             "data_bytes": data_bytes,
             "bss_bytes": bss_bytes,
             "resident_bytes": resident_bytes,
+            "occupied_ram_prefix_bytes": occupied_prefix_bytes,
+            "reserved_prefix_and_alignment_bytes": occupied_prefix_bytes - resident_bytes,
             "packet_bytes_per_frame": packet_bytes_per_frame,
             "packet_arena_bytes": packet_arena_bytes,
             "packet_arena_count": 1,

@@ -14,7 +14,7 @@ part of 0.6, alongside performance work and platform validation.
 
 - [x] Build the Windows x64 native extension and campaign compiler with
   MinGW-w64, verify DLL exports and dependencies, and pass the complete
-  85-check Windows-target CTest suite under Wine, including installed SDK
+  Windows-target CTest suite under Wine, including installed SDK
   consumers and console text helpers. Real Windows desktop validation remains below.
 - [x] Add Windows creator/player packaging with the native extension, pinned
   runtime, imported resources, launcher and license notices. Users need no
@@ -387,6 +387,11 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
 - [x] Reuse the complete static PS1 ground/landmark group while idle units and
   foliage animate. Keep house drawing priority and castle reveals; native
   comparisons preserve every captured pixel while reducing orchard render cost.
+- [ ] Profile the complete PS1 demo after whole-stage size optimization/LTO.
+  Count the reserved load prefix in physical RAM: the village retains the
+  original audio, stack and 512 KiB gameplay heap but has only 280 bytes beyond
+  those reserves. Recover meaningful headroom before adding more scene data;
+  remeasure 30 FPS pacing and complete native stage traversal.
 - [ ] Continue checking PS1 command headroom on larger creator maps. The
   orchard combat probe exposed missing board scenery, while its sampled
   close view was unchanged. Keep future buffers and geometry within real RAM.
