@@ -96,6 +96,11 @@ last saved wording.
 
 ![Writing and previewing story scenes](screenshots/native-guide/03-write-the-story.gif)
 
+Use **Play Adventure 1P/2P** in the guide to start from the opening scene and
+check your story, new companions, and stage transitions together. **Test 1P/2P**
+still starts only the selected battle. Both return to the same stage in the
+guide and keep installed-game saves separate.
+
 ## Share a playable game
 
 Use **Finish & Export** for an editable `.grandleon.zip`, a portable campaign

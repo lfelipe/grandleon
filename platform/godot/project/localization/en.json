@@ -2158,6 +2158,10 @@
     "creator.migration.source_language": "The game records the language its original text is written in, ready for manual translations that travel with every export.",
     "creator.migration.personal_choices": "Heroes can keep their appearance, weapon choices and defeat rules when their role changes.",
     "creator.migration.backup": "Your existing choices stay unchanged. An exact recovery copy will be kept before updating.",
-    "creator.migration.confirm": "Update and continue"
+    "creator.migration.confirm": "Update and continue",
+    "first_battle.adventure_help": "Play from the opening scene to check your story, new companions and next battles. Return here when finished; your saved games stay separate.",
+    "first_battle.adventure_one": "PLAY ADVENTURE 1P",
+    "first_battle.adventure_two": "PLAY ADVENTURE 2P",
+    "first_battle.adventure_error": "This adventure needs attention. Open the campaign outline to check it before playing."
   }
 }

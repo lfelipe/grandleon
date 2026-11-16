@@ -4,6 +4,7 @@ extends Control
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
 const CampaignRoster = preload("res://scripts/creator/campaign_roster.gd")
 const CampaignEditor = preload("res://scripts/creator/campaign_editor.gd")
+const CampaignReadiness = preload("res://scripts/creator/campaign_readiness.gd")
 
 var library
 var compiler
@@ -19,9 +20,12 @@ var map_summary: Label
 var sides_summary: Label
 var objective_summary: Label
 var test_summary: Label
+var campaign_test_summary: Label
 var status_label: Label
 var solo_button: Button
 var coop_button: Button
+var campaign_solo_button: Button
+var campaign_coop_button: Button
 var create_hero_button: Button
 var edit_heroes_button: Button
 var map_button: Button
@@ -123,6 +127,14 @@ func _refresh_facts() -> void:
 	test_summary.text = _t("first_battle.test_help")
 	if mode != "one" and not player_two:
 		test_summary.text += "\n" + _t("first_battle.needs_player_two")
+	var campaign_gaps := CampaignReadiness.two_player_ownership_gaps(campaign)
+	campaign_solo_button.disabled = campaign.is_empty() or mode == "two"
+	campaign_coop_button.disabled = campaign.is_empty() or mode == "one" or not campaign_gaps.is_empty()
+	campaign_solo_button.tooltip_text = _t("campaign.test.solo_unavailable_tooltip" if mode == "two" else "campaign.test.whole_one_tooltip")
+	campaign_coop_button.tooltip_text = _t("campaign.test.coop_unavailable_tooltip" if campaign_coop_button.disabled else "campaign.test.whole_two_tooltip")
+	campaign_test_summary.text = _t("first_battle.adventure_help")
+	if mode != "one" and not campaign_gaps.is_empty():
+		campaign_test_summary.text += "\n" + _t("campaign.players.assign_two", {"battles": ", ".join(campaign_gaps)})
 	for button: Button in [map_button, sides_button, objective_button, next_battle_button, story_button]:
 		button.disabled = encounter.is_empty()
 	create_hero_button.disabled = campaign.is_empty()
@@ -241,6 +253,20 @@ func _play_battle(players: int) -> void:
 		"res://first_battle.tscn", str(encounter.get("name", "")))
 	get_tree().change_scene_to_file("res://main.tscn")
 
+func _play_campaign(players: int) -> void:
+	if players not in [1, 2] or campaign.is_empty(): return
+	if (players == 1 and campaign_solo_button.disabled) or (players == 2 and campaign_coop_button.disabled): return
+	# Compile the complete authored campaign: opening scenes, joins, routes and
+	# endings remain intact. The player runs it in its existing fresh preview
+	# session, keeping installed-game saves separate.
+	var compiled: Dictionary = compiler.compile_source_json(source)
+	if not bool(compiled.get("ok", false)):
+		_set_status(_t("first_battle.adventure_error"), true)
+		return
+	LaunchContext.stage_package(compiled.package, str(campaign.id), true, players,
+		"res://first_battle.tscn", _t("campaign.test.whole_campaign"))
+	get_tree().change_scene_to_file("res://main.tscn")
+
 func _build_interface() -> void:
 	var background := ColorRect.new()
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -301,6 +327,11 @@ func _build_interface() -> void:
 	var grow := _card(cards, "first_battle.grow")
 	grow.add_child(_label(_t("first_battle.grow_help"), 18))
 	next_battle_button = _button(grow, "first_battle.next_battle", _open_map.bind("add_chapter"))
+	campaign_test_summary = _label("", 18)
+	grow.add_child(campaign_test_summary)
+	var campaign_tests := _row(grow)
+	campaign_solo_button = _button(campaign_tests, "first_battle.adventure_one", _play_campaign.bind(1))
+	campaign_coop_button = _button(campaign_tests, "first_battle.adventure_two", _play_campaign.bind(2))
 	var tools_row := GridContainer.new()
 	tools_row.columns = 3
 	tools_row.set_meta("mobile_fit_columns", true)

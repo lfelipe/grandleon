@@ -150,11 +150,95 @@ func run() -> void:
 	var compiled: Dictionary = compiler.compile_source_json(authored)
 	check(compiled.get("ok", false), "unchanged authored campaign compiles")
 	if compiled.get("ok", false):
-		for players in [1, 2]: await play_full_campaign(compiled.package, players)
+		for players in [1, 2]:
+			await play_full_campaign(compiled.package, players)
+			await play_from_guide(players)
 	await check_mobile_picker()
 	check(library.load_source(project_id).source == authored, "reviewing localized forms does not rewrite source")
 	print("LATER_RECRUIT_WORKFLOW_", "PASS" if failures == 0 else "FAIL", " checks=", checks)
 	root.get_node("PCAudio").request_quit(1 if failures else 0)
+
+func play_from_guide(players: int) -> void:
+	var authored: String = library.load_source(project_id).source
+	var selected_battle := str(current_scene.encounter.id)
+	var opening_text := str(current_scene.project.dialogues[0].lines[0].text)
+	var button: Button = current_scene.campaign_solo_button if players == 1 else current_scene.campaign_coop_button
+	check(not button.disabled, "whole adventure is available from the guided stage")
+	button.pressed.emit()
+	await settle()
+	check(current_scene.scene_file_path == "res://main.tscn", "Play Adventure opens actual player")
+	if current_scene.scene_file_path != "res://main.tscn": return
+	var player = current_scene
+	check(player.player_count == players and player.preview_return_scene == "res://first_battle.tscn", "whole adventure honors mode and guided return")
+	check(player.campaign_save_root == "", "whole preview keeps installed saves separate")
+	var saw_opening := false
+	var saw_first := false
+	var saw_later := false
+	var attacks := 0
+	var first_id := source_hex("first_adventure/first_battle")
+	var later_id := source_hex("first_adventure/chapter_1_battle")
+	var deadline := Time.get_ticks_msec() + 30000
+	while not saw_later and Time.get_ticks_msec() < deadline:
+		await process_frame
+		if player._dialogue_visible():
+			for line: Dictionary in player.dialogue_lines:
+				if str(line.get("text", "")) == opening_text: saw_opening = true
+			player._advance_dialogue()
+			continue
+		if player._management_visible():
+			if not player.campaign_manager._proceed_button.disabled:
+				player.campaign_manager._proceed_button.pressed.emit()
+			continue
+		if player._stage_overview_active():
+			player._accept_at(0) # Ordinary confirm skips the arrival camera.
+			continue
+		var encounter_id := str(player.battle_route_identity.get("encounter_id", ""))
+		if encounter_id == later_id:
+			saw_later = true
+			check(not hero(player.snapshot.get("units", [])).is_empty(), "actual later stage fields recruited hero")
+			break
+		if encounter_id != first_id: continue
+		if not saw_first:
+			saw_first = true
+			check(hero(player.snapshot.get("units", [])).is_empty(), "whole guided play does not promote later recruit into opening army")
+			check(str(player.battle_route_identity.get("map_id", "")) == source_hex("first_crossing"), "whole preview starts authored opening map despite later editor selection")
+		if not player.pending_requests.is_empty() or not player.pending_combat_presentation.is_empty(): continue
+		if player.snapshot.get("active_side", "") != "first" or player.snapshot.get("outcome", "ongoing") != "ongoing": continue
+		for unit: Dictionary in player.snapshot.get("units", []):
+			if unit.side != "first" or not unit.on_board or unit.has_acted: continue
+			var target := {}
+			for enemy: Dictionary in player.snapshot.units:
+				if enemy.side == "second" and enemy.on_board and player.session.forecast_attack(int(unit.id), int(enemy.id)).get("available", false):
+					target = enemy
+					break
+			if target.is_empty(): player._submit("wait", int(unit.id))
+			else:
+				attacks += 1
+				player._submit("attack", int(unit.id), int(target.id), Vector2i(int(target.x), int(target.y)))
+			break
+	check(saw_opening, "Play Adventure includes the original opening scene")
+	check(saw_first and saw_later and attacks > 0, "real guided play advances to recruited hero through legal combat")
+	print("GUIDE_FULL_CAMPAIGN players=", players, " opening=", saw_opening, " later=", saw_later, " attacks=", attacks)
+	player._leave_play_session()
+	await settle()
+	check(current_scene.scene_file_path == "res://first_battle.tscn" and str(current_scene.encounter.id) == selected_battle, "Return restores selected later stage")
+	check(library.load_source(project_id).source == authored, "whole preview leaves authored graph, personal rules and joins untouched")
+
+func source_hex(key: String) -> String:
+	var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
+	var decimal: String = compiler.stable_source_id(key)
+	var hexadecimal := ""
+	while not decimal.is_empty():
+		var quotient := ""
+		var remainder := 0
+		for digit: String in decimal:
+			var value := remainder * 10 + int(digit)
+			var next := floori(value / 16.0)
+			if next != 0 or not quotient.is_empty(): quotient += str(next)
+			remainder = value % 16
+		hexadecimal = "0123456789abcdef"[remainder] + hexadecimal
+		decimal = quotient
+	return ("0000000000000000" + hexadecimal).right(16)
 
 func play_full_campaign(bytes: PackedByteArray, players: int) -> void:
 	var session = ClassDB.instantiate("GrandleonSession")

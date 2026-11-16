@@ -2158,6 +2158,10 @@
     "creator.migration.source_language": "O jogo registra o idioma do texto original para que as traduções manuais acompanhem cada exportação.",
     "creator.migration.personal_choices": "Os heróis podem manter a aparência, as armas e as regras de derrota ao mudar de função.",
     "creator.migration.backup": "Suas escolhas atuais não mudam. Uma cópia exata de recuperação será salva antes da atualização.",
-    "creator.migration.confirm": "Atualizar e continuar"
+    "creator.migration.confirm": "Atualizar e continuar",
+    "first_battle.adventure_help": "Jogue desde a cena inicial para conferir a história, os novos companheiros e as próximas batalhas. Volte aqui ao terminar; suas partidas salvas ficam separadas.",
+    "first_battle.adventure_one": "JOGAR AVENTURA 1J",
+    "first_battle.adventure_two": "JOGAR AVENTURA 2J",
+    "first_battle.adventure_error": "Esta aventura precisa de ajustes. Abra a estrutura da campanha para conferir antes de jogar."
   }
 }

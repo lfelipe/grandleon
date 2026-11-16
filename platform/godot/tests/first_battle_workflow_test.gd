@@ -85,7 +85,8 @@ func run() -> void:
 	await settle()
 	check(current_scene.battle_select.item_count == 2, "new stage is available in the same guide")
 	check(library.load_source(project_id).project.maps.size() == original.project.maps.size() + 1, "next stage creates a real map")
-	for language: String in ["en", "pt-BR"]:
+	await check_campaign_launch_choices(project_id, library)
+	for language: String in ["en", "es", "pt-BR"]:
 		root.get_node("Localization").select_language(language, false)
 		current_scene.queue_free()
 		await settle()
@@ -106,6 +107,15 @@ func run() -> void:
 			scroll.ensure_control_visible(guide.next_battle_button)
 			await settle()
 			check(scroll.get_global_rect().grow(1).encloses(guide.next_battle_button.get_global_rect()), "Add Next Battle can be reached by scrolling")
+			scroll.ensure_control_visible(guide.campaign_coop_button)
+			await settle()
+			check(scroll.get_global_rect().grow(1).encloses(guide.campaign_coop_button.get_global_rect()), "Play Adventure remains reachable at phone/tablet density")
+			check(not guide.campaign_coop_button.text.contains("first_battle."), "Play Adventure labels are translated")
+			if language == "pt-BR" and density == 2.625 and DisplayServer.get_name() != "headless":
+				for argument: String in OS.get_cmdline_user_args():
+					if argument.begins_with("--screenshot-adventure="):
+						await RenderingServer.frame_post_draw
+						root.get_texture().get_image().save_png(argument.trim_prefix("--screenshot-adventure="))
 			if language == "en" and density == 1.0 and DisplayServer.get_name() != "headless":
 				for argument: String in OS.get_cmdline_user_args():
 					if argument.begins_with("--screenshot-en="):
@@ -132,3 +142,84 @@ func run() -> void:
 	check(current_scene.export_project_id == project_id, "export center retains the authored project")
 	print("FIRST_BATTLE_WORKFLOW_", "PASS" if failures == 0 else "FAIL", " checks=", checks)
 	root.get_node("PCAudio").request_quit(1 if failures else 0)
+
+
+func check_campaign_launch_choices(project_id: String, library) -> void:
+	var baseline: String = library.load_source(project_id).source
+	var original: Dictionary = JSON.parse_string(baseline)
+	var copy := original.duplicate(true)
+	var alternate: Dictionary = copy.campaigns[0].duplicate(true)
+	alternate.id = "another_adventure"
+	alternate.name = "Another Adventure"
+	copy.campaigns.append(alternate)
+	check(library.save_source(project_id, JSON.stringify(integer_numbers(copy))).ok, "second campaign fixture saves")
+	current_scene._load_project()
+	current_scene.campaign_select.select(1)
+	current_scene.campaign_select.item_selected.emit(1)
+	check(str(current_scene.campaign.id) == "another_adventure" and str(current_scene.encounter.id) == "chapter_1_battle", "campaign choice retains later stage context")
+	for mode: String in ["one", "two", "choice"]:
+		copy.campaigns[1].playerMode = mode
+		check(library.save_source(project_id, JSON.stringify(integer_numbers(copy))).ok, "authored player mode saves")
+		current_scene._load_project()
+		check(current_scene.campaign_solo_button.disabled == (mode == "two"), "whole solo follows authored mode")
+		check(current_scene.campaign_coop_button.disabled == (mode == "one"), "whole co-op follows authored mode")
+		if mode != "choice":
+			current_scene._play_campaign(2 if mode == "one" else 1)
+			await settle()
+			check(current_scene.scene_file_path == "res://first_battle.tscn", "unsupported player count cannot start a preview")
+	# The selected opening battle has Player 2; a different battle does not.
+	# A whole-adventure test must check every battle instead of the selected row.
+	var later: Dictionary = copy.campaigns[1].flow.nodes.filter(func(value): return value.id == "chapter_1_battle")[0]
+	for placement: Dictionary in later.placements:
+		if int(placement.get("player", 1)) == 2:
+			placement.erase("player") # Player 1 is the canonical omitted default.
+			placement.erase("minimumPlayers")
+	var missing_saved: Dictionary = library.save_source(project_id, JSON.stringify(integer_numbers(copy)))
+	check(missing_saved.ok, "missing later Player 2 fixture saves: " + str(missing_saved.get("diagnostics", [])))
+	if not missing_saved.ok: return
+	current_scene._load_project()
+	current_scene.battle_select.select(0)
+	current_scene.battle_select.item_selected.emit(0)
+	check(not current_scene.coop_button.disabled and current_scene.campaign_coop_button.disabled, "single battle can test while incomplete whole co-op is blocked")
+	check(current_scene.campaign_test_summary.text.contains(str(later.name)), "whole test explains which other battle needs Player 2")
+	current_scene._play_campaign(2)
+	await settle()
+	check(current_scene.scene_file_path == "res://first_battle.tscn", "missing later Player 2 cannot silently launch whole campaign")
+	copy.campaigns[1] = alternate.duplicate(true)
+	copy.campaigns[1].playerMode = "choice"
+	# alternate was initially appended by reference; restore authored placements.
+	copy.campaigns[1].flow.nodes = original.campaigns[0].flow.nodes.duplicate(true)
+	check(library.save_source(project_id, JSON.stringify(integer_numbers(copy))).ok, "whole campaign fixture restores")
+	current_scene._load_project()
+	current_scene.battle_select.select(1)
+	current_scene.battle_select.item_selected.emit(1)
+	for players: int in [1, 2]:
+		var authored: String = library.load_source(project_id).source
+		var button: Button = current_scene.campaign_solo_button if players == 1 else current_scene.campaign_coop_button
+		button.pressed.emit()
+		await settle()
+		check(current_scene.scene_file_path == "res://main.tscn", "whole preview launches actual player")
+		if current_scene.scene_file_path != "res://main.tscn": continue
+		var player = current_scene
+		check(player.campaign_key == "another_adventure" and player.player_count == players, "whole preview honors explicit campaign and player count")
+		var deadline := Time.get_ticks_msec() + 10000
+		while not player._dialogue_visible() and Time.get_ticks_msec() < deadline: await process_frame
+		check(player._dialogue_visible(), "whole preview starts the authored opening despite later stage selection")
+		player._leave_play_session()
+		await settle()
+		check(str(current_scene.campaign.id) == "another_adventure" and str(current_scene.encounter.id) == "chapter_1_battle", "whole preview returns to exact selected campaign and stage")
+		check(library.load_source(project_id).source == authored, "whole preview never rewrites authored source")
+	check(library.save_source(project_id, baseline).ok, "original single campaign restores")
+	root.get_node("CreatorContext").choose_campaign("first_adventure")
+	current_scene._load_project()
+
+func integer_numbers(value: Variant) -> Variant:
+	if value is Dictionary:
+		var result := {}
+		for key: Variant in value: result[key] = integer_numbers(value[key])
+		return result
+	if value is Array:
+		var result := []
+		for item: Variant in value: result.append(integer_numbers(item))
+		return result
+	return int(value) if typeof(value) == TYPE_FLOAT and value == floor(value) else value
