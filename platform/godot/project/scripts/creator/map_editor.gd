@@ -5,6 +5,7 @@ const SceneryStyle = preload("res://scripts/scenery_style.gd")
 const ArtLibrary = preload("res://scripts/art_library.gd")
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
 const CampaignRoster = preload("res://scripts/creator/campaign_roster.gd")
+const BattleGoals = preload("res://scripts/creator/battle_goals.gd")
 const CampaignEditor = preload("res://scripts/creator/campaign_editor.gd")
 const ProjectContentDependencyIndex = preload(
 	"res://scripts/creator/project_content_dependency_index.gd"
@@ -159,6 +160,7 @@ var patrol_apply_button: Button
 var objective_button: Button
 var objective_layer: Control
 var objective_mode_button: Button
+var objective_mode_buttons: Dictionary = {}
 var objective_candidate_label: Label
 var objective_previous_button: Button
 var objective_next_button: Button
@@ -2910,19 +2912,29 @@ func _open_objectives() -> void:
 	objective_layer.visible = true
 	_refresh_objective_targets()
 	_refresh_objective_candidates()
-	objective_first_button.call_deferred("grab_focus")
+	call_deferred("_focus_objective_tab")
+
+
+func _focus_objective_tab() -> void:
+	if is_inside_tree() and objective_layer.visible:
+		objective_mode_buttons[objective_mode].grab_focus()
 
 
 func _close_objectives() -> void:
 	objective_layer.visible = false
 	objective_candidates.clear()
 	objective_targets.clear()
-	setup_button.call_deferred("grab_focus")
+	if is_inside_tree(): setup_button.grab_focus()
 
 
 func _cycle_objective_mode() -> void:
 	var modes := ["assigned", "available", "new"]
-	objective_mode = modes[(modes.find(objective_mode) + 1) % modes.size()]
+	_select_objective_mode(modes[(modes.find(objective_mode) + 1) % modes.size()])
+
+
+func _select_objective_mode(mode: String) -> void:
+	if mode not in ["assigned", "available", "new"]: return
+	objective_mode = mode
 	objective_candidate_index = 0
 	_refresh_objective_candidates()
 
@@ -2940,13 +2952,25 @@ func _cycle_objective_kind(delta: int = 1) -> void:
 	objective_kind_index = wrapi(
 		objective_kind_index + delta, 0, OBJECTIVE_KINDS.size()
 	)
-	objective_target_index = 0
+	_select_default_objective_target()
 	_update_objective_view()
 
 
 func _toggle_objective_side() -> void:
 	objective_side = "second" if objective_side == "first" else "first"
+	_select_default_objective_target()
 	_update_objective_view()
+
+
+func _select_default_objective_target() -> void:
+	var kind := str(OBJECTIVE_KINDS[objective_kind_index].id)
+	var target_side := objective_side
+	if kind == "defeatTarget": target_side = "second" if objective_side == "first" else "first"
+	for index in objective_targets.size():
+		if str(objective_targets[index].get("side", "second")) == target_side:
+			objective_target_index = index
+			return
+	objective_target_index = 0
 
 
 func _cycle_objective_target() -> void:
@@ -3053,23 +3077,11 @@ func _objective_kind_label(kind: String) -> String:
 
 
 func _objective_summary(objective: Dictionary) -> String:
-	var kind := str(objective.get("kind", "defeatAllOpponents"))
-	var lines := PackedStringArray([
-		str(objective.get("name", objective.get("id", "Objective"))),
-		_t("map.objective.summary_kind", {
-			"kind": _objective_kind_label(kind),
-			"side": _side_label(str(objective.get("side", "first"))),
-		}),
-	])
-	if kind == "defeatTarget" or kind == "protectTarget":
-		lines.append(
-			_t("map.objective.summary_target", {"target": _objective_target_display_name(
-				str(objective.get("targetPlacementId", ""))
-			).to_upper()})
-		)
-	elif kind == "surviveRounds":
-		lines.append(_t("map.objective.summary_rounds", {"rounds": int(objective.get("rounds", 1))}))
-	return "\n".join(lines)
+	var encounter := _current_encounter()
+	return "%s\n%s" % [
+		str(objective.get("name", _t("map.fallback.objective"))),
+		BattleGoals.describe(objective, project, encounter.get("campaign", {}), encounter.get("node", {}), _t),
+	]
 
 
 func _objective_target_display_name(target_id: String) -> String:
@@ -3094,29 +3106,19 @@ func _new_objective_name() -> String:
 
 
 func _new_objective_summary() -> String:
-	var kind := str(OBJECTIVE_KINDS[objective_kind_index].id)
-	var lines := PackedStringArray([
-		_new_objective_name(),
-		_t("map.objective.summary_kind", {
-			"kind": _t(str(OBJECTIVE_KINDS[objective_kind_index].label_key)),
-			"side": _side_label(objective_side),
-		}),
-	])
-	if kind == "defeatTarget" or kind == "protectTarget":
-		lines.append(
-			_t("map.objective.summary_target", {"target": (
-				str(objective_targets[objective_target_index].get("name", _t("map.fallback.character"))).to_upper()
-				if not objective_targets.is_empty()
-				else _t("map.objective.no_placement")
-			)})
-		)
-	elif kind == "surviveRounds":
-		lines.append(_t("map.objective.summary_rounds", {"rounds": objective_rounds}))
-	return "\n".join(lines)
+	var objective := {
+		"name": _new_objective_name(),
+		"kind": str(OBJECTIVE_KINDS[objective_kind_index].id),
+		"side": objective_side,
+		"rounds": objective_rounds,
+		"targetPlacementId": str(objective_targets[objective_target_index].get("id", "")) if not objective_targets.is_empty() else "",
+	}
+	return _objective_summary(objective)
 
 
 func _update_objective_view() -> void:
-	objective_mode_button.text = _t("map.objective.mode." + objective_mode)
+	for mode: String in objective_mode_buttons:
+		objective_mode_buttons[mode].set_pressed_no_signal(mode == objective_mode)
 	var browsing := objective_mode != "new"
 	objective_previous_button.visible = browsing
 	objective_next_button.visible = browsing
@@ -3147,7 +3149,7 @@ func _update_objective_view() -> void:
 	objective_kind_button.text = _t("map.objective.kind_label", {
 		"kind": _t(str(OBJECTIVE_KINDS[objective_kind_index].label_key)),
 	})
-	objective_side_button.text = _t("map.objective.side_label", {"side": _side_label(objective_side)})
+	objective_side_button.text = _t("goals.owner." + objective_side)
 	var targeted := kind == "defeatTarget" or kind == "protectTarget"
 	objective_target_button.visible = targeted
 	objective_rounds_row.visible = kind == "surviveRounds"
@@ -3252,7 +3254,7 @@ func _accept_objective_edit(updated: Dictionary, message: String, selected_id: S
 			break
 	_update_objective_view()
 	_set_status(_t("map.status.unsaved_detail", {"detail": message}), false)
-	objective_mode_button.call_deferred("grab_focus")
+	call_deferred("_focus_objective_tab")
 
 
 func _open_forces() -> void:
@@ -5966,6 +5968,7 @@ func _build_objective_overlay() -> void:
 	objective_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	objective_layer.mouse_filter = Control.MOUSE_FILTER_STOP
 	objective_layer.visible = false
+	objective_layer.z_index = 34
 	add_child(objective_layer)
 	var shade := ColorRect.new()
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -5981,24 +5984,42 @@ func _build_objective_overlay() -> void:
 	objective_layer.add_child(panel)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 14)
-	panel.add_child(column)
+	var scroll := ScrollContainer.new()
+	scroll.follow_focus = true
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	panel.add_child(scroll)
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(column)
 	column.add_child(_label(_t("map.objective.heading"), 24, Color("ffca63")))
 	var explanation := _label(
-		_t("map.objective.help"),
+		_t("goals.help"),
 		19, Color("a9bdc9")
 	)
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explanation.custom_minimum_size.y = 66
 	column.add_child(explanation)
-	objective_first_button = _button(_t("map.objective.view"), 420, 60)
-	objective_first_button.pressed.connect(_cycle_objective_mode)
+	var tabs := BoxContainer.new()
+	tabs.set_meta("mobile_wrap_actions", true)
+	tabs.add_theme_constant_override("separation", 10)
+	column.add_child(tabs)
+	var group := ButtonGroup.new()
+	for mode: String in ["assigned", "available", "new"]:
+		var tab := _button(_t("goals.tab." + mode), 0, 60)
+		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tab.toggle_mode = true
+		tab.button_group = group
+		tab.pressed.connect(_select_objective_mode.bind(mode))
+		tabs.add_child(tab)
+		objective_mode_buttons[mode] = tab
+	objective_first_button = objective_mode_buttons.assigned
 	objective_mode_button = objective_first_button
-	column.add_child(objective_mode_button)
 	objective_candidate_label = _label("", 22, Color("f2f7f9"))
-	objective_candidate_label.custom_minimum_size.y = 150
+	objective_candidate_label.custom_minimum_size.y = 100
+	objective_candidate_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	objective_candidate_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	column.add_child(objective_candidate_label)
-	var navigation := HBoxContainer.new()
+	var navigation := BoxContainer.new()
+	navigation.set_meta("mobile_wrap_actions", true)
 	navigation.add_theme_constant_override("separation", 12)
 	column.add_child(navigation)
 	objective_previous_button = _button(_t("map.previous"), 240, 56)
@@ -6011,7 +6032,8 @@ func _build_objective_overlay() -> void:
 	objective_options = VBoxContainer.new()
 	objective_options.add_theme_constant_override("separation", 10)
 	column.add_child(objective_options)
-	var kind_side := HBoxContainer.new()
+	var kind_side := BoxContainer.new()
+	kind_side.set_meta("mobile_wrap_actions", true)
 	kind_side.add_theme_constant_override("separation", 12)
 	objective_options.add_child(kind_side)
 	objective_kind_button = _button(_t("map.objective.kind"), 610, 56)
@@ -6042,7 +6064,8 @@ func _build_objective_overlay() -> void:
 	objective_rounds_row.add_child(rounds_plus)
 	objective_rounds_row.add_child(_label(_t("map.objective.rounds_to_survive"), 17, Color("718896")))
 
-	var actions := HBoxContainer.new()
+	var actions := BoxContainer.new()
+	actions.set_meta("mobile_wrap_actions", true)
 	actions.add_theme_constant_override("separation", 12)
 	column.add_child(actions)
 	objective_primary_button = _button(_t("map.apply"), 420, 62)

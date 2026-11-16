@@ -68,7 +68,10 @@ has joined. Switch the **1P** and **2P** tabs above the map to compare and edit
 each formation in the same view. Moving a unit in 2P keeps its 1P position.
 Under **Battle Setup**, you can also arrange
 reinforcements, patrols and the differences between solo and co-op forces.
-Choose the battle's goal, then use **Test 1 Player** or **Test 2 Players** from
+**Edit Objective** explains the actual win or loss rule. Choose **This Battle**,
+**Reuse**, or **Create** directly; a target goal starts with a suitable
+enemy or ally. Multiple goals can end the battle independently.
+Then use **Test 1 Player** or **Test 2 Players** from
 the guide. The player returns to the same editing workflow afterwards.
 The map editor's **Test** also starts the selected battle directly and returns
 to the same map. If several battles share that map, choose the battle first.

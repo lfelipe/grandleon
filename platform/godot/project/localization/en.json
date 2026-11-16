@@ -2162,6 +2162,19 @@
     "first_battle.adventure_help": "Play from the opening scene to check your story, new companions and next battles. Return here when finished; your saved games stay separate.",
     "first_battle.adventure_one": "PLAY ADVENTURE 1P",
     "first_battle.adventure_two": "PLAY ADVENTURE 2P",
-    "first_battle.adventure_error": "This adventure needs attention. Open the campaign outline to check it before playing."
+    "first_battle.adventure_error": "This adventure needs attention. Open the campaign outline to check it before playing.",
+    "goals.help": "Choose when players win or lose. Each goal can end the battle; defeating an entire side also ends it.",
+    "goals.tab.assigned": "THIS BATTLE",
+    "goals.tab.available": "REUSE",
+    "goals.tab.new": "CREATE",
+    "goals.win_defeat_all": "Defeat every opponent to win.",
+    "goals.lose_defeat_all": "Losing your entire army loses the battle.",
+    "goals.win_survive": "Win by surviving through round {rounds}.",
+    "goals.lose_survive": "Lose if the opposing army survives through round {rounds}.",
+    "goals.win_target": "Win if {target} is defeated.",
+    "goals.lose_target": "Lose if {target} is defeated.",
+    "goals.independent": "Each of these conditions can end the battle.",
+    "goals.owner.first": "PLAYERS’ GOAL",
+    "goals.owner.second": "OPPONENTS’ GOAL"
   }
 }

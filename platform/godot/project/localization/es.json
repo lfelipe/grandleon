@@ -2162,6 +2162,19 @@
     "first_battle.adventure_help": "Juega desde la escena inicial para probar la historia, los nuevos compañeros y las siguientes batallas. Vuelve aquí al terminar; tus partidas guardadas quedan separadas.",
     "first_battle.adventure_one": "JUGAR AVENTURA 1P",
     "first_battle.adventure_two": "JUGAR AVENTURA 2P",
-    "first_battle.adventure_error": "Esta aventura necesita ajustes. Abre el esquema de la campaña para revisarla antes de jugar."
+    "first_battle.adventure_error": "Esta aventura necesita ajustes. Abre el esquema de la campaña para revisarla antes de jugar.",
+    "goals.help": "Elige cuándo se gana o se pierde. Cada objetivo puede terminar la batalla; derrotar a todo un bando también la termina.",
+    "goals.tab.assigned": "BATALLA",
+    "goals.tab.available": "REUTILIZAR",
+    "goals.tab.new": "CREAR",
+    "goals.win_defeat_all": "Derrota a todos los oponentes para ganar.",
+    "goals.lose_defeat_all": "Perder todo tu ejército significa perder la batalla.",
+    "goals.win_survive": "Sobrevive hasta el final de la ronda {rounds} para ganar.",
+    "goals.lose_survive": "Pierdes si el ejército rival sobrevive hasta el final de la ronda {rounds}.",
+    "goals.win_target": "Ganas si {target} cae en combate.",
+    "goals.lose_target": "Pierdes si {target} cae en combate.",
+    "goals.independent": "Cada una de estas condiciones puede terminar la batalla.",
+    "goals.owner.first": "OBJETIVO ALIADO",
+    "goals.owner.second": "OBJETIVO ENEMIGO"
   }
 }

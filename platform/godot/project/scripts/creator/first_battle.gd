@@ -5,6 +5,7 @@ const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
 const CampaignRoster = preload("res://scripts/creator/campaign_roster.gd")
 const CampaignEditor = preload("res://scripts/creator/campaign_editor.gd")
 const CampaignReadiness = preload("res://scripts/creator/campaign_readiness.gd")
+const BattleGoals = preload("res://scripts/creator/battle_goals.gd")
 
 var library
 var compiler
@@ -117,8 +118,9 @@ func _refresh_facts() -> void:
 	var objectives: Array[String] = []
 	for identity: Variant in encounter.get("objectiveIds", []):
 		var objective := _record(project.get("objectives", []), str(identity))
-		objectives.append(str(objective.get("name", identity)))
-	objective_summary.text = ", ".join(objectives) if not objectives.is_empty() else _t("first_battle.no_objective")
+		objectives.append("%s\n%s" % [str(objective.get("name", identity)), BattleGoals.describe(objective, project, campaign, encounter, _t)])
+	objective_summary.text = "\n\n".join(objectives) if not objectives.is_empty() else _t("first_battle.no_objective")
+	if objectives.size() > 1: objective_summary.text += "\n" + _t("goals.independent")
 	var mode := str(campaign.get("playerMode", "one"))
 	solo_button.disabled = encounter.is_empty() or mode == "two"
 	coop_button.disabled = encounter.is_empty() or mode == "one" or not player_two
