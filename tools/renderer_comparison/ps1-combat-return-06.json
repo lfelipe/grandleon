@@ -152,5 +152,75 @@
     "Tested close returns improve from seven/six retraces to three/three. Some new three-retrace holds remain, including the first backup; consistent 30 FPS is not achieved.",
     "Large-map/castle camera-change and reveal regressions remain required; this is not a full native campaign playthrough.",
     "No upstream engine patch is added; application cache policy remains in the Grandleon adapter."
-  ]
+  ],
+  "direct_replay_followup": {
+    "source_base": "22bdd494",
+    "change": "Restore commands directly from their saved CPU buffer while relocating the original DMA links into the current ordering table. This removes the separate copy into the command arena.",
+    "source_sha256": "9b35516cc3e368f71c996d4a6e32d8fb93c1fac0890a841798ef3883f1af7ffc",
+    "build": "out/release06-verify/steel",
+    "recording": "out/release06-verify/steel-combat-final",
+    "disc_identity": "out/release06-verify/steel-disc-identity.json",
+    "complete_frame_hold_histogram_vis": {
+      "2": 450,
+      "3": 3
+    },
+    "observed_display_flip_fps": 29.905335214824447,
+    "long_holds": [
+      {
+        "update": 100,
+        "retraces": 3
+      },
+      {
+        "update": 123,
+        "retraces": 3
+      },
+      {
+        "update": 242,
+        "retraces": 3
+      }
+    ],
+    "return_holds": "Both tested close-view returns now present after two retraces, down from three with the extra staging copy. Three other frames hold for three retraces in the observed window.",
+    "matched_framebuffer_sha256": {
+      "mipsync-combat-forecast.bin": "52fe9b8d0ad66f5377d4aebd49c3bfb4126efda46106cd5a2256ddf89ee3af82",
+      "mipsync-combat-close.bin": "a443e03979cd6aeca8388825d4e5369809b3b802c96a3addce45a758f86ea6ad",
+      "mipsync-combat-final.bin": "c07f8f634c9e0f0dba9e89993cfda15ab01b51b9c3a105521b9cc30cf1169e1f"
+    },
+    "final_state_hash": "2db6751aa049faaf",
+    "twin_gate": {
+      "log": "out/release06-verify/gate-solo-run/emulator.log",
+      "check": "The moved camera rejects the saved scenery commands. Cursor inspection keeps the roof covered, and the real doorway move reveals all 18 cells."
+    },
+    "three_courts": {
+      "disc": "out/release06-verify/three-courts/game.bin",
+      "disc_sha256": "c1837a0cd83e7ef7919e93df935f20c2ade3b60774fe9f6c6dfd300a2c6ed2ae",
+      "main_ram_headroom_bytes": 93200,
+      "player_modes": {
+        "1P": {
+          "log": "out/release06-verify/castle-one-final/emulator.log",
+          "checked": "Nine roof cells reveal on entry. Scrolling on both axes leaves the other rooms covered.",
+          "metrics": {
+            "frames": 600,
+            "rendered_frames": 95,
+            "scheduled_frames": 505,
+            "deferred_frames": 0,
+            "missed_vblanks": 412,
+            "max_elapsed_vblanks": 19
+          }
+        },
+        "2P": {
+          "log": "out/release06-verify/castle-two-final/emulator.log",
+          "checked": "Nine roof cells reveal on entry. Scrolling on both axes leaves the other rooms covered.",
+          "metrics": {
+            "frames": 600,
+            "rendered_frames": 92,
+            "scheduled_frames": 507,
+            "deferred_frames": 1,
+            "missed_vblanks": 416,
+            "max_elapsed_vblanks": 24
+          }
+        }
+      },
+      "performance": "The 32 × 24 prototype meets the RAM budget and passes functional gameplay checks. Camera motion still exceeds the frame budget."
+    }
+  }
 }

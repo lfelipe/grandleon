@@ -377,16 +377,11 @@ static void restore_combat_board(void) {
         ++s_combat_board.rejected;
         return;
     }
-    /* Stage the original encoded links at the far end of the arena. Normal
-     * replay relocates them from their recorded DMA base and joins the live
-     * ordering table; merely copying them must not insert stale table heads.
-     * Earlier character-preset draws retain their original ordering. If they
-     * reach this source, the ordinary overwrite guard rejects replay. */
-    char* source = grandleon_packet_arena + PACKET_BYTES_PER_FRAME
-        - s_combat_board.fragment.bytes;
-    __builtin_memcpy(source, s_combat_board.storage, s_combat_board.fragment.bytes);
+    /* Replay straight from the backup. The encoded links still use the
+     * original DMA base. The fragment helper relocates them as it copies
+     * commands into the live arena and joins the current ordering table. */
     s_static_fragments[0] = s_combat_board.fragment;
-    s_static_fragments[0].packets = (const uint32_t*)source;
+    s_static_fragments[0].packets = s_combat_board.storage;
     s_world_ready = 0;
     ++s_combat_board.restored;
 }

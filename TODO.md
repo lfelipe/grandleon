@@ -391,11 +391,10 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   updates at 60 Hz under rendering load. Native recordings remove the
   alternating short/long frame holds; full campaign and co-op checks pass.
 - [ ] Remove the remaining cold return frame after close attacks and abilities.
-  The normal exported campaign now retains exact scenery commands across
-  close combat: the two tested return holds fell from seven/six retraces to
-  three. Actors, UI and changed scenery still draw normally. This uses a
-  bounded 52 KiB command backup within the original RAM reserves; consistent
-  two-retrace presentation remains open.
+  Replaying saved scenery directly brings both observed Bell Orchard returns
+  to two retraces, down from seven and six before scenery reuse. The Twin Gate
+  check rejects a saved fragment when the camera has moved and still reveals
+  the room on entry. Broader return and frame pacing checks remain open.
   [Measurements](tools/renderer_comparison/ps1-combat-return-06.json)
 - [x] Reuse the complete static PS1 ground/landmark group while idle units and
   foliage animate. Keep house drawing priority and castle reveals; native
@@ -442,10 +441,10 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   change to their round silhouette. One fully instanced tree uses 3,608
   triangles in temperate/autumn, 2,840 in winter and 1,240 in ashland.
 
-PS1 now schedules completed images at two-retrace display deadlines while
-keeping game updates at 60 Hz. Ordinary recorded combat holds frames evenly;
-one cold frame remains on close-view returns, and the keep's opening sweep
-still exceeds budget. The existing strict performance checks remain open.
+PS1 schedules completed images at two-retrace display deadlines and keeps
+game updates at 60 Hz. The latest Bell Orchard replay averages 29.9 FPS.
+The keep's opening sweep and scrolling across the 32×24 castle still exceed
+the frame budget. The strict performance checks remain open.
 [Current measurements and build identities](tools/renderer_comparison/ps1-display-deadlines-06.json).
 
 ### Review and release checks
