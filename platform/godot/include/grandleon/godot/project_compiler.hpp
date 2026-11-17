@@ -288,6 +288,10 @@ public:
         const ::godot::String& source_json, const ::godot::String& campaign_id,
         const ::godot::String& mode
     ) const;
+    [[nodiscard]] ::godot::Dictionary set_campaign_node_shop(
+        const ::godot::String& source_json, const ::godot::String& campaign_id,
+        const ::godot::String& node_id, const ::godot::String& shop_json
+    ) const;
     [[nodiscard]] ::godot::Dictionary insert_dialogue_line(
         const ::godot::String& source_json,
         const ::godot::String& dialogue_id,

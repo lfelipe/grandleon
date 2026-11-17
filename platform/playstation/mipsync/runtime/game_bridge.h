@@ -40,7 +40,8 @@ enum grandleon_ui_mode {
     GRANDLEON_UI_TITLE_SETTINGS,
     GRANDLEON_UI_NAME,
     GRANDLEON_UI_STAGE_OVERVIEW,
-    GRANDLEON_UI_PACK
+    GRANDLEON_UI_PACK,
+    GRANDLEON_UI_SHOP
 };
 
 enum grandleon_ui_text_id {

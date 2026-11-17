@@ -517,6 +517,10 @@ def build_project() -> dict:
     nodes.append(story_node("orchard_camp", "A Paid Lie", "orchard_won", "cedar_deepwood"))
     nodes.append({
         "id": "cedar_deepwood", "name": "II — Cedar Deepwood", "kind": "encounter",
+        "shop": {"offers": [
+            {"id": "field_tonics", "itemId": "field_tonic", "price": 1, "stock": 4},
+            {"id": "march_sword", "weaponId": "march_blade", "price": 4, "stock": 1},
+        ]},
         "mapId": "cedar_deepwood", "turnOrder": "sideBlocks",
         "placements": [
             placement("rowan_deepwood", "rowan_vale", "first", 5, 3, member="rowan", two_position=(3, 1)),
@@ -643,12 +647,12 @@ def build_project() -> dict:
     ))
 
     project = {
-        "schemaVersion": "1.6.0",
+        "schemaVersion": "1.7.0",
         "sourceLanguage": "en",
         "packageId": "751d322d-dc60-4c6d-a1e1-821e4dd7c617",
         "gameId": "grandleon.steel_and_cedar",
         "title": "Steel and Cedar",
-        "contentRevision": "0.4.0",
+        "contentRevision": "0.4.1",
         "themeId": "temperate",
         "characterStyleId": "medieval",
         "characterFigureId": "first",

@@ -9,6 +9,7 @@
 #include <grandleon/package_runtime/encounter_loader.hpp>
 #include <grandleon/package_runtime/campaign.hpp>
 #include <grandleon/package_runtime/starting_kit.hpp>
+#include <grandleon/package_runtime/inventory.hpp>
 #include <grandleon/package_runtime/dialogue.hpp>
 #include <grandleon/package_runtime/localization.hpp>
 #include <grandleon/package_runtime/manifest.hpp>
@@ -294,6 +295,9 @@ void write_campaign(
         output << ",\"recruited_weapons\":";
         write_numbers(output, member.rules.states_starting_weapons
             ? member.rules.starting_weapons : role_weapons.weapons);
+        const auto role_inventory = pr::unit_inventory_rules(package, member.unit_type_id);
+        output << ",\"shop_carry_capacity\":" << (member.rules.states_carry_capacity ? member.rules.carry_capacity : role_inventory.carry_capacity)
+               << ",\"shop_states_capacity\":" << (member.rules.states_carry_capacity || role_inventory.states_carry_capacity);
         output << ",\"carry_capacity\":" << member.rules.carry_capacity
                << ",\"states_carry_capacity\":" << member.rules.states_carry_capacity;
         output << '}';
@@ -322,7 +326,16 @@ void write_campaign(
                << (node.has_unconditional_target ? 1 : 0)
                << ",\"fallback\":";
         write_id(output, node.unconditional_target_id);
-        output << ",\"branches\":[";
+        output << ",\"shop_offers\":[";
+        for (std::size_t row = 0; row < node.shop_offers.size(); ++row) {
+            if (row) output << ',';
+            const auto& offer = node.shop_offers[row];
+            output << "{\"id\":"; write_id(output, offer.id);
+            output << ",\"category\":" << static_cast<unsigned>(offer.category)
+                   << ",\"content_id\":"; write_id(output, offer.content_id);
+            output << ",\"price\":" << offer.price << ",\"stock\":" << offer.stock << '}';
+        }
+        output << "],\"branches\":[";
         for (std::size_t branch_index = 0;
              branch_index < node.branches.size(); ++branch_index) {
             if (branch_index != 0) output << ',';

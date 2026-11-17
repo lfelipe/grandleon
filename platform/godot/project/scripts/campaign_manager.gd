@@ -3,6 +3,7 @@ extends Control
 
 signal intent_requested(kind: String, member_id: int, item_id: int, stage_id: int)
 signal player_name_requested(member_id: int, name: String)
+signal shop_purchase_requested(member_id: int, offer_id: int)
 signal session_menu_requested
 
 const MobileLayout = preload("res://scripts/mobile_layout.gd")
@@ -23,6 +24,9 @@ var _font_bindings: Array[Dictionary] = []
 var _roster_buttons: Dictionary = {}
 var _action_buttons: Array[Button] = []
 
+var shop: Control
+var _normal_panel: PanelContainer
+var _finished_shop_node := 0
 var _heading: Label
 var _fielded_label: Label
 var _refusal_label: Label
@@ -58,6 +62,14 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_build_interface()
+	shop = load("res://scripts/player_shop.gd").new()
+	add_child(shop)
+	shop.purchase_requested.connect(func(member: int, offer: int):
+		_pending = true
+		shop_purchase_requested.emit(member, offer)
+	)
+	shop.continue_requested.connect(_finish_shop)
+	shop.session_menu_requested.connect(func(): session_menu_requested.emit())
 	set_text_scale(_text_scale)
 	visible = false
 
@@ -66,6 +78,16 @@ func present(company: Dictionary) -> void:
 	_company = company.duplicate(true)
 	_pending = false
 	_actions_open = false
+	var refused: bool = str(company.get("refused", "none")) not in ["", "none"]
+	if refused: _finished_shop_node = int(company.get("node_id", 0))
+	var shopping: bool = not company.get("shop_offers", []).is_empty() and not refused and int(company.get("node_id", 0)) != _finished_shop_node
+	_normal_panel.visible = not shopping
+	shop.visible = shopping
+	if shopping:
+		_name_layer.hide()
+		visible = true
+		shop.present(company)
+		return
 	var roster: Array = _company.get("roster", [])
 	if not _has_member(_selected_member_id) and not roster.is_empty():
 		_selected_member_id = int(roster[0].get("member_id", 0))
@@ -79,10 +101,27 @@ func dismiss() -> void:
 	visible = false
 	_pending = false
 	_actions_open = false
+	_finished_shop_node = 0
+
+
+func _finish_shop() -> void:
+	_finished_shop_node = int(_company.get("node_id", 0))
+	# Shopping must not hide an authored deployment/name/stage choice, nor
+	# force a ready fixed formation through a second preparation screen.
+	var has_choices: bool = bool(_company.get("has_deployment_options", false)) or not _company.get("stages", []).is_empty()
+	for member: Dictionary in _company.get("roster", []):
+		has_choices = has_choices or bool(member.get("player_nameable", false))
+	if has_choices:
+		present(_company)
+	else:
+		_request("proceed")
 
 
 func submission_refused() -> void:
 	_pending = false
+	if shop.visible:
+		shop.submission_refused()
+		return
 	_set_pending_state()
 	_footer.text = _ui("player.company.command_choose_again")
 	if _actions_open:
@@ -93,6 +132,9 @@ func submission_refused() -> void:
 
 func resume_focus() -> void:
 	visible = true
+	if shop.visible:
+		shop.resume_focus()
+		return
 	if _actions_open:
 		_focus_first_action()
 	else:
@@ -110,6 +152,7 @@ func set_text_scale(value: float) -> void:
 
 
 func handle_input(event: InputEvent, controls) -> bool:
+	if visible and shop.visible: return shop.handle_input(event, controls)
 	if _name_layer != null and _name_layer.visible:
 		if event is InputEventKey and event.pressed and not event.echo:
 			if event.keycode == KEY_ESCAPE:
@@ -194,6 +237,7 @@ func _build_interface() -> void:
 	add_child(shade)
 
 	var panel := PanelContainer.new()
+	_normal_panel = panel
 	panel.position = Vector2(120, 72)
 	panel.size = Vector2(1680, 936)
 	panel.add_theme_stylebox_override(
@@ -810,6 +854,9 @@ func _panel(fill: Color, radius: int, border: Color, padding: int) -> StyleBoxFl
 
 
 func mobile_back() -> bool:
+	if shop.visible:
+		if not shop.pending: session_menu_requested.emit()
+		return true
 	if _name_layer != null and _name_layer.visible:
 		_close_name_entry()
 		return true

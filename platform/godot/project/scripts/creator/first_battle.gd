@@ -33,6 +33,7 @@ var map_button: Button
 var sides_button: Button
 var objective_button: Button
 var next_battle_button: Button
+var shop_button: Button
 var story_button: Button
 var story_layer: Control
 var story_choices_column: VBoxContainer
@@ -137,7 +138,7 @@ func _refresh_facts() -> void:
 	campaign_test_summary.text = _t("first_battle.adventure_help")
 	if mode != "one" and not campaign_gaps.is_empty():
 		campaign_test_summary.text += "\n" + _t("campaign.players.assign_two", {"battles": ", ".join(campaign_gaps)})
-	for button: Button in [map_button, sides_button, objective_button, next_battle_button, story_button]:
+	for button: Button in [map_button, sides_button, objective_button, next_battle_button, story_button, shop_button]:
 		button.disabled = encounter.is_empty()
 	create_hero_button.disabled = campaign.is_empty()
 	edit_heroes_button.disabled = campaign.is_empty()
@@ -341,6 +342,7 @@ func _build_interface() -> void:
 	tools_row.add_theme_constant_override("v_separation", 12)
 	column.add_child(tools_row)
 	story_button = _button(tools_row, "first_battle.story", _open_story)
+	shop_button = _button(tools_row, "creator.shop.entry", func(): get_tree().change_scene_to_file("res://shop_editor.tscn"))
 	_button(tools_row, "first_battle.outline", _open_outline)
 	_button(tools_row, "first_battle.translations", _open_translations)
 	_button(tools_row, "first_battle.export", _open_export)

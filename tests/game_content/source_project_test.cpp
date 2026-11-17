@@ -32,7 +32,7 @@ void expect(bool condition, std::string_view message) {
 }
 
 constexpr std::string_view source = R"json({
-  "schemaVersion": "1.6.0",
+  "schemaVersion": "1.7.0",
   "sourceLanguage": "en",
   "packageId": "d05f4dc5-592f-4c6a-9093-f4090a722ffc",
   "gameId": "vertical.demo",
@@ -3682,7 +3682,7 @@ void names_both_versions_when_it_refuses_one() {
              Case{"nonsense", "", "upgrade.mjs"},
          }) {
         const auto parsed = gc::parse_source_project_json(
-            source_with(R"json("schemaVersion": "1.6.0")json",
+            source_with(R"json("schemaVersion": "1.7.0")json",
                         std::string(R"json("schemaVersion": ")json") +
                             std::string(item.declared) + "\"")
         );
@@ -3708,7 +3708,7 @@ void names_both_versions_when_it_refuses_one() {
         );
     }
     expect(
-        gc::supported_source_schema == "1.6.0",
+        gc::supported_source_schema == "1.7.0",
         "the version this compiler reads; tools/source_schema/test.mjs holds "
         "it level with the schema and the migration registry"
     );
@@ -3802,6 +3802,66 @@ void authors_physical_inventory_without_rewriting_legacy_source() {
     expect(parsed && gc::compile(parsed.source).package == legacy_bytes, "removing opt-in fields restores identical legacy compiled bytes");
 }
 
+
+void shops_parse_edit_and_reopen_without_legacy_defaults() {
+    const auto enabled = gc::set_source_campaign_inventory_mode_json(source, "demo", "carried");
+    expect(bool(enabled), "shop fixture explicitly opts into carried inventory");
+    const auto before = gc::parse_source_project_json(enabled.json);
+    const auto old_bytes = gc::compile(before.source).package;
+    const auto shop = R"({"offers":[{"id":"healing","itemId":"tonic","price":1},{"id":"blade","weaponId":"sword","price":32767,"stock":65535}]})";
+    const auto edited = gc::set_source_campaign_node_shop_json(enabled.json, "demo", "battle", shop);
+    expect(bool(edited), "atomic native shop edit accepts limited weapons and unlimited healing items");
+    if (edited) {
+        const auto parsed = gc::parse_source_project_json(edited.json);
+        expect(bool(parsed), "authored shop survives save/reopen");
+        if (parsed) {
+            const auto& node = parsed.source.campaigns.front().nodes.front();
+            expect(node.states_shop && node.shop_offers.size() == 2U, "shop presence and both offers are retained");
+            if (node.shop_offers.size() == 2U) {
+                const auto& first = node.shop_offers[0];
+                const auto& second = node.shop_offers[1];
+                expect(first.item_id != 0U && first.weapon_id == 0U && first.price == 1U && !first.states_stock && first.stock == 0U,
+                       "unlimited stock stays omitted, never an invented default");
+                expect(second.weapon_id != 0U && second.item_id == 0U && second.price == 32767U && second.states_stock && second.stock == 65535U,
+                       "finite stock and price retain their bounded exact values");
+            }
+            expect(bool(gc::compile(parsed.source)), "real shop source compiles after reopening");
+        }
+        const auto removed = gc::set_source_campaign_node_shop_json(edited.json, "demo", "battle", "null");
+        const auto restored = gc::parse_source_project_json(removed.json);
+        expect(restored && !restored.source.campaigns.front().nodes.front().states_shop &&
+               gc::compile(restored.source).package == old_bytes,
+               "removing an optional shop restores identical shop-free package bytes");
+        expect(!gc::set_source_campaign_inventory_mode_json(edited.json, "demo", ""),
+               "a shop cannot silently survive switching to legacy inventory");
+    }
+    expect(!gc::set_source_campaign_node_shop_json(source, "demo", "battle", shop), "shops do not silently opt a legacy campaign into carried mode");
+    expect(!gc::set_source_campaign_node_shop_json(enabled.json, "demo", "end", shop), "terminal nodes cannot host shops");
+    expect(!gc::set_source_campaign_node_shop_json(enabled.json, "missing", "battle", shop), "unknown shop owner is refused");
+    std::string many_offers;
+    for (int index = 0; index < 33; ++index) {
+        if (index) many_offers += ',';
+        many_offers += "{\"id\":\"offer_" + std::to_string(index) + "\",\"itemId\":\"tonic\",\"price\":1}";
+        if (index == 31 || index == 32) {
+            const auto bounded = gc::set_source_campaign_node_shop_json(
+                enabled.json, "demo", "battle", "{\"offers\":[" + many_offers + "]}");
+            expect(bool(bounded) == (index == 31), "source shop boundary agrees with the portable 32-offer limit");
+        }
+    }
+    for (const auto bad : {"[]", "true", "{}", R"({"offers":[]})", R"({"offers":[],"name":"Shop"})",
+        R"({"offers":[{"id":"x","price":1}]})", R"({"offers":[{"id":"x","itemId":"tonic","weaponId":"sword","price":1}]})",
+        R"({"offers":[{"id":"x","itemId":"missing","price":1}]})", R"({"offers":[{"id":"x","weaponId":"missing","price":1}]})",
+        R"({"offers":[{"id":"x","itemId":"tonic","price":0}]})", R"({"offers":[{"id":"x","itemId":"tonic","price":32768}]})",
+        R"({"offers":[{"id":"x","itemId":"tonic","price":1.5}]})", R"({"offers":[{"id":"x","itemId":"tonic","price":true}]})",
+        R"({"offers":[{"id":"x","itemId":"tonic","price":1,"stock":0}]})", R"({"offers":[{"id":"x","itemId":"tonic","price":1,"stock":65536}]})",
+        R"({"offers":[{"id":"x","itemId":"tonic","price":1,"stock":null}]})", R"({"offers":[{"id":"x","itemId":"tonic","price":1,"stock":false}]})",
+        R"({"offers":[{"id":"bad id","itemId":"tonic","price":1}]})", R"({"offers":[{"id":"x","itemId":"tonic","price":1,"extra":2}]})",
+        R"({"offers":[{"id":"x","itemId":"tonic","price":1},{"id":"x","weaponId":"sword","price":2}]})"}) {
+        expect(!gc::set_source_campaign_node_shop_json(enabled.json, "demo", "battle", bad),
+               "invalid shop edits are refused atomically, with no partial source");
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -3843,6 +3903,7 @@ int main() {
     maps_explicit_character_archetypes_and_preserves_cloned_appearance();
     personal_rules_parse_edit_and_reopen();
     authors_physical_inventory_without_rewriting_legacy_source();
+    shops_parse_edit_and_reopen_without_legacy_defaults();
     maps_a_scene_backdrop();
     maps_a_scene_cast();
     maps_the_game_wide_turn_order();

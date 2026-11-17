@@ -1,0 +1,61 @@
+{
+  "description": "Production MIPSYNC shop using ordinary controllers and fresh-process memory-card recovery.",
+  "source": "tests/fixtures/campaign_projects/shop_campaign.json",
+  "source_sha256": "e38e709a265ae674df856a0b25fc6cc8ab5c240fa6a3f3fe63deadcd927fa51b",
+  "shop_fixture": {
+    "build": "out/loot06/ps1-shop-reviewed06",
+    "bin_sha256": "007bfb664d8161c0774dddd2c772b78a3033a883e2ff319ca5cc8771b4110704",
+    "build_log": "out/loot06/ps1-shop-reviewed-build.log",
+    "native_purchase_log": "out/loot06/ps1-shop-reviewed-probe.log",
+    "fresh_process_resume_log": "out/loot06/ps1-shop-reviewed-resume.log",
+    "resume_scope": "Same reviewed production disc and persisted memory card, separate emulator process; no game-state writes apart from normal controller inputs."
+  },
+  "behavior": [
+    "Ordinary first-battle victory earns11gold; no injected wallet or roster state.",
+    "Buy one finite tonic for Aren: gold9, used3/3, finitecount1.",
+    "Full pack refusal leaves exact gold/stock/count unchanged.",
+    "Buy remaining tonic for Mira: gold7, finitecount2. Sold-out refusal with available pack slot leaves state unchanged.",
+    "Buy unlimited focus for Mira: gold4, used3/3, unlimitedcount1.",
+    "Fresh emulator process resumes exact gold4, both3-copy packs, finitecount2 and unlimitedcount1; Continue starts the real second battle."
+  ],
+  "screenshots": {
+    "shop": "out/loot06/ps1-shop-opening.png",
+    "confirmation": "out/loot06/ps1-shop-safe-back.png",
+    "capacity_refusal": "out/loot06/ps1-shop-full.png",
+    "resume": "out/loot06/ps1-shop-resumed.png"
+  },
+  "full_demo": {
+    "source": "games/steel_and_cedar/source/project.json",
+    "revision": "0.4.1",
+    "bin": "out/loot06/ps1-demo-shop06/game.bin",
+    "bin_sha256": "8bcdb9353f0f7d9f9a1cafe3da09c6e8703c9ec54e5d89ba459836d49dc44621",
+    "build_log": "out/loot06/ps1-demo-shop-build.log",
+    "stages": [
+      {
+        "stage": "01",
+        "physical_ram": 1748176
+      },
+      {
+        "stage": "02",
+        "physical_ram": 1631760
+      },
+      {
+        "stage": "03",
+        "physical_ram": 1808280
+      },
+      {
+        "stage": "04",
+        "physical_ram": 1896760
+      },
+      {
+        "stage": "05",
+        "physical_ram": 1898136
+      }
+    ]
+  },
+  "limits": [
+    "Emulator-only controller acceptance; no hardware or new performance claim.",
+    "Fresh-process saves and shop behavior are verified; a full native five-stage demo playthrough remains pending.",
+    "Shop is host/P1 camp management, before battle. On-map merchants and selling are not introduced."
+  ]
+}

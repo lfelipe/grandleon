@@ -183,6 +183,9 @@ func submit_intent(kind: String, unit := 0, target := 0, x := 0, y := 0, content
 	else:
 		net.send_message({"type": "intent", "kind": kind, "unit": unit, "target": target, "x": x, "y": y, "content": content, "ground": ground, "category": category, "carried": carried, "request": request, "generation": _state_generation})
 
+func buy_shop_offer(member: int, offer: int) -> bool:
+	return net.role == "host" and net.connected and native.buy_shop_offer(member, offer)
+
 func submit_management(kind: String, member := 0, item := 0, stage := 0) -> bool:
 	# Fixed-formation preparation is automatic in the player. On the guest the
 	# same callback simply waits for the host's result instead of issuing it twice.

@@ -4,6 +4,7 @@
 #include <grandleon/package_format/package.hpp>
 #include <grandleon/package_runtime/specificity.hpp>
 #include <grandleon/package_runtime/member_rules.hpp>
+#include <grandleon/package_runtime/shop.hpp>
 #include <grandleon/simulation/encounter.hpp>
 
 #include <cstdint>
@@ -73,6 +74,7 @@ struct CampaignNode final {
     std::uint64_t unconditional_target_id{};
     bool has_unconditional_target{false};
     std::vector<CampaignBranch> branches;
+    std::vector<ShopOffer> shop_offers;
 };
 
 // One character the authored company holds.

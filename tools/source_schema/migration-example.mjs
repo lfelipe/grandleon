@@ -133,6 +133,12 @@ export const EXAMPLE_STEPS = [
     to: "1.6.0",
     changed: "characters can carry limited packs and collect gold, weapons and items during battle",
     apply: (project) => project
+  },
+  {
+    from: "1.6.0",
+    to: "1.7.0",
+    changed: "battles can offer a shop where heroes buy equipment with their earned gold",
+    apply: (project) => project
   }
 ];
 

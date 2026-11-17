@@ -51,6 +51,8 @@ public:
         return unsigned_number(static_cast<std::uint32_t>(value));
     }
 
+    Text& count(std::uint32_t value) noexcept { return unsigned_number(value); }
+
     Text& space() noexcept { return push(' '); }
 
     [[nodiscard]] const char* c_str() const noexcept { return buffer_; }
@@ -4621,6 +4623,16 @@ void TurnClient::management_opened(const client::CompanyManagement& company) {
 
 void TurnClient::management_committed(const client::ManagementCommit& result) {
     if (static_cast<bool>(result)) ++commits_;
+    else if (shop_purchase_pending_) {
+        const auto message = result.error == client::ManagementError::inventory_full
+            ? console::Message::pack_full
+            : result.error == client::ManagementError::insufficient_gold
+            ? console::Message::insufficient_gold
+            : result.error == client::ManagementError::sold_out
+            ? console::Message::sold_out : console::Message::shop_unavailable;
+        pending_refusal_ = console::text(language(), message);
+    }
+    shop_purchase_pending_ = false;
     Text line;
     line.text("gesture ")
         .text(campaign::outcome_error_name(result.application.error).data())
@@ -4660,6 +4672,149 @@ void TurnClient::stage_jumped(const client::StageJump& jump) {
             : client::campaign_session_error_name(jump.error).data();
 }
 
+client::ManagementIntent TurnClient::next_shop_intent(
+    const client::CompanyManagement& company
+) {
+    constexpr std::size_t page_size = 6U;
+    const auto label = [&](console::Message message) {
+        return console::text(language(), message);
+    };
+    const auto begin_shop_page = [&](const char* heading) {
+        begin_page();
+        push_line(heading);
+        Text wallet;
+        wallet.text(label(console::Message::gold)).space().count(company.gold);
+        push_line(wallet.c_str());
+        if (pending_refusal_ != nullptr) {
+            push_line(pending_refusal_);
+            pending_refusal_ = nullptr;
+        }
+        push_line("");
+    };
+    const auto finish_shop_page = [&]() {
+        page_choices_ = page_.count - page_first_choice_;
+        list_.total = page_choices_;
+        list_.rows = page_choices_;
+        list_top_ = 0;
+    };
+    const auto equipment_name = [&](const auto& offer) {
+        return offer.category == core::ContentCategory::weapon
+            ? sheet::weapon_name(package_, offer.content_id, language(), text_encoding())
+            : sheet::item_name(package_, offer.content_id, language(), text_encoding());
+    };
+    if (shop_node_ != company.node.stable_id) {
+        shop_node_ = company.node.stable_id;
+        shop_page_ = 0U;
+    }
+    std::vector<std::size_t> recipients;
+    for (std::size_t index = 0; index < company.roster.size(); ++index) {
+        const auto availability = company.roster[index].availability;
+        if (availability != campaign::Availability::unrecruited &&
+            availability != campaign::Availability::dead) recipients.push_back(index);
+    }
+    const auto priority = [&](std::size_t index) {
+        const auto member = company.roster[index].member;
+        if (std::find(company.fielded.begin(), company.fielded.end(), member) != company.fielded.end()) return 0;
+        if (std::find(company.placeable.begin(), company.placeable.end(), member) != company.placeable.end()) return 1;
+        return 2;
+    };
+    std::stable_sort(recipients.begin(), recipients.end(), [&](std::size_t left, std::size_t right) {
+        return priority(left) < priority(right);
+    });
+    for (;;) {
+        if (shop_page_ * page_size >= company.shop_offers.size()) shop_page_ = 0U;
+        const auto first = shop_page_ * page_size;
+        const auto count = std::min(page_size, company.shop_offers.size() - first);
+        begin_shop_page(label(console::Message::shop));
+        Text heading;
+        heading.text(label(console::Message::price)).text(" / ").text(label(console::Message::stock));
+        push_line(heading.c_str());
+        Text unlimited;
+        unlimited.text("* ").text(label(console::Message::unlimited_stock));
+        push_line(unlimited.c_str());
+        page_first_choice_ = page_.count;
+        for (std::size_t index = 0; index < count; ++index) {
+            const auto& stock = company.shop_offers[first + index];
+            Text row;
+            push_padded(row, equipment_name(stock.offer).c_str(), 18, text_encoding());
+            row.number(stock.offer.price).text("G ");
+            if (stock.limited) row.text("x").count(stock.remaining);
+            else row.text("*");
+            push_line(row.c_str());
+        }
+        const bool another_page = company.shop_offers.size() > page_size;
+        if (another_page) push_line(label(console::Message::next));
+        push_line(label(console::Message::finish_collection));
+        finish_shop_page();
+        list_caret_ = page_choices_ - 1; // Continuing never buys equipment.
+        const int offer_row = choose_on_page(Screen::member,
+            label(console::Message::shop_footer), pad_b | pad_start);
+        if (leaving_) return {client::ManagementVerb::quit, {}, {}};
+        if (offer_row < 0 || offer_row == page_choices_ - 1) {
+            return {client::ManagementVerb::proceed, {}, {}};
+        }
+        if (another_page && offer_row == static_cast<int>(count)) {
+            shop_page_ = (shop_page_ + 1U) % ((company.shop_offers.size() + page_size - 1U) / page_size);
+            continue;
+        }
+        const auto& stock = company.shop_offers[first + static_cast<std::size_t>(offer_row)];
+        std::size_t recipient_page = 0U;
+        while (true) {
+            begin_shop_page(label(console::Message::choose_hero));
+            push_line(equipment_name(stock.offer).c_str());
+            page_first_choice_ = page_.count;
+            const auto recipient_first = recipient_page * page_size;
+            const auto recipient_count = std::min(page_size, recipients.size() - recipient_first);
+            for (std::size_t index = 0; index < recipient_count; ++index) {
+                const auto original = recipients[recipient_first + index];
+                const auto& member = company.roster[original];
+                Text row;
+                push_padded(row, campaign_roster_[original].name.c_str(), 14, text_encoding());
+                row.count(carried_total(member.carried));
+                if (member.states_carry_capacity) row.text("/").number(member.carry_capacity);
+                if (priority(original) != 0) row.space().text(label(console::Message::not_in_battle));
+                push_line(row.c_str());
+            }
+            const bool more_recipients = recipients.size() > page_size;
+            if (more_recipients) push_line(label(console::Message::next));
+            push_line(label(console::Message::back_button));
+            finish_shop_page();
+            list_caret_ = page_choices_ - 1;
+            const int recipient_row = choose_on_page(Screen::member,
+                label(console::Message::go_back), pad_b);
+            if (leaving_) return {client::ManagementVerb::quit, {}, {}};
+            if (recipient_row < 0 || recipient_row == page_choices_ - 1) break;
+            if (more_recipients && recipient_row == static_cast<int>(recipient_count)) {
+                recipient_page = (recipient_page + 1U) % ((recipients.size() + page_size - 1U) / page_size);
+                continue;
+            }
+            const auto original = recipients[recipient_first + static_cast<std::size_t>(recipient_row)];
+            const auto& member = company.roster[original];
+            begin_shop_page(label(console::Message::shop));
+            push_line(campaign_roster_[original].name.c_str());
+            push_line(equipment_name(stock.offer).c_str());
+            Text price;
+            price.text(label(console::Message::price)).space().number(stock.offer.price);
+            push_line(price.c_str());
+            page_first_choice_ = page_.count;
+            push_line(label(console::Message::buy_one));
+            push_line(label(console::Message::back_button));
+            finish_shop_page();
+            list_caret_ = 1;
+            const int purchase = choose_on_page(Screen::member,
+                label(console::Message::go_back), pad_b);
+            if (leaving_) return {client::ManagementVerb::quit, {}, {}};
+            if (purchase != 0) continue;
+            client::ManagementIntent intent;
+            intent.verb = client::ManagementVerb::buy;
+            intent.member = member.member;
+            intent.shop_offer = stock.offer.id;
+            shop_purchase_pending_ = true;
+            return intent;
+        }
+    }
+}
+
 // The company, between battles. One screen, one caret, and a menu per member
 // holding every verb the stage has. That is the same shape the unit action
 // menu already taught: nothing is aimed at, the rows say what taking them
@@ -4696,6 +4851,9 @@ client::ManagementIntent TurnClient::next_management_intent(
         intent.member = member->member;
         intent.name.assign(chosen_name.data(), chosen_name.size());
         return intent;
+    }
+    if (!company.shop_offers.empty() && company.refused == campaign_runtime::RosterError::none) {
+        return next_shop_intent(company);
     }
     // This is product behavior, not a platform shortcut: every console and
     // every scripted test takes the same direct path when there is genuinely

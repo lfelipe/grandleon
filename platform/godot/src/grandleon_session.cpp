@@ -968,6 +968,10 @@ void GrandleonSession::_bind_methods() {
         DEFVAL(0), DEFVAL(0), DEFVAL(0)
     );
     gd::ClassDB::bind_method(
+        gd::D_METHOD("buy_shop_offer", "member_id", "offer_id"),
+        &GrandleonSession::buy_shop_offer
+    );
+    gd::ClassDB::bind_method(
         gd::D_METHOD("submit_player_name", "member_id", "name"),
         &GrandleonSession::submit_player_name
     );
@@ -1842,6 +1846,15 @@ bool GrandleonSession::submit_management(
     return presenter_->submit_management(std::move(intent));
 }
 
+bool GrandleonSession::buy_shop_offer(std::int64_t member_id, std::int64_t offer_id) {
+    if (!presenter_) return false;
+    client::ManagementIntent intent;
+    intent.verb = client::ManagementVerb::buy;
+    intent.member = campaign::PersistentEntityId{static_cast<std::uint64_t>(member_id)};
+    intent.shop_offer = static_cast<std::uint64_t>(offer_id);
+    return presenter_->submit_management(std::move(intent));
+}
+
 bool GrandleonSession::submit_player_name(
     std::int64_t member_id,
     const gd::String& name
@@ -2069,12 +2082,24 @@ gd::Dictionary GrandleonSession::management_dictionary(
     );
     result["store"] = inventory(company.store);
     result["inventory_mode"] = pr::inventory_mode(package_, pf::SectionType::campaign_inventory, campaign_id_) == sim::InventoryMode::carried ? "carried" : "legacy";
-    std::int64_t gold{};
-    for (const auto& stack : company.store) {
-        if (stack.item.category == core::ContentCategory::currency && stack.item.stable_id == core::gold_currency_id)
-            gold += stack.quantity;
+    result["gold"] = static_cast<std::int64_t>(company.gold);
+    gd::Array offers;
+    for (const auto& view : company.shop_offers) {
+        const auto& offer = view.offer;
+        gd::Dictionary row;
+        row["offer_id"] = signed_id(offer.id);
+        row["id"] = signed_id(offer.content_id);
+        const bool weapon = offer.category == core::ContentCategory::weapon;
+        row["category"] = weapon ? "weapon" : "item";
+        const auto section = weapon ? pf::SectionType::weapons : pf::SectionType::items;
+        row["name"] = text(pr::localized_content_name(package_, language_, section,
+            offer.content_id, pr::content_name(package_, section, offer.content_id)));
+        row["price"] = offer.price;
+        row["limited"] = view.limited;
+        row["remaining"] = static_cast<std::int64_t>(view.remaining);
+        offers.push_back(row);
     }
-    result["gold"] = gold;
+    result["shop_offers"] = offers;
 
     gd::Array stages;
     for (const client::CampaignStage& stage : company.stages) {
@@ -2121,6 +2146,8 @@ gd::Dictionary GrandleonSession::management_dictionary(
         value["placeable"] = contains_member(company.placeable, member.member);
         value["fielded"] = contains_member(company.fielded, member.member);
         value["carried"] = inventory(member.carried);
+        value["carry_capacity"] = member.carry_capacity;
+        value["states_carry_capacity"] = member.states_carry_capacity;
         roster.push_back(value);
     }
     result["roster"] = roster;

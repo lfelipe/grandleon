@@ -623,6 +623,10 @@ void GrandleonProjectCompiler::_bind_methods() {
         &GrandleonProjectCompiler::set_campaign_inventory_mode
     );
     gd::ClassDB::bind_method(
+        gd::D_METHOD("set_campaign_node_shop", "source_json", "campaign_id", "node_id", "shop_json"),
+        &GrandleonProjectCompiler::set_campaign_node_shop
+    );
+    gd::ClassDB::bind_method(
         gd::D_METHOD(
             "insert_dialogue_line", "source_json", "dialogue_id",
             "after_line_index", "speaker", "line_text"
@@ -1802,6 +1806,21 @@ gd::Dictionary GrandleonProjectCompiler::set_campaign_inventory_mode(
 ) const {
     gd::Dictionary result;
     const auto updated = gc::set_source_campaign_inventory_mode_json(narrow(source_json), narrow(campaign_id), narrow(mode));
+    result["ok"] = static_cast<bool>(updated);
+    result["source"] = text(updated.json);
+    gd::Array diagnostics;
+    for (const auto& diagnostic : updated.diagnostics) diagnostics.push_back(source_diagnostic(diagnostic));
+    result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::set_campaign_node_shop(
+    const gd::String& source_json, const gd::String& campaign_id,
+    const gd::String& node_id, const gd::String& shop_json
+) const {
+    gd::Dictionary result;
+    const auto updated = gc::set_source_campaign_node_shop_json(
+        narrow(source_json), narrow(campaign_id), narrow(node_id), narrow(shop_json));
     result["ok"] = static_cast<bool>(updated);
     result["source"] = text(updated.json);
     gd::Array diagnostics;

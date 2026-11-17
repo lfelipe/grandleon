@@ -2044,6 +2044,7 @@ func _create_campaign_manager(layer: CanvasLayer) -> void:
 	)
 	campaign_manager.intent_requested.connect(_on_management_intent)
 	campaign_manager.player_name_requested.connect(_on_player_name_requested)
+	campaign_manager.shop_purchase_requested.connect(_on_shop_purchase)
 	campaign_manager.session_menu_requested.connect(_open_management_session_menu)
 	layer.add_child(campaign_manager)
 
@@ -2894,7 +2895,10 @@ func _handle_event(event: Dictionary) -> void:
 			_remember_campaign_stage(company)
 			_handle_management(company)
 		"management_committed":
-			if not bool(event.get("successful", false)):
+			if not bool(event.get("successful", false)) and campaign_manager.shop.visible:
+				campaign_manager.submission_refused()
+				_show_toast(_ui("player.shop.refused"))
+			elif not bool(event.get("successful", false)):
 				var reason := String(event.get("message", "change refused"))
 				_show_toast(_ui("player.company.change_refused", {
 					"reason": reason.to_upper().replace("_", " "),
@@ -3201,7 +3205,7 @@ func _handle_management(company: Dictionary) -> void:
 		campaign_manager.present(company)
 		_run_campaign_management_smoke(company)
 		return
-	if _management_automation_enabled():
+	if _management_automation_enabled() and (company.get("shop_offers", []).is_empty() or not draft_preview):
 		if not session.submit_management("proceed"):
 			push_error("automated campaign could not leave company management")
 			get_tree().quit(2)
@@ -3251,11 +3255,12 @@ func _present_company(company: Dictionary) -> void:
 	var presented_company := company.duplicate(true)
 	pending_company.clear()
 	board.visible = false
-	status_label.text = _ui("player.status.preparing_company")
+	status_label.text = _ui("player.shop.title" if not presented_company.get("shop_offers", []).is_empty() else "player.status.preparing_company")
 	campaign_manager.present(presented_company)
 
 
 func _company_has_management_options(company: Dictionary) -> bool:
+	if not company.get("shop_offers", []).is_empty(): return true
 	if bool(company.get("has_deployment_options", false)):
 		return true
 	if not company.get("stages", []).is_empty():
@@ -3296,6 +3301,12 @@ func _on_management_intent(kind: String, member_id: int, item_id: int, stage_id:
 		return
 	campaign_manager.submission_refused()
 	_show_toast(_ui("player.company.command_rejected"))
+
+
+func _on_shop_purchase(member_id: int, offer_id: int) -> void:
+	if session != null and session.buy_shop_offer(member_id, offer_id): return
+	campaign_manager.submission_refused()
+	_show_toast(_ui("player.shop.refused"))
 
 
 func _on_player_name_requested(member_id: int, chosen_name: String) -> void:

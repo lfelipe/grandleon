@@ -7,7 +7,7 @@ cannot state: identities, cross-field rules, the diagnostics that enforce them,
 and the handful of places where a rule lives in the compiler rather than in the
 schema.
 
-The current schema version is `1.6.0`. Projects from `1.0.0` through `1.5.0`
+The current schema version is `1.7.0`. Projects from `1.0.0` through `1.6.0`
 have registered, non-destructive migrations. The `1.3.0` to `1.4.0` step makes
 the historical English source language explicit and invents no translations.
 The `1.4.0` to `1.5.0` step enables stable character appearance and personal
@@ -16,6 +16,8 @@ intact, and omitted choices stay omitted.
 The `1.5.0` to `1.6.0` step adds optional physical inventories and enemy loot.
 It also changes only the version: it never enables carried inventories or
 assigns capacities or drops. Existing legacy projects keep their prior behavior.
+The `1.6.0` to `1.7.0` step allows optional shops before battles and adds no
+shops, goods or prices to an existing project.
 Authors normally use the editor; the public files exist so projects stay
 portable, scriptable, source-controlled, and buildable headlessly.
 
@@ -384,3 +386,20 @@ guarantee for future capability implementations.** Those need separate threat
 models and durable contracts first. Until then script bindings must not be
 presented as signed, authenticated, safe-to-execute, or as an extension
 mechanism for arbitrary project code.
+
+### Shops before battles
+
+An encounter node may carry `shop: {offers: [...]}` in a campaign with
+`inventoryMode: "carried"`. Each offer has a stable `id`, exactly one `itemId`
+or `weaponId`, and a gold `price` from 1 to 32767. Optional `stock` is from 1
+to 65535; omitted stock is unlimited. A shop has 1 to 32 offers, and their IDs are
+unique within the node. Keep those IDs when editing or reordering a shop:
+finite stock is remembered for the campaign, battle and offer together.
+
+A purchase gives one physical copy to the chosen living recruited hero. Gold,
+capacity and remaining stock are checked together; a refused purchase changes
+none of them. Weapon affinities govern use, not possession. Healing potions
+are ordinary items with `kind: "restore"` and an authored `power`.
+
+The 1.6.0 → 1.7.0 upgrade adds no shops, stock, prices or inventory defaults.
+It preserves existing omissions and already-authored development shops.

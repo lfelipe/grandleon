@@ -18,7 +18,7 @@ namespace grandleon::game_content {
 // it found, the version it wants, and the command that closes the gap;
 // `tools/source_schema/migration.mjs` is the other end, and
 // `tools/source_schema/test.mjs` pins this string to it.
-inline constexpr std::string_view supported_source_schema = "1.6.0";
+inline constexpr std::string_view supported_source_schema = "1.7.0";
 
 enum class SourceDiagnosticCode : std::uint8_t {
     invalid_json,
@@ -502,6 +502,14 @@ struct SourceMapCell final {
 [[nodiscard]] SourceTextResult set_source_campaign_inventory_mode_json(
     std::string_view source_json, std::string_view campaign_id,
     std::string_view mode
+);
+
+// Replaces one battle's shop atomically, keeping offer identities authored by
+// the caller. A JSON object needs a nonempty offers array; literal null removes
+// the shop. This never enables carried inventory implicitly.
+[[nodiscard]] SourceTextResult set_source_campaign_node_shop_json(
+    std::string_view source_json, std::string_view campaign_id,
+    std::string_view node_id, std::string_view shop_json
 );
 
 // Creates one complete scene and attaches it to an existing story node as one

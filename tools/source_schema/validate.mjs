@@ -576,6 +576,22 @@ export function validateProject(filename) {
         if (node.mapId !== undefined) {
           requireReference("map", node.mapId, `${nodePath}/mapId`);
         }
+        if (node.shop !== undefined) {
+          const shopPath = `${nodePath}/shop`;
+          if (node.kind !== "encounter" || campaign.inventoryMode !== "carried") {
+            diagnostics.push(diagnostic(filename, "SOURCE_SHOP_REQUIRES_CARRIED_BATTLE", shopPath,
+              "a shop needs an encounter in a carried-inventory campaign", document.pointers[shopPath]?.value));
+          }
+          const offers = new Set();
+          for (const [offerIndex, offer] of node.shop.offers.entries()) {
+            const offerPath = `${shopPath}/offers/${offerIndex}`;
+            if (offers.has(offer.id)) diagnostics.push(diagnostic(filename, "SOURCE_SHOP_OFFER_DUPLICATE", `${offerPath}/id`,
+              `offer '${offer.id}' is repeated in this shop`, document.pointers[`${offerPath}/id`]?.value));
+            offers.add(offer.id);
+            if (offer.itemId !== undefined) requireReference("item", offer.itemId, `${offerPath}/itemId`);
+            if (offer.weaponId !== undefined) requireReference("weapon", offer.weaponId, `${offerPath}/weaponId`);
+          }
+        }
         const placementIds = new Set();
         const occupiedTiles = new Map();
         // One board, one appearance each: a member standing on two tiles of

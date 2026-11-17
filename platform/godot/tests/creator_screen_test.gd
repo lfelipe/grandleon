@@ -285,7 +285,7 @@ func _exercise_migration_cards(screen: Control, project_id: String, source: Stri
 	if screen.project_notice_labels.has(project_id):
 		_expect(
 			"legacy project card explains recovery copy",
-			screen.project_notice_labels[project_id].text.contains("1.3 → 1.6"),
+			screen.project_notice_labels[project_id].text.contains("1.3 → 1.7"),
 			true
 		)
 	_expect(
@@ -345,12 +345,12 @@ func _exercise_migration_cards(screen: Control, project_id: String, source: Stri
 	_expect(
 		"opening legacy project reports completed migration",
 		screen.status_label.text,
-		"UPDATED 1.3 → 1.6  /  ORIGINAL RECOVERY COPY KEPT"
+		"UPDATED 1.3 → 1.7  /  ORIGINAL RECOVERY COPY KEPT"
 	)
 	_expect(
 		"opened legacy source reaches current schema",
 		str(screen.library.inspect_source(project_id).project.schemaVersion),
-		"1.6.0"
+		"1.7.0"
 	)
 	_expect(
 		"completed migration stays visible on project card",
@@ -382,7 +382,7 @@ func _exercise_migration_cards(screen: Control, project_id: String, source: Stri
 	_expect("confirmed import still preserves archive", FileAccess.get_file_as_bytes(archive_path), original_archive)
 	var imported: Dictionary = screen.library.inspect_source(str(archive_source.packageId))
 	_expect("confirmed import preserves source language", imported.project.sourceLanguage, "pt-BR")
-	_expect("confirmed import reaches 1.6", imported.project.schemaVersion, "1.6.0")
+	_expect("confirmed import reaches 1.7", imported.project.schemaVersion, "1.7.0")
 	_expect("confirmed import keeps exact recovery source", FileAccess.get_file_as_bytes(screen.library.root_path.path_join(str(archive_source.packageId)).path_join(str(imported.migration.backup.file))), archive_bytes)
 	screen.library._remove_tree(screen.library.root_path.path_join(str(archive_source.packageId)))
 	screen._refresh_projects()

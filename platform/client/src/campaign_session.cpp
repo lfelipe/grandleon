@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 #include <grandleon/client/campaign_session.hpp>
 #include <grandleon/package_runtime/inventory.hpp>
+#include <grandleon/campaign_runtime/shop.hpp>
 #include <grandleon/client/member_name_tokens.hpp>
 
 #include <grandleon/client/session.hpp>
@@ -133,6 +134,11 @@ std::string_view management_error_name(ManagementError error) noexcept {
         case ManagementError::inventory_full: return "inventory_full";
         case ManagementError::non_transferable_currency: return "non_transferable_currency";
         case ManagementError::shared_supplies_disabled: return "shared_supplies_disabled";
+        case ManagementError::unknown_offer: return "unknown_offer";
+        case ManagementError::sold_out: return "sold_out";
+        case ManagementError::insufficient_gold: return "insufficient_gold";
+        case ManagementError::invalid_stock: return "invalid_stock";
+        case ManagementError::purchase_save_failed: return "purchase_save_failed";
     }
     return "unknown";
 }
@@ -353,6 +359,15 @@ std::vector<RosterEntry> CampaignSession::roster_now() const {
         entry.availability = unit->availability;
         entry.progression = unit->progression;
         entry.carried = unit->carried;
+        const auto role = pr::unit_inventory_rules(*package_, unit->definition.stable_id);
+        entry.carry_capacity = role.carry_capacity;
+        entry.states_carry_capacity = role.states_carry_capacity;
+        for (const auto& authored : authored_.members) {
+            if (authored.id == entry.placement_source_key && authored.rules.states_carry_capacity) {
+                entry.carry_capacity = authored.rules.carry_capacity;
+                entry.states_carry_capacity = true;
+            }
+        }
         if (const campaign::PlayerName* chosen =
                 campaign::find_player_name(live_.state, entry.member)) {
             entry.name = chosen->value;
@@ -897,6 +912,20 @@ CompanyManagement CampaignSession::management() {
     company.encounter_id = where.encounter_id;
     company.roster = roster_now();
     company.store = live_.state.store;
+    company.gold = campaign::item_quantity(live_.state, {},
+        {package_->game_id, core::ContentCategory::currency, core::gold_currency_id});
+    if (!prepared_ready_) {
+        if (const auto* node = node_at(where.node)) {
+            for (const auto& offer : node->shop_offers) {
+                std::int64_t bought{};
+                const bool valid = cr::shop_purchase_count(live_.state,
+                    cr::shop_stock_key(package_->game_id, campaign_id_, node->id, offer.id), bought);
+                const auto remaining = valid && bought < offer.stock
+                    ? static_cast<std::uint32_t>(offer.stock - bought) : 0U;
+                company.shop_offers.push_back({offer, remaining, offer.stock != 0U});
+            }
+        }
+    }
     // The same list the board carries, on the screen a refused board sends the
     // player back to. Empty on every campaign whose author did not ask for the
     // picker, which is the one gate.
@@ -962,6 +991,64 @@ ManagementCommit CampaignSession::commit_management(
     // saves happen, and a screen that showed a moved draught the slot did not
     // hold would be showing a player something that will not be there tomorrow.
     result.save = save();
+    result.saved = true;
+    return result;
+}
+
+ManagementCommit CampaignSession::buy_shop_offer(
+    campaign::PersistentEntityId member, std::uint64_t offer_id
+) {
+    ManagementCommit result;
+    if (!loaded_ || !live_.state.progress.active || prepared_ready_ ||
+        authored_.inventory_mode != sim::InventoryMode::carried) {
+        result.error = ManagementError::not_managing;
+        return result;
+    }
+    const auto* node = node_at(live_.state.progress.active_node);
+    if (!node || node->kind != pr::CampaignNodeKind::encounter) {
+        result.error = ManagementError::not_managing;
+        return result;
+    }
+    const auto offer = std::find_if(node->shop_offers.begin(), node->shop_offers.end(),
+        [offer_id](const auto& value) { return value.id == offer_id; });
+    if (offer == node->shop_offers.end()) {
+        result.error = ManagementError::unknown_offer;
+        return result;
+    }
+    const auto roster = roster_now();
+    const auto owner = std::find_if(roster.begin(), roster.end(),
+        [member](const auto& value) { return value.member == member; });
+    if (owner == roster.end()) {
+        result.error = ManagementError::unknown_member;
+        return result;
+    }
+    auto purchase = cr::prepare_shop_purchase(live_.state, package_->game_id,
+        campaign_id_, node->id, *offer, member,
+        owner->states_carry_capacity, owner->carry_capacity);
+    switch (purchase.error) {
+        case cr::ShopError::none: break;
+        case cr::ShopError::invalid_offer: result.error = ManagementError::unknown_offer; break;
+        case cr::ShopError::invalid_member: result.error = ManagementError::unknown_member; break;
+        case cr::ShopError::invalid_stock: result.error = ManagementError::invalid_stock; break;
+        case cr::ShopError::sold_out: result.error = ManagementError::sold_out; break;
+        case cr::ShopError::insufficient_gold: result.error = ManagementError::insufficient_gold; break;
+        case cr::ShopError::inventory_full: result.error = ManagementError::inventory_full; break;
+    }
+    if (result.error != ManagementError::none) return result;
+    const campaign::OutcomeSource source{live_.state.progress.active_node, 0U,
+        static_cast<std::uint64_t>(live_.state.applied_outcomes.size())};
+    result.batch = campaign::make_outcome_batch(source, std::move(purchase.operations));
+    auto candidate = live_;
+    result.application = campaign::apply_outcome(candidate.state, result.batch);
+    if (!result.application) return result;
+    candidate.packages = {requirement_of(*package_)};
+    const auto bytes = campaign::save_campaign(candidate);
+    result.save = bytes.empty() ? storage::StorageError::too_large : device_->write(options_.slot, bytes);
+    if (result.save != storage::StorageError::none) {
+        result.error = ManagementError::purchase_save_failed;
+        return result;
+    }
+    live_ = std::move(candidate);
     result.saved = true;
     return result;
 }
@@ -1203,6 +1290,9 @@ CampaignSessionError run_persistent_campaign(
                         );
                         jumped = true;
                         proceeding = true;
+                        continue;
+                    case ManagementVerb::buy:
+                        narrator.management_committed(session.buy_shop_offer(intent.member, intent.shop_offer));
                         continue;
                     case ManagementVerb::give:
                         narrator.management_committed(

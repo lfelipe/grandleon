@@ -169,6 +169,8 @@ enum class Message : std::uint8_t {
     finish_turn,
     action_refused,
     presentation_options,
+    shop, shop_footer, buy_one, price, stock, sold_out, unlimited_stock, choose_hero,
+    not_in_battle, insufficient_gold, shop_unavailable,
     gold, collect_equipment, pack, pick_up, exchange, leave, drop, finish_collection,
     pack_full, pack_empty, pack_capacity, use_item,
 };
@@ -203,6 +205,39 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
 ) noexcept {
     const Language selected = interface_language(language);
     switch (message) {
+        case Message::shop:
+            return selected == Language::spanish ? "TIENDA"
+                 : selected == Language::portuguese_brazil ? "LOJA" : "SHOP";
+        case Message::shop_footer:
+            return selected == Language::spanish ? "A ELEGIR  START CONTINUAR"
+                 : selected == Language::portuguese_brazil ? "A ESCOLHER  START CONTINUAR" : "A CHOOSE  START CONTINUE";
+        case Message::buy_one:
+            return selected == Language::spanish ? "COMPRAR UNO"
+                 : selected == Language::portuguese_brazil ? "COMPRAR UM" : "BUY ONE";
+        case Message::price:
+            return selected == Language::spanish ? "PRECIO"
+                 : selected == Language::portuguese_brazil ? "PREÇO" : "PRICE";
+        case Message::stock:
+            return selected == Language::spanish ? "STOCK"
+                 : selected == Language::portuguese_brazil ? "ESTOQUE" : "STOCK";
+        case Message::sold_out:
+            return selected == Language::spanish ? "AGOTADO"
+                 : selected == Language::portuguese_brazil ? "ESGOTADO" : "SOLD OUT";
+        case Message::unlimited_stock:
+            return selected == Language::spanish ? "SIN LIMITE"
+                 : selected == Language::portuguese_brazil ? "SEM LIMITE" : "UNLIMITED";
+        case Message::choose_hero:
+            return selected == Language::spanish ? "ELIGE PERSONAJE"
+                 : selected == Language::portuguese_brazil ? "ESCOLHA O HERÓI" : "CHOOSE HERO";
+        case Message::not_in_battle:
+            return selected == Language::spanish ? "FUERA DE BATALLA"
+                 : selected == Language::portuguese_brazil ? "FORA DA BATALHA" : "NOT IN BATTLE";
+        case Message::insufficient_gold:
+            return selected == Language::spanish ? "FALTA ORO"
+                 : selected == Language::portuguese_brazil ? "OURO INSUFICIENTE" : "NOT ENOUGH GOLD";
+        case Message::shop_unavailable:
+            return selected == Language::spanish ? "COMPRA NO DISPONIBLE"
+                 : selected == Language::portuguese_brazil ? "COMPRA INDISPONÍVEL" : "PURCHASE UNAVAILABLE";
         case Message::gold:
             return selected == Language::spanish ? "ORO"
                  : selected == Language::portuguese_brazil ? "OURO" : "GOLD";

@@ -18,6 +18,7 @@ parser.add_argument('build', type=Path)
 parser.add_argument('output', type=Path)
 parser.add_argument('--nm', default='nm')
 parser.add_argument('--weapon-choice', action='store_true')
+parser.add_argument('--shop', action='store_true')
 parser.add_argument('--hero', default='aren', help='Authored roster member ID')
 parser.add_argument('--stages', nargs='+', default=['01', '02'])
 args = parser.parse_args()
@@ -49,6 +50,9 @@ for stage in args.stages:
     if args.weapon_choice:
         for name in ('s_attack_weapon', 's_last_result_damage'):
             symbols[name] = symbol(name, True)[0]
+    if args.shop:
+        for name in ('s_shop_page', 's_shop_index'):
+            symbols[name] = symbol(name, True)[0]
     symbols['grandleon_runtime_update'] = symbol('grandleon_runtime_update')[0]
     address, size = symbol('g_grandleon_unit_ids')
     offset = address - base
@@ -57,15 +61,26 @@ for stage in args.stages:
     heroes = [unit for unit in manifest['simulation']['units']
               if str(unit['source_id']) == bindings.stable_id(args.hero)]
     assert len(heroes) == 1
+    shop_keys = {}
+    if args.shop:
+        campaign = manifest['campaign']
+        for node in campaign['nodes']:
+            for offer in node.get('shop_offers', []):
+                value = int(bindings.stable_id('grandleon.shop.purchases.v1'))
+                for identity in (int(campaign['id']), int(node['id']), int(offer['id'])):
+                    for byte in identity.to_bytes(8, 'little'):
+                        value = ((value ^ byte) * 1099511628211) & ((1 << 64) - 1)
+                shop_keys[format(int(offer['id']), '016x')] = format(value, '016x')
     modules.append({
         'name': stage,
         'layout': bindings.dwarf_layouts(elf, {
             'UnitSnapshot', 'EncounterSnapshot', 'CarriedStack', 'GroundItem',
             'CampaignSave', 'CampaignState', 'InventoryStack', 'ContentRef',
             'BoardMotion',
-        }),
+        } | ({'PersistentUnit', 'WorldFlag', 'WorldValue'} if args.shop else set())),
         'symbols': symbols,
         'hero_id': format(int(heroes[0]['id']), '016x'),
+        'shop_keys': shop_keys,
         'signature': {'address': address,
                       'code': image[0x800 + offset:0x800 + offset + size]},
     })

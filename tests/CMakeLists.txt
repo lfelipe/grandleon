@@ -1509,3 +1509,21 @@ target_link_libraries(grandleon_client_carried_pack_tests PRIVATE
     grandleon::sheet grandleon::view)
 target_compile_features(grandleon_client_carried_pack_tests PRIVATE cxx_std_17)
 add_test(NAME grandleon.client_carried_pack COMMAND grandleon_client_carried_pack_tests)
+
+add_executable(grandleon_client_shop_menu_tests
+    client/shop_menu_test.cpp
+    "${PROJECT_SOURCE_DIR}/platform/client/src/turn_client.cpp"
+)
+target_link_libraries(grandleon_client_shop_menu_tests PRIVATE
+    grandleon::client grandleon::client_campaign grandleon::package_format
+    grandleon::package_runtime grandleon::sheet grandleon::view)
+target_compile_definitions(grandleon_client_shop_menu_tests PRIVATE GRANDLEON_TURN_CLIENT_CAMPAIGN)
+target_compile_features(grandleon_client_shop_menu_tests PRIVATE cxx_std_17)
+add_test(NAME grandleon.client_shop_menu COMMAND grandleon_client_shop_menu_tests)
+
+add_executable(grandleon_campaign_shop_tests client/campaign_shop_test.cpp)
+target_link_libraries(grandleon_campaign_shop_tests PRIVATE
+    grandleon::game_content grandleon::client_campaign grandleon::storage)
+target_compile_definitions(grandleon_campaign_shop_tests PRIVATE
+    GRANDLEON_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+add_test(NAME grandleon.campaign_shop COMMAND grandleon_campaign_shop_tests)

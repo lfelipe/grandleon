@@ -2046,6 +2046,22 @@ CompileResult compile(const GameSource& source) {
             if(carried && stated && weapons.size()+role.starting_items.size()>capacity)
                 result.diagnostics.push_back({DiagnosticCode::invalid_range,path+".roster.carry_capacity",member.id});
         }
+        for (const auto& node : campaign.nodes) {
+            const bool present = !node.shop_offers.empty();
+            const auto shop_path = path + ".nodes.shop";
+            if (node.states_shop != present || (present &&
+                (!carried || node.kind != CampaignNodeKind::encounter || node.shop_offers.size() > 32U)))
+                result.diagnostics.push_back({DiagnosticCode::invalid_range, shop_path, node.id});
+            std::set<StableId> offers;
+            for (const auto& offer : node.shop_offers) {
+                if (!offer.id || !offers.insert(offer.id).second || !offer.price || offer.price > 32767U ||
+                    ((offer.item_id == 0U) == (offer.weapon_id == 0U)) ||
+                    (offer.states_stock ? offer.stock == 0U : offer.stock != 0U))
+                    result.diagnostics.push_back({DiagnosticCode::invalid_range, shop_path, node.id});
+                if (offer.item_id) validate_reference(offer.item_id, item_ids, shop_path, result.diagnostics);
+                if (offer.weapon_id) validate_reference(offer.weapon_id, weapon_ids, shop_path, result.diagnostics);
+            }
+        }
         for(const auto& node:campaign.nodes){
             for(const auto& encounter:source.encounters){
                 if(encounter.id!=node.encounter_id || node.kind!=CampaignNodeKind::encounter) continue;
@@ -3359,7 +3375,10 @@ CompileResult compile(const GameSource& source) {
             rules.records.push_back({role.id,std::move(bytes)});
         }
         if(!rules.records.empty()) package.sections.push_back(std::move(rules));
-        if(std::any_of(source.unit_types.begin(),source.unit_types.end(),[](const auto& type){return type.drop_gold!=0;})){
+        if(std::any_of(source.unit_types.begin(),source.unit_types.end(),[](const auto& type){return type.drop_gold!=0;}) ||
+           std::any_of(source.campaigns.begin(),source.campaigns.end(),[](const auto& campaign){
+               return std::any_of(campaign.nodes.begin(),campaign.nodes.end(),[](const auto& node){return !node.shop_offers.empty();});
+           })){
             package_format::SectionSource currencies;
             currencies.type=package_format::SectionType::currencies;
             Bytes name;put_string(name,"Gold");
@@ -3376,6 +3395,31 @@ CompileResult compile(const GameSource& source) {
         for(const auto& encounter:source.encounters)
             if(encounter.inventory_mode==InventoryMode::carried) encounters.records.push_back({encounter.id,{1U}});
         if(!encounters.records.empty()) package.sections.push_back(std::move(encounters));
+    }
+    {
+        package_format::SectionSource shops;
+        shops.type = package_format::SectionType::campaign_shops;
+        for (const auto& campaign : source.campaigns) {
+            const auto count = std::count_if(campaign.nodes.begin(), campaign.nodes.end(),
+                [](const auto& node) { return !node.shop_offers.empty(); });
+            if (!count) continue;
+            Bytes bytes;
+            put_u16(bytes, static_cast<std::uint16_t>(count));
+            for (const auto& node : campaign.nodes) {
+                if (node.shop_offers.empty()) continue;
+                put_u64(bytes, node.id);
+                put_u16(bytes, static_cast<std::uint16_t>(node.shop_offers.size()));
+                for (const auto& offer : node.shop_offers) {
+                    put_u64(bytes, offer.id);
+                    put_u32(bytes, static_cast<std::uint32_t>(offer.weapon_id ? core::ContentCategory::weapon : core::ContentCategory::item));
+                    put_u64(bytes, offer.weapon_id ? offer.weapon_id : offer.item_id);
+                    put_u16(bytes, offer.price);
+                    put_u16(bytes, offer.states_stock ? offer.stock : 0U);
+                }
+            }
+            shops.records.push_back({campaign.id, std::move(bytes)});
+        }
+        if (!shops.records.empty()) package.sections.push_back(std::move(shops));
     }
     package.sections.erase(
         std::remove_if(

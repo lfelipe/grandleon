@@ -380,7 +380,7 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
             draw_unit_brackets(ordering_table, next_packet, packet_end, 1, state.local_player, 1);
     }
 
-    if ((state.combat_view_active || state.mode == GRANDLEON_UI_TITLE) && g_grandleon_combat_plate_indices[0]) {
+    if ((state.combat_view_active || state.mode == GRANDLEON_UI_TITLE || state.mode == GRANDLEON_UI_SHOP) && g_grandleon_combat_plate_indices[0]) {
         unsigned int strip;
         for (strip = 0; strip < 4; ++strip) {
             const unsigned int texture = g_grandleon_combat_plate_indices[strip];
@@ -671,8 +671,8 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
         activate_ui_tpage(ordering_table, next_packet, packet_end);
         return;
     }
-    if (state.mode == GRANDLEON_UI_ACTION || state.mode == GRANDLEON_UI_PACK) {
-        const int pack = state.mode == GRANDLEON_UI_PACK;
+    if (state.mode == GRANDLEON_UI_ACTION || state.mode == GRANDLEON_UI_PACK || state.mode == GRANDLEON_UI_SHOP) {
+        const int pack = state.mode == GRANDLEON_UI_PACK || state.mode == GRANDLEON_UI_SHOP;
         const int width = pack ? 232 : 136;
         const int row_top = pack ? 44 : 25;
         unsigned int first = 0;

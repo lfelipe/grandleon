@@ -964,6 +964,74 @@ CampaignItemGrant read_grant(
     return grant;
 }
 
+bool valid_source_key(std::string_view value) noexcept;
+
+void read_shop(Mapper& mapper, const Json& value, const std::string& path,
+               CampaignNode& node, InventoryMode mode) {
+    node.states_shop = true;
+    if (node.kind != CampaignNodeKind::encounter || mode != InventoryMode::carried) {
+        mapper.error(SourceDiagnosticCode::invalid_value, path,
+                     "shops need an encounter in a carried-inventory campaign");
+    }
+    const auto* shop = mapper.object(value, path);
+    if (shop == nullptr) return;
+    for (const auto& field : *shop) {
+        if (field.first != "offers") mapper.error(SourceDiagnosticCode::invalid_value,
+            path + "." + field.first, "unknown shop field");
+    }
+    const auto* offers = mapper.array(*shop, "offers", path);
+    if (offers == nullptr) return;
+    if (offers->empty() || offers->size() > 32U) {
+        mapper.error(SourceDiagnosticCode::invalid_value, path + ".offers",
+                     "a shop needs between 1 and 32 offers");
+        return;
+    }
+    std::set<StableId> identities;
+    for (std::size_t index = 0; index < offers->size(); ++index) {
+        const auto where = path + ".offers[" + std::to_string(index) + "]";
+        const auto* record = mapper.object((*offers)[index], where);
+        if (record == nullptr) continue;
+        for (const auto& field : *record) {
+            if (field.first != "id" && field.first != "itemId" && field.first != "weaponId" &&
+                field.first != "price" && field.first != "stock") {
+                mapper.error(SourceDiagnosticCode::invalid_value, where + "." + field.first,
+                             "unknown shop offer field");
+            }
+        }
+        CampaignShopOffer offer;
+        const auto key = mapper.string(*record, "id", where);
+        if (key) {
+            if (!valid_source_key(*key)) mapper.error(SourceDiagnosticCode::invalid_value,
+                where + ".id", "offer needs a valid stable identity");
+            offer.id = core::stable_content_id_v1(*key);
+            if (!identities.insert(offer.id).second) mapper.error(SourceDiagnosticCode::invalid_value,
+                where + ".id", "offer identity is repeated in this shop");
+        }
+        offer.item_id = mapper.reference(*record, "itemId", where, false);
+        offer.weapon_id = mapper.reference(*record, "weaponId", where, false);
+        const bool item = record->find("itemId") != record->end();
+        const bool weapon = record->find("weaponId") != record->end();
+        if (item == weapon) mapper.error(SourceDiagnosticCode::invalid_value, where,
+            "an offer names exactly one item or weapon");
+        if (item && std::none_of(mapper.result.source.items.begin(), mapper.result.source.items.end(),
+                [&](const auto& candidate) { return candidate.id == offer.item_id; })) {
+            mapper.error(SourceDiagnosticCode::invalid_value, where + ".itemId", "shop item was not found");
+        }
+        if (weapon && std::none_of(mapper.result.source.weapons.begin(), mapper.result.source.weapons.end(),
+                [&](const auto& candidate) { return candidate.id == offer.weapon_id; })) {
+            mapper.error(SourceDiagnosticCode::invalid_value, where + ".weaponId", "shop weapon was not found");
+        }
+        const auto price = mapper.integer(*record, "price", where, 1, 32767);
+        if (price) offer.price = static_cast<std::uint16_t>(*price);
+        offer.states_stock = record->find("stock") != record->end();
+        if (offer.states_stock) {
+            const auto stock = mapper.integer(*record, "stock", where, 1, 65535);
+            if (stock) offer.stock = static_cast<std::uint16_t>(*stock);
+        }
+        node.shop_offers.push_back(offer);
+    }
+}
+
 }  // namespace
 
 std::string_view source_diagnostic_name(SourceDiagnosticCode code) noexcept {
@@ -2828,6 +2896,9 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                         node_path + ".deployment",
                         "only an encounter node arranges troops"
                     );
+                }
+                if (const auto* shop = mapper.member(*node, "shop", node_path, false)) {
+                    read_shop(mapper, *shop, node_path + ".shop", output_node, campaign.inventory_mode);
                 }
                 output_node.dialogue_ids = mapper.references(
                     *node, "dialogueIds", node_path
@@ -8171,6 +8242,47 @@ SourceTextResult set_source_campaign_inventory_mode_json(
     }
     const Json value{std::string(mode)};
     return set_source_inventory_field(source_json, "campaigns", campaign_id, "inventoryMode", mode.empty() ? nullptr : &value);
+}
+
+SourceTextResult set_source_campaign_node_shop_json(
+    std::string_view source_json, std::string_view campaign_id,
+    std::string_view node_id, std::string_view shop_json
+) {
+    SourceTextResult result;
+    const auto before = parse_source_project_json(source_json);
+    if (!before) { result.diagnostics = before.diagnostics; return result; }
+    Json document;
+    Json shop;
+    try {
+        document = JsonParser(source_json).parse();
+        shop = JsonParser(shop_json).parse();
+    } catch (const JsonError& error) {
+        refuse_edit(result, SourceDiagnosticCode::invalid_json, "$.campaigns.flow.nodes.shop",
+                    "shop is not readable JSON: " + std::string(error.what()));
+        return result;
+    }
+    auto* root = std::get_if<Object>(&document.value);
+    auto* campaigns = root == nullptr ? nullptr : mutable_array(*root, "campaigns");
+    auto* campaign = campaigns == nullptr ? nullptr : find_object_by_id(*campaigns, campaign_id);
+    auto* flow = campaign == nullptr ? nullptr : mutable_object(*campaign, "flow");
+    auto* nodes = flow == nullptr ? nullptr : mutable_array(*flow, "nodes");
+    auto* node = nodes == nullptr ? nullptr : find_object_by_id(*nodes, node_id);
+    if (!valid_source_key(campaign_id) || !valid_source_key(node_id) || node == nullptr) {
+        refuse_edit(result, SourceDiagnosticCode::invalid_value, "$.campaigns.flow.nodes",
+                    "shop battle was not found");
+        return result;
+    }
+    if (std::holds_alternative<std::nullptr_t>(shop.value)) node->erase("shop");
+    else (*node)["shop"] = std::move(shop);
+    const bool was_playable = static_cast<bool>(compile(before.source));
+    finish_document_edit(document, result);
+    if (!result || !was_playable) return result;
+    const auto after = parse_source_project_json(result.json);
+    if (after && compile(after.source)) return result;
+    result.json.clear();
+    refuse_edit(result, SourceDiagnosticCode::invalid_value, "$.campaigns.flow.nodes.shop",
+                "shop edit would make this playable project invalid");
+    return result;
 }
 
 }  // namespace grandleon::game_content

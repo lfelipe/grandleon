@@ -1,0 +1,135 @@
+{
+  "description": "Optional authored camp shop in shared console TurnClient and actual production Pyrite player; normal controller purchases, capacity/refusals, stock persistence and host-only co-op camp management.",
+  "date": "2026-11-16",
+  "status": "PASS within stated emulator/fixture scope; uncommitted integration for parent review",
+  "fixture": {
+    "path": "tests/fixtures/campaign_projects/shop_campaign.json",
+    "sha256": "e38e709a265ae674df856a0b25fc6cc8ab5c240fa6a3f3fe63deadcd927fa51b",
+    "schema": "1.7.0",
+    "description": "Two ordinary battles. First earns11gold; second authors Tonic price2 finite2 and Focus price3 unlimited. Hero bags cap3. No debug stage jumps or fabricated wallet."
+  },
+  "final_normal_rom": {
+    "path": "out/n64-shop06/project/grandleon_pyrite_game.z64",
+    "sha256": "b80322575c02945c8cb0c0f57eaf3a2fed4ceca7410c6d86a3d7ab686b9e6267",
+    "bytes": 7847936,
+    "review_driver": false,
+    "resident_bytes": 1951946,
+    "text_bytes": 1388984,
+    "data_bytes": 492930,
+    "bss_bytes": 70032,
+    "build_log": "out/loot06/n64-shop-final-build.log"
+  },
+  "native": {
+    "emulator": "grandleon/n64-ares:0aafd85789215e84e1e43415c07d4c88461b7899",
+    "rdram_bytes": 4194304,
+    "logs": {
+      "first_visit": "out/n64-shop06/ares/shop-normal.log",
+      "saved_resume_and_completion": "out/n64-shop06/ares/shop-resume.log",
+      "final_normal_shop": "out/n64-shop06/ares/shop-final.log",
+      "final_coop_host_guest": "out/n64-shop06/ares/shop-coop.log"
+    },
+    "final_artifact_checkpoints": [
+      "CHECKPOINT PYRITE_PLAYERS count=1",
+      "GRANDLEON_N64_BOARD_MEMORY cells=16 used=1218208 free=957976 rdram=4194304",
+      "CHECKPOINT PYRITE_SHOP offers=2 gold=11",
+      "CHECKPOINT PYRITE_PLAYERS count=2",
+      "GRANDLEON_N64_BOARD_MEMORY cells=16 used=1218208 free=957976 rdram=4194304",
+      "CHECKPOINT PYRITE_SHOP offers=2 gold=11",
+      "CHECKPOINT PYRITE_SHOP_PURCHASE accepted=1 member=2 offer=4437360698530989359 gold=9"
+    ],
+    "persistent_save_directory": "out/n64-shop06/saves",
+    "guest_comparison": "out/loot06/n64-shop-guest-input.json",
+    "guest_result": "Five controller2 confirm presses left entire game view pixel-identical and emitted zero purchases. P1 then chose Mira and bought one; gold11\u21929 and finite stock2\u21921.",
+    "full_collectionless_campaign_completion": "Saved-resume run completed both battles after shopping, RESULT PASS PYRITE_GAMEPLAY, slot1001, heap_free948024, base4MiB. This timing sample is terminal, not an active-board performance benchmark.",
+    "layout_variant_note": "first_visit uses archived initial-layout ROM (header crossing caught and fixed); saved_resume_and_completion uses archived validated-layout ROM. Final artifact adds clear unlimited-stock legend and compact Spanish stock label; same core/shop transactions. Final normal and co-op menu/purchase proof use exact final ROM."
+  },
+  "asserted_behavior": [
+    "No authored offers: existing direct-to-board path retained; existing company/direct-start tests pass.",
+    "Authored offers: optional shop presents gold, price, finite remaining stock or explained unlimited marker; Continue enters normal board/deployment path.",
+    "Host explicitly selects a recruited living recipient; BuyOne requires navigation from safe Back default. Shared UI pages offers and recipients; full/bench reserves remain accessible, dead/unrecruited excluded.",
+    "First native purchase for Aren: gold11\u21929, finite2\u21921, bag2/3\u21923/3; next samehero attempt refused full with gold9/stock1 unchanged.",
+    "Actual battery-backed cartridge restart resumed gold9/stock1 and Aren3/3; finite stock did not refill and equipment was not duplicated.",
+    "Host buys last finite Tonic for Mira: gold9\u21927, stock1\u21920; another attempt on a hero with free space refuses SoldOut, no gold loss.",
+    "Unlimited Focus purchase for Mira: gold7\u21924, stock remainsunlimited; StartContinue opens second board, Aren pack shows Blade1+Tonic2 at3/3.",
+    "Actual final co-op run uses two connected emulated controllers: guest waits, host can buy for the other army\u2019s chosen hero."
+  ],
+  "screenshots": {
+    "final_shop_overview": "out/n64-shop06/ares/u01-final-shop.png",
+    "resumed_wallet_stock": "out/n64-shop06/ares/t01-resumed-shop.png",
+    "persisted_full_capacity": "out/n64-shop06/ares/t02-persisted-capacity.png",
+    "safe_buy_back": "out/n64-shop06/ares/t03-mira-confirm.png",
+    "sold_out_refusal": "out/n64-shop06/ares/t05-sold-out-refused.png",
+    "unlimited_purchase": "out/n64-shop06/ares/t06-unlimited-purchased.png",
+    "purchased_items_on_board": "out/n64-shop06/ares/t07-purchased-board-pack.png",
+    "complete": "out/n64-shop06/ares/shop-resume.png",
+    "final_coop_shop": "out/n64-shop06/ares/v01-coop-shop.png",
+    "guest_waits": "out/n64-shop06/ares/v02-guest-waits.png",
+    "final_coop_safe_confirmation": "out/n64-shop06/ares/v03-coop-mira-back.png",
+    "host_buys_for_other_army": "out/n64-shop06/ares/v04-host-bought-for-mira.png"
+  },
+  "host_validation": {
+    "tests": "out/loot06/shop-ui-regression-tests.log (4/4 pass: shop_menu, company_scroll, company_direct_start, console_localization)",
+    "ui_test": "tests/client/shop_menu_test.cpp: real public menu/button integration covering defaultContinue, safeBack, explicit otherhero intent, capacity/reserves/eligibility, refusalfeedback, offer/recipient paging, refused-formation repair access. Atomic simulation/save validation belongs to core tests; UI does not simulate a purchase itself.",
+    "camera_font_portrait": "out/loot06/n64-shop-projection-tests.log (5/5 pass)"
+  },
+  "source_snapshot": "out/n64-shop06/final-source",
+  "source_sha256": {
+    "console_localization.hpp": "f1eb19bd71f3ed9e48c4aae6a316b7aabbbc650005f47820ffaa4120b3919c40",
+    "shop_menu_test.cpp": "02b2b259850a09e0d67c100234ba4692c52e60e5e6bd2ebae90e52cbabf7de3c",
+    "ProjectBoard.cpp": "a880d125e1a1435efee6819521f7215b1700eb2c96d56374e158fb61e89f076f",
+    "shop_campaign.json": "e38e709a265ae674df856a0b25fc6cc8ab5c240fa6a3f3fe63deadcd927fa51b",
+    "turn_client.cpp": "84425565409e0197827f2e94a212c7decc2b03df13adf98be4427821c9128fea",
+    "turn_client.hpp": "e3a286eadddcdcf1a49f01b049729d52a1ae89adb30c41555f90193086d052e9"
+  },
+  "limitations": [
+    "Emulator only, no hardware deployment or FPS claim.",
+    "Native fixture is not the Steel and Cedar demo; no demo/artwork changes by this task.",
+    "Camp shopping is host/P1 management, including choosing recipients from either army; no in-battle purchase or selling.",
+    "No native active-board journal exists in this frontend, so none was claimed or invented. Plain pre-battle saves may reopen the authored shop with persistent stock.",
+    "Review-driver shop remains held for ordinary Start input; automation behavior unchanged.",
+    "No commit, public push, upstream patch or device deployment by this task."
+  ],
+  "main_demo_build": {
+    "status": "PASS: fullfive-stage production build, complete package accepted by native48-unit guard, normal initialboard on base4MiB",
+    "source": "out/n64-demo-shop06/final-source/project.json",
+    "source_sha256": "153752bad76e731dc0a792f42de78e9f613b0a0d6a57601988cc4989217e6fa0",
+    "schema_version": "1.7.0",
+    "content_revision": "0.4.1",
+    "shop": {
+      "offers": [
+        {
+          "id": "field_tonics",
+          "itemId": "field_tonic",
+          "price": 1,
+          "stock": 4
+        },
+        {
+          "id": "march_sword",
+          "weaponId": "march_blade",
+          "price": 4,
+          "stock": 1
+        }
+      ]
+    },
+    "rom": "out/n64-demo-shop06/project/grandleon_pyrite_game.z64",
+    "rom_sha256": "de3559f4fdbfa7687e9dd87755bbc174bfce8ccc2cddb55b641b9d502a33b6ab",
+    "rom_bytes": 8437760,
+    "package_bytes": 57196,
+    "resident_bytes": 1988034,
+    "text_bytes": 1391000,
+    "data_bytes": 527002,
+    "bss_bytes": 70032,
+    "build_log": "out/loot06/n64-demo-shop-build.log",
+    "review_driver": false,
+    "scope": "Full actualfive-stage production ROM. No fullnative replay, shopautopilot, hardware, artwork orsource modifications in this boundedbuild.",
+    "native_log": "out/n64-demo-shop06/ares/normal.log",
+    "opening_capture": "out/n64-demo-shop06/ares/demo-shop-opening.png",
+    "native_initial_board": {
+      "cells": 48,
+      "heap_used": 1793152,
+      "heap_free": 346936,
+      "rdram_bytes": 4194304
+    },
+    "budget_note": "Relative to prior n64-demo-loot06 evidence build: resident+28392bytes, initial-board heap_used+552bytes, free375872\u2192346936. This is whole-build comparison, not isolated shop-only attribution. Later stages were compiled/packaged but not natively replayed in this boundedpass."
+  }
+}

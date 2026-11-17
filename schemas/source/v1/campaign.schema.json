@@ -185,6 +185,9 @@
           },
           "maxItems": 32,
           "description": "Scenes that play during this encounter, in the order they are authored. Only an encounter node may carry them: a story node has no board for anything to happen on."
+        },
+        "shop": {
+          "$ref": "#/$defs/campaignShop"
         }
       },
       "required": [
@@ -777,6 +780,73 @@
           "description": "Plays this scene only when two local players participate. Omitted means the moment belongs to both variants. This keeps one campaign graph while allowing a second army's story beats to appear only in co-op."
         }
       }
+    },
+    "campaignShop": {
+      "type": "object",
+      "properties": {
+        "offers": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/campaignShopOffer"
+          }
+        }
+      },
+      "required": [
+        "offers"
+      ],
+      "additionalProperties": false,
+      "description": "Optional shop before this battle. Only encounters in carried-inventory campaigns can offer shopping. Omission means no shop."
+    },
+    "campaignShopOffer": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/stableId"
+        },
+        "itemId": {
+          "$ref": "common.schema.json#/$defs/stableId"
+        },
+        "weaponId": {
+          "$ref": "common.schema.json#/$defs/stableId"
+        },
+        "price": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32767,
+          "description": "Gold paid for one copy, taken from the company wallet only when the chosen hero can carry it."
+        },
+        "stock": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "Copies available across the saved campaign. Omission is unlimited; zero is invalid. Keep the offer identity when editing to preserve purchased stock."
+        }
+      },
+      "required": [
+        "id",
+        "price"
+      ],
+      "oneOf": [
+        {
+          "properties": {
+            "itemId": {}
+          },
+          "required": [
+            "itemId"
+          ]
+        },
+        {
+          "properties": {
+            "weaponId": {}
+          },
+          "required": [
+            "weaponId"
+          ]
+        }
+      ],
+      "additionalProperties": false
     }
   }
 }

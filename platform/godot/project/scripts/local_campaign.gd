@@ -50,6 +50,9 @@ func forecast_attack(id: int, target: int, weapon := 0) -> Dictionary:
 func set_language(value: String) -> bool: return native.set_language(value)
 func submit_player_name(id: int, value: String) -> bool:
 	return not _replaying and native.submit_player_name(id, value)
+func buy_shop_offer(member: int, offer: int) -> bool:
+	return not _replaying and native.buy_shop_offer(member, offer)
+
 func submit_management(kind: String, member := 0, item := 0, stage := 0) -> bool:
 	return not _replaying and native.submit_management(kind, member, item, stage)
 

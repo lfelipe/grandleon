@@ -107,6 +107,10 @@ own map, opponents, objectives, reinforcements and solo/co-op setup. The
 campaign outline connects those stages; advanced branching remains available
 when you need it.
 
+Use **Shop before battle** for an optional stop before a battle. Choose goods, gold prices
+and stock limits; purchases go into the selected hero’s pack and respect its
+size. Leave the shop disabled to go straight into play.
+
 ![Adding stages and connecting a campaign](screenshots/native-guide/04-build-the-campaign.gif)
 
 Story scenes are optional. Add an opening, conversations or an ending when

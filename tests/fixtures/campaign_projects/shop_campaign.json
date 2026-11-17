@@ -1,0 +1,372 @@
+{
+  "abilities": [],
+  "campaigns": [
+    {
+      "dialogueIds": [],
+      "flow": {
+        "contractVersion": "1.0.0",
+        "entryNodeId": "first_battle",
+        "nodes": [
+          {
+            "id": "first_battle",
+            "kind": "encounter",
+            "mapId": "first_crossing",
+            "name": "Hold the Crossing",
+            "objectiveIds": [
+              "defeat_all_opponents"
+            ],
+            "placements": [
+              {
+                "id": "aren",
+                "memberId": "aren",
+                "side": "first",
+                "unitTypeId": "first_hero",
+                "x": 1,
+                "y": 1
+              },
+              {
+                "id": "mira",
+                "memberId": "mira",
+                "player": 2,
+                "side": "first",
+                "unitTypeId": "second_hero",
+                "x": 0,
+                "y": 1
+              },
+              {
+                "behavior": "hold",
+                "id": "raider_north",
+                "side": "second",
+                "unitTypeId": "raider",
+                "x": 2,
+                "y": 1
+              }
+            ],
+            "transitions": [
+              {
+                "id": "crossing_won",
+                "priority": 0,
+                "targetNodeId": "second_battle"
+              }
+            ],
+            "turnOrder": "sideBlocks"
+          },
+          {
+            "id": "second_battle",
+            "kind": "encounter",
+            "mapId": "first_crossing",
+            "name": "Next Battle",
+            "objectiveIds": [
+              "defeat_all_opponents"
+            ],
+            "placements": [
+              {
+                "id": "aren",
+                "memberId": "aren",
+                "side": "first",
+                "unitTypeId": "first_hero",
+                "x": 1,
+                "y": 1
+              },
+              {
+                "id": "mira",
+                "memberId": "mira",
+                "player": 2,
+                "side": "first",
+                "unitTypeId": "second_hero",
+                "x": 0,
+                "y": 1
+              },
+              {
+                "behavior": "hold",
+                "id": "raider_north",
+                "side": "second",
+                "unitTypeId": "raider",
+                "x": 2,
+                "y": 1
+              }
+            ],
+            "transitions": [
+              {
+                "id": "crossing_won",
+                "priority": 0,
+                "targetNodeId": "chapter_complete"
+              }
+            ],
+            "turnOrder": "sideBlocks",
+            "shop": {
+              "offers": [
+                {
+                  "id": "shop_tonic",
+                  "itemId": "tonic",
+                  "price": 2,
+                  "stock": 2
+                },
+                {
+                  "id": "shop_focus",
+                  "weaponId": "apprentice_focus",
+                  "price": 3
+                }
+              ]
+            }
+          },
+          {
+            "id": "chapter_complete",
+            "kind": "terminal",
+            "name": "The Road Opens",
+            "transitions": []
+          }
+        ]
+      },
+      "id": "first_adventure",
+      "inventoryMode": "carried",
+      "name": "First Adventure",
+      "objectiveIds": [
+        "defeat_all_opponents"
+      ],
+      "playerMode": "choice",
+      "roster": [
+        {
+          "id": "aren",
+          "name": "Aren",
+          "unitTypeId": "first_hero",
+          "weaponAffinityTypeIds": [
+            "blade"
+          ]
+        },
+        {
+          "id": "mira",
+          "name": "Mira",
+          "unitTypeId": "second_hero",
+          "weaponAffinityTypeIds": [
+            "focus"
+          ]
+        }
+      ]
+    }
+  ],
+  "characterLoss": "recoverable",
+  "characterStyleId": "medieval",
+  "classes": [
+    {
+      "allowedWeaponTypeIds": [
+        "blade"
+      ],
+      "baseStats": {
+        "actionPoints": 2,
+        "defense": 3,
+        "health": 13,
+        "movement": 4,
+        "resistance": 2,
+        "strength": 5
+      },
+      "id": "young_guardian",
+      "name": "Young Guardian"
+    },
+    {
+      "allowedWeaponTypeIds": [
+        "focus"
+      ],
+      "baseStats": {
+        "actionPoints": 2,
+        "defense": 2,
+        "health": 11,
+        "magic": 5,
+        "movement": 4,
+        "resistance": 4,
+        "strength": 3
+      },
+      "id": "young_adept",
+      "name": "Young Adept"
+    },
+    {
+      "allowedWeaponTypeIds": [
+        "blade"
+      ],
+      "baseStats": {
+        "actionPoints": 2,
+        "defense": 0,
+        "health": 1,
+        "movement": 3,
+        "resistance": 1,
+        "strength": 0
+      },
+      "id": "road_raider",
+      "name": "Road Raider"
+    }
+  ],
+  "contentRevision": "0.1.0",
+  "defaultTurnOrder": "sideBlocks",
+  "dialogues": [
+    {
+      "cast": [
+        {
+          "speaker": "Aren",
+          "unitTypeId": "first_hero"
+        },
+        {
+          "speaker": "Mira",
+          "unitTypeId": "second_hero"
+        }
+      ],
+      "id": "first_steps_dialogue",
+      "lines": [
+        {
+          "speaker": "Aren",
+          "text": "The road was quiet when we left home. I was hoping it would stay that way."
+        },
+        {
+          "speaker": "Mira",
+          "text": "Then let us make the crossing together. Whatever waits ahead, we choose the next step."
+        }
+      ],
+      "name": "First Steps"
+    }
+  ],
+  "factions": [
+    {
+      "id": "travellers",
+      "name": "Travellers"
+    },
+    {
+      "id": "raiders",
+      "name": "Road Raiders"
+    }
+  ],
+  "gameId": "new_adventure",
+  "itemTypes": [
+    {
+      "id": "tonics",
+      "name": "Tonics"
+    }
+  ],
+  "items": [
+    {
+      "id": "tonic",
+      "itemTypeId": "tonics",
+      "kind": "restore",
+      "name": "Field Tonic",
+      "power": 4,
+      "stackLimit": 10
+    }
+  ],
+  "maps": [
+    {
+      "height": 4,
+      "id": "first_crossing",
+      "name": "First Crossing",
+      "surroundings": {
+        "depth": 3,
+        "mode": "continue"
+      },
+      "terrain": [
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass",
+        "grass"
+      ],
+      "width": 4
+    }
+  ],
+  "objectives": [
+    {
+      "id": "defeat_all_opponents",
+      "name": "Defeat all opponents"
+    }
+  ],
+  "packageId": "b487b980-4294-40ae-a64f-63bfa83b1e26",
+  "schemaVersion": "1.7.0",
+  "sourceLanguage": "en",
+  "themeId": "temperate",
+  "title": "Camp shop acceptance",
+  "unitTypes": [
+    {
+      "carryCapacity": 3,
+      "characterFigureId": "first",
+      "classId": "young_guardian",
+      "factionId": "travellers",
+      "id": "first_hero",
+      "name": "First Hero",
+      "startingItemIds": [
+        "tonic"
+      ],
+      "startingWeaponIds": [
+        "traveller_blade"
+      ]
+    },
+    {
+      "carryCapacity": 3,
+      "characterFigureId": "second",
+      "classId": "young_adept",
+      "factionId": "travellers",
+      "id": "second_hero",
+      "name": "Second Hero",
+      "startingWeaponIds": [
+        "apprentice_focus"
+      ]
+    },
+    {
+      "carryCapacity": 5,
+      "characterFigureId": "first",
+      "classId": "road_raider",
+      "dropGold": 11,
+      "factionId": "raiders",
+      "id": "raider",
+      "name": "Raider",
+      "startingWeaponIds": [
+        "raider_blade"
+      ]
+    }
+  ],
+  "weaponTypes": [
+    {
+      "id": "blade",
+      "name": "Blade"
+    },
+    {
+      "id": "focus",
+      "name": "Focus"
+    }
+  ],
+  "weapons": [
+    {
+      "accuracy": 100,
+      "id": "traveller_blade",
+      "maximumRange": 1,
+      "minimumRange": 1,
+      "name": "Traveller's Blade",
+      "power": 1,
+      "weaponTypeId": "blade"
+    },
+    {
+      "accuracy": 100,
+      "id": "apprentice_focus",
+      "maximumRange": 2,
+      "minimumRange": 1,
+      "name": "Apprentice Focus",
+      "power": 1,
+      "weaponTypeId": "focus"
+    },
+    {
+      "accuracy": 90,
+      "id": "raider_blade",
+      "maximumRange": 1,
+      "minimumRange": 1,
+      "name": "Raider Blade",
+      "power": 1,
+      "weaponTypeId": "blade"
+    }
+  ]
+}

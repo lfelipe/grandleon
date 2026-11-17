@@ -167,11 +167,63 @@ const fixtures = path.resolve(directory, "../../tests/fixtures/source_projects")
       const before = structuredClone(old);
       const upgraded = upgradeProject(sourceMigrations(), old);
       assert.ok(upgraded.ok);
-      assert.deepEqual(upgraded.project, {...before,schemaVersion:"1.6.0"}, "1.5 upgrade only moves version; opt-in, capacity, loot and omissions survive");
+      assert.deepEqual(upgraded.project, {...before,schemaVersion:"1.7.0"}, "1.5 upgrade only moves version; opt-in, capacity, loot and omissions survive");
       assert.deepEqual(old,before,"migration leaves original source untouched");
-      assert.deepEqual(upgraded.applied.map(step=>`${step.from}->${step.to}`), ["1.5.0->1.6.0"]);
+      assert.deepEqual(upgraded.applied.map(step=>`${step.from}->${step.to}`), ["1.5.0->1.6.0", "1.6.0->1.7.0"]);
     }
   } finally { fs.rmSync(temp,{recursive:true,force:true}); }
+}
+
+// Shops are an authored preparation step; buying does not change a battle's
+// terrain or invent a shared equipment store. Omission stays omission.
+{
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "grandleon-shop-schema-"));
+  const filename = path.join(temp, "project.json");
+  try {
+    const project = JSON.parse(fs.readFileSync(path.join(fixtures, "valid/campaign-roster.json"), "utf8"));
+    project.items = [{id:"potion", name:"Healing Potion", stackLimit:5, kind:"restore", power:2}];
+    project.weapons = [{id:"sword", name:"Sword", power:2, range:1}];
+    const campaign = project.campaigns[0];
+    campaign.inventoryMode = "carried";
+    const node = campaign.flow.nodes[0];
+    const shop = {offers:[{id:"potion_offer", itemId:"potion", price:1}, {id:"sword_offer", weaponId:"sword", price:32767, stock:65535}]};
+    node.shop = structuredClone(shop);
+    const verify = () => {fs.writeFileSync(filename, JSON.stringify(project)); return validateProject(filename);};
+    assert.deepEqual(verify(), [], "unlimited items and finite weapons coexist in a carried battle shop");
+    node.shop = {offers:Array.from({length:32}, (_,index)=>({id:`offer_${index}`,itemId:"potion",price:1}))};
+    assert.deepEqual(verify(), [], "a portable shop can offer all 32 supported rows");
+    node.shop.offers.push({id:"one_too_many",itemId:"potion",price:1});
+    assert.ok(verify().length, "33 offers exceed the shared shop limit");
+    for (const bad of [null, true, {}, {offers:[]}, {...shop,name:"Secret"}, {offers:[{id:"p",price:1}]},
+      {offers:[{id:"p",itemId:"potion",weaponId:"sword",price:1}]},
+      {offers:[{id:"p",itemId:"missing",price:1}]},
+      {offers:[{id:"p",itemId:"potion",price:1},{id:"p",weaponId:"sword",price:2}]}]) {
+      node.shop = bad; assert.ok(verify().length, "invalid shop shape/reference is refused");
+    }
+    for (const [key, values] of [["price",[0,32768,1.5,true,null]], ["stock",[0,65536,1.5,true,null]]]) {
+      for (const bad of values) {
+        node.shop = structuredClone(shop); node.shop.offers[0][key] = bad;
+        assert.ok(verify().length, `strict ${key} rejects ${JSON.stringify(bad)}`);
+      }
+    }
+    node.shop = structuredClone(shop);
+    delete campaign.inventoryMode;
+    assert.ok(verify().some(d=>d.code==="SOURCE_SHOP_REQUIRES_CARRIED_BATTLE"));
+    campaign.inventoryMode = "carried";
+    campaign.flow.nodes[2].shop = node.shop; delete node.shop;
+    assert.ok(verify().some(d=>d.code==="SOURCE_SHOP_REQUIRES_CARRIED_BATTLE"));
+    delete campaign.flow.nodes[2].shop;
+    for (const authored of [false,true]) {
+      if (authored) node.shop = structuredClone(shop);
+      project.schemaVersion = "1.6.0";
+      const before = structuredClone(project);
+      const upgraded = upgradeProject(sourceMigrations(), project);
+      assert.ok(upgraded.ok);
+      assert.deepEqual(upgraded.project, {...before,schemaVersion:"1.7.0"}, "shop migration preserves authored fields and omission exactly");
+      assert.deepEqual(upgraded.applied.map(s=>`${s.from}->${s.to}`), ["1.6.0->1.7.0"]);
+      assert.deepEqual(project,before,"shop migration never mutates the caller");
+    }
+  } finally {fs.rmSync(temp,{recursive:true,force:true});}
 }
 
 const validDiagnostics = validateProject(path.join(fixtures, "valid/minimal.json"));
@@ -1360,13 +1412,13 @@ assert.ok(
   // says it does.
   assert.equal(
     sourceMigrations().size,
-    6,
-    "six steps ship: the ones that reach 1.1.0 through 1.6.0"
+    7,
+    "seven steps ship: the ones that reach 1.1.0 through 1.7.0"
   );
   assert.deepEqual(
     sourceMigrations().versions(),
-    [FIRST_SOURCE_VERSION, "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.5.0", "1.6.0"],
-    "and therefore seven versions a project may have been written at"
+    [FIRST_SOURCE_VERSION, "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.5.0", "1.6.0", "1.7.0"],
+    "and therefore eight versions a project may have been written at"
   );
 
   // A project written before moments existed walks all the way up and is left
@@ -1389,16 +1441,16 @@ assert.ok(
         "1.2.0->1.3.0",
         "1.3.0->1.4.0",
         "1.4.0->1.5.0",
-        "1.5.0->1.6.0"
+        "1.5.0->1.6.0", "1.6.0->1.7.0"
       ],
       "all steps, in the order the chain holds them"
     );
-    assert.equal(walked.project.schemaVersion, "1.6.0", "arriving at the version");
+    assert.equal(walked.project.schemaVersion, "1.7.0", "arriving at the version");
     assert.equal(walked.project.sourceLanguage, "en", "with historical English made explicit");
     assert.equal(walked.project.title, "An Old Game", "with the game untouched");
     assert.equal(
       walked.changed.length,
-      6,
+      7,
       "and one sentence for each step, which is what the author is shown"
     );
     assert.equal(
@@ -1453,12 +1505,12 @@ assert.ok(
     const plan = planUpgrade(sourceMigrations(), old.schemaVersion);
     assert.deepEqual(planChanges(plan), [
       "heroes can keep their appearance, weapon choices and defeat rules when their role changes",
-      "characters can carry limited packs and collect gold, weapons and items during battle"
+      "characters can carry limited packs and collect gold, weapons and items during battle", "battles can offer a shop where heroes buy equipment with their earned gold"
     ]);
     const walked = upgradeProject(sourceMigrations(), old);
     assert.equal(walked.ok, true);
-    assert.deepEqual(walked.applied.map(({from, to}) => `${from}->${to}`), ["1.4.0->1.5.0", "1.5.0->1.6.0"]);
-    assert.deepEqual(walked.project, {...before, schemaVersion: "1.6.0"},
+    assert.deepEqual(walked.applied.map(({from, to}) => `${from}->${to}`), ["1.4.0->1.5.0", "1.5.0->1.6.0", "1.6.0->1.7.0"]);
+    assert.deepEqual(walked.project, {...before, schemaVersion: "1.7.0"},
       "the migration retains authored personal rules and never materializes omissions");
     assert.deepEqual(old, before, "inspection and migration do not mutate the caller");
   }
@@ -1478,7 +1530,7 @@ assert.ok(
       "1.2.0->1.3.0",
       "1.3.0->1.4.0",
       "1.4.0->1.5.0",
-        "1.5.0->1.6.0"
+        "1.5.0->1.6.0", "1.6.0->1.7.0"
     ],
     "one version at a time, in order, and never in a leap"
   );
@@ -1509,7 +1561,7 @@ assert.ok(
       FIFTH_CHANGE,
       SIXTH_CHANGE,
       SEVENTH_CHANGE,
-      "characters can carry limited packs and collect gold, weapons and items during battle"
+      "characters can carry limited packs and collect gold, weapons and items during battle", "battles can offer a shop where heroes buy equipment with their earned gold"
     ],
     "what changed, in the order it changed, in words an author can read"
   );
@@ -1523,14 +1575,14 @@ assert.ok(
       FIFTH_CHANGE,
       SIXTH_CHANGE,
       SEVENTH_CHANGE,
-      "characters can carry limited packs and collect gold, weapons and items during battle"
+      "characters can carry limited packs and collect gold, weapons and items during battle", "battles can offer a shop where heroes buy equipment with their earned gold"
     ],
     "and the same list before anything has run, which is what the dialog asks "
       + "the author to agree to"
   );
   assert.deepEqual(
     planChanges(planUpgrade(exampleMigrations(), "0.9.0")),
-    [SECOND_CHANGE, THIRD_CHANGE, FOURTH_CHANGE, FIFTH_CHANGE, SIXTH_CHANGE, SEVENTH_CHANGE, "characters can carry limited packs and collect gold, weapons and items during battle"],
+    [SECOND_CHANGE, THIRD_CHANGE, FOURTH_CHANGE, FIFTH_CHANGE, SIXTH_CHANGE, SEVENTH_CHANGE, "characters can carry limited packs and collect gold, weapons and items during battle", "battles can offer a shop where heroes buy equipment with their earned gold"],
     "a project part of the way up is told only what is left to do to it"
   );
 

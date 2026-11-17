@@ -459,7 +459,10 @@ function legacyPlayerMode(campaign) {
 /**
  * Every step this build ships.
  *
- * Six, and each exists because its version exists.
+ * Seven, and each exists because its version exists.
+ *
+ * `1.7.0` adds optional shops before battles. No shop, price or stock is
+ * invented when an older project is upgraded.
  *
  * `1.6.0` adds optional gold and weapon drops. It changes only the version;
  * no enemy gains a reward merely because the project was upgraded.
@@ -547,6 +550,12 @@ export function sourceMigrations() {
       from: "1.5.0",
       to: "1.6.0",
       changed: "characters can carry limited packs and collect gold, weapons and items during battle",
+      apply: (project) => project
+    })
+    .add({
+      from: "1.6.0",
+      to: "1.7.0",
+      changed: "battles can offer a shop where heroes buy equipment with their earned gold",
       apply: (project) => project
     });
 }

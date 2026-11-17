@@ -238,6 +238,12 @@ tracked above.
   pickup, weapon choice and stage/save transitions across all three players;
   retain separate physical-device acceptance checks.
 
+- [x] Add optional shops before battles to the editor and all three players.
+  Creators choose goods, gold prices and finite or unlimited stock. Purchases
+  go to a chosen living hero, respect combined pack capacity and save gold,
+  ownership and stock together. Host/P1 manages the shared camp in co-op.
+  The demo's first shop opens before Cedar Deepwood.
+
 ### Graphics and animation
 
 Prioritize visibly richer console scenes, then profile and recover performance.
@@ -387,11 +393,11 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
 - [x] Reuse the complete static PS1 ground/landmark group while idle units and
   foliage animate. Keep house drawing priority and castle reveals; native
   comparisons preserve every captured pixel while reducing orchard render cost.
-- [ ] Profile the complete PS1 demo after whole-stage size optimization/LTO.
-  Count the reserved load prefix in physical RAM: the village retains the
-  original audio, stack and 512 KiB gameplay heap but has only 280 bytes beyond
-  those reserves. Recover meaningful headroom before adding more scene data;
-  remeasure 30 FPS pacing and complete native stage traversal.
+- [x] Recover PS1 RAM with lossless encoded sprite uploads. The complete demo
+  with shops keeps the original audio, stack and 512 KiB gameplay-heap reserves
+  with at least 194 KiB extra headroom. Matching native movement captures
+  preserve all 409 frames and the existing display-deadline result. Keep the
+  open full-campaign performance and traversal checks below.
 - [ ] Continue checking PS1 command headroom on larger creator maps. The
   orchard combat probe exposed missing board scenery, while its sampled
   close view was unchanged. Keep future buffers and geometry within real RAM.
@@ -511,9 +517,9 @@ iOS exports remain later milestones; they are not part of the 0.6 scope.
 - [ ] Extend the enemy loot foundation to battle rewards and map interactions.
   Keep carried equipment local to its owner; any camp storage must be an
   explicit facility between battles, with affinity-independent ownership.
-- [ ] Let creators place simple shops between stages or in appropriate places,
-  choosing stock, prices and availability. Check affordability and capacity,
-  preserve purchases in saves, and support both solo and co-op campaigns.
+- [ ] Extend the before-battle shops to merchants on the map and other
+  authored interactions. Preserve personal ownership, prices, finite stock
+  and saved purchases across both solo and co-op play.
 - [ ] Keep ordinary allied extras easy to author from archetypes with an
   explicit battle-only lifetime; promoting one to a recurring hero should be
   deliberate rather than required just to populate a map.

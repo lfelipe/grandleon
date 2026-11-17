@@ -759,6 +759,17 @@ struct CampaignConditionalTarget final {
     std::vector<CampaignPredicate> predicates;
 };
 
+// One named offer at a battle's optional shop. A missing stock limit is
+// unlimited; an explicit zero is invalid, not another spelling of omission.
+struct CampaignShopOffer final {
+    StableId id{};
+    StableId item_id{};
+    StableId weapon_id{};
+    std::uint16_t price{};
+    std::uint16_t stock{};
+    bool states_stock{false};
+};
+
 struct CampaignNode final {
     StableId id{};
     CampaignNodeKind kind{CampaignNodeKind::encounter};
@@ -768,6 +779,10 @@ struct CampaignNode final {
     std::vector<StableId> dialogue_ids;
     std::vector<StableId> unconditional_targets;
     std::vector<CampaignConditionalTarget> conditional_targets;
+    // Appended so old positional source definitions keep their meaning.
+    // An authored shop needs at least one offer and carried inventory.
+    std::vector<CampaignShopOffer> shop_offers;
+    bool states_shop{false};
 };
 
 // One character the company holds, as the author wrote them.

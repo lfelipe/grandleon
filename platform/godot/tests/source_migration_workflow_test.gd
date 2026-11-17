@@ -18,7 +18,8 @@ func settle() -> void:
 func run() -> void:
 	for language: String in ["en", "es", "pt-BR"]:
 		root.get_node("Localization").select_language(language, false)
-		for physical: bool in [false, true]:
+		for scenario: Array in [["1.5.0", false], ["1.5.0", true], ["1.6.0", false], ["1.6.0", true]]:
+			var physical: bool = scenario[1]
 			var screen = load("res://creator.tscn").instantiate()
 			root.add_child(screen)
 			current_scene = screen
@@ -27,7 +28,7 @@ func run() -> void:
 			check(created.ok, "fixture creates")
 			if not created.ok: break
 			var project: Dictionary = JSON.parse_string(str(created.source))
-			project.schemaVersion = "1.5.0"
+			project.schemaVersion = str(scenario[0])
 			project.sourceLanguage = "pt-BR"
 			if not physical:
 				for campaign: Dictionary in project.campaigns: campaign.erase("inventoryMode")
@@ -35,6 +36,11 @@ func run() -> void:
 			if physical: project.unitTypes[0].dropGold = 25
 			if physical: project.unitTypes[0].dropWeaponId = str(project.weapons[0].id)
 			if physical: project.unitTypes[0].dropWeaponChance = 80
+			if physical and scenario[0] == "1.6.0":
+				for node: Dictionary in project.campaigns[0].flow.nodes:
+					if node.get("kind") == "encounter":
+						node["shop"] = {"offers":[{"id":"retained", "weaponId":str(project.weapons[0].id), "price":3, "stock":2}]}
+						break
 			project.campaigns[0].roster[0].startingWeaponIds = []
 			project.campaigns[0].roster[0].weaponAffinityTypeIds = []
 			project.campaigns[0].roster[0].defeatPolicy = "withdraw"
@@ -77,7 +83,7 @@ func run() -> void:
 			check(screen.project_actions_first_button.has_focus(), "resumed action retains focus after deferred layout")
 			var opened: Dictionary = screen.library.inspect_source(str(created.id))
 			var expected: Dictionary = JSON.parse_string(original)
-			expected.schemaVersion = "1.6.0"
+			expected.schemaVersion = "1.7.0"
 			check(opened.project == expected, "only schema version changes, retaining physical opt-in or legacy omission")
 			check(FileAccess.get_file_as_string(directory.path_join(str(opened.migration.backup.file))) == original, "backup preserves exact old bytes")
 			screen.queue_free()

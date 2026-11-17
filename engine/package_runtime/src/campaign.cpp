@@ -176,6 +176,17 @@ CampaignLoadResult load_campaign(
     if (record == nullptr) return fail(CampaignError::missing_record);
 
     if (!validate_inventory_sections(package)) return fail(CampaignError::malformed_payload);
+    if (const auto* shops = package.find(package_format::SectionType::campaign_shops)) {
+        if (shops->flags != package_format::section_flag_required || shops->records.empty())
+            return fail(CampaignError::malformed_payload);
+        if (!package.find(package_format::SectionType::currencies, core::gold_currency_id))
+            return fail(CampaignError::missing_reference);
+        for (const auto& entry : shops->records) {
+            if (!package.find(package_format::SectionType::campaigns, entry.stable_id) ||
+                inventory_mode(package, package_format::SectionType::campaign_inventory, entry.stable_id) != simulation::InventoryMode::carried)
+                return fail(CampaignError::malformed_payload);
+        }
+    }
     // Every rule record must belong to an existing campaign, even if this
     // caller selected a different one. Optional flags would let older engines
     // silently ignore gameplay rules, so only the required encoding is valid.
@@ -706,6 +717,40 @@ CampaignLoadResult load_campaign(
             return fail(CampaignError::missing_reference);
         }
     }
+    if (const auto* shops = package.find(package_format::SectionType::campaign_shops, campaign_id)) {
+        Reader shop_reader(package, *shops);
+        std::uint16_t count{};
+        if (!shop_reader.u16(count) || !count || count > result.definition.nodes.size())
+            return fail(CampaignError::malformed_payload);
+        std::set<std::uint64_t> nodes;
+        for (std::uint16_t index = 0; index < count; ++index) {
+            std::uint64_t node_id{};
+            std::uint16_t offer_count{};
+            if (!shop_reader.u64(node_id) || !nodes.insert(node_id).second ||
+                !shop_reader.u16(offer_count) || !offer_count || offer_count > 32U)
+                return fail(CampaignError::malformed_payload);
+            auto node = std::find_if(result.definition.nodes.begin(), result.definition.nodes.end(),
+                [node_id](const auto& value) { return value.id == node_id; });
+            if (node == result.definition.nodes.end() || node->kind != CampaignNodeKind::encounter)
+                return fail(CampaignError::malformed_payload);
+            std::set<std::uint64_t> ids;
+            for (std::uint16_t row = 0; row < offer_count; ++row) {
+                ShopOffer offer;
+                std::uint32_t category{};
+                if (!shop_reader.u64(offer.id) || !offer.id || !ids.insert(offer.id).second ||
+                    !shop_reader.u32(category) || !shop_reader.u64(offer.content_id) ||
+                    !shop_reader.u16(offer.price) || !offer.price || offer.price > 32767U ||
+                    !shop_reader.u16(offer.stock)) return fail(CampaignError::malformed_payload);
+                offer.category = static_cast<core::ContentCategory>(category);
+                const auto section = offer.category == core::ContentCategory::weapon ? package_format::SectionType::weapons :
+                    package_format::SectionType::items;
+                if ((offer.category != core::ContentCategory::weapon && offer.category != core::ContentCategory::item) ||
+                    !package.find(section, offer.content_id)) return fail(CampaignError::missing_reference);
+                node->shop_offers.push_back(offer);
+            }
+        }
+        if (shop_reader.remaining()) return fail(CampaignError::malformed_payload);
+    }
     if (player_modes == nullptr) {
         // Before campaigns stated launch policy, the console launchers used
         // authored Player 2 ownership as the signal that a campaign could be
@@ -751,7 +796,7 @@ CampaignCursor::CampaignCursor(CampaignDefinition definition)
         found->id != definition_.entry_node_id) {
         definition_.nodes.push_back(
             {definition_.entry_node_id, CampaignNodeKind::terminal,
-             0, {}, 0, false, {}}
+             0, {}, 0, false, {}, {}}
         );
         current_index_ = definition_.nodes.size() - 1;
         return;

@@ -19,6 +19,7 @@ extern "C" {
 #include <grandleon/client/console_localization.hpp>
 #include <grandleon/client/console_name_editor.hpp>
 #include <grandleon/client/member_name_tokens.hpp>
+#include <grandleon/campaign_runtime/shop.hpp>
 #include <grandleon/simulation/encounter.hpp>
 #include <grandleon/simulation/carried_inventory.hpp>
 #include <grandleon/storage/byte_window_storage.hpp>
@@ -57,7 +58,7 @@ enum class InputMode : std::uint8_t {
 };
 enum class CampaignMode : std::uint8_t {
     title, players, name, prologue, objective, battle, aftermath, save_error,
-    help, settings
+    help, settings, shop
 };
 
 constexpr unsigned maximum_board_cells = 4096U;
@@ -186,6 +187,10 @@ unsigned s_camera_settle_frames{};
 view::StageOverview s_stage_overview{};
 bool s_overview_snap_home{};
 CampaignMode s_campaign_mode{CampaignMode::battle};
+std::uint8_t s_shop_page{};
+std::uint16_t s_shop_index{};
+std::uint64_t s_shop_offer{}, s_shop_member{};
+std::string s_shop_notice;
 unsigned s_campaign_menu_index{};
 unsigned s_local_players{1};
 std::vector<std::uint64_t> s_pending_player_names;
@@ -1846,6 +1851,84 @@ bool complete_battle(bool victory, bool force_pending = false) {
     return save_campaign();
 }
 
+const grandleon::package_runtime::ShopOffer* shop_offer() {
+    const auto* node = active_campaign_node();
+    if (node) for (const auto& offer : node->shop_offers)
+        if (offer.id == s_shop_offer) return &offer;
+    return nullptr;
+}
+
+const grandleon_generated_campaign_member* shop_member(unsigned index) {
+    for (const auto& member : grandleon_generated_campaign_members()) {
+        const auto* unit = camp::find_unit(s_campaign_save.state, {member.persistent_id});
+        if (!unit || (unit->availability != camp::Availability::available &&
+                      unit->availability != camp::Availability::retired)) continue;
+        if (index-- == 0U) return &member;
+    }
+    return nullptr;
+}
+
+unsigned shop_menu_count() {
+    if (s_shop_page == 2U) return 2U;
+    if (s_shop_page == 1U) {
+        unsigned count = 0;
+        while (shop_member(count)) ++count;
+        return count + 1U;
+    }
+    const auto* node = active_campaign_node();
+    return node ? static_cast<unsigned>(node->shop_offers.size()) + 1U : 1U;
+}
+
+void enter_shop() {
+    s_shop_page = 0U;
+    s_shop_notice.clear();
+    s_shop_index = 0U;
+    s_campaign_mode = CampaignMode::shop;
+    s_shop_index = static_cast<std::uint16_t>(shop_menu_count() - 1U);
+}
+
+bool buy_shop_copy() {
+    const auto* node = active_campaign_node();
+    const auto* offer = shop_offer();
+    const auto* member = grandleon_generated_campaign_member_for(s_shop_member);
+    if (!node || !offer || !member || !grandleon_generated_carried_inventory()) return false;
+    auto purchase = grandleon::campaign_runtime::prepare_shop_purchase(
+        s_campaign_save.state, s_campaign_save.state.progress.campaign.package_id,
+        s_campaign_save.state.progress.campaign.stable_id, node->id, *offer,
+        {member->persistent_id}, member->shop_states_capacity, member->shop_carry_capacity);
+    console::Message message = console::Message::shop_unavailable;
+    switch (purchase.error) {
+        case grandleon::campaign_runtime::ShopError::none: break;
+        case grandleon::campaign_runtime::ShopError::inventory_full: message = console::Message::pack_full; break;
+        case grandleon::campaign_runtime::ShopError::insufficient_gold: message = console::Message::insufficient_gold; break;
+        case grandleon::campaign_runtime::ShopError::sold_out: message = console::Message::sold_out; break;
+        case grandleon::campaign_runtime::ShopError::invalid_offer:
+        case grandleon::campaign_runtime::ShopError::invalid_member:
+        case grandleon::campaign_runtime::ShopError::invalid_stock: break;
+    }
+    if (purchase.error != grandleon::campaign_runtime::ShopError::none) {
+        s_shop_notice = ui(message);
+        psx::Line().text("MIPSYNC_SHOP refused=").decimal(static_cast<unsigned>(purchase.error)).flush();
+        return false;
+    }
+    if (!s_card_available || !s_device) { s_shop_notice = ui(console::Message::save_unavailable); return false; }
+    auto candidate = s_campaign_save;
+    const camp::OutcomeSource source{candidate.state.progress.active_node, 0U,
+        static_cast<std::uint64_t>(candidate.state.applied_outcomes.size())};
+    const auto batch = camp::make_outcome_batch(source, std::move(purchase.operations));
+    if (!camp::apply_outcome(candidate.state, batch)) return false;
+    const auto bytes = camp::save_campaign(candidate);
+    grandleon_platform_card_begin();
+    const auto saved = bytes.empty() ? storage::StorageError::too_large : s_device->write(campaign_slot, bytes);
+    grandleon_platform_card_end();
+    if (saved != storage::StorageError::none) { s_shop_notice = ui(console::Message::save_unavailable); return false; }
+    s_campaign_save = std::move(candidate);
+    s_shop_notice.clear();
+    psx::Line().text("MIPSYNC_SHOP accepted=1 member=").hex64(member->persistent_id)
+        .text(" offer=").hex64(offer->id).flush();
+    return true;
+}
+
 void route_active_campaign_node() {
     const grandleon_generated_campaign_node* node = active_campaign_node();
     if (!node) {
@@ -1854,7 +1937,8 @@ void route_active_campaign_node() {
     }
     if (node->kind == 1U) {
         if (node->id == grandleon_generated_current_node_id) {
-            s_campaign_mode = CampaignMode::objective;
+            if (node->shop_offers.empty()) s_campaign_mode = CampaignMode::objective;
+            else enter_shop();
             return;
         }
         if (!node->disc_path || !node->disc_path[0]) {
@@ -2321,6 +2405,13 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
                         .text(s_story_body.data()).flush();
                 }
                 break;
+            case CampaignMode::shop:
+                output->mode = GRANDLEON_UI_SHOP;
+                output->headline = ui(console::Message::shop);
+                output->body = s_shop_notice.c_str();
+                output->menu_index = s_shop_index;
+                output->menu_count = static_cast<std::uint16_t>(shop_menu_count());
+                break;
             case CampaignMode::objective:
                 output->mode = GRANDLEON_UI_OBJECTIVE;
                 keep_ui_text(s_ui_headline, substitute_player_names(
@@ -2470,6 +2561,7 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
 }
 
 extern "C" uint8_t grandleon_game_action_kind(uint16_t index) {
+    if (s_campaign_mode == CampaignMode::shop) return GRANDLEON_ACTION_EQUIPMENT;
     if (!s_created || !*s_created) return GRANDLEON_ACTION_WAIT;
     const sim::UnitSnapshot* actor = find_unit(s_snapshot, s_selected);
     const ActionMenu menu = action_menu(actor, s_snapshot);
@@ -2511,6 +2603,33 @@ const char* equipment_label(const std::string& value, unsigned columns) {
 }
 
 extern "C" const char* grandleon_game_action_label(uint16_t index) {
+    if (s_campaign_mode == CampaignMode::shop) {
+        const auto* node = active_campaign_node();
+        if (!node || index >= shop_menu_count()) return "";
+        if (index + 1U == shop_menu_count()) return ui(s_shop_page ? console::Message::back_button : console::Message::continue_game);
+        if (s_shop_page == 2U) return ui(console::Message::buy_one);
+        if (s_shop_page == 1U) {
+            const auto* member = shop_member(index);
+            const auto* unit = member ? camp::find_unit(s_campaign_save.state, {member->persistent_id}) : nullptr;
+            if (!unit) return "";
+            std::uint64_t count{}; for (const auto& stack : unit->carried) count += stack.quantity;
+            std::string label{effective_member_name(*member)};
+            label += " " + std::to_string(count);
+            if (member->shop_states_capacity) label += "/" + std::to_string(member->shop_carry_capacity);
+            return equipment_label(label, 29U);
+        }
+        const auto& offer = node->shop_offers[index];
+        std::int64_t bought{};
+        const bool valid = grandleon::campaign_runtime::shop_purchase_count(s_campaign_save.state,
+            grandleon::campaign_runtime::shop_stock_key(s_campaign_save.state.progress.campaign.package_id,
+                s_campaign_save.state.progress.campaign.stable_id, node->id, offer.id), bought);
+        std::string label{grandleon_generated_equipment_name(s_language_index, static_cast<std::uint32_t>(offer.category), offer.content_id)};
+        label += " " + std::to_string(offer.price) + "G ";
+        if (offer.stock) label += "x" + std::to_string(valid && bought < offer.stock ? offer.stock - bought : 0);
+        else label += ui(console::Message::unlimited_stock);
+        return equipment_label(label, 29U);
+    }
+
     const auto* actor = find_unit(s_snapshot, s_selected);
     const auto menu = action_menu(actor, s_snapshot);
     if (index >= menu.count) return "";
@@ -2537,6 +2656,13 @@ extern "C" const char* grandleon_game_action_label(uint16_t index) {
 }
 
 extern "C" const char* grandleon_game_pack_heading(void) {
+    if (s_campaign_mode == CampaignMode::shop) {
+        if (s_shop_page == 2U) {
+            const auto* member = grandleon_generated_campaign_member_for(s_shop_member);
+            if (member) return equipment_label(effective_member_name(*member), 29U);
+        }
+        return ui(s_shop_page == 1U ? console::Message::choose_hero : console::Message::shop);
+    }
     const auto* actor = find_unit(s_snapshot, s_selected);
     if (!actor) return ui(console::Message::pack);
     const auto held = sim::carried_count(actor->carried_inventory);
@@ -2548,6 +2674,18 @@ extern "C" const char* grandleon_game_pack_heading(void) {
 }
 
 extern "C" const char* grandleon_game_pack_incoming(void) {
+    if (s_campaign_mode == CampaignMode::shop) {
+        if (!s_shop_notice.empty()) return equipment_label(s_shop_notice, 29U);
+        if (s_shop_page) {
+            if (const auto* offer = shop_offer()) {
+                std::string label{grandleon_generated_equipment_name(s_language_index,
+                    static_cast<std::uint32_t>(offer->category), offer->content_id)};
+                label += " " + std::to_string(offer->price) + "G";
+                return equipment_label(label, 29U);
+            }
+        }
+        return grandleon_game_gold();
+    }
     for (const auto& pile : s_snapshot.ground_items) {
         if (pile.id == s_pack_ground) return equipment_label(grandleon_generated_equipment_name(
             s_language_index, static_cast<std::uint32_t>(pile.stack.category), pile.stack.content_id), 30U);
@@ -2737,6 +2875,31 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
     if ((player_one | player_two) & pad_cross) grandleon_audio_cue(GRANDLEON_SOUND_CONFIRM);
     if (s_campaign_mode != CampaignMode::battle) {
         if (!pressed) return 0;
+        if (s_campaign_mode == CampaignMode::shop) {
+            const auto count = shop_menu_count();
+            if ((pressed & pad_start) && s_shop_page == 0U) { s_shop_index = static_cast<std::uint16_t>(count - 1U); pressed |= pad_cross; }
+            if (pressed & pad_up) s_shop_index = s_shop_index ? s_shop_index - 1U : count - 1U;
+            if (pressed & pad_down) s_shop_index = static_cast<std::uint16_t>((s_shop_index + 1U) % count);
+            if (pressed & pad_circle) {
+                if (s_shop_page) { --s_shop_page; s_shop_index = static_cast<std::uint16_t>(shop_menu_count() - 1U); }
+                else s_shop_index = static_cast<std::uint16_t>(count - 1U);
+            }
+            if (pressed & pad_cross) {
+                if (s_shop_index + 1U == count) {
+                    if (s_shop_page) { --s_shop_page; s_shop_index = static_cast<std::uint16_t>(shop_menu_count() - 1U); }
+                    else { if (!start_encounter()) s_campaign_mode = CampaignMode::save_error; return 2; }
+                } else if (s_shop_page == 0U) {
+                    s_shop_offer = active_campaign_node()->shop_offers[s_shop_index].id;
+                    s_shop_page = 1U; s_shop_index = static_cast<std::uint16_t>(shop_menu_count() - 1U); s_shop_notice.clear();
+                } else if (s_shop_page == 1U) {
+                    const auto* member = shop_member(s_shop_index);
+                    if (member) { s_shop_member = member->persistent_id; s_shop_page = 2U; s_shop_index = 1U; }
+                } else if (buy_shop_copy()) {
+                    s_shop_page = 0U; s_shop_index = static_cast<std::uint16_t>(shop_menu_count() - 1U);
+                }
+            }
+            return 0;
+        }
         if (s_campaign_mode == CampaignMode::title) {
             const unsigned count = s_continue_available ? 4U : 3U;
             if (pressed & pad_up) {

@@ -165,6 +165,7 @@ enum class SectionType : std::uint32_t {
     campaign_inventory = 30,
     encounter_inventory = 31,
     currencies = 32,
+    campaign_shops = 33,
 };
 
 // The presentation section holds records about the whole game, the way the

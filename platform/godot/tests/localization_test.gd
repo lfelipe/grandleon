@@ -210,6 +210,8 @@ func _audit_catalogs() -> void:
 		var language: Dictionary = language_value
 		var code := str(language.get("code", ""))
 		var catalog := _json_dictionary(str(language.get("catalog", "")))
+		_expect("%s catalog keeps translations inside messages" % code,
+			_sorted_keys(catalog), ["language", "messages"])
 		catalogs[code] = catalog.get("messages", {})
 	_expect("the source catalog is available", catalogs.has(source_code), true)
 	if not catalogs.has(source_code):

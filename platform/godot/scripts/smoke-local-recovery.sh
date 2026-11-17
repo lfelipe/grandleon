@@ -23,7 +23,7 @@ timeout 120s "${godot_binary}" --editor --headless --quiet --path "${stage_dir}"
 mkdir -p "${stage_dir}/content/included"
 "${build_dir}/grandleon_content_compile" "${repo_root}/games/steel_and_cedar/source/project.json" \
     "${stage_dir}/content/included/steel_and_cedar.gpk"
-for test in local_recovery local_recovery_player personal_inventory_player personal_inventory_weapon; do
+for test in local_recovery local_recovery_player personal_inventory_player personal_inventory_weapon shop_workflow; do
     log="${state_dir}/${test}.log"
     if ! timeout 90s "${godot_binary}" --headless --path "${stage_dir}" \
         --script "${repo_root}/platform/godot/tests/${test}_test.gd" >"${log}" 2>&1; then

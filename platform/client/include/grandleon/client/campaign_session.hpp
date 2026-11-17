@@ -154,6 +154,8 @@ struct RosterEntry final {
     bool player_nameable{false};
     bool has_player_name{false};
     package_runtime::DefeatPolicy defeat_policy{package_runtime::DefeatPolicy::inherit};
+    std::uint16_t carry_capacity{};
+    bool states_carry_capacity{false};
 };
 
 // Why a named slot did not become a campaign.
@@ -416,6 +418,12 @@ enum class CampaignSessionError : std::uint8_t {
 // applied: a management gesture commits before this view is asked for again, so
 // two of these taken either side of a gesture differ by exactly what the
 // campaign committed.
+struct ShopOfferView final {
+    package_runtime::ShopOffer offer;
+    std::uint32_t remaining{};
+    bool limited{false};
+};
+
 struct CompanyManagement final {
     CampaignSessionError error{CampaignSessionError::none};
     // Where the company is standing, which is the node the next board is fought
@@ -476,6 +484,8 @@ struct CompanyManagement final {
     // be on the screen the refusal lands on.
     std::vector<CampaignStage> stages;
     simulation::InventoryMode inventory_mode{simulation::InventoryMode::legacy};
+    std::vector<ShopOfferView> shop_offers;
+    std::uint32_t gold{};
 };
 
 // Whether a fixed formation is genuinely ready to enter its board without a
@@ -488,7 +498,7 @@ struct CompanyManagement final {
 [[nodiscard]] inline bool company_can_start_directly(
     const CompanyManagement& company
 ) noexcept {
-    if (company.error != CampaignSessionError::none ||
+    if (company.error != CampaignSessionError::none || !company.shop_offers.empty() ||
         company.roster.empty() || company.has_deployment_options ||
         (company.inventory_mode == simulation::InventoryMode::legacy &&
          std::any_of(company.store.begin(), company.store.end(), [](const auto& stack) {
@@ -532,6 +542,7 @@ enum class ManagementVerb : std::uint8_t {
     // Leave. Nothing is lost: every gesture was committed and saved when it was
     // made.
     quit,
+    buy,
 };
 
 struct ManagementIntent final {
@@ -542,6 +553,7 @@ struct ManagementIntent final {
     // published. Zero for every other verb.
     std::uint64_t stage{};
     std::string name;
+    std::uint64_t shop_offer{};
 
     ManagementIntent() = default;
     ManagementIntent(const ManagementIntent& other)
@@ -549,7 +561,7 @@ struct ManagementIntent final {
           member(other.member),
           item(other.item),
           stage(other.stage),
-          name(other.name.data(), other.name.size()) {}
+          name(other.name.data(), other.name.size()), shop_offer(other.shop_offer) {}
 
     ManagementIntent& operator=(const ManagementIntent& other) {
         if (this == &other) return *this;
@@ -558,6 +570,7 @@ struct ManagementIntent final {
         item = other.item;
         stage = other.stage;
         name.assign(other.name.data(), other.name.size());
+        shop_offer = other.shop_offer;
         return *this;
     }
 
@@ -571,7 +584,7 @@ struct ManagementIntent final {
           member(other.member),
           item(other.item),
           stage(other.stage),
-          name(other.name.data(), other.name.size()) {}
+          name(other.name.data(), other.name.size()), shop_offer(other.shop_offer) {}
 
     ManagementIntent& operator=(ManagementIntent&& other) {
         if (this == &other) return *this;
@@ -580,6 +593,7 @@ struct ManagementIntent final {
         item = other.item;
         stage = other.stage;
         name.assign(other.name.data(), other.name.size());
+        shop_offer = other.shop_offer;
         return *this;
     }
 
@@ -625,6 +639,11 @@ enum class ManagementError : std::uint8_t {
     inventory_full,
     non_transferable_currency,
     shared_supplies_disabled,
+    unknown_offer,
+    sold_out,
+    insufficient_gold,
+    invalid_stock,
+    purchase_save_failed,
 
 };
 
@@ -990,6 +1009,10 @@ public:
     // because which members a board *places* is a property of the board and not
     // of the campaign.
     [[nodiscard]] CompanyManagement management();
+
+    [[nodiscard]] ManagementCommit buy_shop_offer(
+        campaign::PersistentEntityId member, std::uint64_t offer_id
+    );
 
     // One of `item` out of the store and into `member`'s hands.
     [[nodiscard]] ManagementCommit give_item(

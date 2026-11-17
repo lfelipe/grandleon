@@ -205,6 +205,7 @@ bool is_known_section(std::uint32_t type) {
         case SectionType::localizations:
         case SectionType::player_nameable_members:
         case SectionType::currencies:
+        case SectionType::campaign_shops:
         case SectionType::unit_loot:
         case SectionType::campaign_inventory:
         case SectionType::encounter_inventory:

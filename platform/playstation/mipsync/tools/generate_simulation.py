@@ -692,7 +692,9 @@ def main() -> int:
             f"static_cast<grandleon::package_runtime::DefeatPolicy>({int(member.get('defeat_policy', 0))}), " +
             f"{int(member.get('carry_capacity', 0))}, " +
             f"{'true' if member.get('states_carry_capacity', 0) else 'false'}" + "}, " +
-            ids(member.get("starting_items", [])) + ", " + ids(member.get("recruited_weapons", [])) + "},"
+            ids(member.get("starting_items", [])) + ", " + ids(member.get("recruited_weapons", [])) + ", " +
+            str(int(member.get("shop_carry_capacity", 0))) + ", " +
+            ("true" if member.get("shop_states_capacity", 0) else "false") + "},"
         )
     lines += [
         "    };", "    return values;", "}", "",
@@ -706,11 +708,15 @@ def main() -> int:
     for node in campaign["nodes"]:
         stage_name = stage_names.get(int(node["id"]), "")
         disc_path = "cdrom:\\" + stage_name + ";1" if stage_name else ""
+        offers = "{" + ",".join(
+            "{" + f"{int(offer['id'])}ULL,static_cast<grandleon::core::ContentCategory>({int(offer['category'])}),{int(offer['content_id'])}ULL,{int(offer['price'])},{int(offer.get('stock', 0))}" + "}"
+            for offer in node.get("shop_offers", [])
+        ) + "}"
         lines.append(
             "        {"
             f"{int(node['id'])}ULL, {int(node.get('encounter_id', 0))}ULL, "
             f"{int(node['kind'])}, {cpp_string(node.get('name', ''))}, "
-            f"{cpp_string(node.get('dialogue', ''))}, {cpp_string(disc_path)}"
+            f"{cpp_string(node.get('dialogue', ''))}, {cpp_string(disc_path)}, {offers}"
             "},"
         )
     lines += [
@@ -751,6 +757,7 @@ def main() -> int:
 #pragma once
 #include <grandleon/campaign/graph.hpp>
 #include <grandleon/package_runtime/member_rules.hpp>
+#include <grandleon/package_runtime/shop.hpp>
 #include <grandleon/simulation/encounter.hpp>
 #include <grandleon/tactics/policy.hpp>
 #include <cstdint>
@@ -767,6 +774,7 @@ struct grandleon_generated_campaign_node final {{
     const char* name{{}};
     const char* dialogue{{}};
     const char* disc_path{{}};
+    std::vector<grandleon::package_runtime::ShopOffer> shop_offers;
 }};
 std::uint64_t grandleon_generated_unit_source(std::uint64_t id);
 bool grandleon_generated_permanent_loss();
@@ -782,6 +790,8 @@ struct grandleon_generated_campaign_member final {{
     grandleon::package_runtime::MemberRules rules;
     std::vector<std::uint64_t> starting_items;
     std::vector<std::uint64_t> recruited_weapons;
+    std::uint16_t shop_carry_capacity{{}};
+    bool shop_states_capacity{{}};
 }};
 struct grandleon_generated_moment final {{
     std::uint64_t id{{}};

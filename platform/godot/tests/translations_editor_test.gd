@@ -20,7 +20,7 @@ func _run() -> void:
 		quit(1)
 		return
 	var legacy_source := str(created.source).replace(
-		'"schemaVersion": "1.6.0",\n  "sourceLanguage": "en",',
+		'"schemaVersion": "1.7.0",\n  "sourceLanguage": "en",',
 		'"schemaVersion": "1.3.0",'
 	)
 	var migrated: Dictionary = library.save_source(str(created.id), legacy_source)

@@ -1298,6 +1298,7 @@ private:
         const client::CompanyManagement* company = nullptr
     );
     void compose_member_menu(const client::CompanyManagement& company, int row);
+    client::ManagementIntent next_shop_intent(const client::CompanyManagement& company);
     void compose_name_editor(
         const client::RosterEntry& member,
         const client::ConsoleNameEditor& editor
@@ -1406,6 +1407,9 @@ private:
     // Which member row the management caret is on, and where the roster's
     // window was standing, kept across gestures so a player who gave something
     // is still standing in front of the same person on the same page.
+    std::uint64_t shop_node_{};
+    std::size_t shop_page_{};
+    bool shop_purchase_pending_{};
     int manage_row_{0};
     int roster_top_{0};
     // A refusal this screen decided, waiting for the company page that says it.
