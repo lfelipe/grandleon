@@ -1,0 +1,120 @@
+{
+  "source_base": "023f6bf67631d568a71462a0243b618b5aa2ada3",
+  "method": "Emulated CPU cycles between real display swaps during the same controller-driven horizontal and vertical scroll windows. Opening camera sweeps were skipped. The prototype is a normal 32 × 24 campaign export in 2P mode.",
+  "three_courts": {
+    "normal": {
+      "trace": "out/release06-verify/castle-two-swaps/scroll-swaps.csv",
+      "disc_sha256": "c1837a0cd83e7ef7919e93df935f20c2ade3b60774fe9f6c6dfd300a2c6ed2ae",
+      "timing": {
+        "view_room": {
+          "swaps": 10,
+          "fps": 12.0,
+          "worst_frame_ms": 83.32
+        },
+        "scroll_horizontal": {
+          "swaps": 22,
+          "fps": 6.56,
+          "worst_frame_ms": 399.94
+        },
+        "scroll_vertical": {
+          "swaps": 17,
+          "fps": 7.44,
+          "worst_frame_ms": 216.64
+        }
+      }
+    },
+    "slower_follow": {
+      "experimental_change": "Halve the tactical camera follow gain per tick, with the same snap threshold, normal game updates and unchanged graphics.",
+      "trace": "out/castle-scroll-cache06/slow-two/scroll-swaps.csv",
+      "disc_sha256": "7573e6056f4af57bee967c637c739bdabb1d6b6a6f8c1dabea74c1e5440c77c8",
+      "timing": {
+        "view_room": {
+          "swaps": 10,
+          "fps": 12.0,
+          "worst_frame_ms": 83.32
+        },
+        "scroll_horizontal": {
+          "swaps": 19,
+          "fps": 5.93,
+          "worst_frame_ms": 299.96
+        },
+        "scroll_vertical": {
+          "swaps": 15,
+          "fps": 6.51,
+          "worst_frame_ms": 216.63
+        }
+      }
+    }
+  },
+  "twin_gate": {
+    "normal": {
+      "trace": "out/release06-verify/gate-solo-swaps/scroll-swaps.csv",
+      "timing": {
+        "scroll_horizontal": {
+          "swaps": 18,
+          "fps": 11.09,
+          "worst_frame_ms": 99.99
+        },
+        "view_entry": {
+          "swaps": 15,
+          "fps": 30.0,
+          "worst_frame_ms": 33.33
+        }
+      }
+    },
+    "six_by_four_floor_blocks": {
+      "trace": "out/castle-scroll-cache06/twin-gate-swaps/scroll-swaps.csv",
+      "timing": {
+        "scroll_horizontal": {
+          "swaps": 15,
+          "fps": 9.23,
+          "worst_frame_ms": 116.65
+        },
+        "view_entry": {
+          "swaps": 15,
+          "fps": 30.0,
+          "worst_frame_ms": 33.33
+        }
+      },
+      "three_courts_build": "The same grouping needed 4,488 vertex-cache entries against a limit of 4,352."
+    }
+  },
+  "profile": {
+    "scope": "Read-only entry and return timing of uncached entity draws in the horizontal co-op scroll. The profile reproduces the baseline swap trace byte for byte.",
+    "log": "out/castle-scroll-cache06/profile-two-final/emulator.log",
+    "elapsed_cycles": 108364409,
+    "categories": {
+      "unit": {
+        "calls": 4,
+        "cycles": 113116,
+        "percent_of_window": 0.1
+      },
+      "ground": {
+        "calls": 18,
+        "cycles": 19351832,
+        "percent_of_window": 17.9
+      },
+      "player_two_cursor": {
+        "calls": 22,
+        "cycles": 716773,
+        "percent_of_window": 0.7
+      },
+      "player_one_cursor": {
+        "calls": 22,
+        "cycles": 1018343,
+        "percent_of_window": 0.9
+      },
+      "terrain_apron_chunk": {
+        "calls": 9,
+        "cycles": 806466,
+        "percent_of_window": 0.7
+      },
+      "settlement_landmark": {
+        "calls": 591,
+        "cycles": 46201571,
+        "percent_of_window": 42.6
+      }
+    }
+  },
+  "conclusion": "Keep the existing camera speed and floor strips. The largest measured cost is uncached landmark drawing. Adjacent geometry is already resident. Investigate batching and rejecting off-screen castle props before projection, with separate reveal state and exact capture comparisons."
+}

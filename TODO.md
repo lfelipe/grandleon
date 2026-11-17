@@ -379,6 +379,12 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   needs less CPU time when unit poses or foliage change, but camera-motion
   bursts and the strict keep frame-pacing check remain open.
   [Current measurements](tools/renderer_comparison/ps1-display-deadlines-06.json)
+- [ ] Reduce castle landmark draws before projection. Adjacent terrain geometry
+  is already resident. In the larger castle's horizontal co-op scroll, landmark
+  draws account for about 43% of elapsed emulated time. Test batching and culling
+  walls and covered roof cells while retaining local reveals and image checks.
+  Trials with a slower camera and smaller floor blocks reduced average FPS.
+  [Scroll trials](tools/renderer_comparison/ps1-castle-scroll-06.json)
 - [x] Retain exact PS1 static-command reuse on larger scenes without increasing
   the entity-key reservation. Lossless snapshots remove the 80-object cutoff;
   small scenes retain direct word keys. The 32×24 castle reduces renderer CPU
