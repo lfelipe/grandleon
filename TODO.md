@@ -391,7 +391,12 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   updates at 60 Hz under rendering load. Native recordings remove the
   alternating short/long frame holds; full campaign and co-op checks pass.
 - [ ] Remove the remaining cold return frame after close attacks and abilities.
-  Each observed return still holds one image for five retraces.
+  The normal exported campaign now retains exact scenery commands across
+  close combat: the two tested return holds fell from seven/six retraces to
+  three. Actors, UI and changed scenery still draw normally. This uses a
+  bounded 52 KiB command backup within the original RAM reserves; consistent
+  two-retrace presentation remains open.
+  [Measurements](tools/renderer_comparison/ps1-combat-return-06.json)
 - [x] Reuse the complete static PS1 ground/landmark group while idle units and
   foliage animate. Keep house drawing priority and castle reveals; native
   comparisons preserve every captured pixel while reducing orchard render cost.

@@ -2853,6 +2853,10 @@ extern "C" void grandleon_game_set_fps(uint16_t fps) {
     s_measured_fps = fps;
 }
 
+extern "C" int grandleon_game_combat_view_active(void) {
+    return (s_result_frames || s_camera_return_frames) && s_result_close_combat;
+}
+
 extern "C" int grandleon_game_static_packets_stable(void) {
     return s_campaign_mode == CampaignMode::battle && s_created && *s_created &&
         !s_stage_overview.active() && !s_result_frames &&

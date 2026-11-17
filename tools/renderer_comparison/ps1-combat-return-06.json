@@ -1,0 +1,156 @@
+{
+  "schema": "grandleon.ps1-combat-return.v1",
+  "source_base": "2ad62d304ffcf640904f118ef2128a70f0c5dd05",
+  "upstream_base": "58dfc4dbc70c4d78f35fff134a13ed3fc10bb525",
+  "sources": {
+    "platform/playstation/mipsync/runtime/main.c": "e962640f8b7629ee04626bcb5c1e50fbe77e748bc4a029465ab0f71686618253",
+    "platform/playstation/mipsync/runtime/game_bridge.cpp": "80dd7df96f0415c06269a18a39d7354cf7ab91fb5e3bc662e519c93eb0f614d9",
+    "platform/playstation/mipsync/runtime/game_bridge.h": "1a5fd8fb0f359e3dc47c6783967b8ab98aef000a138a9aa7d4484533067e562c",
+    "platform/playstation/mipsync/tests/project_combat_gate.lua": "9fcd72b871d37ce15df6f0f91222ab4a760a473d524c9804ba6edb142743177e",
+    "tools/renderer_comparison/playstation_project_combat.py": "a9075c60583692f9fc055e02b3ee70c184380f700f40f83da22f91b5fa232aa5"
+  },
+  "design": [
+    "Save only the static scenery fragment before close combat reuses the packet arena. Never retain actors or UI.",
+    "Borrow the unchanged exact-key storage across the close view; every key writer increments its generation. Reject changed generations, prefix counts, camera bytes and scenery bytes before staging any saved command.",
+    "Keep original encoded DMA base separate from CPU storage. Normal fragment replay relocates internal links and joins the live ordering table. GPU reads retire before writes.",
+    "A 52 KiB command backup is bounded by the existing world-command capacity. Missing/invalid snapshots use ordinary current-renderer drawing. Original audio, stack and 512 KiB gameplay heap reserves remain."
+  ],
+  "normal_exported_campaign": {
+    "before_build": "out/mipsync-refresh06/demo",
+    "after_build": "out/mipsync-refresh06/demo-after",
+    "source": "games/steel_and_cedar/source/project.json",
+    "source_sha256": "95c78cee0cc8097c86f620f903ca9be172454c96d6c3abf4377195080f55c17c",
+    "before_recording": "out/mipsync-refresh06/production-before-v4",
+    "after_recording": "out/mipsync-refresh06/production-after-v4",
+    "ordinary_controller_scope": "Fresh memory card, real title, 2P selection, actual story/dialogue pages, authored personal packs, movement, attack/counterattack, healing ability, both controller armies and opposing turn. No target-state writes beyond ordinary controller arguments.",
+    "final_state_hash": "2db6751aa049faaf",
+    "performance": {
+      "before": {
+        "duration_seconds": 15.181127615976946,
+        "complete_frame_hold_histogram_vis": {
+          "2": 445,
+          "3": 2,
+          "7": 1,
+          "6": 1
+        },
+        "observed_display_flip_fps": 29.641271253579657,
+        "observed_logic_updates_per_second": 60.00871760285079,
+        "presentation_is_even_two_vi": false,
+        "same_origin_pixel_changes": 0,
+        "long_holds": [
+          {
+            "update": 100,
+            "retraces": 3
+          },
+          {
+            "update": 123,
+            "retraces": 3
+          },
+          {
+            "update": 362,
+            "retraces": 7
+          },
+          {
+            "update": 675,
+            "retraces": 6
+          }
+        ]
+      },
+      "after": {
+        "duration_seconds": 15.19779189106198,
+        "complete_frame_hold_histogram_vis": {
+          "2": 446,
+          "3": 6
+        },
+        "observed_display_flip_fps": 29.80652827070415,
+        "observed_logic_updates_per_second": 59.942918453553176,
+        "presentation_is_even_two_vi": false,
+        "same_origin_pixel_changes": 0,
+        "long_holds": [
+          {
+            "update": 100,
+            "retraces": 3
+          },
+          {
+            "update": 123,
+            "retraces": 3
+          },
+          {
+            "update": 242,
+            "retraces": 3
+          },
+          {
+            "update": 363,
+            "retraces": 3
+          },
+          {
+            "update": 675,
+            "retraces": 3
+          },
+          {
+            "update": 788,
+            "retraces": 3
+          }
+        ]
+      }
+    },
+    "captures": {
+      "mipsync-combat-forecast.bin": {
+        "pixels_changed": 0,
+        "sha256": "52fe9b8d0ad66f5377d4aebd49c3bfb4126efda46106cd5a2256ddf89ee3af82"
+      },
+      "mipsync-combat-close.bin": {
+        "pixels_changed": 0,
+        "sha256": "a443e03979cd6aeca8388825d4e5369809b3b802c96a3addce45a758f86ea6ad"
+      },
+      "mipsync-combat-final.bin": {
+        "pixels_changed": 0,
+        "sha256": "c07f8f634c9e0f0dba9e89993cfda15ab01b51b9c3a105521b9cc30cf1169e1f"
+      }
+    },
+    "memory": [
+      {
+        "stage": "01",
+        "manifest": "out/mipsync-refresh06/demo-after/stages/01/build-manifest.json",
+        "committed_bytes": 1818056,
+        "headroom_bytes": 279096,
+        "audio_reserve_bytes": 65536
+      },
+      {
+        "stage": "02",
+        "manifest": "out/mipsync-refresh06/demo-after/stages/02/build-manifest.json",
+        "committed_bytes": 1699592,
+        "headroom_bytes": 397560,
+        "audio_reserve_bytes": 65536
+      },
+      {
+        "stage": "03",
+        "manifest": "out/mipsync-refresh06/demo-after/stages/03/build-manifest.json",
+        "committed_bytes": 1878144,
+        "headroom_bytes": 219008,
+        "audio_reserve_bytes": 65536
+      },
+      {
+        "stage": "04",
+        "manifest": "out/mipsync-refresh06/demo-after/stages/04/build-manifest.json",
+        "committed_bytes": 1964584,
+        "headroom_bytes": 132568,
+        "audio_reserve_bytes": 65536
+      },
+      {
+        "stage": "05",
+        "manifest": "out/mipsync-refresh06/demo-after/stages/05/build-manifest.json",
+        "committed_bytes": 1965960,
+        "headroom_bytes": 131192,
+        "audio_reserve_bytes": 65536
+      }
+    ],
+    "disc_sha256": "92244c2f0fcef501a64922dbc297b4c9ad7d7199e2c68781eff33558a6137831"
+  },
+  "limits": [
+    "Emulator native VSync/cycle recordings, not hardware FPS. No uniform retiming or interpolated frames.",
+    "Tested close returns improve from seven/six retraces to three/three. Some new three-retrace holds remain, including the first backup; consistent 30 FPS is not achieved.",
+    "Large-map/castle camera-change and reveal regressions remain required; this is not a full native campaign playthrough.",
+    "No upstream engine patch is added; application cache policy remains in the Grandleon adapter."
+  ]
+}

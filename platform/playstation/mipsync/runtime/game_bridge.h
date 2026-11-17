@@ -8,6 +8,7 @@ extern "C" {
 
 int grandleon_game_world_packets_stable(void);
 int grandleon_game_static_packets_stable(void);
+int grandleon_game_combat_view_active(void);
 void grandleon_world_packet_cache_capture(uint32_t* ot, char** next_packet);
 void grandleon_game_log_world_packets(uint32_t hits, uint32_t misses, uint32_t bytes);
 void grandleon_game_log_static_packets(uint32_t hits, uint32_t misses,

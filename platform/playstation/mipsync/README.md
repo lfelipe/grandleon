@@ -60,6 +60,19 @@ builder. Generic engine fixes live as replayable `git format-patch` files under
 `tools/upstream_patches/engines/mipsync`; Grandleon-specific package, simulation
 and rendering adapters stay here.
 
+To record movement, attacks, healing and the opposing turn from the normal
+exported demo, including its personal packs and title/story screens, run:
+
+```sh
+python3 tools/renderer_comparison/playstation_project_combat.py \
+  out/playstation-project out/playstation-project-combat
+```
+
+This is the bundled Bell Orchard controller scenario. It records every actual
+VSync and keeps the existing audio/camera assertions; the video does not
+retime slow frames to imply 30 FPS. Hardware and whole-campaign performance
+checks remain separate.
+
 ## Package and simulation boundary
 
 `grandleon_ps1_mipsync_scene_export` opens a real `.gpk`, loads the selected

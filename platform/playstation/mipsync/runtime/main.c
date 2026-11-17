@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include <stdint.h>
+#include <stdio.h>
 #include <hwregs_c.h>
 #include <psxapi.h>
 #include <psxetc.h>
@@ -57,6 +58,7 @@ __attribute__((noinline)) int grandleon_runtime_update(
 _Static_assert(sizeof(ps1_entity) % sizeof(uint32_t) == 0, "entity snapshots need whole words");
 static uint32_t s_world_entities[GRANDLEON_WORLD_ENTITY_CAPACITY * sizeof(ps1_entity) / sizeof(uint32_t)];
 static struct grandleon_exact_snapshot s_world_key;
+static uint32_t s_world_key_generation;
 #define WORLD_CACHE_HEAD_CAPACITY 512
 static struct { uint32_t tag; uint16_t bucket; } s_world_heads[WORLD_CACHE_HEAD_CAPACITY];
 static unsigned s_world_head_count;
@@ -95,10 +97,17 @@ static int world_entities_match(void) {
 static void static_group_before_world_snapshot(void);
 static void static_group_invalidate(void);
 
+/* Every write to the shared key storage goes through this helper. A saved
+ * combat fragment may borrow those keys only while this generation survives. */
+static int capture_world_entity_keys(size_t count) {
+    ++s_world_key_generation;
+    return grandleon_snapshot_capture(&s_world_key, s_world_entities, sizeof(s_world_entities),
+        g_ps1_scene.entities, count, sizeof(ps1_entity) / 4u);
+}
+
 static int world_entities_capture(void) {
     static_group_before_world_snapshot();
-    if (!grandleon_snapshot_capture(&s_world_key, s_world_entities, sizeof(s_world_entities),
-            g_ps1_scene.entities, g_ps1_scene.entity_count, sizeof(ps1_entity) / 4u)) {
+    if (!capture_world_entity_keys(g_ps1_scene.entity_count)) {
         /* Partial keys invalidate both consumers of the shared allocation. */
         static_group_invalidate();
         return 0;
@@ -120,7 +129,7 @@ struct static_fragment {
     uint32_t entity[sizeof(ps1_entity) / 4u];
     uint32_t camera[sizeof(ps1_entity) / 4u];
     const uint32_t* packets;
-    uint32_t bytes;
+    uint32_t bytes, packet_dma;
     int added, ready;
 };
 static struct static_fragment s_static_fragments[3];
@@ -208,8 +217,9 @@ static int individual_packet_replay(uint32_t* ot, char** next,
     }
     if (!grandleon_gpu_range(dma_address(*next), cache->bytes)) return -1;
     ps1_packet_fragment_copy((uint32_t*)*next, cache->packets, cache->bytes / 4u,
-        dma_address(cache->packets), dma_address(*next), ot, cache->heads, cache->head_count);
+        cache->packet_dma, dma_address(*next), ot, cache->heads, cache->head_count);
     cache->packets = (const uint32_t*)*next;
+    cache->packet_dma = dma_address(*next);
     *next += cache->bytes;
     ++s_static_packet_hits;
     return cache->added;
@@ -237,6 +247,7 @@ static void individual_packet_capture(uint32_t* ot, const char* begin,
     __builtin_memcpy(cache->entity, entity, sizeof(ps1_entity));
     __builtin_memcpy(cache->camera, camera, sizeof(ps1_entity));
     cache->packets = (const uint32_t*)begin;
+    cache->packet_dma = dma_address(begin);
     cache->added = primitives;
     cache->ready = 1;
 }
@@ -316,6 +327,70 @@ static void static_group_begin_frame(void) {
     }
 }
 
+/* Keep one bounded copy of board scenery while the close view overwrites
+ * the command arena. Actors and UI are never retained. Exact prefix/camera
+ * keys reject changed reveals, scenery and camera positions on return.
+ * Borrow the existing exact-key storage while it remains untouched during
+ * close combat. A new key writer invalidates that loan. Command storage is
+ * bounded by the existing world arena budget; GPU reads retire before copies. */
+#define COMBAT_BOARD_STORAGE_BYTES (PACKET_BYTES_PER_FRAME - PS1_UI_PACKET_RESERVE)
+static struct {
+    uint32_t storage[COMBAT_BOARD_STORAGE_BYTES / 4u];
+    struct static_fragment fragment;
+    unsigned count;
+    uint32_t key_generation;
+    int valid, close_active;
+    uint32_t saved, restored, rejected;
+} s_combat_board;
+
+static void preserve_combat_board(int close_active) {
+    if (close_active && !s_combat_board.close_active) {
+        const struct static_fragment* fragment = &s_static_fragments[0];
+        const uintptr_t start = (uintptr_t)grandleon_packet_arena;
+        const uintptr_t source = (uintptr_t)fragment->packets;
+        s_combat_board.valid = 0;
+        if (s_group_active && fragment->ready && fragment->bytes &&
+            s_world_key.records >= s_group_count &&
+            fragment->bytes <= sizeof(s_combat_board.storage) &&
+            source >= start && source - start <= PACKET_BYTES_PER_FRAME &&
+            fragment->bytes <= PACKET_BYTES_PER_FRAME - (source - start)) {
+            __builtin_memcpy(s_combat_board.storage, fragment->packets, fragment->bytes);
+            s_combat_board.key_generation = s_world_key_generation;
+            s_combat_board.fragment = *fragment;
+            s_combat_board.count = s_group_count;
+            s_combat_board.valid = 1;
+            ++s_combat_board.saved;
+        }
+    }
+    s_combat_board.close_active = close_active;
+}
+
+static void restore_combat_board(void) {
+    if (!s_combat_board.valid || s_combat_board.close_active) return;
+    s_combat_board.valid = 0;
+    const ps1_entity* camera = static_packet_camera();
+    if (!s_group_active || s_group_count != s_combat_board.count || !camera ||
+        s_world_key_generation != s_combat_board.key_generation ||
+        !static_packet_entity_matches(s_combat_board.fragment.camera, camera) ||
+        !grandleon_snapshot_matches(&s_world_key, s_world_entities,
+            g_ps1_scene.entities, s_group_count, sizeof(ps1_entity) / 4u)) {
+        ++s_combat_board.rejected;
+        return;
+    }
+    /* Stage the original encoded links at the far end of the arena. Normal
+     * replay relocates them from their recorded DMA base and joins the live
+     * ordering table; merely copying them must not insert stale table heads.
+     * Earlier character-preset draws retain their original ordering. If they
+     * reach this source, the ordinary overwrite guard rejects replay. */
+    char* source = grandleon_packet_arena + PACKET_BYTES_PER_FRAME
+        - s_combat_board.fragment.bytes;
+    __builtin_memcpy(source, s_combat_board.storage, s_combat_board.fragment.bytes);
+    s_static_fragments[0] = s_combat_board.fragment;
+    s_static_fragments[0].packets = (const uint32_t*)source;
+    s_world_ready = 0;
+    ++s_combat_board.restored;
+}
+
 int ps1_render_entity_packet_replay(uint32_t* ot, char** next, const char* end,
     const ps1_entity* entity, int viewmodel) {
     const uintptr_t offset = (uintptr_t)entity - (uintptr_t)g_ps1_scene.entities;
@@ -359,8 +434,7 @@ void ps1_render_entity_packet_capture(uint32_t* ot, const char* begin, const cha
             &g_ps1_scene.entities[0], 0, s_group_primitives);
         if (s_static_fragments[0].ready) {
             s_world_ready = 0;
-            if (!grandleon_snapshot_capture(&s_world_key, s_world_entities, sizeof(s_world_entities),
-                    g_ps1_scene.entities, s_group_count, sizeof(ps1_entity) / 4u))
+            if (!capture_world_entity_keys(s_group_count))
                 static_group_invalidate();
         }
         return;
@@ -423,6 +497,7 @@ void grandleon_world_packet_cache_capture(uint32_t* ot, char** next_packet) {
 
 static void render_world_and_ui(uint32_t* ot, char** next_packet, const char* end) {
     const int scene_supported = scene_cache_supported();
+    preserve_combat_board(grandleon_game_combat_view_active());
     /* Moving actors invalidate a whole-world template. Static fragments have
      * independent exact entity/camera keys and can survive those movements. */
     const int supported = scene_supported && grandleon_game_world_packets_stable();
@@ -447,6 +522,7 @@ static void render_world_and_ui(uint32_t* ot, char** next_packet, const char* en
     s_world_pending_start = *next_packet;
     s_world_render_started = (uint16_t)TIMER_VALUE(1);
     static_packets_begin_frame(scene_supported && grandleon_game_static_packets_stable());
+    restore_combat_board();
     ps1_render_frame(ot, next_packet, end);
     s_world_ui_ticks = (uint16_t)((uint16_t)TIMER_VALUE(1) - s_world_ui_started);
 }
@@ -731,6 +807,9 @@ report_metrics:
                 missed_vblanks, maximum_elapsed,
                 first_missed_frame, last_missed_frame
             );
+            printf("MIPSYNC_COMBAT_BOARD saved=%u restored=%u rejected=%u\n",
+                (unsigned)s_combat_board.saved, (unsigned)s_combat_board.restored,
+                (unsigned)s_combat_board.rejected);
             /* Serial telemetry is intentionally outside the frame budget. */
             last_vblank = VSync(-1);
             next_update_vblank = last_vblank + 1;
