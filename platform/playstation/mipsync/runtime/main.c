@@ -12,6 +12,7 @@
 #include "runtime/packet_fragment.h"
 #include "runtime/scene.h"
 #include "runtime/textures.h"
+extern void grandleon_textures_prepare(void);
 #include "terrain_motion.h"
 #include "packet_relocation.h"
 #include "exact_snapshot.h"
@@ -552,6 +553,7 @@ int main(void) {
 
     setup_display();
     ps1_render_init(SCREEN_WIDTH, SCREEN_HEIGHT);
+    grandleon_textures_prepare();
     ps1_textures_init();
     InitPAD(s_pad_buffers[0], 34, s_pad_buffers[1], 34);
     StartPAD();

@@ -1,0 +1,331 @@
+From 570d3ebeb2846989642e035d34273e7ea0d94510 Mon Sep 17 00:00:00 2001
+From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
+Date: Mon, 16 Nov 2026 18:32:37 -0800
+Subject: [PATCH] Support optional zero-run encoded PS1 textures
+
+Keep encoded TIM blobs in resident storage and unpack into a caller-owned, word-aligned upload buffer. Raw descriptors remain the default; encoded uploads validate stream and TIM chunk bounds before GPU commands. Synchronize uploads before reusing scratch during palette resolution.
+
+Cover exact decoding, run limits, malformed streams, overlapping buffers, insufficient scratch, shared palettes, residency aliases and queued-DMA lifetimes in a portable runtime test.
+---
+ src/CMakeLists.txt                            |   6 +
+ .../ps1/starter/runtime/texture_unpack.h      |  33 +++++
+ templates/ps1/starter/runtime/textures.c      |  47 ++++++-
+ templates/ps1/starter/runtime/textures.h      |   7 +
+ tests/Ps1TextureUnpackTests.c                 | 127 ++++++++++++++++++
+ 5 files changed, 218 insertions(+), 2 deletions(-)
+ create mode 100644 templates/ps1/starter/runtime/texture_unpack.h
+ create mode 100644 tests/Ps1TextureUnpackTests.c
+
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index dafe141..8de1e67 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -386,6 +386,12 @@ add_executable(MipsyncPs1TexturePaletteTests
+ target_include_directories(MipsyncPs1TexturePaletteTests PRIVATE
+     ${CMAKE_SOURCE_DIR}/tests/stubs/ps1_textures)
+ add_test(NAME MipsyncPs1TexturePalette COMMAND MipsyncPs1TexturePaletteTests)
++add_executable(MipsyncPs1TextureUnpackTests
++    ${CMAKE_SOURCE_DIR}/tests/Ps1TextureUnpackTests.c
++    ${CMAKE_SOURCE_DIR}/templates/ps1/starter/runtime/textures.c)
++target_include_directories(MipsyncPs1TextureUnpackTests PRIVATE
++    ${CMAKE_SOURCE_DIR}/tests/stubs/ps1_textures)
++add_test(NAME MipsyncPs1TextureUnpack COMMAND MipsyncPs1TextureUnpackTests)
+ add_executable(MipsyncPs1TextureResolutionTests
+     ${CMAKE_SOURCE_DIR}/tests/Ps1TextureResolutionTests.cpp
+     mips/PS1TextureExport.cpp assets/Material.cpp core/Log.cpp)
+diff --git a/templates/ps1/starter/runtime/texture_unpack.h b/templates/ps1/starter/runtime/texture_unpack.h
+new file mode 100644
+index 0000000..0148cf1
+--- /dev/null
++++ b/templates/ps1/starter/runtime/texture_unpack.h
+@@ -0,0 +1,33 @@
++#ifndef MIPSYNC_TEXTURE_UNPACK_H
++#define MIPSYNC_TEXTURE_UNPACK_H
++
++#include <stdint.h>
++#include <string.h>
++
++/* Each byte describes 1..128 bytes: high bit set means zeros; otherwise
++ * that many literal bytes follow. Input and output must not overlap. */
++static int ps1_texture_unpack_zero_runs(const void* source, unsigned int source_bytes,
++                                      void* destination, unsigned int destination_bytes) {
++    const uint8_t* input = (const uint8_t*)source;
++    uint8_t* output = (uint8_t*)destination;
++    const uintptr_t s = (uintptr_t)source, d = (uintptr_t)destination;
++    unsigned int i = 0, o = 0;
++    if (!source || !destination || !source_bytes || !destination_bytes) return 0;
++    if (s <= d ? d - s < source_bytes : s - d < destination_bytes) return 0;
++    while (i < source_bytes) {
++        const unsigned int token = input[i++];
++        const unsigned int count = (token & 127u) + 1u;
++        if (destination_bytes - o < count) return 0;
++        if (token & 128u) {
++            memset(output + o, 0, count);
++        } else {
++            if (source_bytes - i < count) return 0;
++            memcpy(output + o, input + i, count);
++            i += count;
++        }
++        o += count;
++    }
++    return o == destination_bytes;
++}
++
++#endif /* MIPSYNC_TEXTURE_UNPACK_H */
+diff --git a/templates/ps1/starter/runtime/textures.c b/templates/ps1/starter/runtime/textures.c
+index f4acdf6..dfafe28 100644
+--- a/templates/ps1/starter/runtime/textures.c
++++ b/templates/ps1/starter/runtime/textures.c
+@@ -1,10 +1,20 @@
+ #include "textures.h"
+ #include "gpu_transfer.h"
++#include "texture_unpack.h"
++#include <limits.h>
+ #include <psxgpu.h>
+ #include <stdint.h>
+ 
+ #define PS1_TEXTURE_CAPACITY 256u
+ 
++static uint32_t* s_unpack_buffer;
++static unsigned int s_unpack_word_capacity;
++
++void ps1_textures_set_unpack_buffer(uint32_t* buffer, unsigned int word_capacity) {
++    s_unpack_buffer = buffer && !((uintptr_t)buffer & 3u) ? buffer : 0;
++    s_unpack_word_capacity = s_unpack_buffer ? word_capacity : 0;
++}
++
+ static uint16_t s_tpages[PS1_TEXTURE_CAPACITY];
+ static uint16_t s_cluts[PS1_TEXTURE_CAPACITY];
+ static uint16_t s_widths[PS1_TEXTURE_CAPACITY];
+@@ -41,6 +51,23 @@ static void ps1_texture_flush_gpu_cache(void) {
+     DrawSync(0);
+ }
+ 
++/* Encoded data is untrusted until its TIM chunks fit inside the decoded
++ * buffer. Raw TIMs retain the existing SDK parsing path. */
++static int ps1_texture_unpacked_tim_valid(const uint32_t* words, unsigned int count) {
++    unsigned int offset = 2, block;
++    if (count < 5 || words[0] != 0x10u) return 0;
++    if (words[1] & 8u) {
++        block = words[offset];
++        if (block < 12 || (block & 3u) || block / 4u > count - offset) return 0;
++        if ((uint64_t)(words[offset + 2] & 65535u) * (words[offset + 2] >> 16) * 2u > block - 12u) return 0;
++        offset += block / 4u;
++    }
++    if (count - offset < 3) return 0;
++    block = words[offset];
++    if (block < 12 || block / 4u > count - offset || (block & 3u)) return 0;
++    return (uint64_t)(words[offset + 2] & 65535u) * (words[offset + 2] >> 16) * 2u <= block - 12u;
++}
++
+ static int ps1_texture_get_tim(unsigned int texture_index, TIM_IMAGE* tim) {
+     const ps1_texture_desc* t;
+     if (!ps1_texture_index_valid(texture_index))
+@@ -48,8 +75,16 @@ static int ps1_texture_get_tim(unsigned int texture_index, TIM_IMAGE* tim) {
+     t = &g_ps1_textures[texture_index - 1u];
+     if (!t->tim || t->tim_word_count < 5)
+         return 0;
+-    if (GetTimInfo(t->tim, tim) != 0)
++    if (t->encoded_byte_count) {
++        if (!s_unpack_buffer || t->tim_word_count > s_unpack_word_capacity ||
++            t->tim_word_count > UINT_MAX / 4u ||
++            !ps1_texture_unpack_zero_runs(t->tim, t->encoded_byte_count,
++                                         s_unpack_buffer, t->tim_word_count * 4u) ||
++            !ps1_texture_unpacked_tim_valid(s_unpack_buffer, t->tim_word_count) ||
++            GetTimInfo(s_unpack_buffer, tim) != 0) return 0;
++    } else if (GetTimInfo(t->tim, tim) != 0) {
+         return 0;
++    }
+     if (!tim->prect || !tim->paddr)
+         return 0;
+     return 1;
+@@ -81,12 +116,17 @@ void ps1_texture_load_to_vram(unsigned int texture_index) {
+     ps1_gpu_load_image(tim.prect, tim.paddr);
+     DrawSync(0);
+     ps1_texture_flush_gpu_cache();
++    /* Encoded descriptors are immutable. Reuse metadata resolved at init (or
++     * the first upload), rather than unpacking the shared palette owner again
++     * on every pose change. Keep the legacy raw-TIM refresh behavior. */
++    const int cached_clut = g_ps1_textures[texture_index - 1u].encoded_byte_count &&
++        s_widths[texture_index - 1u] && s_heights[texture_index - 1u];
+     s_heights[texture_index - 1u] = (uint16_t)tim.prect->h;
+     s_vram_x[texture_index - 1u] = (uint16_t)tim.prect->x;
+     s_vram_y[texture_index - 1u] = (uint16_t)tim.prect->y;
+     s_modes[texture_index - 1u] = (uint8_t)(tim.mode & 3u);
+     s_widths[texture_index - 1u] = ps1_texture_pixel_width(&tim);
+-    s_cluts[texture_index - 1u] = ps1_texture_resolve_clut(texture_index);
++    if (!cached_clut) s_cluts[texture_index - 1u] = ps1_texture_resolve_clut(texture_index);
+     s_slot_texture[slot - 1u] = (uint16_t)texture_index;
+ }
+ 
+@@ -122,6 +162,9 @@ void ps1_textures_init(void) {
+             if (tim.mode & 0x8)
+                 ps1_gpu_load_image(tim.crect, tim.caddr);
+             ps1_gpu_load_image(tim.prect, tim.paddr);
++            /* DMA may still read scratch. Finish before CLUT lookup or the
++             * next descriptor unpacks into the same buffer. */
++            if (g_ps1_textures[i].encoded_byte_count) DrawSync(0);
+             s_slot_texture[i] = (uint16_t)(i + 1u);
+         }
+ 
+diff --git a/templates/ps1/starter/runtime/textures.h b/templates/ps1/starter/runtime/textures.h
+index b48ef79..642ab98 100644
+--- a/templates/ps1/starter/runtime/textures.h
++++ b/templates/ps1/starter/runtime/textures.h
+@@ -12,6 +12,9 @@ typedef struct {
+     uint16_t        clut_texture_index;
+     /* One-based owner of a VRAM slot shared by mutually exclusive poses. */
+     uint16_t        residency_slot;
++    /* Zero preserves raw TIM storage; otherwise tim points to zero-run data.
++     * tim_word_count remains the decoded size, excluding any stored padding. */
++    unsigned int    encoded_byte_count;
+ } ps1_texture_desc;
+ 
+ extern const ps1_texture_desc g_ps1_textures[];
+@@ -19,6 +22,10 @@ extern const unsigned int     g_ps1_texture_count;
+ 
+ /* Upload TIM textures to VRAM. Call once after GPU init. */
+ void ps1_textures_init(void);
++/* Optional caller-owned, word-aligned scratch storage. Keep it alive while
++ * encoded textures may be uploaded. No heap allocation or retained TIM
++ * pointers are used. A null/empty buffer disables encoded texture uploads. */
++void ps1_textures_set_unpack_buffer(uint32_t* buffer, unsigned int word_capacity);
+ void ps1_texture_load_to_vram(unsigned int texture_index);
+ void ps1_texture_ensure_resident(unsigned int texture_index);
+ 
+diff --git a/tests/Ps1TextureUnpackTests.c b/tests/Ps1TextureUnpackTests.c
+new file mode 100644
+index 0000000..155bf9e
+--- /dev/null
++++ b/tests/Ps1TextureUnpackTests.c
+@@ -0,0 +1,127 @@
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <limits.h>
++#include <psxgpu.h>
++#include "../templates/ps1/starter/runtime/textures.h"
++#include "../templates/ps1/starter/runtime/texture_unpack.h"
++
++static const uint32_t owner_raw[] = {0x10u,0x8u,0x2cu,0x1ff0300u,0x10010u,0x12345678u,0x12345679u,0x1234567au,0x1234567bu,0x1234567cu,0x1234567du,0x1234567eu,0x1234567fu,0x14u,0x200210u,0x40001u,0x87654321u,0x65432101u};
++static const uint32_t alias_raw[] = {0x10u,0x0u,0x14u,0x200210u,0x40001u,0x44332211u,0x88776655u};
++static const uint32_t alias_packed[] = {0x861000u,0x100f8214u,0x1002002u,0x11000400u,0x55443322u,0x887766u};
++static const uint32_t owner_packed[] = {0x821000u,0x2c008208u,0xff032783u,0x1001001u,0x34567800u,0x34567912u,0x34567a12u,0x34567b12u,0x34567c12u,0x34567d12u,0x34567e12u,0x34567f12u,0xf821412u,0x200210u,0x40001u,0x87654321u,0x65432101u};
++static const uint32_t bad_header[] = {0x9bu};
++
++static const uint32_t truncated[] = {127};
++const ps1_texture_desc g_ps1_textures[] = {
++    {owner_raw, 18, 0, 0, 1, 1, 0},
++    {alias_packed, 7, 0, 1, 1, 1, 23},
++    {owner_packed, 18, 0, 0, 3, 3, 68},
++    {alias_packed, 7, 0, 1, 3, 3, 23},
++    {truncated, 7, 0, 0, 1, 5, 1},
++    {bad_header, 7, 0, 0, 1, 6, 1},
++    {alias_packed, UINT_MAX, 0, 0, 1, 7, 23},
++    {alias_packed, 7, 0, 0, 1, 257, 23}
++};
++const unsigned int g_ps1_texture_count = 8;
++static unsigned uploads, commands, parses;
++static struct { const uint32_t* data; unsigned bytes; unsigned char snapshot[64]; } pending[64];
++static unsigned pending_count;
++static void check(int condition, const char* message) {
++    if (!condition) { fprintf(stderr, "%s\n", message); exit(1); }
++}
++int GetTimInfo(const uint32_t* data, TIM_IMAGE* out) {
++    const uint32_t* image = data + 2;
++    ++parses;
++    memset(out, 0, sizeof(*out));
++    out->mode = data[1];
++    if (out->mode & 8) {
++        out->crect = (RECT*)(image + 1);
++        out->caddr = (uint32_t*)(image + 3);
++        image += *image / 4;
++    }
++    out->prect = (RECT*)(image + 1);
++    out->paddr = (uint32_t*)(image + 3);
++    return 0;
++}
++void ps1_gpu_load_image(const RECT* rect, const uint32_t* data) {
++    const unsigned bytes = (unsigned)rect->w * (unsigned)rect->h * 2u;
++    check(bytes <= sizeof(pending[0].snapshot) && pending_count < 64, "fixture upload bounds");
++    pending[pending_count].data = data;
++    pending[pending_count].bytes = bytes;
++    memcpy(pending[pending_count].snapshot, data, bytes);
++    ++pending_count; ++uploads; ++commands;
++}
++int DrawSync(int mode) {
++    unsigned i;
++    (void)mode;
++    for (i = 0; i < pending_count; ++i)
++        check(memcmp(pending[i].data, pending[i].snapshot, pending[i].bytes) == 0,
++              "Scratch must remain unchanged until queued DMA completes");
++    pending_count = 0; ++commands; return 0;
++}
++void DrawPrim(const uint32_t* packet) { (void)packet; ++commands; }
++static void test_decoder(void) {
++    unsigned char result[32], overlap[32] = {128};
++    const unsigned char zero[] = {255}, literal[] = {2, 10, 20, 30};
++    const unsigned char short_literal[] = {2, 10}, short_output[] = {128};
++    unsigned char large[128];
++    check(ps1_texture_unpack_zero_runs(alias_packed, 23, result, 28), "decode fixture");
++    check(memcmp(result, alias_raw, 28) == 0, "decoded TIM must match every source byte");
++    check(ps1_texture_unpack_zero_runs(zero, 1, large, 128), "maximum zero run");
++    for (unsigned i = 0; i < 128; ++i) check(large[i] == 0, "zero run bytes");
++    check(ps1_texture_unpack_zero_runs(literal, 4, result, 3) &&
++          result[0] == 10 && result[1] == 20 && result[2] == 30, "literal bytes");
++    check(!ps1_texture_unpack_zero_runs(short_literal, 2, result, 3), "truncated literal");
++    check(!ps1_texture_unpack_zero_runs(short_output, 1, result, 2), "short decoded output");
++    check(!ps1_texture_unpack_zero_runs(zero, 1, result, 32), "output overflow");
++    check(!ps1_texture_unpack_zero_runs(0, 1, result, 1), "null source");
++    check(!ps1_texture_unpack_zero_runs(zero, 1, 0, 1), "null destination");
++    check(!ps1_texture_unpack_zero_runs(zero, 0, result, 1), "empty stream");
++    check(!ps1_texture_unpack_zero_runs(overlap, 1, overlap, 1), "same buffer");
++    check(!ps1_texture_unpack_zero_runs(overlap, 4, overlap + 1, 1), "forward overlap");
++    check(!ps1_texture_unpack_zero_runs(overlap + 1, 4, overlap, 4), "backward overlap");
++}
++int main(void) {
++    uint32_t scratch[18];
++    unsigned before;
++    test_decoder();
++    ps1_textures_set_unpack_buffer(0, 0);
++    ps1_textures_init();
++    check(ps1_texture_width(1) == 4 && ps1_texture_width(2) == 0, "raw TIMs work without scratch");
++    ps1_textures_set_unpack_buffer(scratch, 6);
++    before = commands;
++    ps1_texture_load_to_vram(2);
++    check(commands == before, "undersized buffer refuses before GPU commands");
++    ps1_textures_set_unpack_buffer((uint32_t*)((unsigned char*)scratch + 1), 18);
++    ps1_texture_load_to_vram(2);
++    check(commands == before, "unaligned buffer refuses before GPU commands");
++    ps1_textures_set_unpack_buffer(scratch, 18);
++    ps1_textures_init();
++    check(ps1_texture_width(2) == 4 && ps1_texture_height(2) == 4, "compressed dimensions");
++    check(ps1_texture_clut(2) == ps1_texture_clut(1) &&
++          ps1_texture_clut(4) == ps1_texture_clut(3), "raw and encoded palette owners");
++    check(ps1_texture_tpage(2) == ps1_texture_tpage(1), "slot alias metadata");
++    before = parses;
++    ps1_texture_ensure_resident(2);
++    check(parses == before + 1, "encoded pose reuses its initialized CLUT without unpacking the owner");
++    ps1_texture_ensure_resident(1);
++    before = uploads;
++    ps1_texture_ensure_resident(2);
++    check(uploads == before + 1, "alias uploads one decoded image");
++    ps1_texture_ensure_resident(2);
++    check(uploads == before + 1, "warm alias does not unpack or upload again");
++    ps1_texture_ensure_resident(1);
++    check(uploads == before + 3, "raw owner restores palette and image");
++    ps1_texture_ensure_resident(4);
++    check(ps1_texture_clut(4) == ps1_texture_clut(3), "palette lookup may reuse scratch after upload");
++    before = commands;
++    for (unsigned i = 5; i <= 8; ++i) ps1_texture_load_to_vram(i);
++    check(commands == before, "bad streams, TIM headers, sizes and slots issue no GPU commands");
++    before = parses;
++    ps1_texture_ensure_resident(4);
++    check(parses == before, "warm residency avoids reparsing and decoding");
++    check(pending_count == 0, "all uploads synchronized");
++    puts("PS1 encoded TIM, bounds, residency, palette and DMA lifetime checks passed.");
++    return 0;
++}
+-- 
+2.53.0
+

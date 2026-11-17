@@ -1,0 +1,40 @@
+{
+  "root_source_revision": "996e934f",
+  "upstream_patch_commit": "570d3ebeb2846989642e035d34273e7ea0d94510",
+  "village": {
+    "baseline_resident_bytes": 1410724,
+    "candidate_resident_bytes": 1200380,
+    "resident_saved_bytes": 210344,
+    "baseline_physical_committed_bytes": 2096872,
+    "candidate_physical_committed_bytes": 1886480,
+    "headroom_bytes": 210672,
+    "platform_audio_reserve_bytes": 65536,
+    "stack_reserve_bytes": 32768,
+    "minimum_heap_bytes": 524288,
+    "unchanged_pools_and_capacities": true
+  },
+  "native_captures": {
+    "count": 409,
+    "all_byte_identical": true,
+    "final_missed_vblanks_baseline": 0,
+    "final_missed_vblanks_candidate": 0,
+    "final_max_vblank_elapsed_baseline": 2,
+    "final_max_vblank_elapsed_candidate": 2,
+    "mutation_peak_hbl_baseline": 277,
+    "mutation_peak_hbl_candidate": 300
+  },
+  "portable_validation": {
+    "python_tests": 4,
+    "scene_generator_tests": "passed",
+    "gcc_and_clang_asan_ubsan": "new unpack test and existing palette/bounds tests passed",
+    "seven_patch_replay": "passed",
+    "full_windows_suite": "not run"
+  },
+  "functional_limitations": [
+    "Unchanged Bell combat harness selects Pack rather than Attack in the current inventory fixture, fails its audio assertion in both builds; not claimed as a passing combat/audio functional test.",
+    "Full Village gameplay/campaign traversal not tested by this bounded investigation; every118 Village TIM payload decoded byte-identically and actual campaign RAM/build validated."
+  ],
+  "description": "Lossless zero-run encoded TIM uploads with a bounded caller-owned buffer; reusable Mipsync patch7, upstream pin unchanged.",
+  "evidence": "out/ps1-texture-compression06/findings.md",
+  "scope": "Frozen996e934f source comparison, full campaign-mode Village memory and real Bell movement captures. Separate shop acceptance verifies ordinary purchases and fresh-process saves on the integrated runtime."
+}

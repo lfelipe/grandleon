@@ -16,6 +16,9 @@ import re
 import struct
 import sys
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from texture_compression import encode_zero_runs, decode_zero_runs
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "platform/console_art"))
 from scenery_style import HOUSE_FAMILIES, document as scenery_style, house_at, house_image, grove_image, ground_image, materials as ground_materials
 from settlement_scenery import load_models as load_settlement_models, placements as settlement_placements, modular_castle_placements
@@ -732,6 +735,9 @@ def write_textures(
     lines = ["/* Generated from a real Grandleon scene manifest. Do not edit. */", '#include "../runtime/textures.h"', ""]
     image_vram_bytes = 0
     embedded_texture_bytes = 0
+    unpacked_texture_bytes = 0
+    unpack_buffer_words = 0
+    texture_storage = []
     for index, (name, image, cutout, x, y) in enumerate(textures):
         is_backdrop = index + 1 in backdrop_indices
         colours, palette = (shared_stage_palette([image]) if index in house_palettes else
@@ -746,21 +752,42 @@ def write_textures(
                         CLUT_Y - 2 if is_backdrop else CLUT_Y,
             font_palette=index == font_index,
         )
-        lines.extend((f"static const uint32_t k_{name}_tim[] = {{", c_words(words), "};", ""))
+        raw = struct.pack(f"<{len(words)}I", *words)
+        packed = encode_zero_runs(raw) if name.startswith(("unit_", "speaker_")) else raw
+        encoded_bytes = 0
+        stored_words = words
+        if len(packed) + (-len(packed) % 4) < len(raw):
+            assert decode_zero_runs(packed, len(raw)) == raw
+            encoded_bytes = len(packed)
+            padded = packed + b"\0" * (-len(packed) % 4)
+            stored_words = list(struct.unpack(f"<{len(padded) // 4}I", padded))
+            unpack_buffer_words = max(unpack_buffer_words, len(words))
+        texture_storage.append((len(words), encoded_bytes))
+        unpacked_texture_bytes += len(raw)
+        embedded_texture_bytes += len(stored_words) * 4
+        lines.extend((f"static const uint32_t k_{name}_tim[] = {{", c_words(stored_words), "};", ""))
         if residency_slots.get(index, index) == index:
             bits = 4 if index in material_palettes or index == font_index else 8
             image_vram_bytes += math.ceil(image.width * bits / 16) * image.height * 2
-        embedded_texture_bytes += len(words) * 4
     lines.append("const ps1_texture_desc g_ps1_textures[] = {")
     for index, (name, _image, cutout, _x, _y) in enumerate(textures):
         slot = residency_slots.get(index, index) + 1
         clut_owner = (index + 1 if index == font_index or index in house_palettes or index in material_palettes else
                       backdrop_indices[0] if index + 1 in backdrop_indices else
                       palette_owner + 1 if palette_owner is not None else 0)
+        decoded_words, encoded_bytes = texture_storage[index]
         lines.append(
-            f"    {{ k_{name}_tim, sizeof(k_{name}_tim) / sizeof(k_{name}_tim[0]), 0, {1 if cutout else 0}, {clut_owner}, {slot} }},"
+            f"    {{ k_{name}_tim, {decoded_words}, 0, {1 if cutout else 0}, {clut_owner}, {slot}, {encoded_bytes} }},"
         )
     lines.extend(("};", "const unsigned int g_ps1_texture_count =", "    sizeof(g_ps1_textures) / sizeof(g_ps1_textures[0]);", ""))
+    if unpack_buffer_words:
+        lines.extend((f"static uint32_t g_grandleon_texture_unpack_buffer[{unpack_buffer_words}];",
+                      "void grandleon_textures_prepare(void) {",
+                      f"    ps1_textures_set_unpack_buffer(g_grandleon_texture_unpack_buffer, {unpack_buffer_words});",
+                      "}"))
+    else:
+        lines.extend(("void grandleon_textures_prepare(void) {",
+                      "    ps1_textures_set_unpack_buffer(0, 0);", "}"))
     lines.append("const unsigned int g_grandleon_combat_plate_indices[4] = {" + ",".join(map(str, backdrop_indices or [0] * 4)) + "};")
     (output / "textures_data.c").write_text("\n".join(lines), encoding="utf-8")
     occupied_vram_bytes = image_vram_bytes + (CLUT_COLOURS * 2 if palette_owner is not None else 0) + len(material_palettes) * 32 + 32 + (512 if backdrop_indices else 0) + len(house_palettes) * 512
@@ -778,6 +805,9 @@ def write_textures(
         "combat_plate": bool(backdrop_indices),
         "texture_bytes": occupied_vram_bytes,
         "embedded_texture_bytes": embedded_texture_bytes,
+        "unpacked_texture_bytes": unpacked_texture_bytes,
+        "texture_unpack_buffer_bytes": unpack_buffer_words * 4,
+        "texture_storage": "raw_tim_and_zero_run_sprites",
         "vram_reserved_bytes": (
             TEXTURE_WIDTH * TEXTURE_HEIGHT * 2 - occupied_vram_bytes
         ),

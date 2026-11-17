@@ -4,3 +4,4 @@
 0004-Skip-flat-mesh-fog-work-for-fully-clear-bounds.patch
 0005-Add-opt-in-PS1-entity-packet-reuse-hooks.patch
 0006-Avoid-recopying-retained-PS1-packet-fragments-in-place.patch
+0007-Support-optional-zero-run-encoded-PS1-textures.patch
