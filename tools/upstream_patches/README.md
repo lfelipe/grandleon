@@ -16,41 +16,24 @@ under `platform/`. They do not belong in these patches.
 
 ## Current Mipsync version
 
-Mipsync is pinned to `v1.0.0f1` (`ce1e489`). [Upstream PR #1](https://github.com/KasaBranca/Mipsync/pull/1)
-contains our first twelve patches, so those copies have been removed. The release
-also fixes forward and chained shared-palette references and registers the
-world-projection test with CTest, covering both review follow-ups.
+Mipsync is pinned to upstream commit `58dfc4d`, which merges
+[PR #2](https://github.com/KasaBranca/Mipsync/pull/2). Both our earlier fixes from
+[PR #1](https://github.com/KasaBranca/Mipsync/pull/1) and the six renderer,
+texture-safety and packet-reuse changes from PR #2 are now upstream. Their local
+patch copies have been removed. The maintainer reports a passing native Windows
+Release build and all 45 registered upstream tests on the merged revision.
 
-Validation of this pin passed the five portable upstream PS1 projection,
-clipping and palette tests. Grandleon's project export gate also passed: both
-the small demo and Steel and Cedar built and booted in the PS1 emulator, followed
-by the CD-audio and independent volume-setting checks. This does not replace
-upstream's full desktop editor validation.
+One local patch remains: optional lossless zero-run encoding for PS1 textures.
+It keeps encoded artwork resident and decodes into a bounded upload buffer,
+preserving the original pixels and checking malformed streams before GPU work.
+The patch includes portable decoding, palette and upload-lifetime regressions.
+It has not been submitted upstream.
 
-The six runtime changes are proposed together in
-[upstream PR #2](https://github.com/KasaBranca/Mipsync/pull/2):
-
-- reuse certified visibility for cached flat draws;
-- reject texture indices and residency slots beyond the fixed arrays;
-- batch safe world projection, retaining scalar clipping at boundaries;
-- skip per-face fog work for static custom meshes entirely before fog starts;
-- provide opt-in entity-packet reuse hooks and a portable DMA-fragment helper;
-- avoid recopying retained fragments when CPU storage and DMA addresses match.
-
-The hooks are disabled by default. Cache policy, keys, capacities, application
-state and game assets remain in Grandleon's adapter. The upstream documentation
-covers invalidation, source lifetimes, GPU ownership and ordering-table joins.
-Portable regressions cover fog boundaries, malformed chains, payloads, overlap,
-repeated reuse and the largest supported fragment and bucket.
-
-All seven portable upstream PS1 tests pass under GCC and Clang with ASan/UBSan.
-The new fog and fragment tests also pass with strict warnings. Windows
-cross-build validation and its Wine limits are recorded on the PR. Performance
-comparisons remain examples from Grandleon, separate from upstream test results:
-[projection and safety](../renderer_comparison/mipsync-followups-06.json),
-[fog bounds](../renderer_comparison/ps1-castle-fog-06.json), and
-[in-place fragments](../renderer_comparison/ps1-inplace-fragments-06.json).
-These are incremental gains; the larger castle still misses its 30 FPS target.
+Grandleon's cache policy, content conversion and runtime adapters remain here;
+those are separate from the generic upstream hooks. The new pin plus the one
+remaining patch has the exact same source tree as our previous seven-patch
+build. See the [refresh validation](../renderer_comparison/mipsync-refresh-06.json)
+for local test and export results.
 
 ## Making an engine fix
 

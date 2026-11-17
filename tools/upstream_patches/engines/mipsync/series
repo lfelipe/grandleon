@@ -1,7 +1,1 @@
-0001-Reuse-certified-PS1-visibility-in-cached-flat-draws.patch
-0002-Reject-out-of-range-PS1-texture-indices-and-residency-slots.patch
-0003-Batch-safe-static-world-vertex-projection.patch
-0004-Skip-flat-mesh-fog-work-for-fully-clear-bounds.patch
-0005-Add-opt-in-PS1-entity-packet-reuse-hooks.patch
-0006-Avoid-recopying-retained-PS1-packet-fragments-in-place.patch
-0007-Support-optional-zero-run-encoded-PS1-textures.patch
+0001-Support-optional-zero-run-encoded-PS1-textures.patch

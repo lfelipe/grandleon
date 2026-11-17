@@ -1,4 +1,4 @@
-From 570d3ebeb2846989642e035d34273e7ea0d94510 Mon Sep 17 00:00:00 2001
+From 460a96fc7345b5aa55b9247b12ff0b2ea7b7b513 Mon Sep 17 00:00:00 2001
 From: Luis Felipe Strano Moraes <luis.strano@gmail.com>
 Date: Mon, 16 Nov 2026 18:32:37 -0800
 Subject: [PATCH] Support optional zero-run encoded PS1 textures

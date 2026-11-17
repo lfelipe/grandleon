@@ -1,0 +1,79 @@
+{
+  "date": "2026-11-17",
+  "upstream_base": "58dfc4dbc70c4d78f35fff134a13ed3fc10bb525",
+  "merged_pull_request": "https://github.com/KasaBranca/Mipsync/pull/2",
+  "removed_local_patches": 6,
+  "remaining_patch": "tools/upstream_patches/engines/mipsync/0001-Support-optional-zero-run-encoded-PS1-textures.patch",
+  "remaining_patch_submitted": false,
+  "source_equivalence": {
+    "previous_patched_revision": "49798693ee35b502d340c47d71471e7487717666",
+    "new_local_patched_revision": "460a96fc7345b5aa55b9247b12ff0b2ea7b7b513",
+    "tree": "425885bbb54ee05e446edc6bcbf0bbfbcd7cac9a",
+    "exact_tree_match": true
+  },
+  "local_validation": {
+    "series_check_log": "out/mipsync-refresh06/series-check.log",
+    "patch_manager_tests": "out/mipsync-refresh06/patch-manager-tests.log",
+    "portable_ps1_tests": {
+      "scope": "Eight upstream registered portable C targets, including the remaining texture-unpack patch. Source target definitions extracted without changes; this is not the full desktop suite.",
+      "gcc_asan_ubsan": {
+        "passed": 8,
+        "total": 8,
+        "log": "out/mipsync-refresh06/gcc-tests.log"
+      },
+      "clang_asan_ubsan": {
+        "passed": 8,
+        "total": 8,
+        "log": "out/mipsync-refresh06/clang-tests.log"
+      },
+      "driver": "out/mipsync-refresh06/portable-src/CMakeLists.txt"
+    },
+    "full_demo": {
+      "build_log": "out/mipsync-refresh06/demo-build.log",
+      "disc_sha256": "a624d3227bb83185bc353e4da4b2e56ce3d6e81bc91a669ec424ed04aca0bf25",
+      "stages": [
+        {
+          "stage": "01",
+          "manifest": "out/mipsync-refresh06/demo/stages/01/build-manifest.json",
+          "committed_bytes": 1760592,
+          "main_ram_bytes": 2097152
+        },
+        {
+          "stage": "02",
+          "manifest": "out/mipsync-refresh06/demo/stages/02/build-manifest.json",
+          "committed_bytes": 1644168,
+          "main_ram_bytes": 2097152
+        },
+        {
+          "stage": "03",
+          "manifest": "out/mipsync-refresh06/demo/stages/03/build-manifest.json",
+          "committed_bytes": 1822724,
+          "main_ram_bytes": 2097152
+        },
+        {
+          "stage": "04",
+          "manifest": "out/mipsync-refresh06/demo/stages/04/build-manifest.json",
+          "committed_bytes": 1909176,
+          "main_ram_bytes": 2097152
+        },
+        {
+          "stage": "05",
+          "manifest": "out/mipsync-refresh06/demo/stages/05/build-manifest.json",
+          "committed_bytes": 1910552,
+          "main_ram_bytes": 2097152
+        }
+      ],
+      "launch_log": "out/mipsync-refresh06/demo-launch/project.log",
+      "launch_scope": "Fresh card, real title and 2P chooser, authored story/objective and first live8x6board with8units. No target-state writes beyond ordinary controller input. Not a full campaign playthrough."
+    }
+  },
+  "upstream_reported_validation": {
+    "source": "https://github.com/KasaBranca/Mipsync/pull/2",
+    "scope": "Maintainer reports native Windows Release and all45registeredCTestcases passing; not rerun locally.",
+    "note": "Use the PR conversation for the complete maintainer report."
+  },
+  "limits": [
+    "No hardware or new performance claim.",
+    "Full native campaign playthrough remains pending for the current0.6content."
+  ]
+}

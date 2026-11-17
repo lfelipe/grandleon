@@ -50,7 +50,8 @@ close view, FPS display, music volume and sound-effects volume. A language
 selector appears when the game includes translations. Settings are kept on the
 memory card; play starts with FPS hidden.
 
-Mipsync is pinned to `v1.0.0f1` (`ce1e489`);
+Mipsync is pinned to upstream commit `58dfc4d`, including the merged renderer
+optimizations and texture-bounds fixes from PR #2;
 [`upstream.env`](../../../tools/upstream_patches/engines/mipsync/upstream.env)
 records the full revision.
 The upstream source is not vendored in the Grandleon repository. Release
