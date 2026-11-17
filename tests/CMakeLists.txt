@@ -1516,8 +1516,8 @@ add_executable(grandleon_client_shop_menu_tests
 )
 target_link_libraries(grandleon_client_shop_menu_tests PRIVATE
     grandleon::client grandleon::client_campaign grandleon::package_format
-    grandleon::package_runtime grandleon::sheet grandleon::view)
-target_compile_definitions(grandleon_client_shop_menu_tests PRIVATE GRANDLEON_TURN_CLIENT_CAMPAIGN)
+    grandleon::package_runtime grandleon::sheet grandleon::view grandleon::game_content grandleon::storage)
+target_compile_definitions(grandleon_client_shop_menu_tests PRIVATE GRANDLEON_TURN_CLIENT_CAMPAIGN GRANDLEON_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 target_compile_features(grandleon_client_shop_menu_tests PRIVATE cxx_std_17)
 add_test(NAME grandleon.client_shop_menu COMMAND grandleon_client_shop_menu_tests)
 

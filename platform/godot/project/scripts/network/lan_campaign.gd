@@ -7,6 +7,11 @@ const REPLAY_REQUEST_BASE := 3000000000
 const Checkpoint = preload("res://scripts/network/lan_checkpoint.gd")
 var net: Node
 var native
+var shop
+var _shop_state: Dictionary = {}
+var _shop_next_request := 0
+var _shop_waiting_request := 0
+var _shop_last_remote_request := 0
 var _events: Array = []
 var _snapshot: Dictionary = {}
 var _cache: Dictionary = {}
@@ -30,7 +35,9 @@ var _replay_request := 0
 func _init(transport: Node) -> void:
 	net = transport
 	native = ClassDB.instantiate("GrandleonSession")
+	shop = load("res://scripts/shop_session.gd").new(native)
 	net.message_received.connect(_message)
+	net.status_changed.connect(_shop_connection_changed)
 
 func package_presentation(bytes: PackedByteArray) -> Dictionary: return native.package_presentation(bytes)
 func package_languages(bytes: PackedByteArray) -> Dictionary: return native.package_languages(bytes)
@@ -49,7 +56,7 @@ func checkpoint_slots() -> Array:
 	return slots
 func is_restoring() -> bool: return _replaying
 func checkpoint_save_ready() -> bool:
-	return net.role == "host" and checkpoints != null and not _replaying and _pending_journal.is_empty() and not _journal_base.is_empty()
+	return net.role == "host" and checkpoints != null and not _replaying and not shop.busy() and _pending_journal.is_empty() and not _journal_base.is_empty()
 func save_checkpoint(slot: int) -> bool:
 	if net.role != "host":
 		_error = Localization.text("lan.host_saves")
@@ -59,7 +66,7 @@ func save_checkpoint(slot: int) -> bool:
 	if not saved: _error = Localization.text(checkpoints.error)
 	return saved
 func load_checkpoint(slot: int) -> bool:
-	if net.role != "host" or checkpoints == null or slot < 1 or slot > 3: return false
+	if net.role != "host" or shop.busy() or checkpoints == null or slot < 1 or slot > 3: return false
 	var saved: Dictionary = checkpoints.read(slot)
 	if saved.is_empty():
 		_error = Localization.text(checkpoints.error if not checkpoints.error.is_empty() else "lan.invalid_save")
@@ -67,7 +74,7 @@ func load_checkpoint(slot: int) -> bool:
 	return _restore(saved)
 
 func reset_progress() -> bool:
-	if net.role != "host" or not net.connected: return false
+	if net.role != "host" or not net.connected or shop.busy(): return false
 	if not native.reset_progress(): return false
 	if checkpoints != null: checkpoints.erase_auto()
 	_journal.clear()
@@ -98,6 +105,9 @@ func start_package(bytes: PackedByteArray, campaign: String, _players := 2, save
 	return true
 
 func _clear_state() -> void:
+	shop.reset()
+	_shop_state.clear()
+	_shop_waiting_request = 0
 	_bootstrap.clear()
 	_snapshot.clear()
 	_queries.clear()
@@ -183,13 +193,33 @@ func submit_intent(kind: String, unit := 0, target := 0, x := 0, y := 0, content
 	else:
 		net.send_message({"type": "intent", "kind": kind, "unit": unit, "target": target, "x": x, "y": y, "content": content, "ground": ground, "category": category, "carried": carried, "request": request, "generation": _state_generation})
 
-func buy_shop_offer(member: int, offer: int) -> bool:
-	return net.role == "host" and net.connected and native.buy_shop_offer(member, offer)
+func buy_shop_offer(member: int, offer: int, player := 1) -> bool:
+	if not net.connected or net.game_paused or _replaying or player != net.local_seat() + 1: return false
+	if net.role == "host": return shop.buy(member, offer, 1)
+	if _shop_waiting_request != 0 or not _guest_owns(member) or _shop_state.get("finished", true): return false
+	return _send_shop_action({"kind":"buy", "member":member, "offer":offer})
+func set_shop_ready(player: int, value: bool) -> bool:
+	if not net.connected or net.game_paused or _replaying or player != net.local_seat() + 1: return false
+	if net.role == "host": return shop.set_ready(1, value)
+	if _shop_waiting_request != 0 or _shop_state.get("finished", true): return false
+	return _send_shop_action({"kind":"ready", "ready":value})
+func _guest_owns(member: int) -> bool:
+	for hero: Dictionary in _bootstrap.get("management", {}).get("company", {}).get("roster", []):
+		if int(hero.get("member_id", 0)) == member: return int(hero.get("local_player", 1)) == 2 and hero.get("availability") in ["available", "retired"]
+	return false
+func _send_shop_action(value: Dictionary) -> bool:
+	if str(_shop_state.get("token", "")).is_empty(): return false
+	_shop_next_request += 1
+	_shop_waiting_request = _shop_next_request
+	value.merge({"type":"shop_action", "request":_shop_next_request, "generation":_state_generation, "token":str(_shop_state.token)})
+	net.send_message(value)
+	return true
 
 func submit_management(kind: String, member := 0, item := 0, stage := 0) -> bool:
 	# Fixed-formation preparation is automatic in the player. On the guest the
 	# same callback simply waits for the host's result instead of issuing it twice.
 	if net.role != "host": return kind == "proceed"
+	if kind == "proceed" and shop.active() and not shop.finished: return false
 	return net.connected and native.submit_management(kind, member, item, stage)
 func submit_player_name(id: int, value: String) -> bool:
 	return net.role == "host" and native.submit_player_name(id, value)
@@ -197,6 +227,10 @@ func submit_player_name(id: int, value: String) -> bool:
 func poll() -> Array:
 	if net.role == "host":
 		var events: Array = native.poll()
+		for event: Dictionary in events:
+			if not _replaying: shop.observe(event)
+		if not _replaying and net.connected and not net.game_paused: shop.pump()
+		events.append_array(shop.drain())
 		if not events.is_empty():
 			var changed := false
 			for event: Dictionary in events:
@@ -237,7 +271,17 @@ func _translate_requests(events: Array, guest: bool) -> Array:
 
 func peer_rejoined() -> void:
 	_last_remote_request = 0
+	_shop_last_remote_request = 0
+	shop.reconnect()
 	send_bootstrap()
+
+func _shop_connection_changed() -> void:
+	if net.connected: return
+	_shop_waiting_request = 0
+	if net.role == "host": shop.reconnect()
+	else:
+		_shop_state.clear()
+		_events.append({"type":"shop_disconnected"})
 
 func send_bootstrap() -> void:
 	if _replaying: return
@@ -249,12 +293,39 @@ func send_bootstrap() -> void:
 			if kind == "battle_begins" and not _snapshot.is_empty(): event.snapshot = _snapshot.duplicate(true)
 			event.request_id = 0
 			events.append(event)
+	if shop.active(): events.append(shop.state())
 	net.send_message({"type": "events", "events": events, "queries": _queries, "forecasts": _forecasts, "generation": _state_generation})
+
+func _shop_response(request: int, token: String, successful: bool) -> void:
+	var event := {"type":"shop_result", "player":2, "request":request, "token":token, "successful":successful}
+	net.send_message({"type":"events", "events":[event], "queries":_queries, "forecasts":_forecasts, "generation":_state_generation})
+func _receive_shop_action(value: Dictionary) -> void:
+	# The authenticated peer is always player 2. No supplied seat/army can
+	# widen that authority, including a valid ID belonging to player 1.
+	if not value.get("request") is int: return
+	var request := int(value.request)
+	if request <= _shop_last_remote_request or request >= REMOTE_REQUEST_BASE: return
+	_shop_last_remote_request = request
+	var action: Variant = value.get("kind")
+	var typed: bool = action is String and action in ["buy", "ready"] and value.get("generation") is int and value.get("token") is String
+	for key: Variant in value:
+		if key not in ["type", "kind", "request", "generation", "token", "member", "offer", "ready"]: typed = false
+	if action == "buy": typed = typed and value.get("member") is int and value.get("offer") is int and not value.has("ready")
+	if action == "ready": typed = typed and value.get("ready") is bool and not value.has("member") and not value.has("offer")
+	if not typed or not net.connected or net.game_paused or _replaying or int(value.get("generation", -1)) != _state_generation or str(value.get("token", "")) != shop.token:
+		_shop_response(request, str(value.get("token", "")), false)
+		return
+	if action == "buy":
+		if not shop.buy(int(value.member), int(value.offer), 2, request): _shop_response(request, shop.token, false)
+	else:
+		_shop_response(request, shop.token, shop.set_ready(2, bool(value.ready)))
 
 func _message(value: Dictionary) -> void:
 	var kind := str(value.get("type", ""))
 	if net.role == "host":
-		if kind == "state_request":
+		if kind == "shop_action":
+			_receive_shop_action(value)
+		elif kind == "state_request":
 			if Time.get_ticks_msec() < _next_state_request: return
 			_next_state_request = Time.get_ticks_msec() + 250
 			send_bootstrap()
@@ -275,6 +346,11 @@ func _message(value: Dictionary) -> void:
 		_state_generation = int(value.get("generation", _state_generation))
 		for event: Variant in value.events:
 			if event is Dictionary:
+				if event.get("type") == "shop_state":
+					if str(event.get("token", "")) != str(_shop_state.get("token", "")): _shop_waiting_request = 0
+					_shop_state = event.duplicate(true)
+				if event.get("type") == "shop_result" and int(event.get("player", 0)) == 2 and int(event.get("request", 0)) == _shop_waiting_request:
+					_shop_waiting_request = 0
 				_remember(event)
 				_events.append(event)
 	elif kind == "reset_presentation":
@@ -290,6 +366,7 @@ func stop() -> void:
 	_stopped = true
 	native.stop()
 	if net.message_received.is_connected(_message): net.message_received.disconnect(_message)
+	if net.status_changed.is_connected(_shop_connection_changed): net.status_changed.disconnect(_shop_connection_changed)
 	if net.adapter == self: net.leave()
 
 
@@ -338,7 +415,9 @@ func _finish_restore() -> void:
 			var event: Dictionary = _bootstrap[kind].duplicate(true)
 			if kind == "battle_begins" and not _snapshot.is_empty(): event.snapshot = _snapshot.duplicate(true)
 			event.request_id = 0
+			shop.observe(event)
 			host_bootstrap.append(event)
+	host_bootstrap.append_array(shop.drain())
 	_events.append_array(host_bootstrap)
 	send_bootstrap()
 

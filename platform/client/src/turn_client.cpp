@@ -4623,16 +4623,10 @@ void TurnClient::management_opened(const client::CompanyManagement& company) {
 
 void TurnClient::management_committed(const client::ManagementCommit& result) {
     if (static_cast<bool>(result)) ++commits_;
-    else if (shop_purchase_pending_) {
-        const auto message = result.error == client::ManagementError::inventory_full
-            ? console::Message::pack_full
-            : result.error == client::ManagementError::insufficient_gold
-            ? console::Message::insufficient_gold
-            : result.error == client::ManagementError::sold_out
-            ? console::Message::sold_out : console::Message::shop_unavailable;
-        pending_refusal_ = console::text(language(), message);
+    if (shop_pending_player_ >= 0) {
+        shop_result_error_ = result.error;
+        shop_result_success_ = static_cast<bool>(result);
     }
-    shop_purchase_pending_ = false;
     Text line;
     line.text("gesture ")
         .text(campaign::outcome_error_name(result.application.error).data())
@@ -4672,145 +4666,91 @@ void TurnClient::stage_jumped(const client::StageJump& jump) {
             : client::campaign_session_error_name(jump.error).data();
 }
 
-client::ManagementIntent TurnClient::next_shop_intent(
-    const client::CompanyManagement& company
-) {
-    constexpr std::size_t page_size = 6U;
-    const auto label = [&](console::Message message) {
-        return console::text(language(), message);
-    };
-    const auto begin_shop_page = [&](const char* heading) {
-        begin_page();
-        push_line(heading);
-        Text wallet;
-        wallet.text(label(console::Message::gold)).space().count(company.gold);
-        push_line(wallet.c_str());
-        if (pending_refusal_ != nullptr) {
-            push_line(pending_refusal_);
-            pending_refusal_ = nullptr;
-        }
-        push_line("");
-    };
-    const auto finish_shop_page = [&]() {
-        page_choices_ = page_.count - page_first_choice_;
-        list_.total = page_choices_;
-        list_.rows = page_choices_;
-        list_top_ = 0;
-    };
+client::ManagementIntent TurnClient::next_shop_intent(const client::CompanyManagement& company) {
+    shop_ui_.update(company);
+    if (shop_pending_player_ >= 0) {
+        shop_ui_.committed(company, static_cast<unsigned>(shop_pending_player_), shop_result_error_, shop_result_success_);
+        shop_pending_player_ = -1;
+    }
+    const auto label = [&](console::Message message) { return console::text(language(), message); };
     const auto equipment_name = [&](const auto& offer) {
         return offer.category == core::ContentCategory::weapon
             ? sheet::weapon_name(package_, offer.content_id, language(), text_encoding())
             : sheet::item_name(package_, offer.content_id, language(), text_encoding());
     };
-    if (shop_node_ != company.node.stable_id) {
-        shop_node_ = company.node.stable_id;
-        shop_page_ = 0U;
-    }
-    std::vector<std::size_t> recipients;
-    for (std::size_t index = 0; index < company.roster.size(); ++index) {
-        const auto availability = company.roster[index].availability;
-        if (availability != campaign::Availability::unrecruited &&
-            availability != campaign::Availability::dead) recipients.push_back(index);
-    }
-    const auto priority = [&](std::size_t index) {
-        const auto member = company.roster[index].member;
-        if (std::find(company.fielded.begin(), company.fielded.end(), member) != company.fielded.end()) return 0;
-        if (std::find(company.placeable.begin(), company.placeable.end(), member) != company.placeable.end()) return 1;
-        return 2;
-    };
-    std::stable_sort(recipients.begin(), recipients.end(), [&](std::size_t left, std::size_t right) {
-        return priority(left) < priority(right);
-    });
     for (;;) {
-        if (shop_page_ * page_size >= company.shop_offers.size()) shop_page_ = 0U;
-        const auto first = shop_page_ * page_size;
-        const auto count = std::min(page_size, company.shop_offers.size() - first);
-        begin_shop_page(label(console::Message::shop));
+        if (shop_ui_.all_ready()) return {client::ManagementVerb::proceed, {}, {}};
+        begin_page();
         Text heading;
-        heading.text(label(console::Message::price)).text(" / ").text(label(console::Message::stock));
+        heading.text(label(console::Message::shop)).text("   ").text(label(console::Message::gold)).space().count(company.gold);
         push_line(heading.c_str());
-        Text unlimited;
-        unlimited.text("* ").text(label(console::Message::unlimited_stock));
-        push_line(unlimited.c_str());
-        page_first_choice_ = page_.count;
-        for (std::size_t index = 0; index < count; ++index) {
-            const auto& stock = company.shop_offers[first + index];
+        Text columns;
+        columns.text(label(console::Message::price)).text(" / ").text(label(console::Message::stock)).text("  * ").text(label(console::Message::unlimited_stock));
+        push_line(columns.c_str());
+        const auto* focus = shop_ui_.offer(company, shop_focus_player_);
+        std::size_t selected = 0U;
+        for (std::size_t i = 0; i < company.shop_offers.size(); ++i) if (focus && company.shop_offers[i].offer.id == focus->offer.id) selected = i;
+        if (selected < shop_catalog_top_) shop_catalog_top_ = selected;
+        if (selected >= shop_catalog_top_ + 4U) shop_catalog_top_ = selected - 3U;
+        for (std::size_t i = shop_catalog_top_; i < std::min(company.shop_offers.size(), shop_catalog_top_ + 4U); ++i) {
+            const auto& stock = company.shop_offers[i];
             Text row;
+            row.text(shop_ui_.state(0).offer == stock.offer.id ? "1" : " ");
+            row.text(shop_ui_.players() > 1U && shop_ui_.state(1).offer == stock.offer.id ? "2 " : "  ");
             push_padded(row, equipment_name(stock.offer).c_str(), 18, text_encoding());
             row.number(stock.offer.price).text("G ");
-            if (stock.limited) row.text("x").count(stock.remaining);
-            else row.text("*");
+            if (stock.limited) row.text("x").count(stock.remaining); else row.text("*");
             push_line(row.c_str());
         }
-        const bool another_page = company.shop_offers.size() > page_size;
-        if (another_page) push_line(label(console::Message::next));
-        push_line(label(console::Message::finish_collection));
-        finish_shop_page();
-        list_caret_ = page_choices_ - 1; // Continuing never buys equipment.
-        const int offer_row = choose_on_page(Screen::member,
-            label(console::Message::shop_footer), pad_b | pad_start);
-        if (leaving_) return {client::ManagementVerb::quit, {}, {}};
-        if (offer_row < 0 || offer_row == page_choices_ - 1) {
-            return {client::ManagementVerb::proceed, {}, {}};
+        for (unsigned player = 0; player < shop_ui_.players(); ++player) {
+            const auto& state = shop_ui_.state(player);
+            const auto* hero = shop_ui_.member(company, player);
+            const auto* stock = shop_ui_.offer(company, player);
+            Text title;
+            title.text("P").number(static_cast<std::int32_t>(player + 1U)).space();
+            if (hero) {
+                const auto index = static_cast<std::size_t>(hero - company.roster.data());
+                push_padded(title, campaign_roster_[index].name.c_str(), 15, text_encoding());
+                title.count(carried_total(hero->carried));
+                if (hero->states_carry_capacity) title.text("/").number(hero->carry_capacity);
+                if (std::find(company.fielded.begin(), company.fielded.end(), hero->member) == company.fielded.end()) title.space().text(label(console::Message::shop_reserve));
+            } else title.text(label(console::Message::shop_no_heroes));
+            push_line(title.c_str());
+            Text item;
+            if (stock) item.text(equipment_name(stock->offer).c_str()).space().number(stock->offer.price).text("G");
+            push_line(item.c_str());
+            Text status;
+            if (state.error != client::ManagementError::none) {
+                status.text(label(state.error == client::ManagementError::inventory_full ? console::Message::pack_full
+                    : state.error == client::ManagementError::sold_out ? console::Message::sold_out
+                    : state.error == client::ManagementError::insufficient_gold ? console::Message::insufficient_gold
+                    : console::Message::shop_unavailable));
+            } else if (state.ready) status.text(label(console::Message::ready)).text("  START ").text(label(console::Message::shop_edit));
+            else if (state.confirming) {
+                status.text(state.buy_selected ? "[" : " ").text(label(console::Message::shop_buy))
+                    .text(state.buy_selected ? "]  " : "   ").text(state.buy_selected ? " " : "[")
+                    .text(label(console::Message::back_button)).text(state.buy_selected ? " " : "]");
+            } else status.text("A ").text(label(console::Message::shop_buy)).text("   START ").text(label(console::Message::ready));
+            push_line(status.c_str());
         }
-        if (another_page && offer_row == static_cast<int>(count)) {
-            shop_page_ = (shop_page_ + 1U) % ((company.shop_offers.size() + page_size - 1U) / page_size);
-            continue;
-        }
-        const auto& stock = company.shop_offers[first + static_cast<std::size_t>(offer_row)];
-        std::size_t recipient_page = 0U;
-        while (true) {
-            begin_shop_page(label(console::Message::choose_hero));
-            push_line(equipment_name(stock.offer).c_str());
-            page_first_choice_ = page_.count;
-            const auto recipient_first = recipient_page * page_size;
-            const auto recipient_count = std::min(page_size, recipients.size() - recipient_first);
-            for (std::size_t index = 0; index < recipient_count; ++index) {
-                const auto original = recipients[recipient_first + index];
-                const auto& member = company.roster[original];
-                Text row;
-                push_padded(row, campaign_roster_[original].name.c_str(), 14, text_encoding());
-                row.count(carried_total(member.carried));
-                if (member.states_carry_capacity) row.text("/").number(member.carry_capacity);
-                if (priority(original) != 0) row.space().text(label(console::Message::not_in_battle));
-                push_line(row.c_str());
+        push_line(label(console::Message::shop_navigation));
+        const auto view = view_of(Screen::member, label(console::Message::shop_actions));
+        paint_screen(view);
+        const auto input = next_controller_press();
+        if ((input.buttons & pad_end_of_script) != 0U) { leaving_ = true; return {client::ManagementVerb::quit, {}, {}}; }
+        const unsigned player = input.player;
+        if (player >= shop_ui_.players()) continue;
+        shop_focus_player_ = player;
+        if ((input.buttons & pad_start) != 0U) shop_ui_.toggle_ready(company, player);
+        else if ((input.buttons & pad_b) != 0U) shop_ui_.cancel(player);
+        else if ((input.buttons & (pad_up | pad_down)) != 0U) shop_ui_.move_offer(company, player, (input.buttons & pad_up) != 0U ? -1 : 1);
+        else if ((input.buttons & (pad_left | pad_right)) != 0U) shop_ui_.cycle_member(company, player, (input.buttons & pad_left) != 0U ? -1 : 1);
+        else if ((input.buttons & pad_a) != 0U) {
+            auto intent = shop_ui_.confirm(company, player);
+            if (intent.verb == client::ManagementVerb::buy) {
+                shop_pending_player_ = static_cast<int>(player);
+                return intent;
             }
-            const bool more_recipients = recipients.size() > page_size;
-            if (more_recipients) push_line(label(console::Message::next));
-            push_line(label(console::Message::back_button));
-            finish_shop_page();
-            list_caret_ = page_choices_ - 1;
-            const int recipient_row = choose_on_page(Screen::member,
-                label(console::Message::go_back), pad_b);
-            if (leaving_) return {client::ManagementVerb::quit, {}, {}};
-            if (recipient_row < 0 || recipient_row == page_choices_ - 1) break;
-            if (more_recipients && recipient_row == static_cast<int>(recipient_count)) {
-                recipient_page = (recipient_page + 1U) % ((recipients.size() + page_size - 1U) / page_size);
-                continue;
-            }
-            const auto original = recipients[recipient_first + static_cast<std::size_t>(recipient_row)];
-            const auto& member = company.roster[original];
-            begin_shop_page(label(console::Message::shop));
-            push_line(campaign_roster_[original].name.c_str());
-            push_line(equipment_name(stock.offer).c_str());
-            Text price;
-            price.text(label(console::Message::price)).space().number(stock.offer.price);
-            push_line(price.c_str());
-            page_first_choice_ = page_.count;
-            push_line(label(console::Message::buy_one));
-            push_line(label(console::Message::back_button));
-            finish_shop_page();
-            list_caret_ = 1;
-            const int purchase = choose_on_page(Screen::member,
-                label(console::Message::go_back), pad_b);
-            if (leaving_) return {client::ManagementVerb::quit, {}, {}};
-            if (purchase != 0) continue;
-            client::ManagementIntent intent;
-            intent.verb = client::ManagementVerb::buy;
-            intent.member = member.member;
-            intent.shop_offer = stock.offer.id;
-            shop_purchase_pending_ = true;
-            return intent;
         }
     }
 }

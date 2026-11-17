@@ -6,6 +6,35 @@
 #include <limits>
 
 namespace grandleon::campaign_runtime {
+struct ShopMemberOwner final {
+    std::uint64_t source_id{};
+    std::uint8_t player{1};
+};
+struct ShopParty final {
+    std::uint64_t node_id{};
+    std::vector<ShopMemberOwner> members;
+};
+
+// Current battle ownership wins. Reserves retain their most recently placed
+// army, then their first authored army; otherwise they belong to P1's camp.
+[[nodiscard]] inline std::uint8_t shop_member_player(
+    const campaign::CampaignState& state, std::uint64_t source_id,
+    unsigned players, const std::vector<ShopParty>& parties
+) noexcept {
+    if (players <= 1U) return 1U;
+    const auto at = [&](std::uint64_t node) -> std::uint8_t {
+        for (const auto& party : parties) if (party.node_id == node)
+            for (const auto& member : party.members) if (member.source_id == source_id)
+                return member.player >= 1U && member.player <= players ? member.player : 0U;
+        return 0U;
+    };
+    if (const auto player = at(state.progress.active_node.stable_id)) return player;
+    for (auto entry = state.progress.history.rbegin(); entry != state.progress.history.rend(); ++entry)
+        if (const auto player = at(entry->node.stable_id)) return player;
+    for (const auto& party : parties) if (const auto player = at(party.node_id)) return player;
+    return 1U;
+}
+
 enum class ShopError : std::uint8_t {
     none, invalid_offer, invalid_member, invalid_stock, sold_out,
     insufficient_gold, inventory_full,

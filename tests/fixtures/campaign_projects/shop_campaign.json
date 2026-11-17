@@ -290,7 +290,7 @@
   "schemaVersion": "1.7.0",
   "sourceLanguage": "en",
   "themeId": "temperate",
-  "title": "Camp shop acceptance",
+  "title": "Camp shop",
   "unitTypes": [
     {
       "carryCapacity": 3,

@@ -6,7 +6,7 @@ signal rooms_changed
 signal status_changed
 signal game_ready
 signal message_received(message: Dictionary)
-const PROTOCOL := 1
+const PROTOCOL := 2
 const DISCOVERY_PORT := 29531
 const GAME_PORT := 29532
 const MAGIC := "grandleon-lan"
@@ -260,7 +260,13 @@ func _process(_delta: float) -> void:
 
 func _send(value: Dictionary, target := 0) -> void:
 	if peer == null or peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED: return
-	peer.set_target_peer(target if target > 0 else (remote_peer if role == "host" else 1))
+	var recipient := target if target > 0 else (remote_peer if role == "host" else 1)
+	if recipient <= 0: return
+	# A server remains connected while a remote peer is already closing.
+	# Do not enqueue a final shop update onto its destroyed ENet channels.
+	var connection := peer.get_peer(recipient)
+	if connection == null or connection.get_state() != ENetPacketPeer.STATE_CONNECTED: return
+	peer.set_target_peer(recipient)
 	peer.transfer_mode = MultiplayerPeer.TRANSFER_MODE_RELIABLE
 	var bytes := var_to_bytes(value)
 	if bytes.size() > MAX_MESSAGE:

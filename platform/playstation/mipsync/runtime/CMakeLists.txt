@@ -70,6 +70,7 @@ target_include_directories(grandleon_mipsync PRIVATE
     "${GRANDLEON_SOURCE_ROOT}/engine/campaign/include"
     "${GRANDLEON_SOURCE_ROOT}/engine/campaign_runtime/include"
     "${GRANDLEON_SOURCE_ROOT}/engine/package_runtime/include"
+    "${GRANDLEON_SOURCE_ROOT}/engine/package_format/include"
     "${GRANDLEON_SOURCE_ROOT}/engine/simulation/include"
     "${GRANDLEON_SOURCE_ROOT}/engine/tactics/include"
     "${GRANDLEON_SOURCE_ROOT}/platform/view/include"

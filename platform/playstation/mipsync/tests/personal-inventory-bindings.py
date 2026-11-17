@@ -51,8 +51,7 @@ for stage in args.stages:
         for name in ('s_attack_weapon', 's_last_result_damage'):
             symbols[name] = symbol(name, True)[0]
     if args.shop:
-        for name in ('s_shop_page', 's_shop_index'):
-            symbols[name] = symbol(name, True)[0]
+        symbols['grandleon_game_ui_state'] = symbol('grandleon_game_ui_state')[0]
     symbols['grandleon_runtime_update'] = symbol('grandleon_runtime_update')[0]
     address, size = symbol('g_grandleon_unit_ids')
     offset = address - base
@@ -77,7 +76,7 @@ for stage in args.stages:
             'UnitSnapshot', 'EncounterSnapshot', 'CarriedStack', 'GroundItem',
             'CampaignSave', 'CampaignState', 'InventoryStack', 'ContentRef',
             'BoardMotion',
-        } | ({'PersistentUnit', 'WorldFlag', 'WorldValue'} if args.shop else set())),
+        } | ({'PersistentUnit', 'WorldFlag', 'WorldValue', 'grandleon_ui_state'} if args.shop else set())),
         'symbols': symbols,
         'hero_id': format(int(heroes[0]['id']), '016x'),
         'shop_keys': shop_keys,

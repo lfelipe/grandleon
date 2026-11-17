@@ -5,6 +5,7 @@
 #include <grandleon/client/console_localization.hpp>
 #include <grandleon/client/console_name_editor.hpp>
 #include <grandleon/client/session.hpp>
+#include <grandleon/client/shop_controller.hpp>
 #include <grandleon/simulation/carried_inventory.hpp>
 #include <grandleon/core/content_identity.hpp>
 #include <grandleon/core/currency.hpp>
@@ -236,8 +237,6 @@ enum class ShellPhase : std::uint8_t {
     battle,
 };
 
-enum class ShopView : std::uint8_t { offers, recipients, confirm };
-
 struct ShellState final {
     ShellPhase phase{ShellPhase::title};
     std::uint8_t local_players{1U};
@@ -275,13 +274,9 @@ struct ShellState final {
     std::optional<client::ConsoleNameEditor> name_editor;
     client::CompanyManagement deployment;
     client::CompanyManagement shop;
-    std::vector<std::size_t> shop_recipients;
-    ShopView shop_view{ShopView::offers};
-    std::size_t shop_page{};
-    std::size_t shop_row{};
-    std::uint64_t shop_offer{};
-    campaign::PersistentEntityId shop_member{};
-    const char* shop_error{};
+    client::shop::Controller shop_ui;
+    std::size_t shop_catalog_top{};
+    unsigned shop_focus_player{};
     bool shop_approved{};
     client::BattleAftermath aftermath;
     std::vector<sim::ObjectiveResult> aftermath_objectives;
@@ -2793,139 +2788,51 @@ bool begin_next_player_name() {
     return false;
 }
 
-enum class ShopChoiceKind : std::uint8_t { offer, recipient, next, back, proceed, buy };
-struct ShopChoice final { ShopChoiceKind kind{}; std::size_t index{}; };
-struct ShopMenu final {
-    std::array<ShopChoice, 8> choices{};
-    std::size_t count{};
-    void append(ShopChoiceKind kind, std::size_t index = 0U) {
-        if (count < choices.size()) choices[count++] = {kind, index};
-    }
-};
-
-int shop_recipient_priority(const client::RosterEntry& member) {
-    if (std::find(shell.shop.fielded.begin(), shell.shop.fielded.end(), member.member) != shell.shop.fielded.end()) return 0;
-    if (std::find(shell.shop.placeable.begin(), shell.shop.placeable.end(), member.member) != shell.shop.placeable.end()) return 1;
-    return 2;
-}
-
-void refresh_shop_recipients() {
-    shell.shop_recipients.clear();
-    for (std::size_t index = 0; index < shell.shop.roster.size(); ++index) {
-        const auto availability = shell.shop.roster[index].availability;
-        if (availability != campaign::Availability::unrecruited &&
-            availability != campaign::Availability::dead) shell.shop_recipients.push_back(index);
-    }
-    std::stable_sort(shell.shop_recipients.begin(), shell.shop_recipients.end(), [](std::size_t a, std::size_t b) {
-        return shop_recipient_priority(shell.shop.roster[a]) < shop_recipient_priority(shell.shop.roster[b]);
-    });
-}
-
-ShopMenu shop_menu() {
-    ShopMenu menu;
-    if (shell.shop_view == ShopView::confirm) {
-        menu.append(ShopChoiceKind::buy);
-        menu.append(ShopChoiceKind::back);
-        return menu;
-    }
-    constexpr std::size_t page_size = 6U;
-    const auto total = shell.shop_view == ShopView::offers
-        ? shell.shop.shop_offers.size() : shell.shop_recipients.size();
-    const auto first = std::min(shell.shop_page * page_size, total);
-    for (auto index = first; index < std::min(total, first + page_size); ++index) {
-        menu.append(shell.shop_view == ShopView::offers ? ShopChoiceKind::offer : ShopChoiceKind::recipient, index);
-    }
-    if (total > page_size) menu.append(ShopChoiceKind::next);
-    menu.append(shell.shop_view == ShopView::offers ? ShopChoiceKind::proceed : ShopChoiceKind::back);
-    return menu;
-}
-
-void shop_default_choice() { shell.shop_row = shop_menu().count - 1U; }
-
-const client::ShopOfferView* selected_shop_offer() {
-    for (const auto& stock : shell.shop.shop_offers) {
-        if (stock.offer.id == shell.shop_offer) return &stock;
-    }
-    return nullptr;
-}
-
 bool begin_shop(client::CompanyManagement company) {
     if (company.shop_offers.empty()) return false;
     shell.shop = std::move(company);
-    shell.shop_view = ShopView::offers;
-    shell.shop_page = 0U;
-    shell.shop_error = nullptr;
-    refresh_shop_recipients();
-    shop_default_choice();
+    shell.shop_ui.reset(shell.shop);
+    shell.shop_catalog_top = 0U;
+    shell.shop_focus_player = 0U;
     shell.phase = ShellPhase::shop;
     shell.next_automatic_frame = 0U;
-    debugf("CHECKPOINT PYRITE_SHOP offers=%lu gold=%lu\n",
+    debugf("CHECKPOINT PYRITE_SHOP offers=%lu gold=%lu players=%u\n",
         static_cast<unsigned long>(shell.shop.shop_offers.size()),
-        static_cast<unsigned long>(shell.shop.gold));
+        static_cast<unsigned long>(shell.shop.gold), shell.shop_ui.players());
     return true;
 }
 
 bool stand_on_campaign_encounter();
 
 bool continue_from_shop() {
+    if (!shell.shop_ui.all_ready()) return false;
     shell.shop_approved = true;
     shell.shop = {};
-    shell.shop_recipients.clear();
     return stand_on_campaign_encounter();
 }
 
-bool confirm_shop_choice() {
-    play_ui_cue();
-    const auto menu = shop_menu();
-    if (shell.shop_row >= menu.count) return false;
-    const auto choice = menu.choices[shell.shop_row];
-    shell.shop_error = nullptr;
-    switch (choice.kind) {
-        case ShopChoiceKind::offer:
-            shell.shop_offer = shell.shop.shop_offers[choice.index].offer.id;
-            shell.shop_view = ShopView::recipients;
-            shell.shop_page = 0U;
-            shop_default_choice();
-            return true;
-        case ShopChoiceKind::recipient:
-            shell.shop_member = shell.shop.roster[shell.shop_recipients[choice.index]].member;
-            shell.shop_view = ShopView::confirm;
-            shop_default_choice();
-            return true;
-        case ShopChoiceKind::next: {
-            const auto total = shell.shop_view == ShopView::offers
-                ? shell.shop.shop_offers.size() : shell.shop_recipients.size();
-            shell.shop_page = (shell.shop_page + 1U) % ((total + 5U) / 6U);
-            shop_default_choice();
-            return true;
-        }
-        case ShopChoiceKind::back:
-            shell.shop_view = shell.shop_view == ShopView::confirm ? ShopView::recipients : ShopView::offers;
-            shell.shop_page = 0U;
-            shop_default_choice();
-            return true;
-        case ShopChoiceKind::proceed:
-            return continue_from_shop();
-        case ShopChoiceKind::buy: {
-            const auto purchase = board.campaign->buy_shop_offer(shell.shop_member, shell.shop_offer);
-            if (!purchase) {
-                shell.shop_error = ui(purchase.error == client::ManagementError::inventory_full ? console::Message::pack_full
-                    : purchase.error == client::ManagementError::sold_out ? console::Message::sold_out
-                    : purchase.error == client::ManagementError::insufficient_gold ? console::Message::insufficient_gold
-                    : console::Message::shop_unavailable);
-            }
+void shop_input(unsigned player, const joypad_buttons_t& pressed) {
+    const bool physical = pressed.a || pressed.b || pressed.start || pressed.d_up ||
+        pressed.d_down || pressed.d_left || pressed.d_right;
+    if (!physical) return;
+    shell.user_took_over = true;
+    shell.shop_focus_player = player;
+    if (pressed.start) shell.shop_ui.toggle_ready(shell.shop, player);
+    else if (pressed.b) shell.shop_ui.cancel(player);
+    else if (pressed.d_up || pressed.d_down) shell.shop_ui.move_offer(shell.shop, player, pressed.d_up ? -1 : 1);
+    else if (pressed.d_left || pressed.d_right) shell.shop_ui.cycle_member(shell.shop, player, pressed.d_left ? -1 : 1);
+    else if (pressed.a) {
+        play_ui_cue();
+        const auto intent = shell.shop_ui.confirm(shell.shop, player);
+        if (intent.verb == client::ManagementVerb::buy) {
+            const auto purchase = board.campaign->buy_shop_offer(intent.member, intent.shop_offer, intent.shop_player);
             shell.shop = board.campaign->management();
-            refresh_shop_recipients();
-            shell.shop_view = ShopView::offers;
-            shell.shop_page = 0U;
-            shop_default_choice();
-            debugf("CHECKPOINT PYRITE_SHOP_PURCHASE accepted=%u member=%llu offer=%llu gold=%lu\n",
-                purchase ? 1U : 0U, shell.shop_member.value, shell.shop_offer,
-                static_cast<unsigned long>(shell.shop.gold));
-            return static_cast<bool>(purchase);
+            shell.shop_ui.committed(shell.shop, player, purchase);
+            debugf("CHECKPOINT PYRITE_SHOP_PURCHASE accepted=%u player=%u member=%llu offer=%llu gold=%lu error=%s\n",
+                purchase ? 1U : 0U, intent.shop_player, intent.member.value, intent.shop_offer,
+                static_cast<unsigned long>(shell.shop.gold), client::management_error_name(purchase.error).data());
         }
     }
-    return false;
 }
 
 void begin_performance_sample();
@@ -3065,7 +2972,7 @@ bool begin_campaign(bool resume) {
     shell.resumed = resumed;
     shell.shop_approved = false;
     shell.shop = {};
-    shell.shop_recipients.clear();
+
     shell.pending_player_names.clear();
     if (!resumed) {
         const client::CompanyManagement company = board.campaign->management();
@@ -3220,7 +3127,7 @@ bool confirm_shell_choice() {
         case ShellPhase::name:
             return false;
         case ShellPhase::shop:
-            return confirm_shop_choice();
+            return false;
         case ShellPhase::deployment:
             shell.deployment_approved = true;
             return stand_on_campaign_encounter();
@@ -3267,18 +3174,9 @@ void update_shell_input() {
         pressed.c_up;
     if (physical) shell.user_took_over = true;
     if (shell.phase == ShellPhase::shop) {
-        const auto menu = shop_menu();
-        if (pressed.d_up) shell.shop_row = shell.shop_row == 0U ? menu.count - 1U : shell.shop_row - 1U;
-        else if (pressed.d_down) shell.shop_row = (shell.shop_row + 1U) % menu.count;
-        if (pressed.start) (void)continue_from_shop();
-        else if (pressed.b) {
-            if (shell.shop_view == ShopView::offers) (void)continue_from_shop();
-            else {
-                shell.shop_view = shell.shop_view == ShopView::confirm ? ShopView::recipients : ShopView::offers;
-                shell.shop_page = 0U;
-                shop_default_choice();
-            }
-        } else if (pressed.a) (void)confirm_shop_choice();
+        shop_input(0U, pressed);
+        if (shell.shop_ui.players() > 1U) shop_input(1U, directional_input(JOYPAD_PORT_2, 1U));
+        if (shell.shop_ui.all_ready()) (void)continue_from_shop();
         return;
     }
     if (shell.phase == ShellPhase::name && shell.name_editor.has_value()) {
@@ -6201,70 +6099,130 @@ std::uint32_t shop_carried_count(const client::RosterEntry& member) {
     return count;
 }
 
+console::Message shop_error_message(client::ManagementError error) {
+    return error == client::ManagementError::inventory_full ? console::Message::pack_full
+        : error == client::ManagementError::sold_out ? console::Message::sold_out
+        : error == client::ManagementError::insufficient_gold ? console::Message::insufficient_gold
+        : console::Message::shop_unavailable;
+}
+
+void draw_shop_error(int x, int y, int columns, client::ManagementError error) {
+    std::string_view message = ui(shop_error_message(error));
+    auto first = console_prefix_bytes(message, static_cast<unsigned>(columns));
+    if (first < message.size()) {
+        const auto space = message.rfind(' ', first);
+        if (space != std::string_view::npos && space > 0U) first = space;
+    }
+    display_printf(x, y, "%.*s", static_cast<int>(first), message.data());
+    message.remove_prefix(first);
+    while (!message.empty() && message.front() == ' ') message.remove_prefix(1U);
+    if (!message.empty()) display_printf(x, y + 12, "%.*s",
+        static_cast<int>(console_prefix_bytes(message, static_cast<unsigned>(columns))), message.data());
+}
+
 void draw_shop() {
-    display_printf(43, 68, "%s", ui(console::Message::shop));
-    display_printf(178, 68, "%s %lu", ui(console::Message::gold),
-        static_cast<unsigned long>(shell.shop.gold));
-    const auto menu = shop_menu();
-    if (shell.shop_error) display_printf(43, 84, "%s", shell.shop_error);
-    else if (shell.shop_view == ShopView::offers) {
-        display_printf(43, 84, "* %s", ui(console::Message::unlimited_stock));
-        display_printf(188, 84, "%s", ui(console::Message::price));
-        display_printf(244, 84, "%.*s", 7, ui(console::Message::stock));
-    } else if (shell.shop_view == ShopView::recipients) {
-        const bool outside = shell.shop_row < menu.count &&
-            menu.choices[shell.shop_row].kind == ShopChoiceKind::recipient &&
-            shop_recipient_priority(shell.shop.roster[shell.shop_recipients[menu.choices[shell.shop_row].index]]) != 0;
-        display_printf(43, 84, "%s", ui(outside ? console::Message::not_in_battle : console::Message::choose_hero));
+    rdpq_mode_push();
+    rdpq_mode_begin();
+    rdpq_mode_zbuf(false, false);
+    rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
+    rdpq_mode_blender(0);
+    rdpq_mode_fog(0);
+    rdpq_mode_end();
+    rdpq_set_prim_color({8, 16, 27, 255});
+    rdpq_fill_rectangle(0, 0, 320, 240);
+    ui_panel(4, 4, 312, 104, 23);
+    P64::Debug::printStart();
+    display_printf(12, 12, "%s", ui(console::Message::shop));
+    display_printf(184, 12, "%s %lu", ui(console::Message::gold), static_cast<unsigned long>(shell.shop.gold));
+    display_printf(42, 32, "* %s", ui(console::Message::unlimited_stock));
+    display_printf(200, 32, "%s", ui(console::Message::price));
+    display_printf(256, 32, "%s", ui(console::Message::stock));
+    const auto* focused = shell.shop_ui.offer(shell.shop, shell.shop_focus_player);
+    std::size_t selected = 0U;
+    for (std::size_t index = 0; index < shell.shop.shop_offers.size(); ++index) {
+        if (focused && shell.shop.shop_offers[index].offer.id == focused->offer.id) selected = index;
     }
-    if (shell.shop_view == ShopView::confirm) {
-        const auto* stock = selected_shop_offer();
-        const client::RosterEntry* member = nullptr;
-        for (const auto& candidate : shell.shop.roster) if (candidate.member == shell.shop_member) member = &candidate;
-        if (stock && member) {
-            const auto equipment = shop_equipment_name(stock->offer);
-            const auto name = shop_member_name(*member);
-            display_printf(43, 100, "%.*s", static_cast<int>(console_prefix_bytes(equipment, 29U)), equipment.data());
-            display_printf(43, 118, "%.*s", static_cast<int>(console_prefix_bytes(name, 29U)), name.data());
-            display_printf(43, 136, "%s %u", ui(console::Message::price), stock->offer.price);
-            if (member->states_carry_capacity) display_printf(43, 154, "%s %lu/%u", ui(console::Message::pack),
-                static_cast<unsigned long>(shop_carried_count(*member)), member->carry_capacity);
-            else display_printf(43, 154, "%s %lu", ui(console::Message::pack), static_cast<unsigned long>(shop_carried_count(*member)));
+    if (selected < shell.shop_catalog_top) shell.shop_catalog_top = selected;
+    if (selected >= shell.shop_catalog_top + 4U) shell.shop_catalog_top = selected - 3U;
+    for (std::size_t index = shell.shop_catalog_top;
+         index < std::min(shell.shop.shop_offers.size(), shell.shop_catalog_top + 4U); ++index) {
+        const auto& stock = shell.shop.shop_offers[index];
+        const int y = 46 + static_cast<int>(index - shell.shop_catalog_top) * 14;
+        bool selected_by_either = false;
+        for (unsigned player = 0; player < shell.shop_ui.players(); ++player) {
+            if (shell.shop_ui.state(player).offer == stock.offer.id) selected_by_either = true;
         }
-        for (std::size_t row = 0; row < menu.count; ++row) {
-            const int y = 172 + static_cast<int>(row) * 16;
-            ui_focus(35, y - 2, 250, 16, shell.shop_row == row);
-            display_printf(43, y, "%s", ui(menu.choices[row].kind == ShopChoiceKind::buy ? console::Message::buy_one : console::Message::back_button));
+        ui_focus(38, y - 2, 272, 14, selected_by_either, player_accent(shell.shop_focus_player));
+        for (unsigned player = 0; player < shell.shop_ui.players(); ++player) {
+            if (shell.shop_ui.state(player).offer != stock.offer.id) continue;
+            rdpq_mode_push();
+            rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
+            rdpq_set_prim_color(player_accent(player));
+            rdpq_fill_rectangle(10 + static_cast<int>(player) * 14, y - 1, 21 + static_cast<int>(player) * 14, y + 10);
+            rdpq_mode_pop();
+            P64::Debug::printStart();
+            display_printf(11 + static_cast<int>(player) * 14, y, "%u", player + 1U);
         }
-    } else {
-        for (std::size_t row = 0; row < menu.count; ++row) {
-            const auto choice = menu.choices[row];
-            const int y = 100 + static_cast<int>(row) * 12;
-            ui_focus(35, y - 2, 250, 12, shell.shop_row == row);
-            if (choice.kind == ShopChoiceKind::offer) {
-                const auto& stock = shell.shop.shop_offers[choice.index];
-                const auto name = shop_equipment_name(stock.offer);
-                display_printf(43, y, "%.*s", static_cast<int>(console_prefix_bytes(name, 17U)), name.data());
-                display_printf(188, y, "%uG", stock.offer.price);
-                if (stock.limited) display_printf(244, y, "x%lu", static_cast<unsigned long>(stock.remaining));
-                else display_printf(244, y, "*");
-            } else if (choice.kind == ShopChoiceKind::recipient) {
-                const auto& member = shell.shop.roster[shell.shop_recipients[choice.index]];
-                const auto name = shop_member_name(member);
-                display_printf(43, y, "%.*s", static_cast<int>(console_prefix_bytes(name, 17U)), name.data());
-                if (member.states_carry_capacity) display_printf(214, y, "%lu/%u", static_cast<unsigned long>(shop_carried_count(member)), member.carry_capacity);
-                else display_printf(214, y, "%lu", static_cast<unsigned long>(shop_carried_count(member)));
-            } else {
-                display_printf(43, y, "%s", ui(choice.kind == ShopChoiceKind::next ? console::Message::next
-                    : choice.kind == ShopChoiceKind::proceed ? console::Message::finish_collection : console::Message::back_button));
+        const auto name = shop_equipment_name(stock.offer);
+        display_printf(42, y, "%.*s", static_cast<int>(console_prefix_bytes(name, 18U)), name.data());
+        display_printf(200, y, "%uG", stock.offer.price);
+        if (stock.limited) display_printf(256, y, "x%lu", static_cast<unsigned long>(stock.remaining));
+        else display_printf(256, y, "*");
+    }
+    for (unsigned player = 0; player < shell.shop_ui.players(); ++player) {
+        const int x = shell.shop_ui.players() == 1U ? 8 : 8 + static_cast<int>(player) * 156;
+        const int width = shell.shop_ui.players() == 1U ? 304 : 148;
+        const int columns = (width - 16) / 8;
+        const auto& state = shell.shop_ui.state(player);
+        const auto* hero = shell.shop_ui.member(shell.shop, player);
+        const auto* stock = shell.shop_ui.offer(shell.shop, player);
+        ui_panel(x, 112, width, 96, 19);
+        rdpq_mode_push();
+        rdpq_mode_combiner(RDPQ_COMBINER_FLAT);
+        rdpq_set_prim_color(player_accent(player));
+        rdpq_fill_rectangle(x + 8, 131, x + width - 8, 133);
+        rdpq_mode_pop();
+        P64::Debug::printStart();
+        const auto name = hero ? shop_member_name(*hero) : std::string_view{""};
+        display_printf(x + 8, 120, "P%u %.*s", player + 1U,
+            static_cast<int>(console_prefix_bytes(name, static_cast<unsigned>(columns - 3))), name.data());
+        if (hero) {
+            if (hero->states_carry_capacity) display_printf(x + 8, 138, "%s %lu/%u", ui(console::Message::pack),
+                static_cast<unsigned long>(shop_carried_count(*hero)), hero->carry_capacity);
+            else display_printf(x + 8, 138, "%s %lu", ui(console::Message::pack), static_cast<unsigned long>(shop_carried_count(*hero)));
+            if (std::find(shell.shop.fielded.begin(), shell.shop.fielded.end(), hero->member) == shell.shop.fielded.end()) {
+                display_printf(x + 80, 138, "%s", ui(console::Message::shop_reserve));
             }
+        } else display_printf(x + 8, 150, "%s", ui(console::Message::shop_no_heroes));
+        if (stock && hero) {
+            const auto equipment = shop_equipment_name(stock->offer);
+            display_printf(x + 8, 150, "%.*s", static_cast<int>(console_prefix_bytes(equipment, static_cast<unsigned>(columns))), equipment.data());
+            if (stock->limited) display_printf(x + 8, 164, "%uG  x%lu", stock->offer.price, static_cast<unsigned long>(stock->remaining));
+            else display_printf(x + 8, 164, "%uG  *", stock->offer.price);
+        }
+        if (state.error != client::ManagementError::none) draw_shop_error(x + 8, 180, columns, state.error);
+        else if (state.ready) {
+            display_printf(x + 8, 180, "%s", ui(console::Message::ready));
+            if (hero) display_printf(x + 8, 194, "START %s", ui(console::Message::shop_edit));
+        } else if (state.confirming) {
+            const int half = (width - 16) / 2;
+            ui_focus(x + 6, 178, half, 14, state.buy_selected, player_accent(player));
+            ui_focus(x + 8 + half, 178, half, 14, !state.buy_selected, player_accent(player));
+            display_printf(x + 8, 180, "%s", ui(console::Message::shop_buy));
+            display_printf(x + 10 + half, 180, "%s", ui(console::Message::back_button));
+            display_printf(x + 8, 194, "A %s", ui(console::Message::confirm));
+        } else {
+            display_printf(x + 8, 180, "A %s", ui(console::Message::shop_buy));
+            display_printf(x + 8, 194, "START %s", ui(console::Message::ready));
         }
     }
-    ui_button_hint(43, 204, "A", ui(console::Message::select));
-    ui_button_hint(168, 204, "START", ui(console::Message::finish_collection));
+    display_printf(12, 212, "%s", ui(console::Message::shop_navigation));
+    display_printf(12, 224, "%s", ui(console::Message::shop_actions));
+    rdpq_mode_pop();
 }
 
 void draw_shell() {
+    if (shell.phase == ShellPhase::shop) { draw_shop(); return; }
     if (shell.phase == ShellPhase::title) { draw_title_shell(); return; }
     rdpq_mode_push();
     rdpq_mode_begin();
@@ -6395,7 +6353,6 @@ void draw_shell() {
             draw_name_editor();
             break;
         case ShellPhase::shop:
-            draw_shop();
             break;
         case ShellPhase::deployment: {
             display_printf(76, 88, "%s %lu/%u",

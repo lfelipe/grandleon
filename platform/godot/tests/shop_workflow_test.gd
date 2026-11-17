@@ -34,11 +34,14 @@ func buy(name: String) -> bool:
 			return true
 	return false
 func choose_hero(name: String) -> void:
-	for index in shop().recipient.item_count:
-		if shop().recipient.get_item_text(index).begins_with(name):
-			shop().recipient.select(index)
-			shop().recipient.item_selected.emit(index)
-			return
+	for owner in active_players:
+		var choice: OptionButton = shop().pane(owner + 1).recipient
+		for index in choice.item_count:
+			if choice.get_item_text(index).begins_with(name):
+				shop().select_player(owner + 1)
+				choice.select(index)
+				choice.item_selected.emit(index)
+				return
 	check(false, "shop recipient exists: " + name)
 func held(name: String, identity: int) -> int:
 	for member: Dictionary in shop().company.roster:
@@ -157,7 +160,7 @@ func run() -> void:
 			shop().density_override = 2.625
 			shop().present(shop().company)
 			for frame in 8: await process_frame
-			check(shop().continue_button.text == root.get_node("Localization").text("player.shop.continue") and not shop().continue_button.text.contains("player.shop."), "translated shop Continue is human-readable")
+			check(shop().continue_button.text == root.get_node("Localization").text("player.shop.ready" if players == 2 else "player.shop.continue") and not shop().continue_button.text.contains("player.shop."), "translated per-player readiness is human-readable")
 			check(shop().wallet.text.contains(str(wallet)) and not shop().wallet.text.contains("player.pack."), "actual localized wallet shows earned gold rather than a missing translation key")
 			check(shop().pack.text.contains("3") and not shop().pack.text.contains("player.pack."), "actual localized pack count shows combined capacity")
 			for button: Button in shop().buttons + [shop().continue_button, shop().menu_button]:
@@ -172,7 +175,13 @@ func run() -> void:
 		check(int(shop().company.gold) == wallet and int(offer("Field Tonic").remaining) == stock, "stock and gold survive actual save/reopen")
 		check(held("Aren", tonic) == 1 and held("Aren", focus) == 1 and (held("Mira", tonic) == 2 if players == 1 else held("Mira", focus) == 3), "owned purchases survive recovery without replay or duplication")
 		check(player.session.native.campaign_checkpoint_bytes() == checkpoint, "reopening the shop preserves exact committed checkpoint bytes")
+		shop().select_player(1)
 		shop().continue_button.pressed.emit()
+		if players == 2:
+			await process_frame
+			check(player._management_visible(), "one player's readiness never starts a two-player battle")
+			shop().select_player(2)
+			shop().continue_button.pressed.emit()
 		check(await until(func(): return not player._management_visible() and player.current_stage_name == "Next Battle" and not player.snapshot.get("collecting_loot", false)), "normal Continue starts the authored next battle")
 		for unit: Dictionary in player.snapshot.units:
 			if unit.name == "Aren":

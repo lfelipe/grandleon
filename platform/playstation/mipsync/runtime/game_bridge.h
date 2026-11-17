@@ -98,7 +98,9 @@ enum grandleon_ui_text_id {
     GRANDLEON_TEXT_SELECT,
     GRANDLEON_TEXT_DEPLOY,
     GRANDLEON_TEXT_BEGIN,
-    GRANDLEON_TEXT_COLLECTION
+    GRANDLEON_TEXT_COLLECTION,
+    GRANDLEON_TEXT_SHOP, GRANDLEON_TEXT_PRICE, GRANDLEON_TEXT_STOCK,
+    GRANDLEON_TEXT_READY, GRANDLEON_TEXT_SHOP_NAVIGATION, GRANDLEON_TEXT_BUY
 };
 
 typedef struct grandleon_ui_state {
@@ -153,6 +155,10 @@ typedef struct grandleon_ui_state {
     uint8_t talking_phase;
     uint8_t deployment_selected;
     uint8_t collecting_loot;
+    uint8_t shop_players, shop_focus;
+    uint16_t shop_offers[2];
+    uint64_t shop_members[2];
+    uint8_t shop_confirming[2], shop_buy_selected[2], shop_ready[2];
 } grandleon_ui_state;
 
 enum grandleon_action_kind {
@@ -182,6 +188,10 @@ const char* grandleon_game_action_label(uint16_t index);
 const char* grandleon_game_pack_heading(void);
 const char* grandleon_game_pack_incoming(void);
 const char* grandleon_game_gold(void);
+/* Offer fields: 0 name, 1 price, 2 remaining stock. */
+const char* grandleon_game_shop_offer(uint16_t index, uint8_t field);
+/* Zero-based player; fields: 0 hero, 1 capacity, 2 selection/status. */
+const char* grandleon_game_shop_player(uint8_t player, uint8_t field);
 const char* grandleon_game_name_key(uint8_t row, uint8_t column);
 void grandleon_game_set_fps(uint16_t fps);
 void grandleon_game_log_boot(unsigned int packet_bytes);

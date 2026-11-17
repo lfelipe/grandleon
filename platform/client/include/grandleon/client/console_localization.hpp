@@ -169,6 +169,7 @@ enum class Message : std::uint8_t {
     finish_turn,
     action_refused,
     presentation_options,
+    shop_navigation, shop_actions, shop_buy, shop_edit, shop_no_heroes, shop_reserve,
     shop, shop_footer, buy_one, price, stock, sold_out, unlimited_stock, choose_hero,
     not_in_battle, insufficient_gold, shop_unavailable,
     gold, collect_equipment, pack, pick_up, exchange, leave, drop, finish_collection,
@@ -205,6 +206,21 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
 ) noexcept {
     const Language selected = interface_language(language);
     switch (message) {
+        case Message::shop_navigation:
+            return selected == Language::spanish ? "^v OBJETO  <> HÉROE"
+                 : selected == Language::portuguese_brazil ? "^v ITEM  <> HERÓI" : "^v ITEM  <> HERO";
+        case Message::shop_actions:
+            return selected == Language::spanish ? "A ELEGIR  B ATRÁS  START LISTO"
+                 : selected == Language::portuguese_brazil ? "A ESCOLHER B VOLTAR START PRONTO" : "A SELECT  B BACK  START READY";
+        case Message::shop_buy:
+            return selected == Language::spanish || selected == Language::portuguese_brazil ? "COMPRAR" : "BUY";
+        case Message::shop_edit:
+            return selected == Language::spanish || selected == Language::portuguese_brazil ? "EDITAR" : "EDIT";
+        case Message::shop_no_heroes:
+            return selected == Language::spanish ? "SIN PERSONAJES"
+                 : selected == Language::portuguese_brazil ? "SEM HERÓIS" : "NO HEROES";
+        case Message::shop_reserve:
+            return selected == Language::spanish || selected == Language::portuguese_brazil ? "RESERVA" : "RESERVE";
         case Message::shop:
             return selected == Language::spanish ? "TIENDA"
                  : selected == Language::portuguese_brazil ? "LOJA" : "SHOP";

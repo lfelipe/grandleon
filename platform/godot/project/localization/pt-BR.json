@@ -2225,7 +2225,7 @@
     "player.shop.recipient": "Comprar para",
     "player.shop.help": "Cada unidade ocupa um espaço. O herói pode carregar armas mesmo sem saber usá-las.",
     "player.shop.not_fielded": "Não participa desta batalha",
-    "player.shop.no_recipient": "Nenhum herói recrutado vivo pode receber equipamentos.",
+    "player.shop.no_recipient": "Nenhum herói vivo deste exército pode receber equipamento.",
     "player.shop.remaining": "Estoque: {count}",
     "player.shop.unlimited": "Estoque ilimitado",
     "player.shop.buy": "Comprar {name} · {price} de ouro",
@@ -2261,6 +2261,9 @@
     "player.pack.wallet": "Ouro",
     "player.pack.gold": "{amount} de ouro",
     "player.pack.gold_gained": "+{amount} de ouro",
-    "inventory.remove_shared_supplies": "Esta campanha entrega equipamentos por suprimentos compartilhados. Remova esses suprimentos iniciais e recompensas de etapa, ou atribua os equipamentos aos personagens, antes de ativar bagagens pessoais."
+    "inventory.remove_shared_supplies": "Esta campanha entrega equipamentos por suprimentos compartilhados. Remova esses suprimentos iniciais e recompensas de etapa, ou atribua os equipamentos aos personagens, antes de ativar bagagens pessoais.",
+    "player.shop.ready": "Pronto",
+    "player.shop.keep_shopping": "Continuar comprando",
+    "player.shop.ready_wait": "Pronto · Aguardando o outro jogador"
   }
 }

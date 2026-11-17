@@ -671,8 +671,50 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
         activate_ui_tpage(ordering_table, next_packet, packet_end);
         return;
     }
-    if (state.mode == GRANDLEON_UI_ACTION || state.mode == GRANDLEON_UI_PACK || state.mode == GRANDLEON_UI_SHOP) {
-        const int pack = state.mode == GRANDLEON_UI_PACK || state.mode == GRANDLEON_UI_SHOP;
+    if (state.mode == GRANDLEON_UI_SHOP) {
+        unsigned row, player;
+        unsigned first = state.shop_offers[state.shop_focus] > 1 ? state.shop_offers[state.shop_focus] - 1 : 0;
+        if (state.menu_count <= 4) first = 0;
+        else if (first + 4 > state.menu_count) first = state.menu_count - 4;
+        draw_panel(ordering_table, next_packet, packet_end, 8, 8, 304, 121);
+        draw_text(ordering_table, next_packet, packet_end, 20, 16, grandleon_game_text(GRANDLEON_TEXT_SHOP), 247, 239, 209);
+        draw_text(ordering_table, next_packet, packet_end, 172, 16, grandleon_game_gold(), 255, 205, 68);
+        draw_text(ordering_table, next_packet, packet_end, 214, 40, grandleon_game_text(GRANDLEON_TEXT_PRICE), 169, 186, 197);
+        draw_text(ordering_table, next_packet, packet_end, 263, 40, grandleon_game_text(GRANDLEON_TEXT_STOCK), 169, 186, 197);
+        for (row = 0; row < 4 && first + row < state.menu_count; ++row) {
+            unsigned item = first + row;
+            int y = 60 + row * 16;
+            if (item == state.shop_offers[state.shop_focus]) draw_focus(ordering_table, next_packet, packet_end, 14, y - 2, 292, 16);
+            draw_text(ordering_table, next_packet, packet_end, 42, y, grandleon_game_shop_offer(item, 0), 247, 239, 209);
+            draw_text(ordering_table, next_packet, packet_end, 221, y, grandleon_game_shop_offer(item, 1), 255, 205, 68);
+            draw_text(ordering_table, next_packet, packet_end, 277, y, grandleon_game_shop_offer(item, 2), 205, 211, 214);
+            if (state.shop_offers[0] == item) draw_text(ordering_table, next_packet, packet_end, 17, y, "1", 94, 206, 227);
+            if (state.shop_players == 2 && state.shop_offers[1] == item) draw_text(ordering_table, next_packet, packet_end, 27, y, "2", 230, 90, 125);
+        }
+        for (player = 0; player < state.shop_players; ++player) {
+            int px = player ? 164 : 8;
+            int width = state.shop_players == 2 ? 148 : 304;
+            draw_panel(ordering_table, next_packet, packet_end, px, 135, width, 83);
+            draw_text(ordering_table, next_packet, packet_end, px + 8, 142, player ? "P2" : "P1", player ? 230 : 94, player ? 90 : 206, player ? 125 : 227);
+            draw_text(ordering_table, next_packet, packet_end, px + 30, 142, grandleon_game_shop_player(player, 0), 247, 239, 209);
+            draw_text(ordering_table, next_packet, packet_end, px + 8, 159, grandleon_game_shop_player(player, 1), 205, 211, 214);
+            if (state.shop_confirming[player]) {
+                draw_focus(ordering_table, next_packet, packet_end, px + (state.shop_buy_selected[player] ? 5 : 76), 193, 65, 17);
+                draw_button(ordering_table, next_packet, packet_end, px + 8, 195, 'X', GRANDLEON_TEXT_BUY);
+                draw_button(ordering_table, next_packet, packet_end, px + 79, 195, 'O', GRANDLEON_TEXT_BACK);
+            } else {
+                draw_text(ordering_table, next_packet, packet_end, px + 8, 177, grandleon_game_shop_player(player, 2), 255, 205, 68);
+                draw_button(ordering_table, next_packet, packet_end, px + 8, 195, 'X', GRANDLEON_TEXT_BUY);
+            }
+        }
+        draw_text(ordering_table, next_packet, packet_end, 14, 224, grandleon_game_text(GRANDLEON_TEXT_SHOP_NAVIGATION), 205, 211, 214);
+        draw_text(ordering_table, next_packet, packet_end, 175, 224, "START", 205, 211, 214);
+        draw_text(ordering_table, next_packet, packet_end, 217, 224, grandleon_game_text(GRANDLEON_TEXT_READY), 205, 211, 214);
+        activate_ui_tpage(ordering_table, next_packet, packet_end);
+        return;
+    }
+    if (state.mode == GRANDLEON_UI_ACTION || state.mode == GRANDLEON_UI_PACK) {
+        const int pack = state.mode == GRANDLEON_UI_PACK;
         const int width = pack ? 232 : 136;
         const int row_top = pack ? 44 : 25;
         unsigned int first = 0;

@@ -151,7 +151,8 @@ if [ -n "${input_sequence}" ]; then
             --setting "VirtualPad2/Pad.Left=0x1/0/35"
             --setting "VirtualPad2/Pad.Right=0x1/0/38"
             --setting "VirtualPad2/A..South=0x1/0/40"
-            --setting "VirtualPad2/B..East=0x1/0/41"
+            --setting "VirtualPad2/X..West=0x1/0/41"
+            --setting "VirtualPad2/Start=0x1/0/54"
         )
     fi
 fi

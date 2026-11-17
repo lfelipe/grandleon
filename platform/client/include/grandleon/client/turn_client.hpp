@@ -53,6 +53,7 @@
 
 #ifdef GRANDLEON_TURN_CLIENT_CAMPAIGN
 #include <grandleon/client/campaign_session.hpp>
+#include <grandleon/client/shop_controller.hpp>
 #include <grandleon/client/console_name_editor.hpp>
 #include <grandleon/view/slot_menu.hpp>
 #endif
@@ -1407,9 +1408,12 @@ private:
     // Which member row the management caret is on, and where the roster's
     // window was standing, kept across gestures so a player who gave something
     // is still standing in front of the same person on the same page.
-    std::uint64_t shop_node_{};
-    std::size_t shop_page_{};
-    bool shop_purchase_pending_{};
+    client::shop::Controller shop_ui_;
+    std::size_t shop_catalog_top_{};
+    unsigned shop_focus_player_{};
+    int shop_pending_player_{-1};
+    client::ManagementError shop_result_error_{client::ManagementError::none};
+    bool shop_result_success_{};
     int manage_row_{0};
     int roster_top_{0};
     // A refusal this screen decided, waiting for the company page that says it.

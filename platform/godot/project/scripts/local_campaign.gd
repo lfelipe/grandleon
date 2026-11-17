@@ -6,6 +6,7 @@ const Checkpoint = preload("res://scripts/network/lan_checkpoint.gd")
 const REPLAY_REQUEST_BASE := 3000000000
 const BOOTSTRAP := ["campaign_begun", "definitions", "recovery_stage", "battle_begins", "battle_surroundings", "battle_visual_visibility", "deployment_begins", "snapshot", "management", "campaign_ended"]
 var native
+var shop
 var checkpoints: RefCounted
 var _events: Array = []
 var _snapshot: Dictionary = {}
@@ -28,6 +29,7 @@ var _error := ""
 
 func _init(native_session = null) -> void:
 	native = native_session if native_session != null else ClassDB.instantiate("GrandleonSession")
+	shop = load("res://scripts/shop_session.gd").new(native)
 
 func package_presentation(bytes: PackedByteArray) -> Dictionary: return native.package_presentation(bytes)
 func package_languages(bytes: PackedByteArray) -> Dictionary: return native.package_languages(bytes)
@@ -40,8 +42,8 @@ func has_progress() -> bool: return native.has_progress()
 func localized_state() -> Dictionary: return native.localized_state()
 func localized_dialogue(id: int) -> Dictionary: return native.localized_dialogue(id)
 func checkpoint_slots() -> Array: return native.checkpoint_slots()
-func checkpoint_save_ready() -> bool: return not _replaying and native.checkpoint_save_ready()
-func save_checkpoint(slot: int) -> bool: return not _replaying and native.save_checkpoint(slot)
+func checkpoint_save_ready() -> bool: return not _replaying and not shop.busy() and native.checkpoint_save_ready()
+func save_checkpoint(slot: int) -> bool: return checkpoint_save_ready() and native.save_checkpoint(slot)
 func is_restoring() -> bool: return _replaying
 func query_tiles(kind: String, id: int, content := 0) -> Array:
 	return [] if _replaying else native.query_tiles(kind, id, content)
@@ -50,10 +52,14 @@ func forecast_attack(id: int, target: int, weapon := 0) -> Dictionary:
 func set_language(value: String) -> bool: return native.set_language(value)
 func submit_player_name(id: int, value: String) -> bool:
 	return not _replaying and native.submit_player_name(id, value)
-func buy_shop_offer(member: int, offer: int) -> bool:
-	return not _replaying and native.buy_shop_offer(member, offer)
+func buy_shop_offer(member: int, offer: int, player := 1) -> bool:
+	return not _replaying and shop.buy(member, offer, player)
+func set_shop_ready(player: int, value: bool) -> bool:
+	return not _replaying and shop.set_ready(player, value)
+func reset_shop_readiness() -> void: shop.clear_readiness()
 
 func submit_management(kind: String, member := 0, item := 0, stage := 0) -> bool:
+	if kind == "proceed" and shop.active() and not shop.finished: return false
 	return not _replaying and native.submit_management(kind, member, item, stage)
 
 func start_package(bytes: PackedByteArray, campaign: String, players := 1, save_root := "", chosen_language := "") -> bool:
@@ -147,6 +153,7 @@ func _visit(cell: Dictionary) -> void:
 func poll() -> Array:
 	var events: Array = native.poll()
 	for event: Dictionary in events:
+		if not _replaying: shop.observe(event)
 		var request := int(event.get("request_id", 0))
 		if _pending.has(request) and event.get("type") in ["snapshot", "refused"]:
 			if event.get("type") == "snapshot": _commands.append(_pending[request])
@@ -167,6 +174,8 @@ func poll() -> Array:
 	else:
 		if not events.is_empty(): _persist()
 		_events.append_array(events)
+		shop.pump()
+		_events.append_array(shop.drain())
 	return _drain()
 
 func _drain() -> Array:
@@ -218,7 +227,9 @@ func _finish_restore() -> void:
 			event.snapshot = _snapshot.duplicate(true)
 			event["recovered"] = true
 		event.request_id = 0
+		shop.observe(event)
 		_events.append(event)
+	_events.append_array(shop.drain())
 	_events.append_array(_opening_dialogues)
 	_opening_dialogues.clear()
 
@@ -246,14 +257,17 @@ func set_backgrounded(value: bool) -> void:
 		_events.append_array(events)
 
 func load_checkpoint(slot: int) -> bool:
+	if shop.busy(): return false
 	if not native.load_checkpoint(slot): return false
 	_clear_recovery()
 	return true
 func reset_progress() -> bool:
+	if shop.busy(): return false
 	if not native.reset_progress(): return false
 	_clear_recovery()
 	return true
 func _clear_recovery() -> void:
+	shop.reset()
 	_replaying = false
 	_saved.clear()
 	_fallback.clear()

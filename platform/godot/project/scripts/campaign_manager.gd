@@ -3,7 +3,8 @@ extends Control
 
 signal intent_requested(kind: String, member_id: int, item_id: int, stage_id: int)
 signal player_name_requested(member_id: int, name: String)
-signal shop_purchase_requested(member_id: int, offer_id: int)
+signal shop_purchase_requested(player: int, member_id: int, offer_id: int)
+signal shop_ready_requested(player: int, ready: bool)
 signal session_menu_requested
 
 const MobileLayout = preload("res://scripts/mobile_layout.gd")
@@ -64,11 +65,10 @@ func _ready() -> void:
 	_build_interface()
 	shop = load("res://scripts/player_shop.gd").new()
 	add_child(shop)
-	shop.purchase_requested.connect(func(member: int, offer: int):
-		_pending = true
-		shop_purchase_requested.emit(member, offer)
+	shop.purchase_requested.connect(func(player: int, member: int, offer: int):
+		shop_purchase_requested.emit(player, member, offer)
 	)
-	shop.continue_requested.connect(_finish_shop)
+	shop.ready_requested.connect(func(player: int, ready: bool): shop_ready_requested.emit(player, ready))
 	shop.session_menu_requested.connect(func(): session_menu_requested.emit())
 	set_text_scale(_text_scale)
 	visible = false
@@ -151,8 +151,8 @@ func set_text_scale(value: float) -> void:
 			)
 
 
-func handle_input(event: InputEvent, controls) -> bool:
-	if visible and shop.visible: return shop.handle_input(event, controls)
+func handle_input(event: InputEvent, controls, player := 1) -> bool:
+	if visible and shop.visible: return shop.handle_input(event, controls, player)
 	if _name_layer != null and _name_layer.visible:
 		if event is InputEventKey and event.pressed and not event.echo:
 			if event.keycode == KEY_ESCAPE:

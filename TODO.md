@@ -241,7 +241,9 @@ tracked above.
 - [x] Add optional shops before battles to the editor and all three players.
   Creators choose goods, gold prices and finite or unlimited stock. Purchases
   go to a chosen living hero, respect combined pack capacity and save gold,
-  ownership and stock together. Host/P1 manages the shared camp in co-op.
+  ownership and stock together. In co-op, each player shops for their own heroes;
+  shared gold and stock are checked for every purchase, and both players mark
+  themselves ready before the next battle.
   The demo's first shop opens before Cedar Deepwood.
 
 ### Graphics and animation

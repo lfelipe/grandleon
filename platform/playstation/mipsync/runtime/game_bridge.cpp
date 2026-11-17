@@ -19,6 +19,7 @@ extern "C" {
 #include <grandleon/client/console_localization.hpp>
 #include <grandleon/client/console_name_editor.hpp>
 #include <grandleon/client/member_name_tokens.hpp>
+#include <grandleon/client/shop_controller.hpp>
 #include <grandleon/campaign_runtime/shop.hpp>
 #include <grandleon/simulation/encounter.hpp>
 #include <grandleon/simulation/carried_inventory.hpp>
@@ -187,10 +188,9 @@ unsigned s_camera_settle_frames{};
 view::StageOverview s_stage_overview{};
 bool s_overview_snap_home{};
 CampaignMode s_campaign_mode{CampaignMode::battle};
-std::uint8_t s_shop_page{};
-std::uint16_t s_shop_index{};
-std::uint64_t s_shop_offer{}, s_shop_member{};
-std::string s_shop_notice;
+client::CompanyManagement s_shop_company;
+client::shop::Controller s_shop_controller;
+std::uint8_t s_shop_focus{};
 unsigned s_campaign_menu_index{};
 unsigned s_local_players{1};
 std::vector<std::uint64_t> s_pending_player_names;
@@ -1851,82 +1851,94 @@ bool complete_battle(bool victory, bool force_pending = false) {
     return save_campaign();
 }
 
-const grandleon::package_runtime::ShopOffer* shop_offer() {
+client::CompanyManagement shop_company() {
+    client::CompanyManagement company;
+    company.local_players = static_cast<std::uint8_t>(s_local_players);
+    company.inventory_mode = sim::InventoryMode::carried;
+    company.node = s_campaign_save.state.progress.active_node;
+    company.gold = camp::item_quantity(s_campaign_save.state, {},
+        content_ref(grandleon::core::ContentCategory::currency, grandleon::core::gold_currency_id));
     const auto* node = active_campaign_node();
-    if (node) for (const auto& offer : node->shop_offers)
-        if (offer.id == s_shop_offer) return &offer;
-    return nullptr;
-}
-
-const grandleon_generated_campaign_member* shop_member(unsigned index) {
-    for (const auto& member : grandleon_generated_campaign_members()) {
-        const auto* unit = camp::find_unit(s_campaign_save.state, {member.persistent_id});
-        if (!unit || (unit->availability != camp::Availability::available &&
-                      unit->availability != camp::Availability::retired)) continue;
-        if (index-- == 0U) return &member;
+    if (node) for (const auto& offer : node->shop_offers) {
+        std::int64_t bought{};
+        const bool valid = grandleon::campaign_runtime::shop_purchase_count(s_campaign_save.state,
+            grandleon::campaign_runtime::shop_stock_key(company.node.package_id,
+                s_campaign_save.state.progress.campaign.stable_id, node->id, offer.id), bought);
+        company.shop_offers.push_back({offer, valid && bought < offer.stock
+            ? static_cast<std::uint32_t>(offer.stock - bought) : 0U, offer.stock != 0U});
     }
-    return nullptr;
-}
-
-unsigned shop_menu_count() {
-    if (s_shop_page == 2U) return 2U;
-    if (s_shop_page == 1U) {
-        unsigned count = 0;
-        while (shop_member(count)) ++count;
-        return count + 1U;
+    for (const auto& authored : grandleon_generated_campaign_members()) {
+        const auto* unit = camp::find_unit(s_campaign_save.state, {authored.persistent_id});
+        if (!unit) continue;
+        client::RosterEntry hero;
+        hero.member = unit->id;
+        hero.placement_source_key = authored.source_id;
+        hero.name = effective_member_name(authored);
+        hero.availability = unit->availability;
+        hero.carried = unit->carried;
+        hero.carry_capacity = authored.shop_carry_capacity;
+        hero.states_carry_capacity = authored.shop_states_capacity;
+        hero.local_player = grandleon::campaign_runtime::shop_member_player(s_campaign_save.state,
+            authored.source_id, s_local_players, grandleon_generated_shop_parties());
+        company.roster.push_back(std::move(hero));
     }
-    const auto* node = active_campaign_node();
-    return node ? static_cast<unsigned>(node->shop_offers.size()) + 1U : 1U;
+    return company;
 }
 
 void enter_shop() {
-    s_shop_page = 0U;
-    s_shop_notice.clear();
-    s_shop_index = 0U;
+    s_shop_company = shop_company();
+    s_shop_controller.reset(s_shop_company);
+    s_shop_focus = 0U;
     s_campaign_mode = CampaignMode::shop;
-    s_shop_index = static_cast<std::uint16_t>(shop_menu_count() - 1U);
 }
 
-bool buy_shop_copy() {
+client::ManagementCommit buy_shop_copy(const client::ManagementIntent& intent) {
+    client::ManagementCommit result;
     const auto* node = active_campaign_node();
-    const auto* offer = shop_offer();
-    const auto* member = grandleon_generated_campaign_member_for(s_shop_member);
-    if (!node || !offer || !member || !grandleon_generated_carried_inventory()) return false;
-    auto purchase = grandleon::campaign_runtime::prepare_shop_purchase(
-        s_campaign_save.state, s_campaign_save.state.progress.campaign.package_id,
-        s_campaign_save.state.progress.campaign.stable_id, node->id, *offer,
-        {member->persistent_id}, member->shop_states_capacity, member->shop_carry_capacity);
-    console::Message message = console::Message::shop_unavailable;
+    const auto* member = grandleon_generated_campaign_member_for(intent.member.value);
+    if (!node || !member || !grandleon_generated_carried_inventory()) {
+        result.error = client::ManagementError::unknown_member; return result;
+    }
+    if (intent.shop_player < 1U || intent.shop_player > s_local_players) {
+        result.error = client::ManagementError::invalid_player; return result;
+    }
+    if (grandleon::campaign_runtime::shop_member_player(s_campaign_save.state, member->source_id,
+            s_local_players, grandleon_generated_shop_parties()) != intent.shop_player) {
+        result.error = client::ManagementError::not_owner; return result;
+    }
+    const auto offer = std::find_if(node->shop_offers.begin(), node->shop_offers.end(),
+        [&intent](const auto& value) { return value.id == intent.shop_offer; });
+    if (offer == node->shop_offers.end()) { result.error = client::ManagementError::unknown_offer; return result; }
+    auto purchase = grandleon::campaign_runtime::prepare_shop_purchase(s_campaign_save.state,
+        s_campaign_save.state.progress.campaign.package_id, s_campaign_save.state.progress.campaign.stable_id,
+        node->id, *offer, intent.member, member->shop_states_capacity, member->shop_carry_capacity);
     switch (purchase.error) {
         case grandleon::campaign_runtime::ShopError::none: break;
-        case grandleon::campaign_runtime::ShopError::inventory_full: message = console::Message::pack_full; break;
-        case grandleon::campaign_runtime::ShopError::insufficient_gold: message = console::Message::insufficient_gold; break;
-        case grandleon::campaign_runtime::ShopError::sold_out: message = console::Message::sold_out; break;
-        case grandleon::campaign_runtime::ShopError::invalid_offer:
-        case grandleon::campaign_runtime::ShopError::invalid_member:
-        case grandleon::campaign_runtime::ShopError::invalid_stock: break;
+        case grandleon::campaign_runtime::ShopError::invalid_offer: result.error=client::ManagementError::unknown_offer; break;
+        case grandleon::campaign_runtime::ShopError::invalid_member: result.error=client::ManagementError::unknown_member; break;
+        case grandleon::campaign_runtime::ShopError::inventory_full: result.error=client::ManagementError::inventory_full; break;
+        case grandleon::campaign_runtime::ShopError::insufficient_gold: result.error=client::ManagementError::insufficient_gold; break;
+        case grandleon::campaign_runtime::ShopError::sold_out: result.error=client::ManagementError::sold_out; break;
+        case grandleon::campaign_runtime::ShopError::invalid_stock: result.error=client::ManagementError::invalid_stock; break;
     }
-    if (purchase.error != grandleon::campaign_runtime::ShopError::none) {
-        s_shop_notice = ui(message);
-        psx::Line().text("MIPSYNC_SHOP refused=").decimal(static_cast<unsigned>(purchase.error)).flush();
-        return false;
-    }
-    if (!s_card_available || !s_device) { s_shop_notice = ui(console::Message::save_unavailable); return false; }
+    if (result.error != client::ManagementError::none) return result;
+    if (!s_card_available || !s_device) { result.error=client::ManagementError::purchase_save_failed; return result; }
     auto candidate = s_campaign_save;
     const camp::OutcomeSource source{candidate.state.progress.active_node, 0U,
         static_cast<std::uint64_t>(candidate.state.applied_outcomes.size())};
-    const auto batch = camp::make_outcome_batch(source, std::move(purchase.operations));
-    if (!camp::apply_outcome(candidate.state, batch)) return false;
+    result.batch = camp::make_outcome_batch(source, std::move(purchase.operations));
+    result.application = camp::apply_outcome(candidate.state, result.batch);
+    if (!result.application) return result;
     const auto bytes = camp::save_campaign(candidate);
     grandleon_platform_card_begin();
-    const auto saved = bytes.empty() ? storage::StorageError::too_large : s_device->write(campaign_slot, bytes);
+    result.save = bytes.empty() ? storage::StorageError::too_large : s_device->write(campaign_slot, bytes);
     grandleon_platform_card_end();
-    if (saved != storage::StorageError::none) { s_shop_notice = ui(console::Message::save_unavailable); return false; }
+    if (result.save != storage::StorageError::none) { result.error=client::ManagementError::purchase_save_failed; return result; }
     s_campaign_save = std::move(candidate);
-    s_shop_notice.clear();
-    psx::Line().text("MIPSYNC_SHOP accepted=1 member=").hex64(member->persistent_id)
-        .text(" offer=").hex64(offer->id).flush();
-    return true;
+    result.saved = true;
+    psx::Line().text("MIPSYNC_SHOP accepted=1 player=").decimal(intent.shop_player)
+        .text(" member=").hex64(intent.member.value).text(" offer=").hex64(intent.shop_offer).flush();
+    return result;
 }
 
 void route_active_campaign_node() {
@@ -2408,9 +2420,18 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
             case CampaignMode::shop:
                 output->mode = GRANDLEON_UI_SHOP;
                 output->headline = ui(console::Message::shop);
-                output->body = s_shop_notice.c_str();
-                output->menu_index = s_shop_index;
-                output->menu_count = static_cast<std::uint16_t>(shop_menu_count());
+                output->shop_players = static_cast<std::uint8_t>(s_shop_controller.players());
+                output->shop_focus = s_shop_focus;
+                output->menu_count = static_cast<std::uint16_t>(s_shop_company.shop_offers.size());
+                for (unsigned player = 0; player < s_shop_controller.players(); ++player) {
+                    const auto& state = s_shop_controller.state(player);
+                    output->shop_confirming[player] = state.confirming;
+                    output->shop_buy_selected[player] = state.buy_selected;
+                    output->shop_ready[player] = state.ready;
+                    output->shop_members[player] = state.member.value;
+                    for (std::size_t index=0; index<s_shop_company.shop_offers.size(); ++index)
+                        if (s_shop_company.shop_offers[index].offer.id==state.offer) output->shop_offers[player]=static_cast<std::uint16_t>(index);
+                }
                 break;
             case CampaignMode::objective:
                 output->mode = GRANDLEON_UI_OBJECTIVE;
@@ -2561,7 +2582,6 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
 }
 
 extern "C" uint8_t grandleon_game_action_kind(uint16_t index) {
-    if (s_campaign_mode == CampaignMode::shop) return GRANDLEON_ACTION_EQUIPMENT;
     if (!s_created || !*s_created) return GRANDLEON_ACTION_WAIT;
     const sim::UnitSnapshot* actor = find_unit(s_snapshot, s_selected);
     const ActionMenu menu = action_menu(actor, s_snapshot);
@@ -2603,32 +2623,6 @@ const char* equipment_label(const std::string& value, unsigned columns) {
 }
 
 extern "C" const char* grandleon_game_action_label(uint16_t index) {
-    if (s_campaign_mode == CampaignMode::shop) {
-        const auto* node = active_campaign_node();
-        if (!node || index >= shop_menu_count()) return "";
-        if (index + 1U == shop_menu_count()) return ui(s_shop_page ? console::Message::back_button : console::Message::continue_game);
-        if (s_shop_page == 2U) return ui(console::Message::buy_one);
-        if (s_shop_page == 1U) {
-            const auto* member = shop_member(index);
-            const auto* unit = member ? camp::find_unit(s_campaign_save.state, {member->persistent_id}) : nullptr;
-            if (!unit) return "";
-            std::uint64_t count{}; for (const auto& stack : unit->carried) count += stack.quantity;
-            std::string label{effective_member_name(*member)};
-            label += " " + std::to_string(count);
-            if (member->shop_states_capacity) label += "/" + std::to_string(member->shop_carry_capacity);
-            return equipment_label(label, 29U);
-        }
-        const auto& offer = node->shop_offers[index];
-        std::int64_t bought{};
-        const bool valid = grandleon::campaign_runtime::shop_purchase_count(s_campaign_save.state,
-            grandleon::campaign_runtime::shop_stock_key(s_campaign_save.state.progress.campaign.package_id,
-                s_campaign_save.state.progress.campaign.stable_id, node->id, offer.id), bought);
-        std::string label{grandleon_generated_equipment_name(s_language_index, static_cast<std::uint32_t>(offer.category), offer.content_id)};
-        label += " " + std::to_string(offer.price) + "G ";
-        if (offer.stock) label += "x" + std::to_string(valid && bought < offer.stock ? offer.stock - bought : 0);
-        else label += ui(console::Message::unlimited_stock);
-        return equipment_label(label, 29U);
-    }
 
     const auto* actor = find_unit(s_snapshot, s_selected);
     const auto menu = action_menu(actor, s_snapshot);
@@ -2656,13 +2650,6 @@ extern "C" const char* grandleon_game_action_label(uint16_t index) {
 }
 
 extern "C" const char* grandleon_game_pack_heading(void) {
-    if (s_campaign_mode == CampaignMode::shop) {
-        if (s_shop_page == 2U) {
-            const auto* member = grandleon_generated_campaign_member_for(s_shop_member);
-            if (member) return equipment_label(effective_member_name(*member), 29U);
-        }
-        return ui(s_shop_page == 1U ? console::Message::choose_hero : console::Message::shop);
-    }
     const auto* actor = find_unit(s_snapshot, s_selected);
     if (!actor) return ui(console::Message::pack);
     const auto held = sim::carried_count(actor->carried_inventory);
@@ -2674,18 +2661,6 @@ extern "C" const char* grandleon_game_pack_heading(void) {
 }
 
 extern "C" const char* grandleon_game_pack_incoming(void) {
-    if (s_campaign_mode == CampaignMode::shop) {
-        if (!s_shop_notice.empty()) return equipment_label(s_shop_notice, 29U);
-        if (s_shop_page) {
-            if (const auto* offer = shop_offer()) {
-                std::string label{grandleon_generated_equipment_name(s_language_index,
-                    static_cast<std::uint32_t>(offer->category), offer->content_id)};
-                label += " " + std::to_string(offer->price) + "G";
-                return equipment_label(label, 29U);
-            }
-        }
-        return grandleon_game_gold();
-    }
     for (const auto& pile : s_snapshot.ground_items) {
         if (pile.id == s_pack_ground) return equipment_label(grandleon_generated_equipment_name(
             s_language_index, static_cast<std::uint32_t>(pile.stack.category), pile.stack.content_id), 30U);
@@ -2717,8 +2692,45 @@ extern "C" const char* grandleon_game_gold(void) {
     return equipment_label(std::string{ui(console::Message::gold)} + " " + std::to_string(total), 18U);
 }
 
+extern "C" const char* grandleon_game_shop_offer(uint16_t index, uint8_t field) {
+    if (index >= s_shop_company.shop_offers.size()) return "";
+    const auto& view = s_shop_company.shop_offers[index];
+    if (field == 1) return equipment_label(std::to_string(view.offer.price), 7);
+    if (field == 2) return view.limited ? equipment_label(std::to_string(view.remaining), 5) : "--";
+    return equipment_label(grandleon_generated_equipment_name(s_language_index,
+        static_cast<std::uint32_t>(view.offer.category), view.offer.content_id), 23);
+}
+extern "C" const char* grandleon_game_shop_player(uint8_t player, uint8_t field) {
+    if (player >= s_shop_controller.players()) return "";
+    const auto& state = s_shop_controller.state(player);
+    const auto* hero = s_shop_controller.member(s_shop_company, player);
+    if (field == 0) return hero ? equipment_label(hero->name, s_shop_controller.players() == 2 ? 16 : 35) : ui(console::Message::shop_no_heroes);
+    if (field == 1) {
+        if (!hero) return "";
+        std::uint64_t count = 0;
+        for (const auto& stack : hero->carried) count += stack.quantity;
+        std::string label = std::string{ui(console::Message::pack)} + " " + std::to_string(count);
+        if (hero->states_carry_capacity) label += "/" + std::to_string(hero->carry_capacity);
+        return equipment_label(label, 19);
+    }
+    if (state.error != client::ManagementError::none) return equipment_label(ui(
+        state.error == client::ManagementError::inventory_full ? console::Message::pack_full :
+        state.error == client::ManagementError::sold_out ? console::Message::sold_out :
+        state.error == client::ManagementError::insufficient_gold ? console::Message::insufficient_gold : console::Message::shop_unavailable), s_shop_controller.players() == 2 ? 18 : 35);
+    if (state.ready) return ui(console::Message::ready);
+    const auto* offer = s_shop_controller.offer(s_shop_company, player);
+    return offer ? equipment_label(grandleon_generated_equipment_name(s_language_index,
+        static_cast<std::uint32_t>(offer->offer.category), offer->offer.content_id), s_shop_controller.players() == 2 ? 18 : 35) : "";
+}
+
 extern "C" const char* grandleon_game_text(uint8_t text_id) {
     switch (text_id) {
+        case GRANDLEON_TEXT_SHOP: return ui(console::Message::shop);
+        case GRANDLEON_TEXT_PRICE: return ui(console::Message::price);
+        case GRANDLEON_TEXT_STOCK: return ui(console::Message::stock);
+        case GRANDLEON_TEXT_READY: return ui(console::Message::ready);
+        case GRANDLEON_TEXT_SHOP_NAVIGATION: return ui(console::Message::shop_navigation);
+        case GRANDLEON_TEXT_BUY: return ui(console::Message::shop_buy);
         case GRANDLEON_TEXT_NEW_GAME:
             return ui(console::Message::new_game);
         case GRANDLEON_TEXT_CONTINUE:
@@ -2874,29 +2886,33 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
         : s_campaign_mode == CampaignMode::prologue || s_campaign_mode == CampaignMode::aftermath ? 2U : 0U);
     if ((player_one | player_two) & pad_cross) grandleon_audio_cue(GRANDLEON_SOUND_CONFIRM);
     if (s_campaign_mode != CampaignMode::battle) {
-        if (!pressed) return 0;
+        if (!pressed && !player_two) return 0;
         if (s_campaign_mode == CampaignMode::shop) {
-            const auto count = shop_menu_count();
-            if ((pressed & pad_start) && s_shop_page == 0U) { s_shop_index = static_cast<std::uint16_t>(count - 1U); pressed |= pad_cross; }
-            if (pressed & pad_up) s_shop_index = s_shop_index ? s_shop_index - 1U : count - 1U;
-            if (pressed & pad_down) s_shop_index = static_cast<std::uint16_t>((s_shop_index + 1U) % count);
-            if (pressed & pad_circle) {
-                if (s_shop_page) { --s_shop_page; s_shop_index = static_cast<std::uint16_t>(shop_menu_count() - 1U); }
-                else s_shop_index = static_cast<std::uint16_t>(count - 1U);
-            }
-            if (pressed & pad_cross) {
-                if (s_shop_index + 1U == count) {
-                    if (s_shop_page) { --s_shop_page; s_shop_index = static_cast<std::uint16_t>(shop_menu_count() - 1U); }
-                    else { if (!start_encounter()) s_campaign_mode = CampaignMode::save_error; return 2; }
-                } else if (s_shop_page == 0U) {
-                    s_shop_offer = active_campaign_node()->shop_offers[s_shop_index].id;
-                    s_shop_page = 1U; s_shop_index = static_cast<std::uint16_t>(shop_menu_count() - 1U); s_shop_notice.clear();
-                } else if (s_shop_page == 1U) {
-                    const auto* member = shop_member(s_shop_index);
-                    if (member) { s_shop_member = member->persistent_id; s_shop_page = 2U; s_shop_index = 1U; }
-                } else if (buy_shop_copy()) {
-                    s_shop_page = 0U; s_shop_index = static_cast<std::uint16_t>(shop_menu_count() - 1U);
+            const std::array<std::uint16_t,2> input{player_one,player_two};
+            for (unsigned player=0;player<s_shop_controller.players();++player) {
+                const auto keys=input[player];
+                if (!keys) continue;
+                s_shop_focus=static_cast<std::uint8_t>(player);
+                if (keys & pad_up) s_shop_controller.move_offer(s_shop_company,player,-1);
+                if (keys & pad_down) s_shop_controller.move_offer(s_shop_company,player,1);
+                if (keys & pad_left) s_shop_controller.cycle_member(s_shop_company,player,-1);
+                if (keys & pad_right) s_shop_controller.cycle_member(s_shop_company,player,1);
+                if (keys & pad_circle) s_shop_controller.cancel(player);
+                if (keys & pad_start) s_shop_controller.toggle_ready(s_shop_company,player);
+                if (keys & pad_cross) {
+                    const auto intent=s_shop_controller.confirm(s_shop_company,player);
+                    if (intent.verb==client::ManagementVerb::buy) {
+                        const auto result=buy_shop_copy(intent);
+                        s_shop_company=shop_company();
+                        s_shop_controller.committed(s_shop_company,player,result);
+                        if (!result) psx::Line().text("MIPSYNC_SHOP refused=").decimal(static_cast<unsigned>(result.error)).text(" player=").decimal(player+1U).flush();
+                    }
                 }
+            }
+            if (s_shop_controller.all_ready()) {
+                if (!start_encounter()) { s_campaign_mode=CampaignMode::save_error; return 0; }
+                s_shop_company={};
+                return 2;
             }
             return 0;
         }

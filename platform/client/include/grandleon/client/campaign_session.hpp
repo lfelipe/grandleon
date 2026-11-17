@@ -5,6 +5,7 @@
 #include <grandleon/campaign/save.hpp>
 #include <grandleon/campaign/state.hpp>
 #include <grandleon/campaign_runtime/campaign_runtime.hpp>
+#include <grandleon/campaign_runtime/shop.hpp>
 #include <grandleon/client/presenter.hpp>
 #include <grandleon/client/session.hpp>
 #include <grandleon/package_format/package.hpp>
@@ -156,6 +157,7 @@ struct RosterEntry final {
     package_runtime::DefeatPolicy defeat_policy{package_runtime::DefeatPolicy::inherit};
     std::uint16_t carry_capacity{};
     bool states_carry_capacity{false};
+    std::uint8_t local_player{1};
 };
 
 // Why a named slot did not become a campaign.
@@ -486,6 +488,7 @@ struct CompanyManagement final {
     simulation::InventoryMode inventory_mode{simulation::InventoryMode::legacy};
     std::vector<ShopOfferView> shop_offers;
     std::uint32_t gold{};
+    std::uint8_t local_players{1};
 };
 
 // Whether a fixed formation is genuinely ready to enter its board without a
@@ -554,6 +557,7 @@ struct ManagementIntent final {
     std::uint64_t stage{};
     std::string name;
     std::uint64_t shop_offer{};
+    std::uint8_t shop_player{1};
 
     ManagementIntent() = default;
     ManagementIntent(const ManagementIntent& other)
@@ -561,7 +565,7 @@ struct ManagementIntent final {
           member(other.member),
           item(other.item),
           stage(other.stage),
-          name(other.name.data(), other.name.size()), shop_offer(other.shop_offer) {}
+          name(other.name.data(), other.name.size()), shop_offer(other.shop_offer), shop_player(other.shop_player) {}
 
     ManagementIntent& operator=(const ManagementIntent& other) {
         if (this == &other) return *this;
@@ -571,6 +575,7 @@ struct ManagementIntent final {
         stage = other.stage;
         name.assign(other.name.data(), other.name.size());
         shop_offer = other.shop_offer;
+        shop_player = other.shop_player;
         return *this;
     }
 
@@ -584,7 +589,7 @@ struct ManagementIntent final {
           member(other.member),
           item(other.item),
           stage(other.stage),
-          name(other.name.data(), other.name.size()), shop_offer(other.shop_offer) {}
+          name(other.name.data(), other.name.size()), shop_offer(other.shop_offer), shop_player(other.shop_player) {}
 
     ManagementIntent& operator=(ManagementIntent&& other) {
         if (this == &other) return *this;
@@ -594,6 +599,7 @@ struct ManagementIntent final {
         stage = other.stage;
         name.assign(other.name.data(), other.name.size());
         shop_offer = other.shop_offer;
+        shop_player = other.shop_player;
         return *this;
     }
 
@@ -644,6 +650,8 @@ enum class ManagementError : std::uint8_t {
     insufficient_gold,
     invalid_stock,
     purchase_save_failed,
+    invalid_player,
+    not_owner,
 
 };
 
@@ -1011,7 +1019,7 @@ public:
     [[nodiscard]] CompanyManagement management();
 
     [[nodiscard]] ManagementCommit buy_shop_offer(
-        campaign::PersistentEntityId member, std::uint64_t offer_id
+        campaign::PersistentEntityId member, std::uint64_t offer_id, std::uint8_t player = 1
     );
 
     // One of `item` out of the store and into `member`'s hands.
@@ -1119,6 +1127,10 @@ private:
     [[nodiscard]] ManagementCommit commit_management(
         std::vector<campaign::CampaignOutcomeOperation> operations
     );
+
+    void ensure_shop_parties();
+    std::vector<campaign_runtime::ShopParty> shop_parties_;
+    bool shop_parties_ready_{false};
 
     const package_format::LoadedPackage* package_;
     std::uint64_t campaign_id_;

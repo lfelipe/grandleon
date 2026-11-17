@@ -36,7 +36,7 @@ timeout 120s "${godot_binary}" --editor --headless --quiet --path "${stage_dir}"
 "${build_dir}/grandleon_content_compile" "${repo_root}/games/steel_and_cedar/source/project.json" "${state_dir}/steel.gpk"
 mkdir -p "${stage_dir}/content/included"
 cp "${state_dir}/steel.gpk" "${stage_dir}/content/included/steel_and_cedar.gpk"
-for test in lan_session lan_player lan_lobby personal_inventory_lan personal_inventory_weapon_lan shop_lan bell_traversal motion_path; do
+for test in lan_session lan_player lan_lobby personal_inventory_lan personal_inventory_weapon_lan shop_lan shop_lan_player bell_traversal motion_path; do
     log="${state_dir}/${test}.log"
     arguments=()
     if [[ "${test}" == bell_traversal ]]; then arguments+=("--package=${state_dir}/steel.gpk"); fi

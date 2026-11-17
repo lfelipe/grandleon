@@ -2225,7 +2225,7 @@
     "player.shop.recipient": "Buy for",
     "player.shop.help": "Each copy uses one pack slot. Weapons can be carried even when this hero cannot use them.",
     "player.shop.not_fielded": "Not in this battle",
-    "player.shop.no_recipient": "No living recruited hero can receive equipment.",
+    "player.shop.no_recipient": "No living hero in this army can receive equipment.",
     "player.shop.remaining": "Stock: {count}",
     "player.shop.unlimited": "Unlimited stock",
     "player.shop.buy": "Buy {name} · {price} gold",
@@ -2261,6 +2261,9 @@
     "player.pack.wallet": "Gold",
     "player.pack.gold": "{amount} gold",
     "player.pack.gold_gained": "+{amount} gold",
-    "inventory.remove_shared_supplies": "This campaign gives equipment through shared supplies. Remove those starting supplies and stage rewards, or reassign the equipment to characters, before enabling personal packs."
+    "inventory.remove_shared_supplies": "This campaign gives equipment through shared supplies. Remove those starting supplies and stage rewards, or reassign the equipment to characters, before enabling personal packs.",
+    "player.shop.ready": "Ready",
+    "player.shop.keep_shopping": "Keep shopping",
+    "player.shop.ready_wait": "Ready · Waiting for the other player"
   }
 }

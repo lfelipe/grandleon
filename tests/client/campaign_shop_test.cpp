@@ -74,6 +74,16 @@ int main() {
         cl::BattleAftermath aftermath;check(session.commit_battle(report,aftermath)==cl::CampaignSessionError::none,"real battle gold settles");
         auto company=session.management();check(company.gold==11 && company.shop_offers.size()==2,"next battle has earned gold and authored shop");
         check(!cl::company_can_start_directly(company),"authored shop is the only new preparation stop");
+        check(session.buy_shop_offer({1},focus_id,3).error==cl::ManagementError::invalid_player,
+              "an absent third shopper cannot spend the shared wallet");
+        if (players == 2U) {
+            check(company.roster[0].local_player == 1U && company.roster[1].local_player == 2U,
+                  "preparation preserves authored army ownership");
+            check(session.buy_shop_offer({2},tonic_id,1).error==cl::ManagementError::not_owner &&
+                  session.buy_shop_offer({1},tonic_id,2).error==cl::ManagementError::not_owner,
+                  "neither shopper may purchase for the other army");
+        } else check(session.buy_shop_offer({2},tonic_id,2).error==cl::ManagementError::invalid_player,
+                     "solo play does not accept a second shopper");
         const auto before=session.save_bytes();const auto disk_before=device.read("shop").bytes;
         device.fail_next=true;
         auto failed=session.buy_shop_offer({1},focus_id);
@@ -83,10 +93,10 @@ int main() {
         const auto full=session.save_bytes();
         check(session.buy_shop_offer({1},tonic_id).error==cl::ManagementError::inventory_full && session.save_bytes()==full,"full bag refuses without spending gold or stock");
         check(session.buy_shop_offer({999},tonic_id).error==cl::ManagementError::unknown_member,"unknown buyer refused");
-        check(bool(session.buy_shop_offer({2},tonic_id)) && bool(session.buy_shop_offer({2},tonic_id)),"two finite copies go directly to chosen second hero");
+        check(bool(session.buy_shop_offer({2},tonic_id,static_cast<std::uint8_t>(players))) && bool(session.buy_shop_offer({2},tonic_id,static_cast<std::uint8_t>(players))),"two finite copies go directly to chosen second hero");
         check(session.management().gold==4 && session.management().shop_offers.front().remaining==0,"wallet and finite stock update together");
         const auto sold=session.save_bytes();
-        check(session.buy_shop_offer({2},tonic_id).error==cl::ManagementError::sold_out && session.save_bytes()==sold,"sold-out offer cannot spend again");
+        check(session.buy_shop_offer({2},tonic_id,static_cast<std::uint8_t>(players)).error==cl::ManagementError::sold_out && session.save_bytes()==sold,"sold-out offer cannot spend again");
         options.resume=true;cl::CampaignSession resumed{package,campaign_id,boards,device,options};begin(resumed,true);
         check(resumed.management().gold==4 && resumed.management().shop_offers.front().remaining==0,"resume does not refill shop or refund gold");
         const auto saved=ca::load_campaign(resumed.save_bytes(), {});

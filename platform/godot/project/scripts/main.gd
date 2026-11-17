@@ -402,6 +402,7 @@ func _process(delta: float) -> void:
 		return
 	for event: Dictionary in session.poll():
 		_handle_event(event)
+	_show_pending_management()
 	if stage_overview_pending and not _dialogue_visible() and not _management_visible() and not _session_menu_visible():
 		stage_overview_pending = false
 		if board.has_method("begin_stage_overview") and cinematic_motion != "reduced":
@@ -533,7 +534,8 @@ func _input(event: InputEvent) -> void:
 			return
 		return
 	if _management_visible():
-		if campaign_manager.handle_input(event, controls):
+		var shop_player := (int(device_to_seat.get(event.device, -1)) + 1) if event is InputEventJoypadButton else (maxi(0, keyboard_seat) + 1)
+		if campaign_manager.handle_input(event, controls, shop_player):
 			get_viewport().set_input_as_handled()
 		return
 	if _session_menu_visible():
@@ -2045,6 +2047,7 @@ func _create_campaign_manager(layer: CanvasLayer) -> void:
 	campaign_manager.intent_requested.connect(_on_management_intent)
 	campaign_manager.player_name_requested.connect(_on_player_name_requested)
 	campaign_manager.shop_purchase_requested.connect(_on_shop_purchase)
+	campaign_manager.shop_ready_requested.connect(_on_shop_ready)
 	campaign_manager.session_menu_requested.connect(_open_management_session_menu)
 	layer.add_child(campaign_manager)
 
@@ -2780,6 +2783,8 @@ func _ensure_keyboard_seat() -> int:
 
 func _on_joy_connection_changed(device: int, connected: bool) -> void:
 	var previous_seat := int(device_to_seat.get(device, -1))
+	if not connected and previous_seat >= 0 and session != null and not LANSession.active() and session.has_method("reset_shop_readiness"):
+		session.reset_shop_readiness()
 	PCNavigation.reset_device(device)
 	_configure_seats()
 	var current_seat := int(device_to_seat.get(device, -1))
@@ -2895,14 +2900,34 @@ func _handle_event(event: Dictionary) -> void:
 			_remember_campaign_stage(company)
 			_handle_management(company)
 		"management_committed":
-			if not bool(event.get("successful", false)) and campaign_manager.shop.visible:
-				campaign_manager.submission_refused()
-				_show_toast(_ui("player.shop.refused"))
-			elif not bool(event.get("successful", false)):
+			if not bool(event.get("successful", false)) and not campaign_manager.shop.visible:
 				var reason := String(event.get("message", "change refused"))
 				_show_toast(_ui("player.company.change_refused", {
 					"reason": reason.to_upper().replace("_", " "),
 				}))
+		"shop_state":
+			var previous_token: String = str(campaign_manager.shop.shop_state.get("token", ""))
+			campaign_manager.shop.update_state(event)
+			if not bool(event.get("finished", false)) and previous_token != str(event.get("token", "")) and campaign_manager._finished_shop_node == int(event.get("node", 0)) and campaign_manager._finished_shop_node != 0:
+				campaign_manager._finished_shop_node = 0
+				campaign_manager.present(campaign_manager._company)
+				lan_waiting_for_host = false
+			if bool(event.get("finished", false)) and LANSession.active() and LANSession.role == "client":
+				campaign_manager.dismiss()
+				lan_waiting_for_host = true
+		"shop_result":
+			if not bool(event.get("successful", false)):
+				campaign_manager.shop.submission_refused(int(event.get("player", 1)))
+		"shop_disconnected":
+			campaign_manager.shop.disconnected()
+		"shop_finished":
+			if LANSession.active() and LANSession.role == "client":
+				campaign_manager.dismiss()
+				lan_waiting_for_host = true
+			elif _management_automation_enabled() and not draft_preview:
+				session.submit_management("proceed")
+			else:
+				campaign_manager._finish_shop()
 		"dialogue":
 			if not bool(event.get("over_board", false)):
 				PCAudio.play_music("willow_village")
@@ -3194,10 +3219,12 @@ func _maybe_show_campaign_result() -> void:
 
 
 func _handle_management(company: Dictionary) -> void:
-	if LANSession.active() and LANSession.role == "client":
+	var shopping: bool = not company.get("shop_offers", []).is_empty() and str(company.get("refused", "none")) in ["", "none"]
+	if LANSession.active() and LANSession.role == "client" and not shopping:
 		lan_waiting_for_host = true
 		pending_company.clear()
 		return
+	if shopping: lan_waiting_for_host = false
 	if company.is_empty():
 		_show_fatal(_ui("player.error.company_missing"))
 		return
@@ -3206,11 +3233,14 @@ func _handle_management(company: Dictionary) -> void:
 		_run_campaign_management_smoke(company)
 		return
 	if _management_automation_enabled() and (company.get("shop_offers", []).is_empty() or not draft_preview):
+		if shopping:
+			for player in int(company.get("local_players", 1)): session.set_shop_ready(player + 1, true)
+			return
 		if not session.submit_management("proceed"):
 			push_error("automated campaign could not leave company management")
 			get_tree().quit(2)
 		return
-	if _dialogue_visible() and not _management_visible():
+	if (_dialogue_visible() or _session_menu_visible() or (combat_cinematic != null and combat_cinematic.is_active())) and not _management_visible():
 		pending_company = company.duplicate(true)
 		return
 	if fixed_formation_smoke and _company_has_management_options(company):
@@ -3256,6 +3286,7 @@ func _present_company(company: Dictionary) -> void:
 	pending_company.clear()
 	board.visible = false
 	status_label.text = _ui("player.shop.title" if not presented_company.get("shop_offers", []).is_empty() else "player.status.preparing_company")
+	campaign_manager.shop.local_player = LANSession.local_seat() + 1 if LANSession.active() else 0
 	campaign_manager.present(presented_company)
 
 
@@ -3272,7 +3303,7 @@ func _company_has_management_options(company: Dictionary) -> bool:
 
 
 func _show_pending_management() -> void:
-	if pending_company.is_empty() or _dialogue_visible():
+	if pending_company.is_empty() or _dialogue_visible() or _session_menu_visible() or (combat_cinematic != null and combat_cinematic.is_active()):
 		return
 	var company := pending_company.duplicate(true)
 	pending_company.clear()
@@ -3303,10 +3334,13 @@ func _on_management_intent(kind: String, member_id: int, item_id: int, stage_id:
 	_show_toast(_ui("player.company.command_rejected"))
 
 
-func _on_shop_purchase(member_id: int, offer_id: int) -> void:
-	if session != null and session.buy_shop_offer(member_id, offer_id): return
-	campaign_manager.submission_refused()
-	_show_toast(_ui("player.shop.refused"))
+func _on_shop_purchase(player: int, member_id: int, offer_id: int) -> void:
+	if session != null and session.buy_shop_offer(member_id, offer_id, player): return
+	campaign_manager.shop.submission_refused(player)
+
+func _on_shop_ready(player: int, ready: bool) -> void:
+	if session != null and session.set_shop_ready(player, ready): return
+	campaign_manager.shop.submission_refused(player)
 
 
 func _on_player_name_requested(member_id: int, chosen_name: String) -> void:
@@ -3526,6 +3560,9 @@ func _handle_pad_button(event: InputEventJoypadButton) -> void:
 
 
 func _on_stick_direction(device: int, direction: Vector2i) -> void:
+	if _management_visible() and campaign_manager.shop.visible:
+		campaign_manager.shop.move_choice(int(device_to_seat.get(device, -1)) + 1, direction)
+		return
 	if player_pack != null and player_pack.visible:
 		if int(device_to_seat.get(device, -1)) == player_pack.seat and direction.y != 0:
 			var key := InputEventKey.new()

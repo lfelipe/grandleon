@@ -139,6 +139,8 @@ std::string_view management_error_name(ManagementError error) noexcept {
         case ManagementError::insufficient_gold: return "insufficient_gold";
         case ManagementError::invalid_stock: return "invalid_stock";
         case ManagementError::purchase_save_failed: return "purchase_save_failed";
+        case ManagementError::invalid_player: return "invalid_player";
+        case ManagementError::not_owner: return "not_owner";
     }
     return "unknown";
 }
@@ -359,6 +361,7 @@ std::vector<RosterEntry> CampaignSession::roster_now() const {
         entry.availability = unit->availability;
         entry.progression = unit->progression;
         entry.carried = unit->carried;
+        entry.local_player = cr::shop_member_player(live_.state, entry.placement_source_key, options_.local_players, shop_parties_);
         const auto role = pr::unit_inventory_rules(*package_, unit->definition.stable_id);
         entry.carry_capacity = role.carry_capacity;
         entry.states_carry_capacity = role.states_carry_capacity;
@@ -900,8 +903,30 @@ CampaignSessionError CampaignSession::commit_battle(
 // The company, between battles
 // ---------------------------------------------------------------------------
 
+void CampaignSession::ensure_shop_parties() {
+    if (shop_parties_ready_) return;
+    shop_parties_ready_ = true;
+    if (options_.local_players <= 1U || std::none_of(authored_.nodes.begin(), authored_.nodes.end(),
+        [](const auto& node) { return !node.shop_offers.empty(); })) return;
+    for (const auto& node : authored_.nodes) {
+        if (node.kind != pr::CampaignNodeKind::encounter) continue;
+        const auto loaded = boards_->board(node.encounter_id);
+        if (!loaded) continue;
+        cr::ShopParty party; party.node_id = node.id;
+        for (const auto& placement : loaded.placements) {
+            for (const auto& unit : loaded.definition.units) {
+                if (unit.id == placement.unit_id && unit.side == sim::Side::first)
+                    party.members.push_back({placement.source_key_id, unit.local_player});
+            }
+        }
+        shop_parties_.push_back(std::move(party));
+    }
+}
+
 CompanyManagement CampaignSession::management() {
     CompanyManagement company;
+    ensure_shop_parties();
+    company.local_players = options_.local_players;
     company.inventory_mode = authored_.inventory_mode;
     const Standing where = standing();
     if (where.error != CampaignSessionError::none) {
@@ -996,7 +1021,7 @@ ManagementCommit CampaignSession::commit_management(
 }
 
 ManagementCommit CampaignSession::buy_shop_offer(
-    campaign::PersistentEntityId member, std::uint64_t offer_id
+    campaign::PersistentEntityId member, std::uint64_t offer_id, std::uint8_t player
 ) {
     ManagementCommit result;
     if (!loaded_ || !live_.state.progress.active || prepared_ready_ ||
@@ -1004,6 +1029,11 @@ ManagementCommit CampaignSession::buy_shop_offer(
         result.error = ManagementError::not_managing;
         return result;
     }
+    if (player < 1U || player > options_.local_players) {
+        result.error = ManagementError::invalid_player;
+        return result;
+    }
+    ensure_shop_parties();
     const auto* node = node_at(live_.state.progress.active_node);
     if (!node || node->kind != pr::CampaignNodeKind::encounter) {
         result.error = ManagementError::not_managing;
@@ -1020,6 +1050,10 @@ ManagementCommit CampaignSession::buy_shop_offer(
         [member](const auto& value) { return value.member == member; });
     if (owner == roster.end()) {
         result.error = ManagementError::unknown_member;
+        return result;
+    }
+    if (owner->local_player != player) {
+        result.error = ManagementError::not_owner;
         return result;
     }
     auto purchase = cr::prepare_shop_purchase(live_.state, package_->game_id,
@@ -1292,7 +1326,7 @@ CampaignSessionError run_persistent_campaign(
                         proceeding = true;
                         continue;
                     case ManagementVerb::buy:
-                        narrator.management_committed(session.buy_shop_offer(intent.member, intent.shop_offer));
+                        narrator.management_committed(session.buy_shop_offer(intent.member, intent.shop_offer, intent.shop_player));
                         continue;
                     case ManagementVerb::give:
                         narrator.management_committed(

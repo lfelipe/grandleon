@@ -968,8 +968,8 @@ void GrandleonSession::_bind_methods() {
         DEFVAL(0), DEFVAL(0), DEFVAL(0)
     );
     gd::ClassDB::bind_method(
-        gd::D_METHOD("buy_shop_offer", "member_id", "offer_id"),
-        &GrandleonSession::buy_shop_offer
+        gd::D_METHOD("buy_shop_offer", "member_id", "offer_id", "player"),
+        &GrandleonSession::buy_shop_offer, DEFVAL(1)
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD("submit_player_name", "member_id", "name"),
@@ -1846,12 +1846,13 @@ bool GrandleonSession::submit_management(
     return presenter_->submit_management(std::move(intent));
 }
 
-bool GrandleonSession::buy_shop_offer(std::int64_t member_id, std::int64_t offer_id) {
-    if (!presenter_) return false;
+bool GrandleonSession::buy_shop_offer(std::int64_t member_id, std::int64_t offer_id, std::int64_t player) {
+    if (!presenter_ || player < 1 || player > 2) return false;
     client::ManagementIntent intent;
     intent.verb = client::ManagementVerb::buy;
     intent.member = campaign::PersistentEntityId{static_cast<std::uint64_t>(member_id)};
     intent.shop_offer = static_cast<std::uint64_t>(offer_id);
+    intent.shop_player = static_cast<std::uint8_t>(player);
     return presenter_->submit_management(std::move(intent));
 }
 
@@ -2083,6 +2084,7 @@ gd::Dictionary GrandleonSession::management_dictionary(
     result["store"] = inventory(company.store);
     result["inventory_mode"] = pr::inventory_mode(package_, pf::SectionType::campaign_inventory, campaign_id_) == sim::InventoryMode::carried ? "carried" : "legacy";
     result["gold"] = static_cast<std::int64_t>(company.gold);
+    result["local_players"] = company.local_players;
     gd::Array offers;
     for (const auto& view : company.shop_offers) {
         const auto& offer = view.offer;
@@ -2148,6 +2150,7 @@ gd::Dictionary GrandleonSession::management_dictionary(
         value["carried"] = inventory(member.carried);
         value["carry_capacity"] = member.carry_capacity;
         value["states_carry_capacity"] = member.states_carry_capacity;
+        value["local_player"] = member.local_player;
         roster.push_back(value);
     }
     result["roster"] = roster;

@@ -751,6 +751,15 @@ def main() -> int:
         "bool grandleon_generated_permanent_loss() { return " + ("true" if campaign.get("permanent_loss", 1) else "false") + "; }",
         "bool grandleon_generated_carried_inventory() { return " + ("true" if campaign.get("inventory_mode", 0) else "false") + "; }",
         "bool grandleon_generated_company_endures() { return " + ("true" if campaign.get("company_endures", 0) else "false") + "; }"]
+    lines += [
+        "const std::vector<grandleon::campaign_runtime::ShopParty>& grandleon_generated_shop_parties() {",
+        "    static const std::vector<grandleon::campaign_runtime::ShopParty> parties = {",
+    ]
+    for party in campaign.get("shop_parties", []):
+        members = ",".join("{" + f"{int(member['source_id'])}ULL,{int(member['player'])}" + "}"
+                           for member in party["members"])
+        lines.append("        {" + f"{int(party['node_id'])}ULL," + "{" + members + "}},")
+    lines += ["    };", "    return parties;", "}", ""]
     args.output.mkdir(parents=True, exist_ok=True)
     (args.output / "simulation_data.cpp").write_text("\n".join(lines), encoding="utf-8")
     header = f"""/* Generated from a real Grandleon package. Do not edit. */
@@ -758,6 +767,7 @@ def main() -> int:
 #include <grandleon/campaign/graph.hpp>
 #include <grandleon/package_runtime/member_rules.hpp>
 #include <grandleon/package_runtime/shop.hpp>
+#include <grandleon/campaign_runtime/shop.hpp>
 #include <grandleon/simulation/encounter.hpp>
 #include <grandleon/tactics/policy.hpp>
 #include <cstdint>
@@ -816,6 +826,7 @@ grandleon::campaign::CampaignGraph grandleon_generated_campaign_graph();
 const std::vector<grandleon_generated_campaign_member>& grandleon_generated_campaign_members();
 const grandleon_generated_campaign_member* grandleon_generated_campaign_member_for(std::uint64_t persistent_id);
 const std::vector<grandleon_generated_campaign_node>& grandleon_generated_campaign_nodes();
+const std::vector<grandleon::campaign_runtime::ShopParty>& grandleon_generated_shop_parties();
 const grandleon_generated_campaign_node* grandleon_generated_campaign_node_for(std::uint64_t id);
 const std::vector<std::uint64_t>& grandleon_generated_objective_ids();
 unsigned grandleon_generated_language_count();

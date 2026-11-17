@@ -269,6 +269,27 @@ void write_campaign(
     } else {
         write_string(output, {});
     }
+    output << ",\"shop_parties\":[";
+    bool first_party = true;
+    for (const auto& node : campaign.nodes) {
+        if (node.kind != pr::CampaignNodeKind::encounter) continue;
+        const auto board = pr::load_encounter(package, node.encounter_id, {2U});
+        if (!board) throw std::runtime_error("Cannot resolve shop army ownership");
+        if (!first_party) output << ',';
+        first_party = false;
+        output << "{\"node_id\":"; write_id(output, node.id);
+        output << ",\"members\":[";
+        bool first_member = true;
+        for (const auto& placement : board.placements) for (const auto& unit : board.definition.units) {
+            if (unit.id != placement.unit_id || unit.side != sim::Side::first) continue;
+            if (!first_member) output << ',';
+            first_member = false;
+            output << "{\"source_id\":"; write_id(output, placement.source_key_id);
+            output << ",\"player\":" << static_cast<unsigned>(unit.local_player) << '}';
+        }
+        output << "]}";
+    }
+    output << ']';
     output << ",\"members\":[";
     for (std::size_t member_index = 0;
          member_index < campaign.members.size(); ++member_index) {

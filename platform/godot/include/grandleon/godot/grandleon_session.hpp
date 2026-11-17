@@ -301,7 +301,7 @@ public:
         std::int64_t item_id = 0,
         std::int64_t stage_id = 0
     );
-    [[nodiscard]] bool buy_shop_offer(std::int64_t member_id, std::int64_t offer_id);
+    [[nodiscard]] bool buy_shop_offer(std::int64_t member_id, std::int64_t offer_id, std::int64_t player = 1);
     [[nodiscard]] bool submit_player_name(
         std::int64_t member_id,
         const ::godot::String& name
