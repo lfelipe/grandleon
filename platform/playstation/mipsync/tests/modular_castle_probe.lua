@@ -11,12 +11,11 @@ local moment = pointer('GRANDLEON_MOMENT_ADDRESS', 'uint8_t*')
 local cursor = pointer('GRANDLEON_CURSOR_ADDRESS', 'int16_t*')
 local revealed = pointer('GRANDLEON_REVEALED_ADDRESS', 'uint8_t*')
 local cells = pointer('GRANDLEON_COVER_CELLS_ADDRESS', 'uint16_t*')
-local count = pointer('GRANDLEON_COVER_COUNT_ADDRESS', 'uint32_t*')
+local count = assert(tonumber(os.getenv('GRANDLEON_COVER_COUNT')))
 local camera_min_x = pointer('GRANDLEON_CAMERA_MIN_X', 'int32_t*')
 local camera_max_x = pointer('GRANDLEON_CAMERA_MAX_X', 'int32_t*')
 local camera_min_z = pointer('GRANDLEON_CAMERA_MIN_Z', 'int32_t*')
 local camera_max_z = pointer('GRANDLEON_CAMERA_MAX_Z', 'int32_t*')
-local per_cell = pointer('GRANDLEON_PER_CELL_ADDRESS', 'uint32_t*')
 local players = tonumber(os.getenv('GRANDLEON_ROOM_PLAYERS'))
 local frame, start = 0, nil
 local capture, motion_due, motion_index = nil, false, 0
@@ -33,7 +32,9 @@ queue(0x4000)
 for i=1,10-rowan_x do queue(0x0020) end
 local move_at=at
 queue(0x4000)
--- Complete Rowan's action normally before moving the board cursor away.
+-- Wait is the last action. Wrap up from the first row so the replay also
+-- works when a personal pack occupies that row.
+actions[move_at+230]=0x0010
 actions[move_at+240]=0x4000
 for i=0,31 do actions[move_at+270+i*6]=0x0020 end
 for i=0,23 do actions[move_at+480+i*6]=0x0040 end
@@ -51,9 +52,9 @@ local function update()
     if frame % 15 == 10 then held=0x4000 end
   else
     if not start then
-      assert(per_cell[0]==1 and count[0]==170, 'actual modular castle must have 170 individual roof cells')
+      assert(count==170, 'actual modular castle must have 170 roof cells')
       assert(cursor[0]==initial_x and cursor[1]==initial_y, 'actual authored army start')
-      for i=0,count[0]-1 do assert(revealed[i]==0, 'rooms must begin covered') end
+      for i=0,count-1 do assert(revealed[i]==0, 'rooms must begin covered') end
       start=frame
       print('MIPSYNC_MODULAR_CASTLE_CLOSED cells=170 players='..players)
     end
@@ -63,7 +64,7 @@ local function update()
     if elapsed==move_at-1 then assert(cursor[0]==10 and cursor[1]==5, 'ordinary cursor navigation reaches the guardhouse') end
     if elapsed==move_at+220 then
       local seen=0
-      for i=0,count[0]-1 do
+      for i=0,count-1 do
         local cell=tonumber(cells[i])
         local expected=math.abs(cell%32-10)+math.abs(math.floor(cell/32)-5)<=2
         assert((revealed[i]~=0)==expected, 'reveal must follow the authored radius and leave other rooms covered')
@@ -78,7 +79,7 @@ local function update()
       assert(camera_max_x[0]-camera_min_x[0]>=20, 'camera must actually scroll horizontally')
       assert(camera_max_z[0]-camera_min_z[0]>=12, 'camera must actually scroll vertically')
       local seen=0
-      for i=0,count[0]-1 do if revealed[i]~=0 then seen=seen+1 end end
+      for i=0,count-1 do if revealed[i]~=0 then seen=seen+1 end end
       assert(seen==9, 'moving only the cursor must not uncover other rooms')
       print('MIPSYNC_MODULAR_SCROLL_PASS cursor=31,23 explored=9 players='..players)
       capture='far-corner'

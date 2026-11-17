@@ -12,8 +12,21 @@ toolchain=${GRANDLEON_PLAYSTATION_TOOLCHAIN_IMAGE:-grandleon/playstation-toolcha
 emulator=${GRANDLEON_PLAYSTATION_EMULATOR_IMAGE:-grandleon/playstation-emulator:a415a98e6c347b41ca5a1d3f23bbc4eb26059687}
 docker run --rm --volume "$build:/disc:ro" "$toolchain" \
     mipsel-linux-gnu-nm -n /disc/stages/01/build/grandleon_mipsync.elf > "$out/symbols.txt"
-address() { awk -v symbol="$1" '$3 == symbol {print "0x" $1; found=1} END {if (!found) exit 1}' "$out/symbols.txt"; }
+address() {
+    awk -v symbol="$1" '
+        NF == 3 {
+            name = $3
+            sub(/\.lto_priv\.[0-9]+$/, "", name)
+            if (name == symbol) {
+                print "0x" substr($1, length($1) - 7)
+                ++found
+            }
+        }
+        END { if (found != 1) exit 1 }
+    ' "$out/symbols.txt"
+}
 update=$(address grandleon_runtime_update)
+ui=$(address grandleon_game_ui_state)
 ready=$(address s_cd_ready)
 tracks=$(address s_track_count)
 playing=$(address s_playing)
@@ -24,6 +37,7 @@ for mode in raw write read; do
     if [[ "$mode" == raw ]]; then probe=raw_audio_input_probe.lua; card=raw.mcd; fi
     timeout --kill-after=10 180 docker run --rm --user "$(id -u):$(id -g)" \
         --env HOME=/tmp --env "GRANDLEON_UPDATE_ADDRESS=$update" \
+        --env "GRANDLEON_UI_ADDRESS=$ui" \
         --env "GRANDLEON_AUDIO_MODE=$mode" --env "GRANDLEON_CD_READY_ADDRESS=$ready" \
         --env "GRANDLEON_TRACK_COUNT_ADDRESS=$tracks" --env "GRANDLEON_PLAYING_ADDRESS=$playing" \
         --env "GRANDLEON_PAD_BUFFER_ADDRESS=$pad" \

@@ -78,6 +78,9 @@ build_project() {
 }
 build_project demo games/demo/source/project.json
 build_project steel games/steel_and_cedar/source/project.json
+for project in demo steel; do
+    python3 "$mipsync_dir/tests/verify-campaign-disc.py" "$work/$project"
+done
 
 update_address() {
     build=$1
