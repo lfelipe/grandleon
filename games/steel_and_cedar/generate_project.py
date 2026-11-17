@@ -518,7 +518,7 @@ def build_project() -> dict:
     nodes.append({
         "id": "cedar_deepwood", "name": "II — Cedar Deepwood", "kind": "encounter",
         "shop": {"offers": [
-            {"id": "field_tonics", "itemId": "field_tonic", "price": 1, "stock": 4},
+            {"id": "field_tonics", "itemId": "field_tonic", "price": 2, "stock": 4},
             {"id": "march_sword", "weaponId": "march_blade", "price": 4, "stock": 1},
         ]},
         "mapId": "cedar_deepwood", "turnOrder": "sideBlocks",
@@ -652,7 +652,7 @@ def build_project() -> dict:
         "packageId": "751d322d-dc60-4c6d-a1e1-821e4dd7c617",
         "gameId": "grandleon.steel_and_cedar",
         "title": "Steel and Cedar",
-        "contentRevision": "0.4.1",
+        "contentRevision": "0.4.2",
         "themeId": "temperate",
         "characterStyleId": "medieval",
         "characterFigureId": "first",
@@ -681,7 +681,7 @@ def build_project() -> dict:
         "items": [{
             "id": "field_tonic", "name": "Field Tonic",
             "itemTypeId": "field_supplies", "stackLimit": 5,
-            "kind": "restore", "power": 2,
+            "kind": "restore", "power": 8,
         }],
         "factions": [
             {"id": "concord", "name": "The Concord", "color": "blue"},

@@ -119,9 +119,16 @@ func play(bytes: PackedByteArray, players: int) -> void:
 			if intent.get("kind") == "move" and int(intent.actor) == int(named("Tomas Reed").id):
 				intent = {"kind":"wait", "actor":intent.actor}
 		expect(not intent.is_empty(), "normal demo pilot finds a legal combat action")
+		var expected_health := -1
+		if intent.get("kind") == "item":
+			for actor: Dictionary in state.units:
+				if int(actor.id) == int(intent.actor): expected_health = mini(int(actor.maximum_health), int(actor.health) + 8)
 		await send(intent)
+		if expected_health >= 0:
+			for actor: Dictionary in state.units:
+				if int(actor.id) == int(intent.actor): expect(int(actor.health) == expected_health, "tonic restores eight HP capped at the hero's maximum")
 	expect(state.get("collecting_loot", false) and not ended, "victory waits for spatial collection and explicit Continue")
-	expect(not used_members.is_empty() and healed >= 2, "real wounded heroes use the two-health tonic during combat")
+	expect(not used_members.is_empty() and healed >= 2, "real wounded heroes use the eight-health tonic during combat")
 	expect(gold == (6 if players == 1 else 8), "authored common foes produce exactly two gold each")
 	var found := {}
 	for pile: Dictionary in state.ground_items:

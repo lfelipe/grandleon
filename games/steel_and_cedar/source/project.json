@@ -4,7 +4,7 @@
   "packageId": "751d322d-dc60-4c6d-a1e1-821e4dd7c617",
   "gameId": "grandleon.steel_and_cedar",
   "title": "Steel and Cedar",
-  "contentRevision": "0.4.1",
+  "contentRevision": "0.4.2",
   "themeId": "temperate",
   "characterStyleId": "medieval",
   "characterFigureId": "first",
@@ -333,7 +333,7 @@
       "itemTypeId": "field_supplies",
       "stackLimit": 5,
       "kind": "restore",
-      "power": 2
+      "power": 8
     }
   ],
   "factions": [
@@ -2336,7 +2336,7 @@
                 {
                   "id": "field_tonics",
                   "itemId": "field_tonic",
-                  "price": 1,
+                  "price": 2,
                   "stock": 4
                 },
                 {

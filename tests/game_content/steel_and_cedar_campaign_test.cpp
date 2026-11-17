@@ -599,8 +599,8 @@ int main() {
            roles.at(boss_id)->drop_weapon_chance == 100U,
            "mystic and final boss drop their actual weapons at the authored rates");
     expect(source.items.size() == 1U && source.items.front().id == content("field_tonic") &&
-           source.items.front().kind == gc::ItemKind::restore && source.items.front().power == 2,
-           "the Field Tonic restores exactly two health");
+           source.items.front().kind == gc::ItemKind::restore && source.items.front().power == 8,
+           "the Field Tonic restores up to eight health");
     const auto& company = source.campaigns.front();
     expect(company.inventory_mode == gc::InventoryMode::carried,
            "the demo explicitly opts into personal physical inventory");
