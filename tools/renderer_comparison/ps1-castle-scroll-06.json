@@ -77,6 +77,23 @@
         }
       },
       "three_courts_build": "The same grouping needed 4,488 vertex-cache entries against a limit of 4,352."
+    },
+    "motion_detail_regression": {
+      "change": "Verify the bespoke Twin Gate keep separately with its original reveal and textured mesh.",
+      "trace": "out/castle-motion-lod06/release-gate/scroll-swaps.csv",
+      "timing": {
+        "scroll_horizontal": {
+          "swaps": 18,
+          "fps": 11.09,
+          "worst_frame_ms": 99.99
+        },
+        "view_entry": {
+          "swaps": 15,
+          "fps": 30.0,
+          "worst_frame_ms": 33.33
+        }
+      },
+      "capture_comparison": "Both covered and revealed framebuffers match byte for byte."
     }
   },
   "profile": {
@@ -116,5 +133,218 @@
       }
     }
   },
-  "conclusion": "Keep the existing camera speed and floor strips. The largest measured cost is uncached landmark drawing. Adjacent geometry is already resident. Investigate batching and rejecting off-screen castle props before projection, with separate reveal state and exact capture comparisons."
+  "conclusion": "Keep camera speed and floor strips. During tactical scrolling on large modular castles, merge textured wall runs and intact roof sections and skip unused packet-cache work. Full scenery returns after four still ticks. The larger castle and the production Twin Gate keep still miss the 30 FPS target while scrolling.",
+  "motion_detail": {
+    "scope": "Three Courts, 32 × 24. Applies to large modular castles in normal tactical scrolling. Opening sweeps and the bespoke Twin Gate castle retain their existing meshes.",
+    "baseline_solo": {
+      "change": "Full scenery throughout.",
+      "trace": "out/release06-verify/castle-one-swaps/scroll-swaps.csv",
+      "timing": {
+        "view_room": {
+          "swaps": 10,
+          "fps": 12.0,
+          "worst_frame_ms": 83.32
+        },
+        "scroll_horizontal": {
+          "swaps": 22,
+          "fps": 6.85,
+          "worst_frame_ms": 316.62
+        },
+        "scroll_vertical": {
+          "swaps": 19,
+          "fps": 7.35,
+          "worst_frame_ms": 199.97
+        }
+      }
+    },
+    "trials_coop": {
+      "wall_batches": {
+        "change": "Batch only simplified stone wall bodies.",
+        "trace": "out/castle-motion-lod06/two-swaps/scroll-swaps.csv",
+        "timing": {
+          "view_room": {
+            "swaps": 10,
+            "fps": 12.0,
+            "worst_frame_ms": 83.32
+          },
+          "scroll_horizontal": {
+            "swaps": 24,
+            "fps": 7.23,
+            "worst_frame_ms": 216.64
+          },
+          "scroll_vertical": {
+            "swaps": 18,
+            "fps": 7.34,
+            "worst_frame_ms": 183.31
+          }
+        }
+      },
+      "wall_and_roof_tile_batches": {
+        "change": "Also batch tops of intact roofs while retaining one top per tile.",
+        "trace": "out/castle-motion-lod06/production-two/scroll-swaps.csv",
+        "timing": {
+          "view_room": {
+            "swaps": 8,
+            "fps": 10.0,
+            "worst_frame_ms": 99.99
+          },
+          "scroll_horizontal": {
+            "swaps": 28,
+            "fps": 8.53,
+            "worst_frame_ms": 216.64
+          },
+          "scroll_vertical": {
+            "swaps": 25,
+            "fps": 10.21,
+            "worst_frame_ms": 199.97
+          }
+        },
+        "disc_sha256": "67cc8a92f006859cad61b18614608cf405696d95b0c119be4bf030d9000e391b",
+        "committed_main_ram_bytes": 2088760
+      },
+      "tighter_culling_and_no_foliage": {
+        "change": "Cull more tightly and omit canopy draws during scroll. A settled entry capture changed under the same replay.",
+        "trace": "out/castle-motion-lod06/tight-cull-two/scroll-swaps.csv",
+        "timing": {
+          "view_room": {
+            "swaps": 8,
+            "fps": 10.0,
+            "worst_frame_ms": 99.99
+          },
+          "scroll_horizontal": {
+            "swaps": 29,
+            "fps": 8.75,
+            "worst_frame_ms": 216.64
+          },
+          "scroll_vertical": {
+            "swaps": 27,
+            "fps": 10.99,
+            "worst_frame_ms": 183.31
+          }
+        },
+        "disc_sha256": "bc8b9d798be7c7824787325b3a03bd7fb3ae45e2e2f7ffcb272b6842f974ad84",
+        "committed_main_ram_bytes": 2088760
+      },
+      "merged_surfaces": {
+        "change": "Merge contiguous walls and roof tops within each block, stretching the existing texture across each surface.",
+        "trace": "out/castle-motion-lod06/rect-roofs-two/scroll-swaps.csv",
+        "timing": {
+          "view_room": {
+            "swaps": 9,
+            "fps": 10.0,
+            "worst_frame_ms": 99.99
+          },
+          "scroll_horizontal": {
+            "swaps": 28,
+            "fps": 8.66,
+            "worst_frame_ms": 216.64
+          },
+          "scroll_vertical": {
+            "swaps": 28,
+            "fps": 11.41,
+            "worst_frame_ms": 183.31
+          }
+        },
+        "disc_sha256": "d3dcead358a08b2d79b5c6bdd6860da580fcf319767780737c427decf09467df",
+        "committed_main_ram_bytes": 2070328
+      },
+      "skip_unused_cache_work": {
+        "change": "Use wall and roof tile batches. Skip packet-cache eligibility and static layout scans when a frame cannot reuse packets.",
+        "trace": "out/castle-motion-lod06/packet-work-two/scroll-swaps.csv",
+        "timing": {
+          "view_room": {
+            "swaps": 10,
+            "fps": 12.0,
+            "worst_frame_ms": 83.32
+          },
+          "scroll_horizontal": {
+            "swaps": 28,
+            "fps": 8.76,
+            "worst_frame_ms": 216.64
+          },
+          "scroll_vertical": {
+            "swaps": 26,
+            "fps": 11.28,
+            "worst_frame_ms": 133.31
+          }
+        },
+        "disc_sha256": "ca351b75778879f23c2f1ccd9b897e077e710bda4e1e8a480b4d41285e21988d",
+        "committed_main_ram_bytes": 2088768
+      },
+      "flat_materials": {
+        "change": "Merge surfaces and skip unused packet-cache work. Use flat colours on the reduced wall and roof meshes.",
+        "trace": "out/castle-motion-lod06/untextured-two/scroll-swaps.csv",
+        "timing": {
+          "view_room": {
+            "swaps": 10,
+            "fps": 12.0,
+            "worst_frame_ms": 83.32
+          },
+          "scroll_horizontal": {
+            "swaps": 30,
+            "fps": 9.36,
+            "worst_frame_ms": 216.64
+          },
+          "scroll_vertical": {
+            "swaps": 30,
+            "fps": 13.08,
+            "worst_frame_ms": 133.31
+          }
+        },
+        "disc_sha256": "f02c5c8101febcdde2575c70427156211f7eb330701c8ac30a62a3f7a07f25e3",
+        "committed_main_ram_bytes": 2058048
+      }
+    },
+    "kept_solo": {
+      "change": "Merge textured surfaces and skip unused packet-cache work.",
+      "trace": "out/castle-motion-lod06/release-one/scroll-swaps.csv",
+      "timing": {
+        "view_room": {
+          "swaps": 10,
+          "fps": 12.0,
+          "worst_frame_ms": 83.32
+        },
+        "scroll_horizontal": {
+          "swaps": 29,
+          "fps": 9.03,
+          "worst_frame_ms": 199.97
+        },
+        "scroll_vertical": {
+          "swaps": 31,
+          "fps": 12.5,
+          "worst_frame_ms": 149.98
+        }
+      },
+      "disc_sha256": "4e1d0da08d6be52f94ee5e3b16a8c2bc74b95ef0002bf60ade91a0f9e06b5711",
+      "committed_main_ram_bytes": 2070336
+    },
+    "kept_coop": {
+      "change": "Merge textured surfaces and skip unused packet-cache work.",
+      "trace": "out/castle-motion-lod06/release-two/scroll-swaps.csv",
+      "timing": {
+        "view_room": {
+          "swaps": 10,
+          "fps": 12.0,
+          "worst_frame_ms": 83.32
+        },
+        "scroll_horizontal": {
+          "swaps": 29,
+          "fps": 9.03,
+          "worst_frame_ms": 199.97
+        },
+        "scroll_vertical": {
+          "swaps": 28,
+          "fps": 12.27,
+          "worst_frame_ms": 133.31
+        }
+      },
+      "disc_sha256": "4e1d0da08d6be52f94ee5e3b16a8c2bc74b95ef0002bf60ade91a0f9e06b5711",
+      "committed_main_ram_bytes": 2070336
+    },
+    "verification": {
+      "settled_framebuffers": "Covered, locally revealed, and far-corner frames each match the full-detail baseline byte for byte in both modes.",
+      "motion": "In each normal input replay, all nine revealed roofs stayed hidden, intact roof groups could use the simplified mesh, and full geometry was restored on settling.",
+      "emulator": "PCSX-Redux with software GPU and a read-only display-swap timing hook. No hardware timing taken."
+    }
+  }
 }

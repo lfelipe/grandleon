@@ -283,17 +283,21 @@ static void static_group_begin_frame(void) {
     unsigned count = 0, last = 0;
     int active = s_static_packets_supported;
     const int previous = s_group_active;
-    for (unsigned i = 0; i < g_grandleon_tree_count; ++i) {
-        const unsigned next = g_grandleon_tree_entity_indices[i] + 1u;
-        if (next > count) count = next;
-    }
-    for (unsigned i = 0; i < g_grandleon_terrain_chunk_count; ++i) {
-        const unsigned next = g_grandleon_terrain_entity_indices[i] + 1u;
-        if (next > count) count = next;
-    }
-    for (unsigned i = 0; i < g_grandleon_board_surface_count; ++i) {
-        const unsigned next = g_grandleon_board_surface_entity_indices[i] + 1u;
-        if (next > count) count = next;
+    if (active) {
+        for (unsigned i = 0; i < g_grandleon_tree_count; ++i) {
+            // The reduced-only meshes are all disabled when packets are reusable.
+            if (g_grandleon_scenery_detail[i] == GRANDLEON_SCENERY_DURING_SCROLL) continue;
+            const unsigned next = g_grandleon_tree_entity_indices[i] + 1u;
+            if (next > count) count = next;
+        }
+        for (unsigned i = 0; i < g_grandleon_terrain_chunk_count; ++i) {
+            const unsigned next = g_grandleon_terrain_entity_indices[i] + 1u;
+            if (next > count) count = next;
+        }
+        for (unsigned i = 0; i < g_grandleon_board_surface_count; ++i) {
+            const unsigned next = g_grandleon_board_surface_entity_indices[i] + 1u;
+            if (next > count) count = next;
+        }
     }
     if (!count || count > g_ps1_scene.entity_count)
         active = 0;
@@ -491,7 +495,8 @@ void grandleon_world_packet_cache_capture(uint32_t* ot, char** next_packet) {
 }
 
 static void render_world_and_ui(uint32_t* ot, char** next_packet, const char* end) {
-    const int scene_supported = scene_cache_supported();
+    const int scene_supported = grandleon_game_static_packets_stable() &&
+        scene_cache_supported();
     preserve_combat_board(grandleon_game_combat_view_active());
     /* Moving actors invalidate a whole-world template. Static fragments have
      * independent exact entity/camera keys and can survive those movements. */
@@ -516,7 +521,7 @@ static void render_world_and_ui(uint32_t* ot, char** next_packet, const char* en
     s_world_recording = supported;
     s_world_pending_start = *next_packet;
     s_world_render_started = (uint16_t)TIMER_VALUE(1);
-    static_packets_begin_frame(scene_supported && grandleon_game_static_packets_stable());
+    static_packets_begin_frame(scene_supported);
     restore_combat_board();
     ps1_render_frame(ot, next_packet, end);
     s_world_ui_ticks = (uint16_t)((uint16_t)TIMER_VALUE(1) - s_world_ui_started);

@@ -185,6 +185,7 @@ BoardMotion s_motion{};
 BattleMomentState s_battle_moment{};
 sim::ContentId s_action_content{};
 unsigned s_camera_settle_frames{};
+bool s_scroll_scenery_active{};
 view::StageOverview s_stage_overview{};
 bool s_overview_snap_home{};
 CampaignMode s_campaign_mode{CampaignMode::battle};
@@ -853,6 +854,8 @@ bool reveal_visual_visibility_at(std::size_t cell) {
         }
         if (!s_visibility_revealed[index]) {
             s_visibility_revealed[index] = true;
+            const auto roof = g_grandleon_visibility_roof_group[index];
+            if (roof) g_grandleon_scroll_roof_revealed[roof] = 1U;
             changed = true;
             ++newly_revealed;
         }
@@ -1330,6 +1333,11 @@ void tick_camera() {
     }
     const std::int32_t half_x = g_grandleon_camera_view_tiles_x;
     const std::int32_t half_z = g_grandleon_camera_view_tiles_y;
+    // Keep simplified castle shapes through short gaps between inputs, then
+    // restore detail once the board has held still for four game ticks.
+    const bool scroll_scenery = g_grandleon_has_scroll_scenery && !snap &&
+        !close_combat && s_camera_settle_frames < 4U;
+    s_scroll_scenery_active = scroll_scenery;
     for (unsigned index = 0; index < g_grandleon_tree_count; ++index) {
         ps1_entity* tree = grandleon_scene_mutable_entity(
             g_grandleon_tree_entity_indices[index]
@@ -1337,9 +1345,18 @@ void tick_camera() {
         if (!tree) continue;
         const std::int32_t tree_x = tree->position[0] / 65536;
         const std::int32_t tree_z = tree->position[2] / 65536;
-        tree->mesh_enabled = !close_combat &&
-            tree_x >= camera_x - half_x - 2 && tree_x <= camera_x + half_x + 2 &&
-            tree_z >= camera_focus_z - half_z - 2 && tree_z <= camera_focus_z + half_z + 2;
+        const auto detail = g_grandleon_scenery_detail[index];
+        const auto roof = g_grandleon_scenery_roof_group[index];
+        // Intact roofs can share one mesh. Once a cell reveals, the original
+        // meshes for that group keep the revealed path open at every speed.
+        const bool reduced = scroll_scenery && (!roof || !g_grandleon_scroll_roof_revealed[roof]);
+        const bool on = detail == GRANDLEON_SCENERY_ALWAYS ||
+            detail == (reduced ? GRANDLEON_SCENERY_DURING_SCROLL : GRANDLEON_SCENERY_FULL);
+        const int margin = 2 + (detail == GRANDLEON_SCENERY_DURING_SCROLL
+            ? g_grandleon_scroll_scenery_margin : 0U);
+        tree->mesh_enabled = !close_combat && on &&
+            tree_x >= camera_x - half_x - margin && tree_x <= camera_x + half_x + margin &&
+            tree_z >= camera_focus_z - half_z - margin && tree_z <= camera_focus_z + half_z + margin;
     }
     sync_visibility_entities(close_combat);
     animate_combat_units(snapshot);
@@ -2035,6 +2052,7 @@ bool start_encounter() {
     for (unsigned index = 0; index < maximum_board_cells; ++index) {
         s_visibility_revealed[index] = false;
     }
+    std::fill_n(g_grandleon_scroll_roof_revealed, g_grandleon_scroll_roof_group_count, 0U);
     (void)update_visual_visibility(snapshot);
     s_map_width = snapshot.width;
     s_map_height = snapshot.height;
@@ -2860,7 +2878,7 @@ extern "C" int grandleon_game_combat_view_active(void) {
 extern "C" int grandleon_game_static_packets_stable(void) {
     return s_campaign_mode == CampaignMode::battle && s_created && *s_created &&
         !s_stage_overview.active() && !s_result_frames &&
-        !s_camera_return_frames && s_static_camera_at_target;
+        !s_camera_return_frames && s_static_camera_at_target && !s_scroll_scenery_active;
 }
 
 extern "C" int grandleon_game_world_packets_stable(void) {

@@ -379,11 +379,11 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   needs less CPU time when unit poses or foliage change, but camera-motion
   bursts and the strict keep frame-pacing check remain open.
   [Current measurements](tools/renderer_comparison/ps1-display-deadlines-06.json)
-- [ ] Reduce castle landmark draws before projection. Adjacent terrain geometry
-  is already resident. In the larger castle's horizontal co-op scroll, landmark
-  draws account for about 43% of elapsed emulated time. Test batching and culling
-  walls and covered roof cells while retaining local reveals and image checks.
-  Trials with a slower camera and smaller floor blocks reduced average FPS.
+- [x] Simplify large modular castles during PS1 tactical scrolling. Batch
+  textured wall runs and intact roofs, and skip packet-cache work while the
+  camera moves. In the Three Courts co-op replay, horizontal scrolling went
+  from 6.6 to 9.0 FPS and vertical scrolling from 7.4 to 12.3 FPS. Revealed
+  rooms stayed open and the settled captures matched the original.
   [Scroll trials](tools/renderer_comparison/ps1-castle-scroll-06.json)
 - [x] Retain exact PS1 static-command reuse on larger scenes without increasing
   the entity-key reservation. Lossless snapshots remove the 80-object cutoff;

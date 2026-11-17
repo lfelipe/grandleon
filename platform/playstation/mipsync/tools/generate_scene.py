@@ -83,6 +83,8 @@ MAX_CACHE_VERTICES = 1024
 MAX_CACHE_TOTAL = 1280  # Minimum pools; stage audits size them within hard limits.
 MAX_CACHE_VERTEX_POOL = 4352  # Modular room grids; final 2 MiB reserves are checked at link time.
 MAX_CACHE_TRIANGLE_POOL = 4096
+SCROLL_SCENERY_BLOCK = 4
+ROOF_MODELS = {"castle_roof", "visual_cover"}
 
 # Colour and proportions for the tiny low-poly forms embedded into each
 # terrain page. The same bounded topology reads as reeds, rubble, crops,
@@ -1290,23 +1292,111 @@ def scenery_position(repo: Path, x: int, y: int, kind: str, size: int, width: in
             (height - y * 2 - size) * 64 - round(offset[1] * 128))
 
 
-def scenery_cache_peak(instances: list[tuple], groups: dict, width: int, height: int) -> tuple[int, int]:
-    # Match tick_camera's actual centre-based culling, including integer
-    # truncation during smooth camera movement. Exhaust all camera centres;
-    # invisible scenery cannot consume the transformed-geometry cache.
+def scenery_cache_peak(instances: list[tuple], groups: dict, width: int, height: int,
+                       scroll_batches: list[tuple] | None = None,
+                       roof_groups: dict | None = None) -> tuple[int, int]:
+    # Match tick_camera's centre-based culling at every possible camera centre.
+    # For each roof group reserve the larger of its reduced mesh and its
+    # individual cells. A reveal can select the cells independently per group.
     repo = Path(__file__).resolve().parents[4]
     costs = []
     for x, y, kind, size in instances:
+        if scroll_batches is not None and kind.startswith("castle_wall_"):
+            continue
         px, pz = scenery_position(repo, x, y, kind, size, width, height)
-        costs.append((int(px / 64), int(pz / 64), len(groups[kind][0]), len(groups[kind][2])))
+        roof = (roof_groups or {}).get((x, y), 0) if kind in ROOF_MODELS else 0
+        costs.append((int(px / 64), int(pz / 64), len(groups[kind][0]), len(groups[kind][2]), 0, roof))
+    for x, y, kind, roof in scroll_batches or []:
+        px, pz = scenery_position(repo, x, y, kind, SCROLL_SCENERY_BLOCK, width, height)
+        costs.append((int(px / 64), int(pz / 64), len(groups[kind][0]), len(groups[kind][2]),
+                      SCROLL_SCENERY_BLOCK, -roof))
     half_x, half_z = CAMERA_VIEW_TILES_X + 2, CAMERA_VIEW_TILES_Y + 2
     peak_v = peak_t = 0
     for focus_x in range(-width - half_x, width + half_x + 1):
         for focus_z in range(-height - half_z, height + half_z + 1):
-            visible = [c for c in costs if abs(c[0] - focus_x) <= half_x and abs(c[1] - focus_z) <= half_z]
-            peak_v = max(peak_v, sum(c[2] for c in visible))
-            peak_t = max(peak_t, sum(c[3] for c in visible))
+            total_v = total_t = 0
+            roofs = {}
+            for x, z, verts, tris, margin, roof in costs:
+                if abs(x - focus_x) > half_x + margin or abs(z - focus_z) > half_z + margin:
+                    continue
+                if not roof:
+                    total_v += verts
+                    total_t += tris
+                else:
+                    old_v, old_t = roofs.get(roof, (0, 0))
+                    roofs[roof] = (old_v + verts, old_t + tris)
+            for roof in {abs(key) for key in roofs}:
+                full = roofs.get(roof, (0, 0))
+                reduced = roofs.get(-roof, (0, 0))
+                total_v += max(full[0], reduced[0])
+                total_t += max(full[1], reduced[1])
+            peak_v = max(peak_v, total_v)
+            peak_t = max(peak_t, total_t)
     return peak_v, peak_t
+
+
+def scenery_rectangles(cells, extend_x, extend_y):
+    """Cover each authored cell once without spanning any empty cell."""
+    remaining = set(cells)
+    for x, y in sorted(cells, key=lambda cell: (cell[1], cell[0])):
+        if (x, y) not in remaining:
+            continue
+        across, down = 1, 1
+        while extend_x and (x + across, y) in remaining:
+            across += 1
+        while extend_y and all((x + dx, y + down) in remaining for dx in range(across)):
+            down += 1
+        remaining.difference_update((x + dx, y + dy)
+                                    for dx in range(across) for dy in range(down))
+        yield x, y, across, down
+
+
+def scroll_scenery_batches(instances, models, textures, cell_lifts, relief_mode):
+    """Use one stone surface per uninterrupted roof patch or wall run."""
+    blocks = {}
+    size = SCROLL_SCENERY_BLOCK
+    for x, y, kind, _size in instances:
+        is_roof = kind in ROOF_MODELS
+        if not is_roof and not kind.startswith("castle_wall_"):
+            continue
+        ox, oy = x // size * size, y // size * size
+        floor = surface_relief(x, y, cell_lifts) if relief_mode == "smooth" else 0
+        shapes = blocks.setdefault((ox, oy, is_roof), {})
+        shapes.setdefault((kind, floor), []).append((x, y))
+
+    batches = []
+    roof_groups = {}
+    for index, ((ox, oy, is_roof), shapes) in enumerate(sorted(blocks.items())):
+        vertices, uvs, triangles = [], [], []
+        roof_group = index + 1 if is_roof else 0
+        for (kind, floor), cells in shapes.items():
+            local, local_uvs, local_faces = [], [], []
+            stone = {kind: models[kind][:1]}
+            append_settlement_model(local, local_uvs, local_faces, kind, stone, textures)
+            if is_roof:
+                top = max(vertex[1] for vertex in local)
+                local_faces = [face for face in local_faces
+                               if all(local[i][1] == top for i in face[:3])]
+                for cell in cells:
+                    roof_groups[cell] = roof_group
+            runs = scenery_rectangles(cells, is_roof or kind == "castle_wall_horizontal",
+                                       is_roof or kind == "castle_wall_vertical")
+            for x, y, across, down in runs:
+                # Stretch the existing surface only over adjoining cells of
+                # the same model and height. Doors and roof holes stay open.
+                dx = ((x - ox) * 2 + across - size) * 64
+                dz = (size - (y - oy) * 2 - down) * 64
+                first = len(vertices)
+                vertices.extend((vx + dx + ((across - 1) * 64 if vx > 0 else -(across - 1) * 64),
+                                 vy + floor,
+                                 vz + dz + ((down - 1) * 64 if vz > 0 else -(down - 1) * 64), tag)
+                                for vx, vy, vz, tag in local)
+                uvs.extend(local_uvs)
+                triangles.extend((a + first, b + first, c + first, *material)
+                                 for a, b, c, *material in local_faces)
+        mesh = compact_flat_mesh(vertices, uvs, triangles)
+        batches.append((ox, oy, f"scroll_scenery_{index}", roof_group, mesh))
+    return batches, roof_groups
 
 
 def write_meshes(
@@ -1327,6 +1417,7 @@ def write_meshes(
     foliage_metadata: list | None = None,
     bridges: dict | None = None,
     per_cell_roofs: bool = False,
+    scroll_scenery: bool = False,
 ) -> tuple[int, int, list[tuple[int, int, int, int, int, int, int]]]:
     keep_parts = keep_parts or []
     bridges = bridges or {}
@@ -1603,6 +1694,19 @@ def write_meshes(
     scenery_vertices, scenery_triangles = scenery_cache_peak(
         settlement_instances, scenery_groups, width, height,
     )
+    scroll_batches, roof_groups = [], {}
+    if scroll_scenery:
+        batches, roof_groups = scroll_scenery_batches(
+            settlement_instances, settlement_models, terrain_indices, cell_lifts, relief_mode,
+        )
+        for x, y, kind, roof, mesh in batches:
+            scenery_groups[kind] = mesh
+            scroll_batches.append((x, y, kind, roof))
+        scroll_vertices, scroll_triangles = scenery_cache_peak(
+            settlement_instances, scenery_groups, width, height, scroll_batches, roof_groups,
+        )
+        scenery_vertices = max(scenery_vertices, scroll_vertices)
+        scenery_triangles = max(scenery_triangles, scroll_triangles)
     if any(len(group[0]) > mesh_vertex_limit for group in scenery_groups.values()):
         raise ValueError("a settlement model exceeds its per-mesh cache")
     lines = ["/* Generated from a real Grandleon scene manifest. Do not edit. */", '#include "../runtime/scene.h"', ""]
@@ -1665,7 +1769,15 @@ def write_meshes(
         for x,y,kind,size in settlement_instances:
             floor = max(surface_relief(x+dx,y+dy,cell_lifts) for dy in range(size) for dx in range(size)) if relief_mode == "smooth" else 0
             px, pz = scenery_position(Path(__file__).resolve().parents[4], x, y, kind, size, width, height)
-            scenery_metadata.append((scenery_indices[kind], px, floor, pz, kind.startswith("house_cutout_") or kind == "grove_cutout", y * width + x if kind == "castle_roof" else -1))
+            is_roof = kind in ROOF_MODELS
+            roof_group = roof_groups.get((x, y), 0) if is_roof else 0
+            full_detail_only = bool(roof_group or (scroll_batches and kind.startswith("castle_wall_")))
+            scenery_metadata.append((scenery_indices[kind], px, floor, pz,
+                kind.startswith("house_cutout_") or kind == "grove_cutout",
+                y * width + x if is_roof else -1, int(full_detail_only), roof_group))
+        for x, y, kind, roof in scroll_batches:
+            px, pz = scenery_position(Path(__file__).resolve().parents[4], x, y, kind, SCROLL_SCENERY_BLOCK, width, height)
+            scenery_metadata.append((scenery_indices[kind], px, 0, pz, False, -1, 2, roof))
     foliage_mesh_lines = []
     foliage_mesh_start = scenery_mesh_start + len(scenery_groups)
     for page, (verts, uvs, tris) in enumerate(foliage_groups):
@@ -1915,6 +2027,7 @@ def write_scene(
     entity_index = 0
     terrain_entity_indices: list[int] = []
     tree_entity_indices: list[int] = []
+    tree_detail: list[int] = []
     for chunk_index, (mesh_index, _min_x, _min_y, _max_x, _max_y, _focus_x, _focus_z) in enumerate(terrain_chunks):
         if not surface_count or chunk_index >= surface_count:
             terrain_entity_indices.append(entity_index)
@@ -1924,9 +2037,15 @@ def write_scene(
         next_id += 1
         entity_index += 1
     roof_entity_indices = {}
-    for mesh_index,x,y,z,is_house,roof_cell in scenery_metadata:
-        if roof_cell >= 0: roof_entity_indices[roof_cell] = entity_index
+    roof_groups_by_cell = {}
+    tree_roof_groups = []
+    for mesh_index, x, y, z, is_house, roof_cell, detail, roof in scenery_metadata:
+        if roof_cell >= 0:
+            roof_entity_indices[roof_cell] = entity_index
+            roof_groups_by_cell[roof_cell] = roof
         tree_entity_indices.append(entity_index)
+        tree_detail.append(detail)
+        tree_roof_groups.append(roof)
         preset = "PS1_RENDER_PRESET_CHARACTER" if is_house else "PS1_RENDER_PRESET_FLOOR"
         lines.append(f"    {{.id={next_id}u,.name=\"settlement_landmark\",.parent_entity_index=-1,.position={{{fixed(x/64)},{fixed(y/64)},{fixed(z/64)}}},.scale={{65536,65536,65536}},.mesh=PS1_MESH_CUSTOM,.mesh_index={mesh_index},.mesh_size=65536,.mesh_enabled=0,.color_r=255,.color_g=255,.color_b=255,.texture_tiling_u_q8=256,.texture_tiling_v_q8=256,.render_unlit=1,.render_preset={preset},.rigid_root_entity_index=-1,.collider_shape=-1,.camera_shot_trigger_index=-1,.collider_camera_target_index=-1}},")
         next_id += 1
@@ -2100,6 +2219,19 @@ def write_scene(
         *(f"    {index}u," for index in tree_entity_indices),
         "};",
         "const unsigned int g_grandleon_tree_count = sizeof(g_grandleon_tree_entity_indices) / sizeof(g_grandleon_tree_entity_indices[0]);",
+        "const uint8_t g_grandleon_scenery_detail[] = {",
+        *(f"    {detail}u," for detail in (tree_detail or [0])),
+        "};",
+        "const uint16_t g_grandleon_scenery_roof_group[] = {",
+        *(f"    {group}u," for group in (tree_roof_groups or [0])),
+        "};",
+        "const uint16_t g_grandleon_visibility_roof_group[] = {",
+        *(f"    {roof_groups_by_cell.get(cell, 0)}u," for cell in (hidden_cells or [0])),
+        "};",
+        f"uint8_t g_grandleon_scroll_roof_revealed[{max(tree_roof_groups, default=0) + 1}];",
+        f"const unsigned int g_grandleon_scroll_roof_group_count = {max(tree_roof_groups, default=0) + 1}u;",
+        f"const unsigned int g_grandleon_has_scroll_scenery = {int(2 in tree_detail)}u;",
+        f"const unsigned int g_grandleon_scroll_scenery_margin = {SCROLL_SCENERY_BLOCK}u;",
         "const unsigned int g_grandleon_cursor_entity_indices[] = {",
         f"    {cursor_index}u, {cursor_index + 1}u,",
         "};",
@@ -2152,6 +2284,18 @@ extern const unsigned int g_grandleon_terrain_chunk_count;
 extern const unsigned int g_grandleon_foliage_entity_indices[];
 extern const unsigned int g_grandleon_tree_entity_indices[];
 extern const unsigned int g_grandleon_tree_count;
+enum {
+    GRANDLEON_SCENERY_ALWAYS = 0,
+    GRANDLEON_SCENERY_FULL = 1,
+    GRANDLEON_SCENERY_DURING_SCROLL = 2,
+};
+extern const uint8_t g_grandleon_scenery_detail[];
+extern const uint16_t g_grandleon_scenery_roof_group[];
+extern const uint16_t g_grandleon_visibility_roof_group[];
+extern uint8_t g_grandleon_scroll_roof_revealed[];
+extern const unsigned int g_grandleon_scroll_roof_group_count;
+extern const unsigned int g_grandleon_has_scroll_scenery;
+extern const unsigned int g_grandleon_scroll_scenery_margin;
 extern const unsigned int g_grandleon_cursor_entity_indices[2];
 extern const unsigned int g_grandleon_combat_floor_entity_index;
 extern const unsigned int g_grandleon_camera_entity_index;
@@ -2330,6 +2474,7 @@ def main() -> int:
         keep_parts, settlement_instances, settlement_models,
         MAX_CACHE_VERTICES, scenery_metadata, surface_count=len(floor_groups),
         foliage_metadata=foliage_metadata, bridges=bridges, per_cell_roofs=per_cell_roofs,
+        scroll_scenery=modular_castle and (width > 2 * CAMERA_VIEW_TILES_X or height > 2 * CAMERA_VIEW_TILES_Y),
     )
     entities = write_scene(
         output, document, unit_indices, terrain_chunks,
