@@ -79,7 +79,9 @@ each formation in the same view. Moving a unit in 2P keeps its 1P position.
 If a 2P test needs an ally for the second player, use **Assign Player 2** in
 the Battle Guide to open the correct formation. In **Battle Setup**, use
 **2P-Only Units** to make a Player 2 ally or an enemy appear only in co-op.
-Battle Setup also has reinforcements and patrol routes.
+Battle Setup also has reinforcements and patrol routes. For a repeating
+wave, enter the first arrival round, the interval and the total number of
+waves. The preview shows the schedule before you apply it.
 **Pack & Drops**, beside an enemy archetype, sets its pack size and the gold,
 weapon or item it leaves when defeated. The preview shows exact chances, and
 the settings apply to every enemy using that archetype, including reinforcements.
@@ -94,7 +96,8 @@ each weapon by name. Choose one to see its targets and damage. Both weapons
 stay in the pack; the choice applies to that attack.
 **Edit Objective** explains the actual win or loss rule. Choose **This Battle**,
 **Reuse**, or **Create** directly; a target goal starts with a suitable
-enemy or ally. Multiple goals can end the battle independently.
+enemy or ally. For a survival goal, type how many rounds to hold. Multiple
+goals can end the battle independently.
 Then use **Test 1 Player** or **Test 2 Players** from
 the guide. The player returns to the same editing workflow afterwards.
 The map editor's **Test** also starts the selected battle directly and returns

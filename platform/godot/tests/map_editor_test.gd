@@ -965,7 +965,7 @@ func _run() -> void:
 	_expect("objective editor reaches new mode", editor.objective_mode, "new")
 	for step in 3:
 		editor._cycle_objective_kind()
-	editor._change_objective_rounds(1)
+	editor.objective_rounds_input.get_line_edit().text = "4"
 	editor._apply_objective_action()
 	await process_frame
 	var with_objective := _parse(editor.source)
@@ -1164,15 +1164,18 @@ func _run() -> void:
 	_expect("wave editor lists authored opponents", editor.force_candidates.is_empty(), false)
 	_expect("ordinary opponents start on the board", editor.force_mode, "opening")
 	var wave_placement_id := str(editor._selected_force().get("id", ""))
-	editor.force_mode = "repeating"
-	editor.force_round = 5
-	editor.force_every = 3
-	editor.force_times = 4
+	_expect("opening forces hide arrival fields", editor.forces_arrival_fields.visible, false)
+	editor.forces_mode_button.pressed.emit()
+	_expect("single arrival exposes its round", editor.forces_arrival_fields.visible, true)
+	_expect("single arrival hides repeat fields", editor.forces_repeat_row.visible, false)
+	editor.forces_mode_button.pressed.emit()
+	editor.forces_round_input.get_line_edit().text = "5"
+	editor.forces_every_input.get_line_edit().text = "3"
+	editor.forces_times_input.get_line_edit().text = "4"
 	editor.force_behavior = "pursue"
 	editor._update_forces_view()
 	_expect("repeating mode reveals cadence controls", editor.forces_repeat_row.visible, true)
-	_expect("wave editor explains the total wave count", editor.forces_times_label.text, "4 WAVES TOTAL")
-	editor._apply_force_schedule()
+	editor.forces_apply_button.pressed.emit()
 	await process_frame
 	var with_wave := _parse(editor.source)
 	var authored_wave: Dictionary = {}

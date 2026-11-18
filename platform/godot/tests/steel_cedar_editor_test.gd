@@ -172,7 +172,7 @@ func _run() -> void:
 
 	if failures == 0:
 		print("Steel and Cedar real Campaign/Map Editor 1P, 2P, and survival setup passed")
-	quit(1 if failures > 0 else 0)
+	root.get_node("PCAudio").request_quit(1 if failures > 0 else 0)
 
 
 func _verify_force_draft(editor, placement_id: String, round_number: int, behavior: String, minimum_players: int) -> void:
@@ -183,7 +183,7 @@ func _verify_force_draft(editor, placement_id: String, round_number: int, behavi
 		editor._load_force_draft()
 		editor._update_forces_view()
 		_expect("%s opens as one arrival" % placement_id, editor.force_mode, "once")
-		_expect("%s keeps its authored round" % placement_id, editor.force_round, round_number)
+		_expect("%s keeps its authored round" % placement_id, int(editor.forces_round_input.value), round_number)
 		_expect("%s keeps its authored order" % placement_id, editor.force_behavior, behavior)
 		_expect(
 			"%s keeps its player scaling" % placement_id,

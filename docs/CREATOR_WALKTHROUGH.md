@@ -72,7 +72,8 @@ starter. Keep the same project through export.
    9. In 2P another group arrives from the south in round 5.”
 
    **Where to look** · **Edit Objective → This Battle**, then **Battle Setup →
-   Opening Forces & Waves**. Replace the earlier defeat-all goal. **Check** ·
+   Opening Forces & Waves**. Type the round numbers and check the schedule
+   before applying it. Replace the earlier defeat-all goal. **Check** ·
    Each wave enters from the authored side on its round, and the extra wave
    appears only in 2P. Clearing the first wave leaves the battle active.
    Surviving round 20 takes the victory route. Losing Iona takes the loss

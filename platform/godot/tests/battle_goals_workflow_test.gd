@@ -87,8 +87,12 @@ func run() -> void:
 	editor = current_scene
 	editor.objective_mode_buttons.new.pressed.emit()
 	for index in 3: editor.objective_kind_button.pressed.emit()
-	editor._change_objective_rounds(-2)
-	check(editor.objective_candidate_label.text.contains("Win by surviving through round 1."), "new survival goal shows the actual round count")
+	var rounds: LineEdit = editor.objective_rounds_input.get_line_edit()
+	check(rounds.virtual_keyboard_type == LineEdit.KEYBOARD_TYPE_NUMBER, "survival rounds offer a numeric keyboard")
+	rounds.text = "20"
+	rounds.text_submitted.emit(rounds.text)
+	await settle()
+	check(editor.objective_candidate_label.text.contains("Win by surviving through round 20."), "typed survival goal shows the actual round count")
 	editor.objective_primary_button.pressed.emit()
 	await settle()
 	check(editor._current_objective_ids().has("survive_rounds"), "survival goal is authored")
@@ -96,16 +100,59 @@ func run() -> void:
 	check(ids == ["defeat_all_opponents", "protect_target", "survive_rounds"], "adding a goal preserves existing IDs and priority order")
 	editor._close_objectives()
 	await settle()
+	await author_defense(editor)
 	editor._request_projects()
 	await settle()
-	check(current_scene.objective_summary.text.contains("Win by surviving through round 1."), "survival goal reopens on the guide")
+	check(current_scene.objective_summary.text.contains("Win by surviving through round 20."), "survival goal reopens on the guide")
 	var authored: String = library.load_source(project_id).source
+	current_scene.map_button.pressed.emit()
+	await settle()
+	editor = current_scene
+	editor.setup_button.pressed.emit()
+	await settle()
+	editor._setup_forces()
+	await settle()
+	check(editor.force_mode == "repeating", "reopening the saved battle shows a repeating wave")
+	check(editor.forces_round_input.get_line_edit().text == "5", "reopened first arrival matches the typed round")
+	check(editor.forces_every_input.get_line_edit().text == "3", "reopened repeat interval matches the typed number")
+	check(editor.forces_times_input.get_line_edit().text == "4", "reopened total waves match the typed number")
+	editor._request_projects()
+	await settle()
 	for players: int in [1, 2]: await play_survival(players)
 	check(library.load_source(project_id).source == authored, "real previews leave authored goals unchanged")
 	await check_localized_forms()
 	check(library.load_source(project_id).source == authored, "localized inspection leaves source unchanged")
 	print("BATTLE_GOALS_WORKFLOW_%s checks=%d" % ["PASS" if failures == 0 else "FAIL", checks])
 	root.get_node("PCAudio").request_quit(1 if failures else 0)
+
+func author_defense(editor) -> void:
+	# Give the fixture safe shores so we can count arrivals and test the
+	# survival rule using ordinary Wait actions through all twenty rounds.
+	var map: Dictionary = editor._current_map()
+	editor._select_tool("rectangle")
+	editor._select_terrain("water")
+	editor._paint_cell(3)
+	editor._paint_cell((int(map.height) - 1) * int(map.width) + 3)
+	check(editor._current_map().terrain[3] == "water", "the editor creates a defensible test map")
+	editor.setup_button.pressed.emit()
+	await settle()
+	editor._setup_forces()
+	await settle()
+	editor.forces_mode_button.pressed.emit()
+	editor.forces_mode_button.pressed.emit()
+	var first_arrival: LineEdit = editor.forces_round_input.get_line_edit()
+	first_arrival.text = "5"
+	first_arrival.text_submitted.emit(first_arrival.text)
+	await settle()
+	check(editor.forces_candidate_label.text.contains("ARRIVES ON ROUND 5"), "the wave preview shows the entered arrival before Apply")
+	editor.forces_every_input.get_line_edit().text = "3"
+	editor.forces_times_input.get_line_edit().text = "4"
+	editor.forces_apply_button.pressed.emit()
+	await settle()
+	var arrival: Dictionary = editor._selected_force().get("arrival", {})
+	check(arrival.get("round") == 5 and arrival.get("every") == 3 and arrival.get("times") == 4,
+		"Apply keeps the appearance round, repeat interval and count typed in the form")
+
 
 func play_survival(players: int) -> void:
 	var button: Button = current_scene.solo_button if players == 1 else current_scene.coop_button
@@ -115,9 +162,18 @@ func play_survival(players: int) -> void:
 	if current_scene.scene_file_path != "res://main.tscn": return
 	var player = current_scene
 	var waits := 0
-	var deadline := Time.get_ticks_msec() + 15000
+	var on_board_opponents := players
+	var arrivals: Array[int] = []
+	var deadline := Time.get_ticks_msec() + 35000
 	while player.final_outcome == "ongoing" and Time.get_ticks_msec() < deadline:
 		await process_frame
+		var units: Array = player.snapshot.get("units", [])
+		var opponents := units.filter(func(unit: Dictionary) -> bool:
+			return unit.side == "second" and unit.on_board
+		).size()
+		while opponents > on_board_opponents:
+			arrivals.append(int(player.snapshot.get("round", -1)) + 1)
+			on_board_opponents += 1
 		if player.final_outcome != "ongoing": break
 		if player._stage_overview_active():
 			player._accept_at(0)
@@ -129,11 +185,13 @@ func play_survival(players: int) -> void:
 				waits += 1
 				break
 	check(player.player_count == players and player.final_outcome == "first_side_won", "authored survival condition wins in requested mode")
+	check(int(player.snapshot.get("round", -1)) == 20, "survival ends after exactly twenty completed rounds")
+	check(arrivals == [5, 8, 11, 14], "the player fields all four typed waves on their authored rounds: " + str(arrivals))
 	var living_enemies := 0
 	for unit: Dictionary in player.snapshot.get("units", []):
 		if unit.side == "second" and int(unit.health) > 0: living_enemies += 1
 	check(waits > 0 and living_enemies >= 2, "victory comes from surviving legal turns, with opponents still alive")
-	print("AUTHORED_SURVIVAL players=", players, " waits=", waits, " living_enemies=", living_enemies)
+	print("AUTHORED_SURVIVAL players=", players, " waits=", waits, " living_enemies=", living_enemies, " arrivals=", arrivals)
 	player._leave_play_session()
 	await settle()
 	check(current_scene.scene_file_path == "res://first_battle.tscn", "actual Return restores the guide")
@@ -167,6 +225,12 @@ func check_localized_forms() -> void:
 			editor.objective_mode_buttons.new.pressed.emit()
 			for index in 3: editor.objective_kind_button.pressed.emit()
 			await settle()
+			var round_entry: LineEdit = editor.objective_rounds_input.get_line_edit()
+			round_entry.grab_focus()
+			scroll.ensure_control_visible(round_entry)
+			await settle()
+			check(round_entry.size.y >= floorf(48 * density), "the numeric field retains touch height")
+			check(scroll.get_global_rect().grow(1).encloses(round_entry.get_global_rect()), "the numeric field is reachable by scrolling")
 			scroll.ensure_control_visible(editor.objective_primary_button)
 			await settle()
 			check(scroll.get_global_rect().grow(1).encloses(editor.objective_primary_button.get_global_rect()), "Create and Attach remains reachable")

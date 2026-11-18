@@ -129,7 +129,6 @@ var objective_kind_index := 0
 var objective_side := "first"
 var objective_targets: Array[Dictionary] = []
 var objective_target_index := 0
-var objective_rounds := 3
 var dirty := false
 var undo_stack: Array[String] = []
 var redo_stack: Array[String] = []
@@ -146,9 +145,6 @@ var preview_players := 1
 var force_candidates: Array[Dictionary] = []
 var force_candidate_index := 0
 var force_mode := "opening"
-var force_round := 2
-var force_every := 2
-var force_times := 2
 var force_behavior := "hold"
 var moment_candidates: Array[Dictionary] = []
 var moment_candidate_index := 0
@@ -207,18 +203,19 @@ var objective_options: VBoxContainer
 var objective_kind_button: Button
 var objective_side_button: Button
 var objective_target_button: Button
-var objective_rounds_row: HBoxContainer
-var objective_rounds_label: Label
+var objective_rounds_field: VBoxContainer
+var objective_rounds_input: SpinBox
 var objective_primary_button: Button
 var objective_first_button: Button
 var forces_layer: Control
 var forces_first_button: Button
 var forces_candidate_label: Label
 var forces_mode_button: Button
-var forces_round_label: Label
-var forces_repeat_row: HBoxContainer
-var forces_every_label: Label
-var forces_times_label: Label
+var forces_arrival_fields: VBoxContainer
+var forces_repeat_row: BoxContainer
+var forces_round_input: SpinBox
+var forces_every_input: SpinBox
+var forces_times_input: SpinBox
 var forces_behavior_button: Button
 var forces_patrol_button: Button
 var forces_scaling_button: Button
@@ -3021,7 +3018,7 @@ func _open_objectives() -> void:
 	objective_kind_index = 0
 	objective_side = "first"
 	objective_target_index = 0
-	objective_rounds = 3
+	objective_rounds_input.value = 3
 	objective_layer.visible = true
 	_refresh_objective_targets()
 	_refresh_objective_candidates()
@@ -3092,11 +3089,6 @@ func _cycle_objective_target() -> void:
 	objective_target_index = wrapi(
 		objective_target_index + 1, 0, objective_targets.size()
 	)
-	_update_objective_view()
-
-
-func _change_objective_rounds(delta: int) -> void:
-	objective_rounds = clampi(objective_rounds + delta, 1, 65535)
 	_update_objective_view()
 
 
@@ -3210,7 +3202,7 @@ func _new_objective_name() -> String:
 		return "Defeat all opponents"
 	if kind == "surviveRounds":
 		return "Survive %d round%s" % [
-			objective_rounds, "" if objective_rounds == 1 else "s",
+			int(objective_rounds_input.value), "" if objective_rounds_input.value == 1 else "s",
 		]
 	var target_name := "target"
 	if not objective_targets.is_empty():
@@ -3223,7 +3215,7 @@ func _new_objective_summary() -> String:
 		"name": _new_objective_name(),
 		"kind": str(OBJECTIVE_KINDS[objective_kind_index].id),
 		"side": objective_side,
-		"rounds": objective_rounds,
+		"rounds": int(objective_rounds_input.value),
 		"targetPlacementId": str(objective_targets[objective_target_index].get("id", "")) if not objective_targets.is_empty() else "",
 	}
 	return _objective_summary(objective)
@@ -3265,7 +3257,7 @@ func _update_objective_view() -> void:
 	objective_side_button.text = _t("goals.owner." + objective_side)
 	var targeted := kind == "defeatTarget" or kind == "protectTarget"
 	objective_target_button.visible = targeted
-	objective_rounds_row.visible = kind == "surviveRounds"
+	objective_rounds_field.visible = kind == "surviveRounds"
 	if targeted:
 		objective_target_button.text = (
 			_t("map.objective.target_label", {"target": str(
@@ -3274,7 +3266,6 @@ func _update_objective_view() -> void:
 			if not objective_targets.is_empty()
 			else _t("map.objective.target_none")
 		)
-	objective_rounds_label.text = str(objective_rounds)
 	objective_primary_button.text = _t("map.objective.create_attach")
 	objective_primary_button.disabled = targeted and objective_targets.is_empty()
 
@@ -3301,6 +3292,8 @@ func _apply_objective_action() -> void:
 	var node: Dictionary = encounter.node
 	if objective_mode == "new":
 		var kind := str(OBJECTIVE_KINDS[objective_kind_index].id)
+		if kind == "surviveRounds":
+			objective_rounds_input.apply()
 		var base_ids := {
 			"defeatAllOpponents": "defeat_all_opponents",
 			"defeatTarget": "defeat_target",
@@ -3320,7 +3313,7 @@ func _apply_objective_action() -> void:
 			kind,
 			objective_side,
 			target_id,
-			objective_rounds if kind == "surviveRounds" else 0
+			int(objective_rounds_input.value) if kind == "surviveRounds" else 0
 		)
 		_accept_objective_edit(added, _t("map.objective.created", {
 			"name": _new_objective_name().to_upper(),
@@ -3424,13 +3417,6 @@ func _cycle_force_candidate(delta: int) -> void:
 
 func _load_force_draft() -> void:
 	var placement := _selected_force()
-	if placement.is_empty():
-		force_mode = "opening"
-		force_round = 2
-		force_every = 2
-		force_times = 2
-		force_behavior = "hold"
-		return
 	var arrival: Dictionary = (
 		placement.get("arrival", {})
 		if placement.get("arrival", {}) is Dictionary else {}
@@ -3439,9 +3425,9 @@ func _load_force_draft() -> void:
 		force_mode = "opening"
 	else:
 		force_mode = "repeating" if arrival.has("every") else "once"
-	force_round = clampi(int(arrival.get("round", 2)), 2, 4095)
-	force_every = clampi(int(arrival.get("every", 2)), 1, 4095)
-	force_times = clampi(int(arrival.get("times", 2)), 2, 64)
+	forces_round_input.value = int(arrival.get("round", 2))
+	forces_every_input.value = int(arrival.get("every", 2))
+	forces_times_input.value = int(arrival.get("times", 2))
 	force_behavior = str(placement.get("behavior", "hold"))
 	if not FORCE_BEHAVIORS.has(force_behavior):
 		force_behavior = "hold"
@@ -3450,21 +3436,6 @@ func _load_force_draft() -> void:
 func _cycle_force_mode() -> void:
 	var index := maxi(0, FORCE_MODES.find(force_mode))
 	force_mode = FORCE_MODES[(index + 1) % FORCE_MODES.size()]
-	_update_forces_view()
-
-
-func _change_force_round(delta: int) -> void:
-	force_round = clampi(force_round + delta, 2, 4095)
-	_update_forces_view()
-
-
-func _change_force_every(delta: int) -> void:
-	force_every = clampi(force_every + delta, 1, 4095)
-	_update_forces_view()
-
-
-func _change_force_times(delta: int) -> void:
-	force_times = clampi(force_times + delta, 2, 64)
 	_update_forces_view()
 
 
@@ -3518,17 +3489,13 @@ func _update_forces_view() -> void:
 			_t("map.forces.none")
 		)
 	else:
-		var arrival: Dictionary = (
-			placement.get("arrival", {})
-			if placement.get("arrival", {}) is Dictionary else {}
-		)
 		var schedule := _t("map.forces.schedule.opening")
-		if not arrival.is_empty():
-			schedule = _t("map.forces.schedule.arrives", {"round": int(arrival.get("round", 2))})
-			if arrival.has("every"):
+		if force_mode != "opening":
+			schedule = _t("map.forces.schedule.arrives", {"round": int(forces_round_input.value)})
+			if force_mode == "repeating":
 				schedule += _t("map.forces.schedule.repeat", {
-					"every": int(arrival.get("every", 1)),
-					"times": int(arrival.get("times", 2)),
+					"every": int(forces_every_input.value),
+					"times": int(forces_times_input.value),
 				})
 		forces_candidate_label.text = _t("map.forces.choice", {
 			"name": _placement_display_name(placement).to_upper(),
@@ -3538,10 +3505,8 @@ func _update_forces_view() -> void:
 		forces_candidate_label.text += "\n" + InventoryEditor.summary(_inventory_role(str(placement.get("unitTypeId", ""))), project, _t)
 	forces_inventory_button.disabled = not available
 	forces_mode_button.text = _t("map.forces.mode." + force_mode)
-	forces_round_label.text = _t("map.forces.round", {"round": force_round})
+	forces_arrival_fields.visible = available and force_mode != "opening"
 	forces_repeat_row.visible = force_mode == "repeating"
-	forces_every_label.text = _t("map.forces.every", {"every": force_every})
-	forces_times_label.text = _t("map.forces.waves_total", {"times": force_times})
 	forces_behavior_button.text = _t("map.forces.behavior." + force_behavior)
 	forces_patrol_button.visible = force_behavior == "patrol"
 	forces_patrol_button.disabled = not available
@@ -3573,6 +3538,11 @@ func _apply_force_schedule() -> void:
 	var encounter := _current_encounter()
 	if selected.is_empty() or encounter.is_empty():
 		return
+	if force_mode != "opening":
+		forces_round_input.apply()
+	if force_mode == "repeating":
+		forces_every_input.apply()
+		forces_times_input.apply()
 	var selected_id := str(selected.get("id", ""))
 	var candidate: Dictionary = project.duplicate(true)
 	var changed := false
@@ -3601,10 +3571,10 @@ func _apply_force_schedule() -> void:
 				if force_mode == "opening":
 					placement.erase("arrival")
 				else:
-					placement.arrival = {"round": force_round}
+					placement.arrival = {"round": int(forces_round_input.value)}
 					if force_mode == "repeating":
-						placement.arrival.every = force_every
-						placement.arrival.times = force_times
+						placement.arrival.every = int(forces_every_input.value)
+						placement.arrival.times = int(forces_times_input.value)
 				changed = true
 				break
 			break
@@ -6201,21 +6171,10 @@ func _build_objective_overlay() -> void:
 	objective_target_button.add_theme_font_size_override("font_size", 15)
 	objective_target_button.pressed.connect(_cycle_objective_target)
 	objective_options.add_child(objective_target_button)
-	objective_rounds_row = HBoxContainer.new()
-	objective_rounds_row.add_theme_constant_override("separation", 10)
-	objective_options.add_child(objective_rounds_row)
-	var rounds_minus := _button("−", 120, 56)
-	rounds_minus.pressed.connect(_change_objective_rounds.bind(-1))
-	objective_rounds_row.add_child(rounds_minus)
-	objective_rounds_label = _label("3", 25, Color("f2f7f9"))
-	objective_rounds_label.custom_minimum_size = Vector2(160, 56)
-	objective_rounds_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	objective_rounds_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	objective_rounds_row.add_child(objective_rounds_label)
-	var rounds_plus := _button("+", 120, 56)
-	rounds_plus.pressed.connect(_change_objective_rounds.bind(1))
-	objective_rounds_row.add_child(rounds_plus)
-	objective_rounds_row.add_child(_label(_t("map.objective.rounds_to_survive"), 17, Color("718896")))
+	objective_rounds_field = VBoxContainer.new()
+	objective_options.add_child(objective_rounds_field)
+	objective_rounds_input = _round_input(objective_rounds_field, "map.objective.rounds_to_survive", 1, 65535)
+	objective_rounds_input.value_changed.connect(func(_value: float) -> void: _update_objective_view())
 
 	var actions := BoxContainer.new()
 	actions.set_meta("mobile_wrap_actions", true)
@@ -6243,8 +6202,8 @@ func _build_forces_overlay() -> void:
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	forces_layer.add_child(shade)
 	var panel := PanelContainer.new()
-	panel.position = Vector2(390, 105)
-	panel.size = Vector2(1140, 870)
+	panel.position = Vector2(390, 60)
+	panel.size = Vector2(1140, 960)
 	panel.add_theme_stylebox_override(
 		"panel", _panel(Color("0c1d29"), 18, Color("ffca63"))
 	)
@@ -6286,46 +6245,24 @@ func _build_forces_overlay() -> void:
 	forces_mode_button = _button(_t("map.forces.mode.opening"), 1014, 56)
 	forces_mode_button.pressed.connect(_cycle_force_mode)
 	column.add_child(forces_mode_button)
-	var round_row := HBoxContainer.new()
-	round_row.add_theme_constant_override("separation", 10)
-	column.add_child(round_row)
-	var round_minus := _button("−", 110, 52)
-	round_minus.pressed.connect(_change_force_round.bind(-1))
-	round_row.add_child(round_minus)
-	forces_round_label = _label(_t("map.forces.round", {"round": 2}), 21, Color("f2f7f9"))
-	forces_round_label.custom_minimum_size = Vector2(260, 52)
-	forces_round_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	forces_round_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	round_row.add_child(forces_round_label)
-	var round_plus := _button("+", 110, 52)
-	round_plus.pressed.connect(_change_force_round.bind(1))
-	round_row.add_child(round_plus)
-	round_row.add_child(_label(_t("map.forces.first_arrival"), 16, Color("718896")))
-	forces_repeat_row = HBoxContainer.new()
-	forces_repeat_row.add_theme_constant_override("separation", 8)
-	column.add_child(forces_repeat_row)
-	var every_minus := _button("−", 70, 50)
-	every_minus.pressed.connect(_change_force_every.bind(-1))
-	forces_repeat_row.add_child(every_minus)
-	forces_every_label = _label(_t("map.forces.every", {"every": 2}), 17, Color("f2f7f9"))
-	forces_every_label.custom_minimum_size = Vector2(220, 50)
-	forces_every_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	forces_every_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	forces_repeat_row.add_child(forces_every_label)
-	var every_plus := _button("+", 70, 50)
-	every_plus.pressed.connect(_change_force_every.bind(1))
-	forces_repeat_row.add_child(every_plus)
-	var times_minus := _button("−", 70, 50)
-	times_minus.pressed.connect(_change_force_times.bind(-1))
-	forces_repeat_row.add_child(times_minus)
-	forces_times_label = _label(_t("map.forces.waves_total", {"times": 2}), 17, Color("f2f7f9"))
-	forces_times_label.custom_minimum_size = Vector2(210, 50)
-	forces_times_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	forces_times_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	forces_repeat_row.add_child(forces_times_label)
-	var times_plus := _button("+", 70, 50)
-	times_plus.pressed.connect(_change_force_times.bind(1))
-	forces_repeat_row.add_child(times_plus)
+	forces_arrival_fields = VBoxContainer.new()
+	forces_arrival_fields.add_theme_constant_override("separation", 10)
+	column.add_child(forces_arrival_fields)
+	forces_round_input = _round_input(forces_arrival_fields, "map.forces.first_arrival", 2, 4095)
+	forces_repeat_row = BoxContainer.new()
+	forces_repeat_row.set_meta("mobile_wrap_actions", true)
+	forces_repeat_row.add_theme_constant_override("separation", 12)
+	forces_arrival_fields.add_child(forces_repeat_row)
+	var interval_field := VBoxContainer.new()
+	interval_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	forces_repeat_row.add_child(interval_field)
+	forces_every_input = _round_input(interval_field, "map.forces.repeat_interval", 1, 4095)
+	var waves_field := VBoxContainer.new()
+	waves_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	forces_repeat_row.add_child(waves_field)
+	forces_times_input = _round_input(waves_field, "map.forces.total_waves", 2, 64)
+	for input: SpinBox in [forces_round_input, forces_every_input, forces_times_input]:
+		input.value_changed.connect(func(_value: float) -> void: _update_forces_view())
 	forces_behavior_button = _button(_t("map.forces.behavior.hold"), 1014, 54)
 	forces_behavior_button.pressed.connect(_cycle_force_behavior)
 	column.add_child(forces_behavior_button)
@@ -6824,6 +6761,38 @@ func _map_tile_button(tile_size: int) -> Button:
 		style.content_margin_bottom = 2
 		button.add_theme_stylebox_override(state, style)
 	return button
+
+
+func _round_input(parent: VBoxContainer, label_key: String, minimum: int, maximum: int) -> SpinBox:
+	var label := _t(label_key)
+	parent.add_child(_label(label, 17, Color("a9bdc9")))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	parent.add_child(row)
+	var minus := _button("−", 80, 56)
+	row.add_child(minus)
+	var input := SpinBox.new()
+	input.min_value = minimum
+	input.max_value = maximum
+	input.step = 1
+	input.custom_minimum_size = Vector2(150, 56)
+	input.tooltip_text = label
+	var text := input.get_line_edit()
+	text.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_NUMBER
+	text.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	text.add_theme_font_size_override("font_size", 21)
+	row.add_child(input)
+	var plus := _button("+", 80, 56)
+	row.add_child(plus)
+	minus.pressed.connect(func() -> void:
+		input.apply()
+		input.value -= 1
+	)
+	plus.pressed.connect(func() -> void:
+		input.apply()
+		input.value += 1
+	)
+	return input
 
 
 func _button(value: String, width: int, height: int) -> Button:

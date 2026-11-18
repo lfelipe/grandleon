@@ -222,9 +222,11 @@ tracked above.
   a new project. Record where they look for each tool, where they get stuck
   and what they see in play. Turn those findings into editor improvements and
   checks using the normal authoring and play paths.
-- [ ] Let authors enter the round number directly for survival goals and
-  reinforcement waves. Check that a 20-round defense and its first wave match
-  the numbers shown in the editor after saving and reopening.
+- [x] Enter exact survival rounds and reinforcement schedules. Verify that a
+  20-round defense reopens with the typed settings and plays to the specified
+  round with all four authored waves in both 1P and 2P.
+- [ ] Let authors revise a goal from **This Battle** after its first playtest.
+  Preserve the other stages and routes when a goal is reused.
 - [ ] Verify that one author can recreate the Steel and Cedar campaign from a
   blank project using the editor. Check both player modes, the reinforcement
   waves, the shop, the castle reveal and the final battle.
