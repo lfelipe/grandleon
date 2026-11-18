@@ -232,6 +232,9 @@ tracked above.
   position or patrol waypoint. Extend an authored victory route while keeping
   its defeat route. Start a fresh project, add a 20×14 castle finale, and
   verify entry, reveal and boss victory in both 1P and 2P.
+- [x] Write separate closing scenes from Campaign Outline. Start from a new
+  project, author victory and defeat endings, play the victory in both modes,
+  and verify the scenes survive editable and playable exports.
 - [x] Author questions and follow-up replies for map conversations in Godot.
   Route a final reply to a detour that rejoins the campaign or has its own
   ending. Verify both paths, skipping or declining, and local battle recovery.

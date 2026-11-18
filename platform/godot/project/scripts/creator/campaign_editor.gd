@@ -41,6 +41,7 @@ var undo_button: Button
 var redo_button: Button
 var node_buttons: Dictionary = {}
 var outcome_buttons: Dictionary = {}
+var ending_story_buttons: Dictionary = {}
 var battle_test_one_buttons: Dictionary = {}
 var battle_test_two_buttons: Dictionary = {}
 var battle_dependency_buttons: Dictionary = {}
@@ -192,8 +193,13 @@ func _load_project() -> void:
 	_refresh_target_budget()
 	_update_actions()
 	_set_status(_t("campaign.status.ready"), false)
-	if first_button != null:
-		first_button.call_deferred("grab_focus")
+	var focus := first_button
+	if CreatorContext.story_return_scene == scene_file_path:
+		var identity := str(CreatorContext.story_target.get("node_id", ""))
+		focus = ending_story_buttons.get(identity, focus)
+		CreatorContext.story_return_scene = ""
+	if focus != null:
+		focus.call_deferred("grab_focus")
 
 
 func _refresh_campaign_choices(preferred_id := "") -> void:
@@ -758,6 +764,7 @@ func _refresh_route() -> void:
 	chapter_order_button = null
 	node_buttons.clear()
 	outcome_buttons.clear()
+	ending_story_buttons.clear()
 	battle_test_one_buttons.clear()
 	battle_test_two_buttons.clear()
 	battle_dependency_buttons.clear()
@@ -905,9 +912,12 @@ func _add_node_button(node: Dictionary, battle_number: int, alternate: bool) -> 
 		detail_actions.add_child(dependencies)
 		battle_dependency_buttons[node_id] = dependencies
 	if kind == "terminal":
-		var spacer := Control.new()
-		spacer.custom_minimum_size.x = 300
-		detail_actions.add_child(spacer)
+		var has_scenes: bool = not node.get("dialogueIds", []).is_empty()
+		var closing := _button(_t("campaign.ending.edit_scene" if has_scenes else "campaign.ending.write_scene"), 300)
+		closing.tooltip_text = _t("campaign.ending.scene_tooltip")
+		closing.pressed.connect(_open_story_node.bind(node))
+		detail_actions.add_child(closing)
+		ending_story_buttons[str(node.id)] = closing
 	else:
 		var route_count: int = node.get("transitions", []).size()
 		var outcomes := _button(
@@ -1101,7 +1111,8 @@ func _open_story_node(node: Dictionary) -> void:
 	var dialogue_ids: Array = node.get("dialogueIds", [])
 	CreatorContext.request_story(
 		str(campaign.get("id", "")), str(node.get("id", "")),
-		str(dialogue_ids[0]) if not dialogue_ids.is_empty() else "", dialogue_ids.is_empty()
+		str(dialogue_ids[0]) if not dialogue_ids.is_empty() else "", dialogue_ids.is_empty(),
+		"res://campaign_editor.tscn" if node.kind == "terminal" else ""
 	)
 	get_tree().change_scene_to_file("res://story_editor.tscn")
 
@@ -3268,6 +3279,7 @@ func _build_interface() -> void:
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	column.add_child(scroll)
+	scroll.follow_focus = true
 	route_list = VBoxContainer.new()
 	route_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	route_list.add_theme_constant_override("separation", 10)

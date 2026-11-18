@@ -160,9 +160,10 @@ new games.
 Choose **New Event Detour** below the battle in **Campaign Outline**. Select
 a final reply or hidden-item discovery, then choose where the stories meet
 under **After the detour**. Choose **New Ending** to give the detour its own
-closing dialogue. To go straight to an existing stage, use the event as a
-condition in the battle's **Outcomes**. Discovery counts even if the player
-leaves the item behind.
+ending. In **Campaign Outline**, use **Write Ending** beside any ending to
+add its closing scene. To go straight to an existing stage, use the event
+as a condition in the battle's **Outcomes**. Discovery counts even if the
+player leaves the item behind.
 
 The outline shows each event beside its detour and where it rejoins or ends.
 Select that summary to edit the route. Use **Play Adventure** in the Godot

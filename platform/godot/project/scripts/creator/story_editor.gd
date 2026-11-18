@@ -7,6 +7,7 @@ const ProjectContentDependencyIndex = preload(
 )
 const ArtLibrary = preload("res://scripts/art_library.gd")
 const HISTORY_LIMIT := 64
+const SCENE_TARGET_KINDS := ["story", "encounter", "terminal"]
 const BACKDROPS := [
 	"throne_hall", "night_camp", "deep_wood", "mountain_dusk",
 	"open_sea", "star_field", "crypt",
@@ -23,6 +24,7 @@ var dialogues: Array = []
 var story_targets: Array[Dictionary] = []
 var scene_characters: Array[Dictionary] = []
 var preferred_story_target: Dictionary = {}
+var story_return_scene := ""
 var dialogue_index := 0
 var line_index := 0
 var dirty := false
@@ -103,6 +105,7 @@ func _ready() -> void:
 	art = ArtLibrary.new()
 	project_id = CreatorContext.project_id
 	preferred_story_target = CreatorContext.story_target.duplicate()
+	story_return_scene = CreatorContext.story_return_scene
 	_build_interface()
 	_load_project()
 
@@ -238,18 +241,17 @@ func _collect_story_options() -> void:
 					recruit_value, seen_characters, campaign_id, unit_names
 				)
 			var kind := str(node.get("kind", ""))
-			if kind not in ["story", "encounter"]:
+			if kind not in SCENE_TARGET_KINDS:
 				continue
+			var label := str(node.get("name", node.get("id", _t("story.fallback.story"))))
+			match kind:
+				"encounter": label = _t("story.target.before_battle", {"battle": label})
+				"terminal": label = _t("story.target.ending", {"ending": label})
 			story_targets.append({
 				"campaign_id": campaign_id,
 				"node_id": str(node.get("id", "")),
 				"kind": kind,
-				"label": "%s  /  %s" % [
-					campaign_name, (
-						_t("story.target.before_battle", {"battle": str(node.get("name", node.get("id", "")))})
-						if kind == "encounter" else str(node.get("name", node.get("id", _t("story.fallback.story"))))
-					)
-				],
+				"label": "%s  /  %s" % [campaign_name, label],
 				"dialogue_ids": node.get("dialogueIds", []).duplicate(),
 			})
 	for unit_value: Variant in project.get("unitTypes", []):
@@ -1332,7 +1334,7 @@ func _commit_story_sequence(
 			if (
 				node_value is Dictionary
 				and str(node_value.get("id", "")) == str(target.node_id)
-				and str(node_value.get("kind", "")) in ["story", "encounter"]
+				and str(node_value.get("kind", "")) in SCENE_TARGET_KINDS
 			):
 				node_value["dialogueIds"] = ids.duplicate()
 				changed = true
@@ -1474,7 +1476,10 @@ func _remember_story_context() -> void:
 	if preferred_story_target.is_empty():
 		CreatorContext.choose_dialogue(dialogue_id)
 	else:
-		CreatorContext.request_story(str(preferred_story_target.campaign_id), str(preferred_story_target.node_id), dialogue_id)
+		CreatorContext.request_story(
+			str(preferred_story_target.campaign_id), str(preferred_story_target.node_id),
+			dialogue_id, false, story_return_scene
+		)
 
 
 func _request_projects() -> void:
@@ -1484,11 +1489,14 @@ func _request_projects() -> void:
 func _request_leave(destination: String) -> void:
 	if not _commit_visible_line(false):
 		return
-	if CreatorContext.guided_workflow:
+	var back_to_outline := destination == "maps" and not story_return_scene.is_empty()
+	if back_to_outline or CreatorContext.guided_workflow:
 		if dirty and not _save():
 			return
 		_remember_story_context()
-		get_tree().change_scene_to_file("res://first_battle.tscn")
+		get_tree().change_scene_to_file(
+			story_return_scene if back_to_outline else "res://first_battle.tscn"
+		)
 		return
 	if destination != "projects" and dirty and not _save():
 		return
@@ -1667,8 +1675,13 @@ func _build_interface() -> void:
 	play_button.tooltip_text = _t("story.test_tooltip")
 	play_button.pressed.connect(_play_draft)
 	toolbar.add_child(play_button)
-	var maps_button := _button(_t("first_battle.back" if CreatorContext.guided_workflow else "story.back_map"), 230, 58)
-	maps_button.tooltip_text = _t("story.back_map_tooltip")
+	var back_key := "first_battle.back" if CreatorContext.guided_workflow else "story.back_map"
+	if story_return_scene == "res://campaign_editor.tscn":
+		back_key = "story.back_outline"
+	var maps_button := _button(_t(back_key), 230, 58)
+	maps_button.tooltip_text = _t(
+		"story.back_outline_tooltip" if back_key == "story.back_outline" else "story.back_map_tooltip"
+	)
 	maps_button.pressed.connect(_request_maps)
 	toolbar.add_child(maps_button)
 	var more_button := _button(_t("story.more"), 190, 58)

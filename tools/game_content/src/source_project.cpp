@@ -6383,10 +6383,10 @@ SourceTextResult add_source_dialogue_scene_json(
         return result;
     }
     const std::string* kind = string_member(*node, "kind");
-    if (kind == nullptr || *kind != "story") {
+    if (kind == nullptr || (*kind != "story" && *kind != "terminal")) {
         refuse_edit(
             result, SourceDiagnosticCode::invalid_value, node_path,
-            "new dialogue scenes must attach to a story node"
+            "new dialogue scenes must attach to a story node or ending"
         );
         return result;
     }

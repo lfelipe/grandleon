@@ -2,6 +2,9 @@
 # Real chapter creation, editor Test, native battle identity, and Return.
 extends SceneTree
 
+const VICTORY_LINE := "The ferry can sail again."
+const DEFEAT_LINE := "The ferry will have to wait for another crew."
+
 var checks := 0
 var failures := 0
 var library
@@ -147,6 +150,9 @@ func test_castle_from_new_campaign() -> void:
 	var winning_route: Dictionary = before_routes.filter(func(edge): return edge.when.result == "victory")[0]
 	var defeat_route: Dictionary = before_routes.filter(func(edge): return edge.when.result == "defeat")[0]
 	outline._close_outcomes()
+	if not await write_ending(str(defeat_route.targetNodeId), "Crossing Lost", DEFEAT_LINE):
+		return
+	outline = current_scene
 	outline._add_next_chapter()
 	await settle()
 	editor = current_scene
@@ -207,12 +213,82 @@ func test_castle_from_new_campaign() -> void:
 	check(editor.objective_candidate_label.text.contains("Win if") and editor.objective_candidate_label.text.contains("Raider"), "author makes the castle battle about the placed boss")
 	editor._close_objectives()
 	check(editor._save(), "authored castle saves with its own goal and hidden cells")
-	var map_source: String = editor.source
+	var victory_ending := str(winning_route.targetNodeId)
 	editor._request_projects()
 	await settle()
+	if not await write_ending(victory_ending, "Sluice Hall Reopened", VICTORY_LINE):
+		return
+	var authored: String = library.load_source(context.project_id).source
 	for players: int in [1, 2]:
 		await play_authored_castle(players)
-	check(library.load_source(context.project_id).source == map_source, "playing the new route never changes the authoring project")
+	check(library.load_source(context.project_id).source == authored, "playing the new route never changes the authoring project")
+	verify_exports(authored)
+
+func write_ending(node_id: String, title: String, line: String) -> bool:
+	var outline = current_scene
+	var button: Button = outline.ending_story_buttons.get(node_id)
+	check(button != null and button.text == "WRITE ENDING", "the outline offers to write this ending")
+	if button == null: return false
+	var before: Dictionary = outline._campaign_node(node_id).duplicate(true)
+	button.pressed.emit()
+	await settle()
+	var story = current_scene
+	check(story.scene_file_path == "res://story_editor.tscn", "the ending button opens Story")
+	if story.scene_file_path != "res://story_editor.tscn": return false
+	check(story.new_scene_layer.visible, "an ending with no scene opens the new scene form")
+	var target: Dictionary = story.story_targets[story.new_scene_target.selected]
+	check(target.node_id == node_id and target.kind == "terminal" and target.label.contains("Ending"),
+		"the new scene is preselected for the exact ending")
+	story.new_scene_title.text = title
+	story.new_scene_text.text = line
+	story.create_scene_button.pressed.emit()
+	await settle()
+	var scene_id := str(story._current_dialogue().id)
+	check(not story.new_scene_layer.visible and story.dirty, "creating the closing scene succeeds")
+	if story.new_scene_layer.visible: return false
+	story._request_maps()
+	await settle()
+	outline = current_scene
+	check(outline.scene_file_path == "res://campaign_editor.tscn", "Back saves and returns to Campaign Outline")
+	if outline.scene_file_path != "res://campaign_editor.tscn": return false
+	var expected := before.duplicate(true)
+	expected.dialogueIds = [scene_id]
+	check(outline._campaign_node(node_id) == expected, "the scene attaches without changing the ending's name or routes")
+	button = outline.ending_story_buttons.get(node_id)
+	check(button != null and button.has_focus() and button.text == "EDIT CLOSING SCENES",
+		"the original ending action regains focus and offers to edit")
+	if button == null: return false
+	button.pressed.emit()
+	await settle()
+	story = current_scene
+	check(not story.new_scene_layer.visible and story._current_dialogue().id == scene_id and
+		story.dialogue_text.text == line, "the action reopens the authored closing scene")
+	story._request_maps()
+	await settle()
+	return current_scene.scene_file_path == "res://campaign_editor.tscn"
+
+
+func verify_exports(authored: String) -> void:
+	var identity: String = context.project_id
+	var backup: Dictionary = library.export_project(identity)
+	var exporter = load("res://scripts/creator/portable_campaign_exporter.gd").new(library)
+	var playable: Dictionary = exporter.export_campaign_package(identity, "first_adventure")
+	check(backup.ok and playable.ok, "the adventure exports as both an editable backup and playable file")
+	if not backup.ok or not playable.ok: return
+	var path: String = library.root_path.get_base_dir().path_join("ferry-reopened")
+	var reopened = load("res://scripts/creator/project_library.gd").new(path)
+	var imported: Dictionary = reopened.import_project(backup.path)
+	check(imported.ok, "the editable backup opens in a fresh library")
+	if not imported.ok: return
+	var loaded: Dictionary = reopened.load_source(imported.id)
+	check(loaded.source.contains(VICTORY_LINE) and loaded.source.contains(DEFEAT_LINE),
+		"both authored closing scenes survive the editable backup")
+	var compiled: Dictionary = compiler.compile_source_json(loaded.source)
+	var from_editor: Dictionary = compiler.compile_source_json(authored)
+	check(compiled.ok and from_editor.ok and compiled.package == playable.package and
+		from_editor.package == FileAccess.get_file_as_bytes(playable.path),
+		"both exports carry the same native campaign that was actually played")
+
 
 func play_authored_castle(players: int) -> void:
 	var launch: Button = current_scene.test_one_button if players == 1 else current_scene.test_two_button
@@ -229,10 +305,15 @@ func play_authored_castle(players: int) -> void:
 	var revealed := false
 	var boss_id := 0
 	var attacks := 0
+	var saw_victory_scene := false
+	var saw_defeat_scene := false
 	var deadline := Time.get_ticks_msec() + 17000
-	while not player.campaign_complete and Time.get_ticks_msec() < deadline:
+	while (not player.campaign_complete or player._dialogue_visible()) and Time.get_ticks_msec() < deadline:
 		await process_frame
 		if player._dialogue_visible():
+			for line: Dictionary in player.dialogue_lines:
+				saw_victory_scene = saw_victory_scene or line.text == VICTORY_LINE
+				saw_defeat_scene = saw_defeat_scene or line.text == DEFEAT_LINE
 			player._advance_dialogue()
 			continue
 		if player._management_visible():
@@ -280,7 +361,10 @@ func play_authored_castle(players: int) -> void:
 	check(reached and entered and revealed, "normal turns take the victory route and moving a hero through the doorway reveals the castle in %dP" % players)
 	var remaining_enemies: Array = player.snapshot.get("units", []).filter(func(unit): return unit.side == "second" and unit.health > 0 and int(unit.id) != boss_id)
 	check(player.campaign_complete and player.final_outcome == "first_side_won" and attacks > 0 and not remaining_enemies.is_empty(), "defeating the authored boss ends the campaign without clearing the whole map in %dP" % players)
-	print("AUTHORED_CASTLE players=", players, " reached=", reached, " revealed=", revealed, " attacks=", attacks)
+	check(saw_victory_scene and not saw_defeat_scene,
+		"the actual %dP victory plays the closing scene for its authored route" % players)
+	print("AUTHORED_CASTLE players=", players, " reached=", reached, " revealed=", revealed,
+		" attacks=", attacks, " closing_scene=", saw_victory_scene)
 	player._leave_play_session()
 	await settle()
 

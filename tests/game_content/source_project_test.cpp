@@ -3360,8 +3360,22 @@ void creates_and_attaches_one_portable_dialogue_scene() {
             with_story, "demo", "battle", "scene_2", "Wrong Node",
             "star_field", "Blue One", "blue_unit", "Not here."
         ),
-        "scene creation refuses a non-story campaign node"
+        "scene creation refuses a battle node on the story attachment path"
     );
+    const auto closing = gc::add_source_dialogue_scene_json(
+        added.json, "demo", "end", "scene_2", "The Crossing at Dawn",
+        "star_field", "Blue One", "blue_unit", "The ferry can sail again."
+    );
+    const auto with_ending = gc::parse_source_project_json(closing.json);
+    expect(closing && with_ending && gc::compile(with_ending.source),
+           "a closing scene attaches through the native authoring path");
+    if (with_ending) {
+        const auto& terminal = with_ending.source.campaigns.front().nodes.back();
+        expect(terminal.kind == gc::CampaignNodeKind::terminal &&
+               terminal.dialogue_ids == std::vector{grandleon::core::stable_content_id_v1("scene_2")} &&
+               terminal.unconditional_targets.empty() && terminal.conditional_targets.empty(),
+               "the ending plays its own dialogue and remains terminal");
+    }
     expect(
         !gc::add_source_dialogue_scene_json(
             with_story, "demo", "intro", "scene_2", "Unknown Cast",

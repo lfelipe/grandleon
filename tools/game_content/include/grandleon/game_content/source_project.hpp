@@ -511,8 +511,8 @@ struct SourceMapCell final {
     std::string_view node_id, std::string_view shop_json
 );
 
-// Creates one complete scene and attaches it to an existing story node as one
-// validated edit. The opening speaker may name a unit type for portable
+// Creates one complete scene and attaches it to a story node or an ending
+// as one validated edit. The opening speaker may name a unit type for portable
 // portraits; backdrop may be empty to retain the ordinary flat presentation.
 [[nodiscard]] SourceTextResult add_source_dialogue_scene_json(
     std::string_view source_json,
