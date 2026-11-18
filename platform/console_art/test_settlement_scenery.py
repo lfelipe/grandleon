@@ -17,7 +17,13 @@ class SettlementTests(unittest.TestCase):
             radius = 1.53001 if kind == "orchard_bell" else 0.50001 if kind.startswith(("town_wall", "signal_beacon", "watch_ruin")) else 1.00001
             for part in parts:
                 points = part["vertices"]
-                self.assertTrue(all(abs(p[0]) <= radius and abs(p[2]) <= radius for p in points), kind)
+                if kind == "castle_door":
+                    # The gate uses two consecutive tiles from the first tile's
+                    # centre. The lantern frames extend 0.06 past their edges.
+                    self.assertTrue(all(abs(p[0]) <= 0.50001 and -0.56001 <= p[2] <= 1.56001
+                                        for p in points), kind)
+                else:
+                    self.assertTrue(all(abs(p[0]) <= radius and abs(p[2]) <= radius for p in points), kind)
                 self.assertTrue(all(0 <= i < len(points) for i in part["indices"]))
 
     def test_crlf_source_is_portable_and_stale_geometry_is_rejected(self):
