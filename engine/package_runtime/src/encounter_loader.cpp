@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include <grandleon/package_runtime/encounter_loader.hpp>
+#include <grandleon/package_runtime/dialogue.hpp>
 #include <grandleon/package_runtime/inventory.hpp>
 #include <grandleon/simulation/carried_inventory.hpp>
 
@@ -1122,6 +1123,23 @@ EncounterLoadResult load_encounter(
         if (!talk_reader.finished()) {
             return fail(EncounterLoadError::malformed_payload);
         }
+    }
+    for (const auto& unit : result.definition.units) {
+        if (package.find(SectionType::map_conversations, unit.id) == nullptr) continue;
+        const auto offer = load_map_conversation(package, unit.id);
+        if (offer.questions.empty() || unit.talk_record_id == 0 ||
+            offer.result_flag == unit.talk_record_id) {
+            return fail(EncounterLoadError::malformed_payload);
+        }
+        simulation::TalkReply reply;
+        reply.target = unit.id;
+        reply.flag = offer.result_flag;
+        for (const auto& question : offer.questions) {
+            for (const auto& answer : question.answers) {
+                if (answer.next == 0) reply.answers.push_back(answer.result);
+            }
+        }
+        result.definition.talk_replies.push_back(std::move(reply));
     }
 
     // What is said while this battle is on, out of the moments section. Optional

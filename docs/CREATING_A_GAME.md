@@ -132,6 +132,22 @@ Story scenes are optional. Add an opening, conversations or an ending when
 they help explain what happens. **Write Story** follows the selected battle;
 choose a scene when several lead into it, or create one where none exists.
 You can also attach an existing scene without changing the campaign's routes.
+
+### Give a conversation a choice
+
+In **Map & Battle → Battle Setup**, use **Talk & Story Choices** to select
+someone on the map. Open **Questions & Answers** and write the first
+question. Each answer can end the conversation or open a follow-up question.
+
+In **Campaign Outline**, open the battle's **Outcomes** and select the route
+the player would normally take after a win. Choose **Add Route → New Answer Detour** and
+pick the final reply that opens it. Under **After the detour**, choose the
+stage where the stories meet, or choose **New Ending** and write its closing
+dialogue. To send a reply straight to an existing stage, choose it as the
+condition on a route.
+
+Use **Play Adventure** in the Godot player to check the main route and each
+reply. The **Translations** screen includes the questions and answers.
 Named speakers and battlefield moments can
 reuse your characters. **Translations** lets you translate the game's copy
 and names, directly or through gettext-compatible PO files. Pending text is

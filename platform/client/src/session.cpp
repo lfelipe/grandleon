@@ -561,6 +561,7 @@ SessionError play_battle(
         } else if (intent.kind == IntentKind::talk) {
             command.type = sim::CommandType::talk;
             command.target_id = intent.target_id;
+            command.ability_id = intent.ability_id;
         } else {
             command.type = sim::CommandType::wait;
         }

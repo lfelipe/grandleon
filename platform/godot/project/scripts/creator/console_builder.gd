@@ -177,6 +177,11 @@ func start(target: String, project_id: String, campaign_id := "") -> Dictionary:
 	var ready := CampaignReadiness.playable_export(project, campaign_id)
 	if not ready.ok:
 		return ready
+	for campaign: Dictionary in campaigns:
+		for node: Dictionary in campaign.get("flow", {}).get("nodes", []):
+			for placement: Dictionary in node.get("placements", []):
+				if not placement.get("talk", {}).get("questions", []).is_empty():
+					return _failure("conversation_unsupported", Localization.text("conversation.console_unavailable"))
 	var checked: Dictionary = compiler.compile_source_json(str(loaded.source))
 	if not checked.ok:
 		return {

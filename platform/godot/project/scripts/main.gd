@@ -172,6 +172,9 @@ var toast_label: Label
 var fps_overlay: Label
 var toast_tween: Tween
 var dialogue_layer: Control
+var talk_panel: Control
+var talk_conversations: Dictionary = {}
+var talk_selection: Dictionary = {}
 var dialogue_shade: ColorRect
 var dialogue_speaker: Label
 var dialogue_text: RichTextLabel
@@ -483,6 +486,20 @@ func _stage_overview_active() -> bool:
 
 
 func _input(event: InputEvent) -> void:
+	if talk_panel != null and talk_panel.visible:
+		if event is InputEventJoypadButton and event.pressed:
+			if int(device_to_seat.get(event.device, -1)) != int(talk_selection.seat):
+				get_viewport().set_input_as_handled()
+			elif controls.matches("confirm", event.button_index):
+				talk_panel.activate_answer()
+				get_viewport().set_input_as_handled()
+			elif controls.matches("cancel", event.button_index):
+				talk_panel.hide()
+				get_viewport().set_input_as_handled()
+		elif event.is_action_pressed("ui_cancel"):
+			talk_panel.hide()
+			get_viewport().set_input_as_handled()
+		return
 	if _stage_overview_active():
 		var skip: bool = (event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_ENTER, KEY_SPACE, KEY_ESCAPE])
 		skip = skip or (event is InputEventJoypadButton and event.pressed and (controls.matches("confirm", event.button_index) or controls.matches("cancel", event.button_index)))
@@ -1655,6 +1672,7 @@ func _cycle_game_language() -> void:
 
 
 func _apply_localized_runtime_state(state: Dictionary) -> void:
+	talk_conversations = state.get("talk_conversations", talk_conversations)
 	var definitions_event: Dictionary = state.get("definitions", {})
 	if not definitions_event.is_empty():
 		definitions = definitions_event
@@ -2097,6 +2115,9 @@ func _create_dialogue(layer: CanvasLayer) -> void:
 	dialogue_hint.visible = not OS.has_feature("android")
 	dialogue_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	words.add_child(dialogue_hint)
+	talk_panel = load("res://scripts/map_conversation_panel.gd").new()
+	layer.add_child(talk_panel)
+	talk_panel.answered.connect(_submit_talk_answer)
 
 
 func _create_session_menu(layer: CanvasLayer) -> void:
@@ -2953,6 +2974,8 @@ func _handle_event(event: Dictionary) -> void:
 				dialogue_index = dialogue_lines.size() - event.get("lines", []).size()
 				_show_dialogue_line()
 		"battle_begins":
+			talk_panel.hide()
+			talk_conversations = event.get("talk_conversations", {})
 			if player_pack != null: player_pack.hide()
 			lan_waiting_for_host = false
 			PCAudio.play_music("banners_afar")
@@ -3097,6 +3120,7 @@ func _handle_event(event: Dictionary) -> void:
 				"reason": String(event.get("message", "unknown")),
 			}))
 		"battle_ended":
+			talk_panel.hide()
 			if player_pack != null: player_pack.hide()
 			for seat in action_popups.size():
 				_close_action_popup(seat)
@@ -3663,7 +3687,7 @@ func _accept_at(seat: int) -> void:
 		return
 	if not occupant.is_empty() and String(occupant.side) != "first":
 		if mode == "talk":
-			_submit("talk", selected, int(occupant.id), cursor)
+			_open_map_conversation(selected, occupant, cursor, seat)
 		else:
 			_submit("attack", selected, int(occupant.id), cursor, _attack_weapon(seat) if mode == "attack" else 0, seat)
 		return
@@ -3671,6 +3695,23 @@ func _accept_at(seat: int) -> void:
 		_show_toast(_ui("player.toast.talk_adjacent"))
 	else:
 		_submit("move", selected, 0, cursor)
+
+func _open_map_conversation(actor: int, target: Dictionary, cell: Vector2i, seat: int) -> void:
+	var target_id := int(target.id)
+	var pages: Array = talk_conversations.get(target_id, [])
+	if pages.is_empty():
+		_submit("talk", actor, target_id, cell)
+		return
+	var unit := _unit_by_id(actor)
+	if unit.is_empty() or absi(unit.x - cell.x) + absi(unit.y - cell.y) != 1:
+		_show_toast(_ui("player.toast.talk_adjacent"))
+		return
+	talk_selection = {"actor": actor, "target": target_id, "cell": cell, "seat": seat}
+	talk_panel.start(str(target.name), pages)
+
+func _submit_talk_answer(answer_id: int) -> void:
+	_submit("talk", int(talk_selection.actor), int(talk_selection.target), talk_selection.cell, answer_id, int(talk_selection.seat))
+	talk_selection.clear()
 
 
 func _submit(

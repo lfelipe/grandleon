@@ -482,7 +482,50 @@
             "flagId": {
               "$ref": "common.schema.json#/$defs/stableId",
               "description": "The world flag set to true when this character is talked off the board. A campaign transition reads it with a worldFlagEquals predicate. It is authored rather than derived because a battle-local character identity is a different number every time the character appears."
+            },
+            "replyFlagId": {
+              "$ref": "common.schema.json#/$defs/stableId",
+              "description": "The integer world flag that records the last final reply."
+            },
+            "nextReplyId": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 32768,
+              "description": "The next answer ID reserved for editing."
+            },
+            "questions": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 32,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "text", "answers"],
+                "properties": {
+                  "id": {"type": "integer", "minimum": 1, "maximum": 32767},
+                  "text": {"type": "string", "minLength": 1, "maxLength": 1024},
+                  "answers": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 4,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["id", "text"],
+                      "properties": {
+                        "id": {"type": "integer", "minimum": 1, "maximum": 32767},
+                        "text": {"type": "string", "minLength": 1, "maxLength": 240},
+                        "nextQuestionId": {"type": "integer", "minimum": 1, "maximum": 32767}
+                      }
+                    }
+                  }
+                }
+              }
             }
+          },
+          "dependentRequired": {
+            "replyFlagId": ["questions"],
+            "questions": ["replyFlagId"]
           },
           "required": [
             "flagId"

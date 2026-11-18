@@ -82,6 +82,32 @@ std::string_view error_name(DialogueError error) noexcept {
     return "unknown";
 }
 
+core::MapConversation load_map_conversation(
+    const LoadedPackage& package, std::uint64_t placement_id
+) {
+    const auto* record = package.find(SectionType::map_conversations, placement_id);
+    if (record == nullptr) return {};
+    Reader reader(package, *record);
+    core::MapConversation result;
+    std::uint8_t count = 0;
+    if (!reader.u64(result.result_flag) || !reader.string(result.key) ||
+        !reader.u8(count) || count > 32) return {};
+    for (std::uint8_t index = 0; index < count; ++index) {
+        core::ConversationQuestion question;
+        std::uint8_t answers = 0;
+        if (!reader.u16(question.id) || !reader.string(question.text) ||
+            !reader.u8(answers) || answers > 4) return {};
+        for (std::uint8_t answer_index = 0; answer_index < answers; ++answer_index) {
+            core::ConversationAnswer answer;
+            if (!reader.u16(answer.result) || !reader.u16(answer.next) ||
+                !reader.string(answer.text)) return {};
+            question.answers.push_back(std::move(answer));
+        }
+        result.questions.push_back(std::move(question));
+    }
+    return reader.finished() && core::valid_map_conversation(result) ? result : core::MapConversation{};
+}
+
 DialogueLoadResult load_dialogue(
     const LoadedPackage& package,
     std::uint64_t dialogue_id

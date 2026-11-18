@@ -550,6 +550,12 @@ inline constexpr std::int16_t maximum_stat = 16383;
 // battle runs thirty-two thousand rounds.
 inline constexpr std::uint32_t maximum_arrival_round = 32767;
 
+struct TalkReply final {
+    UnitId target{};
+    ContentId flag{};
+    std::vector<std::uint16_t> answers;
+};
+
 struct EncounterDefinition final {
     std::uint16_t width{};
     std::uint16_t height{};
@@ -617,6 +623,7 @@ struct EncounterDefinition final {
     // a second copy of.
     std::vector<Position> deployment_tiles;
     InventoryMode inventory_mode{InventoryMode::legacy};
+    std::vector<TalkReply> talk_replies{};
 
 };
 
@@ -1205,6 +1212,7 @@ struct Command final {
     UnitId unit_id{};
     Position destination{};
     UnitId target_id{};
+    // A talk uses this existing command field for its final reply ID.
     ContentId ability_id{};
     // Which carried weapon an attack uses. Zero means the weapon in hand, so a
     // command written before weapons could be chosen means what it always did.
@@ -1457,6 +1465,8 @@ struct Event final {
     ContentId content_id{};
     core::ContentCategory content_category{};
     std::uint64_t ground_item_id{};
+    ContentId reply_flag{};
+    std::uint16_t reply{};
 
 };
 
@@ -2120,6 +2130,7 @@ private:
     std::vector<WeaponDefinition> weapons_;
     std::vector<ItemDefinition> items_;
     std::vector<ObjectiveDefinition> objectives_;
+    std::vector<TalkReply> talk_replies_;
 };
 
 struct Encounter::CreateResult final {

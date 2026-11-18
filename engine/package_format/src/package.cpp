@@ -211,6 +211,7 @@ bool is_known_section(std::uint32_t type) {
         case SectionType::encounter_inventory:
         case SectionType::member_rules:
         case SectionType::map_visual_visibility:
+        case SectionType::map_conversations:
             return true;
     }
     return false;

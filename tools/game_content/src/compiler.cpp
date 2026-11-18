@@ -1236,6 +1236,13 @@ CompileResult compile(const GameSource& source) {
     for (const Objective& definition : source.objectives) {
         objectives_by_id.emplace(definition.id, &definition);
     }
+    std::set<StableId> talk_flags;
+    std::map<StableId, std::set<std::uint16_t>> reply_results;
+    for (const auto& encounter : source.encounters) {
+        for (const auto& placement : encounter.placements) {
+            if (placement.talk_flag_id != 0) talk_flags.insert(placement.talk_flag_id);
+        }
+    }
     for (const Encounter& definition : source.encounters) {
         const std::string path =
             "encounters[" + std::to_string(definition.id) + "]";
@@ -1312,6 +1319,22 @@ CompileResult compile(const GameSource& source) {
         bool has_scaled_placement = false;
         const auto found_map = maps_by_id.find(definition.map_id);
         for (const Placement& placement : definition.placements) {
+            const auto& offer = placement.conversation;
+            if (!offer.questions.empty()) {
+                if (!core::valid_map_conversation(offer) || placement.talk_flag_id == 0 ||
+                    placement.arrival_round != 0 || !talk_flags.insert(offer.result_flag).second) {
+                    result.diagnostics.push_back({
+                        DiagnosticCode::invalid_placement, path + ".placements.talk", placement.id
+                    });
+                } else {
+                    auto& results = reply_results[offer.result_flag];
+                    for (const auto& question : offer.questions) {
+                        for (const auto& answer : question.answers) {
+                            if (answer.next == 0) results.insert(answer.result);
+                        }
+                    }
+                }
+            }
             validate_count(
                 placement.patrol.size(), count_limit_u16,
                 path + ".placements.patrol", placement.id, result.diagnostics
@@ -1883,6 +1906,18 @@ CompileResult compile(const GameSource& source) {
                     result.diagnostics
                 );
                 for (const CampaignPredicate& predicate : branch.predicates) {
+                    if (predicate.kind == CampaignPredicateKind::world_flag_equals) {
+                        const auto reply = reply_results.find(predicate.subject);
+                        if (reply != reply_results.end() &&
+                            (predicate.value_type != 2 || predicate.value < 1 ||
+                             predicate.value > 32767 ||
+                             reply->second.count(static_cast<std::uint16_t>(predicate.value)) == 0)) {
+                            result.diagnostics.push_back({
+                                DiagnosticCode::invalid_transition, path + ".nodes.transitions.when.reply",
+                                node.id
+                            });
+                        }
+                    }
                     // A world flag names no record, so there is nothing to
                     // resolve it against: the key *is* the identity. Objective
                     // and inventory predicates name records in their own
@@ -2081,6 +2116,9 @@ CompileResult compile(const GameSource& source) {
     package.required_engine = source.required_engine;
     package.target = source.target;
     package.required_features = source.required_features;
+    if (!reply_results.empty()) {
+        package.required_features |= package_format::feature_map_conversations;
+    }
     package.sections = {
         package_format::SectionSource{
             package_format::SectionType::manifest,
@@ -2861,6 +2899,34 @@ CompileResult compile(const GameSource& source) {
                 }
                 section.records.push_back({encounter->id, std::move(bytes)});
             }
+            return section;
+        }(),
+        [&source]() {
+            package_format::SectionSource section;
+            section.type = package_format::SectionType::map_conversations;
+            for (const auto& encounter : source.encounters) {
+                for (const auto& placement : encounter.placements) {
+                    const auto& offer = placement.conversation;
+                    if (offer.questions.empty()) continue;
+                    Bytes bytes;
+                    put_u64(bytes, offer.result_flag);
+                    put_string(bytes, offer.key);
+                    bytes.push_back(static_cast<std::uint8_t>(offer.questions.size()));
+                    for (const auto& question : offer.questions) {
+                        put_u16(bytes, question.id);
+                        put_string(bytes, question.text);
+                        bytes.push_back(static_cast<std::uint8_t>(question.answers.size()));
+                        for (const auto& answer : question.answers) {
+                            put_u16(bytes, answer.result);
+                            put_u16(bytes, answer.next);
+                            put_string(bytes, answer.text);
+                        }
+                    }
+                    section.records.push_back({placement.id, std::move(bytes)});
+                }
+            }
+            std::sort(section.records.begin(), section.records.end(),
+                      [](const auto& lhs, const auto& rhs) { return lhs.stable_id < rhs.stable_id; });
             return section;
         }(),
         // What is said during a battle, per encounter. Built by hand and pruned

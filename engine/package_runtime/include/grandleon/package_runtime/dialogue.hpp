@@ -2,6 +2,7 @@
 #pragma once
 
 #include <grandleon/package_format/package.hpp>
+#include <grandleon/core/map_conversation.hpp>
 
 #include <cstdint>
 #include <string>
@@ -75,6 +76,11 @@ struct DialogueLoadResult final {
 [[nodiscard]] DialogueLoadResult load_dialogue(
     const package_format::LoadedPackage& package,
     std::uint64_t dialogue_id
+);
+
+[[nodiscard]] core::MapConversation load_map_conversation(
+    const package_format::LoadedPackage& package,
+    std::uint64_t placement_id
 );
 
 }  // namespace grandleon::package_runtime

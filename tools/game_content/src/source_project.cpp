@@ -2662,6 +2662,56 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                         output_placement.talk_flag_id = mapper.reference(
                             *talk_object, "flagId", placement_path + ".talk"
                         );
+                        const auto questions_path = placement_path + ".talk.questions";
+                        const auto* questions = mapper.array(
+                            *talk_object, "questions", placement_path + ".talk", false
+                        );
+                        if (questions != nullptr) {
+                            auto& conversation = output_placement.conversation;
+                            conversation.result_flag = mapper.reference(
+                                *talk_object, "replyFlagId", placement_path + ".talk"
+                            );
+                            const auto key = talk_object->find("replyFlagId");
+                            if (key != talk_object->end()) {
+                                if (const auto* text = std::get_if<std::string>(&key->second.value)) {
+                                    conversation.key = *text;
+                                }
+                            }
+                            for (const auto& value : *questions) {
+                                const auto* question = mapper.object(value, questions_path);
+                                if (question == nullptr) continue;
+                                core::ConversationQuestion parsed;
+                                parsed.id = static_cast<std::uint16_t>(
+                                    mapper.integer(*question, "id", questions_path, 1, 32767).value_or(0)
+                                );
+                                parsed.text = mapper.string(*question, "text", questions_path).value_or("");
+                                const auto* answers = mapper.array(*question, "answers", questions_path);
+                                if (answers == nullptr) continue;
+                                for (const auto& answer_value : *answers) {
+                                    const auto* answer = mapper.object(answer_value, questions_path + ".answers");
+                                    if (answer == nullptr) continue;
+                                    parsed.answers.push_back({
+                                        mapper.string(*answer, "text", questions_path).value_or(""),
+                                        static_cast<std::uint16_t>(mapper.integer(
+                                            *answer, "nextQuestionId", questions_path, 1, 32767, false
+                                        ).value_or(0)),
+                                        static_cast<std::uint16_t>(mapper.integer(
+                                            *answer, "id", questions_path, 1, 32767
+                                        ).value_or(0)),
+                                    });
+                                }
+                                conversation.questions.push_back(std::move(parsed));
+                            }
+                            if (!core::valid_map_conversation(conversation) ||
+                                conversation.result_flag == output_placement.talk_flag_id) {
+                                mapper.error(
+                                    SourceDiagnosticCode::invalid_value, questions_path,
+                                    "write each question and answer, then link every follow-up from an earlier question"
+                                );
+                            }
+                        } else if (talk_object->find("replyFlagId") != talk_object->end()) {
+                            mapper.error(SourceDiagnosticCode::missing_value, questions_path, "a reply flag needs questions");
+                        }
                     }
                 }
                 // When this character comes in, if it is not here from the
@@ -4606,12 +4656,25 @@ SourceTextResult move_source_campaign_chapter_json(
         return result;
     }
 
-    const auto primary_transition = [](Object& node) -> Object* {
+    std::set<std::string> reply_flags;
+    for (Json& value : *nodes) {
+        auto* node = std::get_if<Object>(&value.value);
+        Array* placements = node == nullptr ? nullptr : mutable_array(*node, "placements");
+        if (placements == nullptr) continue;
+        for (Json& stored : *placements) {
+            auto* placement = std::get_if<Object>(&stored.value);
+            Object* talk = placement == nullptr ? nullptr : mutable_object(*placement, "talk");
+            const std::string* flag = talk == nullptr ? nullptr : string_member(*talk, "replyFlagId");
+            if (flag != nullptr) reply_flags.insert(*flag);
+        }
+    }
+    const auto primary_transition = [&reply_flags](Object& node) -> Object* {
         Array* transitions = mutable_array(node, "transitions");
         if (transitions == nullptr) return nullptr;
         Object* best = nullptr;
         std::int64_t best_priority =
             std::numeric_limits<std::int64_t>::max();
+        bool chosen_reply = true;
         for (Json& value : *transitions) {
             auto* transition = std::get_if<Object>(&value.value);
             const std::int64_t* priority =
@@ -4622,12 +4685,19 @@ SourceTextResult move_source_campaign_chapter_json(
                 transition == nullptr
                     ? nullptr
                     : string_member(*transition, "targetNodeId");
-            if (priority == nullptr || target == nullptr || target->empty() ||
-                *priority >= best_priority) {
+            if (priority == nullptr || target == nullptr || target->empty()) {
                 continue;
             }
+            const auto when = transition->find("when");
+            const bool reply = when != transition->end() && std::any_of(
+                reply_flags.begin(), reply_flags.end(),
+                [&](const auto& flag) { return reads_world_flag(when->second, flag); }
+            );
+            if ((reply && !chosen_reply) ||
+                (reply == chosen_reply && *priority >= best_priority)) continue;
             best = transition;
             best_priority = *priority;
+            chosen_reply = reply;
         }
         return best;
     };
@@ -5633,8 +5703,10 @@ SourceTextResult set_source_placement_talkable_json(
                                                  *existing_talk, "flagId"
                                              );
     if (!talkable) {
-        if (existing_flag != nullptr &&
-            reads_world_flag(editable.document, *existing_flag)) {
+        const std::string* reply_flag = existing_talk == nullptr
+            ? nullptr : string_member(*existing_talk, "replyFlagId");
+        if ((existing_flag != nullptr && reads_world_flag(editable.document, *existing_flag)) ||
+            (reply_flag != nullptr && reads_world_flag(editable.document, *reply_flag))) {
             refuse_edit(
                 result,
                 SourceDiagnosticCode::invalid_value,
@@ -5770,8 +5842,10 @@ SourceTextResult remove_source_placement_json(
                                                : string_member(
                                                      *removed_talk, "flagId"
                                                  );
-    if (removed_talk_flag != nullptr &&
-        reads_world_flag(editable.document, *removed_talk_flag)) {
+    const std::string* removed_reply_flag = removed_talk == nullptr
+        ? nullptr : string_member(*removed_talk, "replyFlagId");
+    if ((removed_talk_flag != nullptr && reads_world_flag(editable.document, *removed_talk_flag)) ||
+        (removed_reply_flag != nullptr && reads_world_flag(editable.document, *removed_reply_flag))) {
         refuse_edit(
             result,
             SourceDiagnosticCode::invalid_value,

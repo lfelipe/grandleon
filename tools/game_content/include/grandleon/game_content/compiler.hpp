@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include <grandleon/core/map_conversation.hpp>
+
 #include <grandleon/package_format/package.hpp>
 
 #include <array>
@@ -627,6 +629,7 @@ struct Placement final {
     std::int16_t two_player_x{};
     std::int16_t two_player_y{};
     bool states_two_player_position{false};
+    core::MapConversation conversation{};
 };
 
 // What an encounter says about the player's own troops before the first

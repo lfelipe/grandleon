@@ -1142,6 +1142,12 @@ BattleProgression derive_battle_progression(
                 {campaign::WorldValueType::boolean, 1}
             )
         );
+        if (event.reply_flag != 0) {
+            result.operations.push_back(campaign::set_world_flag(
+                {package.game_id, core::ContentCategory::world_flag, event.reply_flag},
+                {campaign::WorldValueType::integer, event.reply}
+            ));
+        }
     }
     return result;
 }

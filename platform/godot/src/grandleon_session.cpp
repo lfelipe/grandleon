@@ -31,6 +31,10 @@ namespace {
 namespace gd = ::godot;
 namespace pf = package_format;
 namespace pr = package_runtime;
+
+constexpr pf::LoadOptions godot_load_options{
+    {0, 1, 0}, pf::TargetProfile::desktop, pf::feature_map_conversations, 40, 10'000
+};
 namespace sim = simulation;
 
 gd::String text(std::string_view value) {
@@ -272,6 +276,7 @@ sim::ContentId intent_content_id(const client::Intent& intent) {
     switch (intent.kind) {
         case client::IntentKind::attack: return intent.weapon_id;
         case client::IntentKind::ability: return intent.ability_id;
+        case client::IntentKind::talk: return intent.ability_id;
         case client::IntentKind::use_item: return intent.item_id;
         default: return 0;
     }
@@ -1031,7 +1036,7 @@ gd::Dictionary GrandleonSession::package_languages(
         bytes[index] = input[index];
     }
     auto loaded = pf::load_mock_package(
-        bytes, {{0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 10'000}
+        bytes, godot_load_options
     );
     if (!loaded) {
         result["error"] = text(pf::error_name(loaded.error));
@@ -1072,7 +1077,7 @@ gd::Dictionary GrandleonSession::package_presentation(
         bytes[index] = input[index];
     }
     auto loaded = pf::load_mock_package(
-        bytes, {{0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 10'000}
+        bytes, godot_load_options
     );
     if (!loaded) {
         result["error"] = text(pf::error_name(loaded.error));
@@ -1116,7 +1121,7 @@ gd::Dictionary GrandleonSession::inspect_campaign(
     const auto size = static_cast<std::size_t>(package_bytes.size());
     const std::vector<std::uint8_t> bytes(package_bytes.ptr(), package_bytes.ptr() + size);
     auto loaded = pf::load_mock_package(
-        bytes, {{0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 10'000}
+        bytes, godot_load_options
     );
     if (!loaded) return fail("package_invalid", pf::error_name(loaded.error));
     auto presentation = pr::load_presentation(loaded.package);
@@ -1259,6 +1264,9 @@ gd::Dictionary GrandleonSession::localized_state() const {
     }
     if (snapshot.has_value()) {
         result["snapshot"] = event_dictionary(*snapshot);
+        if (package_.find(pf::SectionType::map_conversations) != nullptr) {
+            result["talk_conversations"] = conversation_dictionary(snapshot->snapshot);
+        }
     }
     if (campaign.has_value()) {
         result["campaign"] = event_dictionary(*campaign);
@@ -1296,7 +1304,7 @@ bool GrandleonSession::start_bytes(
 ) {
     auto loaded = pf::load_mock_package(
         package_bytes,
-        {{0, 1, 0}, pf::TargetProfile::desktop, 0, 32, 10'000}
+        godot_load_options
     );
     if (!loaded) {
         std::lock_guard<std::mutex> lock(state_mutex_);
@@ -1785,6 +1793,7 @@ void GrandleonSession::submit_intent(
         intent.kind = client::IntentKind::finish_collection;
     } else if (kind == "talk") {
         intent.kind = client::IntentKind::talk;
+        intent.ability_id = static_cast<std::uint64_t>(content_id);
     } else if (kind == "deploy") {
         intent.kind = client::IntentKind::deploy_to;
     } else if (kind == "begin") {
@@ -2157,6 +2166,38 @@ gd::Dictionary GrandleonSession::management_dictionary(
     return result;
 }
 
+gd::Dictionary GrandleonSession::conversation_dictionary(
+    const sim::EncounterSnapshot& snapshot
+) const {
+    gd::Dictionary conversations;
+    for (const auto& unit : snapshot.units) {
+        if (!sim::on_board(unit)) continue;
+        const auto offer = pr::load_map_conversation(package_, unit.id);
+        if (offer.questions.empty()) continue;
+        const std::string prefix = "talk." + offer.key;
+        gd::Array questions;
+        for (const auto& question : offer.questions) {
+            gd::Dictionary page;
+            page["id"] = question.id;
+            page["text"] = text(pr::localized_text(package_, language_,
+                prefix + ".questions." + std::to_string(question.id), question.text));
+            gd::Array answers;
+            for (const auto& answer : question.answers) {
+                gd::Dictionary option;
+                option["id"] = answer.result;
+                option["next"] = answer.next;
+                option["text"] = text(pr::localized_text(package_, language_,
+                    prefix + ".answers." + std::to_string(answer.result), answer.text));
+                answers.push_back(option);
+            }
+            page["answers"] = answers;
+            questions.push_back(page);
+        }
+        conversations[signed_id(unit.id)] = questions;
+    }
+    return conversations;
+}
+
 gd::Dictionary GrandleonSession::event_dictionary(
     const FrontendEvent& event
 ) const {
@@ -2230,6 +2271,9 @@ gd::Dictionary GrandleonSession::event_dictionary(
             );
             result["player_side"] = side_name(event.player_side);
             result["theme"] = presentation_.theme;
+            if (package_.find(pf::SectionType::map_conversations) != nullptr) {
+                result["talk_conversations"] = conversation_dictionary(event.snapshot);
+            }
             gd::Array terrain;
             gd::Array terrain_features;
             for (const std::uint64_t id : event.terrain) {

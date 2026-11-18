@@ -1833,6 +1833,7 @@ Encounter::CreateResult create_encounter(
     encounter.weapons_ = definition.weapons;
     encounter.items_ = definition.items;
     encounter.objectives_ = definition.objectives;
+    encounter.talk_replies_ = definition.talk_replies;
     std::sort(
         encounter.objectives_.begin(),
         encounter.objectives_.end(),
@@ -2892,6 +2893,14 @@ CommandResult Encounter::apply(const Command& command) {
             return result;
         }
 
+        const auto reply = std::find_if(talk_replies_.begin(), talk_replies_.end(),
+            [target](const TalkReply& entry) { return entry.target == target->id; });
+        if (reply != talk_replies_.end() &&
+            (std::find(reply->answers.begin(), reply->answers.end(),
+                       command.ability_id) == reply->answers.end())) {
+            result.error = CommandError::invalid_command;
+            return result;
+        }
         // Off the board, alive, carrying the health they had. No
         // `unit_defeated` beside this and no health written to zero: see
         // `UnitSnapshot::departed` for why both of those are the whole point.
@@ -2907,6 +2916,10 @@ CommandResult Encounter::apply(const Command& command) {
                 target->talk_record_id
             }
         );
+        if (reply != talk_replies_.end()) {
+            result.events.back().reply_flag = reply->flag;
+            result.events.back().reply = static_cast<std::uint16_t>(command.ability_id);
+        }
     } else if (command.type == CommandType::wait) {
         result.events.push_back(
             {

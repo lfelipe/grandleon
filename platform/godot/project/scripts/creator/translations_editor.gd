@@ -140,6 +140,15 @@ static func gather_player_strings(value: Dictionary) -> Array[Dictionary]:
 				gathered, campaign_id, node_id,
 				str(node.get("name", node_id)), node.get("placements", [])
 			)
+			for placement: Dictionary in node.get("placements", []):
+				var talk: Dictionary = placement.get("talk", {})
+				var prefix := "talk." + str(talk.get("replyFlagId", ""))
+				for question: Dictionary in talk.get("questions", []):
+					_add_message(gathered, "%s.questions.%d" % [prefix, int(question.id)],
+						str(question.text), "Question / " + str(node.name))
+					for answer: Dictionary in question.answers:
+						_add_message(gathered, "%s.answers.%d" % [prefix, int(answer.id)],
+							str(answer.text), "Answer / " + str(node.name))
 	gathered.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
 		return str(left.id) < str(right.id)
 	)

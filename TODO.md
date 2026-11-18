@@ -232,6 +232,11 @@ tracked above.
   position or patrol waypoint. Extend an authored victory route while keeping
   its defeat route. Start a fresh project, add a 20×14 castle finale, and
   verify entry, reveal and boss victory in both 1P and 2P.
+- [x] Author questions and follow-up replies for map conversations in Godot.
+  Route a final reply to a detour that rejoins the campaign or has its own
+  ending. Verify both paths, skipping or declining, and local battle recovery.
+- [ ] Bring conversation choices to Nintendo 64 and PlayStation. Verify
+  reply selection, local saves and the resulting routes on both renderers.
 - [ ] Verify that one author can recreate the Steel and Cedar campaign from a
   blank project using the editor. Check both player modes, the reinforcement
   waves, the shop, the castle reveal and the final battle.

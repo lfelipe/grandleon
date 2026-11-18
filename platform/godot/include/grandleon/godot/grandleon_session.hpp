@@ -314,6 +314,9 @@ private:
     [[nodiscard]] ::godot::Dictionary event_dictionary(
         const FrontendEvent& event
     ) const;
+    [[nodiscard]] ::godot::Dictionary conversation_dictionary(
+        const simulation::EncounterSnapshot& snapshot
+    ) const;
     [[nodiscard]] ::godot::Dictionary snapshot_dictionary(
         const simulation::EncounterSnapshot& snapshot,
         const std::vector<client::RosterEntry>& roster,

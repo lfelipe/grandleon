@@ -274,6 +274,8 @@ var talk_layer: Control
 var talk_title: Label
 var talk_guidance: Label
 var talk_write_button: Button
+var talk_questions_button: Button
+var conversation_editor: Control
 var talk_remove_button: Button
 var talk_campaign_id := ""
 var talk_node_id := ""
@@ -334,6 +336,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_cancel_touch_brush()
 		elif dependency_layer != null and dependency_layer.visible:
 			_close_dependency_review()
+		elif conversation_editor != null and conversation_editor.visible:
+			_close_conversation_editor()
 		elif talk_layer != null and talk_layer.visible:
 			_close_talk_choice()
 		elif look_layer != null and look_layer.visible:
@@ -1992,6 +1996,48 @@ func _write_talk_conversation() -> void:
 	talk_layer.visible = false
 	CreatorContext.choose_dialogue(dialogue_id)
 	get_tree().change_scene_to_file("res://story_editor.tscn")
+
+func _edit_conversation_questions() -> void:
+	for placement: Dictionary in _talk_node().get("placements", []):
+		if placement.id == talk_placement_id:
+			talk_layer.hide()
+			var talk: Dictionary = placement.get("talk", {})
+			conversation_editor.open(talk.get("questions", []), int(talk.get("nextReplyId", 1)))
+			if OS.has_feature("android"): _fit_mobile_canvas()
+			return
+
+func _close_conversation_editor() -> void:
+	conversation_editor.hide()
+	talk_layer.show()
+	talk_questions_button.grab_focus()
+
+func _apply_conversation_questions(questions: Array, next_reply_id: int) -> void:
+	var candidate: Dictionary = project.duplicate(true)
+	for campaign: Dictionary in candidate.campaigns:
+		if campaign.id != talk_campaign_id: continue
+		for node: Dictionary in campaign.flow.nodes:
+			if node.id != talk_node_id: continue
+			for placement: Dictionary in node.get("placements", []):
+				if placement.id != talk_placement_id: continue
+				var talk: Dictionary = placement.talk
+				if not talk.has("replyFlagId"):
+					talk.replyFlagId = "reply_" + str(compiler.stable_source_id(talk.flagId))
+				talk.questions = questions
+				talk.nextReplyId = next_reply_id
+				var updated := JSON.stringify(_integer_numbers(candidate), "  ", true) + "\n"
+				var checked: Dictionary = compiler.compile_source_json(updated)
+				if not checked.ok:
+					conversation_editor.feedback.text = _t("conversation.editor.invalid", {"detail": _diagnostic_detail(checked)})
+					return
+				if _integer_numbers(talk) != _integer_numbers(_talk_node().placements.filter(func(unit): return unit.id == talk_placement_id)[0].talk):
+					_push_undo(source)
+					source = updated
+					redo_stack.clear()
+					dirty = true
+					_read_source()
+					_refresh_maps_after_edit(talk_cell_index)
+				_close_conversation_editor()
+				return
 
 
 func _coop_opening_dialogue_id() -> String:
@@ -5354,12 +5400,19 @@ func _build_talk_overlay() -> void:
 	talk_write_button = _button(_t("map.talk.write"), 840, 66)
 	talk_write_button.pressed.connect(_write_talk_conversation)
 	column.add_child(talk_write_button)
+	talk_questions_button = _button(_t("conversation.editor.title"), 840, 66)
+	talk_questions_button.pressed.connect(_edit_conversation_questions)
+	column.add_child(talk_questions_button)
 	talk_remove_button = _button(_t("map.talk.remove"), 840, 66)
 	talk_remove_button.pressed.connect(_remove_talk_choice)
 	column.add_child(talk_remove_button)
 	var done := _button(_t("map.talk.done"), 840, 66)
 	done.pressed.connect(_close_talk_choice)
 	column.add_child(done)
+	conversation_editor = load("res://scripts/creator/conversation_editor.gd").new()
+	add_child(conversation_editor)
+	conversation_editor.applied.connect(_apply_conversation_questions)
+	conversation_editor.cancelled.connect(_close_conversation_editor)
 
 
 func _build_copy_setup_overlay() -> void:
