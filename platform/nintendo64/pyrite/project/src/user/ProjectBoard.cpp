@@ -3190,6 +3190,11 @@ void update_shell_input() {
     if (shell.phase == ShellPhase::shop) {
         shop_input(0U, pressed);
         if (shell.shop_ui.players() > 1U) shop_input(1U, directional_input(JOYPAD_PORT_2, 1U));
+        if (grandleon_project_review_driver && !shell.user_took_over) {
+            for (unsigned player = 0; player < shell.shop_ui.players(); ++player) {
+                if (!shell.shop_ui.state(player).ready) shell.shop_ui.toggle_ready(shell.shop, player);
+            }
+        }
         if (shell.shop_ui.all_ready()) (void)continue_from_shop();
         return;
     }
