@@ -363,6 +363,25 @@ static void draw_ground_equipment(uint32_t* ot, char** next, const char* end,
         draw_box(ot, next, end, sx - 4, sy - 6, 9, 3, 222, 179, 79);
         draw_box(ot, next, end, sx - 1, sy - 3, 3, 3, 255, 221, 115);
     }
+    for (unsigned index = 0; index < grandleon_game_glint_count(); ++index) {
+        int32_t x, y, z, depth;
+        int16_t sx, sy;
+        if (!grandleon_game_glint_tile((uint16_t)index, &x, &y, &z) ||
+            !ps1_render_project_world(x, y, z, &sx, &sy, &depth) ||
+            sx < 5 || sx > 315 || sy < 5 || sy > 235) continue;
+        draw_box(ot, next, end, sx - 3, sy, 7, 1, 242, 207, 119);
+        draw_box(ot, next, end, sx, sy - 3, 1, 7, 255, 235, 179);
+    }
+}
+
+static void draw_discovery_notice(uint32_t* ot, char** next, const char* end, int x) {
+    const char* notice = grandleon_game_discovery_notice();
+    if (!*notice) return;
+    const char* pack_full = grandleon_game_discovery_pack_full();
+    draw_panel(ot, next, end, x, 8, 168, *pack_full ? 49 : 34);
+    draw_text(ot, next, end, x + 8, 13, grandleon_game_discovery_heading(), 94, 206, 227);
+    draw_text(ot, next, end, x + 8, 27, notice, 255, 222, 139);
+    if (*pack_full) draw_text(ot, next, end, x + 8, 41, pack_full, 230, 215, 185);
 }
 
 void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* packet_end) {
@@ -372,6 +391,9 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
     grandleon_game_ui_state(&state);
     draw_movement_range(ordering_table, next_packet, packet_end, &state);
     draw_ground_equipment(ordering_table, next_packet, packet_end, &state);
+    if (!state.combat_view_active && (state.mode == GRANDLEON_UI_BROWSE ||
+        state.mode == GRANDLEON_UI_MOVE))
+        draw_discovery_notice(ordering_table, next_packet, packet_end, 6);
     if (state.mode == GRANDLEON_UI_MOVE || state.mode == GRANDLEON_UI_ACTION ||
         state.mode == GRANDLEON_UI_ATTACK || state.mode == GRANDLEON_UI_ABILITY) {
         draw_unit_brackets(ordering_table, next_packet, packet_end, 0, state.local_player, 0);
@@ -722,6 +744,7 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
         int panel_y;
         const int height = (pack ? 65 : 46) + (state.menu_count < 5 ? state.menu_count : 5) * 17;
         panel_position(width, height, &x, &panel_y);
+        if (!pack) draw_discovery_notice(ordering_table, next_packet, packet_end, x < 160 ? 146 : 6);
         draw_panel(ordering_table, next_packet, packet_end, x, panel_y, width, height);
         draw_button(ordering_table, next_packet, packet_end, x + 9, panel_y + height - 19, 'X', GRANDLEON_TEXT_SELECT);
         draw_text(ordering_table, next_packet, packet_end, x + 7, panel_y + 5,

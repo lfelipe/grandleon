@@ -64,6 +64,14 @@ def emit_definition(
             for value in simulation["deployment_tiles"]
         ) + "};",
     ]
+    for discovery in simulation.get("hidden_items", []):
+        weapon = "true" if discovery["weapon"] else "false"
+        glint = "true" if discovery["glint"] else "false"
+        lines.append(
+            f"    definition.hidden_items.push_back({{{int(discovery['flag'])}ULL,"
+            f"{int(discovery['item'])}ULL,{int(discovery['x'])},{int(discovery['y'])},"
+            f"{weapon},{glint}}});"
+        )
     for source in simulation["units"]:
         lines += [
             "    { sim::UnitDefinition value{};",

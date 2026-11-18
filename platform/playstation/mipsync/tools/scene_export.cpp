@@ -547,6 +547,7 @@ int main(int argc, char** argv) {
     pf::LoadOptions options;
     options.engine_version = {0, 1, 0};
     options.target = pf::TargetProfile::desktop;
+    options.supported_features = pf::feature_hidden_items;
     options.maximum_units_per_encounter = 48;
     options.maximum_records_per_section = 20'000;
     const pf::LoadResult package = pf::load_mock_package(bytes, options);
@@ -728,6 +729,20 @@ int main(int argc, char** argv) {
            << ",\n    \"random_seed\": ";
     write_id(output, loaded.definition.random_seed);
     output << ",\n    \"inventory_mode\": " << static_cast<unsigned>(loaded.definition.inventory_mode);
+    output << ",\n    \"hidden_items\": [";
+    bool first_discovery = true;
+    for (const auto& discovery : loaded.definition.hidden_items) {
+        if (!first_discovery) output << ',';
+        first_discovery = false;
+        output << "{\"flag\":";
+        write_id(output, discovery.flag);
+        output << ",\"item\":";
+        write_id(output, discovery.item);
+        output << ",\"x\":" << discovery.x << ",\"y\":" << discovery.y
+               << ",\"weapon\":" << (discovery.weapon ? "true" : "false")
+               << ",\"glint\":" << (discovery.glint ? "true" : "false") << '}';
+    }
+    output << ']';
     output << ",\n    \"movement_cost\": ";
     write_numbers(output, loaded.definition.movement_cost);
     output << ",\n    \"deployment_tiles\": ";

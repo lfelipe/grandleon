@@ -238,8 +238,13 @@ tracked above.
 - [x] Place hidden items and use discoveries to open detours in Godot. Show
   event routes in Campaign Outline. Verify crossing a tile, stopping to find
   the item, carrying it into the next stage, and recovery with a full pack.
-- [ ] Bring conversation choices and hidden-item discoveries to Nintendo 64
-  and PlayStation. Verify local saves and the resulting routes on both.
+- [x] Bring hidden-item discoveries to Nintendo 64 and PlayStation. Keep
+  the optional glint on visible tiles and carry the item in the finder's pack.
+  Verify that stopping on the tile and passing through it lead to the authored
+  detour and main route respectively. Resume the detour from SRAM and memory
+  card saves after restarting the consoles.
+- [ ] Bring conversation questions and replies to Nintendo 64 and PlayStation.
+  Verify reply selection, local saves and the resulting routes on both.
 - [ ] Verify that one author can recreate the Steel and Cedar campaign from a
   blank project using the editor. Check both player modes, the reinforcement
   waves, the shop, the castle reveal and the final battle.

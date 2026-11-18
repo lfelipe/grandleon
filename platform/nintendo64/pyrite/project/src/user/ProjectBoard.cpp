@@ -125,6 +125,8 @@ struct BoardResources final {
     std::optional<client::CampaignSession> campaign;
     grandleon::campaign::BattleBinding battle_binding;
     std::vector<sim::Event> battle_events;
+    sim::Event discovery{};
+    std::uint32_t discovery_frame{};
     T3DVertPacked* terrain_vertex_arena{};
     std::size_t terrain_cell_capacity{};
     T3DVertPacked* cells{};
@@ -2637,6 +2639,7 @@ void configure_campaign_board(const pr::EncounterLoadResult& content) {
     combat.reduced_motion = reduced_motion;
     battle_ui = {};
     board.battle_events.clear();
+    board.discovery = {};
     camera_configured = false;
     restore_checkpoint_delay = 0U;
     build_environment_vertices();
@@ -3950,6 +3953,13 @@ void remember_transition_events() {
     const gp::GameplaySlice::Transition& transition = board.game.transition();
     if (!transition.accepted) return;
     queue_event_moments(transition.events);
+    for (const auto& event : transition.events) {
+        if (event.type != sim::EventType::hidden_item_found) continue;
+        board.discovery = event;
+        board.discovery_frame = frame_count;
+        debugf("GRANDLEON_PYRITE_HIDDEN_ITEM x=%d y=%d on_ground=%u\n",
+            event.position.x, event.position.y, event.ground_item_id != 0U ? 1U : 0U);
+    }
     board.battle_events.insert(
         board.battle_events.end(), transition.events.begin(),
         transition.events.end()
@@ -5452,7 +5462,7 @@ bool draw_speaker_portrait(
 
 void draw_ground_equipment() {
     const auto& snapshot = board.game.snapshot();
-    if (snapshot.ground_items.empty()) return;
+    if (snapshot.ground_items.empty() && snapshot.hidden_items.empty()) return;
     rdpq_mode_push();
     rdpq_mode_begin();
         rdpq_mode_zbuf(false, false);
@@ -5467,21 +5477,52 @@ void draw_ground_equipment() {
     const float dy = current_camera.eye_y - current_camera.target_y;
     const float depth = current_camera.eye_z - current_camera.target_z;
     const float length = std::max(0.01F, std::sqrt(dy * dy + depth * depth));
-    for (const auto& pile : snapshot.ground_items) {
-        const auto cell = static_cast<std::size_t>(pile.position.y) * snapshot.width + pile.position.x;
-        if (cell >= board.content->terrain.size() || marked[cell] || (visibility_hidden(cell) && !board.visibility_revealed[cell])) continue;
+    const auto draw_marker = [&](sim::Position tile, bool glint) {
+        const auto cell = static_cast<std::size_t>(tile.y) * snapshot.width + tile.x;
+        if (cell >= board.content->terrain.size() || marked[cell] ||
+            (visibility_hidden(cell) && !board.visibility_revealed[cell])) return;
         marked[cell] = true;
-        const float dx = (world_x(pile.position.x, snapshot.width) + 20) / render_scale - current_camera.target_x;
-        const float dz = (world_z(pile.position.y, snapshot.height) - 20) / render_scale - current_camera.target_z;
+        const float dx = (world_x(tile.x, snapshot.width) + 20) / render_scale - current_camera.target_x;
+        const float dz = (world_z(tile.y, snapshot.height) - 20) / render_scale - current_camera.target_z;
         const float floor = (terrain_lift(board.content->terrain[cell]) + 3) / render_scale;
         const int x = static_cast<int>(160.0F + dx * scale);
         const int y = static_cast<int>(120.0F + (dz * dy + (current_camera.target_y - floor) * depth) / length * scale);
-        if (x < 4 || y < 4 || x > 315 || y > 235) continue;
+        if (x < 4 || y < 4 || x > 315 || y > 235) return;
+        if (glint) {
+            rdpq_set_prim_color({242, 207, 119, 255});
+            rdpq_fill_rectangle(x - 3, y, x + 4, y + 1);
+            rdpq_set_prim_color({255, 235, 179, 255});
+            rdpq_fill_rectangle(x, y - 3, x + 1, y + 4);
+            return;
+        }
         rdpq_set_prim_color({26, 32, 35, 255}); rdpq_fill_rectangle(x-3, y-3, x+4, y+4);
         rdpq_set_prim_color({228, 188, 99, 255}); rdpq_fill_rectangle(x-2, y-1, x+3, y+3);
         rdpq_fill_rectangle(x-1, y-2, x+2, y-1);
+    };
+    for (const auto& pile : snapshot.ground_items) draw_marker(pile.position, false);
+    for (const auto& discovery : snapshot.hidden_items) {
+        if (discovery.glint && view::discovery_glint(frame_count, discovery.flag))
+            draw_marker({discovery.x, discovery.y}, true);
     }
     rdpq_mode_pop();
+}
+
+void draw_discovery_notice(int x) {
+    const auto& discovery = board.discovery;
+    if (discovery.content_id == 0U || motion.active || combat.active ||
+        frame_count - board.discovery_frame >= 105U) return;
+    const auto section = discovery.content_category == grandleon::core::ContentCategory::weapon
+        ? package_format::SectionType::weapons : package_format::SectionType::items;
+    const auto& package = board.runtime.package();
+    const auto original = pr::content_name(package, section, discovery.content_id);
+    const auto name = pr::localized_content_name(package, game_language(), section, discovery.content_id, original);
+    const bool grounded = discovery.ground_item_id != 0U;
+    ui_panel(x, 13, 174, grounded ? 55 : 41, 22);
+    P64::Debug::printStart();
+    display_printf(x + 8, 19, "%s", ui(console::Message::found_equipment));
+    display_printf(x + 8, 34, "%.*s",
+        static_cast<int>(console_prefix_bytes(name, 22U)), name.data());
+    if (grounded) display_printf(x + 8, 51, "%s", ui(console::Message::pack_full));
 }
 
 void draw_battle_ui() {
@@ -5570,6 +5611,7 @@ void draw_battle_ui() {
         return;
     }
     if (!combat.active) draw_ground_equipment();
+    if (battle_ui.phase == BattleUiPhase::board) draw_discovery_notice(8);
     if (board.game.snapshot().collecting_loot && !combat.active && battle_ui.phase == BattleUiPhase::board) {
         ui_panel(8, 211, 304, 23, 23);
         display_printf(17, 218, "%s  START", ui(console::Message::collect_equipment));
@@ -5695,6 +5737,8 @@ void draw_battle_ui() {
     }
     const int menu_x = panel.x;
     const int menu_y = panel.y;
+    if (battle_ui.phase == BattleUiPhase::action)
+        draw_discovery_notice(menu_x < 160 ? 139 : 8);
     ui_panel(menu_x, menu_y, menu_width, menu_height,
         battle_ui.phase == BattleUiPhase::action ? 23 : 19);
     P64::Debug::printStart();

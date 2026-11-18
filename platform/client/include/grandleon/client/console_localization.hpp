@@ -173,7 +173,7 @@ enum class Message : std::uint8_t {
     shop, shop_footer, buy_one, price, stock, sold_out, unlimited_stock, choose_hero,
     not_in_battle, insufficient_gold, shop_unavailable,
     gold, collect_equipment, pack, pick_up, exchange, leave, drop, finish_collection,
-    pack_full, pack_empty, pack_capacity, use_item,
+    pack_full, pack_empty, pack_capacity, use_item, found_equipment,
 };
 
 enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
@@ -281,6 +281,9 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
         case Message::pack_full:
             return selected == Language::spanish ? "BOLSA LLENA"
                  : selected == Language::portuguese_brazil ? "MOCHILA CHEIA" : "PACK FULL";
+        case Message::found_equipment:
+            return selected == Language::spanish ? "HALLAZGO"
+                 : selected == Language::portuguese_brazil ? "ACHADO" : "FOUND";
         case Message::pack_empty:
             return selected == Language::spanish ? "VACÍO"
                  : selected == Language::portuguese_brazil ? "VAZIO" : "EMPTY";

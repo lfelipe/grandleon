@@ -33,7 +33,6 @@
     "map.hidden_item.route_hint": "Para abrir um desvio após a descoberta, escolha Novo desvio por evento no roteiro da campanha.",
     "map.hidden_item.move": "Mover para outra casa",
     "map.hidden_item.remove": "Remover item escondido",
-    "map.hidden_item.console_unavailable": "Campanhas com itens escondidos podem ser jogadas no Godot. Para exportar para console, remova os itens escondidos e as condições de rota associadas.",
     "map.resize.blocked_hidden": "Mova {count} item(ns) escondido(s) para dentro do novo mapa antes de redimensionar.",
     "player.hidden_item.found": "Encontrou {item}",
     "player.hidden_item.pack_full": "Encontrou {item} · Mochila cheia, o item ficou nesta casa",

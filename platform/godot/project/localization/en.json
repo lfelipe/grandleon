@@ -33,7 +33,6 @@
     "map.hidden_item.route_hint": "To open a detour when players find this, select New Event Detour in Campaign Outline.",
     "map.hidden_item.move": "Move to Another Tile",
     "map.hidden_item.remove": "Remove Hidden Item",
-    "map.hidden_item.console_unavailable": "Campaigns with hidden items currently play in the Godot player. Remove the hidden items and their route conditions to export to a console.",
     "map.resize.blocked_hidden": "Move {count} hidden item(s) inside the new map before resizing.",
     "player.hidden_item.found": "Found {item}",
     "player.hidden_item.pack_full": "Found {item} · Pack full, item left on this tile",

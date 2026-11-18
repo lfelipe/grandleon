@@ -15,6 +15,7 @@ extern "C" {
 #include <grandleon/campaign/save.hpp>
 #include <grandleon/core/currency.hpp>
 #include <grandleon/campaign_runtime/character_rules.hpp>
+#include <grandleon/campaign_runtime/event_consequences.hpp>
 #include <grandleon/campaign_runtime/inventory_consequences.hpp>
 #include <grandleon/client/console_localization.hpp>
 #include <grandleon/client/console_name_editor.hpp>
@@ -113,7 +114,9 @@ struct ActionMenu final {
     }
 };
 
-std::vector<sim::Event> s_inventory_events;
+std::vector<sim::Event> s_battle_events;
+sim::Event s_discovery{};
+std::uint32_t s_discovery_tick{};
 sim::Encounter::CreateResult* s_created{};
 sim::EncounterSnapshot s_snapshot{};
 sim::UnitId s_selected{};
@@ -1526,7 +1529,14 @@ bool apply_command(
     else if (command.type == sim::CommandType::talk) grandleon_audio_cue(GRANDLEON_SOUND_TALK);
     queue_event_moments(result.events);
     for (const auto& event : result.events) {
-        if (character::inventory_consequence_event(event.type)) s_inventory_events.push_back(event);
+        if (character::inventory_consequence_event(event.type) ||
+            character::route_consequence_event(event.type)) s_battle_events.push_back(event);
+        if (event.type != sim::EventType::hidden_item_found) continue;
+        s_discovery = event;
+        s_discovery_tick = s_ambient_ticks;
+        psx::Line().text("MIPSYNC_HIDDEN_ITEM x=").decimal(event.position.x)
+            .text(" y=").decimal(event.position.y)
+            .text(" on_ground=").decimal(event.ground_item_id != 0U).flush();
     }
     s_snapshot = s_created->encounter.snapshot();
     if (!s_motion.active) (void)update_visual_visibility(s_snapshot);
@@ -1808,7 +1818,7 @@ bool advance_story() {
 bool complete_battle(bool victory, bool force_pending = false) {
     std::vector<camp::CampaignOutcomeOperation> operations;
     if (!force_pending) {
-        character::append_inventory_consequences(operations, s_campaign_graph.campaign.package_id, s_inventory_events,
+        character::append_inventory_consequences(operations, s_campaign_graph.campaign.package_id, s_battle_events,
             grandleon_generated_carried_inventory() ? sim::InventoryMode::carried : sim::InventoryMode::legacy,
             [](sim::UnitId unit) -> camp::PersistentEntityId {
                 const auto source = grandleon_generated_unit_source(unit);
@@ -1817,6 +1827,7 @@ bool complete_battle(bool victory, bool force_pending = false) {
                 }
                 return {};
             });
+        character::append_event_consequences(operations, s_campaign_graph.campaign.package_id, s_battle_events);
     }
     if (!force_pending) {
         for (const auto& unit : s_snapshot.units) {
@@ -2033,7 +2044,8 @@ bool start_encounter() {
         [&](const sim::UnitDefinition& unit) {
             return std::find(excluded.begin(), excluded.end(), unit.id) != excluded.end();
         }), definition.units.end());
-    s_inventory_events.clear();
+    s_battle_events.clear();
+    s_discovery = {};
     s_created = new (std::nothrow) sim::Encounter::CreateResult(sim::create_encounter(definition));
     if (!s_created || !*s_created) {
         psx::Line().text("MIPSYNC_SIM_INIT_FAIL error=")
@@ -2210,11 +2222,7 @@ extern "C" uint16_t grandleon_game_ground_count(void) {
     return static_cast<std::uint16_t>(s_snapshot.ground_items.size());
 }
 
-extern "C" int grandleon_game_ground_tile(uint16_t index, int32_t* x, int32_t* y, int32_t* z) {
-    if (index >= s_snapshot.ground_items.size() || !x || !y || !z) return 0;
-    const auto tile = s_snapshot.ground_items[index].position;
-    for (unsigned earlier = 0; earlier < index; ++earlier)
-        if (s_snapshot.ground_items[earlier].position == tile) return 0;
+static int project_equipment_tile(sim::Position tile, int32_t* x, int32_t* y, int32_t* z) {
     unsigned hidden = 0;
     if (visibility_hidden(static_cast<std::size_t>(tile.y * s_map_width + tile.x), &hidden) &&
         !s_visibility_revealed[hidden]) return 0;
@@ -2222,6 +2230,26 @@ extern "C" int grandleon_game_ground_tile(uint16_t index, int32_t* x, int32_t* y
     *y = terrain_surface(tile, s_map_width) + 4096;
     *z = (s_map_height - tile.y * 2 - 1) * 65536;
     return 1;
+}
+
+extern "C" int grandleon_game_ground_tile(uint16_t index, int32_t* x, int32_t* y, int32_t* z) {
+    if (index >= s_snapshot.ground_items.size() || !x || !y || !z) return 0;
+    const auto tile = s_snapshot.ground_items[index].position;
+    for (unsigned earlier = 0; earlier < index; ++earlier)
+        if (s_snapshot.ground_items[earlier].position == tile) return 0;
+    return project_equipment_tile(tile, x, y, z);
+}
+
+extern "C" uint16_t grandleon_game_glint_count(void) {
+    if (s_campaign_mode != CampaignMode::battle || s_snapshot.deploying) return 0;
+    return static_cast<std::uint16_t>(s_snapshot.hidden_items.size());
+}
+
+extern "C" int grandleon_game_glint_tile(uint16_t index, int32_t* x, int32_t* y, int32_t* z) {
+    if (index >= s_snapshot.hidden_items.size() || !x || !y || !z) return 0;
+    const auto& discovery = s_snapshot.hidden_items[index];
+    if (!discovery.glint || !view::discovery_glint(s_ambient_ticks / 2U, discovery.flag)) return 0;
+    return project_equipment_tile({discovery.x, discovery.y}, x, y, z);
 }
 
 extern "C" uint16_t grandleon_game_map_controller(uint16_t pressed) {
@@ -2686,6 +2714,21 @@ extern "C" const char* grandleon_game_pack_incoming(void) {
     return "";
 }
 
+extern "C" const char* grandleon_game_discovery_notice(void) {
+    if (s_campaign_mode != CampaignMode::battle || s_discovery.content_id == 0U ||
+        s_motion.active || s_ambient_ticks - s_discovery_tick >= 105U) return "";
+    return equipment_label(grandleon_generated_equipment_name(s_language_index,
+        static_cast<std::uint32_t>(s_discovery.content_category), s_discovery.content_id), 22U);
+}
+
+extern "C" const char* grandleon_game_discovery_heading(void) {
+    return ui(console::Message::found_equipment);
+}
+
+extern "C" const char* grandleon_game_discovery_pack_full(void) {
+    return s_discovery.ground_item_id != 0U ? ui(console::Message::pack_full) : "";
+}
+
 extern "C" const char* grandleon_game_gold(void) {
     std::uint64_t total = 0;
     for (const auto& stack : s_campaign_save.state.store) {
@@ -2693,7 +2736,7 @@ extern "C" const char* grandleon_game_gold(void) {
             stack.item.stable_id == grandleon::core::gold_currency_id) total += stack.quantity;
     }
     if (s_campaign_mode == CampaignMode::battle && !s_campaign_completion_handled) {
-        for (const auto& event : s_inventory_events) {
+        for (const auto& event : s_battle_events) {
             if (event.type != sim::EventType::gold_gained || event.amount <= 0 ||
                 event.content_category != grandleon::core::ContentCategory::currency ||
                 event.content_id != grandleon::core::gold_currency_id) continue;

@@ -37,4 +37,11 @@ struct IdlePose final {
     };
 }
 
+// One brief flash per four seconds at 30 Hz. The authored identity shifts
+// each tile's phase without advancing the battle's random number generator.
+[[nodiscard]] constexpr bool discovery_glint(std::uint32_t tick, std::uint64_t flag) noexcept {
+    const auto seed = static_cast<std::uint32_t>(flag ^ (flag >> 32U));
+    return (tick + seed) % 120U < 9U;
+}
+
 }  // namespace grandleon::view

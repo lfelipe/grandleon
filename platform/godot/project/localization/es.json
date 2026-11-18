@@ -33,7 +33,6 @@
     "map.hidden_item.route_hint": "Para abrir un desvío al encontrarlo, elige Nuevo desvío por evento en el esquema de campaña.",
     "map.hidden_item.move": "Mover a otra casilla",
     "map.hidden_item.remove": "Quitar objeto oculto",
-    "map.hidden_item.console_unavailable": "Las campañas con objetos ocultos se juegan actualmente en Godot. Quita los objetos ocultos y sus condiciones de ruta para exportar a consola.",
     "map.resize.blocked_hidden": "Mueve {count} objeto(s) oculto(s) dentro del nuevo mapa antes de cambiar el tamaño.",
     "player.hidden_item.found": "Hallazgo: {item}",
     "player.hidden_item.pack_full": "Hallazgo: {item} · Mochila llena, el objeto queda en esta casilla",

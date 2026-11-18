@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 #include <grandleon/campaign_runtime/campaign_runtime.hpp>
 #include <grandleon/campaign_runtime/character_rules.hpp>
+#include <grandleon/campaign_runtime/event_consequences.hpp>
 #include <grandleon/campaign_runtime/inventory_consequences.hpp>
 
 #include <grandleon/core/random.hpp>
@@ -1116,33 +1117,7 @@ BattleProgression derive_battle_progression(
     append_inventory_consequences(result.operations, package.game_id, events,
                                   inventory_mode, claimed_by_a_member);
 
-    // Routes read the authored identities of battlefield events. Those flags
-    // belong to the campaign even when the actor is a temporary ally.
-    for (const simulation::Event& event : events) {
-        if (event.type == simulation::EventType::hidden_item_found && event.world_flag != 0) {
-            result.operations.push_back(campaign::set_world_flag(
-                {package.game_id, core::ContentCategory::world_flag, event.world_flag},
-                {campaign::WorldValueType::boolean, 1}
-            ));
-            continue;
-        }
-        if (event.type != simulation::EventType::unit_talked) continue;
-        if (event.content_id == 0U) continue;
-        result.operations.push_back(
-            campaign::set_world_flag(
-                {package.game_id,
-                 core::ContentCategory::world_flag,
-                 event.content_id},
-                {campaign::WorldValueType::boolean, 1}
-            )
-        );
-        if (event.world_flag != 0) {
-            result.operations.push_back(campaign::set_world_flag(
-                {package.game_id, core::ContentCategory::world_flag, event.world_flag},
-                {campaign::WorldValueType::integer, event.reply}
-            ));
-        }
-    }
+    append_event_consequences(result.operations, package.game_id, events);
     return result;
 }
 
