@@ -195,8 +195,12 @@ open the project on a PC to build an N64 ROM or PS1 disc.
 
 ![Testing and exporting a game](screenshots/native-guide/06-test-and-export.gif)
 
-Console exports report their resource limits. The editor also shows fielded
-units and N64 map cells used; a console limit does not stop PC editing or play.
+In **Map & Battle**, open **Console limits** to see the map's size, its N64
+terrain memory, and the terrain types shared by the campaign. The map and
+resize preview warn when a layout exceeds a console size limit. PlayStation
+exports measure the generated geometry and memory. You can keep editing,
+saving and playing on PC when a console limit is exceeded.
+
 The PS1 disc has no Sony licence sector and needs a compatible test setup.
 See [Setting up](SETUP.md) for builders and the [project README](../README.md)
 for downloadable campaign packages.

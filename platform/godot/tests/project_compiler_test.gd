@@ -77,6 +77,10 @@ func _init() -> void:
 				_expect("demo fits Nintendo 64", targets[1].fits, true)
 				_expect("PlayStation limit is measured", targets[2].units_per_encounter, 48)
 				_expect("demo fits PlayStation", targets[2].fits, true)
+				_expect("PS1 reports the scene side limit", targets[2].map_side_limit, 64)
+				_expect("PS1 reports the shared vertex pool limit", targets[2].vertex_pool, 4352)
+				_expect("PS1 reports the shared triangle pool limit", targets[2].triangle_pool, 4096)
+			_check_campaign_atlas(compiler)
 
 			var crowded_data: Dictionary = source_data.duplicate(true)
 			var wave_added := false
@@ -618,6 +622,43 @@ func _init() -> void:
 		print("project compiler smoke passed")
 	quit(1 if failures > 0 else 0)
 
+
+
+func _check_campaign_atlas(compiler) -> void:
+	var path := "res://content/templates/starter_campaign.json"
+	var project: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(path))
+	var map: Dictionary = project.maps[0].duplicate(true)
+	map.id = "atlas_detour"
+	var kinds := ["water", "road", "forest", "mountain", "sand", "snow", "swamp", "hills", "ruins", "grass"]
+	for index in kinds.size():
+		map.terrain[index] = kinds[index]
+	project.maps.append(map)
+	var campaign: Dictionary = project.campaigns[0]
+	var entry_battle: Dictionary = campaign.flow.nodes[1]
+	var detour := entry_battle.duplicate(true)
+	detour.id = "atlas_branch"
+	detour.mapId = map.id
+	campaign.flow.nodes.append(detour)
+
+	var before: Dictionary = compiler.target_budget_report(JSON.stringify(_integer_numbers(project)))
+	_expect("atlas report reads the starter with an unattached map", before.ok, true)
+	if not before.ok: return
+	_expect("unreachable terrain does not take a slot in the campaign atlas",
+		before.campaign_terrain[0].terrain_kinds.size(), 4)
+
+	entry_battle.transitions.append({
+		"id": "visit_detour", "targetNodeId": detour.id, "priority": 1,
+		"when": {"kind": "objectiveResult", "objectiveId": "defeat_all_opponents", "result": "victory"},
+	})
+	var after: Dictionary = compiler.target_budget_report(JSON.stringify(_integer_numbers(project)))
+	_expect("atlas report reads branching campaigns", after.ok, true)
+	if not after.ok: return
+	_expect("both routes contribute to the cartridge terrain atlas",
+		after.campaign_terrain[0].terrain_kinds.size(), 10)
+	_expect("an over-budget campaign uses more than the real texture atlas limit",
+		int(after.targets[1].terrain_kinds_limit), 9)
+	_expect("roads and bridges share the same atlas entry",
+		after.campaign_terrain[0].terrain_kinds.has("bridge"), false)
 
 func _source_project_path() -> String:
 	for argument in OS.get_cmdline_user_args():

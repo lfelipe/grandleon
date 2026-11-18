@@ -183,6 +183,8 @@ var grid: GridContainer
 var empty_label: Label
 var status_label: Label
 var target_budget_label: Label
+var target_budget_details: Label
+var target_budget_button: Button
 var save_button: Button
 var undo_button: Button
 var redo_button: Button
@@ -539,6 +541,7 @@ func _select_map(index: int) -> void:
 	selected_placement_id = ""
 	pending_placement = {}
 	_refresh_encounters()
+	_update_target_budget_labels()
 	_refresh_palette()
 	_refresh_grid(0)
 	_update_tool_selection()
@@ -623,7 +626,7 @@ func _select_encounter(index: int) -> void:
 	encounter_index = index
 	moving_hidden_item = ""
 	_remember_battle_selection()
-	_refresh_target_budget()
+	_update_target_budget_labels()
 	_reset_deployment_edit()
 	_reset_patrol_edit()
 	selected_placement_id = ""
@@ -676,14 +679,21 @@ func _refresh_target_budget() -> void:
 	if compiler == null or target_budget_label == null:
 		return
 	budget_report = compiler.target_budget_report(source)
+	_update_target_budget_labels()
+
+
+func _update_target_budget_labels() -> void:
 	target_budget_label.text = _target_impact_summary()
 	var over := _current_stage_is_over_budget() or _current_map_is_over_budget()
+	over = over or not _n64_atlas_warnings(_active_campaign_terrain()).is_empty()
 	target_budget_label.add_theme_color_override(
 		"font_color", Color("ffca63") if over else Color("a9bdc9")
 	)
-	target_budget_label.tooltip_text = (
-		_t("map.targets.tooltip")
-	)
+	target_budget_label.tooltip_text = _t("map.targets.tooltip")
+	target_budget_button.disabled = not budget_report.get("ok", false) or _current_map().is_empty()
+	target_budget_details.visible = target_budget_button.button_pressed and not target_budget_button.disabled
+	if target_budget_details.visible:
+		target_budget_details.text = _target_budget_detail_text()
 
 
 func _budget_target(target_id: String) -> Dictionary:
@@ -716,10 +726,75 @@ func _current_stage_is_over_budget(additional_units: int = 0) -> bool:
 	return false
 
 
+func _map_dimension_warnings(width: int, height: int) -> PackedStringArray:
+	var warnings := PackedStringArray()
+	var cells_limit := int(_budget_target("nintendo64").get("cells_per_map", 0))
+	if cells_limit > 0 and width * height > cells_limit:
+		warnings.append(_t("map.targets.map_over_budget"))
+	var side_limit := int(_budget_target("playstation").get("map_side_limit", 0))
+	if side_limit > 0 and maxi(width, height) > side_limit:
+		warnings.append(_t("map.targets.ps1_map_over_budget", {"limit": side_limit}))
+	return warnings
+
+
 func _current_map_is_over_budget() -> bool:
 	var map := _current_map()
-	var limit := int(_budget_target("nintendo64").get("cells_per_map", 0))
-	return limit > 0 and int(map.get("width", 0)) * int(map.get("height", 0)) > limit
+	return not _map_dimension_warnings(int(map.get("width", 0)), int(map.get("height", 0))).is_empty()
+
+
+func _active_campaign_terrain() -> Dictionary:
+	var encounter := _current_encounter()
+	if encounter.is_empty():
+		return {}
+	var identity := str(compiler.stable_source_id(str(encounter.campaign_id)))
+	for value: Dictionary in budget_report.get("campaign_terrain", []):
+		if str(value.campaign_id) == identity:
+			return value
+	return {}
+
+
+func _n64_atlas_warnings(terrain: Dictionary) -> PackedStringArray:
+	var warnings := PackedStringArray()
+	var kinds: Array = terrain.get("terrain_kinds", [])
+	var limit := int(_budget_target("nintendo64").get("terrain_kinds_limit", 0))
+	if limit > 0 and kinds.size() > limit:
+		warnings.append(_t("map.targets.n64_atlas_over_budget", {
+			"kinds": kinds.size(), "limit": limit,
+		}))
+	if terrain.get("unknown_terrain", false):
+		warnings.append(_t("map.targets.n64_atlas_unknown"))
+	return warnings
+
+
+func _target_budget_detail_text() -> String:
+	var map := _current_map()
+	var width := int(map.get("width", 0))
+	var height := int(map.get("height", 0))
+	var n64 := _budget_target("nintendo64")
+	var ps1 := _budget_target("playstation")
+	var lines := PackedStringArray([
+		_t("map.targets.n64_details", {
+			"terrain_kib": str(width * height * int(n64.get("terrain_bytes_per_cell", 0)) / 1024.0).trim_suffix(".0"),
+			"ram_mib": int(float(n64.get("main_ram_bytes", 0)) / 1048576.0),
+		}),
+	])
+	var atlas := _active_campaign_terrain()
+	if not atlas.is_empty():
+		var kinds := PackedStringArray()
+		for kind: String in atlas.terrain_kinds:
+			kinds.append(_t("map.terrain." + kind))
+		lines.append(_t("map.targets.n64_atlas", {
+			"count": kinds.size(), "limit": n64.get("terrain_kinds_limit", 0),
+			"terrain": ", ".join(kinds),
+		}))
+	lines.append(_t("map.targets.ps1_details", {
+		"width": width, "height": height, "side_limit": ps1.get("map_side_limit", 0),
+		"vertices": ps1.get("vertex_pool", 0), "triangles": ps1.get("triangle_pool", 0),
+		"ram_mib": int(float(ps1.get("main_ram_bytes", 0)) / 1048576.0),
+		"texture_kib": int(float(ps1.get("texture_vram_bytes", 0)) / 1024.0),
+	}))
+	lines.append(_t("map.targets.export_details"))
+	return "\n".join(lines)
 
 
 func _target_impact_summary(additional_units: int = 0) -> String:
@@ -742,8 +817,10 @@ func _target_impact_summary(additional_units: int = 0) -> String:
 		summary += _t("map.targets.map_cells", {
 			"cells": int(map.get("width", 0)) * int(map.get("height", 0)), "limit": cell_limit,
 		})
-	if _current_map_is_over_budget():
-		summary += _t("map.targets.map_over_budget_suffix")
+	var warnings := _map_dimension_warnings(int(map.get("width", 0)), int(map.get("height", 0)))
+	warnings.append_array(_n64_atlas_warnings(_active_campaign_terrain()))
+	if not warnings.is_empty():
+		summary += "  ·  " + "  ·  ".join(warnings)
 	return summary
 
 
@@ -4744,9 +4821,12 @@ func _update_resize_preview() -> void:
 		lines.append(_t("map.resize.cuts_landmark", {"landmark": cut_landmark}))
 	if not blocked:
 		lines.append(_t("map.resize.safe"))
+	var console_warnings := _map_dimension_warnings(resize_width, resize_height)
+	lines.append_array(console_warnings)
 	resize_preview_label.text = "\n".join(lines)
+	var preview_color := Color("72e08f") if console_warnings.is_empty() else Color("ffca63")
 	resize_preview_label.add_theme_color_override(
-		"font_color", Color("ff7a83") if blocked else Color("72e08f")
+		"font_color", Color("ff7a83") if blocked else preview_color
 	)
 	resize_apply_button.disabled = blocked or (
 		old_width == resize_width and old_height == resize_height
@@ -5177,7 +5257,19 @@ func _build_interface() -> void:
 	target_budget_label = _label(_t("map.targets.checking"), 15, Color("a9bdc9"))
 	target_budget_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	target_budget_label.custom_minimum_size.y = 24
-	board_column.add_child(target_budget_label)
+	target_budget_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var target_row := HBoxContainer.new()
+	target_row.add_theme_constant_override("separation", 12)
+	board_column.add_child(target_row)
+	target_row.add_child(target_budget_label)
+	target_budget_button = _button(_t("map.targets.details"), 220, 42)
+	target_budget_button.toggle_mode = true
+	target_budget_button.toggled.connect(func(_enabled: bool) -> void: _update_target_budget_labels())
+	target_row.add_child(target_budget_button)
+	target_budget_details = _label("", 16, Color("a9bdc9"))
+	target_budget_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	target_budget_details.hide()
+	board_column.add_child(target_budget_details)
 	var board_scroll := ScrollContainer.new()
 	mobile_board_scroll = board_scroll
 	board_scroll.follow_focus = OS.has_feature("android")

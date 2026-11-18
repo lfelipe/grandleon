@@ -11,11 +11,14 @@
 #include <godot_cpp/variant/char_string.hpp>
 #include <godot_cpp/variant/packed_byte_array.hpp>
 
+#include <array>
 #include <charconv>
 #include <cstddef>
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace grandleon::godot_frontend {
@@ -352,6 +355,55 @@ gd::Dictionary target_budget(
         : text(std::to_string(worst->id));
     target["overages"] = overages;
     return target;
+}
+
+gd::Array budget_campaign_terrain(const gc::GameSource& source) {
+    constexpr std::array names{
+        "water", "road", "forest", "mountain", "sand", "snow", "swamp",
+        "hills", "ruins", "grass", "farmland", "bamboo", "paved"
+    };
+    static_assert(names.size() == gc::terrain_kind_count);
+    std::unordered_map<gc::StableId, const gc::Map*> maps;
+    std::unordered_map<gc::StableId, gc::StableId> encounter_maps;
+    for (const auto& map : source.maps) maps.emplace(map.id, &map);
+    for (const auto& encounter : source.encounters) {
+        encounter_maps.emplace(encounter.id, encounter.map_id);
+    }
+
+    gd::Array campaigns;
+    for (const auto& campaign : source.campaigns) {
+        std::unordered_map<gc::StableId, const gc::CampaignNode*> nodes;
+        for (const auto& node : campaign.nodes) nodes.emplace(node.id, &node);
+        std::array<bool, names.size() + 1> kinds{};
+        std::unordered_set<gc::StableId> visited, visited_maps;
+        std::vector<gc::StableId> pending{campaign.entry_node_id};
+        while (!pending.empty()) {
+            const auto id = pending.back();
+            pending.pop_back();
+            const auto found = nodes.find(id);
+            if (found == nodes.end() || !visited.insert(id).second) continue;
+            const auto& node = *found->second;
+            pending.insert(pending.end(), node.unconditional_targets.begin(), node.unconditional_targets.end());
+            for (const auto& route : node.conditional_targets) pending.push_back(route.target_id);
+            const auto encounter = encounter_maps.find(node.encounter_id);
+            if (encounter == encounter_maps.end() || !visited_maps.insert(encounter->second).second) continue;
+            const auto map = maps.find(encounter->second);
+            if (map == maps.end()) continue;
+            for (const auto kind : map->second->terrain_kinds) {
+                if (kind <= gc::terrain_kind_unknown) kinds[kind] = true;
+            }
+        }
+        gd::Array terrain;
+        for (std::size_t index = 0; index < names.size(); ++index) {
+            if (kinds[index]) terrain.push_back(text(names[index]));
+        }
+        gd::Dictionary entry;
+        entry["campaign_id"] = text(std::to_string(campaign.id));
+        entry["terrain_kinds"] = terrain;
+        entry["unknown_terrain"] = kinds[gc::terrain_kind_unknown];
+        campaigns.push_back(entry);
+    }
+    return campaigns;
 }
 
 gd::Array budget_stages(const gc::GameSource& source) {
@@ -736,15 +788,27 @@ gd::Dictionary GrandleonProjectCompiler::target_budget_report(
 
     gd::Array targets;
     targets.push_back(target_budget(parsed.source, "pc", "PC", 0U));
-    targets.push_back(target_budget(
+    auto n64 = target_budget(
         parsed.source, "nintendo64", "Nintendo 64",
         pr::target_budget::nintendo64_units_per_encounter,
         pr::target_budget::nintendo64_cells_per_map
-    ));
-    targets.push_back(target_budget(
+    );
+    n64["terrain_bytes_per_cell"] = pr::target_budget::nintendo64_terrain_bytes_per_cell;
+    n64["terrain_kinds_limit"] = pr::target_budget::nintendo64_terrain_kinds_per_campaign;
+    n64["main_ram_bytes"] = pr::target_budget::nintendo64_main_ram_bytes;
+    targets.push_back(n64);
+
+    auto ps1 = target_budget(
         parsed.source, "playstation", "PlayStation",
         pr::target_budget::playstation_units_per_encounter
-    ));
+    );
+    ps1["map_side_limit"] = pr::target_budget::playstation_map_side;
+    ps1["vertex_pool"] = pr::target_budget::playstation_vertex_pool;
+    ps1["triangle_pool"] = pr::target_budget::playstation_triangle_pool;
+    ps1["main_ram_bytes"] = pr::target_budget::playstation_main_ram_bytes;
+    ps1["texture_vram_bytes"] = pr::target_budget::playstation_texture_vram_bytes;
+    targets.push_back(ps1);
+    result["campaign_terrain"] = budget_campaign_terrain(parsed.source);
     result["ok"] = true;
     result["targets"] = targets;
     result["stages"] = budget_stages(parsed.source);

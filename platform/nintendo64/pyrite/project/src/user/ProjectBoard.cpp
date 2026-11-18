@@ -2368,7 +2368,9 @@ void reserve_terrain_vertices(std::size_t cells) {
     assert(cells > 0U && cells <= kMaxCells);
     if (cells <= board.terrain_cell_capacity) return;
     constexpr auto vertices_per_cell = kCellVertexCount * 2U + kElevationVerticesPerCell;
-    const auto bytes = sizeof(T3DVertPacked) * (cells * vertices_per_cell / 2U);
+    constexpr auto bytes_per_cell = sizeof(T3DVertPacked) * vertices_per_cell / 2U;
+    static_assert(bytes_per_cell == pr::target_budget::nintendo64_terrain_bytes_per_cell);
+    const auto bytes = cells * bytes_per_cell;
     // The old board is finished. Free its arena after the RSP drains so a
     // growing board never has to fit both terrain buffers into base memory.
     rspq_wait();
@@ -4977,7 +4979,7 @@ void update_performance_sample() {
     }
     if (grandleon_project_review_driver) {
         assertf(
-            get_memory_size() <= 4 * 1024 * 1024,
+            static_cast<unsigned>(get_memory_size()) <= pr::target_budget::nintendo64_main_ram_bytes,
             "Pyrite campaign parity requires more than base N64 memory"
         );
     }

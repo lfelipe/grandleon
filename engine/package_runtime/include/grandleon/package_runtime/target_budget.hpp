@@ -22,10 +22,20 @@ inline constexpr std::uint32_t nintendo64_units_per_encounter = 48U;
 // Largest board supported by the base-4-MiB renderer arenas. Individual asset
 // and frame-time budgets still need export-time checks.
 inline constexpr std::uint32_t nintendo64_cells_per_map = 32U * 24U;
+inline constexpr std::uint32_t nintendo64_terrain_bytes_per_cell = 256U;
+inline constexpr std::uint32_t nintendo64_terrain_kinds_per_campaign = 9U;
+inline constexpr std::uint32_t nintendo64_main_ram_bytes = 4U * 1024U * 1024U;
 
 // PlayStation: the production Mipsync exporter validates this cap before it
 // writes any stage. Its build manifest also records the resulting RAM and VRAM
 // budgets so a release artifact can be audited without a second build.
 inline constexpr std::uint32_t playstation_units_per_encounter = 48U;
+
+// Scene and linked-build limits in the production Mipsync exporter.
+inline constexpr std::uint32_t playstation_map_side = 64U;
+inline constexpr std::uint32_t playstation_vertex_pool = 4352U;
+inline constexpr std::uint32_t playstation_triangle_pool = 4096U;
+inline constexpr std::uint32_t playstation_main_ram_bytes = 2U * 1024U * 1024U;
+inline constexpr std::uint32_t playstation_texture_vram_bytes = 704U * 512U * 2U;
 
 }  // namespace grandleon::package_runtime::target_budget

@@ -396,7 +396,11 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   PS1 geometry and memory still need export-time checks.
 - [x] Place both tiles of a castle doorway with one mouse click or tap.
   Preview the two-tile footprint and undo the placement as one edit.
-- [ ] Show console geometry and memory limits while editing larger maps.
+- [x] Show console geometry and memory limits while editing larger maps.
+  **Console limits** shows N64 terrain memory and the selected campaign's
+  atlas usage across reachable routes. The map and resize preview warn about
+  PlayStation's side limit. Export still checks generated geometry and total
+  memory.
 - [ ] Playtest larger later stages for useful flanks, cover and co-op routes.
   Keep the tutorial compact and check the larger maps on physical consoles.
 

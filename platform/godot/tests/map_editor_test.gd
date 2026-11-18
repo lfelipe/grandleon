@@ -305,6 +305,13 @@ func _run() -> void:
 	_expect("typed dimensions do not change the project until Apply", editor.source, before_map_budget)
 	editor.resize_apply_button.pressed.emit()
 	_expect("largest supported map is reported", editor.target_budget_label.text.contains("N64 MAP 768 / 768 CELLS"), true)
+	editor.target_budget_button.button_pressed = true
+	_expect("console limits can be opened from the map", editor.target_budget_details.visible, true)
+	_expect("the largest N64 terrain arena needs 192 KiB", editor.target_budget_details.text.contains("192 KiB"), true)
+	_expect("the PS1 report shows the current map dimensions", editor.target_budget_details.text.contains("32×24"), true)
+	_expect("the PS1 report shows the actual texture VRAM allowance", editor.target_budget_details.text.contains("704 KiB"), true)
+	editor.target_budget_button.button_pressed = false
+	_expect("the map can hide the limits to reclaim board space", editor.target_budget_details.visible, false)
 	_expect("supported size does not raise an overrun", editor._current_map_is_over_budget(), false)
 	var expanded_source: String = editor.source
 	editor.experience_tabs.current_tab = 1
@@ -342,6 +349,18 @@ func _run() -> void:
 	editor._undo()
 	editor._undo()
 	_expect("map size review undoes without affecting the campaign", editor.source, before_map_budget)
+	editor._open_resize()
+	editor._set_resize_dimensions(65, 6)
+	_expect("resize warns before exceeding the PlayStation side limit",
+		editor.resize_preview_label.text.contains("PS1 MAP SIDES MUST BE 64 CELLS OR LESS"), true)
+	_expect("the warning leaves Apply available", editor.resize_apply_button.disabled, false)
+	editor.resize_apply_button.pressed.emit()
+	_expect("a PlayStation-only size overrun is reported on the board",
+		editor.target_budget_label.text.contains("PS1 MAP SIDES MUST BE 64 CELLS OR LESS") and
+		not editor.target_budget_label.text.contains("MAP TOO LARGE FOR N64"), true)
+	_expect("the wider map still compiles for PC", editor.compiler.compile_source_json(editor.source).ok, true)
+	editor._undo()
+	_expect("undo refreshes the console warnings", editor._current_map_is_over_budget(), false)
 	editor.redo_stack.clear()
 	var castle_original_source: String = editor.source
 	var castle_pieces := ["mountain_castle_wall", "paved_castle_floor", "paved_castle_door", "paved_castle_dais"]
