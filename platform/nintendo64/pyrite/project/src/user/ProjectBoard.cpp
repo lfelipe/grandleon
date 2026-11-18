@@ -2369,10 +2369,12 @@ void reserve_terrain_vertices(std::size_t cells) {
     if (cells <= board.terrain_cell_capacity) return;
     constexpr auto vertices_per_cell = kCellVertexCount * 2U + kElevationVerticesPerCell;
     const auto bytes = sizeof(T3DVertPacked) * (cells * vertices_per_cell / 2U);
-    auto* replacement = static_cast<T3DVertPacked*>(malloc_uncached(bytes));
-    assertf(replacement, "Authored terrain exceeds available Nintendo 64 memory");
+    // The old board is finished. Free its arena after the RSP drains so a
+    // growing board never has to fit both terrain buffers into base memory.
     rspq_wait();
     if (board.terrain_vertex_arena) free_uncached(board.terrain_vertex_arena);
+    auto* replacement = static_cast<T3DVertPacked*>(malloc_uncached(bytes));
+    assertf(replacement, "Authored terrain exceeds available Nintendo 64 memory");
     board.terrain_vertex_arena = replacement;
     board.terrain_cell_capacity = cells;
     board.cells = replacement;
@@ -2567,6 +2569,7 @@ void configure_campaign_board(const pr::EncounterLoadResult& content) {
             content.definition.units.size() <= kMaxUnits,
         "Authored battle exceeds Pyrite base-memory board limits"
     );
+    board.game = {};
     reserve_terrain_vertices(content.terrain.size());
     for (std::size_t index = 0; index < content.placements.size(); ++index) {
         if (index >= content.definition.units.size()) break;
@@ -2579,7 +2582,6 @@ void configure_campaign_board(const pr::EncounterLoadResult& content) {
     }
     assertf(board.rowan_id != 0U, "Authored battle has no player unit");
     if (board.tomas_id == board.rowan_id) board.tomas_id = 0U;
-    board.game = {};
     assertf(
         board.game.open(
             content.definition, board.rowan_id, shell.local_players
@@ -6580,7 +6582,7 @@ void draw_shell() {
         case ShellPhase::complete:
             if (pr::show_end_statistics(board.runtime.package())) {
                 const auto totals = board.campaign->statistics();
-                display_printf(43, 61, "%s", ui(totals.lost_visit
+                display_printf(43, 69, "%s", ui(totals.lost_visit
                     ? console::Message::defeat : console::Message::campaign_complete));
                 const std::array messages{
                     console::Message::battles_played, console::Message::enemies_defeated,
