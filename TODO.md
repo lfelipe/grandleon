@@ -225,8 +225,9 @@ tracked above.
 - [x] Enter exact survival rounds and reinforcement schedules. Verify that a
   20-round defense reopens with the typed settings and plays to the specified
   round with all four authored waves in both 1P and 2P.
-- [ ] Let authors revise a goal from **This Battle** after its first playtest.
-  Preserve the other stages and routes when a goal is reused.
+- [x] Let authors revise a goal from **This Battle** after its first playtest.
+  Verify that a shared rule can use a different deadline in the edited
+  battle, while the next battle keeps its original deadline and routes.
 - [ ] Verify that one author can recreate the Steel and Cedar campaign from a
   blank project using the editor. Check both player modes, the reinforcement
   waves, the shop, the castle reveal and the final battle.

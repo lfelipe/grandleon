@@ -95,9 +95,11 @@ When a hero can use several carried weapons, their actions list an attack for
 each weapon by name. Choose one to see its targets and damage. Both weapons
 stay in the pack; the choice applies to that attack.
 **Edit Objective** explains the actual win or loss rule. Choose **This Battle**,
-**Reuse**, or **Create** directly; a target goal starts with a suitable
-enemy or ally. For a survival goal, type how many rounds to hold. Multiple
-goals can end the battle independently.
+**Reuse**, or **Create**. A target goal starts with a suitable enemy or ally.
+For a survival goal, type how many rounds to hold. Multiple goals can end the
+battle independently. To revise a rule after a test, open **This Battle**,
+select the goal and choose **Edit Goal**. **Apply to This Battle** keeps the
+original rule in any other battle where you reused it.
 Then use **Test 1 Player** or **Test 2 Players** from
 the guide. The player returns to the same editing workflow afterwards.
 The map editor's **Test** also starts the selected battle directly and returns

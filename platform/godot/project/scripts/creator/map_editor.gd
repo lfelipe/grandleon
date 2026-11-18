@@ -123,6 +123,7 @@ var patrol_draft: Array[int] = []
 var patrol_original: Array[int] = []
 var tool_before_patrol := "brush"
 var objective_mode := "assigned"
+var objective_edit_original: Dictionary
 var objective_candidates: Array[Dictionary] = []
 var objective_candidate_index := 0
 var objective_kind_index := 0
@@ -205,6 +206,11 @@ var objective_side_button: Button
 var objective_target_button: Button
 var objective_rounds_field: VBoxContainer
 var objective_rounds_input: SpinBox
+var objective_name_field: VBoxContainer
+var objective_name_input: LineEdit
+var objective_edit_feedback: Label
+var objective_edit_button: Button
+var objective_close_button: Button
 var objective_primary_button: Button
 var objective_first_button: Button
 var forces_layer: Control
@@ -337,7 +343,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif interior_visibility_layer != null and interior_visibility_layer.visible:
 			_close_visibility()
 		elif objective_layer != null and objective_layer.visible:
-			_close_objectives()
+			_cancel_objective_action()
 		elif forces_layer != null and forces_layer.visible:
 			_close_forces()
 		elif moments_layer != null and moments_layer.visible:
@@ -3014,6 +3020,8 @@ func _open_objectives() -> void:
 		_set_status(_t("map.error.objectives_need_battle"), true)
 		return
 	objective_mode = "assigned"
+	objective_edit_original = {}
+	objective_edit_feedback.hide()
 	objective_candidate_index = 0
 	objective_kind_index = 0
 	objective_side = "first"
@@ -3037,6 +3045,38 @@ func _close_objectives() -> void:
 	if is_inside_tree(): setup_button.grab_focus()
 
 
+func _cancel_objective_action() -> void:
+	if objective_mode == "edit":
+		_return_to_assigned_objectives(str(objective_edit_original.id))
+	else:
+		_close_objectives()
+
+
+func _edit_current_objective() -> void:
+	if objective_mode != "assigned" or objective_candidates.is_empty():
+		return
+	objective_edit_original = objective_candidates[objective_candidate_index]
+	var kind := str(objective_edit_original.get("kind", "defeatAllOpponents"))
+	for index in OBJECTIVE_KINDS.size():
+		if OBJECTIVE_KINDS[index].id == kind:
+			objective_kind_index = index
+			break
+	objective_mode = "edit"
+	objective_side = str(objective_edit_original.get("side", "first"))
+	_select_default_objective_target()
+	for index in objective_targets.size():
+		if objective_targets[index].id == objective_edit_original.get("targetPlacementId"):
+			objective_target_index = index
+			break
+	objective_rounds_input.value = int(objective_edit_original.get("rounds", 3))
+	objective_rounds_input.get_line_edit().text = str(int(objective_rounds_input.value))
+	var name := str(objective_edit_original.get("name", ""))
+	objective_name_input.text = "" if name == _new_objective_name() else name
+	objective_edit_feedback.hide()
+	_update_objective_view()
+	objective_kind_button.grab_focus()
+
+
 func _cycle_objective_mode() -> void:
 	var modes := ["assigned", "available", "new"]
 	_select_objective_mode(modes[(modes.find(objective_mode) + 1) % modes.size()])
@@ -3044,6 +3084,17 @@ func _cycle_objective_mode() -> void:
 
 func _select_objective_mode(mode: String) -> void:
 	if mode not in ["assigned", "available", "new"]: return
+	if objective_mode == "edit" and mode == "assigned":
+		_return_to_assigned_objectives(str(objective_edit_original.id))
+		return
+	if objective_mode == "edit" and mode == "new":
+		objective_kind_index = 0
+		objective_side = "first"
+		_select_default_objective_target()
+		objective_rounds_input.value = 3
+		objective_rounds_input.get_line_edit().text = "3"
+	objective_edit_original = {}
+	objective_edit_feedback.hide()
 	objective_mode = mode
 	objective_candidate_index = 0
 	_refresh_objective_candidates()
@@ -3212,7 +3263,7 @@ func _new_objective_name() -> String:
 
 func _new_objective_summary() -> String:
 	var objective := {
-		"name": _new_objective_name(),
+		"name": _objective_form_name(),
 		"kind": str(OBJECTIVE_KINDS[objective_kind_index].id),
 		"side": objective_side,
 		"rounds": int(objective_rounds_input.value),
@@ -3221,13 +3272,23 @@ func _new_objective_summary() -> String:
 	return _objective_summary(objective)
 
 
+func _objective_form_name() -> String:
+	if objective_mode == "edit" and not objective_name_input.text.strip_edges().is_empty():
+		return objective_name_input.text
+	return _new_objective_name()
+
+
 func _update_objective_view() -> void:
+	var editing := objective_mode == "edit"
 	for mode: String in objective_mode_buttons:
-		objective_mode_buttons[mode].set_pressed_no_signal(mode == objective_mode)
-	var browsing := objective_mode != "new"
+		objective_mode_buttons[mode].set_pressed_no_signal(mode == ("assigned" if editing else objective_mode))
+	var browsing := not editing and objective_mode != "new"
 	objective_previous_button.visible = browsing
 	objective_next_button.visible = browsing
 	objective_options.visible = not browsing
+	objective_name_field.visible = editing
+	objective_edit_button.visible = objective_mode == "assigned" and not objective_candidates.is_empty()
+	objective_close_button.text = _t("map.cancel" if editing else "map.close")
 	if browsing:
 		objective_previous_button.disabled = objective_candidates.size() < 2
 		objective_next_button.disabled = objective_candidates.size() < 2
@@ -3251,6 +3312,8 @@ func _update_objective_view() -> void:
 
 	var kind := str(OBJECTIVE_KINDS[objective_kind_index].id)
 	objective_candidate_label.text = _new_objective_summary()
+	if editing:
+		objective_name_input.placeholder_text = _new_objective_name()
 	objective_kind_button.text = _t("map.objective.kind_label", {
 		"kind": _t(str(OBJECTIVE_KINDS[objective_kind_index].label_key)),
 	})
@@ -3266,7 +3329,7 @@ func _update_objective_view() -> void:
 			if not objective_targets.is_empty()
 			else _t("map.objective.target_none")
 		)
-	objective_primary_button.text = _t("map.objective.create_attach")
+	objective_primary_button.text = _t("map.objective.apply_edit" if editing else "map.objective.create_attach")
 	objective_primary_button.disabled = targeted and objective_targets.is_empty()
 
 
@@ -3290,6 +3353,9 @@ func _apply_objective_action() -> void:
 	if encounter.is_empty():
 		return
 	var node: Dictionary = encounter.node
+	if objective_mode == "edit":
+		_apply_objective_revision(encounter)
+		return
 	if objective_mode == "new":
 		var kind := str(OBJECTIVE_KINDS[objective_kind_index].id)
 		if kind == "surviveRounds":
@@ -3341,6 +3407,60 @@ func _apply_objective_action() -> void:
 	_accept_objective_edit(updated, message, objective_id)
 
 
+func _apply_objective_revision(encounter: Dictionary) -> void:
+	var goal := objective_edit_original.duplicate(true)
+	var kind := str(OBJECTIVE_KINDS[objective_kind_index].id)
+	if kind == "surviveRounds":
+		objective_rounds_input.apply()
+		var rounds := int(objective_rounds_input.value)
+		if rounds != int(goal.get("rounds", 0)):
+			goal.rounds = rounds
+	else:
+		goal.erase("rounds")
+	if kind in ["defeatTarget", "protectTarget"]:
+		goal.targetPlacementId = objective_targets[objective_target_index].id
+	else:
+		goal.erase("targetPlacementId")
+	if kind != str(goal.get("kind", "defeatAllOpponents")):
+		goal.kind = kind
+	if objective_side != str(goal.get("side", "first")):
+		goal.side = objective_side
+	goal.name = _objective_form_name()
+	if goal == objective_edit_original:
+		_return_to_assigned_objectives(str(goal.id))
+		return
+	var candidate: Dictionary = project.duplicate(true)
+	var revision := BattleGoals.revise(candidate, str(encounter.campaign_id), str(encounter.node.id), goal, compiler.stable_source_id)
+	if not revision.ok:
+		var dependent := str(revision.get("dependent", ""))
+		var detail := ""
+		for node: Dictionary in encounter.campaign.flow.nodes:
+			if node.id == dependent:
+				detail = _t("map.objective.route_uses_shared_goal", {"stage": str(node.get("name", dependent))})
+				break
+		if revision.get("priority", false):
+			detail = _t("map.objective.edit_priority")
+		_show_objective_feedback(detail if not detail.is_empty() else _t("map.objective.edit_unavailable"))
+		return
+	var updated := JSON.stringify(_integer_numbers(candidate), "  ", true) + "\n"
+	var checked: Dictionary = compiler.compile_source_json(updated)
+	if not checked.ok:
+		var invalid_source: bool = checked.diagnostics.any(
+			func(diagnostic: Dictionary) -> bool: return diagnostic.get("phase") == "source"
+		)
+		# Match native goal edits so authors can work on one battle at a time.
+		if invalid_source or compiler.compile_source_json(source).ok:
+			_show_objective_feedback(_t("map.error.objective_refused", {"detail": _diagnostic_detail(checked)}))
+			return
+	_accept_objective_edit({"ok": true, "source": updated}, _t("map.objective.updated", {"name": goal.name}), str(revision.id))
+
+
+func _show_objective_feedback(message: String) -> void:
+	objective_edit_feedback.text = message
+	objective_edit_feedback.show()
+	objective_edit_feedback.get_parent().get_parent().call_deferred("ensure_control_visible", objective_edit_feedback)
+
+
 func _accept_objective_edit(updated: Dictionary, message: String, selected_id: String) -> void:
 	if not updated.ok:
 		_set_status(_t("map.error.objective_refused", {"detail": _diagnostic_detail(updated)}), true)
@@ -3351,15 +3471,21 @@ func _accept_objective_edit(updated: Dictionary, message: String, selected_id: S
 	dirty = true
 	_read_source()
 	_refresh_maps_after_edit(0)
-	objective_mode = "assigned"
 	_refresh_objective_targets()
+	_return_to_assigned_objectives(selected_id)
+	_set_status(_t("map.status.unsaved_detail", {"detail": message}), false)
+
+
+func _return_to_assigned_objectives(selected_id: String) -> void:
+	objective_mode = "assigned"
+	objective_edit_original = {}
+	objective_edit_feedback.hide()
 	_refresh_objective_candidates()
 	for index in objective_candidates.size():
 		if str(objective_candidates[index].get("id", "")) == selected_id:
 			objective_candidate_index = index
 			break
 	_update_objective_view()
-	_set_status(_t("map.status.unsaved_detail", {"detail": message}), false)
 	call_deferred("_focus_objective_tab")
 
 
@@ -6175,18 +6301,32 @@ func _build_objective_overlay() -> void:
 	objective_options.add_child(objective_rounds_field)
 	objective_rounds_input = _round_input(objective_rounds_field, "map.objective.rounds_to_survive", 1, 65535)
 	objective_rounds_input.value_changed.connect(func(_value: float) -> void: _update_objective_view())
+	objective_name_field = VBoxContainer.new()
+	objective_options.add_child(objective_name_field)
+	objective_name_field.add_child(_label(_t("map.objective.name"), 17, Color("a9bdc9")))
+	objective_name_input = LineEdit.new()
+	objective_name_input.custom_minimum_size.y = 56
+	objective_name_input.max_length = 160
+	objective_name_input.text_changed.connect(func(_value: String) -> void: _update_objective_view())
+	objective_name_field.add_child(objective_name_input)
+	objective_edit_feedback = _label("", 19, Color("ffca63"))
+	objective_edit_feedback.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(objective_edit_feedback)
 
 	var actions := BoxContainer.new()
 	actions.set_meta("mobile_wrap_actions", true)
 	actions.add_theme_constant_override("separation", 12)
 	column.add_child(actions)
-	objective_primary_button = _button(_t("map.apply"), 420, 62)
+	objective_edit_button = _button(_t("map.objective.edit_here"), 240, 62)
+	objective_edit_button.pressed.connect(_edit_current_objective)
+	actions.add_child(objective_edit_button)
+	objective_primary_button = _button(_t("map.apply"), 350, 62)
 	objective_primary_button.add_theme_font_size_override("font_size", 15)
 	objective_primary_button.pressed.connect(_apply_objective_action)
 	actions.add_child(objective_primary_button)
-	var close := _button(_t("map.close"), 220, 62)
-	close.pressed.connect(_close_objectives)
-	actions.add_child(close)
+	objective_close_button = _button(_t("map.close"), 180, 62)
+	objective_close_button.pressed.connect(_cancel_objective_action)
+	actions.add_child(objective_close_button)
 
 
 func _build_forces_overlay() -> void:

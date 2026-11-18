@@ -89,15 +89,35 @@ func run() -> void:
 	for index in 3: editor.objective_kind_button.pressed.emit()
 	var rounds: LineEdit = editor.objective_rounds_input.get_line_edit()
 	check(rounds.virtual_keyboard_type == LineEdit.KEYBOARD_TYPE_NUMBER, "survival rounds offer a numeric keyboard")
-	rounds.text = "20"
+	rounds.text = "19"
 	rounds.text_submitted.emit(rounds.text)
 	await settle()
-	check(editor.objective_candidate_label.text.contains("Win by surviving through round 20."), "typed survival goal shows the actual round count")
+	check(editor.objective_candidate_label.text.contains("Win by surviving through round 19."), "typed survival goal shows the actual round count")
 	editor.objective_primary_button.pressed.emit()
 	await settle()
 	check(editor._current_objective_ids().has("survive_rounds"), "survival goal is authored")
 	var ids: Array = editor._current_objective_ids()
 	check(ids == ["defeat_all_opponents", "protect_target", "survive_rounds"], "adding a goal preserves existing IDs and priority order")
+	editor._request_projects()
+	await settle()
+	current_scene.objective_button.pressed.emit()
+	await settle()
+	editor = current_scene
+	editor.objective_previous_button.pressed.emit()
+	var before_revision: String = editor.source
+	editor.objective_edit_button.pressed.emit()
+	check(editor.objective_mode == "edit" and editor.objective_rounds_input.value == 19, "Edit Goal opens the saved rule from This Battle")
+	editor.objective_rounds_input.get_line_edit().text = "20"
+	editor.objective_close_button.pressed.emit()
+	check(editor.objective_mode == "assigned" and editor.source == before_revision, "Cancel discards the draft and returns to the same goal")
+	editor.objective_edit_button.pressed.emit()
+	editor.objective_primary_button.pressed.emit()
+	check(editor.source == before_revision, "applying an untouched goal leaves its source intact")
+	editor.objective_edit_button.pressed.emit()
+	editor.objective_rounds_input.get_line_edit().text = "20"
+	editor.objective_primary_button.pressed.emit()
+	check(editor._current_objective_ids() == ids, "revising a goal used by one stage keeps the same ID and place")
+	check(editor.objective_candidate_label.text.contains("Survive 20 rounds"), "applying refreshes an automatic goal name to match the new round count")
 	editor._close_objectives()
 	await settle()
 	await author_defense(editor)
@@ -122,8 +142,167 @@ func run() -> void:
 	check(library.load_source(project_id).source == authored, "real previews leave authored goals unchanged")
 	await check_localized_forms()
 	check(library.load_source(project_id).source == authored, "localized inspection leaves source unchanged")
+	await check_shared_revision()
+	check(library.save_source(project_id, authored).ok, "the separate route fixture can be restored to the authored survival project")
 	print("BATTLE_GOALS_WORKFLOW_%s checks=%d" % ["PASS" if failures == 0 else "FAIL", checks])
 	root.get_node("PCAudio").request_quit(1 if failures else 0)
+
+func route(id: String, destination: String, condition: Dictionary = {}, priority := 0) -> Dictionary:
+	var edge := {"id": id, "targetNodeId": destination, "priority": priority}
+	if not condition.is_empty():
+		edge.when = condition
+	return edge
+
+func check_shared_revision() -> void:
+	var fixture: Dictionary = library.load_source(project_id).project
+	var campaign: Dictionary = fixture.campaigns[0]
+	var opening: Dictionary = campaign.flow.nodes[0]
+	var crossing: Dictionary = campaign.flow.nodes[1]
+	var ending: Dictionary = campaign.flow.nodes[2]
+	var goal_id := "survive_rounds"
+	var goal: Dictionary = fixture.objectives.filter(func(o: Dictionary) -> bool: return o.id == goal_id)[0]
+	goal.name = "Hold the line"
+	goal.rounds = 2
+	fixture.translations = [{"language": "pt-BR", "entries": [
+		{"id": "objectives.survive_rounds.name", "source": goal.name, "text": "Mantenha a posição"},
+	]}]
+	var won := {"kind": "objectiveResult", "objectiveId": goal_id, "result": "victory"}
+	var lost := {"kind": "objectiveResult", "objectiveId": goal_id, "result": "defeat"}
+	var failed := {"id": "failed", "name": "Failed", "kind": "terminal", "transitions": []}
+	var message := opening.duplicate(true)
+	message.id = "interlude"
+	message.name = "After the Crossing"
+	message.transitions = [route("lost_interlude", "failed", {"kind": "not", "condition": won.duplicate(true)}), route("on_survival", "second_battle", {}, 1)]
+	crossing.objectiveIds = ["protect_target", goal_id]
+	crossing.transitions = [route("held_crossing", "interlude", {"kind": "all", "conditions": [won, {"kind": "objectiveResult", "objectiveId": "protect_target", "result": "defeat"}]}), route("safe_crossing", "interlude", won.duplicate(true), 1), route("lost_crossing", "failed", {}, 2)]
+	var second := crossing.duplicate(true)
+	second.id = "second_battle"
+	second.name = "Second Crossing"
+	second.transitions = [route("held_again", "last_words", won.duplicate(true)), route("lost_again", "failed", lost.duplicate(true), 1)]
+	var last_words := {
+		"id": "last_words", "name": "Safe at Last", "kind": "story", "dialogueIds": ["crossing_ending"],
+		"transitions": [route("leave_crossing", str(ending.id))],
+	}
+	fixture.dialogues.append({"id": "crossing_ending", "name": "Safe at Last", "lines": [{"speaker": "Aren", "text": "Both crossings held."}]})
+	campaign.flow.nodes = [opening, crossing, message, second, ending, failed, last_words]
+	var translator_fixture: Dictionary = fixture.translations[0].entries[0].duplicate(true)
+	var priority_reference := "protect_target"
+	var compiler = ClassDB.instantiate("GrandleonProjectCompiler")
+	var fixture_source := JSON.stringify(library._integer_numbers(fixture))
+	var compiled: Dictionary = compiler.compile_source_json(fixture_source)
+	check(compiled.ok, "the shared-goal fixture compiles: " + str(compiled.get("diagnostics", [])))
+	if not compiled.ok: return
+	check(library.save_source(project_id, fixture_source).ok, "the shared-goal fixture saves")
+	root.get_node("Localization").select_language("en", false)
+	current_scene.objective_button.pressed.emit()
+	await settle()
+	var editor = current_scene
+	editor.objective_next_button.pressed.emit()
+	var before: String = editor.source
+	var untouched_battle: Dictionary = editor.project.campaigns[0].flow.nodes[3].duplicate(true)
+	editor.objective_edit_button.pressed.emit()
+	check(editor.objective_name_input.text == "Hold the line" and editor.objective_rounds_input.value == 2, "the shared rule and custom title are loaded")
+	editor.objective_rounds_input.get_line_edit().text = "1"
+	editor.objective_primary_button.pressed.emit()
+	check(editor.objective_mode == "assigned" and editor.source != before, "Apply changes the current battle")
+	if editor.source == before: return
+	var edited: Dictionary = editor.project
+	var edited_nodes: Array = edited.campaigns[0].flow.nodes
+	var copy_id: String = edited_nodes[1].objectiveIds[1]
+	check(copy_id != goal_id and edited_nodes[1].objectiveIds[0] == priority_reference, "the new local goal retains its list position")
+	var revised_goal: Array = edited.objectives.filter(func(o: Dictionary) -> bool: return o.id == copy_id)
+	check(revised_goal.size() == 1 and revised_goal[0].rounds == 1, "the current battle's new definition contains the revised deadline")
+	var sibling_rank := str(compiler.stable_source_id(priority_reference)).pad_zeros(20)
+	check((str(compiler.stable_source_id(copy_id)).pad_zeros(20) < sibling_rank) == (str(compiler.stable_source_id(goal_id)).pad_zeros(20) < sibling_rank), "copy retains the simulator's goal resolution order")
+	check(edited_nodes[3] == untouched_battle, "the second battle's goal assignment and routes are identical")
+	check(edited_nodes[1].transitions[0].when.conditions[0].objectiveId == copy_id and edited_nodes[1].transitions[0].when.conditions[1].objectiveId == priority_reference, "compound route changes only the edited goal reference")
+	check(edited_nodes[1].transitions[1].when.objectiveId == copy_id and edited_nodes[2].transitions[0].when.condition.objectiveId == copy_id, "direct and downstream route predicates follow the battle-local goal")
+	var entries: Array = edited.translations[0].entries
+	check(entries.size() == 2 and entries[0] == translator_fixture and entries[1].id == "objectives." + copy_id + ".name" and entries[1].text == translator_fixture.text, "the copy keeps its unchanged translated name and preserves the original")
+	var after: String = editor.source
+	editor._close_objectives()
+	editor._undo()
+	check(editor.source == before, "the split and route updates undo together")
+	editor._redo()
+	check(editor.source == after, "redo restores the whole edit")
+	editor._request_projects()
+	await settle()
+	await play_shared_route()
+
+	# A separate route reachable from both battles cannot tell which rule the
+	# author intended to read. Surface the specific stage without editing it.
+	second.transitions[0].targetNodeId = "interlude"
+	second.transitions[0].id = "return_to_interlude"
+	check(library.save_source(project_id, JSON.stringify(library._integer_numbers(fixture))).ok, "the ambiguous route fixture saves")
+	current_scene.objective_button.pressed.emit()
+	await settle()
+	editor = current_scene
+	editor.objective_next_button.pressed.emit()
+	before = editor.source
+	editor.objective_edit_button.pressed.emit()
+	editor.objective_rounds_input.get_line_edit().text = "1"
+	editor.objective_primary_button.pressed.emit()
+	check(editor.source == before and editor.objective_mode == "edit" and editor.objective_edit_feedback.visible, "a route that reads both shared results is flagged before changing anything")
+	check(editor.objective_edit_feedback.text.contains("After the Crossing"), "feedback names the stage that needs review")
+	editor._request_projects()
+	await settle()
+
+	second.objectiveIds = []
+	var incomplete_source := JSON.stringify(library._integer_numbers(fixture))
+	check(not compiler.compile_source_json(incomplete_source).ok and library.save_source(project_id, incomplete_source).ok, "a draft can have a later battle without a goal yet")
+	current_scene.objective_button.pressed.emit()
+	await settle()
+	editor = current_scene
+	editor.objective_next_button.pressed.emit()
+	before = editor.source
+	editor.objective_edit_button.pressed.emit()
+	editor.objective_rounds_input.get_line_edit().text = "3"
+	editor.objective_primary_button.pressed.emit()
+	check(editor.source != before and editor.objective_mode == "assigned", "an unrelated unfinished battle does not block the current goal edit")
+	editor._request_projects()
+	await settle()
+
+func play_shared_route() -> void:
+	current_scene.campaign_solo_button.pressed.emit()
+	await settle()
+	if current_scene.scene_file_path != "res://main.tscn":
+		check(false, "Play Adventure opens the route fixture")
+		return
+	var player = current_scene
+	var completed: Array[int] = []
+	var recorded := {}
+	var saw_victory_scene := false
+	var deadline := Time.get_ticks_msec() + 17000
+	while Time.get_ticks_msec() < deadline:
+		await process_frame
+		var snapshot: Dictionary = player.snapshot
+		var stage: String = player.battle_route_identity.get("stage_id", "")
+		if snapshot.get("outcome", "ongoing") == "first_side_won" and not recorded.has(stage):
+			completed.append(int(snapshot.round))
+			recorded[stage] = true
+		if player._dialogue_visible():
+			for line: Dictionary in player.dialogue_lines:
+				if line.get("text", "") == "Both crossings held.": saw_victory_scene = true
+			player._advance_dialogue()
+			continue
+		if player.campaign_complete: break
+		if player._management_visible():
+			if not player.campaign_manager._proceed_button.disabled:
+				player.campaign_manager._proceed_button.pressed.emit()
+			continue
+		if player._stage_overview_active():
+			player._accept_at(0)
+			continue
+		if not player.pending_requests.is_empty() or snapshot.get("outcome", "") != "ongoing" or snapshot.get("active_side", "") != "first":
+			continue
+		for unit: Dictionary in snapshot.units:
+			if unit.side == "first" and unit.on_board and not unit.has_acted:
+				player._submit("wait", int(unit.id))
+				break
+	check(player.campaign_complete and saw_victory_scene and completed == [1, 2], "ordinary turns reach the victory scene after battles of one and two rounds: " + str(completed))
+	print("REVISED_GOAL_ROUTE completed_rounds=", completed)
+	player._leave_play_session()
+	await settle()
 
 func author_defense(editor) -> void:
 	# Give the fixture safe shores so we can count arrivals and test the
@@ -221,6 +400,13 @@ func check_localized_forms() -> void:
 				scroll.ensure_control_visible(tab)
 				await settle()
 				check(scroll.get_global_rect().grow(1).encloses(tab.get_global_rect()), "every mode stays reachable by scrolling")
+			editor.objective_edit_button.grab_focus()
+			scroll.ensure_control_visible(editor.objective_edit_button)
+			await settle()
+			check(scroll.get_global_rect().grow(1).encloses(editor.objective_edit_button.get_global_rect()), "Edit Goal is reachable on touch layouts")
+			editor.objective_edit_button.pressed.emit()
+			check(editor.objective_name_field.visible and not editor.objective_primary_button.text.contains("map."), "the localized edit form shows its fields and apply action")
+			editor.objective_close_button.pressed.emit()
 			editor.objective_mode_buttons.new.grab_focus()
 			editor.objective_mode_buttons.new.pressed.emit()
 			for index in 3: editor.objective_kind_button.pressed.emit()

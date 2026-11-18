@@ -73,7 +73,9 @@ starter. Keep the same project through export.
 
    **Where to look** · **Edit Objective → This Battle**, then **Battle Setup →
    Opening Forces & Waves**. Type the round numbers and check the schedule
-   before applying it. Replace the earlier defeat-all goal. **Check** ·
+   before applying it. Use **Edit Goal** to turn the earlier defeat-all
+   rule into a survival goal. Adjust its deadline after a playtest.
+   **Check** ·
    Each wave enters from the authored side on its round, and the extra wave
    appears only in 2P. Clearing the first wave leaves the battle active.
    Surviving round 20 takes the victory route. Losing Iona takes the loss
