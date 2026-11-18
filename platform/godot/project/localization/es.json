@@ -41,7 +41,6 @@
     "conversation.route.ending_name": "Nombre del final",
     "conversation.route.closing": "Diálogo final (opcional)",
     "conversation.route.narrator": "Narrador",
-    "conversation.console_unavailable": "Esta campaña usa respuestas de diálogo. Juega en el reproductor de Godot.",
     "app.name": "GRANDLEON",
     "language.label": "IDIOMA",
     "player.language.heading": "IDIOMA DEL JUEGO",

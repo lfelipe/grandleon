@@ -476,6 +476,47 @@ void write_localizations(
         }
         output << "],\"moments\":";
         write_localized_moments(output, package, moments, language);
+        output << ",\"conversations\":[";
+        bool first_conversation = true;
+        for (const auto& reply : encounter.talk_replies) {
+            const auto offer = pr::localized_map_conversation(package, reply.target, language);
+            const auto unit = std::find_if(encounter.units.begin(), encounter.units.end(),
+                [&](const auto& candidate) { return candidate.id == reply.target; });
+            if (offer.questions.empty() || unit == encounter.units.end()) continue;
+            if (!first_conversation) output << ',';
+            first_conversation = false;
+            output << "{\"unit\":";
+            write_id(output, reply.target);
+            output << ",\"flag\":";
+            write_id(output, offer.result_flag);
+            output << ",\"key\":";
+            write_string(output, offer.key);
+            output << ",\"speaker\":";
+            const auto placement_name = pr::content_name(package, pf::SectionType::placement_names, unit->id);
+            const auto type_name = pr::content_name(package, pf::SectionType::unit_types, unit->unit_type_id);
+            write_string(output, placement_name.empty()
+                ? pr::localized_content_name(package, language, pf::SectionType::unit_types, unit->unit_type_id, type_name)
+                : pr::localized_placement_name(package, language, unit->id, placement_name));
+            output << ",\"questions\":[";
+            for (std::size_t page = 0; page < offer.questions.size(); ++page) {
+                if (page != 0U) output << ',';
+                const auto& question = offer.questions[page];
+                output << "{\"id\":" << question.id << ",\"text\":";
+                write_string(output, question.text);
+                output << ",\"answers\":[";
+                for (std::size_t row = 0; row < question.answers.size(); ++row) {
+                    if (row != 0U) output << ',';
+                    const auto& answer = question.answers[row];
+                    output << "{\"next\":" << answer.next << ",\"result\":" << answer.result
+                           << ",\"text\":";
+                    write_string(output, answer.text);
+                    output << '}';
+                }
+                output << "]}";
+            }
+            output << "]}";
+        }
+        output << ']';
         output << '}';
     }
     output << ']';
@@ -547,7 +588,7 @@ int main(int argc, char** argv) {
     pf::LoadOptions options;
     options.engine_version = {0, 1, 0};
     options.target = pf::TargetProfile::desktop;
-    options.supported_features = pf::feature_hidden_items;
+    options.supported_features = pf::feature_hidden_items | pf::feature_map_conversations;
     options.maximum_units_per_encounter = 48;
     options.maximum_records_per_section = 20'000;
     const pf::LoadResult package = pf::load_mock_package(bytes, options);
@@ -741,6 +782,19 @@ int main(int argc, char** argv) {
         output << ",\"x\":" << discovery.x << ",\"y\":" << discovery.y
                << ",\"weapon\":" << (discovery.weapon ? "true" : "false")
                << ",\"glint\":" << (discovery.glint ? "true" : "false") << '}';
+    }
+    output << ']';
+    output << ",\n    \"talk_replies\": [";
+    for (std::size_t index = 0; index < loaded.definition.talk_replies.size(); ++index) {
+        if (index != 0U) output << ',';
+        const auto& reply = loaded.definition.talk_replies[index];
+        output << "{\"target\":";
+        write_id(output, reply.target);
+        output << ",\"flag\":";
+        write_id(output, reply.flag);
+        output << ",\"answers\":";
+        write_numbers(output, reply.answers);
+        output << '}';
     }
     output << ']';
     output << ",\n    \"movement_cost\": ";

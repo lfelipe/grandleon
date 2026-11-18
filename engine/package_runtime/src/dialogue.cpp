@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include <grandleon/package_runtime/dialogue.hpp>
+#include <grandleon/package_runtime/localization.hpp>
 
 #include <cstddef>
 #include <utility>
@@ -106,6 +107,23 @@ core::MapConversation load_map_conversation(
         result.questions.push_back(std::move(question));
     }
     return reader.finished() && core::valid_map_conversation(result) ? result : core::MapConversation{};
+}
+
+core::MapConversation localized_map_conversation(
+    const LoadedPackage& package, std::uint64_t placement_id, std::string_view language
+) {
+    auto offer = load_map_conversation(package, placement_id);
+    if (offer.questions.empty()) return offer;
+    const std::string prefix = "talk." + offer.key;
+    for (auto& question : offer.questions) {
+        question.text = localized_text(package, language,
+            prefix + ".questions." + std::to_string(question.id), question.text);
+        for (auto& answer : question.answers) {
+            answer.text = localized_text(package, language,
+                prefix + ".answers." + std::to_string(answer.result), answer.text);
+        }
+    }
+    return offer;
 }
 
 DialogueLoadResult load_dialogue(

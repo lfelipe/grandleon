@@ -646,6 +646,27 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
         return;
     }
 
+    if (state.mode == GRANDLEON_UI_CONVERSATION) {
+        draw_panel(ordering_table, next_packet, packet_end, 8, 72, 304, 160);
+        draw_text(ordering_table, next_packet, packet_end, 18, 80,
+                  state.headline ? state.headline : "", 94, 206, 227);
+        for (unsigned row = 0; row < 3; ++row)
+            draw_text(ordering_table, next_packet, packet_end, 18, 101 + (int)row * 12,
+                      grandleon_game_conversation_line((uint8_t)row), 247, 239, 209);
+        for (unsigned row = 0; row < state.menu_count; ++row) {
+            const int y = 139 + (int)row * 16;
+            if (row == state.menu_index)
+                draw_focus(ordering_table, next_packet, packet_end, 12, y - 2, 296, 15);
+            draw_text(ordering_table, next_packet, packet_end, 24, y,
+                      grandleon_game_conversation_answer((uint8_t)row), 247, 239, 209);
+        }
+        draw_text(ordering_table, next_packet, packet_end, 18, 212, "X", 94, 206, 227);
+        draw_text(ordering_table, next_packet, packet_end, 32, 212, state.body, 247, 239, 209);
+        draw_text(ordering_table, next_packet, packet_end, 196, 212,
+                  grandleon_game_text(GRANDLEON_TEXT_CIRCLE_BACK), 247, 239, 209);
+        activate_ui_tpage(ordering_table, next_packet, packet_end);
+        return;
+    }
     if (state.mode == GRANDLEON_UI_BATTLE_MOMENT) {
         draw_panel(ordering_table, next_packet, packet_end, 8, 157, 304, 75);
         draw_portrait(ordering_table, next_packet, packet_end, &state, 15, 164);

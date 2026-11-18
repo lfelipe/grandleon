@@ -83,4 +83,9 @@ struct DialogueLoadResult final {
     std::uint64_t placement_id
 );
 
+[[nodiscard]] core::MapConversation localized_map_conversation(
+    const package_format::LoadedPackage& package,
+    std::uint64_t placement_id, std::string_view language
+);
+
 }  // namespace grandleon::package_runtime

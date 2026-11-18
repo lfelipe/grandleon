@@ -317,6 +317,7 @@ endif()
 # same one. It sits below the presenter seam: platform/client never links it
 # and must never learn it exists.
 add_library(grandleon_view INTERFACE)
+target_link_libraries(grandleon_view INTERFACE grandleon::core)
 add_library(grandleon::view ALIAS grandleon_view)
 target_compile_features(grandleon_view INTERFACE cxx_std_17)
 target_include_directories(

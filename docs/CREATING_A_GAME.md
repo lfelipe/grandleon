@@ -158,9 +158,11 @@ leaves the item behind.
 
 The outline shows each event beside its detour and where it rejoins or ends.
 Select that summary to edit the route. Use **Play Adventure** in the Godot
-player to try both the main path and the detour. Hidden items and their routes
-are supported on Godot, Nintendo 64 and PlayStation. Conversations with
-questions and answers are available in Godot exports.
+player to try both the main path and the detour. Hidden discoveries and
+conversation choices work in Godot, Nintendo 64 and PlayStation exports.
+On consoles, use the D-pad to choose a reply. Confirm to read more of a long
+question or reply. Leaving the conversation before its final answer keeps
+the unit's turn available.
 
 Named speakers and battlefield moments can
 reuse your characters. **Translations** lets you translate the game's copy

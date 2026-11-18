@@ -11,6 +11,7 @@ import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+repo = root.parents[2]
 spec = spec_from_file_location('grandleon_simulation_generator', root / 'tools/generate_simulation.py')
 module = module_from_spec(spec)
 spec.loader.exec_module(module)
@@ -33,16 +34,35 @@ for code in ('en', 'es', 'pt-BR'):
              {'speaker': 'Masatora', 'text': code + ': the lord answers last.', 'unit_type_id': '903'}]},
         {'id': 8, 'name': 'Legacy', 'dialogue': code + ': compatible flat text'},
     ], 'moments': [{'dialogue_id': 9, 'lines': [
-        {'speaker': 'Masatora', 'text': code + ': battle speech', 'unit_type_id': '903'}]}]})
+        {'speaker': 'Masatora', 'text': code + ': battle speech', 'unit_type_id': '903'}]}],
+        'conversations': [{
+            'unit': '18446744073709551000', 'flag': '18446744073709551001', 'key': 'reply_gate',
+            'speaker': code + ': Mensageira',
+            'questions': [
+                {'id': 1, 'text': code + ': Olá', 'answers': [
+                    {'text': code + ': Sim', 'next': 2, 'result': 1},
+                    {'text': code + ': Não', 'next': 0, 'result': 2},
+                ]},
+                {'id': 2, 'text': code + ': Para onde?', 'answers': [
+                    {'text': code + ': À ponte', 'next': 0, 'result': 3},
+                    {'text': code + ': À aldeia', 'next': 0, 'result': 4},
+                ]},
+            ],
+        }],
+    })
 
 emitted = '\n'.join(module.emit_localizations({'languages': languages}))
 assert 'obsolete first-line-only fallback' not in emitted
-prefix = '''#include <cstdint>
+prefix = '''#include <grandleon/core/map_conversation.hpp>
+#include <cstdint>
 #include <vector>
 #include <string_view>
 #include <cassert>
 struct grandleon_generated_dialogue_line {
  const char* speaker{}; const char* text{}; std::uint64_t unit_type_id{};
+};
+struct grandleon_generated_conversation_offer {
+ const char* speaker{""}; grandleon::core::MapConversation conversation;
 };
 '''
 checks = []
@@ -60,15 +80,25 @@ for index, code in enumerate(('en', 'es', 'pt-BR')):
                'assert(legacy.size()==1 && legacy[0].unit_type_id==0 && !legacy[0].speaker[0]);',
                f'assert(std::string_view(legacy[0].text)=="{code}: compatible flat text");',
                f'const auto& battle=grandleon_generated_moment_lines({index},9);',
-               'assert(battle.size()==1 && battle[0].unit_type_id==903); }']
+               'assert(battle.size()==1 && battle[0].unit_type_id==903);',
+               f'const auto generated=grandleon_generated_conversation({index},18446744073709551000ULL);',
+               f'assert(std::string_view(generated.speaker)=="{code}: Mensageira");',
+               'const auto& offer=generated.conversation;',
+               'assert(offer.result_flag==18446744073709551001ULL && offer.key=="reply_gate");',
+               f'assert(offer.questions.size()==2 && offer.questions[0].text=="{code}: Olá");',
+               f'assert(offer.questions[0].answers[0].next==2 && offer.questions[0].answers[1].text=="{code}: Não");',
+               'assert(offer.questions[1].answers[0].result==3 && offer.questions[1].answers[1].result==4);',
+               f'assert(grandleon_generated_conversation({index},0).conversation.questions.empty()); }}']
 with tempfile.TemporaryDirectory(prefix='grandleon-structured-dialogue-') as directory:
     source = Path(directory) / 'test.cpp'
     binary = Path(directory) / ('test' + args.executable_suffix)
-    source.write_text(prefix + module.dialogue_span_declaration() + emitted + '\nint main(){\n' + '\n'.join(checks) + '\n}\n')
+    source.write_text(prefix + module.dialogue_span_declaration() + emitted + '\nint main(){\n' + '\n'.join(checks) + '\n}\n',
+                      encoding='utf-8')
     subprocess.run([args.compiler, *args.compiler_arg, '-std=c++17', '-Wall', '-Wextra', '-Werror',
+                    '-I', str(repo / 'engine/core/include'),
                     str(source), '-o', str(binary)], check=True)
     subprocess.run(args.emulator + [str(binary)], check=True)
-print('PS1_STRUCTURED_DIALOGUE_PASS languages=3 speakers=3 ordered_lines=9 typed_battle_cast=3 legacy_flat=3')
+print('PS1_STRUCTURED_DIALOGUE_PASS languages=3 speakers=3 ordered_lines=9 typed_battle_cast=3 legacy_flat=3 translated_conversations=3')
 
 
 def stable_id(key):

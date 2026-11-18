@@ -42,8 +42,11 @@ enum grandleon_ui_mode {
     GRANDLEON_UI_NAME,
     GRANDLEON_UI_STAGE_OVERVIEW,
     GRANDLEON_UI_PACK,
-    GRANDLEON_UI_SHOP
+    GRANDLEON_UI_SHOP,
+    GRANDLEON_UI_CONVERSATION
 };
+const char* grandleon_game_conversation_line(uint8_t index);
+const char* grandleon_game_conversation_answer(uint8_t index);
 
 enum grandleon_ui_text_id {
     GRANDLEON_TEXT_NEW_GAME = 0,

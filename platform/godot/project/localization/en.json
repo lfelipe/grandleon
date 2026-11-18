@@ -41,7 +41,6 @@
     "conversation.route.ending_name": "Ending name",
     "conversation.route.closing": "Closing dialogue (optional)",
     "conversation.route.narrator": "Narrator",
-    "conversation.console_unavailable": "This campaign uses conversation choices. Play it in the Godot player.",
     "app.name": "GRANDLEON",
     "language.label": "LANGUAGE",
     "player.language.heading": "GAME LANGUAGE",

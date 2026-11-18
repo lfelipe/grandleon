@@ -72,6 +72,11 @@ def emit_definition(
             f"{int(discovery['item'])}ULL,{int(discovery['x'])},{int(discovery['y'])},"
             f"{weapon},{glint}}});"
         )
+    for reply in simulation.get("talk_replies", []):
+        lines.append(
+            f"    definition.talk_replies.push_back({{{int(reply['target'])}ULL,"
+            f"{int(reply['flag'])}ULL,{nums(reply['answers'])}}});"
+        )
     for source in simulation["units"]:
         lines += [
             "    { sim::UnitDefinition value{};",
@@ -289,6 +294,20 @@ def emit_dialogue_lines(values: list[dict[str, object]]) -> str:
     ) + "}"
 
 
+def conversation_initializer(offer: dict[str, object]) -> str:
+    questions = []
+    for question in offer["questions"]:
+        answers = ",".join(
+            "{" + ",".join((cpp_string(answer["text"]), str(int(answer["next"])),
+                            str(int(answer["result"])))) + "}"
+            for answer in question["answers"]
+        )
+        questions.append(
+            "{" + str(int(question["id"])) + "," + cpp_string(question["text"]) + ",{" + answers + "}}"
+        )
+    return "{" + f"{int(offer['flag'])}ULL," + cpp_string(offer["key"]) + ",{" + ",".join(questions) + "}}"
+
+
 def emit_localizations(
     document: dict[str, object], additional: dict[str, object] | None = None,
 ) -> list[str]:
@@ -346,6 +365,7 @@ def emit_localizations(
         "const std::vector<generated_language>& generated_languages() {",
     ]
     language_values = []
+    talk_cases = []
     for language_index, language in enumerate(languages):
         if not isinstance(language, dict):
             raise ValueError("language entry is not an object")
@@ -362,6 +382,17 @@ def emit_localizations(
         additional_language = additional_by_code.get(
             str(language.get("code", "en"))
         )
+        conversations = {
+            int(offer["unit"]): offer for offer in language.get("conversations", [])
+        }
+        for offer in (additional_language or {}).get("conversations", []):
+            conversations.setdefault(int(offer["unit"]), offer)
+        if conversations:
+            talk_cases.append(f"    case {language_index}U:")
+            for unit, offer in conversations.items():
+                talk_cases.append(f"        if (unit == {unit}ULL) return "
+                                  "{" + cpp_string(offer["speaker"]) + "," + conversation_initializer(offer) + "};")
+            talk_cases.append("        break;")
         if additional_language is not None and additional_language is not language:
             additional_moments = additional_language.get("moments", [])
             if not isinstance(additional_moments, list):
@@ -507,6 +538,15 @@ def emit_localizations(
         "}",
         "",
     ]
+    if talk_cases:
+        lines += [
+            "grandleon_generated_conversation_offer grandleon_generated_conversation(unsigned language, std::uint64_t unit) {",
+            "    switch (language) {",
+        ] + talk_cases + ["    default: break;", "    }", "    return {};", "}", ""]
+    else:
+        lines += [
+            "grandleon_generated_conversation_offer grandleon_generated_conversation(unsigned, std::uint64_t) { return {}; }", "",
+        ]
     return lines
 
 
@@ -773,6 +813,7 @@ def main() -> int:
     header = f"""/* Generated from a real Grandleon package. Do not edit. */
 #pragma once
 #include <grandleon/campaign/graph.hpp>
+#include <grandleon/core/map_conversation.hpp>
 #include <grandleon/package_runtime/member_rules.hpp>
 #include <grandleon/package_runtime/shop.hpp>
 #include <grandleon/campaign_runtime/shop.hpp>
@@ -827,6 +868,11 @@ grandleon::simulation::EncounterDefinition grandleon_generated_definition(unsign
 const std::vector<grandleon_generated_behavior>& grandleon_generated_behaviors(unsigned local_players = 2);
 const std::vector<grandleon_generated_moment>& grandleon_generated_moments(unsigned local_players = 2);
 const std::vector<grandleon_generated_dialogue_line>& grandleon_generated_moment_lines(unsigned language, std::uint64_t id);
+struct grandleon_generated_conversation_offer final {{
+    const char* speaker{{""}};
+    grandleon::core::MapConversation conversation;
+}};
+grandleon_generated_conversation_offer grandleon_generated_conversation(unsigned language, std::uint64_t unit);
 grandleon_generated_dialogue_span grandleon_generated_campaign_node_lines(unsigned language, std::uint64_t id);
 const char* grandleon_generated_unit_name(std::uint64_t id);
 std::uint64_t grandleon_generated_unit_type(std::uint64_t id);

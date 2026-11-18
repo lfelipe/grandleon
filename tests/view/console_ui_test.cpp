@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include <grandleon/view/console_ui.hpp>
+#include <grandleon/view/conversation_menu.hpp>
 
 #include <cstddef>
 #include <iostream>
@@ -143,6 +144,38 @@ int main() {
             std::string_view{ps1.menu} == "^",
         "PlayStation legends use cross, circle and triangle glyphs"
     );
+
+    const grandleon::core::MapConversation offer{0, "", {
+        {1, "Primeira linha.\nSegunda linha.\nTerceira linha.\nVocê pode ajudar?", {
+            {"Quero ajudar na aldeia.\nA estrada fica alagada.\n"
+             "Vamos pelo pomar.\nPodemos seguir agora.", 2, 1},
+            {"Preciso voltar.", 0, 2},
+        }},
+        {2, "Onde vamos nos encontrar?", {
+            {"Na ponte.", 0, 3},
+            {"No moinho.", 0, 4},
+        }},
+    }};
+    view::ConversationMenu conversation;
+    conversation.start(offer);
+    expect(conversation.more() && !conversation.choices_visible(),
+        "a long question must show its final page before offering replies");
+    expect(conversation.confirm() == 0 && conversation.choices_visible() &&
+           conversation.line(0) == "Você pode ajudar?",
+        "paging keeps all text including accented letters");
+    conversation.move(-1);
+    expect(conversation.selected() == 1, "reply navigation wraps");
+    conversation.move(1);
+    expect(conversation.selected() == 0 && conversation.label(0).find("...") != std::string::npos,
+        "a long reply has a compact preview");
+    expect(conversation.confirm() == 0 && conversation.more() && !conversation.choices_visible(),
+        "selecting the long reply opens its first page");
+    expect(conversation.confirm() == 0 && conversation.line(0) == "Podemos seguir agora.",
+        "a long reply is readable in full before it is chosen");
+    expect(conversation.confirm() == 0 && conversation.question_id() == 2,
+        "a follow-up question does not submit a Talk command");
+    conversation.move(1);
+    expect(conversation.confirm() == 4, "only the selected final reply submits its authored ID");
 
     return failures == 0 ? 0 : 1;
 }

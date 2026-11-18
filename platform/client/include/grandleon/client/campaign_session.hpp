@@ -911,6 +911,8 @@ public:
     // What the company owns beyond what its members carry, right now.
     [[nodiscard]] std::vector<campaign::InventoryStack> store() const;
 
+    [[nodiscard]] std::size_t completed_encounters() const;
+
     // Where the campaign stands. `kind` says what to do next, and
     // `encounter_id` is meaningful only for an encounter node.
     struct Standing final {

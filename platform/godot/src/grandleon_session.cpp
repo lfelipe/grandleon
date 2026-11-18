@@ -2185,22 +2185,19 @@ gd::Dictionary GrandleonSession::conversation_dictionary(
     gd::Dictionary conversations;
     for (const auto& unit : snapshot.units) {
         if (!sim::on_board(unit)) continue;
-        const auto offer = pr::load_map_conversation(package_, unit.id);
+        const auto offer = pr::localized_map_conversation(package_, unit.id, language_);
         if (offer.questions.empty()) continue;
-        const std::string prefix = "talk." + offer.key;
         gd::Array questions;
         for (const auto& question : offer.questions) {
             gd::Dictionary page;
             page["id"] = question.id;
-            page["text"] = text(pr::localized_text(package_, language_,
-                prefix + ".questions." + std::to_string(question.id), question.text));
+            page["text"] = text(question.text);
             gd::Array answers;
             for (const auto& answer : question.answers) {
                 gd::Dictionary option;
                 option["id"] = answer.result;
                 option["next"] = answer.next;
-                option["text"] = text(pr::localized_text(package_, language_,
-                    prefix + ".answers." + std::to_string(answer.result), answer.text));
+                option["text"] = text(answer.text);
                 answers.push_back(option);
             }
             page["answers"] = answers;

@@ -28,6 +28,7 @@ extern "C" {
 #include <grandleon/tactics/policy.hpp>
 #include <grandleon/view/motion.hpp>
 #include <grandleon/view/ambient_motion.hpp>
+#include <grandleon/view/conversation_menu.hpp>
 #include <grandleon/view/stage_overview.hpp>
 #include "psx_card.h"
 #include "psx_runtime.h"
@@ -186,6 +187,9 @@ std::array<std::uint8_t, maximum_board_cells> s_motion_crossable{};
 std::array<std::uint8_t, maximum_board_cells> s_motion_distance{};
 BoardMotion s_motion{};
 BattleMomentState s_battle_moment{};
+view::ConversationMenu s_conversation;
+sim::UnitId s_conversation_target{};
+std::string s_conversation_speaker;
 sim::ContentId s_action_content{};
 unsigned s_camera_settle_frames{};
 bool s_scroll_scenery_active{};
@@ -2058,6 +2062,7 @@ bool start_encounter() {
     s_motion = {};
     s_battle_moment = {};
     s_action_content = 0U;
+    s_conversation = {};
     s_result_close_combat = false;
     s_mode = snapshot.deploying ? InputMode::deployment : InputMode::browse;
     s_selected = 0;
@@ -2255,7 +2260,7 @@ extern "C" int grandleon_game_glint_tile(uint16_t index, int32_t* x, int32_t* y,
 extern "C" uint16_t grandleon_game_map_controller(uint16_t pressed) {
     // Hardware directions follow the projected board. Recorded/replay commands
     // enter grandleon_runtime_update directly and retain logical coordinates.
-    if (s_campaign_mode == CampaignMode::battle &&
+    if (!s_conversation.active() && s_campaign_mode == CampaignMode::battle &&
         (s_mode == InputMode::browse || s_mode == InputMode::move ||
          s_mode == InputMode::attack || s_mode == InputMode::ability ||
          s_mode == InputMode::talk || s_mode == InputMode::deployment)) {
@@ -2533,6 +2538,14 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
     }
     if (!s_created || !*s_created) return;
     const sim::EncounterSnapshot& snapshot = s_snapshot;
+    if (s_conversation.active()) {
+        output->mode = GRANDLEON_UI_CONVERSATION;
+        output->headline = s_conversation_speaker.c_str();
+        output->menu_count = s_conversation.choices_visible() ? s_conversation.answer_count() : 0;
+        output->menu_index = s_conversation.selected();
+        output->body = ui(s_conversation.more() ? console::Message::next : console::Message::confirm);
+        return;
+    }
     if (const auto* line = current_battle_moment_line()) {
         output->mode = GRANDLEON_UI_BATTLE_MOMENT;
         output->portrait_texture = static_cast<std::uint16_t>(portrait_for_line(*line));
@@ -2712,6 +2725,16 @@ extern "C" const char* grandleon_game_pack_incoming(void) {
             s_language_index, static_cast<std::uint32_t>(pile.stack.category), pile.stack.content_id), 30U);
     }
     return "";
+}
+
+extern "C" const char* grandleon_game_conversation_line(uint8_t index) {
+    return s_conversation.active() && index < view::ConversationMenu::lines_per_page
+        ? s_conversation.line(index).c_str() : "";
+}
+
+extern "C" const char* grandleon_game_conversation_answer(uint8_t index) {
+    return s_conversation.active() && s_conversation.choices_visible() &&
+        index < s_conversation.answer_count() ? s_conversation.label(index).c_str() : "";
 }
 
 extern "C" const char* grandleon_game_discovery_notice(void) {
@@ -3178,6 +3201,44 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
     const bool motion_was_active = advance_board_motion();
     tick_camera();
     if (motion_was_active) return 0;
+    if (s_conversation.active()) {
+        const auto buttons = s_focus_player == 0U ? player_one : player_two;
+        if (buttons & pad_circle) {
+            s_conversation = {};
+            s_mode = InputMode::action;
+            return 0;
+        }
+        if (buttons & (pad_up | pad_down)) {
+            s_conversation.move(buttons & pad_up ? -1 : 1);
+            return 0;
+        }
+        if (!(buttons & pad_cross)) return 0;
+        const auto previous = s_conversation.question_id();
+        const auto reply = s_conversation.confirm();
+        if (reply == 0U) {
+            if (s_conversation.question_id() != previous)
+                psx::Line().text("MIPSYNC_CONVERSATION_QUESTION id=").decimal(s_conversation.question_id())
+                    .text(" player=").decimal(s_focus_player + 1U).flush();
+            return 0;
+        }
+        sim::Command command{};
+        command.type = sim::CommandType::talk;
+        command.unit_id = s_selected;
+        command.target_id = s_conversation_target;
+        command.ability_id = reply;
+        s_conversation = {};
+        if (!apply_command(command, "talk", nullptr, nullptr)) {
+            s_mode = InputMode::action;
+            return 0;
+        }
+        ++s_player_talk_count;
+        s_selected = 0;
+        s_mode = InputMode::browse;
+        finish_side_if_needed(s_snapshot);
+        (void)activate_pending_battle_moment();
+        psx::Line().text("MIPSYNC_CONVERSATION_REPLY id=").decimal(reply).flush();
+        return 1;
+    }
     if (s_battle_moment.active) {
         if (player_one & (pad_cross | pad_start)) advance_battle_moment();
         return 0;
@@ -3608,6 +3669,15 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
         const sim::UnitSnapshot* actor = find_unit(snapshot, s_selected);
         const sim::UnitSnapshot* target = unit_at(snapshot, s_cursor);
         if (actor && target && sim::forecast_talk(snapshot, actor->id, target->id)) {
+            auto offer = grandleon_generated_conversation(s_language_index, target->id);
+            if (!offer.conversation.questions.empty()) {
+                s_conversation_target = target->id;
+                s_conversation_speaker = equipment_label(offer.speaker, 37U);
+                s_conversation.start(std::move(offer.conversation));
+                psx::Line().text("MIPSYNC_CONVERSATION_QUESTION id=").decimal(s_conversation.question_id())
+                    .text(" player=").decimal(input_player + 1U).flush();
+                return 0;
+            }
             sim::Command command{};
             command.type = sim::CommandType::talk;
             command.unit_id = actor->id;

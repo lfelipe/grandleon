@@ -351,6 +351,17 @@ std::vector<campaign::InventoryStack> CampaignSession::store() const {
     return live_.state.store;
 }
 
+std::size_t CampaignSession::completed_encounters() const {
+    const auto& history = live_.state.progress.history;
+    if (history.empty()) return 0U;
+    // The final history entry is the current node. Its battle is still ahead.
+    return static_cast<std::size_t>(std::count_if(history.begin(), history.end() - 1,
+        [this](const campaign::ProgressionEntry& entry) {
+            const auto* node = node_at(entry.node);
+            return node != nullptr && node->kind == pr::CampaignNodeKind::encounter;
+        }));
+}
+
 std::vector<RosterEntry> CampaignSession::roster_now() const {
     std::vector<RosterEntry> entries;
     for (const AuthoredMember& member : members_) {

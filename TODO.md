@@ -243,8 +243,9 @@ tracked above.
   Verify that stopping on the tile and passing through it lead to the authored
   detour and main route respectively. Resume the detour from SRAM and memory
   card saves after restarting the consoles.
-- [ ] Bring conversation questions and replies to Nintendo 64 and PlayStation.
-  Verify reply selection, local saves and the resulting routes on both.
+- [x] Export conversation questions and replies to Nintendo 64 and
+  PlayStation. Verify follow-up questions, alternate closing scenes, and
+  resuming the chosen routes from SRAM and memory card saves.
 - [ ] Verify that one author can recreate the Steel and Cedar campaign from a
   blank project using the editor. Check both player modes, the reinforcement
   waves, the shop, the castle reveal and the final battle.

@@ -56,6 +56,7 @@
 #include <grandleon/view/ambient_motion.hpp>
 #include <grandleon/view/brand_logo.h>
 #include <grandleon/view/console_text.h>
+#include <grandleon/view/conversation_menu.hpp>
 
 namespace campaign = grandleon::campaign;
 namespace client = grandleon::client;
@@ -426,6 +427,9 @@ CombatPresentation combat;
 ShellState shell;
 BattleUiState battle_ui;
 BattleMomentState battle_moment;
+view::ConversationMenu conversation_menu;
+sim::UnitId conversation_target{};
+std::string conversation_speaker;
 CameraPose current_camera{kTacticalCamera};
 grandleon::view::StageOverview stage_overview{};
 CameraPose overview_from{}, overview_to{};
@@ -2622,9 +2626,6 @@ void configure_campaign_board(const pr::EncounterLoadResult& content) {
         grandleon_project_backdrop_paths[shell.stage_index]
     );
     assert(board.combat_backdrop);
-    if (shell.resumed && shell.completed_battles < shell.stage_index) {
-        shell.completed_battles = shell.stage_index;
-    }
     replay.phase = shell.stage_index == 0U &&
         replay.rowan_destination != rowan->position
         ? ReplayPhase::select_rowan : ReplayPhase::explore_northwest;
@@ -2639,6 +2640,7 @@ void configure_campaign_board(const pr::EncounterLoadResult& content) {
     combat.reduced_motion = reduced_motion;
     battle_ui = {};
     board.battle_events.clear();
+    conversation_menu = {};
     board.discovery = {};
     camera_configured = false;
     restore_checkpoint_delay = 0U;
@@ -2840,6 +2842,22 @@ void shop_input(unsigned player, const joypad_buttons_t& pressed) {
 
 void begin_performance_sample();
 
+bool show_campaign_complete() {
+    if (shell.resumed) {
+        shell.stage_index = grandleon_project_encounter_count - 1U;
+    }
+    shell.phase = ShellPhase::complete;
+    shell.campaign_advanced_checkpoint = true;
+    shell.next_automatic_frame = 0U;
+    begin_performance_sample();
+    debugf(
+        "CHECKPOINT PYRITE_CAMPAIGN_COMPLETE battles=%lu slot_bytes=%lu\n",
+        static_cast<unsigned long>(shell.completed_battles),
+        static_cast<unsigned long>(storage::used_bytes(*board.saves))
+    );
+    return true;
+}
+
 bool stand_on_campaign_encounter() {
     assert(board.campaign.has_value());
     for (unsigned step = 0; step < 8U; ++step) {
@@ -2876,21 +2894,7 @@ bool stand_on_campaign_encounter() {
             return true;
         }
         if (standing.kind == pr::CampaignNodeKind::terminal) {
-            if (shell.resumed) {
-                shell.completed_battles = grandleon_project_encounter_count;
-                shell.stage_index = grandleon_project_encounter_count - 1U;
-            }
-            shell.phase = ShellPhase::complete;
-            shell.campaign_advanced_checkpoint = true;
-            shell.next_automatic_frame = 0U;
-            begin_performance_sample();
-            debugf(
-                "CHECKPOINT PYRITE_CAMPAIGN_COMPLETE battles=%lu "
-                "slot_bytes=%lu\n",
-                static_cast<unsigned long>(shell.completed_battles),
-                static_cast<unsigned long>(storage::used_bytes(*board.saves))
-            );
-            return true;
+            return standing.dialogue_ids.empty() ? show_campaign_complete() : begin_story(standing);
         }
         if (!standing.dialogue_ids.empty()) return begin_story(standing);
         std::vector<client::RosterEntry> joined;
@@ -2921,6 +2925,11 @@ bool advance_story_beat() {
         if (!load_story_dialogue()) return false;
         shell.next_automatic_frame = frame_count + 75U;
         return true;
+    }
+    if (board.campaign->standing().kind == pr::CampaignNodeKind::terminal) {
+        shell.story_ids.clear();
+        shell.story = {};
+        return show_campaign_complete();
     }
     std::vector<client::RosterEntry> joined;
     if (board.campaign->advance_story(joined) !=
@@ -2973,6 +2982,7 @@ bool begin_campaign(bool resume) {
         board.campaign->begin(failure, refused, resumed);
     if (begun != client::CampaignSessionError::none) return false;
     shell.resumed = resumed;
+    shell.completed_battles = board.campaign->completed_encounters();
     shell.shop_approved = false;
     shell.shop = {};
 
@@ -4410,6 +4420,20 @@ bool confirm_target() {
         command.type = sim::CommandType::talk;
         command.unit_id = actor->id;
         command.target_id = target->id;
+        auto offer = pr::localized_map_conversation(board.runtime.package(), target->id, game_language());
+        if (!offer.questions.empty()) {
+            const auto& package = board.runtime.package();
+            const auto placement_name = pr::content_name(package, package_format::SectionType::placement_names, target->id);
+            const auto type_name = pr::content_name(package, package_format::SectionType::unit_types, target->unit_type_id);
+            conversation_speaker = placement_name.empty()
+                ? pr::localized_content_name(package, game_language(), package_format::SectionType::unit_types, target->unit_type_id, type_name)
+                : pr::localized_placement_name(package, game_language(), target->id, placement_name);
+            conversation_target = target->id;
+            conversation_menu.start(std::move(offer));
+            debugf("PYRITE_CONVERSATION_QUESTION id=%u player=%u\n",
+                conversation_menu.question_id(), battle_ui.player + 1U);
+            return true;
+        }
         return apply_battle_command(command, false);
     }
     return false;
@@ -4552,6 +4576,36 @@ bool physical_input_for(
             "CHECKPOINT PYRITE_DEPLOYMENT_PLACE unit=%llu x=%d y=%d\n",
             selected, cursor.x, cursor.y
         );
+        return true;
+    }
+    if (conversation_menu.active()) {
+        if (player != battle_ui.player) return false;
+        if (pressed.b) {
+            conversation_menu = {};
+            battle_ui.phase = BattleUiPhase::action;
+            return true;
+        }
+        if (pressed.d_up || pressed.d_down) {
+            conversation_menu.move(pressed.d_up ? -1 : 1);
+            return true;
+        }
+        if (!pressed.a) return false;
+        const auto previous = conversation_menu.question_id();
+        const auto reply = conversation_menu.confirm();
+        if (reply == 0) {
+            if (conversation_menu.question_id() != previous)
+                debugf("PYRITE_CONVERSATION_QUESTION id=%u player=%u\n",
+                    conversation_menu.question_id(), battle_ui.player + 1U);
+            return true;
+        }
+        sim::Command command{};
+        command.type = sim::CommandType::talk;
+        command.unit_id = battle_ui.actor;
+        command.target_id = conversation_target;
+        command.ability_id = reply;
+        conversation_menu = {};
+        if (apply_battle_command(command, false))
+            debugf("PYRITE_CONVERSATION_REPLY id=%u\n", reply);
         return true;
     }
     if (battle_moment.active) {
@@ -5526,6 +5580,24 @@ void draw_discovery_notice(int x) {
 }
 
 void draw_battle_ui() {
+    if (conversation_menu.active()) {
+        ui_panel(8, 72, 304, 160, 24);
+        display_printf(18, 80, "%.*s", static_cast<int>(console_prefix_bytes(conversation_speaker, 37U)),
+            conversation_speaker.c_str());
+        for (std::size_t index = 0; index < view::ConversationMenu::lines_per_page; ++index)
+            display_glyphs(18, 102 + static_cast<int>(index) * 12,
+                console_latin1(conversation_menu.line(index)), kUiIvory);
+        if (conversation_menu.choices_visible()) {
+            for (std::size_t index = 0; index < conversation_menu.answer_count(); ++index) {
+                const int y = 139 + static_cast<int>(index) * 17;
+                ui_focus(13, y - 1, 294, 16, index == conversation_menu.selected(), player_accent(battle_ui.player));
+                display_glyphs(28, y, console_latin1(conversation_menu.label(index)), kUiIvory);
+            }
+        }
+        ui_button_hint(18, 212, "A", ui(conversation_menu.more() ? console::Message::next : console::Message::confirm));
+        ui_button_hint(189, 212, "B", ui(console::Message::back_button));
+        return;
+    }
     if (battle_moment.active &&
         battle_moment.line_index < battle_moment.dialogue.lines.size()) {
         const pr::DialogueLine& line =
@@ -6597,7 +6669,7 @@ void onSceneUpdate() {
     physical_input();
     update_combat();
     update_battle_moment();
-    if (!battle_moment.active && battle_moment.dialogue_ids.empty()) {
+    if (!conversation_menu.active() && !battle_moment.active && battle_moment.dialogue_ids.empty()) {
         if (replay.user_took_over) update_manual_battle();
         else update_replay();
     }

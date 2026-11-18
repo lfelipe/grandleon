@@ -49,7 +49,7 @@ bool GpkRuntimeAdapter::load_package(const char* rom_asset) noexcept {
         {
             {0, 1, 0},
             package_format::TargetProfile::nintendo64,
-            package_format::feature_hidden_items,
+            package_format::feature_hidden_items | package_format::feature_map_conversations,
             64,
             20'000,
             48,
