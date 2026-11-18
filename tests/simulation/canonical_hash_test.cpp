@@ -132,21 +132,21 @@ sim::EncounterSnapshot open_battle() {
     return battle;
 }
 
-// The seventeen fields of `EncounterSnapshot`, every one of them folded.
+// Battle state and the presentation fields that leave its hash alone.
 void every_field_of_a_battle_is_folded() {
     const sim::EncounterSnapshot baseline = open_battle();
     const std::uint64_t named = sim::canonical_hash(baseline);
 
     sim::EncounterSnapshot battle = baseline;
     // **This binding is the canary.** It names exactly as many fields as
-    // `EncounterSnapshot` has; a nineteenth stops the build right here, and
-    // the line that fixes it is a line below saying what the new field does to
-    // a battle's identity.
+    // `EncounterSnapshot` has. When a field is added, cover what it does
+    // to the battle's identity below.
     auto& [
         width, height, active_side, active_unit_id, remaining_action_points,
         round, activation_count, outcome, turn_order, units, objectives,
         terrain, movement_cost, drops, random, deployment_tiles, weapon_types,
-        deploying, inventory_mode, ground_items, next_ground_item_id, collecting_loot
+        deploying, inventory_mode, ground_items, next_ground_item_id,
+        collecting_loot, hidden_items
     ] = battle;
 
     // Mutate one field, ask whether the hash noticed, put it back.
@@ -240,7 +240,29 @@ void every_field_of_a_battle_is_folded() {
     expect(sim::canonical_hash(battle) != ground_hash, "next ground identity is hashed");
     battle = baseline;
 
-    // And the one field of a battle that is deliberately not folded.
+    const auto pending_discovery = core::HiddenItem{900, 400, 1, 2, true, true};
+    hidden_items = {pending_discovery};
+    const auto hidden_hash = sim::canonical_hash(battle);
+    expect(hidden_hash != named, "a pending discovery changes battle identity");
+    const auto check_hidden = [&](bool hashed, std::string_view field) {
+        expect((sim::canonical_hash(battle) != hidden_hash) == hashed, field);
+        battle.hidden_items = {pending_discovery};
+    };
+    hidden_items.front().flag = 901;
+    check_hidden(true, "the discovery flag is hashed");
+    hidden_items.front().item = 401;
+    check_hidden(true, "the discoverable item is hashed");
+    hidden_items.front().x = 2;
+    check_hidden(true, "the discovery column is hashed");
+    hidden_items.front().y = 1;
+    check_hidden(true, "the discovery row is hashed");
+    hidden_items.front().weapon = false;
+    check_hidden(true, "the discovery equipment category is hashed");
+    hidden_items.front().glint = false;
+    check_hidden(false, "the glint is a presentation choice");
+    battle = baseline;
+
+    // The weapon-type table is also deliberately not folded.
     //
     // Which kinds of weapon beat which is content the battle names, on exactly
     // the terms the three registries below are: a package can gain a triangle
@@ -606,8 +628,7 @@ void no_two_sparse_characters_share_a_hash() {
     failures += static_cast<int>(collisions);
 }
 
-// The eleven fields of `EncounterDefinition`, and the thirty-three of
-// `UnitDefinition` below it.
+// Check which authored fields reach the snapshot or affect the rules.
 //
 // These two canaries catch the shape of omission the tables above cannot. The
 // hash is a function of the snapshot, so a definition field that changes the
@@ -642,13 +663,12 @@ void every_field_of_a_definition_reaches_the_snapshot() {
     expect(static_cast<bool>(created), "the definition under test is valid");
     const sim::EncounterSnapshot battle = created.encounter.snapshot();
 
-    // The same canary a third time. A fourteenth field stops the build here,
-    // and the line that fixes it says where in the snapshot the new field
-    // lands, or, for the registries below, why it deliberately lands nowhere.
+    // The same canary for the definition. Each field has a corresponding
+    // check for snapshot data or a rule that reads it directly.
     const auto& [
         width, height, units, abilities, objectives, turn_order, weapons,
         weapon_types, items, terrain, movement_cost, random_seed,
-        deployment_tiles, inventory_mode
+        deployment_tiles, inventory_mode, talk_replies, hidden_items
     ] = definition;
 
     expect(battle.inventory_mode == inventory_mode, "inventory mode reaches snapshot");
@@ -708,6 +728,40 @@ void every_field_of_a_definition_reaches_the_snapshot() {
         "the triangle reaches the snapshot, where a forecast and a blow read "
         "the one table"
     );
+
+    expect(talk_replies.empty() && hidden_items.empty(),
+           "ordinary maps start with no authored replies or discoveries");
+    auto with_events = definition;
+    with_events.inventory_mode = sim::InventoryMode::carried;
+    with_events.turn_order = sim::TurnOrder::alternating;
+    with_events.deployment_tiles.clear();
+    with_events.units[1].position = {1, 1};
+    with_events.units[1].talk_record_id = 700;
+    with_events.weapons = {{400, 3, 1, 1, 100}};
+    with_events.hidden_items = {{900, 400, 1, 2, true, false}};
+    with_events.talk_replies = {{20, 901, {2}}};
+    auto encounter = sim::create_encounter(with_events);
+    expect(static_cast<bool>(encounter), "the map with authored events is valid");
+    if (!encounter) return;
+
+    const auto snapshot = encounter.encounter.snapshot();
+    expect(snapshot.hidden_items.size() == 1U && snapshot.hidden_items.front().flag == 900U &&
+           snapshot.hidden_items.front().item == 400U && !snapshot.hidden_items.front().glint,
+           "the map preserves the authored discovery and its hint");
+
+    sim::Command talk{};
+    talk.type = sim::CommandType::talk;
+    talk.unit_id = 10;
+    talk.target_id = 20;
+    talk.ability_id = 1;
+    expect(encounter.encounter.apply(talk).error == sim::CommandError::invalid_command,
+           "an unauthored reply is refused");
+    talk.ability_id = 2;
+    const auto reply = encounter.encounter.apply(talk);
+    expect(reply && !reply.events.empty() &&
+           reply.events.front().type == sim::EventType::unit_talked &&
+           reply.events.front().world_flag == 901U && reply.events.front().reply == 2U,
+           "the authored reply rule records its flag and selected reply");
 }
 
 void every_field_of_a_character_definition_reaches_the_snapshot() {

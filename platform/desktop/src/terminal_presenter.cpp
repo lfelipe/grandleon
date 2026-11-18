@@ -255,6 +255,16 @@ public:
                 case sim::EventType::gold_gained:
                     std::cout << "    Found " << event.amount << " gold\n";
                     break;
+                case sim::EventType::hidden_item_found: {
+                    const auto equipment = event.content_category == core::ContentCategory::weapon
+                        ? sheet::weapon_name(package_, event.content_id)
+                        : sheet::item_name(package_, event.content_id);
+                    std::cout << "    " << roster.label(event.unit_id)
+                              << " found " << equipment.c_str();
+                    if (event.ground_item_id != 0) std::cout << " on the ground";
+                    std::cout << '\n';
+                    break;
+                }
                 case sim::EventType::inventory_picked_up:
                 case sim::EventType::inventory_dropped:
                     std::cout << "    " << roster.label(event.unit_id)
