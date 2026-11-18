@@ -174,10 +174,12 @@ func check_campaign_launch_choices(project_id: String, library) -> void:
 	# The selected opening battle has Player 2; a different battle does not.
 	# A whole-adventure test must check every battle instead of the selected row.
 	var later: Dictionary = copy.campaigns[1].flow.nodes.filter(func(value): return value.id == "chapter_1_battle")[0]
+	var ally_to_assign: Dictionary = {}
 	for placement: Dictionary in later.placements:
 		if int(placement.get("player", 1)) == 2:
 			placement.erase("player") # Player 1 is the canonical omitted default.
 			placement.erase("minimumPlayers")
+			ally_to_assign = placement
 	var missing_saved: Dictionary = library.save_source(project_id, JSON.stringify(integer_numbers(copy)))
 	check(missing_saved.ok, "missing later Player 2 fixture saves: " + str(missing_saved.get("diagnostics", [])))
 	if not missing_saved.ok: return
@@ -189,6 +191,64 @@ func check_campaign_launch_choices(project_id: String, library) -> void:
 	current_scene._play_campaign(2)
 	await settle()
 	check(current_scene.scene_file_path == "res://first_battle.tscn", "missing later Player 2 cannot silently launch whole campaign")
+	check(not current_scene.assign_player_two_button.visible, "a ready battle does not prompt to assign Player 2")
+	current_scene.battle_select.select(1)
+	current_scene.battle_select.item_selected.emit(1)
+	check(current_scene.coop_button.disabled and current_scene.assign_player_two_button.visible,
+		"the blocked 2P test offers its ownership fix beside the test")
+	current_scene.assign_player_two_button.pressed.emit()
+	await settle()
+	var map_editor = current_scene
+	check(map_editor.scene_file_path == "res://map_editor.tscn" and str(root.get_node("CreatorContext").encounter_id) == str(later.id),
+		"assignment opens the selected battle's map")
+	if map_editor.scene_file_path != "res://map_editor.tscn": return
+	check(map_editor.preview_players == 2 and map_editor.experience_tabs.current_tab == 1 and map_editor.active_tool == "ownership",
+		"assignment focuses the real ownership tool with the 2P formation visible")
+	var position := Vector2i(-1, -1)
+	if not ally_to_assign.is_empty():
+		position = map_editor._placement_preview_position(ally_to_assign)
+		var width := int(map_editor._current_map().width)
+		var tile := position.y * width + position.x
+		for button: Node in map_editor.grid.get_children():
+			if int(button.get_meta("terrain_index", -1)) == tile:
+				button.pressed.emit()
+				break
+		map_editor.setup_button.pressed.emit()
+		await settle()
+		check(map_editor.tool_buttons["scaling"].is_visible_in_tree(), "Battle Setup offers 2P-only units")
+		map_editor.tool_buttons["scaling"].pressed.emit()
+		await settle()
+		check(map_editor.preview_players == 2 and map_editor.active_tool == "scaling",
+			"the 2P-only tool opens in the 2P formation")
+		map_editor._paint_cell(tile)
+		check(int(map_editor._placement_at(tile, width).get("minimumPlayers", 1)) == 2,
+			"an ally assigned to Player 2 can be authored as a 2P-only unit")
+		map_editor._select_experience_preview(0)
+		check(map_editor._placement_at(tile, width).is_empty(),
+			"the 1P tab hides the second crew after the edit")
+	await settle()
+	map_editor._request_projects()
+	await settle()
+	check(current_scene.scene_file_path == "res://first_battle.tscn" and str(current_scene.encounter.id) == str(later.id),
+		"editing ownership saves and returns to the same Battle Guide row")
+	check(not current_scene.coop_button.disabled and not current_scene.campaign_coop_button.disabled,
+		"assigning the last missing ally enables the real battle and adventure tests")
+	for players: int in [1, 2]:
+		current_scene._play_battle(players)
+		await settle()
+		check(current_scene.scene_file_path == "res://main.tscn", "the edited battle starts in %dP" % players)
+		if current_scene.scene_file_path != "res://main.tscn": return
+		var player = current_scene
+		var deadline := Time.get_ticks_msec() + 10000
+		while player.snapshot.is_empty() and Time.get_ticks_msec() < deadline: await process_frame
+		var units: Array = player.snapshot.get("units", [])
+		check(not units.is_empty(), "the native player receives the edited battle")
+		var has_second_crew := units.any(func(unit: Dictionary) -> bool:
+			return unit.side == "first" and int(unit.player) == 2 and Vector2i(int(unit.x), int(unit.y)) == position
+		)
+		check(has_second_crew == (players == 2), "the second crew appears in actual 2P play only")
+		player._leave_play_session()
+		await settle()
 	copy.campaigns[1] = alternate.duplicate(true)
 	copy.campaigns[1].playerMode = "choice"
 	# alternate was initially appended by reference; restore authored placements.

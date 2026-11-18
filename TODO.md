@@ -215,6 +215,16 @@ tracked above.
   including orchard trees, the two-tile bell, signal beacons, watch ruins
   and town walls. Preview the footprint and place, remove or undo it in one
   edit. Verify fresh stamps compile and retain the demo's existing maps.
+- [x] Put **Assign Player 2** beside a blocked 2P battle test. Open the selected
+  map's 2P formation with ownership selected. Let authors make Player 2 allies
+  and enemies appear only in 2P from **Battle Setup**.
+- [ ] Walk one author through [The Last Ferry](docs/CREATOR_WALKTHROUGH.md) from
+  a new project. Record where they look for each tool, where they get stuck
+  and what they see in play. Turn those findings into editor improvements and
+  checks using the normal authoring and play paths.
+- [ ] Let authors enter the round number directly for survival goals and
+  reinforcement waves. Check that a 20-round defense and its first wave match
+  the numbers shown in the editor after saving and reopening.
 - [ ] Verify that one author can recreate the Steel and Cedar campaign from a
   blank project using the editor. Check both player modes, the reinforcement
   waves, the shop, the castle reveal and the final battle.

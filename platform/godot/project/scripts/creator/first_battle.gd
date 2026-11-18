@@ -25,6 +25,7 @@ var campaign_test_summary: Label
 var status_label: Label
 var solo_button: Button
 var coop_button: Button
+var assign_player_two_button: Button
 var campaign_solo_button: Button
 var campaign_coop_button: Button
 var create_hero_button: Button
@@ -128,7 +129,8 @@ func _refresh_facts() -> void:
 	solo_button.tooltip_text = _t("campaign.test.solo_unavailable_tooltip" if mode == "two" else "campaign.test.solo_tooltip")
 	coop_button.tooltip_text = _t("campaign.test.coop_unavailable_tooltip" if coop_button.disabled else "campaign.test.coop_tooltip")
 	test_summary.text = _t("first_battle.test_help")
-	if mode != "one" and not player_two:
+	assign_player_two_button.visible = not encounter.is_empty() and mode != "one" and not player_two
+	if assign_player_two_button.visible:
 		test_summary.text += "\n" + _t("first_battle.needs_player_two")
 	var campaign_gaps := CampaignReadiness.two_player_ownership_gaps(campaign)
 	campaign_solo_button.disabled = campaign.is_empty() or mode == "two"
@@ -327,6 +329,8 @@ func _build_interface() -> void:
 	var tests := _row(test)
 	solo_button = _button(tests, "campaign.test.battle_one", _play_battle.bind(1))
 	coop_button = _button(tests, "campaign.test.battle_two", _play_battle.bind(2))
+	assign_player_two_button = _button(test, "first_battle.assign_player_two", _open_map.bind("assign_player_two"))
+	assign_player_two_button.hide()
 	var grow := _card(cards, "first_battle.grow")
 	grow.add_child(_label(_t("first_battle.grow_help"), 18))
 	next_battle_button = _button(grow, "first_battle.next_battle", _open_map.bind("add_chapter"))

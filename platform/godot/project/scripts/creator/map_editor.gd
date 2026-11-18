@@ -398,10 +398,18 @@ func _load_project() -> void:
 		call_deferred("_open_new_chapter")
 	elif requested_action == "place_sides":
 		call_deferred("_open_add_placement")
+	elif requested_action == "assign_player_two":
+		call_deferred("_open_player_two_assignment")
 	elif requested_action == "objectives":
 		call_deferred("_open_objectives")
 	else:
 		map_select.call_deferred("grab_focus")
+
+
+func _open_player_two_assignment() -> void:
+	_select_experience_preview(1)
+	_select_tool("ownership")
+	_set_status(_t("map.ownership.choose_player_two"), false)
 
 
 func _apply_diagnostic_focus(diagnostic: Dictionary) -> void:
@@ -1760,11 +1768,11 @@ func _toggle_placement_scaling_at(index: int, width: int) -> void:
 	var encounter := _current_encounter()
 	var placement := _placement_at(index, width)
 	if encounter.is_empty() or placement.is_empty():
-		_set_status(_t("map.error.choose_enemy_scaling"), true)
+		_set_status(_t("map.scaling.choose_unit"), true)
 		_focus_cell(index)
 		return
-	if str(placement.get("side", "second")) != "second":
-		_set_status(_t("map.error.allies_all_player_counts"), true)
+	if str(placement.get("side", "second")) == "first" and int(placement.get("player", 1)) != 2:
+		_set_status(_t("map.error.scaling_assign_player_two"), true)
 		_focus_cell(index)
 		return
 	var node: Dictionary = encounter.node
@@ -4922,6 +4930,12 @@ func _choose_setup_tool(name: String) -> void:
 	_select_tool(name)
 
 
+func _setup_scaling() -> void:
+	_select_experience_preview(1)
+	_choose_setup_tool("scaling")
+	_set_status(_t("map.scaling.choose_unit"), false)
+
+
 func _setup_add_character() -> void:
 	setup_layer.visible = false
 	_open_add_placement()
@@ -5154,6 +5168,11 @@ func _build_setup_overlay() -> void:
 	ownership_button.pressed.connect(_choose_setup_tool.bind("ownership"))
 	choices.add_child(ownership_button)
 	tool_buttons["ownership"] = ownership_button
+	var scaling_button := _button(_t("map.tool.scaling"), 500, 66)
+	scaling_button.tooltip_text = _t("map.scaling.choose_unit")
+	scaling_button.pressed.connect(_setup_scaling)
+	choices.add_child(scaling_button)
+	tool_buttons["scaling"] = scaling_button
 	var forces_button := _button(_t("map.forces.open"), 500, 66)
 	forces_button.pressed.connect(_setup_forces)
 	choices.add_child(forces_button)

@@ -76,8 +76,10 @@ then choose its starting tile. Heroes who join later are listed with their
 join stage; a placement appears in the full campaign only after that hero
 has joined. Switch the **1P** and **2P** tabs above the map to compare and edit
 each formation in the same view. Moving a unit in 2P keeps its 1P position.
-Under **Battle Setup**, you can also arrange
-reinforcements, patrols and the differences between solo and co-op forces.
+If a 2P test needs an ally for the second player, use **Assign Player 2** in
+the Battle Guide to open the correct formation. In **Battle Setup**, use
+**2P-Only Units** to make a Player 2 ally or an enemy appear only in co-op.
+Battle Setup also has reinforcements and patrol routes.
 **Pack & Drops**, beside an enemy archetype, sets its pack size and the gold,
 weapon or item it leaves when defeated. The preview shows exact chances, and
 the settings apply to every enemy using that archetype, including reinforcements.
