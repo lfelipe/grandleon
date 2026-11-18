@@ -16,6 +16,8 @@ NOTES = {
     'cedar_watch': ('A ruined command court', ['One low-walled court.', 'Four approach roads.', 'Six signal beacons.', 'Survive twenty rounds.']),
     'gate_village': ('A working market village', ['Staggered homes and workshops.', 'Market well and cottage garden.', 'Cart in the loading yard.', 'Tower joins the eastern wall.']),
     'twin_gate': ('A fortified seat above town', ['Connected tower and curtain wall.', 'Clear high and low approaches.', 'Loading bay off the main ward.', 'Enter the keep to reveal its room.']),
+    'orchard_storehouse': ('A walled orchard yard', ['A glint opens this detour.', 'The March takes the front entrance.', 'Cedar circles the garden wall in 2P.']),
+    'courier_ford': ('A crossing with two bridges', ["Accept the courier's offer.", 'Each bridge is its own approach.', 'Watch for archers on the east bank.']),
 }
 
 

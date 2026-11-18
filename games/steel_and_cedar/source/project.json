@@ -4,7 +4,8 @@
   "packageId": "751d322d-dc60-4c6d-a1e1-821e4dd7c617",
   "gameId": "grandleon.steel_and_cedar",
   "title": "Steel and Cedar",
-  "contentRevision": "0.4.2",
+  "contentRevision": "0.5.0",
+  "showEndStatistics": true,
   "themeId": "temperate",
   "characterStyleId": "medieval",
   "characterFigureId": "first",
@@ -1593,6 +1594,154 @@
           }
         ]
       }
+    },
+    {
+      "id": "orchard_storehouse",
+      "name": "Orchard Storehouse",
+      "width": 9,
+      "height": 6,
+      "terrain": [
+        "forest",
+        "forest_orchard_tree",
+        "farmland_orchard_tree",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "ruins",
+        "grass",
+        "farmland",
+        "road",
+        "road",
+        "road",
+        "paved",
+        "paved",
+        "grass",
+        "ruins",
+        "road",
+        "farmland_orchard_tree",
+        "mountain_town_wall",
+        "paved",
+        "paved",
+        "paved",
+        "mountain_town_wall",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "road",
+        "paved",
+        "paved",
+        "paved",
+        "mountain_town_wall",
+        "grass",
+        "grass",
+        "forest_orchard_tree",
+        "grass",
+        "mountain_town_wall",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "farmland",
+        "forest",
+        "forest_orchard_tree",
+        "farmland_orchard_tree",
+        "farmland_orchard_tree",
+        "road",
+        "grass",
+        "grass",
+        "farmland",
+        "forest",
+        "forest"
+      ],
+      "surroundings": {
+        "mode": "automatic",
+        "depth": 5
+      }
+    },
+    {
+      "id": "courier_ford",
+      "name": "Courier Ford",
+      "width": 10,
+      "height": 7,
+      "terrain": [
+        "forest",
+        "forest",
+        "forest",
+        "grass",
+        "road",
+        "water",
+        "forest",
+        "forest",
+        "forest",
+        "hills",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "bridge",
+        "road",
+        "road",
+        "road",
+        "grass",
+        "forest",
+        "forest",
+        "grass",
+        "forest",
+        "road",
+        "water",
+        "grass",
+        "road",
+        "grass",
+        "forest",
+        "hills",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "water",
+        "hills",
+        "hills",
+        "grass",
+        "road",
+        "grass",
+        "grass",
+        "road",
+        "grass",
+        "forest",
+        "water",
+        "grass",
+        "road",
+        "road",
+        "grass",
+        "grass",
+        "road",
+        "road",
+        "road",
+        "road",
+        "bridge",
+        "road",
+        "road",
+        "forest",
+        "grass",
+        "forest",
+        "forest",
+        "hills",
+        "grass",
+        "road",
+        "water",
+        "forest",
+        "forest",
+        "forest",
+        "hills"
+      ],
+      "surroundings": {
+        "mode": "automatic",
+        "depth": 5
+      }
     }
   ],
   "objectives": [
@@ -1682,6 +1831,10 @@
         {
           "speaker": "Rowan",
           "text": "We focus one threat at a time, then end the turn together."
+        },
+        {
+          "speaker": "Tomas",
+          "text": "Something caught the light beside the bell. Stop there and look before we leave."
         }
       ]
     },
@@ -1755,6 +1908,10 @@
         {
           "speaker": "Rowan",
           "text": "We clear the near ambush, use the rock line as cover, and reach the eastern courier."
+        },
+        {
+          "speaker": "Tomas",
+          "text": "If you get close enough, try talking to the courier. He may know more than he lets on."
         }
       ]
     },
@@ -1802,7 +1959,7 @@
         },
         {
           "speaker": "Tomas",
-          "text": "And the captured courier carried Masatora's matching order. Each court is feeding the other's fear."
+          "text": "The courier's orders bear Masatora's seal. Each court is feeding the other's fear."
         },
         {
           "speaker": "Rowan",
@@ -2080,6 +2237,78 @@
       "backgroundId": "star_field"
     },
     {
+      "id": "storehouse_orders",
+      "name": "The Hidden Dispatch",
+      "cast": [
+        {
+          "speaker": "Tomas",
+          "unitTypeId": "tomas_reed"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Tomas",
+          "text": "That dispatch leads here. The guards are packing away the false seals. We need the ledger before it goes with them."
+        }
+      ]
+    },
+    {
+      "id": "storehouse_coop",
+      "name": "Around the Garden",
+      "cast": [
+        {
+          "speaker": "Akari",
+          "unitTypeId": "akari_mori"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Akari",
+          "text": "Cedar takes the lower path around the garden wall. Keep them busy at the front."
+        }
+      ]
+    },
+    {
+      "id": "ford_orders",
+      "name": "Across the Ford",
+      "cast": [
+        {
+          "speaker": "Rowan",
+          "unitTypeId": "rowan_vale"
+        },
+        {
+          "speaker": "Tomas",
+          "unitTypeId": "tomas_reed"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Rowan",
+          "text": "The courier kept his word. His escort is at the ford with the second copy of the orders."
+        },
+        {
+          "speaker": "Tomas",
+          "text": "There are two bridges. If we hold one, the escort can still use the other to get behind us."
+        }
+      ]
+    },
+    {
+      "id": "ford_coop",
+      "name": "Split Crossing",
+      "cast": [
+        {
+          "speaker": "Ren",
+          "unitTypeId": "ren_sato"
+        }
+      ],
+      "lines": [
+        {
+          "speaker": "Ren",
+          "text": "We'll cross downstream. The two companies can meet on the far bank."
+        }
+      ]
+    },
+    {
       "id": "defeat",
       "name": "The Signal Fades",
       "cast": [
@@ -2163,6 +2392,10 @@
         "gate_coop",
         "gate_coop_victory",
         "ending",
+        "storehouse_orders",
+        "storehouse_coop",
+        "ford_orders",
+        "ford_coop",
         "defeat"
       ],
       "flow": {
@@ -2269,6 +2502,15 @@
                 "minimumPlayers": 2
               }
             ],
+            "hiddenItems": [
+              {
+                "flagId": "found_orchard_dispatch",
+                "itemId": "field_tonic",
+                "x": 2,
+                "y": 3,
+                "glint": true
+              }
+            ],
             "objectiveIds": [
               "defeat_all"
             ],
@@ -2291,9 +2533,29 @@
             ],
             "transitions": [
               {
+                "id": "orchard_detour",
+                "targetNodeId": "orchard_storehouse",
+                "priority": 0,
+                "when": {
+                  "kind": "all",
+                  "conditions": [
+                    {
+                      "kind": "objectiveResult",
+                      "objectiveId": "defeat_all",
+                      "result": "victory"
+                    },
+                    {
+                      "kind": "worldFlagEquals",
+                      "flagId": "found_orchard_dispatch",
+                      "value": true
+                    }
+                  ]
+                }
+              },
+              {
                 "id": "orchard_won",
                 "targetNodeId": "orchard_camp",
-                "priority": 0,
+                "priority": 1,
                 "when": {
                   "kind": "objectiveResult",
                   "objectiveId": "defeat_all",
@@ -2303,7 +2565,7 @@
               {
                 "id": "orchard_lost",
                 "targetNodeId": "campaign_defeat",
-                "priority": 1,
+                "priority": 2,
                 "when": {
                   "kind": "objectiveResult",
                   "objectiveId": "defeat_all",
@@ -2416,7 +2678,29 @@
                 "side": "second",
                 "x": 9,
                 "y": 4,
-                "behavior": "pursue"
+                "behavior": "pursue",
+                "name": "Cedar courier",
+                "talk": {
+                  "flagId": "spoke_to_courier",
+                  "replyFlagId": "courier_reply",
+                  "nextReplyId": 3,
+                  "questions": [
+                    {
+                      "id": 1,
+                      "text": "My escort has a second copy of the orders. Will you meet them at the ford?",
+                      "answers": [
+                        {
+                          "id": 1,
+                          "text": "Show us the way."
+                        },
+                        {
+                          "id": 2,
+                          "text": "We have to press on."
+                        }
+                      ]
+                    }
+                  ]
+                }
               },
               {
                 "id": "deepwood_south_knife",
@@ -2475,9 +2759,29 @@
             ],
             "transitions": [
               {
+                "id": "deepwood_detour",
+                "targetNodeId": "courier_ford",
+                "priority": 0,
+                "when": {
+                  "kind": "all",
+                  "conditions": [
+                    {
+                      "kind": "objectiveResult",
+                      "objectiveId": "defeat_all",
+                      "result": "victory"
+                    },
+                    {
+                      "kind": "worldFlagEquals",
+                      "flagId": "courier_reply",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
                 "id": "deepwood_won",
                 "targetNodeId": "deepwood_camp",
-                "priority": 0,
+                "priority": 1,
                 "when": {
                   "kind": "objectiveResult",
                   "objectiveId": "defeat_all",
@@ -2487,7 +2791,7 @@
               {
                 "id": "deepwood_lost",
                 "targetNodeId": "campaign_defeat",
-                "priority": 1,
+                "priority": 2,
                 "when": {
                   "kind": "objectiveResult",
                   "objectiveId": "defeat_all",
@@ -3294,6 +3598,248 @@
             ]
           },
           {
+            "id": "orchard_storehouse",
+            "name": "Orchard Storehouse",
+            "kind": "encounter",
+            "mapId": "orchard_storehouse",
+            "placements": [
+              {
+                "id": "rowan_storehouse",
+                "unitTypeId": "rowan_vale",
+                "side": "first",
+                "x": 2,
+                "y": 1,
+                "memberId": "rowan"
+              },
+              {
+                "id": "tomas_storehouse",
+                "unitTypeId": "tomas_reed",
+                "side": "first",
+                "x": 1,
+                "y": 1,
+                "memberId": "tomas"
+              },
+              {
+                "id": "akari_storehouse",
+                "unitTypeId": "akari_mori",
+                "side": "first",
+                "x": 1,
+                "y": 4,
+                "memberId": "akari",
+                "player": 2,
+                "minimumPlayers": 2
+              },
+              {
+                "id": "ren_storehouse",
+                "unitTypeId": "ren_sato",
+                "side": "first",
+                "x": 2,
+                "y": 5,
+                "memberId": "ren",
+                "player": 2,
+                "minimumPlayers": 2
+              },
+              {
+                "id": "storehouse_guard",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 5,
+                "y": 2,
+                "behavior": "pursue"
+              },
+              {
+                "id": "storehouse_archer",
+                "unitTypeId": "march_archer",
+                "side": "second",
+                "x": 6,
+                "y": 1,
+                "behavior": "hold"
+              },
+              {
+                "id": "storehouse_coop",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 6,
+                "y": 4,
+                "behavior": "pursue",
+                "minimumPlayers": 2
+              }
+            ],
+            "objectiveIds": [
+              "defeat_all",
+              "protect_rowan"
+            ],
+            "moments": [
+              {
+                "id": "storehouse_open",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "storehouse_orders"
+              },
+              {
+                "id": "storehouse_flank",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "storehouse_coop",
+                "minimumPlayers": 2
+              }
+            ],
+            "transitions": [
+              {
+                "id": "storehouse_won",
+                "targetNodeId": "orchard_camp",
+                "priority": 0,
+                "when": {
+                  "kind": "all",
+                  "conditions": [
+                    {
+                      "kind": "objectiveResult",
+                      "objectiveId": "defeat_all",
+                      "result": "victory"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "storehouse_lost",
+                "targetNodeId": "campaign_defeat",
+                "priority": 1,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "protect_rowan",
+                  "result": "defeat"
+                }
+              }
+            ]
+          },
+          {
+            "id": "courier_ford",
+            "name": "Courier Ford",
+            "kind": "encounter",
+            "mapId": "courier_ford",
+            "placements": [
+              {
+                "id": "rowan_ford",
+                "unitTypeId": "rowan_vale",
+                "side": "first",
+                "x": 3,
+                "y": 1,
+                "memberId": "rowan"
+              },
+              {
+                "id": "tomas_ford",
+                "unitTypeId": "tomas_reed",
+                "side": "first",
+                "x": 3,
+                "y": 2,
+                "memberId": "tomas"
+              },
+              {
+                "id": "akari_ford",
+                "unitTypeId": "akari_mori",
+                "side": "first",
+                "x": 3,
+                "y": 5,
+                "memberId": "akari",
+                "player": 2,
+                "minimumPlayers": 2
+              },
+              {
+                "id": "ren_ford",
+                "unitTypeId": "ren_sato",
+                "side": "first",
+                "x": 2,
+                "y": 5,
+                "memberId": "ren",
+                "player": 2,
+                "minimumPlayers": 2
+              },
+              {
+                "id": "ford_escort",
+                "unitTypeId": "red_retainer",
+                "side": "second",
+                "x": 7,
+                "y": 1,
+                "behavior": "pursue"
+              },
+              {
+                "id": "ford_archer",
+                "unitTypeId": "cedar_archer",
+                "side": "second",
+                "x": 7,
+                "y": 3,
+                "behavior": "hold"
+              },
+              {
+                "id": "ford_sentry",
+                "unitTypeId": "court_knife",
+                "side": "second",
+                "x": 8,
+                "y": 5,
+                "behavior": "pursue"
+              },
+              {
+                "id": "ford_coop",
+                "unitTypeId": "march_sword",
+                "side": "second",
+                "x": 7,
+                "y": 5,
+                "behavior": "pursue",
+                "minimumPlayers": 2
+              }
+            ],
+            "objectiveIds": [
+              "defeat_all",
+              "protect_rowan"
+            ],
+            "moments": [
+              {
+                "id": "ford_open",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "ford_orders"
+              },
+              {
+                "id": "ford_split",
+                "when": {
+                  "kind": "stageOpens"
+                },
+                "dialogueId": "ford_coop",
+                "minimumPlayers": 2
+              }
+            ],
+            "transitions": [
+              {
+                "id": "ford_won",
+                "targetNodeId": "deepwood_camp",
+                "priority": 0,
+                "when": {
+                  "kind": "all",
+                  "conditions": [
+                    {
+                      "kind": "objectiveResult",
+                      "objectiveId": "defeat_all",
+                      "result": "victory"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "ford_lost",
+                "targetNodeId": "campaign_defeat",
+                "priority": 1,
+                "when": {
+                  "kind": "objectiveResult",
+                  "objectiveId": "protect_rowan",
+                  "result": "defeat"
+                }
+              }
+            ]
+          },
+          {
             "id": "epilogue",
             "name": "An Open Gate",
             "kind": "story",
@@ -3339,7 +3885,7 @@
       }
     }
   ],
-  "notes": "A five-battle Medieval-and-Sengoku campaign designed as the future common demo. One player follows Commander Rowan and Tomas through a complete story. With two local players, Akari and Ren arrive as a separate Cedar army with their own dialogue, deployment fronts, route responsibilities and additional opposition. The compact opening teaches the rules; four larger boards exercise scrolling, split routes, rendezvous decisions, a twenty-round commander defense, a village assault and a final boss while staying within console encounter budgets.",
+  "notes": "Five main battles and two optional detours. Rowan and Tomas can pursue a hidden dispatch and follow an offer from a Cedar courier. In 2P, Akari and Ren lead a separate army with its own routes, dialogue and opposition.",
   "translations": [
     {
       "language": "pt-BR",
@@ -3410,9 +3956,19 @@
           "text": "II — Bosque Profundo de Cedro"
         },
         {
+          "id": "campaigns.steel_and_cedar.nodes.cedar_deepwood.placements.deepwood_courier_guard.name",
+          "source": "Cedar courier",
+          "text": "Mensageiro de Cedro"
+        },
+        {
           "id": "campaigns.steel_and_cedar.nodes.cedar_watch.name",
           "source": "III — Cedar Watch",
           "text": "III — Vigia de Cedro"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.courier_ford.name",
+          "source": "Courier Ford",
+          "text": "Travessia do Mensageiro"
         },
         {
           "id": "campaigns.steel_and_cedar.nodes.deepwood_camp.name",
@@ -3443,6 +3999,11 @@
           "id": "campaigns.steel_and_cedar.nodes.orchard_camp.name",
           "source": "A Paid Lie",
           "text": "Uma Mentira Paga"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.orchard_storehouse.name",
+          "source": "Orchard Storehouse",
+          "text": "Depósito do Pomar"
         },
         {
           "id": "campaigns.steel_and_cedar.nodes.prologue.name",
@@ -3565,6 +4126,16 @@
           "text": "Vamos eliminar a emboscada mais próxima, usar as rochas como cobertura e alcançar o mensageiro a leste."
         },
         {
+          "id": "dialogues.deepwood_orders.lines.2.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.deepwood_orders.lines.2.text",
+          "source": "If you get close enough, try talking to the courier. He may know more than he lets on.",
+          "text": "Se chegar perto o bastante, tente falar com o mensageiro. Ele pode saber mais do que admite."
+        },
+        {
           "id": "dialogues.deepwood_orders.name",
           "source": "Under the Cedar",
           "text": "Sob os Cedros"
@@ -3586,8 +4157,8 @@
         },
         {
           "id": "dialogues.deepwood_won.lines.1.text",
-          "source": "And the captured courier carried Masatora's matching order. Each court is feeding the other's fear.",
-          "text": "E o mensageiro capturado levava uma ordem equivalente de Masatora. Cada corte alimenta o medo da outra."
+          "source": "The courier's orders bear Masatora's seal. Each court is feeding the other's fear.",
+          "text": "As ordens do mensageiro trazem o selo de Masatora. Cada corte alimenta o medo da outra."
         },
         {
           "id": "dialogues.deepwood_won.lines.2.speaker",
@@ -3653,6 +4224,46 @@
           "id": "dialogues.ending.name",
           "source": "An Open Gate",
           "text": "Um Portão Aberto"
+        },
+        {
+          "id": "dialogues.ford_coop.lines.0.speaker",
+          "source": "Ren",
+          "text": "Ren"
+        },
+        {
+          "id": "dialogues.ford_coop.lines.0.text",
+          "source": "We'll cross downstream. The two companies can meet on the far bank.",
+          "text": "Vamos atravessar rio abaixo. As duas companhias podem se encontrar na outra margem."
+        },
+        {
+          "id": "dialogues.ford_coop.name",
+          "source": "Split Crossing",
+          "text": "Travessia em Duas Frentes"
+        },
+        {
+          "id": "dialogues.ford_orders.lines.0.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.ford_orders.lines.0.text",
+          "source": "The courier kept his word. His escort is at the ford with the second copy of the orders.",
+          "text": "O mensageiro cumpriu a palavra. A escolta dele está na travessia com a segunda cópia das ordens."
+        },
+        {
+          "id": "dialogues.ford_orders.lines.1.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.ford_orders.lines.1.text",
+          "source": "There are two bridges. If we hold one, the escort can still use the other to get behind us.",
+          "text": "Há duas pontes. Se segurarmos uma, a escolta ainda pode usar a outra para nos pegar pelas costas."
+        },
+        {
+          "id": "dialogues.ford_orders.name",
+          "source": "Across the Ford",
+          "text": "Do Outro Lado da Travessia"
         },
         {
           "id": "dialogues.gate_coop.lines.0.speaker",
@@ -3835,6 +4446,16 @@
           "text": "Vamos enfrentar uma ameaça por vez e encerrar o turno juntos."
         },
         {
+          "id": "dialogues.orchard_orders.lines.2.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.orchard_orders.lines.2.text",
+          "source": "Something caught the light beside the bell. Stop there and look before we leave.",
+          "text": "Algo brilhou ao lado do sino. Pare ali e dê uma olhada antes de irmos."
+        },
+        {
           "id": "dialogues.orchard_orders.name",
           "source": "The First Exchange",
           "text": "O Primeiro Confronto"
@@ -3863,6 +4484,36 @@
           "id": "dialogues.orchard_won.name",
           "source": "A Paid Lie",
           "text": "Uma Mentira Paga"
+        },
+        {
+          "id": "dialogues.storehouse_coop.lines.0.speaker",
+          "source": "Akari",
+          "text": "Akari"
+        },
+        {
+          "id": "dialogues.storehouse_coop.lines.0.text",
+          "source": "Cedar takes the lower path around the garden wall. Keep them busy at the front.",
+          "text": "Cedro vai pelo caminho de baixo, contornando o muro do jardim. Mantenham os guardas ocupados na entrada."
+        },
+        {
+          "id": "dialogues.storehouse_coop.name",
+          "source": "Around the Garden",
+          "text": "Pelo Jardim"
+        },
+        {
+          "id": "dialogues.storehouse_orders.lines.0.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.storehouse_orders.lines.0.text",
+          "source": "That dispatch leads here. The guards are packing away the false seals. We need the ledger before it goes with them.",
+          "text": "O despacho nos trouxe até aqui. Os guardas estão guardando os selos falsos. Precisamos do livro de registros antes que o levem."
+        },
+        {
+          "id": "dialogues.storehouse_orders.name",
+          "source": "The Hidden Dispatch",
+          "text": "O Despacho Escondido"
         },
         {
           "id": "dialogues.village_coop.lines.0.speaker",
@@ -4050,9 +4701,19 @@
           "text": "Vigia de Cedro"
         },
         {
+          "id": "maps.courier_ford.name",
+          "source": "Courier Ford",
+          "text": "Travessia do Mensageiro"
+        },
+        {
           "id": "maps.gate_village.name",
           "source": "Gate Village",
           "text": "Vila do Portão"
+        },
+        {
+          "id": "maps.orchard_storehouse.name",
+          "source": "Orchard Storehouse",
+          "text": "Depósito do Pomar"
         },
         {
           "id": "maps.twin_gate.name",
@@ -4088,6 +4749,21 @@
           "id": "project.title",
           "source": "Steel and Cedar",
           "text": "Aço e Cedro"
+        },
+        {
+          "id": "talk.courier_reply.answers.1",
+          "source": "Show us the way.",
+          "text": "Mostre o caminho."
+        },
+        {
+          "id": "talk.courier_reply.answers.2",
+          "source": "We have to press on.",
+          "text": "Precisamos seguir em frente."
+        },
+        {
+          "id": "talk.courier_reply.questions.1",
+          "source": "My escort has a second copy of the orders. Will you meet them at the ford?",
+          "text": "Minha escolta tem uma segunda cópia das ordens. Vocês podem encontrá-la na travessia?"
         },
         {
           "id": "unit_types.akari_mori.name",
@@ -4295,9 +4971,19 @@
           "text": "II — Bosque Profundo de Cedro"
         },
         {
+          "id": "campaigns.steel_and_cedar.nodes.cedar_deepwood.placements.deepwood_courier_guard.name",
+          "source": "Cedar courier",
+          "text": "Mensajero de Cedro"
+        },
+        {
           "id": "campaigns.steel_and_cedar.nodes.cedar_watch.name",
           "source": "III — Cedar Watch",
           "text": "III — Atalaya de Cedro"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.courier_ford.name",
+          "source": "Courier Ford",
+          "text": "Vado del Mensajero"
         },
         {
           "id": "campaigns.steel_and_cedar.nodes.deepwood_camp.name",
@@ -4328,6 +5014,11 @@
           "id": "campaigns.steel_and_cedar.nodes.orchard_camp.name",
           "source": "A Paid Lie",
           "text": "Una Mentira Pagada"
+        },
+        {
+          "id": "campaigns.steel_and_cedar.nodes.orchard_storehouse.name",
+          "source": "Orchard Storehouse",
+          "text": "Almacén del Huerto"
         },
         {
           "id": "campaigns.steel_and_cedar.nodes.prologue.name",
@@ -4450,6 +5141,16 @@
           "text": "Eliminaremos la emboscada cercana, usaremos las rocas como cobertura y alcanzaremos al mensajero del este."
         },
         {
+          "id": "dialogues.deepwood_orders.lines.2.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.deepwood_orders.lines.2.text",
+          "source": "If you get close enough, try talking to the courier. He may know more than he lets on.",
+          "text": "Si te acercas lo suficiente, intenta hablar con el mensajero. Puede que sepa más de lo que dice."
+        },
+        {
           "id": "dialogues.deepwood_orders.name",
           "source": "Under the Cedar",
           "text": "Bajo los Cedros"
@@ -4471,8 +5172,8 @@
         },
         {
           "id": "dialogues.deepwood_won.lines.1.text",
-          "source": "And the captured courier carried Masatora's matching order. Each court is feeding the other's fear.",
-          "text": "Y el mensajero capturado llevaba una orden equivalente de Masatora. Cada corte alimenta el miedo de la otra."
+          "source": "The courier's orders bear Masatora's seal. Each court is feeding the other's fear.",
+          "text": "Las órdenes del mensajero llevan el sello de Masatora. Cada corte alimenta el miedo de la otra."
         },
         {
           "id": "dialogues.deepwood_won.lines.2.speaker",
@@ -4538,6 +5239,46 @@
           "id": "dialogues.ending.name",
           "source": "An Open Gate",
           "text": "Una Puerta Abierta"
+        },
+        {
+          "id": "dialogues.ford_coop.lines.0.speaker",
+          "source": "Ren",
+          "text": "Ren"
+        },
+        {
+          "id": "dialogues.ford_coop.lines.0.text",
+          "source": "We'll cross downstream. The two companies can meet on the far bank.",
+          "text": "Cruzaremos río abajo. Las dos compañías pueden reunirse en la otra orilla."
+        },
+        {
+          "id": "dialogues.ford_coop.name",
+          "source": "Split Crossing",
+          "text": "Cruce en Dos Frentes"
+        },
+        {
+          "id": "dialogues.ford_orders.lines.0.speaker",
+          "source": "Rowan",
+          "text": "Rowan"
+        },
+        {
+          "id": "dialogues.ford_orders.lines.0.text",
+          "source": "The courier kept his word. His escort is at the ford with the second copy of the orders.",
+          "text": "El mensajero cumplió su palabra. Su escolta está en el vado con la segunda copia de las órdenes."
+        },
+        {
+          "id": "dialogues.ford_orders.lines.1.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.ford_orders.lines.1.text",
+          "source": "There are two bridges. If we hold one, the escort can still use the other to get behind us.",
+          "text": "Hay dos puentes. Si defendemos uno, la escolta aún puede usar el otro para atacarnos por la espalda."
+        },
+        {
+          "id": "dialogues.ford_orders.name",
+          "source": "Across the Ford",
+          "text": "Al Otro Lado del Vado"
         },
         {
           "id": "dialogues.gate_coop.lines.0.speaker",
@@ -4720,6 +5461,16 @@
           "text": "Nos centraremos en una amenaza a la vez y terminaremos el turno juntos."
         },
         {
+          "id": "dialogues.orchard_orders.lines.2.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.orchard_orders.lines.2.text",
+          "source": "Something caught the light beside the bell. Stop there and look before we leave.",
+          "text": "Algo brilló junto a la campana. Detente allí y mira antes de que nos vayamos."
+        },
+        {
           "id": "dialogues.orchard_orders.name",
           "source": "The First Exchange",
           "text": "El Primer Enfrentamiento"
@@ -4748,6 +5499,36 @@
           "id": "dialogues.orchard_won.name",
           "source": "A Paid Lie",
           "text": "Una Mentira Pagada"
+        },
+        {
+          "id": "dialogues.storehouse_coop.lines.0.speaker",
+          "source": "Akari",
+          "text": "Akari"
+        },
+        {
+          "id": "dialogues.storehouse_coop.lines.0.text",
+          "source": "Cedar takes the lower path around the garden wall. Keep them busy at the front.",
+          "text": "Cedro tomará el camino de abajo, rodeando el muro del jardín. Manténganlos ocupados en la entrada."
+        },
+        {
+          "id": "dialogues.storehouse_coop.name",
+          "source": "Around the Garden",
+          "text": "Rodear el Jardín"
+        },
+        {
+          "id": "dialogues.storehouse_orders.lines.0.speaker",
+          "source": "Tomas",
+          "text": "Tomas"
+        },
+        {
+          "id": "dialogues.storehouse_orders.lines.0.text",
+          "source": "That dispatch leads here. The guards are packing away the false seals. We need the ledger before it goes with them.",
+          "text": "El despacho nos trajo hasta aquí. Los guardias están guardando los sellos falsos. Necesitamos el libro de cuentas antes de que se lo lleven."
+        },
+        {
+          "id": "dialogues.storehouse_orders.name",
+          "source": "The Hidden Dispatch",
+          "text": "El Despacho Oculto"
         },
         {
           "id": "dialogues.village_coop.lines.0.speaker",
@@ -4935,9 +5716,19 @@
           "text": "Atalaya de Cedro"
         },
         {
+          "id": "maps.courier_ford.name",
+          "source": "Courier Ford",
+          "text": "Vado del Mensajero"
+        },
+        {
           "id": "maps.gate_village.name",
           "source": "Gate Village",
           "text": "Aldea de la Puerta"
+        },
+        {
+          "id": "maps.orchard_storehouse.name",
+          "source": "Orchard Storehouse",
+          "text": "Almacén del Huerto"
         },
         {
           "id": "maps.twin_gate.name",
@@ -4973,6 +5764,21 @@
           "id": "project.title",
           "source": "Steel and Cedar",
           "text": "Acero y Cedro"
+        },
+        {
+          "id": "talk.courier_reply.answers.1",
+          "source": "Show us the way.",
+          "text": "Muéstranos el camino."
+        },
+        {
+          "id": "talk.courier_reply.answers.2",
+          "source": "We have to press on.",
+          "text": "Tenemos que seguir adelante."
+        },
+        {
+          "id": "talk.courier_reply.questions.1",
+          "source": "My escort has a second copy of the orders. Will you meet them at the ford?",
+          "text": "Mi escolta tiene una segunda copia de las órdenes. ¿Se reunirán con ella en el vado?"
         },
         {
           "id": "unit_types.akari_mori.name",

@@ -38,6 +38,23 @@ MAP_ROWS = {
         "YXXRGYYH", "GRXRGGRH", "YRZZRGRY",
         "YRGRPPRY", "GRGRXRGH", "YXXRGYYH",
     ),
+    "orchard_storehouse": (
+        "FYXRRRGGU",
+        "GARRRPPGU",
+        "RXlPPPlGR",
+        "RRRPPPlGG",
+        "YGlRRRGAF",
+        "YXXRGGAFF",
+    ),
+    "courier_ford": (
+        "FFFGRWFFFH",
+        "GGRRRBRRRG",
+        "FFGFRWGRGF",
+        "HGGRRWHHGR",
+        "GGRGFWGRRG",
+        "GRRRRBRRFG",
+        "FFHGRWFFFH",
+    ),
     "cedar_deepwood": (),
     "cedar_watch": (),
     "gate_village": (),
@@ -318,6 +335,19 @@ def outcome_transitions(stage: str, objective: str, target: str,
     ]
 
 
+def detour_on_win(stage: str, main_target: str, detour: str,
+                  flag: str, value: bool | int) -> list[dict]:
+    routes = outcome_transitions(stage, "defeat_all", main_target)
+    for route in routes:
+        route["priority"] += 1
+    return [{
+        "id": f"{stage}_detour", "targetNodeId": detour, "priority": 0,
+        "when": {"kind": "all", "conditions": [
+            routes[0]["when"], {"kind": "worldFlagEquals", "flagId": flag, "value": value},
+        ]},
+    }, *routes]
+
+
 def story_node(key: str, name: str, scene: str, target: str) -> dict:
     return {
         "id": key, "name": name, "kind": "story", "dialogueIds": [scene],
@@ -383,6 +413,8 @@ def build_project() -> dict:
         map_record("cedar_watch", "Cedar Watch"),
         map_record("gate_village", "Gate Village"),
         map_record("twin_gate", "Twin Gate Keep"),
+        map_record("orchard_storehouse", "Orchard Storehouse"),
+        map_record("courier_ford", "Courier Ford"),
     ]
     cast = {
         "Rowan": "rowan_vale", "Akari": "akari_mori",
@@ -398,6 +430,7 @@ def build_project() -> dict:
         dialogue("orchard_orders", "The First Exchange", (
             ("Tomas", "Use the road to close the distance. I can mend you, but only if I can reach you."),
             ("Rowan", "We focus one threat at a time, then end the turn together."),
+            ("Tomas", "Something caught the light beside the bell. Stop there and look before we leave."),
         ), cast),
         dialogue("orchard_coop", "The Cedar Answer", (
             ("Akari", "Cedar heard the same false signal. Ren and I will hold the lower road while you take the bell."),
@@ -410,6 +443,7 @@ def build_project() -> dict:
         dialogue("deepwood_orders", "Under the Cedar", (
             ("Tomas", "The old track is narrow. The archers can watch a clearing without standing inside it."),
             ("Rowan", "We clear the near ambush, use the rock line as cover, and reach the eastern courier."),
+            ("Tomas", "If you get close enough, try talking to the courier. He may know more than he lets on."),
         ), cast),
         dialogue("deepwood_coop", "Separate Trails", (
             ("Akari", "My company begins on the southern trail. We can cut the courier off beyond the cedar wall."),
@@ -417,7 +451,7 @@ def build_project() -> dict:
         ), cast),
         dialogue("deepwood_won", "The False Order", (
             ("Rowan", "Vere's seal orders the March to burn Cedar villages."),
-            ("Tomas", "And the captured courier carried Masatora's matching order. Each court is feeding the other's fear."),
+            ("Tomas", "The courier's orders bear Masatora's seal. Each court is feeding the other's fear."),
             ("Rowan", "Cedar Watch can show both capitals the same signal. We hold it long enough for both to answer."),
         ), cast, "open_sea"),
         dialogue("watch_orders", "Twenty Rounds", (
@@ -464,6 +498,19 @@ def build_project() -> dict:
             ("Tomas", "The March sent a new bell for the gate tower."),
             ("Rowan", "Hang it beside Cedar's drum. One signal should never command two realms in secret again."),
         ), cast, "star_field"),
+        dialogue("storehouse_orders", "The Hidden Dispatch", (
+            ("Tomas", "That dispatch leads here. The guards are packing away the false seals. We need the ledger before it goes with them."),
+        ), cast),
+        dialogue("storehouse_coop", "Around the Garden", (
+            ("Akari", "Cedar takes the lower path around the garden wall. Keep them busy at the front."),
+        ), cast),
+        dialogue("ford_orders", "Across the Ford", (
+            ("Rowan", "The courier kept his word. His escort is at the ford with the second copy of the orders."),
+            ("Tomas", "There are two bridges. If we hold one, the escort can still use the other to get behind us."),
+        ), cast),
+        dialogue("ford_coop", "Split Crossing", (
+            ("Ren", "We'll cross downstream. The two companies can meet on the far bank."),
+        ), cast),
         dialogue("defeat", "The Signal Fades", (
             ("Tomas", "The road is still here, even if we lost it today."),
             ("Rowan", "Then we remember where the line broke and take it again."),
@@ -479,6 +526,15 @@ def build_project() -> dict:
              "dialogueId": coop_dialogue, "minimumPlayers": 2},
         ]
 
+    courier = placement("deepwood_courier_guard", "red_retainer", "second", 9, 4,
+                        behavior="pursue", name="Cedar courier")
+    courier["talk"] = {
+        "flagId": "spoke_to_courier", "replyFlagId": "courier_reply", "nextReplyId": 3,
+        "questions": [{
+            "id": 1, "text": "My escort has a second copy of the orders. Will you meet them at the ford?",
+            "answers": [{"id": 1, "text": "Show us the way."}, {"id": 2, "text": "We have to press on."}],
+        }],
+    }
     nodes = [story_node("prologue", "The Orchard Bell", "opening", "bell_orchard")]
     nodes.append({
         "id": "bell_orchard", "name": "I — The Bell Orchard", "kind": "encounter",
@@ -510,9 +566,14 @@ def build_project() -> dict:
             placement("orchard_archer", "cedar_archer", "second", 5, 4, behavior="hold"),
             placement("orchard_coop", "march_sword", "second", 7, 2, behavior="pursue", coop=True),
         ],
+        "hiddenItems": [{
+            "flagId": "found_orchard_dispatch", "itemId": "field_tonic",
+            "x": 2, "y": 3, "glint": True,
+        }],
         "objectiveIds": ["defeat_all"],
         "moments": moments("orchard_begins", "orchard_orders", "orchard_cedar_arrives", "orchard_coop"),
-        "transitions": outcome_transitions("orchard", "defeat_all", "orchard_camp"),
+        "transitions": detour_on_win("orchard", "orchard_camp", "orchard_storehouse",
+                                     "found_orchard_dispatch", True),
     })
     nodes.append(story_node("orchard_camp", "A Paid Lie", "orchard_won", "cedar_deepwood"))
     nodes.append({
@@ -529,7 +590,7 @@ def build_project() -> dict:
             placement("ren_deepwood", "ren_sato", "first", 3, 6, member="ren", player=2, coop=True),
             placement("deepwood_north_blade", "march_sword", "second", 5, 1, behavior="pursue"),
             placement("deepwood_north_bow", "cedar_archer", "second", 10, 1, behavior="hold"),
-            placement("deepwood_courier_guard", "red_retainer", "second", 9, 4, behavior="pursue"),
+            courier,
             placement("deepwood_south_knife", "court_knife", "second", 5, 7, behavior="pursue"),
             placement("deepwood_east_guard", "march_sword", "second", 12, 4, behavior="hold"),
             placement("deepwood_coop_north", "march_archer", "second", 11, 2, behavior="hold", coop=True),
@@ -537,7 +598,7 @@ def build_project() -> dict:
         ],
         "objectiveIds": ["defeat_all"],
         "moments": moments("deepwood_begins", "deepwood_orders", "deepwood_cedar_front", "deepwood_coop"),
-        "transitions": outcome_transitions("deepwood", "defeat_all", "deepwood_camp"),
+        "transitions": detour_on_win("deepwood", "deepwood_camp", "courier_ford", "courier_reply", 1),
     })
     nodes.append(story_node("deepwood_camp", "The False Order", "deepwood_won", "cedar_watch"))
     nodes.append({
@@ -640,6 +701,41 @@ def build_project() -> dict:
         ),
     })
     nodes.extend((
+        {
+            "id": "orchard_storehouse", "name": "Orchard Storehouse", "kind": "encounter",
+            "mapId": "orchard_storehouse",
+            "placements": [
+                placement("rowan_storehouse", "rowan_vale", "first", 2, 1, member="rowan"),
+                placement("tomas_storehouse", "tomas_reed", "first", 1, 1, member="tomas"),
+                placement("akari_storehouse", "akari_mori", "first", 1, 4, member="akari", player=2, coop=True),
+                placement("ren_storehouse", "ren_sato", "first", 2, 5, member="ren", player=2, coop=True),
+                placement("storehouse_guard", "march_sword", "second", 5, 2, behavior="pursue"),
+                placement("storehouse_archer", "march_archer", "second", 6, 1, behavior="hold"),
+                placement("storehouse_coop", "red_retainer", "second", 6, 4, behavior="pursue", coop=True),
+            ],
+            "objectiveIds": ["defeat_all", "protect_rowan"],
+            "moments": moments("storehouse_open", "storehouse_orders", "storehouse_flank", "storehouse_coop"),
+            "transitions": outcome_transitions("storehouse", "protect_rowan", "orchard_camp",
+                                               compound=("defeat_all",)),
+        },
+        {
+            "id": "courier_ford", "name": "Courier Ford", "kind": "encounter",
+            "mapId": "courier_ford",
+            "placements": [
+                placement("rowan_ford", "rowan_vale", "first", 3, 1, member="rowan"),
+                placement("tomas_ford", "tomas_reed", "first", 3, 2, member="tomas"),
+                placement("akari_ford", "akari_mori", "first", 3, 5, member="akari", player=2, coop=True),
+                placement("ren_ford", "ren_sato", "first", 2, 5, member="ren", player=2, coop=True),
+                placement("ford_escort", "red_retainer", "second", 7, 1, behavior="pursue"),
+                placement("ford_archer", "cedar_archer", "second", 7, 3, behavior="hold"),
+                placement("ford_sentry", "court_knife", "second", 8, 5, behavior="pursue"),
+                placement("ford_coop", "march_sword", "second", 7, 5, behavior="pursue", coop=True),
+            ],
+            "objectiveIds": ["defeat_all", "protect_rowan"],
+            "moments": moments("ford_open", "ford_orders", "ford_split", "ford_coop"),
+            "transitions": outcome_transitions("ford", "protect_rowan", "deepwood_camp",
+                                               compound=("defeat_all",)),
+        },
         story_node("epilogue", "An Open Gate", "ending", "campaign_complete"),
         {"id": "campaign_complete", "name": "Both Banners Fly", "kind": "terminal", "transitions": []},
         story_node("campaign_defeat", "The Signal Fades", "defeat", "campaign_failed"),
@@ -652,7 +748,8 @@ def build_project() -> dict:
         "packageId": "751d322d-dc60-4c6d-a1e1-821e4dd7c617",
         "gameId": "grandleon.steel_and_cedar",
         "title": "Steel and Cedar",
-        "contentRevision": "0.4.2",
+        "contentRevision": "0.5.0",
+        "showEndStatistics": True,
         "themeId": "temperate",
         "characterStyleId": "medieval",
         "characterFigureId": "first",
@@ -716,10 +813,10 @@ def build_project() -> dict:
             "dialogueIds": [scene["id"] for scene in dialogues],
             "flow": {"contractVersion": "1.0.0", "entryNodeId": "prologue", "nodes": nodes},
         }],
-        "notes": "A five-battle Medieval-and-Sengoku campaign designed as the future common demo. One player follows Commander Rowan and Tomas through a complete story. With two local players, Akari and Ren arrive as a separate Cedar army with their own dialogue, deployment fronts, route responsibilities and additional opposition. The compact opening teaches the rules; four larger boards exercise scrolling, split routes, rendezvous decisions, a twenty-round commander defense, a village assault and a final boss while staying within console encounter budgets.",
+        "notes": "Five main battles and two optional detours. Rowan and Tomas can pursue a hidden dispatch and follow an offer from a Cedar courier. In 2P, Akari and Ren lead a separate army with its own routes, dialogue and opposition.",
     }
     encounters = [node for node in nodes if node["kind"] == "encounter"]
-    assert len(encounters) == 5
+    assert len(encounters) == 7
     assert all(any(p.get("player") == 2 and p.get("minimumPlayers") == 2 and
                        p["side"] == "first"
                    for p in node["placements"]) for node in encounters)
@@ -733,7 +830,7 @@ def build_project() -> dict:
     )
     assert all(
         len(MAP_ROWS[node["mapId"]][0]) >= 14 and len(MAP_ROWS[node["mapId"]]) >= 9
-        for node in encounters[1:]
+        for node in encounters[1:5]
     )
     assert {unit["characterStyleId"] for unit in unit_types} == {"medieval", "sengoku"}
     return project

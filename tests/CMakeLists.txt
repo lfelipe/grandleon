@@ -403,6 +403,7 @@ add_executable(grandleon_steel_and_cedar_campaign_tests
 target_link_libraries(
     grandleon_steel_and_cedar_campaign_tests
     PRIVATE
+        grandleon::campaign_runtime
         grandleon::game_content
         grandleon::package_runtime
         grandleon::simulation

@@ -53,6 +53,9 @@ Tomas; local co-op adds Akari and Ren with their own controller, routes,
 formations, and opposition. The two variants share a story but give the
 players distinct tactical openings. The campaign includes a twenty-round
 signal defense and a castle whose interior is revealed as your party enters.
+Look for a hidden find near the orchard bell and approach the Cedar courier
+to discover two optional battles. The game shows a summary after a victory
+or a campaign-ending defeat.
 
 The demo has authored English, Spanish, and Brazilian Portuguese text. Choose
 a language before play or change it in Settings. Games offer a language choice

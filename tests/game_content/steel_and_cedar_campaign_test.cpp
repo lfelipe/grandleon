@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
+#include <grandleon/campaign_runtime/campaign_runtime.hpp>
 #include <grandleon/core/content_identity.hpp>
 #include <grandleon/game_content/compiler.hpp>
 #include <grandleon/game_content/source_project.hpp>
 #include <grandleon/package_format/package.hpp>
 #include <grandleon/package_runtime/campaign.hpp>
 #include <grandleon/package_runtime/encounter_loader.hpp>
+#include <grandleon/package_runtime/manifest.hpp>
 #include <grandleon/simulation/encounter.hpp>
 #include <grandleon/tactics/policy.hpp>
 #include <grandleon/view/landmark.hpp>
@@ -25,6 +27,8 @@
 #include <utility>
 #include <vector>
 
+namespace camp = grandleon::campaign;
+namespace cr = grandleon::campaign_runtime;
 namespace core = grandleon::core;
 namespace gc = grandleon::game_content;
 namespace pf = grandleon::package_format;
@@ -510,8 +514,8 @@ int main() {
 
     const gc::GameSource& source = parsed.source;
     expect(source.campaigns.size() == 1U, "there is one focused campaign");
-    expect(source.encounters.size() == stages.size(), "it has five battles");
-    expect(source.maps.size() == stages.size(), "every battle has its own map");
+    expect(source.encounters.size() == stages.size() + 2U, "it has five main battles and two detours");
+    expect(source.maps.size() == source.encounters.size(), "every battle has its own map");
     expect(source.unit_types.size() == 13U, "the original cast adds only a reusable March Sergeant");
     if (!source.campaigns.empty()) {
         const gc::Campaign& campaign = source.campaigns.front();
@@ -628,7 +632,7 @@ int main() {
             "each map has an intentional mixed-terrain vocabulary"
         );
     }
-    expect(layouts.size() == stages.size(), "no battle repeats a terrain layout");
+    expect(layouts.size() == source.maps.size(), "no battle repeats a terrain layout");
     for (std::size_t index = 0; index < stages.size(); ++index) {
         const Stage& stage = stages[index];
         const auto found = maps.find(core::stable_content_id_v1(stage.key));
@@ -886,15 +890,16 @@ int main() {
     const gc::CompileResult compiled = gc::compile(source);
     expect(static_cast<bool>(compiled), "and compiles");
     if (!compiled) return 1;
+    constexpr auto detour_features = pf::feature_map_conversations | pf::feature_hidden_items;
     const pf::LoadResult loaded = pf::load_mock_package(
-        compiled.package, {{0, 1, 0}, pf::TargetProfile::desktop, 0, 64, 20'000}
+        compiled.package, {{0, 1, 0}, pf::TargetProfile::desktop, detour_features, 64, 20'000}
     );
     expect(static_cast<bool>(loaded), "and its portable package loads");
     if (!loaded) return 1;
     expect(
         static_cast<bool>(pf::load_mock_package(
             compiled.package,
-            {{0, 1, 0}, pf::TargetProfile::nintendo64, 0, 48, 20'000}
+            {{0, 1, 0}, pf::TargetProfile::nintendo64, detour_features, 48, 20'000}
         )),
         "the complete package stays within the console encounter budget"
     );
@@ -1441,11 +1446,69 @@ int main() {
         }
     }
 
+    expect(pr::show_end_statistics(loaded.package), "the demo opts into end statistics");
     const auto campaign = pr::load_campaign(
         loaded.package, core::stable_content_id_v1("steel_and_cedar")
     );
     expect(static_cast<bool>(campaign), "the campaign flow loads");
     if (campaign) {
+        const auto graph = cr::build_campaign_graph(loaded.package.game_id,
+            core::stable_content_id_v1("steel_and_cedar"), campaign.definition);
+        expect(static_cast<bool>(graph), "the persistent graph loads both authored detours");
+        if (graph) {
+            for (const auto& [battle, detour, rejoin, flag, kind, value] : std::array{
+                std::tuple{"bell_orchard", "orchard_storehouse", "orchard_camp",
+                    "found_orchard_dispatch", camp::WorldValueType::boolean, 1},
+                std::tuple{"cedar_deepwood", "courier_ford", "deepwood_camp",
+                    "courier_reply", camp::WorldValueType::integer, 1},
+            }) {
+                const auto ref = [&](core::ContentCategory category, const char* key) {
+                    return camp::DefinitionRef{loaded.package.game_id, category, core::stable_content_id_v1(key)};
+                };
+                const auto encounter = ref(core::ContentCategory::campaign_node, battle);
+                const auto room = ref(core::ContentCategory::campaign_node, detour);
+                const auto next = ref(core::ContentCategory::campaign_node, rejoin);
+                const auto find_node = [&](camp::DefinitionRef id) -> const camp::CampaignGraphNode& {
+                    return *std::find_if(graph.graph.nodes.begin(), graph.graph.nodes.end(),
+                        [id](const auto& node) { return node.node == id; });
+                };
+                camp::CampaignState state;
+                const auto objective = ref(core::ContentCategory::objective, "defeat_all");
+                const auto protected_hero = ref(core::ContentCategory::objective, "protect_rowan");
+                state.objectives.push_back({objective, camp::ObjectiveOutcome::satisfied});
+                expect(camp::select_transition(find_node(encounter), state).target == next,
+                       std::string(battle) + " follows the main route without the detour trigger");
+                state.world.push_back({ref(core::ContentCategory::world_flag, flag), {kind, value}});
+                expect(camp::select_transition(find_node(encounter), state).target == room,
+                       std::string(battle) + " takes the detour when its trigger is recorded");
+                if (kind == camp::WorldValueType::integer) {
+                    state.world.front().value.value = 2;
+                    expect(camp::select_transition(find_node(encounter), state).target == next,
+                           "declining the courier's offer follows the main route");
+                }
+                state.objectives.push_back({protected_hero, camp::ObjectiveOutcome::satisfied});
+                std::sort(state.objectives.begin(), state.objectives.end(), [](const auto& a, const auto& b) {
+                    return camp::definition_ref_less(a.objective, b.objective);
+                });
+                expect(camp::select_transition(find_node(room), state).target == next,
+                       std::string(detour) + " rejoins the main route after victory");
+                for (unsigned players : {1U, 2U}) {
+                    const auto loaded_board = pr::load_encounter(loaded.package,
+                        core::stable_content_id_v1(std::string("steel_and_cedar/") + detour),
+                        {static_cast<std::uint8_t>(players)});
+                    expect(static_cast<bool>(loaded_board), std::string(detour) + " loads in both player modes");
+                    if (loaded_board) {
+                        expect(every_enemy_has_a_route_from(loaded_board, 1U) &&
+                               (players == 1U || every_enemy_has_a_route_from(loaded_board, 2U)),
+                               std::string(detour) + " gives each army a route to the opposition");
+                        const auto played = autoplay(loaded_board, false, {}, 0U, true);
+                        expect(played.outcome == sim::Outcome::first_side_won,
+                               std::string(detour) + " has a playable victory in " +
+                               std::to_string(players) + "P");
+                    }
+                }
+            }
+        }
         pr::CampaignCursor cursor(campaign.definition);
         expect(
             cursor.current().kind == pr::CampaignNodeKind::story &&

@@ -132,7 +132,10 @@
             "type": "object",
             "additionalProperties": false,
             "required": ["flagId", "x", "y"],
-            "oneOf": [{"required": ["itemId"]}, {"required": ["weaponId"]}],
+            "oneOf": [
+              {"properties": {"itemId": true}, "required": ["itemId"]},
+              {"properties": {"weaponId": true}, "required": ["weaponId"]}
+            ],
             "properties": {
               "flagId": {"$ref": "common.schema.json#/$defs/stableId"},
               "itemId": {"$ref": "common.schema.json#/$defs/stableId"},
