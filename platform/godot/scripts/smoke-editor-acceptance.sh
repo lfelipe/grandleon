@@ -133,36 +133,33 @@ done
 grep -Fq 'res://main.tscn' <<<"${opening}"
 grep -Fq 'lantern is lit' <<<"${opening}"
 "${command[@]}" press enter >/dev/null
-sleep 0.1
+for _attempt in $(seq 1 200); do
+    opening="$("${command[@]}" inspect)"
+    grep -Fq 'Stay close' <<<"${opening}" && break
+    sleep 0.1
+done
+grep -Fq 'Stay close' <<<"${opening}"
 "${command[@]}" press enter >/dev/null
 
 battle=""
+battle_started() {
+    python3 -c 'import json, sys
+game = json.load(sys.stdin)["game"]
+sys.exit(0 if game.get("round") == 0 and not game.get("deploying", True)
+         and not game.get("dialogue", True) else 1)' <<<"${1}"
+}
 for _attempt in $(seq 1 200); do
-    battle="$(${command[@]} inspect)"
+    battle="$("${command[@]}" inspect)"
+    battle_started "${battle}" && break
     if grep -Fq 'START BATTLE' <<<"${battle}"; then
         "${command[@]}" press ctrl_enter >/dev/null
-        break
-    fi
-    if grep -Fq 'DEPLOYMENT' <<<"${battle}" || grep -Fq 'ROUND 1' <<<"${battle}"; then
-        break
-    fi
-    sleep 0.1
-done
-for _attempt in $(seq 1 200); do
-    battle="$(${command[@]} inspect)"
-    if grep -Fq 'DEPLOYMENT' <<<"${battle}" || grep -Fq 'ROUND 1' <<<"${battle}"; then
-        break
+    elif grep -Fq 'DEPLOY' <<<"${battle}"; then
+        # The opening camera sweep can briefly consume keyboard input.
+        "${command[@]}" press b >/dev/null
     fi
     sleep 0.1
 done
-"${command[@]}" press b >/dev/null
-for _attempt in $(seq 1 200); do
-    battle="$(${command[@]} inspect)"
-    grep -Fq 'ROUND 1' <<<"${battle}" && grep -Fq 'TEAM' <<<"${battle}" && break
-    sleep 0.1
-done
-grep -Fq 'ROUND 1' <<<"${battle}"
-grep -Fq 'TEAM' <<<"${battle}"
+battle_started "${battle}"
 
 # Use the same keyboard actions shown to a player. Cycle through the two
 # friendly characters until the lead hero beside the opponent is selected.

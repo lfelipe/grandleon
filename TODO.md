@@ -211,6 +211,12 @@ tracked above.
   recovery copy and leave cancelled imports and opens untouched.
 - [x] Preserve map scenery, hidden rooms, conversations, terrain costs and the
   battle seed when casualties or retired heroes are excluded from a stage.
+- [ ] Make all Steel and Cedar landmarks placeable in the Map Editor. Add
+  orchard trees on forest and farmland, the two-tile orchard bell, signal
+  beacons on road and paving, watch ruins and town walls.
+- [ ] Verify that one author can recreate the Steel and Cedar campaign from a
+  blank project using the editor. Check both player modes, the reinforcement
+  waves, the shop, the castle reveal and the final battle.
 - [x] Complete direct console parity checks for those character rules,
   including defeated roster members, save/reload and newly acquired weapons.
   Both console controller probes pass permanent/withdrawn casualties,
@@ -356,12 +362,11 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
 - [x] Show map cells used and the N64 board-size limit while editing. The
   editor warns above 768 cells without blocking PC creation, saving or play;
   PS1 geometry and memory still need export-time checks.
-- [ ] Extend larger-map creator tools with geometry/memory budget previews and
-  automatic doorway stamps.
-  Playtest later stages where distinct flanks, cover
-  and co-op routes create useful decisions rather than longer empty walks.
-  Keep the tutorial compact. Continue PS1 larger-scene performance work and
-  physical-console testing; current emulator coverage does not complete these.
+- [x] Place both tiles of a castle doorway with one mouse click or tap.
+  Preview the two-tile footprint and undo the placement as one edit.
+- [ ] Show console geometry and memory limits while editing larger maps.
+- [ ] Playtest larger later stages for useful flanks, cover and co-op routes.
+  Keep the tutorial compact and check the larger maps on physical consoles.
 
 - [x] Add subtle water-surface motion on both consoles using the existing
   artwork and geometry. Keep fixed ground and bridges, with native campaign

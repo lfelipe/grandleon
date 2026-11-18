@@ -192,7 +192,9 @@ func _run() -> void:
 
 	if failures == 0:
 		print("editor authoring and export acceptance passed")
-	quit(1 if failures > 0 else 0)
+	# The landscape check starts music. Exit through the application's normal
+	# shutdown path so the mixer can retire that playback before the tree exits.
+	root.get_node("PCAudio").request_quit(1 if failures > 0 else 0)
 
 
 func _verify_exported_landscape(export_root: String) -> void:
