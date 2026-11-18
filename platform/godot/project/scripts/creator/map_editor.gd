@@ -44,6 +44,41 @@ const LANDMARKS := {
 		"label_key": "map.landmark.ancient_grove",
 		"clear_terrain": "forest",
 	},
+	"landmark_forest_orchard_tree": {
+		"kind": "forest_orchard_tree", "source_id": "forest_orchard_tree",
+		"label_key": "map.landmark.forest_orchard_tree", "clear_terrain": "forest",
+		"size": Vector2i.ONE, "walkable": true, "badge": "map.landmark.tree_badge",
+	},
+	"landmark_farmland_orchard_tree": {
+		"kind": "farmland_orchard_tree", "source_id": "farmland_orchard_tree",
+		"label_key": "map.landmark.farmland_orchard_tree", "clear_terrain": "farmland",
+		"size": Vector2i.ONE, "walkable": true, "badge": "map.landmark.tree_badge",
+	},
+	"landmark_orchard_bell": {
+		"kind": "orchard_bell", "source_id": "paved_orchard_bell",
+		"label_key": "map.landmark.orchard_bell", "clear_terrain": "paved",
+		"size": Vector2i(2, 1), "walkable": true, "badge": "map.landmark.bell_badge",
+	},
+	"landmark_road_signal_beacon": {
+		"kind": "road_signal_beacon", "source_id": "road_signal_beacon",
+		"label_key": "map.landmark.road_signal_beacon", "clear_terrain": "road",
+		"size": Vector2i.ONE, "walkable": true, "badge": "map.landmark.beacon_badge",
+	},
+	"landmark_paved_signal_beacon": {
+		"kind": "paved_signal_beacon", "source_id": "paved_signal_beacon",
+		"label_key": "map.landmark.paved_signal_beacon", "clear_terrain": "paved",
+		"size": Vector2i.ONE, "walkable": true, "badge": "map.landmark.beacon_badge",
+	},
+	"landmark_watch_ruin": {
+		"kind": "watch_ruin", "source_id": "ruins_watch_ruin",
+		"label_key": "map.landmark.watch_ruin", "clear_terrain": "ruins",
+		"size": Vector2i.ONE, "walkable": true, "badge": "map.landmark.ruin_badge",
+	},
+	"landmark_town_wall": {
+		"kind": "town_wall", "source_id": "mountain_town_wall",
+		"label_key": "map.landmark.town_wall", "clear_terrain": "paved",
+		"size": Vector2i.ONE, "badge": "map.landmark.wall_badge",
+	},
 }
 const OBJECTIVE_KINDS := [
 	{"id": "defeatAllOpponents", "label_key": "map.objective.kind.defeat_all"},
@@ -738,8 +773,8 @@ func _select_terrain(name: String) -> void:
 		_select_tool(str(landmark.tool))
 		return
 	selected_terrain = name
-	_clear_doorway_preview()
-	if name == "paved_castle_door":
+	_clear_stamp_preview()
+	if name == "paved_castle_door" or LANDMARKS.has(active_tool) or active_tool == "landmark_remove":
 		_select_tool("brush")
 	_update_tool_selection()
 	_update_palette_selection()
@@ -748,7 +783,7 @@ func _select_terrain(name: String) -> void:
 
 
 func _select_tool(name: String) -> void:
-	_clear_doorway_preview()
+	_clear_stamp_preview()
 	if name in ["fill", "rectangle"] and selected_terrain == "paved_castle_door":
 		_set_status(_t("map.terrain.paved_castle_door.help"), false)
 		return
@@ -924,11 +959,14 @@ func _refresh_grid(focus_index := -1) -> void:
 			cell.expand_icon = true
 			var landmark: Dictionary = landmark_cells.get(index, {})
 			cell.tooltip_text = _t("map.cell.tooltip", {
-				"x": outer_x, "y": outer_y, "terrain": _terrain_label(name),
+				"x": outer_x, "y": outer_y,
+				"terrain": _terrain_label(str(landmark.get("clear_terrain", name))),
 				"landmark": (
 					_t("map.cell.landmark_suffix", {
-						"landmark": _landmark_kind_label(str(landmark.kind)),
+						"landmark": str(landmark.label),
+						"width": landmark.size.x, "height": landmark.size.y,
 					})
+					+ ("" if landmark.walkable else _t("map.cell.landmark_blocked"))
 					if not landmark.is_empty() else ""
 				),
 			})
@@ -947,7 +985,7 @@ func _refresh_grid(focus_index := -1) -> void:
 				cell.add_child(corner)
 			_add_playable_boundary(cell, outer_x, outer_y, width, height, tile_size)
 			if not landmark.is_empty() and landmark.anchor == Vector2i(outer_x, outer_y):
-				_add_landmark_badge(cell, str(landmark.kind), tile_size)
+				_add_landmark_badge(cell, landmark, tile_size)
 			if placements_by_cell.has(index):
 				_add_placement_badge(cell, placements_by_cell[index])
 			if deployment_cells.has(index):
@@ -958,8 +996,8 @@ func _refresh_grid(focus_index := -1) -> void:
 				_add_objective_marker(cell, objective_targets_by_cell[index])
 			cell.set_meta("terrain_index", index)
 			cell.pressed.connect(_paint_cell.bind(index))
-			cell.mouse_entered.connect(_preview_doorway.bind(index, width))
-			cell.mouse_exited.connect(_clear_doorway_preview)
+			cell.mouse_entered.connect(_preview_stamp.bind(index, width))
+			cell.mouse_exited.connect(_clear_stamp_preview)
 			grid.add_child(cell)
 	if focus_index >= 0:
 		call_deferred("_focus_cell", focus_index)
@@ -1038,6 +1076,17 @@ func _landmark_definition_for_source(source_id: String) -> Dictionary:
 	return {}
 
 
+func _landmark_footprint(anchor: Vector2i, size: Vector2i, board_size: Vector2i) -> Array[int]:
+	var cells: Array[int] = []
+	var end := anchor + size
+	if end.x > board_size.x or end.y > board_size.y:
+		return cells
+	for y in range(anchor.y, end.y):
+		for x in range(anchor.x, end.x):
+			cells.append(y * board_size.x + x)
+	return cells
+
+
 func _landmark_layout(width: int, height: int, terrain: Array) -> Dictionary:
 	if width < 1 or height < 1 or terrain.size() != width * height:
 		return {"ok": false, "detail": _t("map.landmark.error.incomplete_terrain"), "features": []}
@@ -1052,7 +1101,10 @@ func _landmark_layout(width: int, height: int, terrain: Array) -> Dictionary:
 			var definition := _landmark_definition_for_source(source_id)
 			if definition.is_empty():
 				continue
-			if x + 1 >= width or y + 1 >= height:
+			var anchor := Vector2i(x, y)
+			var size: Vector2i = definition.get("size", Vector2i(2, 2))
+			var cells := _landmark_footprint(anchor, size, Vector2i(width, height))
+			if cells.is_empty():
 				return {
 					"ok": false,
 					"detail": _t("map.landmark.error.outside", {
@@ -1060,26 +1112,27 @@ func _landmark_layout(width: int, height: int, terrain: Array) -> Dictionary:
 					}),
 					"features": features,
 				}
-			var cells: Array[int] = [
-				index, index + 1, index + width, index + width + 1,
-			]
 			for cell: int in cells:
 				if visited.has(cell) or str(terrain[cell]) != source_id:
 					return {
 						"ok": false,
 						"detail": _t("map.landmark.error.footprint", {
 							"landmark": _t(str(definition.label_key)), "x": x, "y": y,
+							"width": size.x, "height": size.y,
 						}),
 						"features": features,
 					}
 			for cell: int in cells:
 				visited[cell] = true
 			features.append({
-				"anchor": Vector2i(x, y),
+				"anchor": anchor,
+				"size": size,
 				"kind": str(definition.kind),
 				"source_id": source_id,
 				"clear_terrain": str(definition.clear_terrain),
 				"label": _t(str(definition.label_key)),
+				"walkable": bool(definition.get("walkable", false)),
+				"badge": str(definition.get("badge", definition.label_key)),
 				"cells": cells,
 			})
 	return {"ok": true, "detail": "", "features": features}
@@ -1097,12 +1150,13 @@ func _landmark_cells_by_index(width: int, height: int, terrain: Array) -> Dictio
 	return by_cell
 
 
-func _add_landmark_badge(cell: Button, kind: String, tile_size: int) -> void:
+func _add_landmark_badge(cell: Button, landmark: Dictionary, tile_size: int) -> void:
 	var label := Label.new()
+	var kind := str(landmark.kind)
 	label.text = _t(
 		"map.landmark.grove_badge" if kind == "ancient_grove" else
 		"map.landmark.house_badge" if SceneryStyle.is_house_kind(kind) else
-		"map.landmark." + kind
+		str(landmark.badge)
 	)
 	label.add_theme_font_size_override("font_size", clampi(tile_size / 6, 8, 13))
 	label.add_theme_color_override("font_color", Color("fff0b0"))
@@ -1111,6 +1165,7 @@ func _add_landmark_badge(cell: Button, kind: String, tile_size: int) -> void:
 	label.add_theme_constant_override("shadow_offset_y", 2)
 	label.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE, Control.PRESET_MODE_MINSIZE, 4)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.clip_text = true
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cell.add_child(label)
 
@@ -1457,24 +1512,30 @@ func _doorway_stamp(index: int, width: int, terrain: Array) -> Dictionary:
 	return {"ok": true, "cells": [index, index + width]}
 
 
-func _clear_doorway_preview() -> void:
+func _clear_stamp_preview() -> void:
 	if grid == null: return
 	for cell: Node in grid.get_children():
-		var preview := cell.get_node_or_null("DoorwayPreview")
+		var preview := cell.get_node_or_null("StampPreview")
 		if preview != null:
 			cell.remove_child(preview)
 			preview.queue_free()
 
 
-func _preview_doorway(index: int, width: int) -> void:
-	_clear_doorway_preview()
-	if active_tool != "brush" or selected_terrain != "paved_castle_door": return
-	var footprint := _doorway_stamp(index, width, _current_map().get("terrain", []))
+func _preview_stamp(index: int, width: int) -> void:
+	_clear_stamp_preview()
+	var terrain: Array = _current_map().get("terrain", [])
+	var footprint := {}
+	if LANDMARKS.has(active_tool):
+		footprint = _landmark_stamp(index, width, terrain, LANDMARKS[active_tool])
+	elif active_tool == "brush" and selected_terrain == "paved_castle_door":
+		footprint = _doorway_stamp(index, width, terrain)
+	else:
+		return
 	var cells: Array = footprint.cells if footprint.ok else [index]
 	for cell: Node in grid.get_children():
 		if not cells.has(int(cell.get_meta("terrain_index", -1))): continue
 		var preview := Panel.new()
-		preview.name = "DoorwayPreview"
+		preview.name = "StampPreview"
 		preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var border := StyleBoxFlat.new()
 		border.bg_color = Color(0.9, 0.7, 0.25, 0.10) if footprint.ok else Color(0.9, 0.2, 0.2, 0.10)
@@ -1519,48 +1580,45 @@ func _landmark_footprint_blocker(cells: Array[int], width: int) -> String:
 	return ""
 
 
-func _place_landmark_at(index: int, width: int, terrain: Array, tool: String) -> void:
-	var definition: Dictionary = LANDMARKS.get(tool, {})
-	if definition.is_empty():
-		_set_status(_t("map.error.landmark_unavailable"), true)
-		return
-	var height := terrain.size() / width
-	var x := index % width
-	var y := index / width
-	if x + 1 >= width or y + 1 >= height:
-		_set_status(
-			_t("map.error.landmark_needs_cells", {
-				"landmark": _t(str(definition.label_key)),
-			}),
-			true
+func _landmark_stamp(index: int, width: int, terrain: Array, definition: Dictionary) -> Dictionary:
+	var board_size := Vector2i(width, terrain.size() / width)
+	var anchor := Vector2i(index % width, index / width)
+	var size: Vector2i = definition.get("size", Vector2i(2, 2))
+	var cells := _landmark_footprint(anchor, size, board_size)
+	if cells.is_empty():
+		return {"ok": false, "error": _t("map.error.landmark_needs_cells", {
+			"landmark": _t(str(definition.label_key)), "width": size.x, "height": size.y,
+		})}
+	for cell: int in cells:
+		if _landmark_definition_for_source(str(terrain[cell])).is_empty():
+			continue
+		var feature := _cluster_landmark_for_cell(cell % width, cell / width, width, board_size.y, terrain)
+		if feature.get("anchor") != anchor or feature.get("size") != size:
+			return {"ok": false, "error": _t("map.error.landmark_overlap")}
+	# All players recognize a bell by its left edge. Leave a tile between two bells.
+	if str(definition.source_id) == "paved_orchard_bell":
+		var touches_bell := (
+			(anchor.x > 0 and str(terrain[index - 1]) == "paved_orchard_bell")
+			or (anchor.x + size.x < width and str(terrain[index + size.x]) == "paved_orchard_bell")
 		)
-		_focus_cell(index)
-		return
-	var cells: Array[int] = [
-		index, index + 1, index + width, index + width + 1,
-	]
-	var layout := _landmark_layout(width, height, terrain)
-	if not bool(layout.ok):
-		_set_status(_t("map.error.landmark_footprint", {"detail": str(layout.detail)}), true)
-		_focus_cell(index)
-		return
-	for feature_value: Variant in layout.features:
-		var feature: Dictionary = feature_value
-		var overlaps := false
-		for cell: int in feature.cells:
-			if cells.has(cell):
-				overlaps = true
-		if overlaps and feature.anchor != Vector2i(x, y):
-			_set_status(_t("map.error.landmark_overlap"), true)
-			_focus_cell(index)
-			return
-	var blocker := _landmark_footprint_blocker(cells, width)
-	if not blocker.is_empty():
-		_set_status(_t("map.error.landmark_not_placed", {"detail": blocker}), true)
+		if touches_bell:
+			return {"ok": false, "error": _t("map.error.bell_spacing")}
+	if not bool(definition.get("walkable", false)):
+		var blocker := _landmark_footprint_blocker(cells, width)
+		if not blocker.is_empty():
+			return {"ok": false, "error": _t("map.error.landmark_not_placed", {"detail": blocker})}
+	return {"ok": true, "cells": cells}
+
+
+func _place_landmark_at(index: int, width: int, terrain: Array, tool: String) -> void:
+	var definition: Dictionary = LANDMARKS[tool]
+	var footprint := _landmark_stamp(index, width, terrain, definition)
+	if not footprint.ok:
+		_set_status(str(footprint.error), true)
 		_focus_cell(index)
 		return
 	var changed := terrain.duplicate()
-	for cell: int in cells:
+	for cell: int in footprint.cells:
 		changed[cell] = str(definition.source_id)
 	_apply_terrain(
 		changed, index,
@@ -4288,7 +4346,18 @@ func _update_resize_preview() -> void:
 						tile_value, resize_width, resize_height
 					):
 						deployment_clipped += 1
-	var blocked := placement_clipped > 0 or deployment_clipped > 0
+	var cut_landmark := ""
+	var new_size := Vector2i(resize_width, resize_height)
+	var landmark_layout := _landmark_layout(old_width, old_height, map.get("terrain", []))
+	for feature: Dictionary in landmark_layout.features:
+		var anchor: Vector2i = feature.anchor
+		if anchor.x >= new_size.x or anchor.y >= new_size.y:
+			continue
+		if _landmark_footprint(anchor, feature.size, new_size).is_empty():
+			cut_landmark = str(feature.label)
+			break
+	var clips_setup := placement_clipped > 0 or deployment_clipped > 0
+	var blocked := clips_setup or not cut_landmark.is_empty()
 	var outside_value: Dictionary = (
 		map.get("surroundings", {}) if map.get("surroundings", {}) is Dictionary else {}
 	)
@@ -4339,13 +4408,15 @@ func _update_resize_preview() -> void:
 				"terrain": _terrain_label(selected_terrain),
 			})
 		)
-	if blocked:
+	if clips_setup:
 		lines.append(
 			_t("map.resize.blocked", {
 				"placements": placement_clipped, "tiles": deployment_clipped,
 			})
 		)
-	else:
+	if not cut_landmark.is_empty():
+		lines.append(_t("map.resize.cuts_landmark", {"landmark": cut_landmark}))
+	if not blocked:
 		lines.append(_t("map.resize.safe"))
 	resize_preview_label.text = "\n".join(lines)
 	resize_preview_label.add_theme_color_override(
@@ -6614,23 +6685,20 @@ func _t(message_id: String, values: Dictionary = {}) -> String:
 
 
 func _terrain_label(terrain_id: String) -> String:
-
-	return (
-		_t("map.terrain." + terrain_id)
-		if TERRAIN_PALETTE.has(terrain_id)
-		else terrain_id.replace("_", " ").to_upper()
-	)
+	if TERRAIN_PALETTE.has(terrain_id):
+		return _t("map.terrain." + terrain_id)
+	var landmark := _landmark_definition_for_source(terrain_id)
+	return terrain_id.replace("_", " ").to_upper() if landmark.is_empty() else _t(str(landmark.label_key))
 
 
 func _tool_label(tool: String, compact := false) -> String:
+	if LANDMARKS.has(tool):
+		return _t(str(LANDMARKS[tool].label_key))
 	var known := [
 		"brush", "fill", "rectangle", "add_unit", "unit", "move",
 		"remove_unit", "deployment", "ownership", "scaling", "talk",
 		"visibility",
-		"surroundings", "landmark_house", "landmark_grove", "landmark_remove",
-		"landmark_abandoned_cart", "landmark_village_well", "landmark_watchtower", "landmark_walled_garden",
-		"landmark_sengoku_house", "landmark_pirates_house",
-		"landmark_scifi_house", "landmark_mythical_house", "landmark_nature_house", "landmark_undead_house", "patrol",
+		"surroundings", "landmark_remove", "patrol",
 	]
 	if not known.has(tool):
 		return tool.replace("_", " ").to_upper()
@@ -6659,10 +6727,6 @@ func _field_label(field: String) -> String:
 		"surroundings": "map.field.surroundings",
 		"projectincomplete": "map.error.project_incomplete",
 	}.get(normalized, "map.field.battle_setup"))
-
-
-func _landmark_kind_label(kind: String) -> String:
-	return _t("map.landmark." + kind)
 
 
 func _presentation_label(field: String, value: String) -> String:

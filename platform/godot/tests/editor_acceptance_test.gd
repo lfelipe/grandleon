@@ -52,6 +52,8 @@ func _run() -> void:
 	map_editor._select_tool("brush")
 	map_editor._select_terrain("water")
 	map_editor._paint_cell(0)
+	map_editor._select_tool("landmark_orchard_bell")
+	map_editor._paint_cell(44)
 	map_editor._select_tool("ownership")
 	map_editor._paint_cell(33)
 	map_editor._select_tool("remove_unit")
@@ -79,6 +81,8 @@ func _run() -> void:
 	_expect("Map & Battle saves authored terrain and setup", map_editor._save(), true)
 	var mapped := _parse(map_editor.source)
 	_expect("terrain was painted", str(mapped.maps[0].terrain[0]), "water")
+	_expect("complete orchard bell was stamped", mapped.maps[0].terrain.slice(44, 46),
+		["paved_orchard_bell", "paved_orchard_bell"])
 	var battle: Dictionary = mapped.campaigns[0].flow.nodes[1]
 	var allied_placements := 0
 	var opposing_placements := 0
@@ -216,6 +220,8 @@ func _verify_exported_landscape(export_root: String) -> void:
 	_expect("the creator's exported campaign starts", not player.snapshot.is_empty(), true)
 	if not player.snapshot.is_empty():
 		_expect("a new campaign receives the natural landscape", player.board.castle_presentation_state().terrain_family, "natural_temperate")
+		_expect("the authored bell reaches the exported player's board", player.battle_terrain_features.slice(44, 46),
+			["orchard_bell", "orchard_bell"])
 	player.queue_free()
 	await process_frame
 	# Drain deferred viewport/resource teardown before SceneTree shuts down.

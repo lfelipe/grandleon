@@ -339,9 +339,9 @@ func _run() -> void:
 	editor._select_terrain("paved_castle_door")
 	_expect("doorway selects the single-stamp brush", editor.active_tool, "brush")
 	_expect("doorway does not offer a misleading flood fill", editor.tool_buttons.fill.disabled, true)
-	editor._preview_doorway(4, 6)
-	_expect("doorway previews its first cell", editor.grid.get_child(4).has_node("DoorwayPreview"), true)
-	_expect("doorway previews its second cell", editor.grid.get_child(10).has_node("DoorwayPreview"), true)
+	editor._preview_stamp(4, 6)
+	_expect("doorway previews its first cell", editor.grid.get_child(4).has_node("StampPreview"), true)
+	_expect("doorway previews its second cell", editor.grid.get_child(10).has_node("StampPreview"), true)
 	var doorway_undo: int = editor.undo_stack.size()
 	editor._paint_cell(4)
 	_expect("one click places both doorway cells", _parse(editor.source).maps[0].terrain.count("paved_castle_door"), 2)
@@ -494,7 +494,8 @@ func _run() -> void:
 			"mountain_village_house"
 		)
 	_expect("house placement is one undo command", editor.undo_stack.size(), 1)
-	_expect("house is labelled from its one top-left anchor", editor.grid.get_child(16).tooltip_text.contains("HOUSE 2×2"), true)
+	_expect("house tooltip names its complete blocked footprint",
+		editor.grid.get_child(16).tooltip_text.contains("VILLAGE HOUSE · 2×2 · BLOCKED"), true)
 	var complete_house_source: String = editor.source
 	editor._select_tool("brush")
 	editor._select_terrain("grass")
@@ -546,7 +547,6 @@ func _run() -> void:
 		_expect("the editor offers %s as one stamp" % kind, editor.tool_buttons.has(tool), true)
 		if kind.ends_with("_house"):
 			_expect("all house themes share one stamp button", editor.tool_buttons[tool], editor.tool_buttons["landmark_house"])
-			_expect("the landmark chooser offers all twelve complete props", editor.landmark_select.item_count, 12)
 			for index in editor.landmark_select.item_count:
 				if str(editor.landmark_select.get_item_metadata(index)) == tool:
 					editor.landmark_select.select(index)
@@ -569,6 +569,8 @@ func _run() -> void:
 		editor._undo()
 		await process_frame
 		_expect("%s stamp and removal undo together" % kind, editor.source, original_landmark_source)
+
+	await _exercise_demo_landmarks(editor)
 
 	editor._select_tool("landmark_house")
 	editor._paint_cell(0)
@@ -1344,6 +1346,74 @@ func _run() -> void:
 		print("map editor smoke passed")
 	localization.call("select_language", prior_language, false)
 	root.get_node("PCAudio").request_quit(1 if failures > 0 else 0)
+
+
+func _exercise_demo_landmarks(editor: Control) -> void:
+	var original: String = editor.source
+	var terrain_by_tool := {
+		"landmark_forest_orchard_tree": ["forest_orchard_tree", "forest"],
+		"landmark_farmland_orchard_tree": ["farmland_orchard_tree", "farmland"],
+		"landmark_orchard_bell": ["paved_orchard_bell", "paved"],
+		"landmark_road_signal_beacon": ["road_signal_beacon", "road"],
+		"landmark_paved_signal_beacon": ["paved_signal_beacon", "paved"],
+		"landmark_watch_ruin": ["ruins_watch_ruin", "ruins"],
+		"landmark_town_wall": ["mountain_town_wall", "paved"],
+	}
+	for tool: String in terrain_by_tool:
+		var entry := -1
+		for index: int in editor.landmark_select.item_count:
+			if editor.landmark_select.get_item_metadata(index) == tool:
+				entry = index
+				break
+		_expect("demo landmark is available in the chooser: " + tool, entry >= 0, true)
+		if entry < 0:
+			continue
+		editor.landmark_select.select(entry)
+		editor.landmark_select.item_selected.emit(entry)
+		_expect("demo landmark is selected: " + tool, editor.active_tool, tool)
+		var terrain: Array = terrain_by_tool[tool]
+		var cells := [22, 23] if tool == "landmark_orchard_bell" else [22]
+		editor._preview_stamp(22, 6)
+		_expect("preview highlights the whole footprint: " + tool,
+			editor.grid.get_child(cells.back()).has_node("StampPreview"), true)
+		editor.grid.get_child(22).pressed.emit()
+		await process_frame
+		var map := _parse(editor.source).maps[0] as Dictionary
+		_expect("stamp writes every footprint cell: " + tool, map.terrain.count(terrain[0]), cells.size())
+		for cell: int in cells:
+			_expect("stamp writes the expected tile index", map.terrain[cell], terrain[0])
+		_expect("stamp creates one undo entry", editor.undo_stack.size(), 1)
+		_expect("stamp compiles through the native project compiler", editor.compiler.compile_source_json(editor.source).ok, true)
+		if tool == "landmark_orchard_bell":
+			var stamped: String = editor.source
+			editor._paint_cell(20)
+			_expect("adjacent bell gets an explanation", editor.status_label.text.contains("ONE TILE BETWEEN BELLS"), true)
+			editor._paint_cell(17)
+			_expect("right-edge bell cannot wrap into the next row", editor.source, stamped)
+			editor._open_resize()
+			editor._set_resize_dimensions(5, 4)
+			_expect("resizing cannot clip off half a bell", editor.resize_apply_button.disabled, true)
+			_expect("resize explains the cut footprint", editor.resize_preview_label.text.contains("CUTS THROUGH ORCHARD BELL"), true)
+			editor._close_resize()
+			editor.palette_buttons["grass"].pressed.emit()
+			_expect("choosing ground switches from the stamp back to painting", editor.active_tool, "brush")
+			editor._paint_cell(23)
+			_expect("brush cannot repaint one half of a bell", editor.source, stamped)
+		editor._select_tool("landmark_remove")
+		editor._paint_cell(cells.back())
+		for cell: int in cells:
+			_expect("removal restores the appropriate ground", _parse(editor.source).maps[0].terrain[cell], terrain[1])
+		editor._undo()
+		editor._undo()
+		await process_frame
+		_expect("stamp and removal undo to the exact previous source", editor.source, original)
+	editor._select_tool("landmark_paved_signal_beacon")
+	editor._paint_cell(0)
+	_expect("a walkable landmark can share a tile with a character", _parse(editor.source).maps[0].terrain[0], "paved_signal_beacon")
+	editor._undo()
+	editor._select_tool("landmark_town_wall")
+	editor._paint_cell(0)
+	_expect("a blocked town wall cannot displace a character", editor.source, original)
 
 
 func _parse(value: String) -> Dictionary:

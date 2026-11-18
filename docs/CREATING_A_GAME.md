@@ -62,10 +62,12 @@ exchange an older item. Gold goes to the campaign wallet.
 ## Make the first battle
 
 Open the map from the guide. **Brush**, **Fill** and **Rectangle** paint terrain;
-**Undo** makes experimentation safe. Landmarks place complete houses, trees
-and other features together. Castle doorways place a complete two-cell arch
-with one click or tap. **Interior Visibility** can cover a room using two
-corners, then reveal nearby floor as characters explore it.
+**Undo** makes experimentation safe. Choose a landmark such as a house,
+orchard tree, bell, beacon, ruin or wall, then click or tap its top-left tile.
+The whole footprint is placed in one step. **Remove** clears the complete
+landmark from any of its tiles. Castle doorways also place both tiles in one
+step. **Interior Visibility** covers a room using two corners and reveals
+nearby floor as characters explore it.
 
 ![Painting terrain and arranging a battlefield](screenshots/native-guide/02-shape-a-battle.gif)
 

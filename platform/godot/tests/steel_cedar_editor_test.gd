@@ -74,6 +74,20 @@ func _run() -> void:
 	_expect("Cedar Watch opens in Map Editor", String(map_editor._current_map().id), "cedar_watch")
 	_expect("Cedar Watch setup remains tied to its battle", String(map_editor._current_encounter().node.id), "cedar_watch")
 	_expect("editor handoff does not rewrite campaign source", String(map_editor.source), campaign_source)
+	for authored_map: Dictionary in map_editor.project.maps:
+		var layout: Dictionary = map_editor._landmark_layout(int(authored_map.width), int(authored_map.height), authored_map.terrain)
+		_expect("placed landmarks have complete footprints on " + str(authored_map.name), layout.ok, true)
+		var recognized := 0
+		for feature: Dictionary in layout.features:
+			recognized += feature.cells.size()
+		var expected := 0
+		for tile: String in authored_map.terrain:
+			if tile in ["forest_orchard_tree", "farmland_orchard_tree", "paved_orchard_bell",
+				"paved_signal_beacon", "road_signal_beacon", "ruins_watch_ruin", "mountain_town_wall",
+				"mountain_village_house", "mountain_village_well", "mountain_abandoned_cart",
+				"mountain_watchtower", "mountain_walled_garden", "mountain_ancient_grove"]:
+				expected += 1
+		_expect("the editor recognizes every stamped demo tile on " + str(authored_map.name), recognized, expected)
 	var encounter: Dictionary = map_editor._current_encounter().node
 	var placements: Array = encounter.get("placements", [])
 	var rowan := _placement(placements, "rowan_watch")

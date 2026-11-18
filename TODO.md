@@ -211,9 +211,10 @@ tracked above.
   recovery copy and leave cancelled imports and opens untouched.
 - [x] Preserve map scenery, hidden rooms, conversations, terrain costs and the
   battle seed when casualties or retired heroes are excluded from a stage.
-- [ ] Make all Steel and Cedar landmarks placeable in the Map Editor. Add
-  orchard trees on forest and farmland, the two-tile orchard bell, signal
-  beacons on road and paving, watch ruins and town walls.
+- [x] Make all Steel and Cedar landmarks placeable in the Map Editor,
+  including orchard trees, the two-tile bell, signal beacons, watch ruins
+  and town walls. Preview the footprint and place, remove or undo it in one
+  edit. Verify fresh stamps compile and retain the demo's existing maps.
 - [ ] Verify that one author can recreate the Steel and Cedar campaign from a
   blank project using the editor. Check both player modes, the reinforcement
   waves, the shop, the castle reveal and the final battle.
