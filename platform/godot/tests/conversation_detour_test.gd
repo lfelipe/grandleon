@@ -127,13 +127,13 @@ func set_answer(editor, index: int, value: String) -> void:
 
 func make_detour(outline, reply: String, title: String, ending := "") -> bool:
 	outline._open_add_route()
-	if not outline.add_answer_detour_button.visible: return false
-	outline.add_answer_detour_button.pressed.emit()
+	if not outline.add_event_detour_button.visible: return false
+	outline.add_event_detour_button.pressed.emit()
 	outline.branch_name.text = title
 	var found := false
-	for index in outline.branch_reply_select.item_count:
-		if outline.branch_reply_select.get_item_text(index).contains(reply):
-			outline.branch_reply_select.select(index)
+	for index in outline.branch_event_select.item_count:
+		if outline.branch_event_select.get_item_text(index).contains(reply):
+			outline.branch_event_select.select(index)
 			found = true
 			break
 	if not found: return false

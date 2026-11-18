@@ -4,6 +4,7 @@ extends Control
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
 const CampaignRoster = preload("res://scripts/creator/campaign_roster.gd")
 const CampaignReadiness = preload("res://scripts/creator/campaign_readiness.gd")
+const StageEvents = preload("res://scripts/creator/stage_events.gd")
 const ProjectContentDependencyIndex = preload(
 	"res://scripts/creator/project_content_dependency_index.gd"
 )
@@ -90,14 +91,14 @@ var add_route_layer: Control
 var add_route_button: Button
 var add_existing_button: Button
 var add_branch_button: Button
-var add_answer_detour_button: Button
+var add_event_detour_button: Button
 var branch_layer: Control
 var branch_name: LineEdit
-var branch_reply_select: OptionButton
+var branch_event_select: OptionButton
 var branch_destination: OptionButton
 var branch_ending_name: LineEdit
 var branch_ending_text: TextEdit
-var branch_reply_label: Label
+var branch_event_label: Label
 var branch_destination_label: Label
 var branch_feedback: Label
 var ending_layer: Control
@@ -616,16 +617,13 @@ func _collect_route() -> void:
 
 func _primary_route(nodes: Array, entry_id: String) -> Array[Dictionary]:
 	var by_id: Dictionary = {}
-	var reply_flags := {}
+	var event_flags := StageEvents.flags(nodes)
 	for node_value: Variant in nodes:
 		if node_value is Dictionary:
 			var node: Dictionary = node_value
 			var node_id := str(node.get("id", ""))
 			if not node_id.is_empty():
 				by_id[node_id] = node
-			for placement: Dictionary in node.get("placements", []):
-				var flag := str(placement.get("talk", {}).get("replyFlagId", ""))
-				if not flag.is_empty(): reply_flags[flag] = true
 	var result: Array[Dictionary] = []
 	var visited: Dictionary = {}
 	var current_id := entry_id
@@ -635,32 +633,21 @@ func _primary_route(nodes: Array, entry_id: String) -> Array[Dictionary]:
 		result.append(current)
 		var next_id := ""
 		var best_priority := 2147483647
-		var chosen_reply := true
+		var chosen_event := true
 		for transition_value: Variant in current.get("transitions", []):
 			if not transition_value is Dictionary:
 				continue
 			var transition: Dictionary = transition_value
 			var target := str(transition.get("targetNodeId", ""))
 			var priority := int(transition.get("priority", 0))
-			var reply := _route_reads_reply(transition.get("when", {}), reply_flags)
-			if target.is_empty() or (reply and not chosen_reply) or (reply == chosen_reply and priority >= best_priority):
+			var triggered := StageEvents.reads(transition.get("when", {}), event_flags)
+			if target.is_empty() or (triggered and not chosen_event) or (triggered == chosen_event and priority >= best_priority):
 				continue
 			best_priority = priority
-			chosen_reply = reply
+			chosen_event = triggered
 			next_id = target
 		current_id = next_id
 	return result
-
-func _route_reads_reply(when: Dictionary, flags: Dictionary) -> bool:
-	match str(when.get("kind", "")):
-		"worldFlagEquals":
-			return flags.has(when.get("flagId"))
-		"not":
-			return _route_reads_reply(when.condition, flags)
-		"all", "any":
-			for condition: Dictionary in when.conditions:
-				if _route_reads_reply(condition, flags): return true
-	return false
 
 
 func _chapter_pairs() -> Array[Dictionary]:
@@ -944,6 +931,72 @@ func _add_node_button(node: Dictionary, battle_number: int, alternate: bool) -> 
 			if action is Button:
 				action.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 				action.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_add_event_planning_button(node)
+	_add_event_routes(node)
+
+
+func _add_event_planning_button(node: Dictionary) -> void:
+	if node.kind != "encounter" or _event_choices(str(node.id)).is_empty(): return
+	var fallback: Dictionary = {}
+	for edge: Dictionary in node.get("transitions", []):
+		if _outcome_condition_kind(edge) not in ["victory", "always"]: continue
+		if fallback.is_empty() or int(edge.priority) < int(fallback.priority):
+			fallback = edge
+	if fallback.is_empty(): return
+	var button := _button(_t("campaign.event.detour"), 160, 54)
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	button.set_meta("event_stage", str(node.id))
+	button.pressed.connect(_plan_event_detour.bind(str(node.id), str(fallback.id)))
+	route_list.add_child(button)
+
+
+func _plan_event_detour(node_id: String, route_id: String) -> void:
+	_open_outcomes(node_id, route_id)
+	_open_event_detour()
+
+
+func _add_event_routes(node: Dictionary) -> void:
+	var flags := StageEvents.flags(campaign.get("flow", {}).get("nodes", []))
+	if flags.is_empty(): return
+	var main_ids := {}
+	for stage: Dictionary in route: main_ids[str(stage.id)] = true
+	for transition: Dictionary in node.get("transitions", []):
+		var condition: Dictionary = transition.get("when", {})
+		if not StageEvents.reads(condition, flags): continue
+		var caption := _compound_summary(condition) if _editable_compound(condition) else _predicate_text(condition)
+		var path := _event_route_path(str(transition.targetNodeId), main_ids)
+		var summary := _button(caption + " → " + path, 160, 54)
+		summary.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		summary.set_meta("event_route", str(transition.id))
+		summary.pressed.connect(_open_outcomes.bind(str(node.id), str(transition.id)))
+		route_list.add_child(summary)
+
+func _event_route_path(destination: String, main_ids: Dictionary) -> String:
+	var path := PackedStringArray()
+	var visited := {}
+	while not destination.is_empty() and not visited.has(destination):
+		visited[destination] = true
+		var stage := _campaign_node(destination)
+		if stage.is_empty(): break
+		var label := str(stage.name)
+		var outgoing: Array = stage.get("transitions", [])
+		var continues: bool = outgoing.size() == 1 and not outgoing[0].has("when")
+		# A new chapter has an empty opening scene until the author writes one.
+		if stage.kind == "story" and stage.get("dialogueIds", []).is_empty() and continues:
+			destination = str(outgoing[0].targetNodeId)
+			continue
+		if stage.kind == "terminal":
+			path.append(_t("campaign.event.ending", {"stage": label}))
+			break
+		if main_ids.has(destination):
+			path.append(_t("campaign.event.rejoin", {"stage": label}))
+			break
+		path.append(label)
+		if not continues: break
+		destination = str(outgoing[0].targetNodeId)
+	return " → ".join(path)
 
 
 func _node_text(node: Dictionary, battle_number: int, alternate: bool) -> String:
@@ -1682,9 +1735,9 @@ func _update_actions() -> void:
 	redo_button.disabled = redo_stack.is_empty()
 
 
-func _open_outcomes(node_id: String) -> void:
+func _open_outcomes(node_id: String, preferred_route := "") -> void:
 	outcome_node_id = node_id
-	_refresh_outcome_layer()
+	_refresh_outcome_layer(preferred_route)
 	outcome_layer.visible = true
 	outcome_select.grab_focus()
 
@@ -1759,10 +1812,20 @@ func _is_talk_flag(flag_id: String) -> bool:
 			return true
 	return false
 
-func _reply_choices(node_id := "") -> Array[Dictionary]:
-	var replies: Array[Dictionary] = []
+func _event_choices(node_id := "") -> Array[Dictionary]:
+	var events: Array[Dictionary] = []
 	for node: Dictionary in campaign.get("flow", {}).get("nodes", []):
 		if not node_id.is_empty() and str(node.id) != node_id: continue
+		for discovery: Dictionary in node.get("hiddenItems", []):
+			var flag := str(discovery.flagId)
+			events.append({
+				"id": "find/" + flag,
+				"label": _t("campaign.event.found", {
+					"item": StageEvents.equipment_name(project, discovery),
+					"stage": str(node.name), "x": int(discovery.x), "y": int(discovery.y),
+				}),
+				"when": {"kind": "worldFlagEquals", "flagId": flag, "value": true},
+			})
 		for placement: Dictionary in node.get("placements", []):
 			var talk: Dictionary = placement.get("talk", {})
 			var flag := str(talk.get("replyFlagId", ""))
@@ -1771,19 +1834,19 @@ func _reply_choices(node_id := "") -> Array[Dictionary]:
 				for answer: Dictionary in question.get("answers", []):
 					if answer.has("nextQuestionId"): continue
 					var value := int(answer.id)
-					replies.append({
+					events.append({
 						"id": "reply/%s/%d" % [flag, value],
 						"label": _t("conversation.route.answered", {
 							"character": _talk_placement_name(placement), "answer": str(answer.text),
 						}),
 						"when": {"kind": "worldFlagEquals", "flagId": flag, "value": value},
 					})
-	return replies
+	return events
 
-func _reply_condition(identity: String) -> Dictionary:
-	if not identity.begins_with("reply/"): return {}
-	for reply: Dictionary in _reply_choices():
-		if reply.id == identity: return reply
+func _event_condition(identity: String) -> Dictionary:
+	if not identity.begins_with("reply/") and not identity.begins_with("find/"): return {}
+	for event: Dictionary in _event_choices():
+		if event.id == identity: return event
 	return {}
 
 
@@ -1797,9 +1860,12 @@ func _editable_predicate_kind(predicate: Dictionary) -> String:
 			var value: Variant = predicate.get("value", true)
 			if value is bool and _is_talk_flag(str(predicate.get("flagId", ""))):
 				return "talked" if value else "not_talked"
+			if value is bool and value:
+				var identity := "find/" + str(predicate.get("flagId", ""))
+				if not _event_condition(identity).is_empty(): return identity
 			if value is int or value is float:
 				var identity := "reply/%s/%d" % [str(predicate.get("flagId", "")), int(value)]
-				if not _reply_condition(identity).is_empty(): return identity
+				if not _event_condition(identity).is_empty(): return identity
 	return "advanced"
 
 
@@ -1822,8 +1888,8 @@ func _editable_compound(when: Dictionary) -> bool:
 
 func _predicate_text(predicate: Dictionary) -> String:
 	var kind := _editable_predicate_kind(predicate)
-	var reply := _reply_condition(kind)
-	if not reply.is_empty(): return str(reply.label)
+	var event := _event_condition(kind)
+	if not event.is_empty(): return str(event.label)
 	match kind:
 		"victory":
 			return _t("campaign.condition.goal_won_named", {"name": _objective_name(str(predicate.get("objectiveId", "")))})
@@ -1955,9 +2021,9 @@ func _refresh_selected_outcome(_index: int = 0) -> void:
 	if outcome_flag.item_count > 0:
 		choices.append({"id": "talked", "label": _t("campaign.condition.talked")})
 		choices.append({"id": "not_talked", "label": _t("campaign.condition.not_talked")})
-	var replies := _reply_choices()
-	choices.append_array(replies)
-	if outcome_objective.item_count > 0 or outcome_item.item_count > 0 or outcome_flag.item_count > 0 or not replies.is_empty():
+	var events := _event_choices()
+	choices.append_array(events)
+	if outcome_objective.item_count > 0 or outcome_item.item_count > 0 or outcome_flag.item_count > 0 or not events.is_empty():
 		choices.append({"id": "compound", "label": _t("campaign.condition.multiple")})
 	for choice: Dictionary in choices:
 		outcome_condition.add_item(str(choice.label))
@@ -2050,8 +2116,8 @@ func _outcome_condition_kind(transition: Dictionary) -> String:
 func _outcome_text(transition: Dictionary, index: int) -> String:
 	var kind := _outcome_condition_kind(transition)
 	var condition := _t("campaign.condition.always")
-	var reply := _reply_condition(kind)
-	if not reply.is_empty(): condition = str(reply.label)
+	var event := _event_condition(kind)
+	if not event.is_empty(): condition = str(event.label)
 	match kind:
 		"victory":
 			condition = _t("campaign.condition.goal_won")
@@ -2131,7 +2197,7 @@ func _open_add_route() -> void:
 		if not choice.is_empty()
 		else _t("campaign.add_route.branch_unavailable")
 	)
-	add_answer_detour_button.visible = _can_add_answer_detour()
+	add_event_detour_button.visible = _can_add_event_detour()
 	add_route_layer.visible = true
 	add_existing_button.grab_focus()
 
@@ -2157,19 +2223,19 @@ func _choose_new_branch() -> void:
 	add_route_layer.visible = false
 	_open_new_branch()
 
-func _can_add_answer_detour() -> bool:
+func _can_add_event_detour() -> bool:
 	if str(_current_outcome_node().get("kind", "")) != "encounter": return false
-	if _reply_choices(outcome_node_id).is_empty() or _selected_outcome().is_empty(): return false
+	if _event_choices(outcome_node_id).is_empty() or _selected_outcome().is_empty(): return false
 	return _outcome_condition_kind(_selected_outcome()) in ["victory", "always"]
 
-func _open_answer_detour() -> void:
-	if not _can_add_answer_detour(): return
+func _open_event_detour() -> void:
+	if not _can_add_event_detour(): return
 	add_route_layer.hide()
 	_open_new_branch()
-	branch_reply_select.clear()
-	for reply: Dictionary in _reply_choices(outcome_node_id):
-		branch_reply_select.add_item(str(reply.label))
-		branch_reply_select.set_item_metadata(branch_reply_select.item_count - 1, reply.id)
+	branch_event_select.clear()
+	for event: Dictionary in _event_choices(outcome_node_id):
+		branch_event_select.add_item(str(event.label))
+		branch_event_select.set_item_metadata(branch_event_select.item_count - 1, event.id)
 	branch_destination.clear()
 	for node: Dictionary in campaign.flow.nodes:
 		branch_destination.add_item(str(node.name))
@@ -2177,17 +2243,17 @@ func _open_answer_detour() -> void:
 	branch_destination.add_item(_t("conversation.route.new_ending"))
 	branch_destination.set_item_metadata(branch_destination.item_count - 1, "")
 	_select_metadata(branch_destination, str(_selected_outcome().targetNodeId))
-	branch_reply_select.show()
+	branch_event_select.show()
 	branch_destination.show()
-	branch_reply_label.show()
+	branch_event_label.show()
 	branch_destination_label.show()
 
-func _create_answer_detour(name: String) -> void:
+func _create_event_detour(name: String) -> void:
 	var candidate := _candidate_outcome_node()
-	if candidate.is_empty() or not _can_add_answer_detour(): return
+	if candidate.is_empty() or not _can_add_event_detour(): return
 	var fallback := _selected_outcome()
-	var reply := _reply_condition(_selected_metadata(branch_reply_select))
-	if reply.is_empty(): return
+	var event := _event_condition(_selected_metadata(branch_event_select))
+	if event.is_empty(): return
 	var destination := _selected_metadata(branch_destination)
 	if destination.is_empty():
 		var ending := branch_ending_name.text.strip_edges()
@@ -2215,7 +2281,7 @@ func _create_answer_detour(name: String) -> void:
 	var index := 0
 	while index < routes.size() and routes[index].id != fallback.id:
 		index += 1
-	var condition: Dictionary = reply.when
+	var condition: Dictionary = event.when
 	if fallback.has("when"):
 		condition = {"kind": "all", "conditions": [fallback.when, condition]}
 	routes.insert(index, {"id": route_id, "targetNodeId": destination, "when": condition})
@@ -2320,9 +2386,9 @@ func _branch_fill_terrain() -> String:
 func _open_new_branch() -> void:
 	var sequence := _next_chapter_sequence()
 	branch_name.text = "Alternate Chapter %d" % sequence
-	branch_reply_select.hide()
+	branch_event_select.hide()
 	branch_destination.hide()
-	branch_reply_label.hide()
+	branch_event_label.hide()
 	branch_destination_label.hide()
 	branch_ending_name.hide()
 	branch_ending_text.hide()
@@ -2349,8 +2415,8 @@ func _create_branch() -> void:
 		_set_outcome_status(_t("campaign.error.branch_name"), true)
 		branch_name.grab_focus()
 		return
-	if branch_reply_select.visible:
-		_create_answer_detour(name)
+	if branch_event_select.visible:
+		_create_event_detour(name)
 		return
 	var choice := _branch_choice()
 	if choice.is_empty():
@@ -2571,8 +2637,8 @@ func _candidate_outcome_node() -> Dictionary:
 
 func _when_from_controls(existing: Dictionary = {}) -> Variant:
 	var kind := _selected_metadata(outcome_condition)
-	var reply := _reply_condition(kind)
-	if not reply.is_empty(): return reply.when.duplicate(true)
+	var event := _event_condition(kind)
+	if not event.is_empty(): return event.when.duplicate(true)
 	match kind:
 		"always":
 			return null
@@ -2691,9 +2757,9 @@ func _open_compound() -> void:
 		compound_kind.set_item_metadata(compound_kind.item_count - 1, "talked")
 		compound_kind.add_item(_t("campaign.condition.not_talked"))
 		compound_kind.set_item_metadata(compound_kind.item_count - 1, "not_talked")
-	for reply: Dictionary in _reply_choices():
-		compound_kind.add_item(str(reply.label))
-		compound_kind.set_item_metadata(compound_kind.item_count - 1, reply.id)
+	for event: Dictionary in _event_choices():
+		compound_kind.add_item(str(event.label))
+		compound_kind.set_item_metadata(compound_kind.item_count - 1, event.id)
 	_copy_option_items(outcome_objective, compound_objective)
 	_copy_option_items(outcome_item, compound_item)
 	_copy_option_items(outcome_flag, compound_flag)
@@ -2771,8 +2837,8 @@ func _refresh_compound_fields(_index: int = 0) -> void:
 
 func _compound_predicate_from_controls() -> Dictionary:
 	var kind := _selected_metadata(compound_kind)
-	var reply := _reply_condition(kind)
-	if not reply.is_empty(): return reply.when.duplicate(true)
+	var event := _event_condition(kind)
+	if not event.is_empty(): return event.when.duplicate(true)
 	match kind:
 		"victory", "defeat":
 			return {
@@ -3736,9 +3802,9 @@ func _build_add_route_layer() -> void:
 	)
 	add_branch_button.pressed.connect(_choose_new_branch)
 	column.add_child(add_branch_button)
-	add_answer_detour_button = _button(_t("conversation.route.detour"), 960, 82)
-	add_answer_detour_button.pressed.connect(_open_answer_detour)
-	column.add_child(add_answer_detour_button)
+	add_event_detour_button = _button(_t("campaign.event.detour"), 960, 82)
+	add_event_detour_button.pressed.connect(_open_event_detour)
+	column.add_child(add_event_detour_button)
 	var ending := _button(
 		_t("campaign.add_route.ending"), 960, 96
 	)
@@ -3791,19 +3857,19 @@ func _build_branch_layer() -> void:
 	branch_name.add_theme_font_size_override("font_size", 22)
 	branch_name.text_submitted.connect(_create_branch_from_text)
 	column.add_child(branch_name)
-	branch_reply_label = _label(_t("conversation.route.reply"), 16, Color("69d9ff"))
+	branch_event_label = _label(_t("campaign.event.trigger"), 16, Color("69d9ff"))
 	branch_destination_label = _label(_t("conversation.route.destination"), 16, Color("69d9ff"))
-	branch_reply_select = OptionButton.new()
+	branch_event_select = OptionButton.new()
 	branch_destination = OptionButton.new()
-	column.add_child(branch_reply_label)
-	for selector: OptionButton in [branch_reply_select, branch_destination]:
+	column.add_child(branch_event_label)
+	for selector: OptionButton in [branch_event_select, branch_destination]:
 		if selector == branch_destination:
 			column.add_child(branch_destination_label)
 		selector.fit_to_longest_item = false
 		selector.clip_text = true
 		selector.custom_minimum_size.y = 60
 		column.add_child(selector)
-	branch_reply_select.tooltip_text = _t("conversation.route.reply")
+	branch_event_select.tooltip_text = _t("campaign.event.trigger")
 	branch_destination.tooltip_text = _t("conversation.route.destination")
 	branch_ending_name = LineEdit.new()
 	branch_ending_name.placeholder_text = _t("conversation.route.ending_name")

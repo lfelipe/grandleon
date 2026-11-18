@@ -72,3 +72,8 @@ XDG_CONFIG_HOME="${state_dir}/config" \
 XDG_CACHE_HOME="${state_dir}/cache" \
     timeout 120s "${godot_binary}" --headless --path "${stage_dir}" \
     --script "${repo_root}/platform/godot/tests/conversation_detour_test.gd"
+XDG_DATA_HOME="${state_dir}/data" \
+XDG_CONFIG_HOME="${state_dir}/config" \
+XDG_CACHE_HOME="${state_dir}/cache" \
+    timeout 120s "${godot_binary}" --headless --path "${stage_dir}" \
+    --script "${repo_root}/platform/godot/tests/hidden_item_detour_test.gd"

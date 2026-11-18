@@ -3,6 +3,7 @@
 
 #include <grandleon/core/random.hpp>
 #include <grandleon/core/content_identity.hpp>
+#include <grandleon/core/hidden_item.hpp>
 
 #include <cstdint>
 #include <string_view>
@@ -624,6 +625,7 @@ struct EncounterDefinition final {
     std::vector<Position> deployment_tiles;
     InventoryMode inventory_mode{InventoryMode::legacy};
     std::vector<TalkReply> talk_replies{};
+    std::vector<core::HiddenItem> hidden_items{};
 
 };
 
@@ -1106,6 +1108,7 @@ struct EncounterSnapshot final {
     std::uint64_t next_ground_item_id{1};
     // Victory is decided; optional local equipment collection remains open.
     bool collecting_loot{false};
+    std::vector<core::HiddenItem> hidden_items{};
 
 };
 
@@ -1447,6 +1450,7 @@ enum class EventType : std::uint8_t {
     inventory_picked_up,
     inventory_dropped,
     gold_gained,
+    hidden_item_found,
 
 };
 
@@ -1465,7 +1469,7 @@ struct Event final {
     ContentId content_id{};
     core::ContentCategory content_category{};
     std::uint64_t ground_item_id{};
-    ContentId reply_flag{};
+    ContentId world_flag{};
     std::uint16_t reply{};
 
 };
@@ -2109,6 +2113,7 @@ private:
     ) const;
     void evaluate_objectives(const UnitSnapshot& actor, CommandResult& result);
     void start_collection_if_available(CommandResult& result);
+    void discover_hidden_item(UnitSnapshot& actor, CommandResult& result);
     // Advances to whoever the turn order says acts next. Alternating order
     // simply hands the turn to the other side and lets the caller choose.
     // Where the advance closes a round it lands whatever the new round brings,

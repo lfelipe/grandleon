@@ -1514,6 +1514,21 @@ Encounter::CreateResult create_encounter(
             return {CreateError::invalid_item, Encounter(std::move(state))};
         }
     }
+    std::set<ContentId> discovery_flags;
+    std::set<std::pair<std::int16_t, std::int16_t>> discovery_cells;
+    if (definition.hidden_items.size() > core::maximum_hidden_items) {
+        return {CreateError::invalid_item, Encounter(std::move(state))};
+    }
+    for (const auto& hidden : definition.hidden_items) {
+        if (definition.inventory_mode != InventoryMode::carried ||
+            !in_bounds({hidden.x, hidden.y}, state.width, state.height) ||
+            hidden.flag == 0 || !discovery_flags.insert(hidden.flag).second ||
+            !discovery_cells.emplace(hidden.x, hidden.y).second ||
+            (hidden.weapon ? weapon_ids.count(hidden.item) : item_ids.count(hidden.item)) == 0) {
+            return {CreateError::invalid_item, Encounter(std::move(state))};
+        }
+    }
+    state.hidden_items = definition.hidden_items;
 
     // The waves, turned into the characters they mean, before anything is
     // judged, so that an arrival is validated by exactly the rules a placement
@@ -2206,6 +2221,42 @@ void Encounter::begin_next_activation(Side previous, CommandResult& result) {
     state_.remaining_action_points = 0;
 }
 
+void Encounter::discover_hidden_item(UnitSnapshot& actor, CommandResult& result) {
+    if (actor.side != Side::first) return;
+    const auto hidden = std::find_if(state_.hidden_items.begin(), state_.hidden_items.end(),
+        [&actor](const auto& item) {
+            return item.x == actor.position.x && item.y == actor.position.y;
+        });
+    if (hidden == state_.hidden_items.end()) return;
+    const CarriedStack stack{
+        hidden->weapon ? core::ContentCategory::weapon : core::ContentCategory::item,
+        hidden->item, 1
+    };
+    Event found;
+    found.type = EventType::hidden_item_found;
+    found.unit_id = actor.id;
+    found.position = actor.position;
+    found.amount = 1;
+    found.content_id = stack.content_id;
+    found.content_category = stack.category;
+    found.world_flag = hidden->flag;
+    const bool packed = add_carried(actor.carried_inventory, stack,
+        actor.states_carry_capacity, actor.carry_capacity) == InventoryError::none;
+    if (!packed) {
+        if (state_.next_ground_item_id == std::numeric_limits<std::uint64_t>::max()) return;
+        found.ground_item_id = state_.next_ground_item_id++;
+        state_.ground_items.push_back({found.ground_item_id, actor.position, stack});
+    }
+    state_.hidden_items.erase(hidden);
+    result.events.push_back(found);
+    if (packed) {
+        refresh_usable_inventory(actor, weapons_);
+        found.type = EventType::inventory_picked_up;
+        found.world_flag = 0;
+        result.events.push_back(found);
+    }
+}
+
 void Encounter::start_collection_if_available(CommandResult& result) {
     if (state_.inventory_mode != InventoryMode::carried ||
         state_.outcome != Outcome::first_side_won || state_.ground_items.empty()) return;
@@ -2466,6 +2517,7 @@ CommandResult Encounter::apply(const Command& command) {
                 Outcome::ongoing
             }
         );
+        discover_hidden_item(*unit, result);
     } else if (command.type == CommandType::attack) {
         StrikeProfile strike;
         const CommandError weapon_error =
@@ -2917,7 +2969,7 @@ CommandResult Encounter::apply(const Command& command) {
             }
         );
         if (reply != talk_replies_.end()) {
-            result.events.back().reply_flag = reply->flag;
+            result.events.back().world_flag = reply->flag;
             result.events.back().reply = static_cast<std::uint16_t>(command.ability_id);
         }
     } else if (command.type == CommandType::wait) {
@@ -4608,6 +4660,17 @@ std::uint64_t canonical_hash(const EncounterSnapshot& state) noexcept {
             hash_integer(hash,ground.id);hash_integer(hash,ground.position.x);hash_integer(hash,ground.position.y);
             hash_integer(hash,static_cast<std::uint32_t>(ground.stack.category));
             hash_integer(hash,ground.stack.content_id);hash_integer(hash,ground.stack.quantity);
+        }
+    }
+    if (!state.hidden_items.empty()) {
+        hash_integer(hash, std::uint32_t{0x4849444eU});
+        hash_integer(hash, static_cast<std::uint32_t>(state.hidden_items.size()));
+        for (const auto& hidden : state.hidden_items) {
+            hash_integer(hash, hidden.flag);
+            hash_integer(hash, hidden.item);
+            hash_integer(hash, hidden.x);
+            hash_integer(hash, hidden.y);
+            hash_integer(hash, static_cast<std::uint8_t>(hidden.weapon));
         }
     }
     return hash;

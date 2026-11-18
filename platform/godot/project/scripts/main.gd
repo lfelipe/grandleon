@@ -6,6 +6,7 @@ const BoardView = preload("res://scripts/board_view.gd")
 const BoardView3D = preload("res://scripts/board_view_3d.gd")
 const PlayerPack = preload("res://scripts/player_pack.gd")
 const GroundLootOverlay = preload("res://scripts/ground_loot_overlay.gd")
+const HiddenItemGlints = preload("res://scripts/hidden_item_glints.gd")
 const CampaignManager = preload("res://scripts/campaign_manager.gd")
 const CombatCinematic = preload("res://scripts/combat_cinematic.gd")
 const CombatPresentationPlan = preload("res://scripts/combat_presentation_plan.gd")
@@ -152,6 +153,8 @@ var pending_company: Dictionary = {}
 var management_menu_suspended := false
 var pending_requests: Dictionary = {}
 var pending_combat_presentation: Dictionary = {}
+var hidden_item_glints: Control
+var pending_discoveries: Array[Dictionary] = []
 var next_request_id := 1
 var font_size_bindings: Array[Dictionary] = []
 var action_popups: Array[Dictionary] = [{}, {}]
@@ -405,6 +408,7 @@ func _process(delta: float) -> void:
 		return
 	for event: Dictionary in session.poll():
 		_handle_event(event)
+	_show_pending_discovery()
 	_show_pending_management()
 	if stage_overview_pending and not _dialogue_visible() and not _management_visible() and not _session_menu_visible():
 		stage_overview_pending = false
@@ -1890,6 +1894,11 @@ func _create_interface() -> void:
 	var layer := CanvasLayer.new()
 	layer.layer = 20
 	add_child(layer)
+	hidden_item_glints = HiddenItemGlints.new()
+	hidden_item_glints.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hidden_item_glints.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hidden_item_glints.set_cells([])
+	layer.add_child(hidden_item_glints)
 
 	var top := PanelContainer.new()
 	mobile_top_panel = top
@@ -2638,6 +2647,8 @@ func _clear_session_presentation() -> void:
 		conversation_backdrop.clear()
 	pending_requests.clear()
 	pending_combat_presentation.clear()
+	pending_discoveries.clear()
+	hidden_item_glints.set_cells([])
 	if combat_cinematic != null:
 		combat_cinematic.clear()
 	pending_company.clear()
@@ -3011,6 +3022,8 @@ func _handle_event(event: Dictionary) -> void:
 				snapshot, battle_terrain, battle_theme, battle_surroundings,
 				battle_terrain_features, battle_route_identity
 			)
+			pending_discoveries.clear()
+			_update_hidden_glints()
 			selected_units = [0, 0]
 			action_modes = ["move", "move"]
 			attack_weapons = [0, 0]
@@ -3065,6 +3078,7 @@ func _handle_event(event: Dictionary) -> void:
 		"deployment_begins":
 			snapshot = event.snapshot
 			board.update_snapshot(snapshot)
+			hidden_item_glints.set_cells([])
 			status_label.text = _ui("player.deployment.start")
 		"presentation":
 			if _stage_overview_active(): board.finish_stage_overview()
@@ -3073,6 +3087,8 @@ func _handle_event(event: Dictionary) -> void:
 			for effect: Dictionary in presentation_events:
 				if effect.get("kind") == "gold_gained" and _gold_claimant_in_company(effect):
 					_show_toast(_ui("player.pack.gold_gained", {"amount": int(effect.amount)}))
+				elif effect.get("kind") == "hidden_item_found":
+					pending_discoveries.append(effect)
 			if coop_smoke:
 				_verify_coop_motion(presentation_events)
 			var audio_events: Array = presentation_events
@@ -3101,6 +3117,7 @@ func _handle_event(event: Dictionary) -> void:
 		"snapshot":
 			snapshot = event.snapshot
 			board.update_snapshot(snapshot)
+			_update_hidden_glints()
 			_finalize_pending_combat_presentation(snapshot)
 			_complete_request(event)
 			_update_status()
@@ -3127,6 +3144,7 @@ func _handle_event(event: Dictionary) -> void:
 			snapshot = event.snapshot
 			final_outcome = String(snapshot.get("outcome", "ongoing"))
 			board.update_snapshot(snapshot)
+			hidden_item_glints.set_cells([])
 			_finalize_pending_combat_presentation(snapshot)
 			status_label.text = _ui(
 				"player.result.battle_won"
@@ -3151,6 +3169,20 @@ func _handle_event(event: Dictionary) -> void:
 				else _ui("player.result.session_complete")
 			)
 			_maybe_show_campaign_result()
+
+
+func _update_hidden_glints() -> void:
+	hidden_item_glints.board = board
+	hidden_item_glints.set_cells(snapshot.get("hidden_glints", []))
+
+
+func _show_pending_discovery() -> void:
+	if pending_discoveries.is_empty(): return
+	var discovery: Dictionary = pending_discoveries.front()
+	if board.has_method("is_unit_moving") and board.is_unit_moving(int(discovery.unit_id)): return
+	pending_discoveries.pop_front()
+	var key := "player.hidden_item.pack_full" if int(discovery.ground_item_id) != 0 else "player.hidden_item.found"
+	_show_toast(_ui(key, {"item": str(discovery.name)}))
 
 
 func _present_pending_combat_audio(pending: Dictionary) -> void:

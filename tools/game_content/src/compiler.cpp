@@ -1236,11 +1236,12 @@ CompileResult compile(const GameSource& source) {
     for (const Objective& definition : source.objectives) {
         objectives_by_id.emplace(definition.id, &definition);
     }
-    std::set<StableId> talk_flags;
+    std::set<StableId> event_flags;
     std::map<StableId, std::set<std::uint16_t>> reply_results;
+    bool has_hidden_items = false;
     for (const auto& encounter : source.encounters) {
         for (const auto& placement : encounter.placements) {
-            if (placement.talk_flag_id != 0) talk_flags.insert(placement.talk_flag_id);
+            if (placement.talk_flag_id != 0) event_flags.insert(placement.talk_flag_id);
         }
     }
     for (const Encounter& definition : source.encounters) {
@@ -1318,11 +1319,28 @@ CompileResult compile(const GameSource& source) {
         bool has_unscaled_opponent = false;
         bool has_scaled_placement = false;
         const auto found_map = maps_by_id.find(definition.map_id);
+        std::set<std::pair<std::int16_t, std::int16_t>> hidden_cells;
+        if (!definition.hidden_items.empty()) has_hidden_items = true;
+        validate_count(definition.hidden_items.size(), core::maximum_hidden_items, path + ".hidden_items",
+                       definition.id, result.diagnostics);
+        for (const auto& hidden : definition.hidden_items) {
+            const bool on_map = found_map != maps_by_id.end() && hidden.x >= 0 && hidden.y >= 0 &&
+                                hidden.x < found_map->second->width && hidden.y < found_map->second->height;
+            if (!on_map || definition.inventory_mode != InventoryMode::carried ||
+                hidden.flag == 0 || !event_flags.insert(hidden.flag).second ||
+                !hidden_cells.emplace(hidden.x, hidden.y).second) {
+                result.diagnostics.push_back({
+                    DiagnosticCode::invalid_placement, path + ".hidden_items", hidden.flag
+                });
+            }
+            validate_reference(hidden.item, hidden.weapon ? weapon_ids : item_ids,
+                               path + ".hidden_items.item", result.diagnostics);
+        }
         for (const Placement& placement : definition.placements) {
             const auto& offer = placement.conversation;
             if (!offer.questions.empty()) {
                 if (!core::valid_map_conversation(offer) || placement.talk_flag_id == 0 ||
-                    placement.arrival_round != 0 || !talk_flags.insert(offer.result_flag).second) {
+                    placement.arrival_round != 0 || !event_flags.insert(offer.result_flag).second) {
                     result.diagnostics.push_back({
                         DiagnosticCode::invalid_placement, path + ".placements.talk", placement.id
                     });
@@ -2119,6 +2137,7 @@ CompileResult compile(const GameSource& source) {
     if (!reply_results.empty()) {
         package.required_features |= package_format::feature_map_conversations;
     }
+    if (has_hidden_items) package.required_features |= package_format::feature_hidden_items;
     package.sections = {
         package_format::SectionSource{
             package_format::SectionType::manifest,
@@ -2924,6 +2943,27 @@ CompileResult compile(const GameSource& source) {
                     }
                     section.records.push_back({placement.id, std::move(bytes)});
                 }
+            }
+            std::sort(section.records.begin(), section.records.end(),
+                      [](const auto& lhs, const auto& rhs) { return lhs.stable_id < rhs.stable_id; });
+            return section;
+        }(),
+        [&source]() {
+            package_format::SectionSource section;
+            section.type = package_format::SectionType::hidden_items;
+            for (const auto& encounter : source.encounters) {
+                if (encounter.hidden_items.empty()) continue;
+                Bytes bytes;
+                put_u16(bytes, static_cast<std::uint16_t>(encounter.hidden_items.size()));
+                for (const auto& hidden : encounter.hidden_items) {
+                    put_u64(bytes, hidden.flag);
+                    put_u64(bytes, hidden.item);
+                    put_i16(bytes, hidden.x);
+                    put_i16(bytes, hidden.y);
+                    bytes.push_back(static_cast<std::uint8_t>(hidden.weapon));
+                    bytes.push_back(static_cast<std::uint8_t>(hidden.glint));
+                }
+                section.records.push_back({encounter.id, std::move(bytes)});
             }
             std::sort(section.records.begin(), section.records.end(),
                       [](const auto& lhs, const auto& rhs) { return lhs.stable_id < rhs.stable_id; });

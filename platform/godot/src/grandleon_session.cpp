@@ -33,7 +33,8 @@ namespace pf = package_format;
 namespace pr = package_runtime;
 
 constexpr pf::LoadOptions godot_load_options{
-    {0, 1, 0}, pf::TargetProfile::desktop, pf::feature_map_conversations, 40, 10'000
+    {0, 1, 0}, pf::TargetProfile::desktop,
+    pf::feature_map_conversations | pf::feature_hidden_items, 40, 10'000
 };
 namespace sim = simulation;
 
@@ -245,6 +246,7 @@ const char* presentation_event_name(sim::EventType type) {
         case sim::EventType::inventory_picked_up: return "inventory_picked_up";
         case sim::EventType::inventory_dropped: return "inventory_dropped";
         case sim::EventType::gold_gained: return "gold_gained";
+        case sim::EventType::hidden_item_found: return "hidden_item_found";
         case sim::EventType::unit_deployed: return "unit_deployed";
         case sim::EventType::deployment_ended: return "deployment_ended";
         case sim::EventType::unit_talked: return "unit_talked";
@@ -1938,6 +1940,17 @@ gd::Dictionary GrandleonSession::snapshot_dictionary(
         ground.push_back(entry);
     }
     result["ground_items"] = ground;
+    if (!snapshot.hidden_items.empty()) {
+        gd::Array glints;
+        for (const auto& discovery : snapshot.hidden_items) {
+            if (!discovery.glint) continue;
+            gd::Dictionary cell;
+            cell["x"] = discovery.x;
+            cell["y"] = discovery.y;
+            glints.push_back(cell);
+        }
+        result["hidden_glints"] = glints;
+    }
 
     gd::Array units;
     units.resize(static_cast<int64_t>(snapshot.units.size()));
@@ -2479,6 +2492,13 @@ gd::Dictionary GrandleonSession::event_dictionary(
                 value["content_category"] = source.content_category == core::ContentCategory::weapon ? "weapon"
                     : source.content_category == core::ContentCategory::currency ? "currency" : "item";
                 value["outcome"] = outcome_name(source.outcome);
+                if (source.type == sim::EventType::hidden_item_found) {
+                    const auto section = source.content_category == core::ContentCategory::weapon
+                        ? pf::SectionType::weapons : pf::SectionType::items;
+                    const auto name = pr::content_name(package_, section, source.content_id);
+                    value["name"] = text(pr::localized_content_name(
+                        package_, language_, section, source.content_id, name));
+                }
                 if (source.type == sim::EventType::unit_moved &&
                     event.motion.has_value() &&
                     event.motion->unit_id == source.unit_id &&

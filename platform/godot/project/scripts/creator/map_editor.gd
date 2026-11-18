@@ -7,6 +7,7 @@ const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
 const CampaignRoster = preload("res://scripts/creator/campaign_roster.gd")
 const InventoryEditor = preload("res://scripts/creator/inventory_editor.gd")
 const BattleGoals = preload("res://scripts/creator/battle_goals.gd")
+const StageEvents = preload("res://scripts/creator/stage_events.gd")
 const CampaignEditor = preload("res://scripts/creator/campaign_editor.gd")
 const ProjectContentDependencyIndex = preload(
 	"res://scripts/creator/project_content_dependency_index.gd"
@@ -101,6 +102,16 @@ var encounters: Array[Dictionary] = []
 var encounter_index := 0
 var selected_terrain := "grass"
 var active_tool := "brush"
+var hidden_item_layer: Control
+var hidden_item_cell_label: Label
+var hidden_item_feedback: Label
+var hidden_item_select: OptionButton
+var hidden_item_glint: CheckBox
+var hidden_item_apply: Button
+var hidden_item_remove: Button
+var hidden_item_move: Button
+var hidden_item_cell := Vector2i.ZERO
+var moving_hidden_item := ""
 var rectangle_anchor := -1
 var inventory_editor: Control
 var placement_inventory_button: Button
@@ -338,6 +349,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			_close_dependency_review()
 		elif conversation_editor != null and conversation_editor.visible:
 			_close_conversation_editor()
+		elif hidden_item_layer != null and hidden_item_layer.visible:
+			_close_hidden_item()
+		elif not moving_hidden_item.is_empty():
+			moving_hidden_item = ""
+			_set_status(_t("map.hidden_item.choose_tile"), false)
 		elif talk_layer != null and talk_layer.visible:
 			_close_talk_choice()
 		elif look_layer != null and look_layer.visible:
@@ -513,6 +529,7 @@ func _select_map(index: int) -> void:
 	if index < 0 or index >= maps.size():
 		return
 	map_index = index
+	moving_hidden_item = ""
 	if active_tool in ["surroundings", "visibility"]:
 		active_tool = "brush"
 	_reset_deployment_edit()
@@ -604,6 +621,7 @@ func _select_encounter(index: int) -> void:
 	if index < 0 or index >= encounters.size():
 		return
 	encounter_index = index
+	moving_hidden_item = ""
 	_remember_battle_selection()
 	_refresh_target_budget()
 	_reset_deployment_edit()
@@ -799,6 +817,7 @@ func _select_terrain(name: String) -> void:
 
 func _select_tool(name: String) -> void:
 	_clear_stamp_preview()
+	if name != "hidden_item": moving_hidden_item = ""
 	if name in ["fill", "rectangle"] and selected_terrain == "paved_castle_door":
 		_set_status(_t("map.terrain.paved_castle_door.help"), false)
 		return
@@ -850,7 +869,7 @@ func _update_tool_selection() -> void:
 	if setup_button != null:
 		var setup_names := [
 			"add_unit", "unit", "remove_unit", "deployment", "ownership",
-			"scaling", "talk", "surroundings", "visibility",
+			"scaling", "talk", "hidden_item", "surroundings", "visibility",
 		]
 		setup_button.text = (
 			"● %s" % _tool_label(active_tool, true)
@@ -905,9 +924,12 @@ func _refresh_grid(focus_index := -1) -> void:
 	var deployment_cells: Array[int] = []
 	var patrol_cells: Array[int] = []
 	var objective_targets_by_cell: Dictionary = {}
+	var discoveries_by_cell: Dictionary = {}
 	var encounter := _current_encounter()
 	if not encounter.is_empty():
 		var node: Dictionary = encounter.node
+		for discovery: Dictionary in node.get("hiddenItems", []):
+			discoveries_by_cell[int(discovery.y) * width + int(discovery.x)] = discovery
 		deployment_cells = (
 			deployment_draft.duplicate()
 			if deployment_editing
@@ -1009,6 +1031,16 @@ func _refresh_grid(focus_index := -1) -> void:
 				_add_patrol_badge(cell, tile_size, patrol_cells.find(index) + 1)
 			if objective_targets_by_cell.has(index):
 				_add_objective_marker(cell, objective_targets_by_cell[index])
+			if discoveries_by_cell.has(index):
+				var discovery: Dictionary = discoveries_by_cell[index]
+				var marker := _label("✦", clampi(tile_size / 3, 12, 26), Color("ffe085"))
+				marker.name = "HiddenItemMarker"
+				marker.position = Vector2(tile_size * 0.66, 1)
+				marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				cell.add_child(marker)
+				cell.tooltip_text += "\n" + _t("map.hidden_item.marker", {
+					"item": StageEvents.equipment_name(project, discovery),
+				})
 			cell.set_meta("terrain_index", index)
 			cell.pressed.connect(_paint_cell.bind(index))
 			cell.mouse_entered.connect(_preview_stamp.bind(index, width))
@@ -1483,6 +1515,8 @@ func _paint_cell(index: int) -> void:
 		_toggle_placement_scaling_at(index, width)
 	elif active_tool == "talk":
 		_toggle_placement_talk_at(index, width)
+	elif active_tool == "hidden_item":
+		_select_hidden_item_tile(Vector2i(index % width, index / width))
 	elif active_tool == "visibility":
 		if visibility_rectangle:
 			_visibility_rectangle_at(index, width)
@@ -1904,6 +1938,133 @@ func _toggle_placement_talk_at(index: int, width: int) -> void:
 		index
 	)
 
+
+func _setup_hidden_items() -> void:
+	if _current_encounter().is_empty():
+		return
+	if str(_current_encounter().campaign.get("inventoryMode", "legacy")) != "carried":
+		setup_layer.hide()
+		_set_status(_t("map.hidden_item.personal_packs"), true)
+		return
+	_choose_setup_tool("hidden_item")
+	_set_status(_t("map.hidden_item.choose_tile"), false)
+
+func _hidden_item_at(cell: Vector2i) -> Dictionary:
+	for discovery: Dictionary in _current_encounter().get("node", {}).get("hiddenItems", []):
+		if Vector2i(int(discovery.x), int(discovery.y)) == cell: return discovery
+	return {}
+
+func _select_hidden_item_tile(cell: Vector2i) -> void:
+	if _current_encounter().is_empty(): return
+	var existing := _hidden_item_at(cell)
+	if not moving_hidden_item.is_empty():
+		if not existing.is_empty() and existing.flagId != moving_hidden_item:
+			_set_status(_t("map.hidden_item.tile_taken"), true)
+			return
+		for discovery: Dictionary in _current_encounter().node.get("hiddenItems", []):
+			if discovery.flagId != moving_hidden_item: continue
+			var moved := discovery.duplicate(true)
+			moved.x = cell.x
+			moved.y = cell.y
+			if _save_hidden_item(moving_hidden_item, moved, cell):
+				moving_hidden_item = ""
+			return
+		moving_hidden_item = ""
+		return
+	hidden_item_cell = cell
+	hidden_item_cell_label.text = _t("map.hidden_item.tile", {"x": cell.x, "y": cell.y})
+	hidden_item_feedback.text = ""
+	hidden_item_select.clear()
+	for category: String in ["items", "weapons"]:
+		var key := "itemId" if category == "items" else "weaponId"
+		for gear: Dictionary in project.get(category, []):
+			hidden_item_select.add_item(str(gear.name))
+			var row := hidden_item_select.item_count - 1
+			hidden_item_select.set_item_metadata(row, {"field": key, "id": str(gear.id)})
+			if existing.get(key) == gear.id: hidden_item_select.select(row)
+	hidden_item_glint.button_pressed = bool(existing.get("glint", true))
+	hidden_item_apply.disabled = hidden_item_select.item_count == 0
+	hidden_item_move.visible = not existing.is_empty()
+	hidden_item_remove.visible = not existing.is_empty()
+	if hidden_item_apply.disabled: hidden_item_feedback.text = _t("map.hidden_item.no_gear")
+	hidden_item_layer.show()
+	hidden_item_select.call_deferred("grab_focus")
+
+func _close_hidden_item() -> void:
+	hidden_item_layer.hide()
+	_focus_cell(hidden_item_cell.y * int(_current_map().get("width", 1)) + hidden_item_cell.x)
+
+func _apply_hidden_item() -> void:
+	if hidden_item_select.selected < 0: return
+	var old := _hidden_item_at(hidden_item_cell)
+	var flag := str(old.get("flagId", ""))
+	if flag.is_empty():
+		var battle := _current_encounter()
+		var owner := "%s/%s/%d/%d" % [battle.campaign_id, battle.node.id, hidden_item_cell.x, hidden_item_cell.y]
+		flag = "find_" + str(compiler.stable_source_id(owner))
+		var used := {}
+		for campaign: Dictionary in project.campaigns:
+			used.merge(StageEvents.flags(campaign.flow.nodes))
+		while used.has(flag): flag += "_2"
+	var gear: Dictionary = hidden_item_select.get_selected_metadata()
+	var discovery := {
+		"flagId": flag, "x": hidden_item_cell.x, "y": hidden_item_cell.y,
+		"glint": hidden_item_glint.button_pressed,
+	}
+	discovery[str(gear.field)] = gear.id
+	if _save_hidden_item(flag, discovery, hidden_item_cell): _close_hidden_item()
+
+func _move_hidden_item() -> void:
+	moving_hidden_item = str(_hidden_item_at(hidden_item_cell).flagId)
+	_close_hidden_item()
+	_set_status(_t("map.hidden_item.move_tile"), false)
+
+func _remove_hidden_item() -> void:
+	var flag := str(_hidden_item_at(hidden_item_cell).flagId)
+	var flags := {flag: true}
+	for campaign: Dictionary in project.campaigns:
+		for node: Dictionary in campaign.flow.nodes:
+			for edge: Dictionary in node.get("transitions", []):
+				if StageEvents.reads(edge.get("when", {}), flags):
+					hidden_item_feedback.text = _t("map.hidden_item.route_uses_item", {"stage": node.name})
+					return
+	if _save_hidden_item(flag, {}, hidden_item_cell): _close_hidden_item()
+
+func _save_hidden_item(flag: String, discovery: Dictionary, focus_cell: Vector2i) -> bool:
+	var encounter := _current_encounter()
+	var candidate: Dictionary = project.duplicate(true)
+	for campaign: Dictionary in candidate.campaigns:
+		if campaign.id != encounter.campaign_id: continue
+		for node: Dictionary in campaign.flow.nodes:
+			if node.id != encounter.node.id: continue
+			var hidden: Array = node.get("hiddenItems", [])
+			var index := hidden.find_custom(func(old: Dictionary) -> bool: return old.flagId == flag)
+			if discovery.is_empty():
+				if index < 0: return false
+				hidden.remove_at(index)
+			elif index >= 0:
+				hidden[index] = discovery
+			else:
+				hidden.append(discovery)
+			if hidden.is_empty(): node.erase("hiddenItems")
+			else: node.hiddenItems = hidden
+			var updated := JSON.stringify(_integer_numbers(candidate), "  ", true) + "\n"
+			var checked: Dictionary = compiler.compile_source_json(updated)
+			if not checked.ok:
+				var detail := _t("map.hidden_item.refused", {"detail": _diagnostic_detail(checked)})
+				hidden_item_feedback.text = detail
+				_set_status(detail, true)
+				return false
+			if _integer_numbers(candidate) != _integer_numbers(project):
+				_push_undo(source)
+				source = updated
+				redo_stack.clear()
+				dirty = true
+				_read_source()
+				_refresh_maps_after_edit(focus_cell.y * int(_current_map().width) + focus_cell.x)
+			_set_status(_t("map.hidden_item.saved"), false)
+			return true
+	return false
 
 func _talk_node() -> Dictionary:
 	for campaign_value: Variant in project.get("campaigns", []):
@@ -4461,6 +4622,7 @@ func _update_resize_preview() -> void:
 	var placement_clipped := 0
 	var coop_clipped := 0
 	var patrol_clipped := 0
+	var hidden_clipped := 0
 	var deployment_clipped := 0
 	var encounters := 0
 	var map_id := str(map.get("id", ""))
@@ -4479,6 +4641,9 @@ func _update_resize_preview() -> void:
 			if str(node.get("kind", "")) != "encounter" or str(node.get("mapId", "")) != map_id:
 				continue
 			encounters += 1
+			for discovery: Dictionary in node.get("hiddenItems", []):
+				if _coordinate_is_clipped(discovery, resize_width, resize_height):
+					hidden_clipped += 1
 			for placement_value: Variant in node.get("placements", []):
 				if not placement_value is Dictionary:
 					continue
@@ -4508,7 +4673,10 @@ func _update_resize_preview() -> void:
 		if _landmark_footprint(anchor, feature.size, new_size).is_empty():
 			cut_landmark = str(feature.label)
 			break
-	var blocked := placement_clipped + deployment_clipped + coop_clipped + patrol_clipped > 0 or not cut_landmark.is_empty()
+	var blocked := (
+		placement_clipped + deployment_clipped + coop_clipped + patrol_clipped + hidden_clipped > 0
+		or not cut_landmark.is_empty()
+	)
 	var outside_value: Dictionary = (
 		map.get("surroundings", {}) if map.get("surroundings", {}) is Dictionary else {}
 	)
@@ -4534,6 +4702,7 @@ func _update_resize_preview() -> void:
 		"placement_clipped": placement_clipped,
 		"coop_clipped": coop_clipped,
 		"patrol_clipped": patrol_clipped,
+		"hidden_clipped": hidden_clipped,
 		"deployment_clipped": deployment_clipped,
 		"outside_before": outside_before,
 		"outside_after": outside_after,
@@ -4569,6 +4738,8 @@ func _update_resize_preview() -> void:
 		lines.append(_t("map.resize.blocked_coop", {"count": coop_clipped}))
 	if patrol_clipped > 0:
 		lines.append(_t("map.resize.blocked_patrol", {"count": patrol_clipped}))
+	if hidden_clipped > 0:
+		lines.append(_t("map.resize.blocked_hidden", {"count": hidden_clipped}))
 	if not cut_landmark.is_empty():
 		lines.append(_t("map.resize.cuts_landmark", {"landmark": cut_landmark}))
 	if not blocked:
@@ -5042,6 +5213,7 @@ func _build_interface() -> void:
 	_build_visibility_overlay()
 	_build_setup_overlay()
 	_build_talk_overlay()
+	_build_hidden_item_overlay()
 	_build_more_overlay()
 	inventory_editor = InventoryEditor.new()
 	add_child(inventory_editor)
@@ -5350,6 +5522,10 @@ func _build_setup_overlay() -> void:
 	talk_button.pressed.connect(_choose_setup_tool.bind("talk"))
 	column.add_child(talk_button)
 	tool_buttons["talk"] = talk_button
+	var hidden_item_button := _button(_t("map.tool.hidden_item"), 500, 66)
+	hidden_item_button.pressed.connect(_setup_hidden_items)
+	choices.add_child(hidden_item_button)
+	tool_buttons["hidden_item"] = hidden_item_button
 	var coop_story_button := _button(
 		_t("map.setup.coop_story"), 1014, 66
 	)
@@ -5367,6 +5543,61 @@ func _build_setup_overlay() -> void:
 	_update_tool_selection()
 	_build_copy_setup_overlay()
 
+
+func _build_hidden_item_overlay() -> void:
+	hidden_item_layer = Control.new()
+	hidden_item_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hidden_item_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	hidden_item_layer.z_index = 38
+	hidden_item_layer.hide()
+	add_child(hidden_item_layer)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.005, 0.01, 0.016, 0.90)
+	hidden_item_layer.add_child(shade)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(510, 190)
+	panel.size = Vector2(900, 700)
+	panel.add_theme_stylebox_override("panel", _panel(Color("0c1d29"), 18, Color("ffe085")))
+	hidden_item_layer.add_child(panel)
+	var scroll := ScrollContainer.new()
+	scroll.follow_focus = true
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	panel.add_child(scroll)
+	var form := VBoxContainer.new()
+	form.add_theme_constant_override("separation", 14)
+	form.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(form)
+	form.add_child(_label(_t("map.tool.hidden_item"), 24, Color("ffe085")))
+	hidden_item_cell_label = _label("", 18, Color("a9bdc9"))
+	form.add_child(hidden_item_cell_label)
+	hidden_item_select = OptionButton.new()
+	hidden_item_select.fit_to_longest_item = false
+	hidden_item_select.clip_text = true
+	hidden_item_select.custom_minimum_size.y = 58
+	form.add_child(hidden_item_select)
+	hidden_item_glint = CheckBox.new()
+	hidden_item_glint.text = _t("map.hidden_item.glint")
+	hidden_item_glint.custom_minimum_size.y = 58
+	form.add_child(hidden_item_glint)
+	var hint := _label(_t("map.hidden_item.route_hint"), 17, Color("a9bdc9"))
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	form.add_child(hint)
+	hidden_item_feedback = _label("", 18, Color("ffe085"))
+	hidden_item_feedback.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	form.add_child(hidden_item_feedback)
+	hidden_item_apply = _button(_t("map.apply"), 0, 58)
+	hidden_item_apply.pressed.connect(_apply_hidden_item)
+	form.add_child(hidden_item_apply)
+	hidden_item_move = _button(_t("map.hidden_item.move"), 0, 58)
+	hidden_item_move.pressed.connect(_move_hidden_item)
+	form.add_child(hidden_item_move)
+	hidden_item_remove = _button(_t("map.hidden_item.remove"), 0, 58)
+	hidden_item_remove.pressed.connect(_remove_hidden_item)
+	form.add_child(hidden_item_remove)
+	var cancel := _button(_t("map.cancel"), 0, 58)
+	cancel.pressed.connect(_close_hidden_item)
+	form.add_child(cancel)
 
 func _build_talk_overlay() -> void:
 	talk_layer = Control.new()
@@ -6903,7 +7134,7 @@ func _tool_label(tool: String, compact := false) -> String:
 		return _t(str(LANDMARKS[tool].label_key))
 	var known := [
 		"brush", "fill", "rectangle", "add_unit", "unit", "move",
-		"remove_unit", "deployment", "ownership", "scaling", "talk",
+		"remove_unit", "deployment", "ownership", "scaling", "talk", "hidden_item",
 		"visibility",
 		"surroundings", "landmark_remove", "patrol",
 	]

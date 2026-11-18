@@ -8,6 +8,7 @@ const FORMS = [
  ["army", "_open_growth", "growth_layer"], ["army", "_open_add", "add_layer"],
  ["army", "_open_guided_character", "guide_layer"], ["army", "_open_new_role", "new_role_layer"],
  ["gear", "_open_family", "family_layer"], ["gear", "_open_combat_design", "combat_layer"],
+ ["map", "_select_hidden_item_tile", "hidden_item_layer"],
  ["story", "_open_sequence", "sequence_layer"],
  ["campaign", "_open_outcomes", "outcome_layer"], ["campaign", "_open_compound", "compound_layer"],
  ["campaign", "_open_new_campaign", "new_campaign_layer"], ["campaign", "_open_new_ending", "ending_layer"],
@@ -60,7 +61,10 @@ func run() -> void:
 							check(body.position.y >= toolbar_scroll.position.y + toolbar_scroll.size.y, entry[0] + " editor body clears the toolbar")
 							check(body.position.y + body.size.y <= 953, entry[0] + " editor body remains above its status line")
 			if entry[0] == "campaign": editor._open_outcomes("first_battle")
-			if entry[1] != "_open_outcomes": editor.call(entry[1])
+			if entry[0] == "map":
+				editor.call(entry[1], Vector2i(2, 1))
+			elif entry[1] != "_open_outcomes":
+				editor.call(entry[1])
 			var layer: Control = editor.get(entry[2])
 			check(layer.visible, "%s/%s opens its actual panel" % [entry[0], entry[2]])
 			for density: float in [2.625, 3.6, 1.0]:

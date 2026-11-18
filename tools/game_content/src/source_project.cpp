@@ -2439,6 +2439,35 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                     encounter.objective_ids = mapper.references(
                         *node, "objectiveIds", node_path
                     );
+                    if (const auto* hidden = mapper.array(*node, "hiddenItems", node_path, false)) {
+                        if (hidden->size() > core::maximum_hidden_items) {
+                            mapper.error(SourceDiagnosticCode::invalid_value, node_path + ".hiddenItems",
+                                         "a battle can hide up to 64 items");
+                        }
+                        for (std::size_t index = 0; index < hidden->size() && index < core::maximum_hidden_items; ++index) {
+                            const auto path = node_path + ".hiddenItems[" + std::to_string(index) + "]";
+                            const auto* item = mapper.object((*hidden)[index], path);
+                            if (item == nullptr) continue;
+                            const bool item_named = item->find("itemId") != item->end();
+                            const bool weapon_named = item->find("weaponId") != item->end();
+                            if (item_named == weapon_named) {
+                                mapper.error(SourceDiagnosticCode::invalid_value, path,
+                                             "choose an item or a weapon");
+                                continue;
+                            }
+                            core::HiddenItem discovery;
+                            discovery.flag = mapper.reference(*item, "flagId", path);
+                            discovery.item = mapper.reference(*item, weapon_named ? "weaponId" : "itemId", path);
+                            discovery.x = static_cast<std::int16_t>(mapper.integer(*item, "x", path, 0, maximum_map_side - 1).value_or(-1));
+                            discovery.y = static_cast<std::int16_t>(mapper.integer(*item, "y", path, 0, maximum_map_side - 1).value_or(-1));
+                            discovery.weapon = weapon_named;
+                            if (const auto* hint = mapper.member(*item, "glint", path, false)) {
+                                if (const auto* glint = std::get_if<bool>(&hint->value)) discovery.glint = *glint;
+                                else mapper.error(SourceDiagnosticCode::invalid_value, path + ".glint", "expected a boolean");
+                            }
+                            encounter.hidden_items.push_back(discovery);
+                        }
+                    }
                     // A board that states nothing takes the game's default,
                     // which is alternating when the project states none. That
                     // is what a board stating nothing has always meant.
@@ -4656,25 +4685,33 @@ SourceTextResult move_source_campaign_chapter_json(
         return result;
     }
 
-    std::set<std::string> reply_flags;
+    std::set<std::string> event_flags;
     for (Json& value : *nodes) {
         auto* node = std::get_if<Object>(&value.value);
-        Array* placements = node == nullptr ? nullptr : mutable_array(*node, "placements");
+        if (node == nullptr) continue;
+        if (Array* hidden = mutable_array(*node, "hiddenItems")) {
+            for (const Json& stored : *hidden) {
+                const auto* item = std::get_if<Object>(&stored.value);
+                const auto* flag = item == nullptr ? nullptr : string_member(*item, "flagId");
+                if (flag != nullptr) event_flags.insert(*flag);
+            }
+        }
+        Array* placements = mutable_array(*node, "placements");
         if (placements == nullptr) continue;
         for (Json& stored : *placements) {
             auto* placement = std::get_if<Object>(&stored.value);
             Object* talk = placement == nullptr ? nullptr : mutable_object(*placement, "talk");
             const std::string* flag = talk == nullptr ? nullptr : string_member(*talk, "replyFlagId");
-            if (flag != nullptr) reply_flags.insert(*flag);
+            if (flag != nullptr) event_flags.insert(*flag);
         }
     }
-    const auto primary_transition = [&reply_flags](Object& node) -> Object* {
+    const auto primary_transition = [&event_flags](Object& node) -> Object* {
         Array* transitions = mutable_array(node, "transitions");
         if (transitions == nullptr) return nullptr;
         Object* best = nullptr;
         std::int64_t best_priority =
             std::numeric_limits<std::int64_t>::max();
-        bool chosen_reply = true;
+        bool chosen_event = true;
         for (Json& value : *transitions) {
             auto* transition = std::get_if<Object>(&value.value);
             const std::int64_t* priority =
@@ -4689,15 +4726,15 @@ SourceTextResult move_source_campaign_chapter_json(
                 continue;
             }
             const auto when = transition->find("when");
-            const bool reply = when != transition->end() && std::any_of(
-                reply_flags.begin(), reply_flags.end(),
+            const bool event_route = when != transition->end() && std::any_of(
+                event_flags.begin(), event_flags.end(),
                 [&](const auto& flag) { return reads_world_flag(when->second, flag); }
             );
-            if ((reply && !chosen_reply) ||
-                (reply == chosen_reply && *priority >= best_priority)) continue;
+            if ((event_route && !chosen_event) ||
+                (event_route == chosen_event && *priority >= best_priority)) continue;
             best = transition;
             best_priority = *priority;
-            chosen_reply = reply;
+            chosen_event = event_route;
         }
         return best;
     };

@@ -2,6 +2,7 @@
 #pragma once
 
 #include <grandleon/core/map_conversation.hpp>
+#include <grandleon/core/hidden_item.hpp>
 
 #include <grandleon/package_format/package.hpp>
 
@@ -699,6 +700,7 @@ struct Encounter final {
     DeploymentZone deployment;
     std::vector<Moment> moments;
     InventoryMode inventory_mode{InventoryMode::legacy};
+    std::vector<core::HiddenItem> hidden_items{};
 };
 
 enum class CampaignNodeKind : std::uint8_t {

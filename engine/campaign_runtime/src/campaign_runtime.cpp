@@ -1116,22 +1116,16 @@ BattleProgression derive_battle_progression(
     append_inventory_consequences(result.operations, package.game_id, events,
                                   inventory_mode, claimed_by_a_member);
 
-    // And what the battle turned out to be *about*, last, so no operation above
-    // moved. A character talked off the board raises the flag their placement
-    // authored, and that flag is what a campaign-graph edge reads to open a map
-    // the other route never sees.
-    //
-    // The identity comes off the event rather than out of the board, and that
-    // is the whole reason the event carries one. A battle-local unit id is
-    // derived per encounter and is a different number every time the character
-    // appears, so it could not be a durable key; the authored record can.
-    //
-    // Unconditional on the binding, unlike a spend or a drop. Who *owns* a
-    // consequence matters when the consequence is somebody's kit; a world flag
-    // belongs to the campaign rather than to a member, and a story beat that
-    // only counted when a bound member happened to be the one who spoke would
-    // be a rule nobody authored.
+    // Routes read the authored identities of battlefield events. Those flags
+    // belong to the campaign even when the actor is a temporary ally.
     for (const simulation::Event& event : events) {
+        if (event.type == simulation::EventType::hidden_item_found && event.world_flag != 0) {
+            result.operations.push_back(campaign::set_world_flag(
+                {package.game_id, core::ContentCategory::world_flag, event.world_flag},
+                {campaign::WorldValueType::boolean, 1}
+            ));
+            continue;
+        }
         if (event.type != simulation::EventType::unit_talked) continue;
         if (event.content_id == 0U) continue;
         result.operations.push_back(
@@ -1142,9 +1136,9 @@ BattleProgression derive_battle_progression(
                 {campaign::WorldValueType::boolean, 1}
             )
         );
-        if (event.reply_flag != 0) {
+        if (event.world_flag != 0) {
             result.operations.push_back(campaign::set_world_flag(
-                {package.game_id, core::ContentCategory::world_flag, event.reply_flag},
+                {package.game_id, core::ContentCategory::world_flag, event.world_flag},
                 {campaign::WorldValueType::integer, event.reply}
             ));
         }

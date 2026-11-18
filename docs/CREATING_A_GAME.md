@@ -139,18 +139,32 @@ In **Map & Battle → Battle Setup**, use **Talk & Story Choices** to select
 someone on the map. Open **Questions & Answers** and write the first
 question. Each answer can end the conversation or open a follow-up question.
 
-In **Campaign Outline**, open the battle's **Outcomes** and select the route
-the player would normally take after a win. Choose **Add Route → New Answer Detour** and
-pick the final reply that opens it. Under **After the detour**, choose the
-stage where the stories meet, or choose **New Ending** and write its closing
-dialogue. To send a reply straight to an existing stage, choose it as the
-condition on a route.
+### Hide something on the map
 
-Use **Play Adventure** in the Godot player to check the main route and each
-reply. The **Translations** screen includes the questions and answers.
+In **Map & Battle → Battle Setup → Hidden Items**, select a tile and choose a
+weapon or item from **Gear**. Leave the glint on to give players an occasional
+hint. An ally has to finish a move on the tile to make the discovery. If their
+pack is full, the item stays on that tile for them to pick up or exchange.
+Use **Move to Another Tile** to relocate a find and keep its routes intact.
+
+### Plan a detour
+
+Choose **New Event Detour** below the battle in **Campaign Outline**. Select
+a final reply or hidden-item discovery, then choose where the stories meet
+under **After the detour**. Choose **New Ending** to give the detour its own
+closing dialogue. To go straight to an existing stage, use the event as a
+condition in the battle's **Outcomes**. Discovery counts even if the player
+leaves the item behind.
+
+The outline shows each event beside its detour and where it rejoins or ends.
+Select that summary to edit the route. Use **Play Adventure** in the Godot
+player to try both the main path and the detour. Hidden items and conversation
+choices are available in Godot exports.
+
 Named speakers and battlefield moments can
 reuse your characters. **Translations** lets you translate the game's copy
-and names, directly or through gettext-compatible PO files. Pending text is
+and names, including questions and answers, directly or through
+gettext-compatible PO files. Pending text is
 saved when moving between entries; **Discard Text Changes** restores the
 last saved wording.
 

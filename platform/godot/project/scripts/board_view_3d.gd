@@ -540,6 +540,12 @@ func screen_position_for_cell(cell: Vector2i) -> Vector2:
 	return global_position + _camera.unproject_position(at)
 
 
+func screen_position_for_glint(cell: Vector2i) -> Vector2:
+	var at := _cell_position(cell.x, cell.y)
+	at.y = _surface_height(cell.x, cell.y) + 0.16
+	return global_position + _camera.unproject_position(at)
+
+
 func begin_combat_focus(actor_cell: Vector2i, target_cell: Vector2i) -> bool:
 	if _camera == null or snapshot.is_empty():
 		return false

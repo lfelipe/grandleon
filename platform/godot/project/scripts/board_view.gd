@@ -249,6 +249,10 @@ func screen_position_for_cell(cell: Vector2i) -> Vector2:
 	return to_global(origin + (Vector2(cell) + Vector2(0.5, 0.35)) * tile_size)
 
 
+func screen_position_for_glint(cell: Vector2i) -> Vector2:
+	return to_global(origin + (Vector2(cell) + Vector2(0.62, 0.60)) * tile_size)
+
+
 func unit_at(cell: Vector2i) -> Dictionary:
 	for unit: Dictionary in snapshot.get("units", []):
 		if unit.get("on_board", false) and int(unit.x) == cell.x and int(unit.y) == cell.y:

@@ -404,6 +404,14 @@ func _index_campaign_node(
 	var placements := _array(node.get("placements", []))
 	for placement_index in placements.size():
 		_index_placement(placements[placement_index], placement_index, owner_label, campaign_name, base_path, node_id)
+	var discoveries := _array(node.get("hiddenItems", []))
+	for discovery_index in discoveries.size():
+		var discovery := _dictionary(discoveries[discovery_index])
+		var category := "weapon" if discovery.has("weaponId") else "item"
+		var field := category + "Id"
+		_record(category, str(discovery.get(field, "")), "Battles",
+			"%s hides this %s at (%d, %d)." % [owner_label, category, int(discovery.get("x", 0)), int(discovery.get("y", 0))],
+			base_path + ".hiddenItems[%d].%s" % [discovery_index, field], owner_kind, node_id)
 	var moments := _array(node.get("moments", []))
 	for moment_index in moments.size():
 		var moment_value: Variant = moments[moment_index]

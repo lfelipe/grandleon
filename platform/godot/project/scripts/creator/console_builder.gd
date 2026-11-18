@@ -179,6 +179,8 @@ func start(target: String, project_id: String, campaign_id := "") -> Dictionary:
 		return ready
 	for campaign: Dictionary in campaigns:
 		for node: Dictionary in campaign.get("flow", {}).get("nodes", []):
+			if not node.get("hiddenItems", []).is_empty():
+				return _failure("hidden_items_unsupported", Localization.text("map.hidden_item.console_unavailable"))
 			for placement: Dictionary in node.get("placements", []):
 				if not placement.get("talk", {}).get("questions", []).is_empty():
 					return _failure("conversation_unsupported", Localization.text("conversation.console_unavailable"))

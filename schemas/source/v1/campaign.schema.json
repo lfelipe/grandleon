@@ -124,6 +124,25 @@
           "maxItems": 4096,
           "description": "Initial unit instances for an encounter. Order is not gameplay-significant."
         },
+        "hiddenItems": {
+          "type": "array",
+          "maxItems": 64,
+          "description": "Items found when an allied unit finishes a move on the authored tile.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["flagId", "x", "y"],
+            "oneOf": [{"required": ["itemId"]}, {"required": ["weaponId"]}],
+            "properties": {
+              "flagId": {"$ref": "common.schema.json#/$defs/stableId"},
+              "itemId": {"$ref": "common.schema.json#/$defs/stableId"},
+              "weaponId": {"$ref": "common.schema.json#/$defs/stableId"},
+              "x": {"type": "integer", "minimum": 0, "maximum": 255},
+              "y": {"type": "integer", "minimum": 0, "maximum": 255},
+              "glint": {"type": "boolean", "default": true}
+            }
+          }
+        },
         "objectiveIds": {
           "type": "array",
           "items": {

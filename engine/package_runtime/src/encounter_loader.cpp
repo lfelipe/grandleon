@@ -1081,6 +1081,32 @@ EncounterLoadResult load_encounter(
     }
     result.definition.objectives = std::move(objectives);
     result.definition.inventory_mode=carrying;
+    if (const auto* hidden = package.find(SectionType::hidden_items, encounter_id)) {
+        Reader hidden_reader(package, *hidden);
+        std::uint16_t count = 0;
+        if (!hidden_reader.u16(count) || count == 0 || count > core::maximum_hidden_items) {
+            return fail(EncounterLoadError::malformed_payload);
+        }
+        for (std::uint16_t index = 0; index < count; ++index) {
+            core::HiddenItem discovery;
+            std::uint8_t weapon = 0;
+            std::uint8_t glint = 0;
+            if (!hidden_reader.u64(discovery.flag) || !hidden_reader.u64(discovery.item) ||
+                !hidden_reader.i16(discovery.x) || !hidden_reader.i16(discovery.y) ||
+                !hidden_reader.u8(weapon) || !hidden_reader.u8(glint) || weapon > 1 || glint > 1) {
+                return fail(EncounterLoadError::malformed_payload);
+            }
+            discovery.weapon = weapon != 0;
+            discovery.glint = glint != 0;
+            EquippedWeapon unused;
+            const bool registered = discovery.weapon
+                ? read_carried_weapons(package, {discovery.item}, result.definition.weapons, registered_weapons, unused)
+                : read_carried_items(package, {discovery.item}, result.definition.items, registered_items);
+            if (!registered) return fail(EncounterLoadError::missing_reference);
+            result.definition.hidden_items.push_back(discovery);
+        }
+        if (!hidden_reader.finished()) return fail(EncounterLoadError::malformed_payload);
+    }
     result.definition.turn_order =
         encoded_order == 3U ? simulation::TurnOrder::initiative
         : encoded_order == 2U ? simulation::TurnOrder::side_blocks

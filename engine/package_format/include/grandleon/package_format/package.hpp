@@ -56,6 +56,7 @@ enum class TargetProfile : std::uint32_t {
 };
 
 inline constexpr std::uint64_t feature_map_conversations = 1ULL << 16U;
+inline constexpr std::uint64_t feature_hidden_items = 1ULL << 17U;
 
 // Values are serialized and therefore append-only.
 enum class SectionType : std::uint32_t {
@@ -169,6 +170,7 @@ enum class SectionType : std::uint32_t {
     currencies = 32,
     campaign_shops = 33,
     map_conversations = 34,
+    hidden_items = 35,
 };
 
 // The presentation section holds records about the whole game, the way the

@@ -235,8 +235,11 @@ tracked above.
 - [x] Author questions and follow-up replies for map conversations in Godot.
   Route a final reply to a detour that rejoins the campaign or has its own
   ending. Verify both paths, skipping or declining, and local battle recovery.
-- [ ] Bring conversation choices to Nintendo 64 and PlayStation. Verify
-  reply selection, local saves and the resulting routes on both renderers.
+- [x] Place hidden items and use discoveries to open detours in Godot. Show
+  event routes in Campaign Outline. Verify crossing a tile, stopping to find
+  the item, carrying it into the next stage, and recovery with a full pack.
+- [ ] Bring conversation choices and hidden-item discoveries to Nintendo 64
+  and PlayStation. Verify local saves and the resulting routes on both.
 - [ ] Verify that one author can recreate the Steel and Cedar campaign from a
   blank project using the editor. Check both player modes, the reinforcement
   waves, the shop, the castle reveal and the final battle.
