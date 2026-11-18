@@ -228,6 +228,10 @@ tracked above.
 - [x] Let authors revise a goal from **This Battle** after its first playtest.
   Verify that a shared rule can use a different deadline in the edited
   battle, while the next battle keeps its original deadline and routes.
+- [x] Type larger map sizes and show when a shrink would cut off a 2P starting
+  position or patrol waypoint. Extend an authored victory route while keeping
+  its defeat route. Start a fresh project, add a 20×14 castle finale, and
+  verify entry, reveal and boss victory in both 1P and 2P.
 - [ ] Verify that one author can recreate the Steel and Cedar campaign from a
   blank project using the editor. Check both player modes, the reinforcement
   waves, the shop, the castle reveal and the final battle.

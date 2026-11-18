@@ -98,7 +98,9 @@ starter. Keep the same project through export.
    a short scene about getting the ferry through.”
 
    **Where to look** · Castle terrain and **Interior Visibility** on the map,
-   then the **Campaign Outline** for the ending route. **Check** · The interior
+   then the **Campaign Outline** for the ending route. If the previous
+   battle has both victory and defeat routes, use **Continue On** in **Add
+   Next Battle** to extend the victory route. **Check** · The interior
    starts covered. Moving the cursor alone leaves it covered. Crossing
    the doorway reveals the intended interior and retreat leaves it revealed.
    Win the last battle and see the ending once. Run **Play Adventure 1P**

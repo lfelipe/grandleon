@@ -135,8 +135,6 @@ var undo_stack: Array[String] = []
 var redo_stack: Array[String] = []
 var budget_report: Dictionary = {}
 var discard_armed_until := 0
-var resize_width := 1
-var resize_height := 1
 var resize_preview: Dictionary = {}
 var surroundings_mode := "continue"
 var surroundings_depth := SURROUNDINGS_RECOMMENDED_DEPTH
@@ -236,12 +234,11 @@ var moments_remove_button: Button
 var moments_earlier_button: Button
 var moments_later_button: Button
 var resize_layer: Control
-var resize_width_label: Label
-var resize_height_label: Label
+var resize_width_input: SpinBox
+var resize_height_input: SpinBox
 var resize_fill_label: Label
 var resize_preview_label: Label
 var resize_apply_button: Button
-var resize_first_button: Button
 var surroundings_button: Button
 var surroundings_layer: Control
 var surroundings_mode_button: Button
@@ -293,6 +290,9 @@ var rename_battle_input: LineEdit
 var rename_apply_button: Button
 var chapter_layer: Control
 var chapter_title: LineEdit
+var chapter_route_field: VBoxContainer
+var chapter_route_select: OptionButton
+var chapter_feedback: Label
 var chapter_create_button: Button
 var look_layer: Control
 var look_button: Button
@@ -4379,11 +4379,9 @@ func _open_resize() -> void:
 	if map.is_empty():
 		_set_status(_t("map.error.resize_need_map"), true)
 		return
-	resize_width = int(map.get("width", 1))
-	resize_height = int(map.get("height", 1))
 	resize_layer.visible = true
-	_update_resize_preview()
-	resize_first_button.call_deferred("grab_focus")
+	_set_resize_dimensions(int(map.get("width", 1)), int(map.get("height", 1)))
+	resize_width_input.get_line_edit().call_deferred("grab_focus")
 
 
 func _close_resize() -> void:
@@ -4391,17 +4389,11 @@ func _close_resize() -> void:
 	map_select.call_deferred("grab_focus")
 
 
-func _change_resize_width(delta: int) -> void:
-	_set_resize_dimensions(resize_width + delta, resize_height)
-
-
-func _change_resize_height(delta: int) -> void:
-	_set_resize_dimensions(resize_width, resize_height + delta)
-
-
 func _set_resize_dimensions(width: int, height: int) -> void:
-	resize_width = clampi(width, 1, 256)
-	resize_height = clampi(height, 1, 256)
+	resize_width_input.set_value_no_signal(width)
+	resize_height_input.set_value_no_signal(height)
+	for input: SpinBox in [resize_width_input, resize_height_input]:
+		input.get_line_edit().text = str(int(input.value))
 	_update_resize_preview()
 
 
@@ -4413,12 +4405,16 @@ func _update_resize_preview() -> void:
 		return
 	var old_width := int(map.get("width", 1))
 	var old_height := int(map.get("height", 1))
+	var resize_width := int(resize_width_input.value)
+	var resize_height := int(resize_height_input.value)
 	var overlap_width := mini(old_width, resize_width)
 	var overlap_height := mini(old_height, resize_height)
 	var retained := overlap_width * overlap_height
 	var terrain_clipped := old_width * old_height - retained
 	var terrain_added := resize_width * resize_height - retained
 	var placement_clipped := 0
+	var coop_clipped := 0
+	var patrol_clipped := 0
 	var deployment_clipped := 0
 	var encounters := 0
 	var map_id := str(map.get("id", ""))
@@ -4438,10 +4434,16 @@ func _update_resize_preview() -> void:
 				continue
 			encounters += 1
 			for placement_value: Variant in node.get("placements", []):
-				if placement_value is Dictionary and _coordinate_is_clipped(
-					placement_value, resize_width, resize_height
-				):
+				if not placement_value is Dictionary:
+					continue
+				if _coordinate_is_clipped(placement_value, resize_width, resize_height):
 					placement_clipped += 1
+				var coop: Dictionary = placement_value.get("twoPlayerPosition", {})
+				if not coop.is_empty() and _coordinate_is_clipped(coop, resize_width, resize_height):
+					coop_clipped += 1
+				for point: Dictionary in placement_value.get("patrolPoints", []):
+					if _coordinate_is_clipped(point, resize_width, resize_height):
+						patrol_clipped += 1
 			var deployment_value: Variant = node.get("deployment", {})
 			if deployment_value is Dictionary:
 				var deployment: Dictionary = deployment_value
@@ -4460,8 +4462,7 @@ func _update_resize_preview() -> void:
 		if _landmark_footprint(anchor, feature.size, new_size).is_empty():
 			cut_landmark = str(feature.label)
 			break
-	var clips_setup := placement_clipped > 0 or deployment_clipped > 0
-	var blocked := clips_setup or not cut_landmark.is_empty()
+	var blocked := placement_clipped + deployment_clipped + coop_clipped + patrol_clipped > 0 or not cut_landmark.is_empty()
 	var outside_value: Dictionary = (
 		map.get("surroundings", {}) if map.get("surroundings", {}) is Dictionary else {}
 	)
@@ -4485,13 +4486,13 @@ func _update_resize_preview() -> void:
 		"terrain_added": terrain_added,
 		"encounters": encounters,
 		"placement_clipped": placement_clipped,
+		"coop_clipped": coop_clipped,
+		"patrol_clipped": patrol_clipped,
 		"deployment_clipped": deployment_clipped,
 		"outside_before": outside_before,
 		"outside_after": outside_after,
 		"blocked": blocked,
 	}
-	resize_width_label.text = str(resize_width)
-	resize_height_label.text = str(resize_height)
 	resize_fill_label.text = _t("map.resize.new_cells", {"terrain": _terrain_label(selected_terrain)})
 	var lines := PackedStringArray([
 		_t("map.resize.dimensions", {
@@ -4512,12 +4513,16 @@ func _update_resize_preview() -> void:
 				"terrain": _terrain_label(selected_terrain),
 			})
 		)
-	if clips_setup:
+	if placement_clipped > 0 or deployment_clipped > 0:
 		lines.append(
 			_t("map.resize.blocked", {
 				"placements": placement_clipped, "tiles": deployment_clipped,
 			})
 		)
+	if coop_clipped > 0:
+		lines.append(_t("map.resize.blocked_coop", {"count": coop_clipped}))
+	if patrol_clipped > 0:
+		lines.append(_t("map.resize.blocked_patrol", {"count": patrol_clipped}))
 	if not cut_landmark.is_empty():
 		lines.append(_t("map.resize.cuts_landmark", {"landmark": cut_landmark}))
 	if not blocked:
@@ -4538,9 +4543,14 @@ func _coordinate_is_clipped(value: Dictionary, width: int, height: int) -> bool:
 
 
 func _apply_resize() -> void:
+	resize_width_input.apply()
+	resize_height_input.apply()
+	_update_resize_preview()
 	if resize_apply_button.disabled:
 		return
 	var map := _current_map()
+	var resize_width := int(resize_width_input.value)
+	var resize_height := int(resize_height_input.value)
 	var resized: Dictionary = compiler.resize_map(
 		source, str(map.get("id", "")), resize_width, resize_height,
 		selected_terrain
@@ -5760,10 +5770,51 @@ func _open_new_chapter() -> void:
 		return
 	var sequence := _next_chapter_sequence()
 	chapter_title.text = "Chapter %d" % sequence
+	_prepare_chapter_routes(encounter)
 	more_layer.visible = false
 	chapter_layer.visible = true
 	chapter_title.call_deferred("grab_focus")
 	chapter_title.call_deferred("select_all")
+
+
+func _prepare_chapter_routes(encounter: Dictionary) -> void:
+	var routes: Array = encounter.node.get("transitions", [])
+	chapter_route_select.clear()
+	chapter_feedback.hide()
+	chapter_create_button.disabled = routes.size() != 1
+	chapter_route_field.visible = routes.size() > 1 or (routes.size() == 1 and routes[0].has("when"))
+	if routes.is_empty():
+		_show_chapter_feedback(_t("map.chapter.no_route"))
+		return
+	if not chapter_route_field.visible:
+		return
+	if routes.size() > 1:
+		chapter_route_select.add_item(_t("map.chapter.choose_route"))
+		chapter_route_select.set_item_disabled(0, true)
+	var destinations := {}
+	for node: Dictionary in encounter.campaign.flow.nodes:
+		destinations[node.id] = str(node.get("name", node.id)).to_upper()
+	var definitions := _objective_definitions_by_id()
+	for index in routes.size():
+		var route: Dictionary = routes[index]
+		var when: Dictionary = route.get("when", {})
+		var condition := _t("campaign.condition.always" if when.is_empty() else "campaign.condition.advanced")
+		if when.get("kind") == "objectiveResult" and when.get("result") in ["victory", "defeat"]:
+			var goal: Dictionary = definitions.get(when.get("objectiveId", ""), {})
+			condition = _t("campaign.condition.goal_won_named" if when.get("result") == "victory" else "campaign.condition.goal_lost_named", {
+				"name": str(goal.get("name", _t("campaign.fallback.goal"))),
+			})
+		chapter_route_select.add_item(_t("campaign.outcome.entry", {
+			"number": index + 1, "condition": condition,
+			"target": destinations.get(route.targetNodeId, _t("campaign.outcome.missing_destination")),
+		}))
+		chapter_route_select.set_item_metadata(chapter_route_select.item_count - 1, str(route.id))
+	chapter_route_select.select(0)
+
+
+func _show_chapter_feedback(message: String) -> void:
+	chapter_feedback.text = message
+	chapter_feedback.show()
 
 
 func _close_new_chapter() -> void:
@@ -5776,9 +5827,11 @@ func _create_chapter_from_text(_value: String) -> void:
 
 
 func _create_chapter() -> void:
+	if chapter_create_button.disabled:
+		return
 	var title := chapter_title.text.strip_edges()
 	if title.is_empty():
-		_set_status(_t("map.error.chapter_name"), true)
+		_show_chapter_feedback(_t("map.error.chapter_name"))
 		chapter_title.grab_focus()
 		return
 	var encounter := _current_encounter()
@@ -5788,6 +5841,9 @@ func _create_chapter() -> void:
 		return
 	var sequence := _next_chapter_sequence()
 	var base := "chapter_%d" % sequence
+	var route_id := ""
+	if chapter_route_field.visible:
+		route_id = str(chapter_route_select.get_selected_metadata())
 	var added: Dictionary = compiler.add_campaign_chapter(
 		source,
 		str(encounter.get("campaign_id", "")),
@@ -5798,10 +5854,11 @@ func _create_chapter() -> void:
 		"Before %s" % title,
 		base + "_battle",
 		"%s Battle" % title,
-		selected_terrain
+		selected_terrain,
+		route_id
 	)
 	if not added.ok:
-		_set_status(_t("map.error.chapter_not_created", {"detail": _diagnostic_detail(added)}), true)
+		_show_chapter_feedback(_t("map.error.chapter_not_created", {"detail": _diagnostic_detail(added)}))
 		return
 	_push_undo(source)
 	source = str(added.source)
@@ -6026,7 +6083,12 @@ func _build_chapter_overlay() -> void:
 	chapter_layer.add_child(panel)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 18)
-	panel.add_child(column)
+	var scroll := ScrollContainer.new()
+	scroll.follow_focus = true
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	panel.add_child(scroll)
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(column)
 	column.add_child(_label(_t("map.chapter.heading"), 20, Color("69d9ff")))
 	column.add_child(_label(_t("map.chapter.title"), 34, Color("f2f7f9")))
 	var explanation := _label(
@@ -6035,16 +6097,31 @@ func _build_chapter_overlay() -> void:
 		Color("a9bdc9")
 	)
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	explanation.custom_minimum_size.y = 130
 	column.add_child(explanation)
 	column.add_child(_label(_t("map.chapter.name"), 16, Color("69d9ff")))
 	chapter_title = LineEdit.new()
-	chapter_title.custom_minimum_size = Vector2(940, 68)
+	chapter_title.custom_minimum_size.y = 68
 	chapter_title.max_length = 140
 	chapter_title.add_theme_font_size_override("font_size", 24)
 	chapter_title.text_submitted.connect(_create_chapter_from_text)
 	column.add_child(chapter_title)
-	var actions := HBoxContainer.new()
+	chapter_route_field = VBoxContainer.new()
+	column.add_child(chapter_route_field)
+	chapter_route_field.add_child(_label(_t("map.chapter.route"), 16, Color("69d9ff")))
+	chapter_route_select = OptionButton.new()
+	chapter_route_select.custom_minimum_size.y = 64
+	chapter_route_select.fit_to_longest_item = false
+	chapter_route_select.clip_text = true
+	chapter_route_select.item_selected.connect(func(_index: int) -> void:
+		chapter_create_button.disabled = false
+		chapter_feedback.hide()
+	)
+	chapter_route_field.add_child(chapter_route_select)
+	chapter_feedback = _label("", 19, Color("ffca63"))
+	chapter_feedback.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(chapter_feedback)
+	var actions := BoxContainer.new()
+	actions.set_meta("mobile_wrap_actions", true)
 	actions.add_theme_constant_override("separation", 14)
 	column.add_child(actions)
 	chapter_create_button = _button(_t("map.chapter.create"), 420, 72)
@@ -6299,7 +6376,7 @@ func _build_objective_overlay() -> void:
 	objective_options.add_child(objective_target_button)
 	objective_rounds_field = VBoxContainer.new()
 	objective_options.add_child(objective_rounds_field)
-	objective_rounds_input = _round_input(objective_rounds_field, "map.objective.rounds_to_survive", 1, 65535)
+	objective_rounds_input = _number_input(objective_rounds_field, "map.objective.rounds_to_survive", 1, 65535)
 	objective_rounds_input.value_changed.connect(func(_value: float) -> void: _update_objective_view())
 	objective_name_field = VBoxContainer.new()
 	objective_options.add_child(objective_name_field)
@@ -6388,7 +6465,7 @@ func _build_forces_overlay() -> void:
 	forces_arrival_fields = VBoxContainer.new()
 	forces_arrival_fields.add_theme_constant_override("separation", 10)
 	column.add_child(forces_arrival_fields)
-	forces_round_input = _round_input(forces_arrival_fields, "map.forces.first_arrival", 2, 4095)
+	forces_round_input = _number_input(forces_arrival_fields, "map.forces.first_arrival", 2, 4095)
 	forces_repeat_row = BoxContainer.new()
 	forces_repeat_row.set_meta("mobile_wrap_actions", true)
 	forces_repeat_row.add_theme_constant_override("separation", 12)
@@ -6396,11 +6473,11 @@ func _build_forces_overlay() -> void:
 	var interval_field := VBoxContainer.new()
 	interval_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	forces_repeat_row.add_child(interval_field)
-	forces_every_input = _round_input(interval_field, "map.forces.repeat_interval", 1, 4095)
+	forces_every_input = _number_input(interval_field, "map.forces.repeat_interval", 1, 4095)
 	var waves_field := VBoxContainer.new()
 	waves_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	forces_repeat_row.add_child(waves_field)
-	forces_times_input = _round_input(waves_field, "map.forces.total_waves", 2, 64)
+	forces_times_input = _number_input(waves_field, "map.forces.total_waves", 2, 64)
 	for input: SpinBox in [forces_round_input, forces_every_input, forces_times_input]:
 		input.value_changed.connect(func(_value: float) -> void: _update_forces_view())
 	forces_behavior_button = _button(_t("map.forces.behavior.hold"), 1014, 54)
@@ -6518,6 +6595,7 @@ func _build_resize_overlay() -> void:
 	resize_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	resize_layer.mouse_filter = Control.MOUSE_FILTER_STOP
 	resize_layer.visible = false
+	resize_layer.z_index = 33
 	add_child(resize_layer)
 	var shade := ColorRect.new()
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -6533,7 +6611,12 @@ func _build_resize_overlay() -> void:
 	resize_layer.add_child(panel)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 18)
-	panel.add_child(column)
+	var scroll := ScrollContainer.new()
+	scroll.follow_focus = true
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	panel.add_child(scroll)
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(column)
 	column.add_child(_label(_t("map.resize.heading"), 24, Color("69d9ff")))
 	var explanation := _label(
 		_t("map.resize.help"),
@@ -6543,46 +6626,20 @@ func _build_resize_overlay() -> void:
 	explanation.custom_minimum_size.y = 70
 	column.add_child(explanation)
 
-	var dimensions := HBoxContainer.new()
+	var dimensions := BoxContainer.new()
+	dimensions.set_meta("mobile_wrap_actions", true)
 	dimensions.add_theme_constant_override("separation", 22)
 	column.add_child(dimensions)
 	var width_column := VBoxContainer.new()
-	width_column.add_theme_constant_override("separation", 8)
 	dimensions.add_child(width_column)
-	width_column.add_child(_label(_t("map.resize.width"), 16, Color("718896")))
-	var width_row := HBoxContainer.new()
-	width_row.add_theme_constant_override("separation", 8)
-	width_column.add_child(width_row)
-	resize_first_button = _button("−", 92, 64)
-	resize_first_button.pressed.connect(_change_resize_width.bind(-1))
-	width_row.add_child(resize_first_button)
-	resize_width_label = _label("1", 28, Color("f2f7f9"))
-	resize_width_label.custom_minimum_size = Vector2(112, 64)
-	resize_width_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	resize_width_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	width_row.add_child(resize_width_label)
-	var width_plus := _button("+", 92, 64)
-	width_plus.pressed.connect(_change_resize_width.bind(1))
-	width_row.add_child(width_plus)
-
+	resize_width_input = _number_input(width_column, "map.resize.width", 1, 256)
 	var height_column := VBoxContainer.new()
-	height_column.add_theme_constant_override("separation", 8)
 	dimensions.add_child(height_column)
-	height_column.add_child(_label(_t("map.resize.height"), 16, Color("718896")))
-	var height_row := HBoxContainer.new()
-	height_row.add_theme_constant_override("separation", 8)
-	height_column.add_child(height_row)
-	var height_minus := _button("−", 92, 64)
-	height_minus.pressed.connect(_change_resize_height.bind(-1))
-	height_row.add_child(height_minus)
-	resize_height_label = _label("1", 28, Color("f2f7f9"))
-	resize_height_label.custom_minimum_size = Vector2(112, 64)
-	resize_height_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	resize_height_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	height_row.add_child(resize_height_label)
-	var height_plus := _button("+", 92, 64)
-	height_plus.pressed.connect(_change_resize_height.bind(1))
-	height_row.add_child(height_plus)
+	resize_height_input = _number_input(height_column, "map.resize.height", 1, 256)
+	for input: SpinBox in [resize_width_input, resize_height_input]:
+		input.select_all_on_focus = true
+		input.update_on_text_changed = true
+		input.value_changed.connect(func(_value: float) -> void: _update_resize_preview())
 
 	resize_fill_label = _label(_t("map.resize.new_cells_short"), 17, Color("69d9ff"))
 	column.add_child(resize_fill_label)
@@ -6590,7 +6647,8 @@ func _build_resize_overlay() -> void:
 	resize_preview_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	resize_preview_label.custom_minimum_size.y = 180
 	column.add_child(resize_preview_label)
-	var actions := HBoxContainer.new()
+	var actions := BoxContainer.new()
+	actions.set_meta("mobile_wrap_actions", true)
 	actions.add_theme_constant_override("separation", 12)
 	column.add_child(actions)
 	resize_apply_button = _button(_t("map.resize.apply"), 300, 64)
@@ -6903,7 +6961,7 @@ func _map_tile_button(tile_size: int) -> Button:
 	return button
 
 
-func _round_input(parent: VBoxContainer, label_key: String, minimum: int, maximum: int) -> SpinBox:
+func _number_input(parent: VBoxContainer, label_key: String, minimum: int, maximum: int) -> SpinBox:
 	var label := _t(label_key)
 	parent.add_child(_label(label, 17, Color("a9bdc9")))
 	var row := HBoxContainer.new()

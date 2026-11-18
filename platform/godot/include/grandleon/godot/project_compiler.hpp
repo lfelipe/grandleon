@@ -79,7 +79,8 @@ public:
         const ::godot::String& story_name,
         const ::godot::String& battle_node_id,
         const ::godot::String& battle_name,
-        const ::godot::String& fill_terrain
+        const ::godot::String& fill_terrain,
+        const ::godot::String& transition_id = {}
     ) const;
     [[nodiscard]] ::godot::Dictionary move_campaign_chapter(
         const ::godot::String& source_json,

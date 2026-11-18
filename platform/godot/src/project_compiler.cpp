@@ -423,9 +423,10 @@ void GrandleonProjectCompiler::_bind_methods() {
         gd::D_METHOD(
             "add_campaign_chapter", "source_json", "campaign_id",
             "after_node_id", "map_id", "map_name", "story_node_id",
-            "story_name", "battle_node_id", "battle_name", "fill_terrain"
+            "story_name", "battle_node_id", "battle_name", "fill_terrain",
+            "transition_id"
         ),
-        &GrandleonProjectCompiler::add_campaign_chapter
+        &GrandleonProjectCompiler::add_campaign_chapter, DEFVAL(gd::String())
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD(
@@ -905,7 +906,8 @@ gd::Dictionary GrandleonProjectCompiler::add_campaign_chapter(
     const gd::String& story_name,
     const gd::String& battle_node_id,
     const gd::String& battle_name,
-    const gd::String& fill_terrain
+    const gd::String& fill_terrain,
+    const gd::String& transition_id
 ) const {
     gd::Dictionary result;
     result["ok"] = false;
@@ -916,7 +918,7 @@ gd::Dictionary GrandleonProjectCompiler::add_campaign_chapter(
             narrow(source_json), narrow(campaign_id), narrow(after_node_id),
             narrow(map_id), narrow(map_name), narrow(story_node_id),
             narrow(story_name), narrow(battle_node_id), narrow(battle_name),
-            narrow(fill_terrain)
+            narrow(fill_terrain), narrow(transition_id)
         );
     if (!added) {
         for (const gc::SourceDiagnostic& diagnostic : added.diagnostics) {

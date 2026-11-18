@@ -4224,7 +4224,8 @@ SourceTextResult add_source_campaign_chapter_json(
     std::string_view story_name,
     std::string_view battle_node_id,
     std::string_view battle_name,
-    std::string_view fill_terrain
+    std::string_view fill_terrain,
+    std::string_view transition_id
 ) {
     SourceTextResult result;
     const SourceParseResult before = parse_source_project_json(source_json);
@@ -4380,31 +4381,31 @@ SourceTextResult add_source_campaign_chapter_json(
         );
         return result;
     }
-    if (preceding_transitions->size() != 1) {
-        refuse_edit(
-            result,
-            SourceDiagnosticCode::invalid_value,
-            node_path + ".transitions",
-            "Add Next Chapter needs one linear transition; use the future "
-            "campaign graph editor for a branch"
+    Object* previous_transition = nullptr;
+    if (!transition_id.empty()) {
+        previous_transition = find_object_by_id(
+            *preceding_transitions, transition_id
         );
-        return result;
+    } else if (preceding_transitions->size() == 1) {
+        auto* only_route =
+            std::get_if<Object>(&preceding_transitions->front().value);
+        if (only_route != nullptr &&
+            only_route->find("when") == only_route->end()) {
+            previous_transition = only_route;
+        }
     }
-    auto* previous_transition =
-        std::get_if<Object>(&preceding_transitions->front().value);
     const std::string* previous_target = previous_transition == nullptr
                                              ? nullptr
                                              : string_member(
                                                    *previous_transition,
                                                    "targetNodeId"
                                                );
-    if (previous_transition == nullptr || previous_target == nullptr ||
-        previous_transition->find("when") != previous_transition->end()) {
+    if (previous_target == nullptr) {
         refuse_edit(
             result,
             SourceDiagnosticCode::invalid_value,
-            node_path + ".transitions[0]",
-            "Add Next Chapter needs one unconditional transition"
+            node_path + ".transitions",
+            "choose an existing route for the new chapter"
         );
         return result;
     }
@@ -4489,8 +4490,12 @@ SourceTextResult add_source_campaign_chapter_json(
         Json{Array{transition(battle_complete_id, old_target)}}
     );
 
-    *preceding_transitions =
-        Array{transition(to_story_id, std::string(story_node_id))};
+    if (transition_id.empty()) {
+        *preceding_transitions =
+            Array{transition(to_story_id, std::string(story_node_id))};
+    } else {
+        (*previous_transition)["targetNodeId"] = Json{std::string(story_node_id)};
+    }
     nodes->insert(
         nodes->begin() + static_cast<std::ptrdiff_t>(after_index + 1),
         Json{std::move(story)}

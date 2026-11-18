@@ -69,6 +69,10 @@ landmark from any of its tiles. Castle doorways also place both tiles in one
 step. **Interior Visibility** covers a room using two corners and reveals
 nearby floor as characters explore it.
 
+In **More → Resize This Map**, type the width and height. New tiles use the
+selected terrain. The preview shows what a smaller map would cut off,
+including starting positions in the 2P formation.
+
 ![Painting terrain and arranging a battlefield](screenshots/native-guide/02-shape-a-battle.gif)
 
 Use **Place Heroes and Extras** to choose a named ally or an enemy archetype,
@@ -112,9 +116,9 @@ choices, upgrades, recruitment or losses.
 ## Grow the adventure
 
 Once the first battle works, use **Add Next Battle**. Each stage can have its
-own map, opponents, objectives, reinforcements and solo/co-op setup. The
-campaign outline connects those stages; advanced branching remains available
-when you need it.
+own map, opponents, objectives, reinforcements and 1P/2P setup. If the current
+battle has several outcomes, use **Continue On** to choose which route leads
+through the new stage.
 
 Use **Shop before battle** for an optional stop before a battle. Choose goods, gold prices
 and stock limits; purchases go into the selected hero’s pack and respect its

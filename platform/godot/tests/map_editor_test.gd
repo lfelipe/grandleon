@@ -291,10 +291,43 @@ func _run() -> void:
 	_expect("editor reports the native map-size limit", editor.target_budget_label.text.contains("N64 MAP 24 / 768 CELLS"), true)
 	var before_map_budget: String = editor.source
 	editor._open_resize()
-	editor._set_resize_dimensions(32, 24)
-	editor._apply_resize()
+	var width_entry: LineEdit = editor.resize_width_input.get_line_edit()
+	var height_entry: LineEdit = editor.resize_height_input.get_line_edit()
+	_expect("map dimensions offer a numeric keyboard", width_entry.virtual_keyboard_type, LineEdit.KEYBOARD_TYPE_NUMBER)
+	await process_frame
+	_expect("the focused dimension is ready to replace", width_entry.get_selected_text(), "6")
+	width_entry.text = "32"
+	width_entry.text_changed.emit(width_entry.text)
+	height_entry.text = "24"
+	height_entry.text_changed.emit(height_entry.text)
+	await process_frame
+	_expect("typed dimensions update the preview before applying", Vector2i(editor.resize_preview.width, editor.resize_preview.height), Vector2i(32, 24))
+	_expect("typed dimensions do not change the project until Apply", editor.source, before_map_budget)
+	editor.resize_apply_button.pressed.emit()
 	_expect("largest supported map is reported", editor.target_budget_label.text.contains("N64 MAP 768 / 768 CELLS"), true)
 	_expect("supported size does not raise an overrun", editor._current_map_is_over_budget(), false)
+	var expanded_source: String = editor.source
+	editor.experience_tabs.current_tab = 1
+	editor._select_tool("unit")
+	editor._paint_cell(32)
+	editor._paint_cell(32 + 30)
+	_expect("2P formation can place an ally beyond the solo board", int(editor._placement_at(62, 32).get("twoPlayerPosition", {}).get("x", -1)), 30)
+	var wide_formation: String = editor.source
+	editor.experience_tabs.current_tab = 0
+	editor._open_resize()
+	width_entry.text = "8"
+	width_entry.text_changed.emit(width_entry.text)
+	await process_frame
+	_expect("a shrink identifies the clipped 2P start from the 1P tab", editor.resize_preview.coop_clipped, 1)
+	_expect("the solo placements still fit", editor.resize_preview.placement_clipped, 0)
+	_expect("the preview names the affected formation", editor.resize_preview_label.text.contains("2P starting positions"), true)
+	_expect("clipping only the 2P start still disables Apply", editor.resize_apply_button.disabled, true)
+	editor.resize_apply_button.pressed.emit()
+	_expect("the rejected resize leaves both formations intact", editor.source, wide_formation)
+	editor._close_resize()
+	editor._undo()
+	_expect("undo restores the board before the co-op move", editor.source, expanded_source)
+	editor._select_tool("brush")
 	editor._open_resize()
 	editor._set_resize_dimensions(33, 24)
 	editor._apply_resize()
@@ -1226,6 +1259,13 @@ func _run() -> void:
 	_expect("patrol stores two ordered points", patrolling_force.patrolPoints.size(), 2)
 	_expect("first patrol point preserves its x", int(patrolling_force.patrolPoints[0].x), 1)
 	_expect("second patrol point preserves its x", int(patrolling_force.patrolPoints[1].x), 2)
+	editor._close_forces()
+	editor._open_resize()
+	editor._set_resize_dimensions(2, int(editor._current_map().height))
+	_expect("resize detects a patrol waypoint outside the new board", editor.resize_preview.patrol_clipped, 1)
+	_expect("resize names the patrol waypoint issue", editor.resize_preview_label.text.contains("Patrol waypoints"), true)
+	editor._close_resize()
+	editor._open_forces()
 	editor._begin_patrol_edit()
 	editor._clear_patrol_points()
 	editor._apply_patrol_edit()

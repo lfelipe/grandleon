@@ -129,12 +129,10 @@ struct SourceMapCell final {
     std::string_view fill_terrain
 );
 
-// Adds the next linear campaign chapter after an existing encounter. The new
-// chapter contains a story moment, a battle cloned from the known-playable
-// encounter setup, and a fresh map filled with the selected terrain. The
-// existing encounter's single unconditional transition is rerouted through
-// the new chapter as one atomic edit; branched campaign graphs are left for a
-// future graph editor rather than guessed at here.
+// Inserts a story, battle and map along a chosen encounter transition.
+// An empty transition id retains the single unconditional route shortcut.
+// The chosen route keeps its condition and the new chapter leads to its
+// previous destination. Other routes are preserved.
 [[nodiscard]] SourceTextResult add_source_campaign_chapter_json(
     std::string_view source_json,
     std::string_view campaign_id,
@@ -145,7 +143,8 @@ struct SourceMapCell final {
     std::string_view story_name,
     std::string_view battle_node_id,
     std::string_view battle_name,
-    std::string_view fill_terrain
+    std::string_view fill_terrain,
+    std::string_view transition_id = {}
 );
 
 // Moves one complete Story -> Battle pair one place along the campaign's
