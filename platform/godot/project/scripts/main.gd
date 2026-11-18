@@ -127,6 +127,7 @@ var preview_return_scene := ""
 var preview_label := ""
 var campaign_save_state := ""
 var campaign_complete := false
+var campaign_statistics: Dictionary = {}
 var final_outcome := "ongoing"
 var current_stage_name := ""
 var current_campaign_name := ""
@@ -192,6 +193,8 @@ var session_menu_subtitle: Label
 var session_menu_hint: Label
 var session_menu_diagnostics: Label
 var session_menu_root: VBoxContainer
+var campaign_statistics_panel: PanelContainer
+var campaign_statistics_values: Dictionary = {}
 var session_menu_saves: VBoxContainer
 var session_menu_slot_actions: VBoxContainer
 var session_menu_settings: VBoxContainer
@@ -2179,6 +2182,27 @@ func _create_session_menu(layer: CanvasLayer) -> void:
 
 	session_menu_root = _session_menu_page()
 	pages.add_child(session_menu_root)
+	campaign_statistics_panel = PanelContainer.new()
+	campaign_statistics_panel.add_theme_stylebox_override(
+		"panel", _panel(Color("102335"), 14, Color("33516b"))
+	)
+	campaign_statistics_panel.hide()
+	session_menu_root.add_child(campaign_statistics_panel)
+	var statistics_rows := GridContainer.new()
+	statistics_rows.columns = 2
+	statistics_rows.add_theme_constant_override("v_separation", 6)
+	statistics_rows.add_theme_constant_override("h_separation", 24)
+	campaign_statistics_panel.add_child(statistics_rows)
+	for key: String in ["battles", "enemy_defeat_percentage", "allies_fallen",
+			"hidden_items_found", "conversations"]:
+		var caption := _label(_ui("player.statistics." + key), 18, Color("a9bdc9"))
+		caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		statistics_rows.add_child(caption)
+		var value := _label("", 22, Color("f2f7f9"))
+		value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		statistics_rows.add_child(value)
+		campaign_statistics_values[key] = value
 	session_menu_resume = _menu_button(_ui("player.session.resume"))
 	session_menu_resume.pressed.connect(_close_session_menu)
 	session_menu_root.add_child(session_menu_resume)
@@ -2362,6 +2386,14 @@ func _show_session_menu_page(page: String) -> void:
 				session_menu_subtitle.text = _ui(
 					"player.session.paused_save", {"save": campaign_save_state}
 				)
+	campaign_statistics_panel.visible = campaign_complete and not campaign_statistics.is_empty()
+	if campaign_statistics_panel.visible:
+		for key: String in campaign_statistics_values:
+			var value: Label = campaign_statistics_values[key]
+			value.text = str(campaign_statistics.get(key, 0))
+		var enemies: Label = campaign_statistics_values["enemy_defeat_percentage"]
+		var encountered := int(campaign_statistics.get("enemies_encountered", 0))
+		enemies.text = "—" if encountered == 0 else "%d%%" % campaign_statistics["enemy_defeat_percentage"]
 	session_menu_resume.visible = not campaign_complete
 	session_menu_settings_button.visible = not campaign_complete
 	session_menu_save_load.text = (
@@ -2637,6 +2669,7 @@ func _restart_without_progress() -> void:
 func _clear_session_presentation() -> void:
 	stage_overview_pending = false
 	if _stage_overview_active(): board.finish_stage_overview()
+	campaign_statistics.clear()
 	campaign_complete = false
 	final_outcome = "ongoing"
 	dialogue_lines.clear()
@@ -3152,6 +3185,9 @@ func _handle_event(event: Dictionary) -> void:
 				else "player.result.battle_lost"
 			)
 		"campaign_ended":
+			campaign_statistics = event.get("statistics", {}).duplicate()
+			if not campaign_statistics.is_empty():
+				final_outcome = "second_side_won" if campaign_statistics.get("lost", false) else "first_side_won"
 			PCAudio.play_music("stone_and_shadow" if final_outcome == "second_side_won" else "first_light")
 			campaign_complete = true
 			_show_toast(

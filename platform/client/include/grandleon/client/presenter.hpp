@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include <grandleon/simulation/battle_statistics.hpp>
 #include <grandleon/package_runtime/dialogue.hpp>
 #include <grandleon/package_runtime/encounter_loader.hpp>
 #include <grandleon/simulation/encounter.hpp>
@@ -377,6 +378,9 @@ public:
         std::uint64_t canonical_hash
     ) = 0;
     virtual void campaign_ended() = 0;
+    virtual void campaign_ended(const simulation::CampaignStatistics&) {
+        campaign_ended();
+    }
 
     // Blocks until the player expresses an intent. Returning `quit` ends the
     // session; returning `none` is a no-op the session simply re-asks after.

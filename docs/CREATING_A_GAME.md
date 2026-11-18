@@ -147,6 +147,14 @@ hint. An ally has to finish a move on the tile to make the discovery. If their
 pack is full, the item stays on that tile for them to pick up or exchange.
 Use **Move to Another Tile** to relocate a find and keep its routes intact.
 
+### Show end statistics
+
+In **Game Settings**, turn on **Show end statistics when game is finished**
+to display a summary after a completed campaign or a campaign-ending defeat.
+Players see the battles they played, the percentage of enemies they defeated,
+allied falls, hidden finds, and conversations. The setting starts off for
+new games.
+
 ### Plan a detour
 
 Choose **New Event Detour** below the battle in **Campaign Outline**. Select

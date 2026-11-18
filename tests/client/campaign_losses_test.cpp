@@ -6,6 +6,7 @@
 #include <grandleon/game_content/compiler.hpp>
 #include <grandleon/game_content/source_project.hpp>
 #include <grandleon/package_format/package.hpp>
+#include <grandleon/package_runtime/manifest.hpp>
 #include <grandleon/storage/memory_storage.hpp>
 
 #include <algorithm>
@@ -74,7 +75,7 @@ const std::uint64_t field_tonic = core::stable_content_id_v1("field_tonic");
 // The maintained demo, compiled under whichever rule this run is about. The
 // source is read off the disk and parsed by the real reader; only the one field
 // the setting owns is set before the real compiler is handed the model.
-pf::LoadedPackage compile_the_demo(pr::CharacterLoss rule) {
+pf::LoadedPackage compile_the_demo(pr::CharacterLoss rule, bool show_statistics = false) {
     const std::string filename =
         std::string(GRANDLEON_SOURCE_DIR) + "/games/demo/source/project.json";
     std::ifstream input(filename, std::ios::binary);
@@ -87,6 +88,7 @@ pf::LoadedPackage compile_the_demo(pr::CharacterLoss rule) {
     parsed.source.character_loss = rule == pr::CharacterLoss::recoverable
                                        ? gc::CharacterLoss::recoverable
                                        : gc::CharacterLoss::permanent;
+    parsed.source.show_end_statistics = show_statistics;
     const gc::CompileResult compiled = gc::compile(parsed.source);
     expect(static_cast<bool>(compiled), "and compiles");
     const pf::LoadResult loaded = pf::load_mock_package(
@@ -164,9 +166,9 @@ struct Crossing final {
     bool outrider_takes_the_next_field{false};
 };
 
-Crossing cross_the_river(pr::CharacterLoss rule) {
+Crossing cross_the_river(pr::CharacterLoss rule, bool show_statistics = false) {
     Crossing result;
-    const pf::LoadedPackage package = compile_the_demo(rule);
+    const pf::LoadedPackage package = compile_the_demo(rule, show_statistics);
     if (failures != 0) return result;
 
     storage::MemorySlotStorage device;
@@ -206,6 +208,22 @@ Crossing cross_the_river(pr::CharacterLoss rule) {
             client::CampaignSessionError::none,
         "and the battle commits"
     );
+    expect(pr::show_end_statistics(package) == show_statistics,
+           "the end statistics option survives compilation");
+    if (show_statistics) {
+        expect(session.save() == storage::StorageError::none, "the encounter checkpoint is saved");
+        auto resume_options = options;
+        resume_options.resume = true;
+        client::CampaignSession next_session{package, muster_road, boards, device, resume_options};
+        expect(next_session.begin(failure, refused, resumed) == client::CampaignSessionError::none &&
+               !refused && resumed, "a fresh session resumes the saved route");
+        const auto totals = next_session.statistics();
+        expect(totals.battles == 1U && totals.allies_fallen == 1U && totals.enemies_encountered == 1U &&
+               totals.enemies_defeated == 1U && totals.enemy_defeat_percentage() == 100U &&
+               totals.lost_visit == 0U, "the first battle and its real casualty survive a reload");
+    } else {
+        expect(session.statistics().battles == 0U, "the disabled option writes no statistics");
+    }
     result.fallen = aftermath.fallen;
     result.rule = aftermath.character_loss;
 
@@ -346,5 +364,6 @@ int main() {
     a_fall_under_the_permanent_rule_is_a_death();
     a_fall_under_the_recoverable_rule_is_not();
     the_rule_does_not_reach_the_battle();
+    cross_the_river(pr::CharacterLoss::recoverable, true);
     return failures == 0 ? 0 : 1;
 }

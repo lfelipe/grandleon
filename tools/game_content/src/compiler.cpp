@@ -3327,6 +3327,12 @@ CompileResult compile(const GameSource& source) {
             return section;
         }()
     };
+
+    if (source.show_end_statistics) {
+        package.sections.front().records.push_back({
+            package_format::manifest_end_statistics_record_id, {1U}
+        });
+    }
     // Which of the art library's styles each character is drawn in and which
     // body it is drawn with, appended to the presentation section beside the
     // archetype join they complete: that record says which role a unit type

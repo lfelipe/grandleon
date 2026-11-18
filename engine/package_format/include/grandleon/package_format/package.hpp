@@ -196,6 +196,7 @@ inline constexpr std::uint64_t localization_record_id = 1;
 // because two sides read it, and a number written twice is a number that can
 // be written differently twice.
 inline constexpr std::uint64_t manifest_title_record_id = 1;
+inline constexpr std::uint64_t manifest_end_statistics_record_id = 2;
 inline constexpr std::uint64_t presentation_terrain_record_id = 2;
 inline constexpr std::uint64_t presentation_archetype_record_id = 3;
 // Which of the art library's character styles each unit type is drawn in,

@@ -40,6 +40,7 @@ var character_loss_select: OptionButton
 var character_loss_help: Label
 var testing_toggle: CheckButton
 var battle_closeups_toggle: CheckButton
+var end_statistics_toggle: CheckButton
 var revision_label: Label
 var battle_list: VBoxContainer
 var status_label: Label
@@ -98,6 +99,7 @@ func _refresh_form() -> void:
 	_refresh_character_loss_help()
 	testing_toggle.button_pressed = bool(project.get("invulnerableForTesting", false))
 	battle_closeups_toggle.button_pressed = bool(project.get("battleCloseups", true))
+	end_statistics_toggle.button_pressed = bool(project.get("showEndStatistics", false))
 	revision_label.text = str(project.get("contentRevision", "0.1.0"))
 	_refresh_battles()
 	refreshing = false
@@ -178,6 +180,20 @@ func _toggle_battle_closeups(enabled: bool) -> void:
 	_accept_candidate(
 		candidate,
 		_t("settings.status.closeups", {"state": _state_label(enabled)})
+	)
+
+
+func _toggle_end_statistics(enabled: bool) -> void:
+	if refreshing:
+		return
+	var candidate := project.duplicate(true)
+	if enabled:
+		candidate["showEndStatistics"] = true
+	else:
+		candidate.erase("showEndStatistics")
+	_accept_candidate(
+		candidate,
+		_t("settings.status.end_statistics", {"state": _state_label(enabled)})
 	)
 
 
@@ -482,8 +498,11 @@ func _build_interface() -> void:
 	revision_help.text = _t("settings.revision_help")
 	revision_column.add_child(revision_help)
 
+	var presentation := HBoxContainer.new()
+	presentation.add_theme_constant_override("separation", 18)
+	column.add_child(presentation)
 	var presentation_panel := _settings_panel()
-	column.add_child(presentation_panel)
+	presentation.add_child(presentation_panel)
 	var presentation_column: VBoxContainer = presentation_panel.get_child(0)
 	presentation_column.add_child(_label(_t("settings.presentation"), 15, Color("69d9ff")))
 	battle_closeups_toggle = CheckButton.new()
@@ -495,6 +514,20 @@ func _build_interface() -> void:
 	var closeups_help := _help_label()
 	closeups_help.text = _t("settings.closeups_help")
 	presentation_column.add_child(closeups_help)
+
+	var statistics_panel := _settings_panel()
+	presentation.add_child(statistics_panel)
+	var statistics_column: VBoxContainer = statistics_panel.get_child(0)
+	statistics_column.add_child(_label(_t("settings.end_statistics_header"), 15, Color("69d9ff")))
+	end_statistics_toggle = CheckButton.new()
+	end_statistics_toggle.text = _t("settings.end_statistics")
+	end_statistics_toggle.custom_minimum_size = Vector2(535, 58)
+	end_statistics_toggle.add_theme_font_size_override("font_size", 17)
+	end_statistics_toggle.toggled.connect(_toggle_end_statistics)
+	statistics_column.add_child(end_statistics_toggle)
+	var statistics_help := _help_label()
+	statistics_help.text = _t("settings.end_statistics_help")
+	statistics_column.add_child(statistics_help)
 
 	column.add_child(_label(_t("settings.battle_turn_order"), 15, Color("69d9ff")))
 	var scroll := ScrollContainer.new()

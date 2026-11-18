@@ -148,6 +148,10 @@
         }
       }
     },
+    "showEndStatistics": {
+      "type": "boolean",
+      "description": "Show campaign statistics after completing the game or reaching a campaign-ending defeat. Defaults to false."
+    },
     "invulnerableForTesting": {
       "type": "boolean",
       "description": "Whether the members of the player's own company cannot be reduced below one health, so that a blow that would defeat one leaves them standing at one instead. This is a testing aid and not a way to play: it is here so that somebody walking their own campaign through can read the writing and follow the flow without having to deal with dying on the way. It is deliberately not a third value of characterLoss, because it is not an answer to the question that setting asks. It is compiled into the package like every other rule, and it changes what the battles do: the same project with it on and the same project with it off play differently, and two people holding the same package always get the same battles out of it. Omit it and nobody is protected from anything, which is what every character faced before this setting existed."

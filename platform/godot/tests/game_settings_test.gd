@@ -77,6 +77,18 @@ func _run() -> void:
 	_expect("starter recommends battle close-ups", settings.battle_closeups_toggle.button_pressed, true)
 	_expect("starter content revision is visible", settings.revision_label.text, "0.1.0")
 	_expect("starter battle has an override row", settings.battle_list.get_child_count(), 1)
+	_expect("end statistics start off", settings.end_statistics_toggle.button_pressed, false)
+	_expect("end statistics label uses the editor language", settings.end_statistics_toggle.text,
+		"Mostrar estatísticas ao terminar o jogo")
+	settings.end_statistics_toggle.button_pressed = true
+	_expect("end statistics are portable source data", _parse(settings.source).get("showEndStatistics"), true)
+	settings._undo()
+	_expect("undo disables the summary", settings.end_statistics_toggle.button_pressed, false)
+	settings._redo()
+	_expect("redo restores the summary", settings.end_statistics_toggle.button_pressed, true)
+	settings.end_statistics_toggle.button_pressed = false
+	_expect("turning the summary off restores the default", _parse(settings.source).has("showEndStatistics"), false)
+	settings.end_statistics_toggle.button_pressed = true
 
 	settings._select_metadata(settings.turn_order_select, "alternating")
 	settings._change_default_turn_order(settings.turn_order_select.selected)
@@ -145,6 +157,7 @@ func _run() -> void:
 		_expect("stored character loss matches", str(stored.project.characterLoss), "permanent")
 		_expect("stored testing aid matches", bool(stored.project.invulnerableForTesting), true)
 		_expect("stored close-up default matches", bool(stored.project.battleCloseups), false)
+		_expect("end statistics survive saving and reopening", stored.project.showEndStatistics, true)
 		_expect("stored revision matches", str(stored.project.contentRevision), "0.1.1")
 		_expect(
 			"stored battle inherits the default",
@@ -158,7 +171,7 @@ func _run() -> void:
 	await process_frame
 	if failures == 0:
 		print("game settings smoke passed")
-	quit(1 if failures > 0 else 0)
+	root.get_node("PCAudio").request_quit(1 if failures > 0 else 0)
 
 
 func _parse(value: String) -> Dictionary:

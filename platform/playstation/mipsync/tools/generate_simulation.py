@@ -797,6 +797,7 @@ def main() -> int:
         lines.append(f"    case {identifier}ULL: return {int(unit.get('source_id', 0))}ULL;")
     lines += ["    default: return 0;", "    }", "}",
         "bool grandleon_generated_permanent_loss() { return " + ("true" if campaign.get("permanent_loss", 1) else "false") + "; }",
+        "bool grandleon_generated_show_end_statistics() { return " + ("true" if campaign.get("show_end_statistics", 0) else "false") + "; }",
         "bool grandleon_generated_carried_inventory() { return " + ("true" if campaign.get("inventory_mode", 0) else "false") + "; }",
         "bool grandleon_generated_company_endures() { return " + ("true" if campaign.get("company_endures", 0) else "false") + "; }"]
     lines += [
@@ -838,6 +839,7 @@ struct grandleon_generated_campaign_node final {{
 std::uint64_t grandleon_generated_unit_source(std::uint64_t id);
 bool grandleon_generated_permanent_loss();
 bool grandleon_generated_company_endures();
+bool grandleon_generated_show_end_statistics();
 bool grandleon_generated_carried_inventory();
 struct grandleon_generated_campaign_member final {{
     std::uint64_t persistent_id{{}};

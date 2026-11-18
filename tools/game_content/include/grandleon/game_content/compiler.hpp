@@ -1069,6 +1069,7 @@ struct GameSource final {
     //: on for itself would be a client whose battles nobody else could
     //: reproduce.
     bool invulnerable_for_testing{false};
+    bool show_end_statistics{false};
     // What the better weapon is worth in this game. Both zero is no advantage
     // anywhere, and is what every game written before a triangle could be
     // drawn means. It is resolved onto every weapon type that has an edge,

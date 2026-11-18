@@ -174,6 +174,7 @@ enum class Message : std::uint8_t {
     not_in_battle, insufficient_gold, shop_unavailable,
     gold, collect_equipment, pack, pick_up, exchange, leave, drop, finish_collection,
     pack_full, pack_empty, pack_capacity, use_item, found_equipment,
+    enemies_defeated, allies_fallen, hidden_finds, conversations,
 };
 
 enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
@@ -922,6 +923,22 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
             return selected == Language::spanish ? "ACCIÓN RECHAZADA"
                  : selected == Language::portuguese_brazil ? "AÇÃO RECUSADA"
                  : "ACTION REFUSED";
+        case Message::enemies_defeated:
+            return selected == Language::spanish ? "ENEMIGOS DERROTADOS"
+                 : selected == Language::portuguese_brazil ? "INIMIGOS DERROTADOS"
+                 : "ENEMIES DEFEATED";
+        case Message::allies_fallen:
+            return selected == Language::spanish ? "ALIADOS CAÍDOS"
+                 : selected == Language::portuguese_brazil ? "ALIADOS CAÍDOS"
+                 : "ALLIES FALLEN";
+        case Message::hidden_finds:
+            return selected == Language::spanish ? "HALLAZGOS OCULTOS"
+                 : selected == Language::portuguese_brazil ? "ACHADOS OCULTOS"
+                 : "HIDDEN FINDS";
+        case Message::conversations:
+            return selected == Language::spanish ? "CONVERSACIONES"
+                 : selected == Language::portuguese_brazil ? "CONVERSAS"
+                 : "CONVERSATIONS";
         case Message::presentation_options:
             return selected == Language::spanish ? "OPCIONES DE PRESENTACIÓN"
                  : selected == Language::portuguese_brazil ? "OPÇÕES DE APRESENTAÇÃO"

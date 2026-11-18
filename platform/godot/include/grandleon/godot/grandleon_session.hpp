@@ -71,6 +71,7 @@ struct FrontendEvent final {
     // between-map scenes and board-wide opening moments.
     simulation::UnitId dialogue_subject_id{};
     client::CompanyManagement company;
+    std::optional<simulation::CampaignStatistics> campaign_statistics;
     // Campaign presentation context captured when the event is queued. A
     // dialogue/objective token can therefore resolve against the exact roster
     // at that point, and a board unit can use the campaign's published join
@@ -147,6 +148,7 @@ public:
         std::uint64_t canonical_hash
     ) override;
     void campaign_ended() override;
+    void campaign_ended(const simulation::CampaignStatistics& statistics) override;
     void campaign_begun(
         const std::vector<client::RosterEntry>& roster,
         const std::vector<campaign::InventoryStack>& store,

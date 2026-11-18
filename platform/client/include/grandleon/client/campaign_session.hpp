@@ -912,6 +912,7 @@ public:
     [[nodiscard]] std::vector<campaign::InventoryStack> store() const;
 
     [[nodiscard]] std::size_t completed_encounters() const;
+    [[nodiscard]] simulation::CampaignStatistics statistics() const;
 
     // Where the campaign stands. `kind` says what to do next, and
     // `encounter_id` is meaningful only for an encounter node.

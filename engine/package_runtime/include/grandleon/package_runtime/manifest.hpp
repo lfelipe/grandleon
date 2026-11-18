@@ -36,4 +36,8 @@ namespace grandleon::package_runtime {
     const package_format::LoadedPackage& package
 ) noexcept;
 
+[[nodiscard]] bool show_end_statistics(
+    const package_format::LoadedPackage& package
+) noexcept;
+
 }  // namespace grandleon::package_runtime

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 #include <grandleon/client/campaign_session.hpp>
 #include <grandleon/package_runtime/inventory.hpp>
+#include <grandleon/package_runtime/manifest.hpp>
 #include <grandleon/campaign_runtime/shop.hpp>
+#include <grandleon/campaign_runtime/statistics.hpp>
 #include <grandleon/client/member_name_tokens.hpp>
 
 #include <grandleon/client/session.hpp>
@@ -362,6 +364,10 @@ std::size_t CampaignSession::completed_encounters() const {
         }));
 }
 
+sim::CampaignStatistics CampaignSession::statistics() const {
+    return cr::campaign_statistics(live_.state);
+}
+
 std::vector<RosterEntry> CampaignSession::roster_now() const {
     std::vector<RosterEntry> entries;
     for (const AuthoredMember& member : members_) {
@@ -484,6 +490,10 @@ CampaignSession::Standing CampaignSession::standing() const {
     const pr::CampaignNode* const node = node_at(where.node);
     if (node == nullptr) {
         where.error = CampaignSessionError::flow_stalled;
+        return where;
+    }
+    if (pr::show_end_statistics(*package_) && cr::defeated_without_route(live_.state)) {
+        where.kind = pr::CampaignNodeKind::terminal;
         return where;
     }
     where.kind = node->kind;
@@ -878,6 +888,10 @@ CampaignSessionError CampaignSession::commit_battle(
         grants_at(prepared_node_id_);
     operations.insert(operations.end(), given.begin(), given.end());
 
+    const bool record_statistics = pr::show_end_statistics(*package_);
+    if (record_statistics) {
+        cr::append_battle_statistics(operations, live_.state, battle.final_snapshot, battle.events);
+    }
     const campaign::NodeCompletion completion = campaign::complete_node(
         live_.state, graph_, campaign::make_outcome_batch(source, operations)
     );
@@ -903,6 +917,8 @@ CampaignSessionError CampaignSession::commit_battle(
     // than reusing the capacity.
     prepared_ready_ = false;
 
+    if (record_statistics && completion.error == campaign::ProgressionError::blocked &&
+        battle.outcome == sim::Outcome::second_side_won) return CampaignSessionError::none;
     if (!completion) return CampaignSessionError::progression_rejected;
     if (!completion.advanced && !completion.already_advanced) {
         return CampaignSessionError::progression_rejected;
@@ -1275,7 +1291,8 @@ CampaignSessionError run_persistent_campaign(
         present_dialogue_sequence(package, where.dialogue_ids, presenter);
 
         if (where.kind == pr::CampaignNodeKind::terminal) {
-            presenter.campaign_ended();
+            if (pr::show_end_statistics(package)) presenter.campaign_ended(session.statistics());
+            else presenter.campaign_ended();
             return CampaignSessionError::none;
         }
         if (where.kind == pr::CampaignNodeKind::story) {

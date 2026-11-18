@@ -133,6 +133,10 @@ func run() -> void:
 	await play(false, 1)
 	await play(true, 2)
 	await play(true, 1, true)
+	check(current_scene.library.save_source(context.project_id,
+		saved.source.replace('"title":', '"showEndStatistics": true, "title":')).ok,
+		"the adventure now has end statistics enabled")
+	await play(true, 1, true, true)
 	var fixture: Dictionary = saved.project
 	fixture.campaigns[0].roster[0].carryCapacity = 1
 	fixture.itemTypes = [{"id": "tonics", "name": "Tonics"}]
@@ -148,7 +152,7 @@ func run() -> void:
 		await recover_full_pack(compiled.package)
 	finish()
 
-func play(find: bool, players: int, alternate := false) -> void:
+func play(find: bool, players: int, alternate := false, statistics := false) -> void:
 	var button: Button = current_scene.test_one_button if players == 1 else current_scene.test_two_button
 	button.pressed.emit()
 	await settle()
@@ -210,6 +214,13 @@ func play(find: bool, players: int, alternate := false) -> void:
 	if alternate: expected = ["first_battle", "chapter_3_battle"]
 	check(visited == expected and checked_move, "%sP route reached %s, expected %s" % [players, visited, expected])
 	check(reached_ending == alternate and (not alternate or player.campaign_complete), "only the alternate route plays its ending and completes there")
+	if alternate:
+		check(player.campaign_statistics_panel.visible == statistics,
+			"the summary appears only in the enabled game")
+		if statistics:
+			check(player.campaign_statistics.get("battles") == 2 and
+				player.campaign_statistics.get("hidden_items_found") == 1,
+				"the alternate ending reports both battles actually played and the hidden find")
 	print("HIDDEN_ITEM_ROUTE players=", players, " discovery=", find, " stages=", visited, " alternate=", reached_ending)
 	player._leave_play_session()
 	await settle()

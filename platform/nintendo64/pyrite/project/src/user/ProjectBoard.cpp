@@ -11,6 +11,7 @@
 #include <grandleon/core/currency.hpp>
 #include <grandleon/package_runtime/dialogue.hpp>
 #include <grandleon/package_runtime/localization.hpp>
+#include <grandleon/package_runtime/manifest.hpp>
 #include <grandleon/package_runtime/names.hpp>
 #include <grandleon/package_runtime/target_budget.hpp>
 #include <grandleon/package_runtime/presentation.hpp>
@@ -3239,6 +3240,11 @@ void update_shell_input() {
             else adjust_volume(shell.audio_row, 1);
         }
         return;
+    } else if (shell.phase == ShellPhase::complete &&
+               pr::show_end_statistics(board.runtime.package()) && (pressed.a || pressed.b)) {
+        performance_sample_started = false;
+        enter_shell_phase(ShellPhase::title);
+        return;
     } else if (shell.phase == ShellPhase::help && pressed.b) {
         enter_shell_phase(ShellPhase::title);
         return;
@@ -4947,8 +4953,8 @@ void update_performance_sample() {
     // a short victory may precede the enemy turn, and optional rooms or campaign
     // branches need not all be visited before a terminal node.
     if (grandleon_project_review_driver) {
-        assert(shell.completed_battles == grandleon_project_encounter_count);
-        assert(shell.stage_index + 1U == grandleon_project_encounter_count);
+        assert(shell.completed_battles == board.campaign->completed_encounters());
+        assert(shell.completed_battles <= grandleon_project_encounter_count);
         if (!board.content->visual_visibility.hidden_cells.empty()) {
             assert(board.visibility_revealed[
                 board.content->visual_visibility.hidden_cells.front()
@@ -5241,7 +5247,12 @@ void update_replay() {
             }
             break;
         case ReplayPhase::autoplay_battle:
-            if (board.game.snapshot().outcome != sim::Outcome::ongoing) {
+            if (board.game.snapshot().collecting_loot) {
+                sim::Command done{};
+                done.type = sim::CommandType::finish_collection;
+                assertf(board.game.apply(done), "Review could not leave the loot collection phase");
+                remember_transition_events();
+            } else if (board.game.snapshot().outcome != sim::Outcome::ongoing) {
                 assertf(
                     finish_battle_and_advance(),
                     "Authored campaign result did not advance"
@@ -6562,6 +6573,29 @@ void draw_shell() {
             break;
         }
         case ShellPhase::complete:
+            if (pr::show_end_statistics(board.runtime.package())) {
+                const auto totals = board.campaign->statistics();
+                display_printf(43, 61, "%s", ui(totals.lost_visit
+                    ? console::Message::defeat : console::Message::campaign_complete));
+                const std::array messages{
+                    console::Message::battles_played, console::Message::enemies_defeated,
+                    console::Message::allies_fallen, console::Message::hidden_finds,
+                    console::Message::conversations,
+                };
+                const std::array<std::uint32_t, 5> values{
+                    totals.battles, totals.enemy_defeat_percentage(), totals.allies_fallen,
+                    totals.hidden_items_found, totals.conversations,
+                };
+                for (std::size_t row = 0; row < messages.size(); ++row) {
+                    const int y = 88 + static_cast<int>(row) * 19;
+                    display_printf(43, y, "%s", ui(messages[row]));
+                    if (row == 1U && totals.enemies_encountered == 0U) display_printf(238, y, "-");
+                    else display_printf(230, y, row == 1U ? "%lu%%" : "%lu",
+                        static_cast<unsigned long>(values[row]));
+                }
+                ui_button_hint(43, 190, "A", ui(console::Message::return_to_title));
+                break;
+            }
             display_printf(91, 112, "%s", ui(console::Message::campaign_ended));
             display_printf(
                 72, 142, "%lu %s",

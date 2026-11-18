@@ -20,4 +20,14 @@ std::string_view project_title(
     );
 }
 
+bool show_end_statistics(const package_format::LoadedPackage& package) noexcept {
+    const auto* record = package.find(
+        package_format::SectionType::manifest,
+        package_format::manifest_end_statistics_record_id
+    );
+    const auto* bytes = package.byte_data();
+    return record != nullptr && bytes != nullptr &&
+        record->payload_size == 1U && bytes[record->payload_offset] == 1U;
+}
+
 }  // namespace grandleon::package_runtime

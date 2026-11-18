@@ -43,7 +43,8 @@ enum grandleon_ui_mode {
     GRANDLEON_UI_STAGE_OVERVIEW,
     GRANDLEON_UI_PACK,
     GRANDLEON_UI_SHOP,
-    GRANDLEON_UI_CONVERSATION
+    GRANDLEON_UI_CONVERSATION,
+    GRANDLEON_UI_STATISTICS
 };
 const char* grandleon_game_conversation_line(uint8_t index);
 const char* grandleon_game_conversation_answer(uint8_t index);
@@ -163,6 +164,9 @@ typedef struct grandleon_ui_state {
     uint16_t shop_offers[2];
     uint64_t shop_members[2];
     uint8_t shop_confirming[2], shop_buy_selected[2], shop_ready[2];
+    const char* statistic_labels[5];
+    uint32_t statistic_values[5];
+    uint8_t statistics_has_enemies;
 } grandleon_ui_state;
 
 enum grandleon_action_kind {

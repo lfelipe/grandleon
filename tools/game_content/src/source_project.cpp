@@ -1325,6 +1325,17 @@ SourceParseResult parse_source_project_json(std::string_view json) {
             mapper.result.source.invulnerable_for_testing = *flag;
         }
     }
+    if (const Json* statistics = mapper.member(*root, "showEndStatistics", "$", false)) {
+        if (const auto* flag = std::get_if<bool>(&statistics->value)) {
+            mapper.result.source.show_end_statistics = *flag;
+        } else {
+            mapper.error(
+                SourceDiagnosticCode::invalid_value,
+                "$.showEndStatistics",
+                "expected a boolean"
+            );
+        }
+    }
     // What the better weapon is worth. Both halves are required together by
     // the schema, so a stated advantage always has both and an omitted one has
     // neither, which is the zero every game meant before this existed.

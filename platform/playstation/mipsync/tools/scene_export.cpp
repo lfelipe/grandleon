@@ -239,6 +239,7 @@ void write_campaign(
 ) {
     output << "{\"id\":";
     write_id(output, campaign_id);
+    output << ",\"show_end_statistics\":" << pr::show_end_statistics(package);
     output << ",\"inventory_mode\":" << static_cast<unsigned>(campaign.inventory_mode);
     output << ",\"entry_node_id\":";
     write_id(output, campaign.entry_node_id);

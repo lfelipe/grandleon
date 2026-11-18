@@ -439,6 +439,35 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
         activate_ui_tpage(ordering_table, next_packet, packet_end);
         return;
     }
+    if (state.mode == GRANDLEON_UI_STATISTICS) {
+        draw_box_depth(ordering_table, next_packet, packet_end, 0, 0, 320, 240, 7, 13, 24, 4);
+        draw_panel(ordering_table, next_packet, packet_end, 24, 24, 272, 192);
+        draw_text(ordering_table, next_packet, packet_end, 42, 42,
+                  state.headline, 255, 205, 68);
+        for (unsigned row = 0; row < 5; ++row) {
+            const int y = 70 + row * 21;
+            char value[12];
+            char* digit = value + sizeof(value) - 1;
+            *digit = 0;
+            if (row == 1 && !state.statistics_has_enemies) {
+                *--digit = '-';
+            } else {
+                if (row == 1) *--digit = '%';
+                uint32_t number = state.statistic_values[row];
+                do {
+                    *--digit = (char)('0' + number % 10U);
+                    number /= 10U;
+                } while (number);
+            }
+            draw_text(ordering_table, next_packet, packet_end, 42, y,
+                      state.statistic_labels[row], 181, 193, 205);
+            draw_text(ordering_table, next_packet, packet_end, 228, y,
+                      digit, 247, 239, 209);
+        }
+        draw_button(ordering_table, next_packet, packet_end, 43, 189, 'X', GRANDLEON_TEXT_CONTINUE);
+        activate_ui_tpage(ordering_table, next_packet, packet_end);
+        return;
+    }
     if (state.mode >= GRANDLEON_UI_TITLE && state.mode <= GRANDLEON_UI_NAME) {
         if (state.mode != GRANDLEON_UI_TITLE || !g_grandleon_combat_plate_indices[0])
             draw_box_depth(ordering_table, next_packet, packet_end,

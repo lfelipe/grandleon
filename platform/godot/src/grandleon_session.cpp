@@ -565,6 +565,13 @@ void AsyncPresenter::campaign_ended() {
     push(std::move(event));
 }
 
+void AsyncPresenter::campaign_ended(const simulation::CampaignStatistics& statistics) {
+    FrontendEvent event;
+    event.kind = FrontendEvent::Kind::campaign_ended;
+    event.campaign_statistics = statistics;
+    push(std::move(event));
+}
+
 void AsyncPresenter::campaign_begun(
     const std::vector<client::RosterEntry>& roster,
     const std::vector<campaign::InventoryStack>& store,
@@ -2520,7 +2527,21 @@ gd::Dictionary GrandleonSession::event_dictionary(
             }
             break;
         case FrontendEvent::Kind::refused:
+            break;
         case FrontendEvent::Kind::campaign_ended: {
+            if (event.campaign_statistics) {
+                const auto& totals = *event.campaign_statistics;
+                godot::Dictionary statistics;
+                statistics["battles"] = totals.battles;
+                statistics["enemies_encountered"] = totals.enemies_encountered;
+                statistics["enemies_defeated"] = totals.enemies_defeated;
+                statistics["enemy_defeat_percentage"] = totals.enemy_defeat_percentage();
+                statistics["allies_fallen"] = totals.allies_fallen;
+                statistics["hidden_items_found"] = totals.hidden_items_found;
+                statistics["conversations"] = totals.conversations;
+                statistics["lost"] = totals.lost_visit != 0U;
+                result["statistics"] = statistics;
+            }
             break;
         }
         case FrontendEvent::Kind::campaign_begun: {

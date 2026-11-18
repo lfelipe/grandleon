@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include <grandleon/client/session.hpp>
+#include <grandleon/package_runtime/manifest.hpp>
 
 #include <grandleon/package_runtime/campaign.hpp>
 #include <grandleon/package_runtime/dialogue.hpp>
@@ -604,12 +605,15 @@ SessionError run_campaign(
     auto campaign = pr::load_campaign(package, campaign_id);
     if (!campaign) return SessionError::campaign_rejected;
     pr::CampaignCursor cursor(std::move(campaign.definition));
+    const bool record_statistics = pr::show_end_statistics(package);
+    simulation::CampaignStatistics statistics;
 
     for (int guard = 0; guard < 256; ++guard) {
         const pr::CampaignNode& node = cursor.current();
         if (node.kind == pr::CampaignNodeKind::terminal) {
             present_if_present(package, node.dialogue_ids, presenter);
-            presenter.campaign_ended();
+            if (record_statistics) presenter.campaign_ended(statistics);
+            else presenter.campaign_ended();
             return SessionError::none;
         }
         if (node.kind == pr::CampaignNodeKind::story) {
@@ -633,8 +637,17 @@ SessionError run_campaign(
         if (battle.quit || battle.outcome == sim::Outcome::ongoing) {
             return SessionError::none;
         }
-        if (cursor.advance_after(battle.outcome, battle.objectives) !=
-            pr::CampaignError::none) {
+        if (record_statistics) {
+            sim::tally_battle(statistics, battle.final_snapshot, battle.events,
+                statistics.battles + 1U);
+        }
+        const auto advanced = cursor.advance_after(battle.outcome, battle.objectives);
+        if (advanced != pr::CampaignError::none) {
+            if (record_statistics && advanced == pr::CampaignError::unsupported_flow &&
+                battle.outcome == sim::Outcome::second_side_won) {
+                presenter.campaign_ended(statistics);
+                return SessionError::none;
+            }
             return SessionError::flow_stalled;
         }
     }

@@ -22,6 +22,7 @@ extern "C" {
 #include <grandleon/client/member_name_tokens.hpp>
 #include <grandleon/client/shop_controller.hpp>
 #include <grandleon/campaign_runtime/shop.hpp>
+#include <grandleon/campaign_runtime/statistics.hpp>
 #include <grandleon/simulation/encounter.hpp>
 #include <grandleon/simulation/carried_inventory.hpp>
 #include <grandleon/storage/byte_window_storage.hpp>
@@ -61,7 +62,7 @@ enum class InputMode : std::uint8_t {
 };
 enum class CampaignMode : std::uint8_t {
     title, players, name, prologue, objective, battle, aftermath, save_error,
-    help, settings, shop
+    help, settings, shop, statistics
 };
 
 constexpr unsigned maximum_board_cells = 4096U;
@@ -1869,11 +1870,17 @@ bool complete_battle(bool victory, bool force_pending = false) {
     const std::vector<std::uint64_t> joined = append_recruitment_at(
         grandleon_generated_current_encounter_id, operations
     );
+    if (!force_pending && grandleon_generated_show_end_statistics()) {
+        character::append_battle_statistics(operations, s_campaign_save.state, s_snapshot, s_battle_events);
+    }
     const camp::NodeCompletion completion = camp::complete_node(
         s_campaign_save.state, s_campaign_graph,
         outcome_batch(grandleon_generated_current_encounter_id,
                       std::move(operations))
     );
+    const bool ended_in_defeat = grandleon_generated_show_end_statistics() &&
+        completion.error == camp::ProgressionError::blocked && !force_pending && !victory;
+    if (ended_in_defeat) return save_campaign();
     if (!completion) {
         psx::Line().text("MIPSYNC_CAMPAIGN_BATTLE_FAIL error=")
             .decimal(static_cast<unsigned>(completion.error)).flush();
@@ -1973,8 +1980,19 @@ client::ManagementCommit buy_shop_copy(const client::ManagementIntent& intent) {
     return result;
 }
 
+bool end_statistics_ready(const grandleon_generated_campaign_node* node) {
+    if (!grandleon_generated_show_end_statistics()) return false;
+    return character::defeated_without_route(s_campaign_save.state) ||
+        (node && node->kind == 2U &&
+         grandleon_generated_campaign_node_lines(s_language_index, node->id).empty());
+}
+
 void route_active_campaign_node() {
     const grandleon_generated_campaign_node* node = active_campaign_node();
+    if (end_statistics_ready(node)) {
+        s_campaign_mode = CampaignMode::statistics;
+        return;
+    }
     if (!node) {
         s_campaign_mode = CampaignMode::save_error;
         return;
@@ -2514,6 +2532,22 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
                 ));
                 output->headline = s_ui_headline.data();
                 break;
+            case CampaignMode::statistics: {
+                output->mode = GRANDLEON_UI_STATISTICS;
+                const auto totals = character::campaign_statistics(s_campaign_save.state);
+                output->headline = ui(totals.lost_visit ? console::Message::defeat : console::Message::campaign_complete);
+                output->body = ui(console::Message::return_to_title);
+                const std::uint32_t values[] = {totals.battles, totals.enemy_defeat_percentage(),
+                    totals.allies_fallen, totals.hidden_items_found, totals.conversations};
+                const console::Message labels[] = {console::Message::battles_played, console::Message::enemies_defeated,
+                    console::Message::allies_fallen, console::Message::hidden_finds, console::Message::conversations};
+                for (unsigned row = 0; row < 5; ++row) {
+                    output->statistic_values[row] = values[row];
+                    output->statistic_labels[row] = ui(labels[row]);
+                }
+                output->statistics_has_enemies = totals.enemies_encountered != 0U;
+                break;
+            }
             case CampaignMode::save_error:
                 output->mode = GRANDLEON_UI_SAVE_ERROR;
                 output->headline = ui(console::Message::memory_card);
@@ -3159,10 +3193,15 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
             }
             return 2;
         }
+        if (s_campaign_mode == CampaignMode::statistics && (pressed & (pad_cross | pad_circle))) {
+            s_campaign_mode = CampaignMode::title;
+            return 0;
+        }
         if (s_campaign_mode == CampaignMode::aftermath && (pressed & pad_cross)) {
             const grandleon_generated_campaign_node* node = active_campaign_node();
             if (node && node->kind == 2U) {
-                s_campaign_mode = CampaignMode::title;
+                s_campaign_mode = grandleon_generated_show_end_statistics()
+                    ? CampaignMode::statistics : CampaignMode::title;
                 return 0;
             }
             if (node && node->kind == 1U) {
@@ -3366,7 +3405,11 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
         s_campaign_victory = s_snapshot.outcome == sim::Outcome::first_side_won;
         if (complete_battle(s_campaign_victory)) {
             hide_board();
-            enter_after_player_names(CampaignMode::aftermath);
+            if (end_statistics_ready(active_campaign_node())) {
+                s_campaign_mode = CampaignMode::statistics;
+            } else {
+                enter_after_player_names(CampaignMode::aftermath);
+            }
         } else {
             s_campaign_mode = CampaignMode::save_error;
         }
