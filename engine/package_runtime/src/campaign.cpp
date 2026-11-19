@@ -602,6 +602,23 @@ CampaignLoadResult load_campaign(
         }
     }
 
+    if (const auto* record = package.find(package_format::SectionType::character_starts, campaign_id)) {
+        Reader starts(package, *record);
+        std::uint16_t count = 0;
+        if (!starts.u16(count) || count == 0 || starts.remaining() != static_cast<std::size_t>(count) * 10U) {
+            return fail(CampaignError::malformed_payload);
+        }
+        for (std::uint16_t index = 0; index < count; ++index) {
+            std::uint64_t id = 0;
+            std::uint8_t level = 0, fixed = 0;
+            if (!starts.u64(id) || !starts.u8(level) || level == 0 || level > core::maximum_starting_level ||
+                !starts.u8(fixed) || fixed > 1U || (level == 1U && fixed == 0)) return fail(CampaignError::malformed_payload);
+            const auto member = std::find_if(result.definition.members.begin(), result.definition.members.end(),
+                [id](const CampaignMember& entry) { return entry.id == id; });
+            if (member == result.definition.members.end() || member->start.authored()) return fail(CampaignError::malformed_payload);
+            member->start = {level, fixed != 0};
+        }
+    }
     if (const auto* record = package.find(package_format::SectionType::member_rules, campaign_id)) {
         Reader rules_reader(package, *record);
         std::uint16_t count = 0;

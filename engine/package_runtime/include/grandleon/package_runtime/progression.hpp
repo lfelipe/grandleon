@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include <grandleon/core/starting_stats.hpp>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -134,6 +135,11 @@ struct UnitProgressionLoad final {
 [[nodiscard]] UnitProgressionLoad load_unit_progression(
     const package_format::LoadedPackage& package,
     std::uint64_t unit_type_id
+);
+
+[[nodiscard]] bool load_role_starting_stats(
+    const package_format::LoadedPackage& package, std::uint64_t unit_type_id,
+    core::RoleStartingStats& stats
 );
 
 }  // namespace grandleon::package_runtime

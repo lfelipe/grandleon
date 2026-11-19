@@ -530,8 +530,19 @@ std::vector<std::uint64_t> append_recruitment_at(
     std::vector<camp::CampaignOutcomeOperation>& operations
 ) {
     std::vector<std::uint64_t> joined;
+    const auto& package = s_campaign_graph.campaign.package_id;
+    const auto saved_seed = character::starting_seed(s_campaign_save.state, package);
+    const auto seed = saved_seed != 0 ? saved_seed : grandleon::core::saved_starting_seed(
+        grandleon::core::derive_random_seed(s_ambient_ticks));
+    bool seed_pending = saved_seed == 0 && grandleon_generated_uses_starting_stats;
     for (const auto& member : grandleon_generated_campaign_members()) {
-        if (member.join_node_id != node_id) continue;
+        if (member.join_node_id != node_id ||
+            camp::find_unit(s_campaign_save.state, {member.persistent_id}) != nullptr) continue;
+        if (seed_pending) {
+            operations.push_back(camp::set_world_flag(character::starting_seed_key(package),
+                {camp::WorldValueType::integer, static_cast<std::int64_t>(seed)}));
+            seed_pending = false;
+        }
         operations.push_back(camp::recruit_unit(
             camp::PersistentEntityId{member.persistent_id},
             content_ref(
@@ -539,6 +550,10 @@ std::vector<std::uint64_t> append_recruitment_at(
                 member.unit_type_id
             )
         ));
+        const auto progression = grandleon_generated_progression(member.unit_type_id);
+        character::append_character_start(operations,
+            content_ref(grandleon::core::ContentCategory::unit_type, member.unit_type_id),
+            {member.persistent_id}, member.start, {member.starting_ranges, false}, progression.progression, seed);
         for (const auto item : member.starting_items) {
             operations.push_back(camp::add_item({member.persistent_id},
                 content_ref(grandleon::core::ContentCategory::item, item), 1U));
@@ -1919,7 +1934,7 @@ bool complete_battle(bool victory, bool force_pending = false) {
         ));
     }
     const std::vector<std::uint64_t> joined = append_recruitment_at(
-        grandleon_generated_current_encounter_id, operations
+        s_campaign_save.state.progress.active_node.stable_id, operations
     );
     character::append_item_grants(operations, s_campaign_graph.campaign.package_id,
         grandleon_generated_campaign_grants(), s_campaign_save.state.progress.active_node.stable_id);
@@ -2224,6 +2239,9 @@ bool start_encounter() {
         }
     }
     std::vector<sim::UnitId> excluded;
+    const auto starting_seed = character::starting_seed(s_campaign_save.state, s_campaign_graph.campaign.package_id);
+    if (starting_seed != 0) definition.starting_stat_seed = grandleon::core::random_draw(starting_seed,
+        grandleon::core::RandomStream::growth, definition.starting_stat_seed);
     for (auto& unit : definition.units) {
         if (!s_campaign_save.state.progress.active) break;
         const auto source_id = grandleon_generated_unit_source(unit.id);
@@ -2236,6 +2254,9 @@ bool start_encounter() {
             }
             const auto* record = camp::find_unit(s_campaign_save.state, persistent);
             if (record != nullptr) {
+                if (grandleon_generated_uses_starting_stats) {
+                    character::apply_starting_stats(unit, s_campaign_save.state, record->definition, persistent);
+                }
                 character::apply_authored_specificity(unit, member.specificity);
                 character::apply_roster_growth(unit, record->progression);
                 if (!character::apply_member_kit(unit, *record, &member.rules,
@@ -2864,6 +2885,8 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
                 output->counter = forecast.counter ? 1 : 0;
                 output->counter_chance = forecast.counter_chance;
                 output->counter_damage = forecast.counter_damage;
+                output->role_damage = forecast.role_damage;
+                output->counter_role_damage = forecast.counter_role_damage;
             }
         }
     } else if (s_mode == InputMode::ability && actor && s_action_content != 0U) {
@@ -3110,6 +3133,7 @@ extern "C" const char* grandleon_game_text(uint8_t text_id) {
         case GRANDLEON_TEXT_GIVE: return ui(console::Message::give);
         case GRANDLEON_TEXT_TAKE: return ui(console::Message::return_supply);
         case GRANDLEON_TEXT_PACK: return ui(console::Message::pack);
+        case GRANDLEON_TEXT_ROLE_MODIFIER: return ui(console::Message::role_modifier);
         case GRANDLEON_TEXT_NEW_GAME:
             return ui(console::Message::new_game);
         case GRANDLEON_TEXT_CONTINUE:

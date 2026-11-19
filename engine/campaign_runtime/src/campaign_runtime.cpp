@@ -287,6 +287,9 @@ void apply_roster_join(
         // the aid is for walking a campaign through rather than for freezing one.
         unit.endures = result.encounter.company_endures;
         // What the author made of them, then what the campaign did.
+        if (starting_seed(state, record->definition.package_id) != 0) {
+            apply_starting_stats(unit, state, record->definition, member);
+        }
         const package_runtime::MemberSpecificity* const authored =
             specificity_of(unit.id);
         if (authored != nullptr) {
@@ -311,6 +314,11 @@ void apply_roster_join(
             result.load_error=package_runtime::EncounterLoadError::malformed_payload;
             return;
         }
+    }
+    if (package != nullptr) {
+        const auto seed = starting_seed(state, package->game_id);
+        if (seed != 0) result.encounter.definition.starting_stat_seed = core::random_draw(seed,
+            core::RandomStream::growth, result.encounter.definition.starting_stat_seed);
     }
     if (package != nullptr && !package_runtime::resolve_carried_equipment(*package, result.encounter.definition)) {
         result.error = RosterError::encounter_rejected;

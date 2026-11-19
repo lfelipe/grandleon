@@ -883,6 +883,14 @@ CampaignMember read_member(
                           "expected inherit, permanent, withdraw, or loseBattle");
     }
 
+    if (const auto level = mapper.integer(*object, "startingLevel", path, 1, core::maximum_starting_level, false)) {
+        member.start.level = static_cast<std::uint8_t>(*level);
+    }
+    if (const auto* fixed = mapper.member(*object, "fixedStartingStats", path, false)) {
+        if (const auto* flag = std::get_if<bool>(&fixed->value)) member.start.fixed_stats = *flag;
+        else mapper.error(SourceDiagnosticCode::invalid_value, path + ".fixedStartingStats", "expected a boolean");
+    }
+
     // What makes this character more than their class, if the author said
     // anything. Read as written and not checked here: whether a delta is
     // reachable depends on the class it lands on, which this pass does not
@@ -1359,6 +1367,30 @@ SourceParseResult parse_source_project_json(std::string_view json) {
             }
         }
     }
+    if (const auto* authored = mapper.member(*root, "roleMatchups", "$", false)) {
+        const std::string path = "$.roleMatchups";
+        if (const auto* fields = mapper.object(*authored, path)) {
+            auto& rule = mapper.result.source.role_matchups;
+            const auto damage = mapper.integer(*fields, "damage", path, 1, core::RoleMatchups::maximum_damage);
+            if (damage) rule.damage = static_cast<std::int16_t>(*damage);
+            if (const auto* enabled = mapper.member(*fields, "enabled", path, false)) {
+                if (const auto* value = std::get_if<bool>(&enabled->value)) {
+                    mapper.result.source.role_matchups_enabled = *value;
+                } else {
+                    mapper.error(SourceDiagnosticCode::invalid_value, path + ".enabled", "expected a boolean");
+                }
+            }
+            if (const auto* pairs = mapper.array(*fields, "pairs", path)) {
+                for (std::size_t index = 0; index < pairs->size(); ++index) {
+                    const auto pair_path = path + ".pairs[" + std::to_string(index) + "]";
+                    if (const auto* pair = mapper.object((*pairs)[index], pair_path)) {
+                        rule.pairs.push_back({mapper.reference(*pair, "strongRoleId", pair_path),
+                                              mapper.reference(*pair, "weakRoleId", pair_path)});
+                    }
+                }
+            }
+        }
+    }
     mapper.result.source.required_engine = {{0, 1, 0}, {0, 1, 99}};
 
     mapper.result.source.weapon_types =
@@ -1757,6 +1789,29 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                             if (chance) {
                                 result.growth.chance[index] =
                                     static_cast<std::uint8_t>(*chance);
+                            }
+                        }
+                    }
+                }
+                if (const auto* authored = mapper.member(value, "startingStats", path, false)) {
+                    const auto stats_path = path + ".startingStats";
+                    if (const auto* fields = mapper.object(*authored, stats_path)) {
+                        if (const auto* varying = mapper.member(*fields, "varyEnemies", stats_path, false)) {
+                            if (const auto* flag = std::get_if<bool>(&varying->value)) result.starting_stats.vary_enemies = *flag;
+                            else mapper.error(SourceDiagnosticCode::invalid_value, stats_path + ".varyEnemies", "expected a boolean");
+                        }
+                        for (std::size_t index = 0; index < core::starting_stat_count; ++index) {
+                            const auto stat = specific_stat_name(static_cast<SpecificStat>(index));
+                            if (const auto* range = mapper.member(*fields, stat, stats_path, false)) {
+                                const auto range_path = stats_path + "." + std::string(stat);
+                                if (const auto* bounds = mapper.object(*range, range_path)) {
+                                    const auto low = mapper.integer(*bounds, "minDelta", range_path,
+                                        -core::maximum_starting_offset, core::maximum_starting_offset);
+                                    const auto high = mapper.integer(*bounds, "maxDelta", range_path,
+                                        -core::maximum_starting_offset, core::maximum_starting_offset);
+                                    if (low && high) result.starting_stats.ranges[index] = {
+                                        static_cast<std::int16_t>(*low), static_cast<std::int16_t>(*high)};
+                                }
                             }
                         }
                     }
@@ -7704,12 +7759,14 @@ SourceTextResult set_source_campaign_member_rules_json(
         return result;
     }
     for (const auto& entry : *fields) {
-        if (entry.first != "weaponAffinityTypeIds" && entry.first != "startingWeaponIds" && entry.first != "defeatPolicy" && entry.first != "carryCapacity") {
+        if (entry.first != "weaponAffinityTypeIds" && entry.first != "startingWeaponIds" && entry.first != "defeatPolicy" && entry.first != "carryCapacity" &&
+            entry.first != "startingLevel" && entry.first != "fixedStartingStats") {
             refuse_edit(result, SourceDiagnosticCode::invalid_value, member_path, "unknown character rule");
             return result;
         }
     }
-    for (const char* key : {"weaponAffinityTypeIds", "startingWeaponIds", "defeatPolicy", "carryCapacity"}) {
+    for (const char* key : {"weaponAffinityTypeIds", "startingWeaponIds", "defeatPolicy", "carryCapacity",
+                            "startingLevel", "fixedStartingStats"}) {
         const auto value = fields->find(key);
         if (value == fields->end()) member->erase(key);
         else (*member)[key] = value->second;

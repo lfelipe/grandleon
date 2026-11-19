@@ -802,6 +802,26 @@ EncounterLoadResult load_encounter(
     if (!read_abilities(package, result.definition.abilities)) {
         return fail(EncounterLoadError::malformed_payload);
     }
+    result.definition.starting_stat_seed = encounter_id;
+    if (const auto* record = package.find(SectionType::role_matchups, package_format::role_matchups_record_id)) {
+        Reader values(package, *record);
+        std::uint16_t damage = 0, count = 0;
+        auto& matchups = result.definition.role_matchups;
+        if (!values.u16(damage) || damage == 0 || damage > core::RoleMatchups::maximum_damage ||
+            !values.u16(count) || count == 0 || count > core::RoleMatchups::maximum_pairs) {
+            return fail(EncounterLoadError::malformed_payload);
+        }
+        matchups.damage = static_cast<std::int16_t>(damage);
+        matchups.pairs.resize(count);
+        for (auto& pair : matchups.pairs) {
+            if (!values.u64(pair.strong) || !values.u64(pair.weak) ||
+                !package.find(SectionType::unit_types, pair.strong) ||
+                !package.find(SectionType::unit_types, pair.weak)) {
+                return fail(EncounterLoadError::malformed_payload);
+            }
+        }
+        if (!values.finished() || !matchups.valid()) return fail(EncounterLoadError::malformed_payload);
+    }
     core::EnemyLevels default_enemy_levels;
     std::map<std::uint64_t, core::EnemyLevels> enemy_levels;
     if (const auto* levels = package.find(SectionType::enemy_levels, encounter_id)) {
@@ -1012,6 +1032,7 @@ EncounterLoadResult load_encounter(
             placement_levels = level_override->second;
             enemy_levels.erase(level_override);
         }
+        core::RoleStartingStats starting_stats{};
         if (encoded_side == 2U) {
             const auto level = core::effective_enemy_level(
                 default_enemy_levels, placement_levels, local_players > 1U
@@ -1020,6 +1041,9 @@ EncounterLoadResult load_encounter(
                 const auto progression = load_unit_progression(package, unit_type_id);
                 if (!progression) return fail(EncounterLoadError::malformed_payload);
                 project_enemy_stats(stats, progression.progression, level);
+                if (!load_role_starting_stats(package, unit_type_id, starting_stats)) {
+                    return fail(EncounterLoadError::malformed_payload);
+                }
             }
         }
         const auto scaling = minimum_players.find(instance_id);
@@ -1092,6 +1116,7 @@ EncounterLoadResult load_encounter(
             }
         );
         auto& loaded_unit = result.definition.units.back();
+        if (starting_stats.vary_enemies) loaded_unit.enemy_stat_ranges = starting_stats.ranges;
         const auto inventory = unit_inventory_rules(package,unit_type_id);
         loaded_unit.drop_gold = inventory.drop_gold;
         loaded_unit.drop_weapon_id = inventory.drop_weapon_id;

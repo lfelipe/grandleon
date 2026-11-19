@@ -3804,13 +3804,18 @@ func _open_forces(placement_id := "") -> void:
 	forces_layer.visible = true
 	_update_forces_view()
 	var focus := forces_first_button if placement_id.is_empty() or forces_growth_button.disabled else forces_growth_button
-	focus.call_deferred("grab_focus")
+	(func():
+		if is_instance_valid(focus) and focus.is_visible_in_tree(): focus.grab_focus()
+	).call_deferred()
 
 
 func _close_forces() -> void:
 	forces_layer.visible = false
 	setup_layer.visible = true
-	setup_first_button.call_deferred("grab_focus")
+	(func():
+		if is_instance_valid(setup_first_button) and setup_first_button.is_visible_in_tree():
+			setup_first_button.grab_focus()
+	).call_deferred()
 
 
 func _collect_force_candidates(preferred_id := "") -> void:
@@ -4069,8 +4074,24 @@ func _refresh_force_level_preview() -> void:
 			)
 			lines.append(_t("map.forces.levels_preview", {"players": players, "level": stats.level}))
 			var values: PackedStringArray = []
-			for key: String in ["health", "strength", "defense", "resistance", "movement", "actionPoints", "skill", "luck", "evasion", "magic"]:
-				values.append("%s %d" % [_t("army.stat." + ("actions" if key == "actionPoints" else key)), stats[key]])
+			var starting: Dictionary = role.get("startingStats", {})
+			var varies := int(stats.level) > 1 and bool(starting.get("varyEnemies", false))
+			for key: String in ["health", "strength", "defense", "resistance", "movement", "actionPoints", "skill", "luck", "evasion", "magic", "speed"]:
+				# Speed can vary at the start, but it has no level growth.
+				var total := int(stats.get(key, profile.get("baseStats", {}).get(key, 1)))
+				var shown := str(total)
+				var limits: Dictionary = starting.get(key, {})
+				if varies and not limits.is_empty():
+					var maximum := 32767
+					if key in ["movement", "actionPoints", "speed"]:
+						maximum = 255
+					elif key in ["strength", "defense", "resistance", "magic"]:
+						maximum = 16383
+					var minimum := 1 if key in ["health", "movement", "actionPoints", "speed"] else 0
+					var low := clampi(total + int(limits.minDelta), minimum, maximum)
+					var high := clampi(total + int(limits.maxDelta), minimum, maximum)
+					shown = str(low) if low == high else "%d–%d" % [low, high]
+				values.append("%s %s" % [_t("army.stat." + ("actions" if key == "actionPoints" else key)), shown])
 			lines.append("  ·  ".join(values))
 		forces_levels_preview.text = "\n".join(lines)
 		return

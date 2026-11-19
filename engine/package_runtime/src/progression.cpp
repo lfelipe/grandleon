@@ -72,6 +72,24 @@ private:
 
 }  // namespace
 
+bool load_role_starting_stats(const LoadedPackage& package, std::uint64_t unit_type_id,
+                              core::RoleStartingStats& stats) {
+    stats = {};
+    const auto* record = package.find(SectionType::starting_stat_ranges, unit_type_id);
+    if (!record) return true;
+    Reader reader(package, *record);
+    std::uint8_t varying = 0;
+    if (!reader.u8(varying) || varying > 1U) return false;
+    stats.vary_enemies = varying != 0;
+    for (auto& range : stats.ranges) {
+        std::uint16_t low = 0, high = 0;
+        if (!reader.u16(low) || !reader.u16(high)) return false;
+        range = {static_cast<std::int16_t>(low), static_cast<std::int16_t>(high)};
+        if (!range.valid()) return false;
+    }
+    return reader.finished() && stats.authored();
+}
+
 UnitProgressionLoad load_unit_progression(
     const LoadedPackage& package,
     std::uint64_t unit_type_id

@@ -91,6 +91,7 @@ enum class Message : std::uint8_t {
     level_up,
     battle_rewards,
     return_supply,
+    role_modifier,
     fell,
     joined,
     company_buries,
@@ -617,6 +618,10 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
             return selected == Language::spanish ? "DEVOLVER"
                  : selected == Language::portuguese_brazil ? "DEVOLVER"
                  : "RETURN";
+        case Message::role_modifier:
+            return selected == Language::spanish ? "ROL"
+                 : selected == Language::portuguese_brazil ? "FUNÇÃO"
+                 : "ROLE";
         case Message::fell:
             return selected == Language::spanish ? "CAÍDOS"
                  : selected == Language::portuguese_brazil ? "CAÍDOS"

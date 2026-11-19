@@ -2,6 +2,7 @@
 #pragma once
 
 #include <grandleon/campaign/outcome.hpp>
+#include <grandleon/core/starting_stats.hpp>
 #include <grandleon/package_runtime/progression.hpp>
 #include <grandleon/package_runtime/specificity.hpp>
 #include <grandleon/simulation/encounter.hpp>
@@ -101,6 +102,20 @@ struct BattleExperienceSource final {
 
 void apply_roster_growth(simulation::UnitDefinition& unit,
                          const campaign::Progression& progression) noexcept;
+
+[[nodiscard]] campaign::DefinitionRef starting_seed_key(const core::PackageId& package) noexcept;
+
+[[nodiscard]] std::uint64_t starting_seed(const campaign::CampaignState& state,
+                                          const core::PackageId& package) noexcept;
+
+void append_character_start(std::vector<campaign::CampaignOutcomeOperation>& operations,
+    const campaign::DefinitionRef& role, campaign::PersistentEntityId member,
+    const core::CharacterStart& start, const core::RoleStartingStats& stats,
+    const package_runtime::UnitProgression& progression, std::uint64_t seed);
+
+void apply_starting_stats(simulation::UnitDefinition& unit, const campaign::CampaignState& state,
+    const campaign::DefinitionRef& role, campaign::PersistentEntityId member) noexcept;
+
 
 void apply_authored_specificity(
     simulation::UnitDefinition& unit,

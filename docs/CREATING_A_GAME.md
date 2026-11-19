@@ -103,6 +103,9 @@ stay in the pack; the choice applies to that attack.
 Use **Gear → Combat Design** to give a weapon family an edge over another.
 Set how much damage and hit chance the edge adds, then preview an attacker
 and defender. Changing the weapon used for an attack can change the matchup.
+Use **Edit Heroes → Tune Role → Role Matchups** to base matchups on roles
+instead. Each pair applies in both directions, and the attack forecast shows
+its effect on the attack and counter. Campaigns use one approach at a time.
 
 To give characters levels, open **Edit Heroes → Tune Role → Growth &
 Rewards**. Set how much XP a hero needs per level and the chance each stat
@@ -113,6 +116,12 @@ a healer’s role to reward restoring missing HP to another ally. The healer
 can earn that reward once per turn, even when a spell heals several allies.
 Open a whole-adventure playtest to see the new stats in the next battle.
 
+Use **Tune Role → Starting Stats** to set a minimum and maximum and compare
+another role alongside it. Players keep each hero’s roll throughout a
+campaign. In **Personal Rules**, choose a hero’s starting level or use the
+role’s exact stats plus any personal modifiers. The starting level applies
+when the hero first joins, including late recruits.
+
 Use **Opening Forces & Waves → Enemy Levels** to set a level for the battle’s
 enemies. A specific enemy or recurring wave can override it. Set a separate
 2P level when you want stronger opponents alongside the extra 2P units.
@@ -120,7 +129,8 @@ Enter 0 in an override to inherit the ordinary value. The preview shows
 the resulting stats for each mode. Enemy levels use the role’s average
 growth, rounded to whole points. Level 1 uses the role’s base stats.
 Set growth chances in **Growth & Rewards** if higher levels should change
-the role’s stats.
+the role’s stats. Open **Starting Stats** from there to allow extra variation
+above level 1. **Enemy Levels** then shows the resulting ranges.
 
 **Edit Objective** explains the actual win or loss rule. Choose **This Battle**,
 **Reuse**, or **Create**. A target goal starts with a suitable enemy or ally.
@@ -144,7 +154,6 @@ own map, opponents, objectives, reinforcements and 1P/2P setup. If the current
 battle has several outcomes, use **Continue On** to choose which route leads
 through the new stage.
 
-Use **Army → Roles → Growth & Rewards** to adjust XP awards and stat growth.
 After a battle that awards XP, the player shows who earned it and any new
 levels. Heroes bring those gains into later stages.
 

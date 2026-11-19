@@ -1398,6 +1398,8 @@ bool GrandleonSession::launch_worker() {
             options.player_side = sim::Side::first;
             options.local_players = players;
             options.checkpoint_before_battle = true;
+            options.starting_stat_seed = static_cast<std::uint64_t>(
+                std::chrono::steady_clock::now().time_since_epoch().count());
             const client::CampaignSessionError status =
                 client::run_persistent_campaign(
                     package_, campaign_id, *presenter, *presenter, *device,
@@ -1419,6 +1421,8 @@ bool GrandleonSession::launch_worker() {
                 client::CampaignSessionOptions options;
                 options.slot = "preview";
                 options.local_players = players;
+                options.starting_stat_seed = static_cast<std::uint64_t>(
+                    std::chrono::steady_clock::now().time_since_epoch().count());
                 const auto status = client::run_persistent_campaign(
                     package_, campaign_id, *presenter, *presenter, temporary, options
                 );
@@ -1777,6 +1781,8 @@ gd::Dictionary GrandleonSession::forecast_attack(
     result["counter"] = forecast.counter;
     result["counter_chance"] = forecast.counter_chance;
     result["counter_damage"] = forecast.counter_damage;
+    result["role_damage"] = forecast.role_damage;
+    result["counter_role_damage"] = forecast.counter_role_damage;
     result["attacker_health_after"] = forecast.attacker_health_after;
     return result;
 }

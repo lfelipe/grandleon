@@ -291,6 +291,13 @@ func _index_gear() -> void:
 
 
 func _index_units() -> void:
+	var matchups := _dictionary(_project.get("roleMatchups", {}))
+	var pairs := _array(matchups.get("pairs", []))
+	for index in pairs.size():
+		var pair := _dictionary(pairs[index])
+		for key in ["strongRoleId", "weakRoleId"]:
+			_record("unit_type", str(pair.get(key, "")), "Army",
+				"A combat matchup uses this role.", "$.roleMatchups.pairs[%d].%s" % [index, key], "", "")
 	var units := _array(_project.get("unitTypes", []))
 	for index in units.size():
 		var value: Variant = units[index]

@@ -4,6 +4,8 @@
 #include <grandleon/core/random.hpp>
 #include <grandleon/core/content_identity.hpp>
 #include <grandleon/core/hidden_item.hpp>
+#include <grandleon/core/role_matchups.hpp>
+#include <grandleon/core/starting_stats.hpp>
 
 #include <cstdint>
 #include <string_view>
@@ -496,8 +498,11 @@ struct UnitDefinition final {
     // Campaign loss policy: permanent casualties leave their owned equipment
     // at their tile; recoverable characters retain their personal pack.
     bool drop_inventory_on_defeat{false};
+    core::StartingStatRanges enemy_stat_ranges{};
 
 };
+
+void apply_stat_offsets(UnitDefinition& unit, const core::StartingStatOffsets& offsets) noexcept;
 
 // The most arrivals one authored character may make. A bound rather than a
 // taste: the recurrence is expanded into real characters, so a wave with no
@@ -626,6 +631,8 @@ struct EncounterDefinition final {
     InventoryMode inventory_mode{InventoryMode::legacy};
     std::vector<TalkReply> talk_replies{};
     std::vector<core::HiddenItem> hidden_items{};
+    core::RoleMatchups role_matchups{};
+    std::uint64_t starting_stat_seed{};
 
 };
 
@@ -677,6 +684,7 @@ enum class CreateError : std::uint8_t {
     // would re-mean an existing refusal.
     invalid_weapon_type,
     invalid_inventory,
+    invalid_role_matchups,
 
 };
 
@@ -1109,6 +1117,7 @@ struct EncounterSnapshot final {
     // Victory is decided; optional local equipment collection remains open.
     bool collecting_loot{false};
     std::vector<core::HiddenItem> hidden_items{};
+    core::RoleMatchups role_matchups{};
 
 };
 
@@ -1573,6 +1582,8 @@ struct AttackForecast final {
     // which need not be the weapon the attack was made with. Meaningless when
     // `counter` is false, and left at `none` there.
     WeaponLean counter_lean{WeaponLean::none};
+    std::int16_t role_damage{};
+    std::int16_t counter_role_damage{};
 
     [[nodiscard]] explicit operator bool() const noexcept {
         return error == CommandError::none;

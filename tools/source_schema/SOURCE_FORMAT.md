@@ -21,6 +21,21 @@ shops, goods or prices to an existing project.
 Authors normally use the editor; the public files exist so projects stay
 portable, scriptable, source-controlled, and buildable headlessly.
 
+## Role matchups and starting stats
+
+A project can define `roleMatchups` with a damage adjustment and strong/weak
+role pairs. Each unordered pair appears once. The player applies the inverse
+adjustment in the reverse direction. Unlisted roles are neutral. Set
+`enabled` to false to select weapon-family rules and keep the stored pairs.
+
+A role's optional `startingStats` gives `minDelta` and `maxDelta` for a stat,
+relative to its class baseline. Both totals must fit the stat's allowed range.
+Characters keep their starting rolls in their campaign save. `varyEnemies`
+applies the same ranges after enemy growth for levels above one. A named
+character's `fixedStartingStats` uses the baseline plus personal modifiers.
+Their `startingLevel` includes growth and XP for each prior level and applies
+when they join.
+
 ## Carried inventories and enemy loot
 
 A campaign explicitly sets `inventoryMode: "carried"` to use personal physical

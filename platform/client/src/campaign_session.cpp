@@ -190,6 +190,9 @@ CampaignSessionError CampaignSession::begin(
     if (!authored) return CampaignSessionError::graph_rejected;
     graph_ = flow.source.graph;
     authored_ = std::move(authored.definition);
+    const auto seed = options_.starting_stat_seed;
+    options_.starting_stat_seed = core::saved_starting_seed(
+        seed != 0 ? seed : core::derive_random_seed(campaign_id_));
 
     // The company the author wrote, in the order they wrote it. The persistent
     // ids are one-based and follow that order: founding members first, then
@@ -218,6 +221,15 @@ CampaignSessionError CampaignSession::begin(
         };
         member.entry.availability = campaign::Availability::unrecruited;
         member.join_node_id = authored.join_node_id;
+        member.start = authored.start;
+        if (!pr::load_role_starting_stats(*package_, authored.unit_type_id, member.starting_stats)) {
+            return CampaignSessionError::roster_rejected;
+        }
+        if (member.start.level > 1) {
+            const auto progression = pr::load_unit_progression(*package_, authored.unit_type_id);
+            if (!progression) return CampaignSessionError::roster_rejected;
+            member.starting_progression = progression.progression;
+        }
         member.entry.defeat_policy = cr::member_defeat_policy(authored_, authored.id);
         // Everybody is assigned, including those who have not joined yet: a
         // board that places a future recruit leaves them off, because the
@@ -247,6 +259,11 @@ CampaignSessionError CampaignSession::begin(
         const std::vector<campaign::CampaignOutcomeOperation> stock =
             grants_at(0U);
         founding.insert(founding.end(), stock.begin(), stock.end());
+        if (package_->find(package_format::SectionType::starting_stat_ranges) ||
+            package_->find(package_format::SectionType::character_starts, campaign_id_)) {
+            founding.push_back(campaign::set_world_flag(cr::starting_seed_key(package_->game_id),
+                {campaign::WorldValueType::integer, static_cast<std::int64_t>(options_.starting_stat_seed)}));
+        }
         const campaign::CampaignOutcomeBatch batch = campaign::make_outcome_batch(
             {campaign::DefinitionRef{
                  package_->game_id,
@@ -407,14 +424,27 @@ std::vector<campaign::CampaignOutcomeOperation> CampaignSession::recruitment_at(
     std::uint64_t node_id
 ) const {
     std::vector<campaign::CampaignOutcomeOperation> operations;
+    const auto saved_seed = cr::starting_seed(live_.state, package_->game_id);
+    const auto seed = saved_seed == 0 ? options_.starting_stat_seed : saved_seed;
+    bool seed_pending = saved_seed == 0 && node_id != 0 &&
+        (package_->find(package_format::SectionType::starting_stat_ranges) != nullptr ||
+         package_->find(package_format::SectionType::character_starts) != nullptr);
     for (const AuthoredMember& member : members_) {
-        if (member.join_node_id != node_id) continue;
+        if (member.join_node_id != node_id ||
+            campaign::find_unit(live_.state, member.entry.member) != nullptr) continue;
+        if (seed_pending) {
+            operations.push_back(campaign::set_world_flag(cr::starting_seed_key(package_->game_id),
+                {campaign::WorldValueType::integer, static_cast<std::int64_t>(seed)}));
+            seed_pending = false;
+        }
         operations.push_back(
             campaign::recruit_unit(member.entry.member, member.entry.unit_type)
         );
         operations.push_back(campaign::set_availability(
             member.entry.member, campaign::Availability::available
         ));
+        cr::append_character_start(operations, member.entry.unit_type, member.entry.member,
+            member.start, member.starting_stats, member.starting_progression, seed);
         // And what their unit type says they arrive with, in the same batch, so
         // a member is stocked exactly when they join and never again. A unit
         // type the package cannot read is left unstocked rather than guessed

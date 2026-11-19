@@ -814,6 +814,18 @@ CompileResult compile(const GameSource& source) {
     const auto weapon_ids = id_set(source.weapons);
     const auto item_ids = id_set(source.items);
     const auto unit_type_ids = id_set(source.unit_types);
+    auto role_matchups = source.role_matchups;
+    std::sort(role_matchups.pairs.begin(), role_matchups.pairs.end(), [](const auto& left, const auto& right) {
+        return left.pair() < right.pair();
+    });
+    if (!role_matchups.valid()) {
+        result.diagnostics.push_back({DiagnosticCode::invalid_range, "roleMatchups.pairs", 0});
+    }
+    for (const auto& role_pair : role_matchups.pairs) {
+        if (!unit_type_ids.count(role_pair.strong) || !unit_type_ids.count(role_pair.weak)) {
+            result.diagnostics.push_back({DiagnosticCode::missing_reference, "roleMatchups.pairs", 0});
+        }
+    }
     const auto map_ids = id_set(source.maps);
     const auto ability_ids = id_set(source.abilities);
     const auto objective_ids = id_set(source.objectives);
@@ -955,6 +967,18 @@ CompileResult compile(const GameSource& source) {
         unit_types_by_id.emplace(definition.id, &definition);
         const std::string path =
             "unit_types[" + std::to_string(definition.id) + "]";
+        const auto base = classes_by_id.find(definition.class_id);
+        for (std::size_t index = 0; index < core::starting_stat_count; ++index) {
+            const auto& range = definition.starting_stats.ranges[index];
+            const auto stat = static_cast<SpecificStat>(index);
+            const auto bounds = bounds_of(stat);
+            const auto value = base == classes_by_id.end() ? 0 : base_of(base->second->base_stats, stat);
+            if (!range.valid() || (range.authored() && base != classes_by_id.end() &&
+                (value + range.low < bounds.minimum || value + range.high > bounds.maximum))) {
+                result.diagnostics.push_back({DiagnosticCode::invalid_range,
+                    path + ".startingStats." + std::string(specific_stat_name(stat)), definition.id});
+            }
+        }
         if (definition.character_archetype > archetype_unnamed) {
             result.diagnostics.push_back({
                 DiagnosticCode::invalid_range,
@@ -1751,6 +1775,9 @@ CompileResult compile(const GameSource& source) {
                 member, unit_types_by_id, classes_by_id, member_path,
                 result.diagnostics
             );
+            if (member.start.level == 0 || member.start.level > core::maximum_starting_level) {
+                result.diagnostics.push_back({DiagnosticCode::invalid_range, member_path + ".startingLevel", member.id});
+            }
             validate_references(member.weapon_affinities, weapon_type_ids,
                                 member_path + ".weapon_affinities", result.diagnostics);
             validate_references(member.starting_weapons, weapon_ids,
@@ -3011,6 +3038,20 @@ CompileResult compile(const GameSource& source) {
                       });
             return section;
         }(),
+        [&role_matchups, enabled = source.role_matchups_enabled]() {
+            package_format::SectionSource section;
+            section.type = package_format::SectionType::role_matchups;
+            if (!enabled || !role_matchups.active()) return section;
+            Bytes bytes;
+            put_u16(bytes, static_cast<std::uint16_t>(role_matchups.damage));
+            put_u16(bytes, static_cast<std::uint16_t>(role_matchups.pairs.size()));
+            for (const auto& pair : role_matchups.pairs) {
+                put_u64(bytes, pair.strong);
+                put_u64(bytes, pair.weak);
+            }
+            section.records.push_back({package_format::role_matchups_record_id, std::move(bytes)});
+            return section;
+        }(),
         // What is said during a battle, per encounter. Built by hand and pruned
         // for the talks section's reasons, and optional where that one is
         // required: a runtime that skips this plays the same battle without the
@@ -3382,6 +3423,39 @@ CompileResult compile(const GameSource& source) {
               [](const auto& lhs, const auto& rhs) { return lhs.stable_id < rhs.stable_id; });
     if (!healing_experience.records.empty()) {
         package.sections.push_back(std::move(healing_experience));
+    }
+    package_format::SectionSource starting_ranges;
+    starting_ranges.type = package_format::SectionType::starting_stat_ranges;
+    for (const auto& unit : source.unit_types) {
+        if (!unit.starting_stats.authored()) continue;
+        Bytes bytes{static_cast<std::uint8_t>(unit.starting_stats.vary_enemies)};
+        for (const auto& range : unit.starting_stats.ranges) {
+            put_u16(bytes, static_cast<std::uint16_t>(range.low));
+            put_u16(bytes, static_cast<std::uint16_t>(range.high));
+        }
+        starting_ranges.records.push_back({unit.id, std::move(bytes)});
+    }
+    package_format::SectionSource character_starts;
+    character_starts.type = package_format::SectionType::character_starts;
+    for (const auto& campaign : source.campaigns) {
+        const auto count = std::count_if(campaign.roster.begin(), campaign.roster.end(),
+            [](const CampaignMember& member) { return member.start.authored(); });
+        if (count == 0) continue;
+        Bytes bytes;
+        put_u16(bytes, static_cast<std::uint16_t>(count));
+        for (const auto& member : campaign.roster) {
+            if (!member.start.authored()) continue;
+            put_u64(bytes, member.id);
+            bytes.push_back(member.start.level);
+            bytes.push_back(static_cast<std::uint8_t>(member.start.fixed_stats));
+        }
+        character_starts.records.push_back({campaign.id, std::move(bytes)});
+    }
+    for (auto* section : {&starting_ranges, &character_starts}) {
+        if (section->records.empty()) continue;
+        std::sort(section->records.begin(), section->records.end(),
+            [](const auto& lhs, const auto& rhs) { return lhs.stable_id < rhs.stable_id; });
+        package.sections.push_back(std::move(*section));
     }
 
     if (source.show_end_statistics) {

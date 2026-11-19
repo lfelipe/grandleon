@@ -134,6 +134,26 @@ func test_campaign_from_new_project() -> void:
 		growth.apply()
 		army._close_growth()
 		army._close_role()
+	# Give only the founding hero a modest HP range.
+	army.member_select.select(0)
+	army.member_select.item_selected.emit(0)
+	army._open_role()
+	army.starting_stats_button.pressed.emit()
+	var starts = army.starting_stats_editor
+	army._select_metadata(starts.peer, "second_hero")
+	starts.peer.item_selected.emit(starts.peer.selected)
+	check(starts.inputs.health.comparison.text.is_valid_int(), "author can compare starting stats with another role")
+	var health: int = starts.inputs.health.minimum.value
+	starts.inputs.health.minimum.get_line_edit().text = str(health + 3)
+	starts.inputs.health.maximum.get_line_edit().text = str(health + 1)
+	starts.apply_button.pressed.emit()
+	check(starts.visible and not starts.feedback.text.is_empty(), "reversed starting range stays open with feedback")
+	starts.inputs.health.minimum.get_line_edit().text = str(health + 1)
+	starts.inputs.health.maximum.get_line_edit().text = str(health + 3)
+	starts.apply_button.pressed.emit()
+	check(not starts.visible and army._role_unit_type().get("startingStats", {}) == {"health": {"minDelta": 1, "maxDelta": 3}},
+		"author sets starting ranges as totals and saves them relative to the role")
+	army._close_role()
 	army._request_maps()
 	await settle()
 	current_scene.sides_button.pressed.emit()
@@ -268,7 +288,8 @@ func test_campaign_from_new_project() -> void:
 			if chapter == 2:
 				author_wave(editor, "raider_south", 3, true)
 				author_wave(editor, "raider_coop", 5, false)
-				author_enemy_levels(editor)
+				await author_enemy_levels(editor)
+				editor = current_scene
 		check(editor._save(), "battle %d saves its goals and placements" % (chapter + 1))
 		await settle()
 		if chapter == 1:
@@ -278,12 +299,36 @@ func test_campaign_from_new_project() -> void:
 			editor._request_projects()
 		await settle()
 
+	await author_role_matchup()
 	var authored: String = library.load_source(context.project_id).source
 	var package := verify_exports(authored)
 	if package.is_empty(): return
 	for players: int in [1, 2]:
 		await play_exported_campaign(package, players)
 	check(library.load_source(context.project_id).source == authored, "playing both exported modes preserves the authoring project")
+
+
+func author_role_matchup() -> void:
+	context.member_id = "aren"
+	change_scene_to_file("res://army_editor.tscn")
+	await settle()
+	var army = current_scene
+	army._open_role()
+	army.role_matchups_button.pressed.emit()
+	var panel = army.role_matchups_editor
+	check(panel.visible and panel.role_id == "first_hero", "Tune Role opens matchups for the selected hero")
+	army._select_metadata(panel.opponent, "raider")
+	panel.opponent.item_selected.emit(panel.opponent.selected)
+	panel.damage.get_line_edit().text = "2"
+	panel.damage.apply()
+	panel.relation.select(1)
+	panel.relation.item_selected.emit(1)
+	check(panel.preview.text.contains("+2") and panel.preview.text.contains("-2"), "author sees both sides of the matchup")
+	panel.enabled.button_pressed = false
+	check(panel.preview.text.contains("weapon families"), "the author can switch to weapon-family rules and keep the matchup")
+	panel.enabled.button_pressed = true
+	panel.apply_button.pressed.emit()
+	check(not panel.visible and army._save(), "apply and save author the role matchup")
 
 
 func author_goal(editor, rounds := 0) -> void:
@@ -365,6 +410,25 @@ func author_enemy_levels(editor) -> void:
 		not editor.forces_levels_preview.text.contains("1P · LEVEL") and
 		editor.forces_levels_preview.text.contains("HEALTH 11"),
 		"the co-op-only wave previews its own level in 2P")
+	editor.forces_growth_button.pressed.emit()
+	await settle()
+	var army = current_scene
+	check(army.scene_file_path == "res://army_editor.tscn" and army.role_unit_type_id == "raider",
+		"the selected reinforcement opens its own role for editing")
+	army.growth_starting_stats_button.pressed.emit()
+	var stats_panel = army.starting_stats_editor
+	stats_panel.vary_enemies.button_pressed = true
+	stats_panel.inputs.magic.minimum.get_line_edit().text = "1"
+	stats_panel.inputs.magic.maximum.get_line_edit().text = "3"
+	stats_panel.apply_button.pressed.emit()
+	check(not stats_panel.visible, "the enemy role saves leveled variation")
+	army._close_growth()
+	await settle()
+	editor = current_scene
+	check(editor._selected_force().id == "raider_coop", "returning preserves the selected co-op reinforcement")
+	editor.forces_levels_button.pressed.emit()
+	check(editor.forces_levels_preview.text.contains("MAGIC 1–3"),
+		"the selected reinforcement previews the authored stat range")
 	editor._close_forces()
 
 
@@ -509,6 +573,7 @@ func play_exported_campaign(package: PackedByteArray, players: int) -> void:
 	var attacks := 0
 	var saw_victory_scene := false
 	var saw_defeat_scene := false
+	var saw_market_matchup := false
 	var deadline := Time.get_ticks_msec() + 70000
 	while (not player.campaign_complete or player._dialogue_visible()) and Time.get_ticks_msec() < deadline:
 		await process_frame
@@ -559,6 +624,8 @@ func play_exported_campaign(package: PackedByteArray, players: int) -> void:
 				for unit: Dictionary in player.snapshot.units:
 					if unit.side == "first":
 						opening_health[unit.name] = int(unit.maximum_health)
+						if unit.name == "Aren":
+							check(int(unit.maximum_health) >= 14 and int(unit.maximum_health) <= 16, "a founding hero rolls within the authored HP range")
 				var crew: Array = player.snapshot.units.filter(func(unit): return unit.side == "first" and unit.name == "Mira")
 				check(crew.size() == 1 and int(crew[0].x) == players and int(crew[0].y) == 4, "exported %dP uses its authored starting formation" % players)
 				var enemies: Array = player.snapshot.units.filter(func(unit): return unit.side == "second" and unit.on_board)
@@ -612,7 +679,12 @@ func play_exported_campaign(package: PackedByteArray, players: int) -> void:
 				for enemy: Dictionary in player.snapshot.units:
 					if enemy.side != "second" or not enemy.on_board: continue
 					if stage == 4 and int(enemy.id) != boss_id: continue
-					if not player.session.forecast_attack(int(unit.id), int(enemy.id)).get("available", false): continue
+					var forecast: Dictionary = player.session.forecast_attack(int(unit.id), int(enemy.id))
+					if not forecast.get("available", false): continue
+					if stage == 3 and int(forecast.get("role_damage", 0)) == 2:
+						saw_market_matchup = true
+						if forecast.counter:
+							check(int(forecast.counter_role_damage) == -2, "the role disadvantage also appears on the counter")
 					target = enemy
 					break
 			if target.is_empty():
@@ -622,6 +694,7 @@ func play_exported_campaign(package: PackedByteArray, players: int) -> void:
 				if stage == 4: attacks += 1
 			break
 	check(visited == battle_ids and shop_checked, "the exported %dP game plays all five battles in order, including the shop" % players)
+	check(saw_market_matchup, "Flood Market forecasts the authored role matchup in %dP" % players)
 	var expected_arrivals := [3, 6, 9] if players == 1 else [3, 5, 6, 9]
 	check(held_rounds == 20 and arrivals == expected_arrivals, "%dP holds through round 20 with the authored waves: %s" % [players, arrivals])
 	check(reached and entered and revealed, "moving a hero through the doorway reveals the castle in %dP" % players)

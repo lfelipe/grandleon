@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include <grandleon/core/starting_stats.hpp>
 #include <grandleon/package_format/package.hpp>
 #include <grandleon/package_runtime/specificity.hpp>
 #include <grandleon/package_runtime/member_rules.hpp>
@@ -104,6 +105,7 @@ struct CampaignMember final {
     // positional aggregate initializers retain their meaning.
     bool player_nameable{false};
     MemberRules rules;
+    core::CharacterStart start{};
 
     // The name, read out of the package it was decoded from. Empty for a
     // member with no name, and empty when the package handed in is not the one

@@ -98,14 +98,12 @@ starter. Keep the same project through export.
    and Skirmishers can wear down Pike Guards. Give the crew a Pike Guard,
    a Skirmisher and a Rider. The healer fights as usual.”
 
-   **Where to look** · Proposed **Army → Roles → Matchups**. Pick a role and
-   who it is strong against. When Pike Guard gains an edge over Rider,
-   Rider’s **Weak against** list shows Pike Guard automatically. Add the other
-   two relationships and review all three together. Use one campaign-wide
-   damage adjustment and leave the healer’s matchups neutral. To try the
-   route design today, give each of the three roles a distinct weapon family.
-   In **Gear → Combat Design**, choose the two families and use **Mark as
-   Strong Against** for each of the three pairs.
+   **Where to look** · **Edit Heroes → Tune Role → Role Matchups**.
+   With Pike Guard selected, choose Rider and mark **Strong against**.
+   The preview shows Rider’s reciprocal disadvantage immediately.
+   Add the other two relationships and review the full list. Start with
+   two points of damage and leave the healer’s pairs empty. Use the role
+   toggle to compare with the weapon-family rules from **Gear → Combat Design**.
 
    **Check** · In both 1P and 2P, the player can send the Pike Guard down the
    street to intercept the foreman, send the Skirmisher through the garden
@@ -124,7 +122,7 @@ starter. Keep the same project through export.
    veterans should feel tougher than the first guards. At Sluice Hall I want
    the boss’s strength to be predictable.”
 
-   **Where to look** · Today, use **Edit Heroes → Tune Role → Growth &
+   **Where to look** · Use **Edit Heroes → Tune Role → Growth &
    Rewards** to set XP per level and each stat’s chance to improve. From
    **Battle Setup → Opening Forces & Waves**, select a guard and open
    **Growth & Rewards** to set how much XP that enemy is worth. Set guards
@@ -141,12 +139,14 @@ starter. Keep the same project through export.
    when they arrive in play. Choose level 1 and a dedicated role for a boss
    with a hand-tuned stat line.
 
-   **Prototype to try** · Give Iona’s role base Strength 8 with a range of
-   7–9, and Fen’s base Strength 3 with a range of 2–4. Give Fen a higher
-   growth chance for a support stat such as Resistance. Under **Tune Role**,
-   preview the full starting ranges and examples side by side. Let a named
-   character use the role’s range or exact starting values, and let a late
-   recruit join at an authored level.
+   Under **Tune Role → Starting Stats**, give Iona’s role base Strength 8
+   with a range of 7–9, and Fen’s base Strength 3 with a range of 2–4.
+   Compare both ranges side by side. Set Fen’s Resistance growth in **Growth
+   & Rewards**. Open **Personal Rules** to give Iona fixed starting stats
+   and to give a late recruit a starting level. For a Pump House guard,
+   open **Growth & Rewards → Starting Stats** from the selected enemy and
+   enable **Vary leveled enemies**. Return to **Enemy Levels** to see the
+   guard’s range in each mode.
 
    **Check** · Across new 1P and 2P runs, guards and heroes vary within their
    authored limits and retain their roles’ strengths. A save and resume

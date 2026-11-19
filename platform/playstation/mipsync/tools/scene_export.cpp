@@ -242,6 +242,8 @@ void write_campaign(
     write_id(output, campaign_id);
     output << ",\"show_end_statistics\":" << pr::show_end_statistics(package);
     output << ",\"inventory_mode\":" << static_cast<unsigned>(campaign.inventory_mode);
+    output << ",\"uses_starting_stats\":" << (package.find(pf::SectionType::starting_stat_ranges) != nullptr ||
+        package.find(pf::SectionType::character_starts, campaign_id) != nullptr);
     output << ",\"grants\":[";
     for (std::size_t row = 0; row < campaign.grants.size(); ++row) {
         const auto& grant = campaign.grants[row];
@@ -320,6 +322,19 @@ void write_campaign(
         output << ",\"name\":";
         write_string(output, member.name_in(package));
         output << ",\"player_nameable\":" << (member.player_nameable ? 1 : 0);
+        output << ",\"starting_level\":" << static_cast<unsigned>(member.start.level)
+               << ",\"fixed_starting_stats\":" << member.start.fixed_stats;
+        core::RoleStartingStats starting_stats;
+        (void)pr::load_role_starting_stats(package, member.unit_type_id, starting_stats);
+        if (starting_stats.authored()) {
+            output << ",\"starting_ranges\":[";
+            for (std::size_t index = 0; index < starting_stats.ranges.size(); ++index) {
+                if (index != 0) output << ',';
+                const auto& range = starting_stats.ranges[index];
+                output << '[' << range.low << ',' << range.high << ']';
+            }
+            output << ']';
+        }
         output << ",\"weapon_affinities\":"; write_numbers(output, member.rules.weapon_affinities);
         output << ",\"starting_weapons\":"; write_numbers(output, member.rules.starting_weapons);
         output << ",\"states_weapon_affinities\":" << (member.rules.states_weapon_affinities ? 1 : 0);
@@ -821,10 +836,20 @@ int main(int argc, char** argv) {
     output << ",\n    \"deployment_tiles\": ";
     write_positions(output, loaded.definition.deployment_tiles);
     output << ",\n    \"deployment_capacity\": " << loaded.deployment_capacity;
+    output << ",\n    \"starting_stat_seed\": ";
+    write_id(output, loaded.definition.starting_stat_seed);
     output << ",\n    \"progression\": [";
     std::set<std::uint64_t> progression_types;
     for (const auto& unit : loaded.definition.units) {
         progression_types.insert(unit.unit_type_id);
+    }
+    for (const auto& member : campaign.definition.members) {
+        if (member.start.level > 1) progression_types.insert(member.unit_type_id);
+        core::RoleStartingStats starting_stats;
+        if (!pr::load_role_starting_stats(package.package, member.unit_type_id, starting_stats)) {
+            std::cerr << "invalid starting stats: " << member.unit_type_id << '\n';
+            return 65;
+        }
     }
     bool first_profile = true;
     for (const auto type : progression_types) {
@@ -855,6 +880,16 @@ int main(int argc, char** argv) {
         write_id(output, unit.id);
         output << ",\"unit_type_id\":";
         write_id(output, unit.unit_type_id);
+        if (std::any_of(unit.enemy_stat_ranges.begin(), unit.enemy_stat_ranges.end(),
+            [](const auto& range) { return range.authored(); })) {
+            output << ",\"enemy_stat_ranges\":[";
+            for (std::size_t stat = 0; stat < unit.enemy_stat_ranges.size(); ++stat) {
+                if (stat != 0U) output << ',';
+                const auto& range = unit.enemy_stat_ranges[stat];
+                output << '[' << range.low << ',' << range.high << ']';
+            }
+            output << ']';
+        }
         output << ",\"source_id\":";
         write_id(output, loaded.placements[index].source_key_id);
         output << ",\"side\":" << static_cast<unsigned>(unit.side)
@@ -970,7 +1005,23 @@ int main(int argc, char** argv) {
         output << ",\"damage\":" << type.damage
                << ",\"accuracy\":" << static_cast<unsigned>(type.accuracy) << '}';
     }
-    output << "],\n    \"items\": [";
+    output << ']';
+    if (loaded.definition.role_matchups.active()) {
+        output << ",\n    \"role_matchups\": {\"damage\":" << loaded.definition.role_matchups.damage
+               << ",\"pairs\":[";
+        bool comma = false;
+        for (const auto& pair : loaded.definition.role_matchups.pairs) {
+            if (comma) output << ',';
+            comma = true;
+            output << '[';
+            write_id(output, pair.strong);
+            output << ',';
+            write_id(output, pair.weak);
+            output << ']';
+        }
+        output << "]}";
+    }
+    output << ",\n    \"items\": [";
     for (std::size_t index = 0; index < loaded.definition.items.size(); ++index) {
         const sim::ItemDefinition& item = loaded.definition.items[index];
         if (index != 0) output << ',';

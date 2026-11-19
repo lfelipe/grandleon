@@ -215,6 +215,9 @@ bool is_known_section(std::uint32_t type) {
         case SectionType::hidden_items:
         case SectionType::enemy_levels:
         case SectionType::healing_experience:
+        case SectionType::role_matchups:
+        case SectionType::starting_stat_ranges:
+        case SectionType::character_starts:
             return true;
     }
     return false;

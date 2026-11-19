@@ -71,6 +71,11 @@ func run() -> void:
 	member_id = str(army._current_member().id)
 	role_id = str(army._current_member().unitTypeId)
 	check(str(army._current_member().join_node_id) == "first_battle", "army retains authored join battle")
+	army._open_personal_rules()
+	army.rules_starting_level.get_line_edit().text = "3"
+	army.rules_fixed_stats.button_pressed = true
+	army.rules_apply_button.pressed.emit()
+	check(not army.rules_layer.visible, "Personal Rules saves a late recruit's starting level and exact stats")
 	army._request_maps()
 	await settle()
 	check(current_scene.hero_summary.text.contains("3 named heroes") and current_scene.hero_summary.text.contains("Sable"), "guide includes later heroes in its real roster count")
@@ -81,6 +86,7 @@ func run() -> void:
 	check(saved.project.campaigns[0].roster.size() == 2 and str(recruit.id) == member_id, "creation does not promote later hero to founders")
 	check(recruit.weaponAffinityTypeIds.has("blade") and recruit.weaponAffinityTypeIds.has("focus"), "later hero keeps multiple personal affinities")
 	check(recruit.startingWeaponIds == ["traveller_blade"] and recruit.defeatPolicy == "withdraw", "later hero keeps personal sword and defeat policy")
+	check(int(recruit.get("startingLevel", 0)) == 3 and bool(recruit.get("fixedStartingStats", false)), "reopening retains the authored recruit level and fixed stats")
 	var personal_before := JSON.stringify(recruit)
 	# Place in the later battle, then also author an early placement. The latter
 	# remains dormant until recruitment; the UI must not pretend the join happened.
@@ -260,6 +266,7 @@ func play_full_campaign(bytes: PackedByteArray, players: int) -> void:
 					var recruited := hero(event.company.roster)
 					check(recruited.is_empty() if not first_battle_ended else not recruited.is_empty(), "full company includes recruit only after the authored battle completes")
 					if first_battle_ended:
+						check(int(recruited.get("level", 0)) == 3 and int(recruited.get("experience", 0)) == 200, "late recruit joins at level three with the correct cumulative XP")
 						check(recruited.carried.size() == 1 and recruited.carried[0].name == "Traveller's Blade", "joining grants the personal sword, not the role focus")
 					check(session.submit_management("proceed"), "normal company Proceed begins stage")
 				"battle_begins":

@@ -3,6 +3,8 @@
 
 #include <grandleon/core/map_conversation.hpp>
 #include <grandleon/core/hidden_item.hpp>
+#include <grandleon/core/role_matchups.hpp>
+#include <grandleon/core/starting_stats.hpp>
 #include <grandleon/core/level_growth.hpp>
 
 #include <grandleon/package_format/package.hpp>
@@ -311,6 +313,7 @@ struct UnitType final {
     std::uint16_t carry_capacity{};
     bool states_carry_capacity{false};
     std::uint16_t healing_experience{};
+    core::RoleStartingStats starting_stats{};
 };
 
 //: How many terrain kinds the art library draws, and therefore how many an
@@ -898,6 +901,7 @@ struct CampaignMember final {
     DefeatPolicy defeat_policy{DefeatPolicy::inherit};
     std::uint16_t carry_capacity{};
     bool states_carry_capacity{false};
+    core::CharacterStart start{};
 };
 
 // A quantity of one item the campaign puts into its shared store, and where in
@@ -1079,6 +1083,8 @@ struct GameSource final {
     // drawn means. It is resolved onto every weapon type that has an edge,
     // where a runtime that never sees a project can read it.
     WeaponAdvantage weapon_advantage{};
+    core::RoleMatchups role_matchups{};
+    bool role_matchups_enabled{true};
     package_format::VersionRange required_engine{};
     package_format::TargetProfile target{
         package_format::TargetProfile::portable

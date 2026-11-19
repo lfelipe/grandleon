@@ -4374,12 +4374,18 @@ func _show_unit(unit: Dictionary, seat := 0) -> void:
 				]
 				if int(forecast.hit_chance) < 100:
 					unit_stats.text += "  " + _ui("player.hud.on_hit")
+				var role_damage := int(forecast.get("role_damage", 0))
+				if role_damage != 0:
+					unit_stats.text += "  " + _ui("player.hud.role_damage", {"damage": "%+d" % role_damage})
 				if bool(forecast.counter):
 					var actor := _unit_by_id(selected_units[seat])
 					unit_stats.text += "\n%s  %s %d → %d  (%d%%)" % [
 						_ui("player.hud.counter"), _ui("player.hud.hp"), int(actor.health),
 						int(forecast.attacker_health_after), int(forecast.counter_chance)
 					]
+					var counter_role_damage := int(forecast.get("counter_role_damage", 0))
+					if counter_role_damage != 0:
+						unit_stats.text += "  " + _ui("player.hud.role_damage", {"damage": "%+d" % counter_role_damage})
 	_position_unit_panel(unit, seat)
 	_update_context_help(seat)
 

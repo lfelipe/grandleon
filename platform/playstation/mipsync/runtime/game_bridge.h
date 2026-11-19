@@ -111,7 +111,7 @@ enum grandleon_ui_text_id {
     GRANDLEON_TEXT_COLLECTION,
     GRANDLEON_TEXT_SHOP, GRANDLEON_TEXT_PRICE, GRANDLEON_TEXT_STOCK,
     GRANDLEON_TEXT_READY, GRANDLEON_TEXT_SHOP_NAVIGATION, GRANDLEON_TEXT_BUY,
-    GRANDLEON_TEXT_GIVE, GRANDLEON_TEXT_TAKE, GRANDLEON_TEXT_PACK
+    GRANDLEON_TEXT_GIVE, GRANDLEON_TEXT_TAKE, GRANDLEON_TEXT_PACK, GRANDLEON_TEXT_ROLE_MODIFIER
 };
 
 typedef struct grandleon_ui_state {
@@ -175,6 +175,7 @@ typedef struct grandleon_ui_state {
     uint8_t statistics_has_enemies;
     uint16_t deployment_row, deployment_count, deployment_fielded, deployment_limit;
     uint8_t deployment_can_begin;
+    int16_t role_damage, counter_role_damage;
 } grandleon_ui_state;
 
 enum grandleon_action_kind {

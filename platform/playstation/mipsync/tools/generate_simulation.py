@@ -17,6 +17,10 @@ def nums(values: list[object]) -> str:
     return "{" + ",".join(str(int(value)) for value in values) + "}"
 
 
+def stat_ranges(values: list[list[int]]) -> str:
+    return "{{" + ",".join(nums(pair) for pair in values) + "}}"
+
+
 def cpp_string(value: object) -> str:
     text = str(value)
     for source, replacement in (
@@ -53,6 +57,7 @@ def emit_definition(
         f"    definition.width={int(document['width'])}; definition.height={int(document['height'])};",
         f"    definition.turn_order=static_cast<sim::TurnOrder>({int(simulation['turn_order'])});",
         f"    definition.random_seed={int(simulation['random_seed'])}ULL;",
+        f"    definition.starting_stat_seed={int(simulation.get('starting_stat_seed', 0))}ULL;",
         f"    definition.inventory_mode=static_cast<sim::InventoryMode>({int(simulation.get('inventory_mode', 0))});",
         "    definition.terrain={" + ",".join(
             f"static_cast<sim::Terrain>({int(value)})"
@@ -64,6 +69,11 @@ def emit_definition(
             for value in simulation["deployment_tiles"]
         ) + "};",
     ]
+    role_matchups = simulation.get("role_matchups")
+    if role_matchups:
+        lines.append(f"    definition.role_matchups.damage={int(role_matchups['damage'])};")
+        for strong, weak in role_matchups["pairs"]:
+            lines.append(f"    definition.role_matchups.pairs.push_back({{{int(strong)}ULL,{int(weak)}ULL}});")
     for discovery in simulation.get("hidden_items", []):
         weapon = "true" if discovery["weapon"] else "false"
         glint = "true" if discovery["glint"] else "false"
@@ -97,6 +107,8 @@ def emit_definition(
             )
         for field in ("ability_ids", "weapon_ids", "item_ids"):
             lines.append(f"      value.{field}={ids(source[field])};")
+        if source.get("enemy_stat_ranges"):
+            lines.append(f"      value.enemy_stat_ranges={stat_ranges(source['enemy_stat_ranges'])};")
         for field in ("carry_capacity", "drop_gold", "drop_weapon_chance"):
             lines.append(f"      value.{field}={int(source.get(field, 0))};")
         for field in ("states_carry_capacity", "states_weapon_affinities", "drop_inventory_on_defeat"):
@@ -741,6 +753,7 @@ def main() -> int:
         "    static const std::vector<grandleon_generated_campaign_member> values = {",
     ]
     for member in campaign.get("members", []):
+        ranges = stat_ranges(member.get("starting_ranges", []))
         lines.append(
             "        {"
             f"{int(member['persistent_id'])}ULL, "
@@ -762,7 +775,9 @@ def main() -> int:
             ("true" if member.get("shop_states_capacity", 0) else "false") + ", " +
             "{" + f"{int(member['source_id'])}ULL, " +
             nums(member.get("stat_deltas", [])) + ", " +
-            str(int(member.get("reach_bonus", 0))) + "}},"
+            str(int(member.get("reach_bonus", 0))) + "}, " +
+            "{" + str(int(member.get("starting_level", 1))) + ", " +
+            ("true" if member.get("fixed_starting_stats", 0) else "false") + "}, " + ranges + "},"
         )
     lines += [
         "    };", "    return values;", "}", "",
@@ -884,6 +899,8 @@ struct grandleon_generated_campaign_member final {{
     std::uint16_t shop_carry_capacity{{}};
     bool shop_states_capacity{{}};
     grandleon::package_runtime::MemberSpecificity specificity;
+    grandleon::core::CharacterStart start;
+    grandleon::core::StartingStatRanges starting_ranges;
 }};
 struct grandleon_generated_moment final {{
     std::uint64_t id{{}};
@@ -919,6 +936,7 @@ const grandleon_generated_campaign_node* grandleon_generated_campaign_node_for(s
 const std::vector<std::uint64_t>& grandleon_generated_objective_ids();
 inline constexpr std::uint16_t grandleon_generated_deployment_capacity = {int(simulation.get("deployment_capacity", 0))};
 inline constexpr bool grandleon_generated_has_healing_rewards = {str(any(profile["healing_experience"] for profile in profiles.values())).lower()};
+inline constexpr bool grandleon_generated_uses_starting_stats = {str(bool(campaign.get("uses_starting_stats", False))).lower()};
 unsigned grandleon_generated_language_count();
 const char* grandleon_generated_equipment_name(unsigned language, std::uint32_t category, std::uint64_t id);
 const char* grandleon_generated_language_code(unsigned language);

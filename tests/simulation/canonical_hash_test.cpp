@@ -146,7 +146,7 @@ void every_field_of_a_battle_is_folded() {
         round, activation_count, outcome, turn_order, units, objectives,
         terrain, movement_cost, drops, random, deployment_tiles, weapon_types,
         deploying, inventory_mode, ground_items, next_ground_item_id,
-        collecting_loot, hidden_items
+        collecting_loot, hidden_items, role_matchups
     ] = battle;
 
     // Mutate one field, ask whether the hash noticed, put it back.
@@ -158,6 +158,10 @@ void every_field_of_a_battle_is_folded() {
         );
         battle = baseline;
     };
+
+    role_matchups = {2, {{100, 200}}};
+    expect(sim::canonical_hash(battle) == named, "the authored role table is content, like weapon families");
+    battle = baseline;
 
     width = 7;
     folded("the board's width");
@@ -668,10 +672,14 @@ void every_field_of_a_definition_reaches_the_snapshot() {
     const auto& [
         width, height, units, abilities, objectives, turn_order, weapons,
         weapon_types, items, terrain, movement_cost, random_seed,
-        deployment_tiles, inventory_mode, talk_replies, hidden_items
+        deployment_tiles, inventory_mode, talk_replies, hidden_items, role_matchups,
+        starting_stat_seed
     ] = definition;
 
     expect(battle.inventory_mode == inventory_mode, "inventory mode reaches snapshot");
+    expect(battle.role_matchups.damage == role_matchups.damage,
+        "role damage settings reach the snapshot");
+    expect(starting_stat_seed == 0U, "the ordinary encounter does not author a starting stat seed");
     expect(battle.width == width, "the width reaches the snapshot");
     expect(battle.height == height, "the height reaches the snapshot");
     expect(
@@ -850,7 +858,7 @@ void every_field_of_a_character_definition_reaches_the_snapshot() {
         arrival_times, endures, local_player, defeat_ends_battle,
         carried_inventory, carry_capacity, states_carry_capacity,
         weapon_affinities, states_weapon_affinities, drop_gold, drop_weapon_id,
-        drop_weapon_chance, drop_inventory_on_defeat
+        drop_weapon_chance, drop_inventory_on_defeat, enemy_stat_ranges
     ] = described;
 
     const auto carried = [&](std::string_view field, bool held) {
@@ -858,6 +866,7 @@ void every_field_of_a_character_definition_reaches_the_snapshot() {
                          " reaches the snapshot");
     };
 
+    expect(enemy_stat_ranges == core::StartingStatRanges{}, "ordinary units have no starting stat variation");
     carried("owned copies", character.carried_inventory == carried_inventory);
     carried("capacity", character.carry_capacity == carry_capacity);
     carried("explicit capacity", character.states_carry_capacity == states_carry_capacity);

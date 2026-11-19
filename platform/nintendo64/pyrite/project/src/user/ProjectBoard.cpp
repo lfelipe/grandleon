@@ -2993,6 +2993,7 @@ bool begin_campaign(bool resume) {
     options.player_side = sim::Side::first;
     options.local_players = shell.local_players;
     options.stage_picker = false;
+    options.starting_stat_seed = get_ticks();
     board.campaign.emplace(
         board.runtime.package(), grandleon_project_campaign_id,
         *board.campaign_boards, *board.saves, options
@@ -5849,8 +5850,10 @@ void draw_battle_ui() {
     }
     struct PanelCorner { int x; int y; };
     constexpr int menu_width = 127;
+    const bool show_roles = battle_ui.phase == BattleUiPhase::attack_target &&
+        board.game.snapshot().role_matchups.active();
     const int menu_height = (battle_ui.phase == BattleUiPhase::action || battle_ui.phase == BattleUiPhase::pack)
-        ? 35 + static_cast<int>(std::min<std::size_t>(4U, action_rows())) * 17 : 104;
+        ? 35 + static_cast<int>(std::min<std::size_t>(4U, action_rows())) * 17 : 104 + (show_roles ? 14 : 0);
     const std::array<PanelCorner, 4> corners{{
         {5, 12}, {315 - menu_width, 12},
         {5, 235 - menu_height}, {315 - menu_width, 235 - menu_height}}};
@@ -6011,8 +6014,19 @@ void draw_battle_ui() {
                     menu_x + 14, menu_y + 58, "%s", ui(console::Message::no_counter)
                 );
             }
-            ui_button_hint(menu_x + 14, menu_y + 72, "A", ui(console::Message::confirm), player_accent(battle_ui.player));
-            ui_button_hint(menu_x + 14, menu_y + 87, "B", ui(console::Message::back_button));
+            int button_y = menu_y + 72;
+            if (forecast.role_damage != 0) {
+                if (forecast.counter_role_damage != 0) {
+                    display_printf(menu_x + 14, button_y, "%s %+d / %+d", ui(console::Message::role_modifier),
+                        forecast.role_damage, forecast.counter_role_damage);
+                } else {
+                    display_printf(menu_x + 14, button_y, "%s %+d", ui(console::Message::role_modifier),
+                        forecast.role_damage);
+                }
+                button_y += 14;
+            }
+            ui_button_hint(menu_x + 14, button_y, "A", ui(console::Message::confirm), player_accent(battle_ui.player));
+            ui_button_hint(menu_x + 14, button_y + 15, "B", ui(console::Message::back_button));
         } else {
             display_printf(
                 menu_x + 14, menu_y + 40, "%s", command_error_label(forecast.error)

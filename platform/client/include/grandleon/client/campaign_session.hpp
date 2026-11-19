@@ -828,6 +828,7 @@ struct CampaignSessionOptions final {
     // Publish a portable stage boundary before play, for front ends that
     // pair it with an ordered in-battle intent journal.
     bool checkpoint_before_battle{false};
+    std::uint64_t starting_stat_seed{};
 };
 
 
@@ -1092,6 +1093,9 @@ private:
     struct AuthoredMember final {
         RosterEntry entry;
         std::uint64_t join_node_id{};
+        core::CharacterStart start{};
+        core::RoleStartingStats starting_stats{};
+        package_runtime::UnitProgression starting_progression{};
     };
 
     // The company as the campaign holds it right now: authored identities,

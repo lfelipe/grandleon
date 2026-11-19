@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include <grandleon/campaign_runtime/battle_experience.hpp>
+#include <grandleon/core/content_identity.hpp>
 #include <grandleon/core/random.hpp>
 
 #include <algorithm>
@@ -35,34 +36,6 @@ void add_saturating(
     target = static_cast<Value>(total > stop ? stop : total);
 }
 
-// Add one authored delta to one board unit, saturating at both ends.
-//
-// The floor is `floor` rather than the storage type's minimum, because the
-// numbers this lands on have meanings below which they stop being numbers: a
-// character with no health is a corpse and a character with no movement cannot
-// take a step. The compiler already refuses a delta that would go there, so
-// this is the second of two locks on the same door: content that reached a
-// console through some other tool still cannot produce a unit the rules have no
-// reading for.
-template <typename Value>
-void add_signed_saturating(
-    Value& target,
-    std::int16_t delta,
-    std::int64_t floor,
-    std::int64_t ceiling = static_cast<std::int64_t>(
-        std::numeric_limits<Value>::max()
-    )
-) noexcept {
-    const std::int64_t held = static_cast<std::int64_t>(
-        std::numeric_limits<Value>::max()
-    );
-    const std::int64_t stop = ceiling < held ? ceiling : held;
-    const std::int64_t total =
-        static_cast<std::int64_t>(target) + static_cast<std::int64_t>(delta);
-    const std::int64_t landed = total > stop ? stop : total;
-    target = static_cast<Value>(landed < floor ? floor : landed);
-}
-
 // Ascending by member, so the operations a batch carries, and therefore the
 // order the growth stream is drawn in, depend on who earned what and never on
 // what order the events happened to arrive in.
@@ -73,64 +46,95 @@ struct EarnedExperience final {
 
 }  // namespace
 
-// What the author made of one character, before what the campaign did.
-//
-// The same addition `apply_roster_join` makes below with a member's earned
-// points, made one step earlier over numbers that were never earned because
-// they were always true. Being an addition rather than a replacement is the
-// whole of why it is here: a delta stacks on the type, so a class rebalanced
-// underneath a character moves that character too, and a specificity and a
-// level-up compose into their sum rather than one overwriting the other.
-//
-// Authored first and earned second. The order is visible only when a stat
-// saturates, at which point the ceiling has been reached either way. It is
-// stated and fixed anyway, because two clients that added in different orders
-// would be two clients that disagreed about a character somebody could reach.
-void apply_authored_specificity(
-    simulation::UnitDefinition& unit,
-    const package_runtime::MemberSpecificity& specificity
-) noexcept {
-    using package_runtime::SpecificStat;
-    const auto delta = [&specificity](SpecificStat stat) -> std::int16_t {
-        return specificity.stat_deltas[static_cast<std::size_t>(stat)];
-    };
-    // The floors are the ones each stat's own authored field admits, which is
-    // the rule the compiler validates against and is repeated here rather than
-    // inferred, so the two cannot drift into disagreeing about what a legal
-    // character is.
-    add_signed_saturating(unit.health, delta(SpecificStat::health), 1);
-    add_signed_saturating(
-        unit.strength, delta(SpecificStat::strength), 0, rules_stat_ceiling
-    );
-    add_signed_saturating(
-        unit.defense, delta(SpecificStat::defense), 0, rules_stat_ceiling
-    );
-    add_signed_saturating(
-        unit.resistance, delta(SpecificStat::resistance), 0, rules_stat_ceiling
-    );
-    add_signed_saturating(unit.movement, delta(SpecificStat::movement), 1);
-    add_signed_saturating(
-        unit.action_points, delta(SpecificStat::action_points), 1
-    );
-    add_signed_saturating(unit.skill, delta(SpecificStat::skill), 0);
-    add_signed_saturating(unit.luck, delta(SpecificStat::luck), 0);
-    add_signed_saturating(unit.evasion, delta(SpecificStat::evasion), 0);
-    add_signed_saturating(
-        unit.magic, delta(SpecificStat::magic), 0, rules_stat_ceiling
-    );
-    // Speed is delta-able although it is not growable. Growth refuses it
-    // because a level-up is a roll that would reshuffle turn order inside a
-    // battle the player is already standing in; an authored delta draws from no
-    // stream, is fixed before the campaign is founded, and is read off the info
-    // sheet before anybody commits, so turn order is computed from it once,
-    // exactly as it is computed from a class's own authored speed.
-    add_signed_saturating(unit.speed, delta(SpecificStat::speed), 1);
+void apply_authored_specificity(simulation::UnitDefinition& unit,
+    const package_runtime::MemberSpecificity& specificity) noexcept {
+    simulation::apply_stat_offsets(unit, specificity.stat_deltas);
     // And what the character does with whatever they are holding. The band
     // itself is resolved by `create_encounter` from the weapon in hand, so this
     // is carried onto the unit rather than added to a band here. See
     // `simulation::UnitDefinition::reach_bonus`, which is where the reasoning
     // about never touching the shared authored weapon lives.
     unit.reach_bonus = specificity.reach_bonus;
+}
+
+campaign::DefinitionRef starting_seed_key(const core::PackageId& package) noexcept {
+    return {package, core::ContentCategory::world_flag,
+        core::stable_content_id_v1("grandleon_starting_seed")};
+}
+
+std::uint64_t starting_seed(const campaign::CampaignState& state,
+                            const core::PackageId& package) noexcept {
+    const auto* value = campaign::find_world_value(state, starting_seed_key(package));
+    return value != nullptr && value->type == campaign::WorldValueType::integer && value->value > 0
+        ? static_cast<std::uint64_t>(value->value) : 0U;
+}
+
+namespace {
+
+campaign::DefinitionRef starting_stat_key(const core::PackageId& package,
+    campaign::PersistentEntityId member, std::size_t stat) noexcept {
+    const std::uint64_t domain = core::stable_content_id_v1("grandleon_starting_stat");
+    const auto salt = core::random_draw(domain, core::RandomStream::growth, member.value);
+    return {package, core::ContentCategory::world_flag,
+        core::random_draw(salt, core::RandomStream::growth, stat)};
+}
+
+std::array<std::uint16_t, campaign::growable_stat_count> roll_level_gains(
+    core::RandomState& random, const package_runtime::UnitProgression& profile,
+    std::uint16_t levels) noexcept {
+    std::array<std::uint16_t, campaign::growable_stat_count> gains{};
+    for (std::uint16_t level = 0; level < levels; ++level) {
+        for (std::size_t stat = 0; stat < gains.size(); ++stat) {
+            if (random.roll_chance(core::RandomStream::growth, profile.growth[stat], growth_chance_bound)) ++gains[stat];
+        }
+    }
+    return gains;
+}
+
+void append_stat_gains(std::vector<campaign::CampaignOutcomeOperation>& operations,
+    campaign::PersistentEntityId member,
+    const std::array<std::uint16_t, campaign::growable_stat_count>& gains) {
+    for (std::size_t stat = 0; stat < gains.size(); ++stat) {
+        if (gains[stat] != 0) operations.push_back(campaign::grow_stat(member,
+            static_cast<campaign::GrowableStat>(stat), gains[stat]));
+    }
+}
+
+}  // namespace
+
+void append_character_start(std::vector<campaign::CampaignOutcomeOperation>& operations,
+    const campaign::DefinitionRef& role, campaign::PersistentEntityId member,
+    const core::CharacterStart& start, const core::RoleStartingStats& stats,
+    const package_runtime::UnitProgression& progression, std::uint64_t seed) {
+    if (!start.fixed_stats && stats.authored()) {
+        const auto offsets = core::roll_starting_stats(stats.ranges, seed, member.value);
+        for (std::size_t stat = 0; stat < offsets.size(); ++stat) {
+            if (!stats.ranges[stat].authored()) continue;
+            operations.push_back(campaign::set_world_flag(starting_stat_key(role.package_id, member, stat),
+                {campaign::WorldValueType::integer, offsets[stat]}));
+        }
+    }
+    if (start.level <= 1) return;
+    const auto levels = static_cast<std::uint16_t>(start.level - 1U);
+    operations.push_back(campaign::grant_experience(member,
+        static_cast<std::uint32_t>(levels) * progression.experience_per_level));
+    operations.push_back(campaign::advance_level(member, levels));
+    core::RandomState growth;
+    growth.seed = core::random_draw(seed ^ role.stable_id, core::RandomStream::growth, member.value);
+    append_stat_gains(operations, member, roll_level_gains(growth, progression, levels));
+}
+
+void apply_starting_stats(simulation::UnitDefinition& unit, const campaign::CampaignState& state,
+    const campaign::DefinitionRef& role, campaign::PersistentEntityId member) noexcept {
+    core::StartingStatOffsets offsets{};
+    for (std::size_t stat = 0; stat < offsets.size(); ++stat) {
+        const auto* value = campaign::find_world_value(state, starting_stat_key(role.package_id, member, stat));
+        if (value && value->type == campaign::WorldValueType::integer &&
+            value->value >= -core::maximum_starting_offset && value->value <= core::maximum_starting_offset) {
+            offsets[stat] = static_cast<std::int16_t>(value->value);
+        }
+    }
+    if (offsets != core::StartingStatOffsets{}) simulation::apply_stat_offsets(unit, offsets);
 }
 
 void apply_roster_growth(simulation::UnitDefinition& unit,
@@ -334,30 +338,8 @@ BattleProgression derive_roster_experience(
         gained.member = entry.member;
         gained.from_level = member->progression.level;
         gained.to_level = capped;
-        for (std::uint16_t level = 0; level < levels; ++level) {
-            for (std::size_t stat = 0; stat < campaign::growable_stat_count;
-                 ++stat) {
-                if (growth.roll_chance(
-                        core::RandomStream::growth,
-                        static_cast<std::uint32_t>(
-                            rules.progression.growth[stat]
-                        ),
-                        growth_chance_bound
-                    )) {
-                    ++gained.points[stat];
-                }
-            }
-        }
-        for (std::size_t stat = 0; stat < campaign::growable_stat_count;
-             ++stat) {
-            if (gained.points[stat] != 0U) {
-                result.operations.push_back(campaign::grow_stat(
-                    entry.member,
-                    static_cast<campaign::GrowableStat>(stat),
-                    gained.points[stat]
-                ));
-            }
-        }
+        gained.points = roll_level_gains(growth, rules.progression, levels);
+        append_stat_gains(result.operations, entry.member, gained.points);
         result.level_ups.push_back(gained);
     }
 

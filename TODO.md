@@ -222,9 +222,9 @@ tracked above.
   a new project. Record where they look for each tool, where they get stuck
   and what they see in play. Turn those findings into editor improvements and
   checks using the normal authoring and play paths.
-- [ ] Prototype role matchups with the Flood Market battle in
+- [x] Prototype role matchups with the Flood Market battle in
   [The Last Ferry](docs/CREATOR_WALKTHROUGH.md#grow-it-into-a-campaign).
-  Let authors set strengths from **Army → Roles**, see the reciprocal
+  Let authors set strengths from **Edit Heroes → Tune Role**, see the reciprocal
   weakness and review the full set. Try one shared damage adjustment with
   unassigned pairs neutral. Check that a role matchup survives a weapon swap
   and that players can read the reason and damage for attacks and counters.
@@ -233,7 +233,7 @@ tracked above.
 - [x] Make XP awards, level thresholds and stat growth chances directly
   editable. Open **Growth & Rewards** from a selected enemy in **Opening
   Forces & Waves** and return to that enemy after saving.
-- [ ] Try the progression exercise in [The Last Ferry](docs/CREATOR_WALKTHROUGH.md#grow-it-into-a-campaign).
+- [x] Try the progression exercise in [The Last Ferry](docs/CREATOR_WALKTHROUGH.md#grow-it-into-a-campaign).
   Give each role exact starting stats or optional per-stat ranges around its
   baseline. Preview the ranges side by side so an author can keep a physical
   role's Strength above a healer's. Let named characters override the role
@@ -243,9 +243,11 @@ tracked above.
   individual, wave and 2P overrides. Preview the role's expected growth
   and let a level-one override use exact role stats. Existing campaigns
   keep their authored stats.
-- [ ] Try opt-in variation for leveled enemies and preview the resulting
-  ranges, with fixed stats for named bosses. Test the level curve along
-  both the main route and detours.
+- [x] Let creators opt into variation for leveled enemies and preview the
+  resulting 1P and 2P ranges. Level one and dedicated boss roles can keep
+  fixed stats.
+- [ ] Review the difficulty curve along the main route and detours with a
+  human playthrough.
 - [x] Let authors reward effective healing once per healer turn. Carry XP
   and growth across battles and apply hero stat and range adjustments in
   PlayStation exports using the same rules as Godot and Nintendo 64.

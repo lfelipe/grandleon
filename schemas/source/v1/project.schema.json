@@ -125,6 +125,30 @@
       ],
       "description": "What becomes of a character in this game who falls in battle. 'permanent' is a death: the company never fields that character again, and their kit is what is left of them. 'recoverable' is a wound: they are carried off the field and rejoin the company once the battle is over, still holding whatever they were carrying when they went down. Under either, a character reduced to no health leaves the battlefield the moment they reach it, so this decides only what the campaign records after the battle and never what the battle itself does. Omit it and a character who falls is gone for good, which is what a fall meant before this setting existed."
     },
+    "roleMatchups": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["damage", "pairs"],
+      "description": "Optional attack and counterattack damage modifiers by combatant role. An active table uses role matchups in place of weapon-family matchups. Unlisted pairs are neutral.",
+      "properties": {
+        "enabled": {"type": "boolean", "default": true},
+        "damage": {"type": "integer", "minimum": 1, "maximum": 999},
+        "pairs": {
+          "type": "array",
+          "maxItems": 1024,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["strongRoleId", "weakRoleId"],
+            "properties": {
+              "strongRoleId": {"$ref": "common.schema.json#/$defs/stableId"},
+              "weakRoleId": {"$ref": "common.schema.json#/$defs/stableId"}
+            }
+          }
+        }
+      }
+    },
     "weaponAdvantage": {
       "type": "object",
       "additionalProperties": false,

@@ -707,6 +707,16 @@ struct Advantage final {
     return WeaponLean::none;
 }
 
+[[nodiscard]] Advantage strike_advantage(
+    const EncounterSnapshot& state, const UnitSnapshot& attacker,
+    const UnitSnapshot& defender, const StrikeProfile& strike
+) noexcept {
+    if (state.role_matchups.active()) {
+        return {state.role_matchups.modifier(attacker.unit_type_id, defender.unit_type_id), 0};
+    }
+    return advantage_of(state.weapon_types, strike.weapon_type, defender.weapon_type);
+}
+
 const ItemDefinition* find_item(
     const std::vector<ItemDefinition>& items,
     ContentId id
@@ -1190,6 +1200,79 @@ constexpr std::uint8_t present_reach_bonus = 1U << 7U;
 // well as of the walk, and it is what lets different content paths emit their
 // units in whatever order each finds natural without
 // the two disagreeing about the battle.
+namespace {
+
+// Add one authored delta to one board unit, saturating at both ends.
+//
+// The floor is `floor` rather than the storage type's minimum, because the
+// numbers this lands on have meanings below which they stop being numbers: a
+// character with no health is a corpse and a character with no movement cannot
+// take a step. The compiler already refuses a delta that would go there, so
+// this is the second of two locks on the same door: content that reached a
+// console through some other tool still cannot produce a unit the rules have no
+// reading for.
+template <typename Value>
+void add_signed_saturating(
+    Value& target,
+    std::int16_t delta,
+    std::int64_t floor,
+    std::int64_t ceiling = static_cast<std::int64_t>(
+        std::numeric_limits<Value>::max()
+    )
+) noexcept {
+    const std::int64_t held = static_cast<std::int64_t>(
+        std::numeric_limits<Value>::max()
+    );
+    const std::int64_t stop = ceiling < held ? ceiling : held;
+    const std::int64_t total =
+        static_cast<std::int64_t>(target) + static_cast<std::int64_t>(delta);
+    const std::int64_t landed = total > stop ? stop : total;
+    target = static_cast<Value>(landed < floor ? floor : landed);
+}
+
+}  // namespace
+
+void apply_stat_offsets(
+    UnitDefinition& unit,
+    const core::StartingStatOffsets& offsets
+) noexcept {
+    using SpecificStat = core::StartingStat;
+    const auto delta = [&offsets](SpecificStat stat) -> std::int16_t {
+        return offsets[static_cast<std::size_t>(stat)];
+    };
+    // The floors are the ones each stat's own authored field admits, which is
+    // the rule the compiler validates against and is repeated here rather than
+    // inferred, so the two cannot drift into disagreeing about what a legal
+    // character is.
+    add_signed_saturating(unit.health, delta(SpecificStat::health), 1);
+    add_signed_saturating(
+        unit.strength, delta(SpecificStat::strength), 0, maximum_stat
+    );
+    add_signed_saturating(
+        unit.defense, delta(SpecificStat::defense), 0, maximum_stat
+    );
+    add_signed_saturating(
+        unit.resistance, delta(SpecificStat::resistance), 0, maximum_stat
+    );
+    add_signed_saturating(unit.movement, delta(SpecificStat::movement), 1);
+    add_signed_saturating(
+        unit.action_points, delta(SpecificStat::action_points), 1
+    );
+    add_signed_saturating(unit.skill, delta(SpecificStat::skill), 0);
+    add_signed_saturating(unit.luck, delta(SpecificStat::luck), 0);
+    add_signed_saturating(unit.evasion, delta(SpecificStat::evasion), 0);
+    add_signed_saturating(
+        unit.magic, delta(SpecificStat::magic), 0, maximum_stat
+    );
+    // Speed is delta-able although it is not growable. Growth refuses it
+    // because a level-up is a roll that would reshuffle turn order inside a
+    // battle the player is already standing in; an authored delta draws from no
+    // stream, is fixed before the campaign is founded, and is read off the info
+    // sheet before anybody commits, so turn order is computed from it once,
+    // exactly as it is computed from a class's own authored speed.
+    add_signed_saturating(unit.speed, delta(SpecificStat::speed), 1);
+}
+
 bool expand_arrivals(
     const std::vector<UnitDefinition>& authored,
     std::vector<UnitDefinition>& expanded
@@ -1299,6 +1382,7 @@ std::string_view error_name(CreateError error) noexcept {
         case CreateError::invalid_deployment: return "invalid_deployment";
         case CreateError::invalid_arrival: return "invalid_arrival";
         case CreateError::invalid_weapon_type: return "invalid_weapon_type";
+        case CreateError::invalid_role_matchups: return "invalid_role_matchups";
     }
     return "unknown";
 }
@@ -1501,6 +1585,10 @@ Encounter::CreateResult create_encounter(
         }
     }
     state.weapon_types = definition.weapon_types;
+    if (!definition.role_matchups.valid()) {
+        return {CreateError::invalid_role_matchups, Encounter(std::move(state))};
+    }
+    state.role_matchups = definition.role_matchups;
 
     std::set<ContentId> item_ids;
     for (const ItemDefinition& item : definition.items) {
@@ -1542,7 +1630,16 @@ Encounter::CreateResult create_encounter(
     std::set<UnitId> ids;
     bool first = false;
     bool second = false;
-    for (const UnitDefinition& unit : units) {
+    for (UnitDefinition& unit : units) {
+        if (std::any_of(unit.enemy_stat_ranges.begin(), unit.enemy_stat_ranges.end(),
+            [](const auto& range) { return range.authored(); })) {
+            if (unit.side != Side::second || std::any_of(unit.enemy_stat_ranges.begin(), unit.enemy_stat_ranges.end(),
+                [](const auto& range) { return !range.valid(); })) {
+                return {CreateError::invalid_unit, Encounter(std::move(state))};
+            }
+            apply_stat_offsets(unit, core::roll_starting_stats(unit.enemy_stat_ranges,
+                definition.starting_stat_seed, unit.id));
+        }
         // Every stat that reaches the damage arithmetic is bounded above as
         // well as below. See `maximum_stat`: the sum of two of them is narrowed
         // back to the `int16` health is kept in, so an unbounded pair wraps
@@ -2564,9 +2661,7 @@ CommandResult Encounter::apply(const Command& command) {
         // What the pair of weapons is worth before either number is worked
         // out, because both of them read it: the blow this makes and the
         // chance of its landing are the same weapon against the same weapon.
-        const Advantage swung = advantage_of(
-            state_.weapon_types, strike.weapon_type, target->weapon_type
-        );
+        const Advantage swung = strike_advantage(state_, *unit, *target, strike);
         // The one roll this strike gets, taken here: after every refusal, so
         // an attack the engine would not accept never moves the stream, and
         // before any damage, so the roll cannot depend on its own outcome. The
@@ -2628,9 +2723,7 @@ CommandResult Encounter::apply(const Command& command) {
             // The same pair the other way round, worked out again rather than
             // negated: the defender answers with whatever is in their hand,
             // which is not always the weapon the attack was made against.
-            const Advantage answered = advantage_of(
-                state_.weapon_types, answer.weapon_type, unit->weapon_type
-            );
+            const Advantage answered = strike_advantage(state_, *target, *unit, answer);
             if (!roll_hit(
                     state_.random,
                     hit_chance_for(
@@ -3275,14 +3368,12 @@ AttackForecast forecast_attack(
     // while apply rolled the folded number would be the two-roll dishonesty
     // this repository refused, reached by a different road. A surface that
     // draws this draws the rule.
-    const Advantage swung =
-        advantage_of(
-        snapshot.weapon_types, strike.weapon_type, target->weapon_type
-    );
+    const Advantage swung = strike_advantage(snapshot, *attacker, *target, strike);
     forecast.hit_chance =
         hit_chance_for(*attacker, *target, strike.accuracy, swung.accuracy);
     forecast.damage = attack_damage(*attacker, *target, strike, swung.damage);
     forecast.lean = lean_of(swung);
+    if (snapshot.role_matchups.active()) forecast.role_damage = swung.damage;
     // The floor is asked for here rather than assumed to be zero, and it is
     // asked of the same function `take_damage` asks. A character who cannot be
     // reduced below one health is forecast as ending at one and not as lethal,
@@ -3318,9 +3409,7 @@ AttackForecast forecast_attack(
         // negated, exactly as `apply` works it out: the defender answers with
         // whatever is in their hand, which is not always the weapon the attack
         // was made with.
-        const Advantage answered = advantage_of(
-            snapshot.weapon_types, answer.weapon_type, attacker->weapon_type
-        );
+        const Advantage answered = strike_advantage(snapshot, *target, *attacker, answer);
         forecast.counter_chance =
             hit_chance_for(
                 *target, *attacker, answer.accuracy, answered.accuracy
@@ -3328,6 +3417,7 @@ AttackForecast forecast_attack(
         forecast.counter_damage =
             attack_damage(*target, *attacker, answer, answered.damage);
         forecast.counter_lean = lean_of(answered);
+        if (snapshot.role_matchups.active()) forecast.counter_role_damage = answered.damage;
         forecast.attacker_health_after = static_cast<std::int16_t>(
             std::max<std::int32_t>(
                 floor_of(*attacker), attacker->health - forecast.counter_damage

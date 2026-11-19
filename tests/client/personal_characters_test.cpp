@@ -3,6 +3,7 @@
 #include <grandleon/game_content/source_project.hpp>
 #include <grandleon/client/campaign_session.hpp>
 #include <grandleon/campaign_runtime/character_rules.hpp>
+#include <grandleon/campaign_runtime/battle_experience.hpp>
 #include <grandleon/storage/memory_storage.hpp>
 #include <algorithm>
 #include <iostream>
@@ -251,4 +252,86 @@ void malformed_personal_inventory_metadata_is_refused() {
     check(!gc::compile(standalone), "standalone invalid mode is refused rather than omitted");
 }
 
-int main(){malformed_personal_inventory_metadata_is_refused();personal_inventory_save_mode_is_checked_without_overwriting();compiler_and_decoder();equipment_and_resume();defeat_commands_and_outcomes();return failures?1:0;}
+void starting_progression_and_resume() {
+    auto authored = source();
+    const auto strength = static_cast<std::size_t>(core::StartingStat::strength);
+    const auto health = static_cast<std::size_t>(core::StartingStat::health);
+    auto& home = authored.unit_types.front();
+    home.starting_stats.ranges[strength] = {1, 4};
+    home.growth.chance[static_cast<std::size_t>(camp::GrowableStat::health)] = 100;
+    auto& foe = authored.unit_types.back();
+    foe.starting_stats.ranges[health] = {2, 4};
+    foe.starting_stats.vary_enemies = true;
+    authored.campaigns.front().roster[1].start = {3, true};
+    authored.encounters.front().enemy_levels = {2, 1};
+
+    const auto p = package(authored);
+    const auto roles = pr::load_campaign(p, 110);
+    check(roles && roles.definition.members[1].start.level == 3 &&
+        roles.definition.members[1].start.fixed_stats, "named character start metadata round-trips");
+    client::PackageBoards boards{p};
+    storage::MemorySlotStorage device;
+    client::CampaignSessionOptions options;
+    options.slot = "rolled";
+    options.local_players = 1;
+    options.starting_stat_seed = 4187;
+    client::CampaignSession session{p, 110, boards, device, options};
+    begin(session);
+    const auto board = session.prepare_board();
+    const auto* first = hero(board);
+    check(first && first->strength == 2 + core::roll_starting_stats(
+        home.starting_stats.ranges, options.starting_stat_seed, 1)[strength],
+        "founding character receives its own seeded starting roll");
+    if (!first) return;
+    const auto expected_strength = first->strength;
+    const auto find_unit = [](const auto& units, auto id) {
+        return std::find_if(units.begin(), units.end(), [id](const auto& unit) { return unit.id == id; });
+    };
+    const auto& definition = board.encounter.encounter.definition;
+    const auto second = find_unit(definition.units, board.encounter.binding.battle_of({2}).value);
+    check(second != definition.units.end() && second->strength == 2 && second->health == 10,
+        "fixed character uses the exact baseline and earns only level-three growth");
+    const auto company = session.roster();
+    check(company.size() == 2 && company[1].progression.level == 3 &&
+        company[1].progression.experience == 200, "level-three start carries the cumulative XP");
+
+    const auto created = sim::create_encounter(definition);
+    check(bool(created), "varied enemy board starts");
+    if (!created) return;
+    const auto solo = created.encounter.snapshot();
+    const auto enemy = find_unit(solo.units, 1002U);
+    check(enemy != solo.units.end() && enemy->maximum_health >= 10 && enemy->maximum_health <= 12,
+        "leveled enemy rolls within its authored limits");
+
+    check(session.save() == storage::StorageError::none, "starting rolls save through the usual campaign slot");
+    options.resume = true;
+    options.starting_stat_seed = 822;
+    client::CampaignSession resumed{p, 110, boards, device, options};
+    begin(resumed, true);
+    const auto resumed_board = resumed.prepare_board();
+    const auto* restored = hero(resumed_board);
+    const auto checkpoint = camp::load_campaign(device.read(options.slot).bytes, {});
+    check(restored && restored->strength == expected_strength && checkpoint &&
+        cr::starting_seed(checkpoint.save.state, p.game_id) == 4187,
+        "resume preserves the seed and starting rolls despite starting a new process seed");
+
+    options.resume = false;
+    options.local_players = 2;
+    options.slot = "rolled-duo";
+    client::PackageBoards duo_boards{p, 2};
+    client::CampaignSession duo{p, 110, duo_boards, device, options};
+    begin(duo);
+    const auto duo_board = duo.prepare_board();
+    const auto two_players = sim::create_encounter(duo_board.encounter.encounter.definition);
+    check(bool(two_players), "2P exact enemy board starts");
+    if (!two_players) return;
+    const auto duo_snapshot = two_players.encounter.snapshot();
+    const auto plain_enemy = find_unit(duo_snapshot.units, 1002U);
+    check(plain_enemy != duo_snapshot.units.end() && plain_enemy->maximum_health == 8,
+        "the 2P level-one override keeps exact enemy stats even with variation enabled");
+
+    authored.unit_types[0].starting_stats.ranges[strength] = {3, 1};
+    check(!gc::compile(authored), "the compiler refuses reversed starting ranges");
+}
+
+int main(){starting_progression_and_resume();malformed_personal_inventory_metadata_is_refused();personal_inventory_save_mode_is_checked_without_overwriting();compiler_and_decoder();equipment_and_resume();defeat_commands_and_outcomes();return failures?1:0;}

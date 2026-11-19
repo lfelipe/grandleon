@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include <grandleon/core/starting_stats.hpp>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -45,21 +46,9 @@ namespace grandleon::package_runtime {
 // `MemberSpecificity::reach_bonus` below is how a character reaches the band.
 //
 // The list is append-only, because the values are indexed into and encoded.
-enum class SpecificStat : std::uint8_t {
-    health = 0,
-    strength = 1,
-    defense = 2,
-    resistance = 3,
-    movement = 4,
-    action_points = 5,
-    skill = 6,
-    luck = 7,
-    evasion = 8,
-    magic = 9,
-    speed = 10,
-};
+using SpecificStat = core::StartingStat;
 
-inline constexpr std::size_t specific_stat_count = 11;
+inline constexpr std::size_t specific_stat_count = core::starting_stat_count;
 
 // Everything one member's record says about them beyond their unit type.
 //

@@ -393,6 +393,14 @@
           },
           "description": "Personal starting weapons in equipped-first order. Omitted inherits the role kit; empty starts unarmed."
         },
+        "startingLevel": {
+          "type": "integer", "minimum": 1, "maximum": 99, "default": 1,
+          "description": "Level on the first stage or at recruitment, including the role’s leveled growth."
+        },
+        "fixedStartingStats": {
+          "type": "boolean", "default": false,
+          "description": "Use the role baseline and personal modifiers exactly, without rolling the role’s starting ranges."
+        },
         "carryCapacity": {
           "type": "integer", "minimum": 0, "maximum": 64,
           "description": "Personal capacity in weapon and item copies, replacing the role capacity. Gold uses no slots. Omitted inherits the role; zero carries nothing. Retained on role changes. Requires campaign inventoryMode carried."

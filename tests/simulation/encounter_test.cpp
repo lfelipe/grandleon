@@ -1530,6 +1530,38 @@ void the_better_weapon_is_worth_the_advantage() {
         );
     }
 
+    {
+        auto definition = board(902, 901);
+        definition.weapons[0].accuracy = 100;
+        definition.weapons[1].accuracy = 100;
+        definition.weapons.push_back({503, 3, 1, 1, 100, 901});
+        definition.units[0].weapon_ids.push_back(503);
+        definition.role_matchups = {2, {{100, 200}}};
+        auto match = sim::create_encounter(definition);
+        expect(static_cast<bool>(match), "role matchups open alongside weapon-family settings");
+        const auto snapshot = match.encounter.snapshot();
+        const auto primary = sim::forecast_attack(snapshot, 10, 20, definition.weapons, 501);
+        const auto alternate = sim::forecast_attack(snapshot, 10, 20, definition.weapons, 503);
+        expect(primary.damage == 9 && primary.role_damage == 2 && primary.hit_chance == 100 &&
+            primary.counter && primary.counter_damage == 5 && primary.counter_role_damage == -2 &&
+            alternate.damage == primary.damage && alternate.counter_damage == primary.counter_damage,
+            "an exported role edge sets damage for both sides of the exchange regardless of weapon");
+        sim::Command attack{sim::CommandType::attack, 10, {}, 20};
+        attack.weapon_id = 503;
+        const auto exchange = match.encounter.apply(attack);
+        const auto final = match.encounter.snapshot();
+        expect(exchange && final.units[0].health == 15 && final.units[1].health == 11,
+            "role forecasts match the damage spent by an attack and its counter");
+        definition.role_matchups.pairs = {{300, 400}};
+        auto neutral = sim::create_encounter(definition);
+        const auto even = sim::forecast_attack(neutral.encounter.snapshot(), 10, 20);
+        expect(even.damage == 7 && even.role_damage == 0 && even.hit_chance == 100,
+            "unlisted role pairs are neutral while role matchups are active");
+        definition.role_matchups.pairs = {{100, 200}, {200, 100}};
+        expect(sim::create_encounter(definition).error == sim::CreateError::invalid_role_matchups,
+            "the runtime rejects contradictory directions for the same role pair");
+    }
+
     // A blow can never be driven below one by the advantage: a spear meeting
     // the weapon it beats still hurts.
     {

@@ -26,11 +26,21 @@ with tempfile.TemporaryDirectory(prefix='grandleon-ps1-character-rules-') as tem
         if personal:
             project['campaigns'][0]['roster'][1].update(
                 weaponAffinityTypeIds=['blade', 'focus'], startingWeaponIds=['traveller_blade'],
-                defeatPolicy='loseBattle', specificity={'stats': {'health': 2}, 'rangeBonus': 1})
+                defeatPolicy='loseBattle', startingLevel=3, fixedStartingStats=True,
+                specificity={'stats': {'health': 2}, 'rangeBonus': 1})
             project['unitTypes'][1].update(
-                healingExperience=50, experiencePerLevel=50, growthRates={'health': 100})
+                healingExperience=50, experiencePerLevel=50, growthRates={'health': 100},
+                startingStats={'health': {'minDelta': 4, 'maxDelta': 6}})
+            project['unitTypes'][0]['startingStats'] = {'health': {'minDelta': 1, 'maxDelta': 3}}
+            project['unitTypes'][-1]['startingStats'] = {
+                'varyEnemies': True, 'health': {'minDelta': 1, 'maxDelta': 3}}
+            battle = next(node for node in project['campaigns'][0]['flow']['nodes']
+                          if node['kind'] == 'encounter')
+            battle.update(enemyLevel=2, enemyLevel2P=1)
             next(node for node in project['campaigns'][0]['flow']['nodes']
                  if node['kind'] == 'encounter')['deployment'] = {'id': 'limit', 'capacity': 1}
+            project['roleMatchups'] = {'damage': 3, 'pairs': [
+                {'strongRoleId': project['unitTypes'][0]['id'], 'weakRoleId': project['unitTypes'][-1]['id']}]}
         filename = work / 'project.json'
         filename.write_text(json.dumps(project))
         subprocess.run([str(args.content_compiler), str(filename), str(work / 'game.gpk')], check=True, capture_output=True)
@@ -57,8 +67,21 @@ namespace pr=grandleon::package_runtime;
 namespace core=grandleon::core;
 int main() {
  assert(grandleon_generated_deployment_capacity==(PERSONAL?1:0));
+ assert(grandleon_generated_uses_starting_stats==PERSONAL);
  for(unsigned players=1;players<=2;++players) {
   auto definition=grandleon_generated_definition(players);
+  assert(definition.role_matchups.active()==PERSONAL);
+  if(PERSONAL) {
+   assert(definition.role_matchups.pairs.size()==1 && definition.role_matchups.damage==3);
+   const auto pair=definition.role_matchups.pairs.front();
+   bool varies=false;
+   for(const auto& unit:definition.units)
+    for(const auto& range:unit.enemy_stat_ranges)
+     varies=varies || range.authored();
+   assert(varies==(players==1));
+   assert(definition.role_matchups.modifier(pair.strong,pair.weak)==3);
+   assert(definition.role_matchups.modifier(pair.weak,pair.strong)==-3);
+  }
   auto raw=sim::create_encounter(definition);assert(raw);
   assert(raw.encounter.canonical_hash()==grandleon_generated_canonical_hash(players));
   camp::CampaignState state;
@@ -67,7 +90,10 @@ int main() {
   for(const auto& member:grandleon_generated_campaign_members()) {
    if(member.join_node_id!=0)continue;
    const camp::PersistentEntityId id{member.persistent_id};
-   operations.push_back(camp::recruit_unit(id,{package,core::ContentCategory::unit_type,member.unit_type_id}));
+   const camp::DefinitionRef role{package,core::ContentCategory::unit_type,member.unit_type_id};
+   operations.push_back(camp::recruit_unit(id,role));
+   cr::append_character_start(operations,role,id,member.start,{member.starting_ranges,false},
+       grandleon_generated_progression(member.unit_type_id).progression,1729);
    for(auto item:member.starting_items)operations.push_back(camp::add_item(id,{package,core::ContentCategory::item,item},1));
    if(grandleon_generated_carried_inventory() || member.rules.states_starting_weapons)
     for(auto weapon:grandleon_generated_carried_inventory() ? member.recruited_weapons : member.rules.starting_weapons)
@@ -94,7 +120,7 @@ int main() {
    const std::vector<sim::Event> events{{sim::EventType::unit_restored,other,healer,{},2}};
    const auto grown=cr::derive_roster_experience(state,fielded,events,battle,
        {nullptr,member_for,[](const void*,std::uint64_t role){return grandleon_generated_progression(role);}});
-   assert(grown && grown.level_ups.size()==1 && grown.level_ups[0].to_level==2);
+   assert(grown && grown.level_ups.size()==1 && grown.level_ups[0].to_level==4);
    assert(camp::apply_outcome(state,camp::make_outcome_batch(battle,grown.operations)));
   }
   bool changed=false;
@@ -103,6 +129,7 @@ int main() {
     if(member.source_id!=grandleon_generated_unit_source(unit.id))continue;
     const auto* record=camp::find_unit(state,{member.persistent_id});assert(record);
     const auto base_health=unit.health;
+    cr::apply_starting_stats(unit,state,record->definition,record->id);
     cr::apply_authored_specificity(unit,member.specificity);
     cr::apply_roster_growth(unit,record->progression);
     assert(cr::apply_member_kit(unit,*record,&member.rules,grandleon_generated_carried_inventory()));
@@ -112,7 +139,10 @@ int main() {
      changed=true;assert(unit.weapon_ids==member.rules.starting_weapons);
      assert(unit.defeat_ends_battle);
      assert(member.rules.weapon_affinities.size()==2);
-     assert(unit.health==base_health+3 && unit.reach_bonus==1);
+     assert(member.start.fixed_stats && record->progression.level==4);
+     assert(unit.health==base_health+5 && unit.reach_bonus==1);
+    } else if(PERSONAL) {
+     assert(unit.health>=base_health+1 && unit.health<=base_health+3);
     }
    }
   }

@@ -927,9 +927,9 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
             return;
         }
         int panel_y;
-        panel_position(180, state.counter ? 78 : 65, &x, &panel_y);
-        draw_panel(ordering_table, next_packet, packet_end, x, panel_y, 180,
-                   state.counter ? 78 : 65);
+        const int height = (state.counter ? 78 : 65) + (state.role_damage ? 14 : 0);
+        panel_position(180, height, &x, &panel_y);
+        draw_panel(ordering_table, next_packet, packet_end, x, panel_y, 180, height);
         draw_text(ordering_table, next_packet, packet_end, x + 6, panel_y + 6,
                   grandleon_game_text(GRANDLEON_TEXT_HIT), 168, 181, 196);
         draw_number(ordering_table, next_packet, packet_end, x + 61, panel_y + 6,
@@ -964,6 +964,22 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
                       grandleon_game_text(GRANDLEON_TEXT_COUNTER), 231, 133, 104);
             draw_number(ordering_table, next_packet, packet_end, x + 111, panel_y + 53,
                         state.counter_damage, 247, 239, 209);
+        }
+        if (state.role_damage) {
+            const int role_y = panel_y + (state.counter ? 67 : 53);
+            draw_text(ordering_table, next_packet, packet_end, x + 6, role_y,
+                grandleon_game_text(GRANDLEON_TEXT_ROLE_MODIFIER), 168, 181, 196);
+            if (state.role_damage > 0) draw_glyph(ordering_table, next_packet, packet_end,
+                x + 76, role_y, '+', 247, 239, 209);
+            draw_number(ordering_table, next_packet, packet_end,
+                x + 76 + (state.role_damage > 0 ? 7 : 0), role_y, state.role_damage, 247, 239, 209);
+            if (state.counter_role_damage) {
+                draw_glyph(ordering_table, next_packet, packet_end, x + 113, role_y, '/', 168, 181, 196);
+                if (state.counter_role_damage > 0) draw_glyph(ordering_table, next_packet, packet_end,
+                    x + 125, role_y, '+', 247, 239, 209);
+                draw_number(ordering_table, next_packet, packet_end,
+                    x + 125 + (state.counter_role_damage > 0 ? 7 : 0), role_y, state.counter_role_damage, 247, 239, 209);
+            }
         }
     }
 

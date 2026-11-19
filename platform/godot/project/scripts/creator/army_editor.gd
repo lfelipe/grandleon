@@ -2,6 +2,8 @@
 extends Control
 
 const InventoryEditor = preload("res://scripts/creator/inventory_editor.gd")
+const StartingStatsEditor = preload("res://scripts/creator/starting_stats_editor.gd")
+const RoleMatchupsEditor = preload("res://scripts/creator/role_matchups_editor.gd")
 const ProjectLibrary = preload("res://scripts/creator/project_library.gd")
 const CampaignRoster = preload("res://scripts/creator/campaign_roster.gd")
 const ArtLibrary = preload("res://scripts/art_library.gd")
@@ -117,6 +119,8 @@ var rules_affinities: MenuButton
 var rules_weapons: MenuButton
 var rules_personal_capacity: CheckButton
 var rules_capacity: SpinBox
+var rules_starting_level: SpinBox
+var rules_fixed_stats: CheckButton
 var rules_capacity_buttons: Array[Button] = []
 var rules_capacity_summary: Label
 var rules_enable_inventory: Button
@@ -161,6 +165,10 @@ var role_family: OptionButton
 var role_family_toggle_button: Button
 var role_behavior_button: Button
 var inventory_editor: Control
+var starting_stats_editor: Control
+var starting_stats_button: Button
+var role_matchups_editor: Control
+var role_matchups_button: Button
 var role_inventory_button: Button
 var role_growth_button: Button
 var role_detach_button: Button
@@ -175,6 +183,7 @@ var side_name: LineEdit
 var side_colour: OptionButton
 var growth_layer: Control
 var growth_title_label: Label
+var growth_starting_stats_button: Button
 var growth_style: OptionButton
 var growth_figure: OptionButton
 var growth_drop: OptionButton
@@ -208,6 +217,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		var viewport := get_viewport()
 		if inventory_editor != null and inventory_editor.visible:
 			inventory_editor.close()
+		elif starting_stats_editor != null and starting_stats_editor.visible:
+			starting_stats_editor.close()
+		elif role_matchups_editor != null and role_matchups_editor.visible:
+			role_matchups_editor.close()
 		elif dependency_layer != null and dependency_layer.visible:
 			_close_dependency_review()
 		elif rules_layer != null and rules_layer.visible:
@@ -2500,6 +2513,12 @@ func _build_interface() -> void:
 	add_child(inventory_editor)
 	inventory_editor.setup(self)
 	inventory_editor.edited.connect(_accept_inventory_edit)
+	role_matchups_editor = RoleMatchupsEditor.new()
+	add_child(role_matchups_editor)
+	role_matchups_editor.setup(self)
+	starting_stats_editor = StartingStatsEditor.new()
+	add_child(starting_stats_editor)
+	starting_stats_editor.setup(self)
 
 
 func _build_modifier_layer() -> void:
@@ -3055,6 +3074,12 @@ func _build_role_layer() -> void:
 	role_inventory_button = _button(_t("inventory.open"), 0, 58)
 	role_inventory_button.pressed.connect(_open_role_inventory)
 	column.add_child(role_inventory_button)
+	role_matchups_button = _button(_t("army.matchups.open"), 0, 56)
+	role_matchups_button.pressed.connect(func(): role_matchups_editor.open(project, role_unit_type_id, role_matchups_button))
+	column.add_child(role_matchups_button)
+	starting_stats_button = _button(_t("army.starts.open"), 0, 56)
+	starting_stats_button.pressed.connect(func(): starting_stats_editor.open(starting_stats_button))
+	column.add_child(starting_stats_button)
 	role_detach_button = _button(_t("army.role.detach"), 480, 58)
 	role_detach_button.tooltip_text = _t("army.role.detach_tooltip")
 	role_detach_button.pressed.connect(_detach_role_baseline)
@@ -3367,6 +3392,9 @@ func _build_growth_layer() -> void:
 	footer.set_meta("mobile_wrap_actions", true)
 	footer.add_theme_constant_override("separation", 16)
 	column.add_child(footer)
+	growth_starting_stats_button = _button(_t("army.starts.open"), 300, 58)
+	growth_starting_stats_button.pressed.connect(func(): starting_stats_editor.open(growth_starting_stats_button))
+	footer.add_child(growth_starting_stats_button)
 	var done := _button(_t("army.done"), 280, 58)
 	done.pressed.connect(_close_growth)
 	footer.add_child(done)
@@ -3771,6 +3799,19 @@ func _build_personal_rules_layer() -> void:
 	var help := _label(_t("army.personal.help"), 18, Color("a9bdc9"))
 	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(help)
+	column.add_child(_label(_t("army.starts.hero_level"), 18, Color("e6b86d")))
+	rules_starting_level = SpinBox.new()
+	rules_starting_level.min_value = 1
+	rules_starting_level.max_value = 99
+	rules_starting_level.custom_minimum_size.y = 54
+	rules_starting_level.tooltip_text = _t("army.starts.hero_level_help")
+	rules_starting_level.get_line_edit().add_theme_font_size_override("font_size", 20)
+	column.add_child(rules_starting_level)
+	rules_fixed_stats = CheckButton.new()
+	rules_fixed_stats.text = _t("army.starts.hero_fixed")
+	rules_fixed_stats.tooltip_text = _t("army.starts.hero_fixed_help")
+	rules_fixed_stats.custom_minimum_size.y = 54
+	column.add_child(rules_fixed_stats)
 	rules_personal_affinities = CheckButton.new()
 	rules_personal_affinities.text = _t("army.personal.override_affinities")
 	rules_personal_affinities.custom_minimum_size.y = 54
@@ -3846,6 +3887,9 @@ func _open_personal_rules() -> void:
 		return
 	var member := _current_member()
 	var role := _unit_type(str(member.get("unitTypeId", "")))
+	rules_starting_level.value = int(member.get("startingLevel", 1))
+	rules_starting_level.get_line_edit().text = str(int(rules_starting_level.value))
+	rules_fixed_stats.set_pressed_no_signal(bool(member.get("fixedStartingStats", false)))
 	rules_affinity_ids = member.get("weaponAffinityTypeIds", _role_weapon_affinities(role)).duplicate()
 	rules_weapon_ids = member.get("startingWeaponIds", role.get("startingWeaponIds", [])).duplicate()
 	rules_personal_affinities.set_pressed_no_signal(member.has("weaponAffinityTypeIds"))
@@ -3879,6 +3923,11 @@ func _apply_personal_rules() -> void:
 		return
 	var member := _current_member()
 	var rules: Dictionary = {}
+	rules_starting_level.apply()
+	if rules_starting_level.value > 1:
+		rules["startingLevel"] = int(rules_starting_level.value)
+	if rules_fixed_stats.button_pressed:
+		rules["fixedStartingStats"] = true
 	if rules_personal_affinities.button_pressed:
 		rules["weaponAffinityTypeIds"] = rules_affinity_ids.duplicate()
 	if rules_personal_kit.button_pressed:
