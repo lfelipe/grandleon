@@ -115,5 +115,33 @@
         "sample_seconds": 4.940836
       }
     }
+  },
+  "terrain_load": {
+    "method": "Single runs of the same renderer probe, after terrain batching. CPU configure covers terrain, visibility and units, with the next rendered frame timed separately. Windows executable tested with Wine. Software rendering and host load affect wall times.",
+    "linux": {
+      "baseline_ms": {
+        "board_configure": 9192.18,
+        "board_to_first_draw": 12674.435,
+        "session_to_battle": 25.812
+      },
+      "reused_grid_samples_ms": {
+        "board_configure": 3024.738,
+        "board_to_first_draw": 6643.412,
+        "session_to_battle": 21.056
+      }
+    },
+    "windows_under_wine": {
+      "baseline_ms": {
+        "board_configure": 16298.711,
+        "board_to_first_draw": 16981.597,
+        "session_to_battle": 19.753
+      },
+      "reused_grid_samples_ms": {
+        "board_configure": 3724.764,
+        "board_to_first_draw": 4070.305,
+        "session_to_battle": 13.757
+      }
+    },
+    "verification": "Identical mesh array hashes in 300 cases across all four seasons, varying cell types, tessellation, extents and lift. All 52 renderer-derived material images and measured palettes match in the before and after exports."
   }
 }

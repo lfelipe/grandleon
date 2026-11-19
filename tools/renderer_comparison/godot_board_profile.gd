@@ -45,7 +45,9 @@ func _run() -> void:
 			return
 		test_package = compiled.package
 	var players := clampi(int(args.get("players", 2)), 1, 2)
+	var battle_start := Time.get_ticks_usec()
 	var event := await _first_battle(test_package, selected_campaign, players)
+	var battle_ready := Time.get_ticks_usec()
 	if event.is_empty():
 		_fail("The native player did not prepare a battle")
 		return
@@ -56,12 +58,16 @@ func _run() -> void:
 	root.add_child(board)
 	await process_frame
 	var before: Dictionary = event.snapshot
+	var board_start := Time.get_ticks_usec()
 	board.configure(before, event.terrain, int(event.get("theme", 0)),
 		event.get("surroundings", {}), event.get("terrain_features", []), {
 			"stage_id": event.stage_id, "map_id": event.map_id, "encounter_id": event.encounter_id,
 		})
 	board.set_visual_visibility(event.get("visual_visibility", {}))
 	board.set_ambient_motion_enabled(false)
+	var board_configured := Time.get_ticks_usec()
+	await RenderingServer.frame_post_draw
+	var board_drawn := Time.get_ticks_usec()
 	await _sample("idle", Callable())
 	var width := int(before.width)
 	var height := int(before.height)
@@ -105,6 +111,11 @@ func _run() -> void:
 		"stage": event.stage_id,
 		"board": [width, height],
 		"players": players,
+		"loading_ms": {
+			"session_to_battle": (battle_ready - battle_start) / 1000.0,
+			"board_configure": (board_configured - board_start) / 1000.0,
+			"board_to_first_draw": (board_drawn - board_start) / 1000.0,
+		},
 		"workloads": results,
 	}
 	var file := FileAccess.open(output, FileAccess.WRITE)

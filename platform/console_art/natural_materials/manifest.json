@@ -287,7 +287,7 @@
   "schema": "grandleon.natural_materials.v1",
   "sources": {
     "platform/godot/project/content/graphics_profiles.json": "e4f21b8e856408a976f8e5c27abc81fd65cd46b95eb68ceb72fab90e3d14c9df",
-    "platform/godot/project/scripts/natural_ground.gd": "fe59e536f3b03dff8e3f574af57156c7846fe983bb55cc25d7b1ecd8da18ecc9",
+    "platform/godot/project/scripts/natural_ground.gd": "1e56c1c6bce512c6c89187e042b0106176d98bfba9572b3d885937dc8077fb85",
     "platform/godot/project/shaders/natural_ground.gdshader": "df7efb30b93967fd69f171951066380f61c3873b32c6bed5483f88936833254b"
   }
 }

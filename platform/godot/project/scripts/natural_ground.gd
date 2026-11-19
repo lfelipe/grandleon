@@ -81,16 +81,25 @@ func corner_colour(corner: Vector2i, kind: int) -> Color:
 
 
 func sample_height(cell: Vector2i, uv: Vector2) -> float:
-	var a := corner_height(cell)
-	var b := corner_height(cell + Vector2i.RIGHT)
-	var c := corner_height(cell + Vector2i.DOWN)
-	var d := corner_height(cell + Vector2i.ONE)
-	var edge := lerpf(lerpf(a, b, uv.x), lerpf(c, d, uv.x), uv.y)
+	return _interpolate_height(_corner_heights(cell), height_at(cell), _has_ripple(kind_at(cell)), uv)
+
+
+func _corner_heights(cell: Vector2i) -> Array[float]:
+	return [corner_height(cell), corner_height(cell + Vector2i.RIGHT),
+		corner_height(cell + Vector2i.DOWN), corner_height(cell + Vector2i.ONE)]
+
+
+func _has_ripple(kind: int) -> bool:
+	return kind not in [0, 1, 8, 12]
+
+
+func _interpolate_height(corners: Array[float], centre: float, ripple: bool, uv: Vector2) -> float:
+	var edge := lerpf(lerpf(corners[0], corners[1], uv.x), lerpf(corners[2], corners[3], uv.x), uv.y)
 	var weight := sin(PI * uv.x) * sin(PI * uv.y)
 	# Every cell centre retains the gameplay's existing unit footing. Shared
 	# edge samples are identical on both sides, including decorative terrain.
-	var height := edge + (height_at(cell) - (a + b + c + d) * 0.25) * weight
-	if kind_at(cell) not in [0, 1, 8, 12]:
+	var height := edge + (centre - (corners[0] + corners[1] + corners[2] + corners[3]) * 0.25) * weight
+	if ripple:
 		height += sin(TAU * uv.x) * sin(TAU * uv.y) * 0.026
 	return height
 
@@ -99,19 +108,33 @@ func mesh_for(cell: Vector2i, divisions := 6, extent := 1.0, lift := 0.0) -> Arr
 	var kind := kind_at(cell)
 	var corners := [corner_colour(cell, kind), corner_colour(cell + Vector2i.RIGHT, kind),
 		corner_colour(cell + Vector2i.DOWN, kind), corner_colour(cell + Vector2i.ONE, kind)]
+	var corner_heights := _corner_heights(cell)
+	var centre := height_at(cell)
+	var ripple := _has_ripple(kind)
+	var side := divisions + 1
+	var positions := PackedVector3Array()
+	var coordinates := PackedVector2Array()
+	var vertex_colours := PackedColorArray()
+	for y in side:
+		for x in side:
+			var uv := Vector2(x, y) / float(divisions)
+			var surface_uv := (uv - Vector2(0.5, 0.5)) * extent + Vector2(0.5, 0.5)
+			var height := _interpolate_height(corner_heights, centre, ripple, surface_uv) + lift
+			positions.append(Vector3(surface_uv.x - 0.5, height, surface_uv.y - 0.5))
+			coordinates.append(uv)
+			var edge_colour: Color = corners[0].lerp(corners[1], uv.x).lerp(corners[2].lerp(corners[3], uv.x), uv.y)
+			var distance_to_edge := minf(minf(uv.x, 1.0 - uv.x), minf(uv.y, 1.0 - uv.y))
+			vertex_colours.append(edge_colour.lerp(colours[kind], smoothstep(0.0, 0.22, distance_to_edge)))
 	var surface := SurfaceTool.new()
 	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for y in divisions:
 		for x in divisions:
-			for corner: Vector2i in [Vector2i(x, y), Vector2i(x + 1, y), Vector2i(x, y + 1),
-					Vector2i(x, y + 1), Vector2i(x + 1, y), Vector2i(x + 1, y + 1)]:
-				var uv := Vector2(corner) / float(divisions)
-				var surface_uv := (uv - Vector2(0.5, 0.5)) * extent + Vector2(0.5, 0.5)
-				surface.set_uv(uv)
-				var edge_colour: Color = corners[0].lerp(corners[1], uv.x).lerp(corners[2].lerp(corners[3], uv.x), uv.y)
-				var distance_to_edge := minf(minf(uv.x, 1.0 - uv.x), minf(uv.y, 1.0 - uv.y))
-				surface.set_color(edge_colour.lerp(colours[kind], smoothstep(0.0, 0.22, distance_to_edge)))
-				surface.add_vertex(Vector3(surface_uv.x - 0.5, sample_height(cell, surface_uv) + lift, surface_uv.y - 0.5))
+			var upper := y * side + x
+			var lower := upper + side
+			for index: int in [upper, upper + 1, lower, lower, upper + 1, lower + 1]:
+				surface.set_uv(coordinates[index])
+				surface.set_color(vertex_colours[index])
+				surface.add_vertex(positions[index])
 	surface.generate_normals()
 	surface.index()
 	return surface.commit()
