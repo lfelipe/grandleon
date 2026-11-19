@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import urllib.request
 import zipfile
@@ -70,12 +71,13 @@ def main():
     if not args.no_build:
         if os.name != "nt":
             parser.error("Build on Windows, or supply --no-build and a Windows cross-build")
+        test_python = [f"-DGRANDLEON_PYTHON_EXECUTABLE={sys.executable}"] if args.test else []
         run("cmake", "-S", ROOT, "-B", build, "-G", "Ninja",
             f"-DCMAKE_CXX_COMPILER={args.cxx}", "-DCMAKE_BUILD_TYPE=Release",
             "-DCMAKE_EXE_LINKER_FLAGS=-static -static-libgcc -static-libstdc++",
             "-DGRANDLEON_BUILD_GODOT=ON",
             f"-DGRANDLEON_BUILD_TESTS={'ON' if args.test else 'OFF'}",
-            "-DGRANDLEON_GODOT_API_VERSION=4.7", "-DGRANDLEON_WERROR=ON")
+            "-DGRANDLEON_GODOT_API_VERSION=4.7", "-DGRANDLEON_WERROR=ON", *test_python)
         run("cmake", "--build", build, "--config", "Release", "--parallel",
             "--target", "grandleon_content_compile", "grandleon_godot_project")
         if args.test:

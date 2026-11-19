@@ -90,7 +90,7 @@ def main():
                            "--package=res://game.gpk", "--campaign=first_adventure",
                            "--players=1", "--player-only", "--automation-dir=" + native(automation)]
     elif windows:
-        launch = prefix + ["cmd.exe", "/d", "/c", native(game / "launch-pc.cmd"),
+        launch = ["cmd.exe", "/d", "/c", "launch-pc.cmd",
                            "--automation-dir=" + native(automation)]
     else:
         launch = [str(game / "launch-pc.sh")]
