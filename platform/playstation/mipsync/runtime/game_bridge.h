@@ -45,8 +45,12 @@ enum grandleon_ui_mode {
     GRANDLEON_UI_SHOP,
     GRANDLEON_UI_CONVERSATION,
     GRANDLEON_UI_STATISTICS,
-    GRANDLEON_UI_COMPANY_DEPLOYMENT
+    GRANDLEON_UI_COMPANY_DEPLOYMENT,
+    GRANDLEON_UI_BATTLE_REWARDS,
+    GRANDLEON_UI_SHARED_SUPPLIES
 };
+const char* grandleon_game_reward_line(uint8_t index);
+const char* grandleon_game_supply_text(uint16_t row, uint8_t field);
 const char* grandleon_game_conversation_line(uint8_t index);
 const char* grandleon_game_conversation_answer(uint8_t index);
 
@@ -106,7 +110,8 @@ enum grandleon_ui_text_id {
     GRANDLEON_TEXT_BEGIN,
     GRANDLEON_TEXT_COLLECTION,
     GRANDLEON_TEXT_SHOP, GRANDLEON_TEXT_PRICE, GRANDLEON_TEXT_STOCK,
-    GRANDLEON_TEXT_READY, GRANDLEON_TEXT_SHOP_NAVIGATION, GRANDLEON_TEXT_BUY
+    GRANDLEON_TEXT_READY, GRANDLEON_TEXT_SHOP_NAVIGATION, GRANDLEON_TEXT_BUY,
+    GRANDLEON_TEXT_GIVE, GRANDLEON_TEXT_TAKE, GRANDLEON_TEXT_PACK
 };
 
 typedef struct grandleon_ui_state {

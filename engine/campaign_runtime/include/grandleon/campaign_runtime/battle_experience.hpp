@@ -30,6 +30,13 @@ struct LevelUp final {
     std::array<std::uint16_t, campaign::growable_stat_count> points{};
 };
 
+struct ExperienceReward final {
+    campaign::PersistentEntityId member{};
+    std::uint32_t experience{};
+    std::uint16_t previous_level{};
+    std::uint16_t level{};
+};
+
 enum class ProgressionSourceError : std::uint8_t {
     none = 0,
     // A board unit bound to a campaign member the roster does not hold, or
@@ -56,6 +63,7 @@ struct BattleProgression final {
     std::vector<campaign::CampaignOutcomeOperation> operations;
     // One entry per member who reached a new level, ascending by member.
     std::vector<LevelUp> level_ups;
+    std::vector<ExperienceReward> rewards;
 
     [[nodiscard]] explicit operator bool() const noexcept {
         return error == ProgressionSourceError::none;

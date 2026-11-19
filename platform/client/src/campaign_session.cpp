@@ -143,6 +143,7 @@ std::string_view management_error_name(ManagementError error) noexcept {
         case ManagementError::purchase_save_failed: return "purchase_save_failed";
         case ManagementError::invalid_player: return "invalid_player";
         case ManagementError::not_owner: return "not_owner";
+        case ManagementError::save_failed: return "save_failed";
     }
     return "unknown";
 }
@@ -970,6 +971,9 @@ CompanyManagement CampaignSession::management() {
     company.encounter_id = where.encounter_id;
     company.roster = roster_now();
     company.store = live_.state.store;
+    company.has_shared_supplies = authored_.inventory_mode == sim::InventoryMode::legacy &&
+        (!authored_.grants.empty() || std::any_of(company.store.begin(), company.store.end(),
+            [](const auto& stack) { return stack.item.category != core::ContentCategory::currency; }));
     company.gold = campaign::item_quantity(live_.state, {},
         {package_->game_id, core::ContentCategory::currency, core::gold_currency_id});
     if (!prepared_ready_) {
@@ -1043,13 +1047,18 @@ ManagementCommit CampaignSession::commit_management(
         static_cast<std::uint64_t>(live_.state.applied_outcomes.size())
     };
     result.batch = campaign::make_outcome_batch(source, std::move(operations));
+    auto previous = live_.state;
     result.application = campaign::apply_outcome(live_.state, result.batch);
     if (!result.application) return result;
     // Committed, so written. Management happens between battles, which is when
     // saves happen, and a screen that showed a moved draught the slot did not
     // hold would be showing a player something that will not be there tomorrow.
     result.save = save();
-    result.saved = true;
+    result.saved = result.save == storage::StorageError::none;
+    if (!result.saved) {
+        live_.state = std::move(previous);
+        result.error = ManagementError::save_failed;
+    }
     return result;
 }
 

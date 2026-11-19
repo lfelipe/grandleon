@@ -5,16 +5,18 @@ local ffi, bit = require('ffi'), require('bit')
 local data = dofile('/out/personal-character-bindings.lua')
 local phase = os.getenv('GRANDLEON_PERSONAL_PHASE') or 'new'
 local players = tonumber(os.getenv('GRANDLEON_PERSONAL_PLAYERS') or '1')
+local test_supplies = os.getenv('GRANDLEON_PERSONAL_SUPPLIES') == '1'
 assert(phase == 'new' or phase == 'loss' or phase == 'reload')
 assert(players == 1 or players == 2)
 local U = {browse=0,move=1,action=2,attack=3,result=7,opponent=8,complete=9,
            moment=13,title=14,players=15,story=16,objective=17,aftermath=18,
-           save_error=19,name=22,overview=23}
-local B = {cross=0x4000,circle=0x2000,triangle=0x1000,up=0x0010,right=0x0020,down=0x0040,left=0x0080}
+           save_error=19,name=22,overview=23,rewards=29,supplies=30}
+local B = {cross=0x4000,circle=0x2000,triangle=0x1000,start=0x0008,up=0x0010,right=0x0020,down=0x0040,left=0x0080}
 local frame,next_input,revision,input_revision = 0,30,0,-1
 local observed,stage,actor,ui_output,ui_return,pending_quit = nil,nil,nil,nil,nil,nil
 local initial,checks,captured,returns,hooks = {},{casualties=false,required=false,route=false}, {},{},{}
 local pending_capture
+local supply_step = 0
 
 local function ptr(address, kind)
   assert(address >= 0x80000000 and address < 0x80200000, 'observation outside main RAM')
@@ -48,12 +50,15 @@ local function snapshot()
     local weapons={}
     local first,n = vector(p+u.weapon_ids,8,8)
     for j=0,n-1 do weapons[#weapons+1]=id(first+j*8) end
+    local items = {}
+    first,n = vector(p+u.item_counts,2,8)
+    for j=0,n-1 do items[#items+1]=num(first+j*2,'const uint16_t*') end
     local unit={id=id(p+u.id),side=num(p+u.side,'const uint8_t*'),
                 x=num(p+u.position,'const int16_t*'),y=num(p+u.position+2,'const int16_t*'),
                 health=num(p+u.health,'const int16_t*'),maximum=num(p+u.maximum_health,'const int16_t*'),
                 acted=num(p+u.has_acted,'const uint8_t*')~=0,
                 required=num(p+u.defeat_ends_battle,'const uint8_t*')~=0,
-                player=num(p+u.local_player,'const uint8_t*'), weapons=weapons}
+                player=num(p+u.local_player,'const uint8_t*'), weapons=weapons,items=items}
     out.units[#out.units+1]=unit
     for name,authored in pairs(stage.units) do if authored.id==unit.id then out[name]=unit end end
   end
@@ -79,6 +84,10 @@ local function inspect(s)
   assert(s.Scholar and s.Scholar.health>0,'Scholar must survive')
   assert(#s.Scholar.weapons==1 and s.Scholar.weapons[1]==stage.sword,'personal sword must replace Mage focus across saves')
   if not initial[stage.name] then
+    if test_supplies then
+      assert(#s.Scholar.items==1 and s.Scholar.items[1]==1,'one assigned starting tonic must remain with Scholar')
+      log_check('shared_supply_reached_the_live_battle')
+    end
     if stage.name=='I. Casualties' then
       assert(phase=='new' and #s.units==5 and s.Perman and s.Willow and not s.Rhea)
       assert(s.Scholar.maximum==30,'Scholar starts with authored health')
@@ -201,6 +210,21 @@ for _,binding in ipairs(data.update) do
         held=observed.campaign_menu==row and B.cross or B.down
       elseif ui==U.players then held=observed.campaign_menu==players-1 and B.cross or B.down
       elseif ui==U.name then held=B.triangle
+      elseif ui==U.rewards then
+        assert(phase=='new' and observed.count==1,'victory should show one XP recipient')
+        if not captured['battle-rewards'] then
+          assert(observed.headline=='BATTLE REWARDS')
+          log_check('battle_rewards_screen')
+          capture('battle-rewards')
+        else held=B.cross end
+      elseif ui==U.supplies then
+        if test_supplies and phase=='new' and stage==nil and supply_step<4 then
+          local steps={B.down,B.cross,B.circle,B.cross}
+          assert(observed.count==2,'the store and personal sword should be listed')
+          supply_step=supply_step+1;held=steps[supply_step]
+        elseif test_supplies and phase=='new' and not captured[stage and 'stage-supplies' or 'starting-supplies'] then
+          capture(stage and 'stage-supplies' or 'starting-supplies')
+        else held=B.start end
       elseif ui==U.story or ui==U.objective or ui==U.aftermath or ui==U.moment or ui==U.overview then held=B.cross
       elseif s then held,player=battle_input(s) end
     end)

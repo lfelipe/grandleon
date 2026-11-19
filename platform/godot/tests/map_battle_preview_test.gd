@@ -500,6 +500,8 @@ func play_exported_campaign(package: PackedByteArray, players: int) -> void:
 	var shop_checked := false
 	var opening_health: Dictionary = {}
 	var opening_levels: Dictionary = {}
+	var displayed_opening_xp := 0
+	var displayed_level_up := false
 	var reached := false
 	var entered := false
 	var revealed := false
@@ -512,8 +514,15 @@ func play_exported_campaign(package: PackedByteArray, players: int) -> void:
 		await process_frame
 		if player._dialogue_visible():
 			for line: Dictionary in player.dialogue_lines:
-				saw_victory_scene = saw_victory_scene or line.text == VICTORY_LINE
-				saw_defeat_scene = saw_defeat_scene or line.text == DEFEAT_LINE
+				saw_victory_scene = saw_victory_scene or line.get("text", "") == VICTORY_LINE
+				saw_defeat_scene = saw_defeat_scene or line.get("text", "") == DEFEAT_LINE
+			var current: Dictionary = player.dialogue_lines[player.dialogue_index]
+			if current.has("battle_rewards") and not shop_checked:
+				check(player.dialogue_speaker.text == "Battle rewards", "the player shows battle rewards before continuing")
+				for reward: Dictionary in current.battle_rewards:
+					displayed_opening_xp += int(reward.xp)
+					displayed_level_up = displayed_level_up or bool(reward.leveled_up)
+					check(player.dialogue_text.get_parsed_text().contains(str(reward.name)), "the XP display names each recipient")
 			player._advance_dialogue()
 			continue
 		if player._management_visible():
@@ -525,6 +534,8 @@ func play_exported_campaign(package: PackedByteArray, players: int) -> void:
 					check(int(member.level) == 1 + int(member.experience) / 100,
 						"the shop shows the level earned by each hero")
 				check(total_experience == 100 * (players + 1), "each opening defeat grants the authored XP once")
+				check(displayed_opening_xp == total_experience and displayed_level_up,
+					"the battle reward page shows the same XP and level-up the company carries")
 				await play_shop(player, players)
 				shop_checked = true
 			elif not player.campaign_manager._proceed_button.disabled:

@@ -668,30 +668,7 @@ std::vector<campaign::CampaignOutcomeOperation> node_item_grants(
     std::uint64_t node_id
 ) {
     std::vector<campaign::CampaignOutcomeOperation> operations;
-    for (const package_runtime::CampaignItemGrant& grant : definition.grants) {
-        if (grant.join_node_id != node_id) continue;
-        if (grant.quantity == 0U) continue;
-        // Which category the identity belongs to is the grant's own answer:
-        // an identity is unique only within one, so the same stable id may
-        // name an item and a weapon both, and the field it arrived in is what
-        // says which.
-        const bool weapon = grant.grants_a_weapon();
-        const std::uint64_t identity = weapon ? grant.weapon_id : grant.item_id;
-        if (identity == 0U) continue;
-        // The reserved zero owner is the shared store. It is the one owner an
-        // author can name without knowing who is still alive, which is the
-        // whole reason a grant lands there rather than in somebody's hands -
-        // and, for a weapon, the whole reason no class's allowed types are
-        // consulted here. Nobody knows yet whose hands it will reach.
-        operations.push_back(campaign::add_item(
-            campaign::PersistentEntityId{},
-            {package,
-             weapon ? core::ContentCategory::weapon
-                    : core::ContentCategory::item,
-             identity},
-            grant.quantity
-        ));
-    }
+    append_item_grants(operations, package, definition.grants, node_id);
     return operations;
 }
 

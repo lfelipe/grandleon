@@ -829,6 +829,12 @@ def main() -> int:
                            for member in party["members"])
         lines.append("        {" + f"{int(party['node_id'])}ULL," + "{" + members + "}},")
     lines += ["    };", "    return parties;", "}", ""]
+    lines += ["const std::vector<grandleon::package_runtime::CampaignItemGrant>& grandleon_generated_campaign_grants() {",
+              "    static const std::vector<grandleon::package_runtime::CampaignItemGrant> grants = {"]
+    for grant in campaign.get("grants", []):
+        lines.append(f"        {{{int(grant['item_id'])}ULL, {int(grant['quantity'])}U, "
+                     f"{int(grant['node_id'])}ULL, {int(grant['weapon_id'])}ULL}},")
+    lines += ["    };", "    return grants;", "}", ""]
     args.output.mkdir(parents=True, exist_ok=True)
     (args.output / "simulation_data.cpp").write_text("\n".join(lines), encoding="utf-8")
     header = f"""/* Generated from a real Grandleon package. Do not edit. */
@@ -836,6 +842,7 @@ def main() -> int:
 #include <grandleon/campaign/graph.hpp>
 #include <grandleon/core/map_conversation.hpp>
 #include <grandleon/package_runtime/member_rules.hpp>
+#include <grandleon/package_runtime/campaign.hpp>
 #include <grandleon/package_runtime/progression.hpp>
 #include <grandleon/package_runtime/specificity.hpp>
 #include <grandleon/package_runtime/shop.hpp>
@@ -907,6 +914,7 @@ const std::vector<grandleon_generated_campaign_member>& grandleon_generated_camp
 const grandleon_generated_campaign_member* grandleon_generated_campaign_member_for(std::uint64_t persistent_id);
 const std::vector<grandleon_generated_campaign_node>& grandleon_generated_campaign_nodes();
 const std::vector<grandleon::campaign_runtime::ShopParty>& grandleon_generated_shop_parties();
+const std::vector<grandleon::package_runtime::CampaignItemGrant>& grandleon_generated_campaign_grants();
 const grandleon_generated_campaign_node* grandleon_generated_campaign_node_for(std::uint64_t id);
 const std::vector<std::uint64_t>& grandleon_generated_objective_ids();
 inline constexpr std::uint16_t grandleon_generated_deployment_capacity = {int(simulation.get("deployment_capacity", 0))};

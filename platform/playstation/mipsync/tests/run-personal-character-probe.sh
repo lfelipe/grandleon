@@ -27,6 +27,7 @@ for players in ${GRANDLEON_PERSONAL_PLAYERS_LIST:-1 2}; do
         timeout --kill-after=10 240 "$docker" run --rm --user "$(id -u):$(id -g)" \
             --env HOME=/tmp --env "GRANDLEON_PERSONAL_PHASE=$phase" \
             --env "GRANDLEON_PERSONAL_PLAYERS=$players" \
+            --env "GRANDLEON_PERSONAL_SUPPLIES=${GRANDLEON_PERSONAL_SUPPLIES:-0}" \
             --volume "$build:/disc:ro" --volume "$script_dir:/probe:ro" \
             --volume "$output:/out" --workdir /tmp "$image" \
             stdbuf -oL -eL pcsx-redux -no-ui -run -softgpu \
@@ -41,8 +42,12 @@ for players in ${GRANDLEON_PERSONAL_PLAYERS_LIST:-1 2}; do
         fi
         grep -q "PERSONAL_CHARACTER_PASS phase=$phase players=$players" "$log"
         grep -q 'assertion=attack_and_counterattack_xp_persist' "$log"
+        if test "${GRANDLEON_PERSONAL_SUPPLIES:-0}" = 1; then
+            grep -q 'assertion=shared_supply_reached_the_live_battle' "$log"
+        fi
         if test "$phase" = new; then
             grep -q 'assertion=permanent_and_withdraw_defeated_by_real_combat' "$log"
+            grep -q 'assertion=battle_rewards_screen' "$log"
             grep -q 'MIPSYNC_CAMPAIGN_READY card=1 continue=0' "$log"
         elif test "$phase" = loss; then
             grep -q 'assertion=required_defeat_overrides_live_allies_and_fails_goal' "$log"

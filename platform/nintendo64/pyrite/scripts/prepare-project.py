@@ -239,15 +239,6 @@ def prepare(project_path: Path, manifest_path: Path, project_root: Path,
             review_driver: bool = False) -> None:
     project = json.loads(project_path.read_text(encoding="utf-8"))
     campaign, encounters = reachable_campaign(project)
-    if campaign.get("startingStore") or any(
-        node.get("grants") for node in campaign.get("flow", {}).get("nodes", [])
-        if isinstance(node, dict)
-    ):
-        raise ProjectError(
-            "shared campaign supplies and rewards are not yet supported by the "
-            "Nintendo 64 player. Use character starting equipment or play this "
-            "campaign in Godot."
-        )
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     maps = selected_maps(project, encounters)
     # Reject unsupported layouts before producing any cartridge assets. A

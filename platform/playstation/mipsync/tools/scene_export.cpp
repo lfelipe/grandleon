@@ -242,6 +242,19 @@ void write_campaign(
     write_id(output, campaign_id);
     output << ",\"show_end_statistics\":" << pr::show_end_statistics(package);
     output << ",\"inventory_mode\":" << static_cast<unsigned>(campaign.inventory_mode);
+    output << ",\"grants\":[";
+    for (std::size_t row = 0; row < campaign.grants.size(); ++row) {
+        const auto& grant = campaign.grants[row];
+        if (row != 0U) output << ',';
+        output << "{\"item_id\":";
+        write_id(output, grant.item_id);
+        output << ",\"weapon_id\":";
+        write_id(output, grant.weapon_id);
+        output << ",\"node_id\":";
+        write_id(output, grant.join_node_id);
+        output << ",\"quantity\":" << grant.quantity << '}';
+    }
+    output << ']';
     output << ",\"entry_node_id\":";
     write_id(output, campaign.entry_node_id);
     output << ",\"player_mode\":"
@@ -640,15 +653,8 @@ int main(int argc, char** argv) {
         return 65;
     }
 
-    if (!campaign.definition.grants.empty()) {
-        std::cerr << "campaign rejected: shared campaign supplies and rewards are not yet "
-                     "supported by the PlayStation player. Use character starting "
-                     "equipment or play this campaign in Godot.\n";
-        return 65;
-    }
-
-    // Generated stages carry only personal equipment for characters placed
-    // here. Resolve dependencies through the same package decoder as desktop.
+    // Include shared equipment definitions even when no opening unit holds
+    // them. A later grant or a transfer before battle can put them in play.
     auto equipment = loaded.definition;
     for (std::size_t index = 0; index < loaded.placements.size(); ++index) {
         for (const auto& member : campaign.definition.members) {
@@ -658,7 +664,8 @@ int main(int argc, char** argv) {
                 if (std::find(ids.begin(), ids.end(), id) == ids.end()) ids.push_back(id);
         }
     }
-    if (!(campaign.definition.inventory_mode == sim::InventoryMode::carried
+    if (!((campaign.definition.inventory_mode == sim::InventoryMode::carried ||
+           !campaign.definition.grants.empty())
             ? pr::resolve_equipment_library(package.package, equipment)
             : pr::resolve_carried_equipment(package.package, equipment))) {
         std::cerr << "personal equipment rejected\n";

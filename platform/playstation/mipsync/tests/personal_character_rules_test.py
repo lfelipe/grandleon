@@ -129,7 +129,7 @@ int main() {
 }
 '''.replace('PERSONAL', 'true' if personal else 'false'))
         command = [args.compiler, '-std=c++17', '-O0', '-ffunction-sections', '-Wl,--gc-sections', '-I'+str(generated)]
-        for module in ('core', 'campaign', 'campaign_runtime', 'package_runtime', 'simulation', 'tactics'):
+        for module in ('core', 'campaign', 'campaign_runtime', 'package_format', 'package_runtime', 'simulation', 'tactics'):
             command.append('-I'+str(repo / 'engine' / module / 'include'))
         command += [str(main), str(generated / 'simulation_data.cpp')]
         for module, files in {'core':['random'], 'simulation':['encounter'], 'campaign':['state','outcome','identity'], 'campaign_runtime':['battle_experience']}.items():

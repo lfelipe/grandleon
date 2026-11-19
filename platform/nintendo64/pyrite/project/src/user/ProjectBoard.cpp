@@ -6,6 +6,7 @@
 #include <grandleon/client/console_name_editor.hpp>
 #include <grandleon/client/session.hpp>
 #include <grandleon/client/shop_controller.hpp>
+#include <grandleon/client/shared_supplies.hpp>
 #include <grandleon/simulation/carried_inventory.hpp>
 #include <grandleon/core/content_identity.hpp>
 #include <grandleon/core/currency.hpp>
@@ -235,6 +236,7 @@ enum class ShellPhase : std::uint8_t {
     story,
     name,
     deployment,
+    supplies,
     shop,
     aftermath,
     complete,
@@ -282,7 +284,10 @@ struct ShellState final {
     std::size_t shop_catalog_top{};
     unsigned shop_focus_player{};
     bool shop_approved{};
+    bool supplies_approved{};
+    client::SharedSupplies supplies;
     client::BattleAftermath aftermath;
+    std::size_t aftermath_reward_offset{};
     std::vector<sim::ObjectiveResult> aftermath_objectives;
 };
 
@@ -2879,6 +2884,16 @@ bool stand_on_campaign_encounter() {
                 if (!shell.shop_approved && !company.shop_offers.empty()) {
                     return begin_shop(company);
                 }
+                if (!shell.supplies_approved && company.has_shared_supplies) {
+                    shell.supplies = {};
+                    shell.supplies.refresh(company);
+                    if (!shell.supplies.empty()) {
+                        shell.phase = ShellPhase::supplies;
+                        shell.next_automatic_frame = frame_count + 75U;
+                        debugf("CHECKPOINT PYRITE_SUPPLIES\n");
+                        return true;
+                    }
+                }
                 if (company.has_deployment_options) {
                     return begin_required_deployment();
                 }
@@ -2895,6 +2910,8 @@ bool stand_on_campaign_encounter() {
             configure_campaign_board(board.campaign_content);
             shell.deployment_approved = false;
             shell.shop_approved = false;
+            shell.supplies_approved = false;
+            shell.supplies = {};
             shell.phase = ShellPhase::battle;
             return true;
         }
@@ -2989,6 +3006,7 @@ bool begin_campaign(bool resume) {
     shell.resumed = resumed;
     shell.completed_battles = board.campaign->completed_encounters();
     shell.shop_approved = false;
+    shell.supplies_approved = false;
     shell.shop = {};
 
     shell.pending_player_names.clear();
@@ -3145,6 +3163,9 @@ bool confirm_shell_choice() {
             return false;
         case ShellPhase::shop:
             return false;
+        case ShellPhase::supplies:
+            shell.supplies_approved = true;
+            return stand_on_campaign_encounter();
         case ShellPhase::deployment:
             if (shell.deployment.fielded.empty() ||
                 (shell.deployment.capacity != 0U &&
@@ -3154,6 +3175,11 @@ bool confirm_shell_choice() {
             shell.deployment_approved = false;
             return false;
         case ShellPhase::aftermath:
+            if (shell.aftermath_reward_offset + 3U < shell.aftermath.progression.rewards.size()) {
+                shell.aftermath_reward_offset += 3U;
+                return true;
+            }
+            shell.aftermath_reward_offset = 0U;
             shell.aftermath = {};
             shell.aftermath_objectives.clear();
             return stand_on_campaign_encounter();
@@ -3195,6 +3221,32 @@ void update_shell_input() {
         pressed.d_down || pressed.d_left || pressed.d_right || pressed.b ||
         pressed.c_up;
     if (physical) shell.user_took_over = true;
+    if (shell.phase == ShellPhase::supplies) {
+        const auto controls = shell.local_players == 2U
+            ? pressed.raw | directional_input(JOYPAD_PORT_2, 1U).raw : pressed.raw;
+        const joypad_buttons_t input{.raw = static_cast<std::uint16_t>(controls)};
+        if (input.start || (grandleon_project_review_driver &&
+            !shell.user_took_over && frame_count >= shell.next_automatic_frame)) {
+            (void)confirm_shell_choice();
+            return;
+        }
+        if (input.d_left || input.d_right) shell.supplies.move_member(input.d_left ? -1 : 1);
+        if (input.d_up || input.d_down) shell.supplies.move_row(input.d_up ? -1 : 1);
+        const auto& rows = shell.supplies.rows();
+        if (rows.empty() || (!input.a && !input.b)) return;
+        const auto& row = rows[shell.supplies.selected()];
+        const auto member = shell.supplies.member().member;
+        if ((input.a && row.stored == 0) || (!input.a && row.held == 0)) return;
+        const auto committed = input.a ? board.campaign->give_item(member, row.item)
+                                       : board.campaign->take_item(member, row.item);
+        if (committed && committed.save == storage::StorageError::none) {
+            play_ui_cue();
+            debugf("CHECKPOINT PYRITE_SUPPLY_TRANSFER give=%u member=%llu item=%llu\n",
+                input.a ? 1U : 0U, member.value, row.item.stable_id);
+        }
+        shell.supplies.refresh(board.campaign->management());
+        return;
+    }
     if (shell.phase == ShellPhase::shop) {
         shop_input(0U, pressed);
         if (shell.shop_ui.players() > 1U) shop_input(1U, directional_input(JOYPAD_PORT_2, 1U));
@@ -6493,6 +6545,33 @@ void draw_shell() {
             break;
         case ShellPhase::shop:
             break;
+        case ShellPhase::supplies: {
+            display_printf(42, 78, "%s", ui(console::Message::company_store));
+            const auto& member = shell.supplies.member();
+            const std::string_view name = member.has_player_name ? std::string_view(member.name)
+                : pr::localized_campaign_member_name(board.runtime.package(), game_language(),
+                    grandleon_project_campaign_id, member.placement_source_key, member.name);
+            display_printf(42, 97, "< %.*s >",
+                static_cast<int>(console_prefix_bytes(name, 23U)), name.data());
+            const auto& rows = shell.supplies.rows();
+            const auto selected = shell.supplies.selected();
+            const auto first = selected >= 4U ? selected - 3U : 0U;
+            display_printf(173, 107, "%s / %s", ui(console::Message::stock), ui(console::Message::pack));
+            for (std::size_t row = first; row < std::min(first + 4U, rows.size()); ++row) {
+                const auto& entry = rows[row];
+                const auto section = entry.item.category == grandleon::core::ContentCategory::weapon
+                    ? package_format::SectionType::weapons : package_format::SectionType::items;
+                const auto name = pr::content_name(board.runtime.package(), section, entry.item.stable_id);
+                const auto label = pr::localized_content_name(board.runtime.package(), game_language(),
+                    section, entry.item.stable_id, name);
+                display_printf(42, 120 + static_cast<int>(row - first) * 15, "%c %.*s  %lu / %lu",
+                    row == selected ? '>' : ' ', static_cast<int>(console_prefix_bytes(label, 17U)),
+                    label.data(), static_cast<unsigned long>(entry.stored), static_cast<unsigned long>(entry.held));
+            }
+            display_printf(42, 187, "A %s  B %s", ui(console::Message::give), ui(console::Message::return_supply));
+            display_printf(42, 201, "START %s", ui(console::Message::next));
+            break;
+        }
         case ShellPhase::deployment: {
             display_printf(76, 88, "%s %lu/%u",
                 ui(console::Message::deployment),
@@ -6543,7 +6622,8 @@ void draw_shell() {
             );
             const std::vector<client::RosterEntry> roster =
                 localized_campaign_roster();
-            for (std::size_t row = 0; row < count; ++row) {
+            const auto& rewards = shell.aftermath.progression.rewards;
+            for (std::size_t row = 0; rewards.empty() && row < count; ++row) {
                 const sim::ObjectiveResult& objective =
                     shell.aftermath_objectives[row];
                 const std::string_view name = pr::content_name(
@@ -6571,6 +6651,21 @@ void draw_shell() {
                     "%.*s  %s",
                     static_cast<int>(console_prefix_bytes(displayed_name, 21U)), displayed_name.data(), result
                 );
+            }
+            const auto end = std::min(shell.aftermath_reward_offset + 3U, rewards.size());
+            for (std::size_t index = shell.aftermath_reward_offset; index < end; ++index) {
+                const auto& reward = rewards[index];
+                const auto member = std::find_if(roster.begin(), roster.end(),
+                    [&reward](const auto& entry) { return entry.member == reward.member; });
+                if (member == roster.end()) continue;
+                const int y = 116 + static_cast<int>(index - shell.aftermath_reward_offset) * 18;
+                display_printf(42, y, "%.*s +%lu XP",
+                    static_cast<int>(console_prefix_bytes(member->name, 16U)), member->name.c_str(),
+                    static_cast<unsigned long>(reward.experience));
+                if (reward.level != reward.previous_level) {
+                    display_printf(211, y, "%s %u", ui(console::Message::level_up),
+                        static_cast<unsigned>(reward.level));
+                }
             }
             display_printf(
                 42, 176, "%s %lu  %s %lu",

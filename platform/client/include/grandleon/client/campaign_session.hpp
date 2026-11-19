@@ -436,6 +436,7 @@ struct CompanyManagement final {
     std::vector<RosterEntry> roster;
     // What the company owns beyond what its members carry.
     std::vector<campaign::InventoryStack> store;
+    bool has_shared_supplies{false};
     // Which members the next board has a placement for, ascending
     // (`campaign_runtime::members_a_board_places`). A member who is not here
     // cannot be put on this board by any availability, so a screen offers no
@@ -652,6 +653,7 @@ enum class ManagementError : std::uint8_t {
     purchase_save_failed,
     invalid_player,
     not_owner,
+    save_failed,
 
 };
 

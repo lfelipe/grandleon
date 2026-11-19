@@ -3,9 +3,27 @@
 
 #include <grandleon/campaign/outcome.hpp>
 #include <grandleon/core/currency.hpp>
+#include <grandleon/package_runtime/campaign.hpp>
 #include <grandleon/simulation/encounter.hpp>
 
 namespace grandleon::campaign_runtime {
+
+inline void append_item_grants(
+    std::vector<campaign::CampaignOutcomeOperation>& operations,
+    const core::PackageId& package,
+    const std::vector<package_runtime::CampaignItemGrant>& grants,
+    std::uint64_t node_id
+) {
+    for (const auto& grant : grants) {
+        if (grant.join_node_id != node_id || grant.quantity == 0U) continue;
+        const bool weapon = grant.grants_a_weapon();
+        const auto id = weapon ? grant.weapon_id : grant.item_id;
+        if (id == 0U) continue;
+        operations.push_back(campaign::add_item({}, {package,
+            weapon ? core::ContentCategory::weapon : core::ContentCategory::item, id},
+            grant.quantity));
+    }
+}
 
 // A compact console client may retain only these events rather than a full
 // combat journal. Ownership still uses exactly the same settlement rules.

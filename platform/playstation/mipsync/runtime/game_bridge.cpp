@@ -22,6 +22,7 @@ extern "C" {
 #include <grandleon/client/console_name_editor.hpp>
 #include <grandleon/client/member_name_tokens.hpp>
 #include <grandleon/client/shop_controller.hpp>
+#include <grandleon/client/shared_supplies.hpp>
 #include <grandleon/campaign_runtime/shop.hpp>
 #include <grandleon/campaign_runtime/statistics.hpp>
 #include <grandleon/simulation/encounter.hpp>
@@ -63,7 +64,7 @@ enum class InputMode : std::uint8_t {
 };
 enum class CampaignMode : std::uint8_t {
     title, players, name, prologue, objective, battle, aftermath, save_error,
-    help, settings, shop, statistics, company_deployment
+    help, settings, shop, statistics, company_deployment, battle_rewards, shared_supplies
 };
 
 struct DeploymentChoice final {
@@ -76,6 +77,10 @@ struct DeploymentChoice final {
 std::vector<DeploymentChoice> s_deployment_company;
 std::size_t s_deployment_row{};
 std::string s_deployment_label;
+std::vector<character::ExperienceReward> s_battle_rewards;
+std::size_t s_battle_reward_offset{};
+constexpr std::size_t reward_page_size = 5U;
+client::SharedSupplies s_shared_supplies;
 
 constexpr unsigned maximum_board_cells = 4096U;
 // Ten 60 Hz ticks became only five distinct pictures after the renderer moved
@@ -669,6 +674,8 @@ void begin_new_campaign(unsigned players) {
     const std::vector<std::uint64_t> founders = append_recruitment_at(
         0U, operations
     );
+    character::append_item_grants(operations, s_campaign_graph.campaign.package_id,
+        grandleon_generated_campaign_grants(), 0U);
     operations.push_back(camp::set_world_flag(
         key, {camp::WorldValueType::integer,
               static_cast<std::int64_t>(players)}
@@ -1827,6 +1834,8 @@ bool advance_story() {
     const std::vector<std::uint64_t> joined = append_recruitment_at(
         source, operations
     );
+    character::append_item_grants(operations, s_campaign_graph.campaign.package_id,
+        grandleon_generated_campaign_grants(), source);
     const camp::NodeCompletion completion = camp::complete_node(
         s_campaign_save.state, s_campaign_graph,
         outcome_batch(source, std::move(operations))
@@ -1841,6 +1850,8 @@ bool advance_story() {
 }
 
 bool complete_battle(bool victory, bool force_pending = false) {
+    s_battle_rewards.clear();
+    s_battle_reward_offset = 0;
     std::vector<camp::CampaignOutcomeOperation> operations;
     if (!force_pending) {
         const auto member_for_unit = [](const void*, sim::UnitId unit) -> camp::PersistentEntityId {
@@ -1867,6 +1878,7 @@ bool complete_battle(bool victory, bool force_pending = false) {
                 .text(character::progression_source_error_name(experience.error).data()).flush();
             return false;
         }
+        s_battle_rewards = std::move(experience.rewards);
         operations = std::move(experience.operations);
         character::append_inventory_consequences(operations, s_campaign_graph.campaign.package_id, s_battle_events,
             grandleon_generated_carried_inventory() ? sim::InventoryMode::carried : sim::InventoryMode::legacy,
@@ -1909,6 +1921,8 @@ bool complete_battle(bool victory, bool force_pending = false) {
     const std::vector<std::uint64_t> joined = append_recruitment_at(
         grandleon_generated_current_encounter_id, operations
     );
+    character::append_item_grants(operations, s_campaign_graph.campaign.package_id,
+        grandleon_generated_campaign_grants(), s_campaign_save.state.progress.active_node.stable_id);
     if (!force_pending && grandleon_generated_show_end_statistics()) {
         character::append_battle_statistics(operations, s_campaign_save.state, s_snapshot, s_battle_events);
     } else if (!force_pending) {
@@ -1934,7 +1948,15 @@ bool complete_battle(bool victory, bool force_pending = false) {
 client::CompanyManagement shop_company() {
     client::CompanyManagement company;
     company.local_players = static_cast<std::uint8_t>(s_local_players);
-    company.inventory_mode = sim::InventoryMode::carried;
+    company.inventory_mode = grandleon_generated_carried_inventory()
+        ? sim::InventoryMode::carried : sim::InventoryMode::legacy;
+    if (company.inventory_mode == sim::InventoryMode::legacy) {
+        company.store = s_campaign_save.state.store;
+        company.has_shared_supplies = !grandleon_generated_campaign_grants().empty() ||
+            std::any_of(company.store.begin(), company.store.end(), [](const auto& stack) {
+                return client::shared_supply(stack.item);
+            });
+    }
     company.node = s_campaign_save.state.progress.active_node;
     company.gold = camp::item_quantity(s_campaign_save.state, {},
         content_ref(grandleon::core::ContentCategory::currency, grandleon::core::gold_currency_id));
@@ -1970,6 +1992,34 @@ void enter_shop() {
     s_shop_controller.reset(s_shop_company);
     s_shop_focus = 0U;
     s_campaign_mode = CampaignMode::shop;
+}
+
+void transfer_shared_supply(bool give) {
+    const auto& rows = s_shared_supplies.rows();
+    if (rows.empty()) return;
+    const auto row = rows[s_shared_supplies.selected()];
+    if ((give && row.stored == 0) || (!give && row.held == 0)) return;
+    const auto member = s_shared_supplies.member().member;
+    const auto* authored = grandleon_generated_campaign_member_for(member.value);
+    if (!authored) return;
+    if (give && row.item.category == grandleon::core::ContentCategory::weapon &&
+        authored->rules.states_weapon_affinities) {
+        const auto board = grandleon_generated_definition(s_local_players);
+        const auto weapon = std::find_if(board.weapons.begin(), board.weapons.end(),
+            [&row](const auto& entry) { return entry.id == row.item.stable_id; });
+        const auto& affinities = authored->rules.weapon_affinities;
+        if (weapon == board.weapons.end() ||
+            std::find(affinities.begin(), affinities.end(), weapon->weapon_type) == affinities.end()) return;
+    }
+    const auto from = give ? camp::PersistentEntityId{} : member;
+    const auto to = give ? member : camp::PersistentEntityId{};
+    const camp::OutcomeSource source{s_campaign_save.state.progress.active_node, 0U,
+        s_campaign_save.state.applied_outcomes.size()};
+    auto previous = s_campaign_save.state;
+    if (!camp::apply_outcome(s_campaign_save.state, camp::make_outcome_batch(source,
+            {camp::consume_item(from, row.item, 1U), camp::add_item(to, row.item, 1U)}))) return;
+    if (!save_campaign()) s_campaign_save.state = std::move(previous);
+    s_shared_supplies.refresh(shop_company());
 }
 
 client::ManagementCommit buy_shop_copy(const client::ManagementIntent& intent) {
@@ -2028,6 +2078,14 @@ bool end_statistics_ready(const grandleon_generated_campaign_node* node) {
          grandleon_generated_campaign_node_lines(s_language_index, node->id).empty());
 }
 
+void show_battle_aftermath() {
+    if (end_statistics_ready(active_campaign_node())) {
+        s_campaign_mode = CampaignMode::statistics;
+    } else {
+        enter_after_player_names(CampaignMode::aftermath);
+    }
+}
+
 void route_active_campaign_node() {
     const grandleon_generated_campaign_node* node = active_campaign_node();
     if (end_statistics_ready(node)) {
@@ -2044,8 +2102,22 @@ void route_active_campaign_node() {
     }
     if (node->kind == 1U) {
         if (node->id == grandleon_generated_current_node_id) {
-            if (node->shop_offers.empty()) s_campaign_mode = CampaignMode::objective;
-            else enter_shop();
+            if (!node->shop_offers.empty()) {
+                enter_shop();
+                return;
+            }
+            if (!grandleon_generated_carried_inventory()) {
+                const auto company = shop_company();
+                if (company.has_shared_supplies) {
+                    s_shared_supplies = {};
+                    s_shared_supplies.refresh(company);
+                    if (!s_shared_supplies.empty()) {
+                        s_campaign_mode = CampaignMode::shared_supplies;
+                        return;
+                    }
+                }
+            }
+            s_campaign_mode = CampaignMode::objective;
             return;
         }
         if (!node->disc_path || !node->disc_path[0]) {
@@ -2682,6 +2754,19 @@ extern "C" void grandleon_game_ui_state(grandleon_ui_state* output) {
                 output->statistics_has_enemies = totals.enemies_encountered != 0U;
                 break;
             }
+            case CampaignMode::battle_rewards:
+                output->mode = GRANDLEON_UI_BATTLE_REWARDS;
+                output->headline = ui(console::Message::battle_rewards);
+                output->menu_count = static_cast<std::uint8_t>(std::min(reward_page_size,
+                    s_battle_rewards.size() - s_battle_reward_offset));
+                break;
+            case CampaignMode::shared_supplies:
+                output->mode = GRANDLEON_UI_SHARED_SUPPLIES;
+                output->headline = ui(console::Message::company_store);
+                output->speaker = s_shared_supplies.member().name.c_str();
+                output->menu_index = static_cast<std::uint16_t>(s_shared_supplies.selected());
+                output->menu_count = static_cast<std::uint16_t>(s_shared_supplies.rows().size());
+                break;
             case CampaignMode::save_error:
                 output->mode = GRANDLEON_UI_SAVE_ERROR;
                 output->headline = ui(console::Message::memory_card);
@@ -2849,6 +2934,32 @@ const char* equipment_label(const std::string& value, unsigned columns) {
     return buffer.data();
 }
 
+extern "C" const char* grandleon_game_reward_line(std::uint8_t row) {
+    const auto index = s_battle_reward_offset + row;
+    if (index >= s_battle_rewards.size()) return "";
+    const auto& reward = s_battle_rewards[index];
+    const auto* member = grandleon_generated_campaign_member_for(reward.member.value);
+    if (!member) return "";
+    std::string text = equipment_label(effective_member_name(*member), 15U);
+    text += "  +" + std::to_string(reward.experience) + " XP";
+    if (reward.level != reward.previous_level) {
+        text += "  ";
+        text += ui(console::Message::level_up);
+        text += " " + std::to_string(reward.level);
+    }
+    return equipment_label(text, 36U);
+}
+
+extern "C" const char* grandleon_game_supply_text(std::uint16_t row, std::uint8_t field) {
+    const auto& rows = s_shared_supplies.rows();
+    if (row >= rows.size()) return "";
+    const auto& supply = rows[row];
+    if (field == 1) return equipment_label(std::to_string(supply.stored), 7U);
+    if (field == 2) return equipment_label(std::to_string(supply.held), 7U);
+    return equipment_label(grandleon_generated_equipment_name(s_language_index,
+        static_cast<std::uint32_t>(supply.item.category), supply.item.stable_id), 23U);
+}
+
 extern "C" const char* grandleon_game_action_label(uint16_t index) {
 
     const auto* actor = find_unit(s_snapshot, s_selected);
@@ -2996,6 +3107,9 @@ extern "C" const char* grandleon_game_text(uint8_t text_id) {
         case GRANDLEON_TEXT_READY: return ui(console::Message::ready);
         case GRANDLEON_TEXT_SHOP_NAVIGATION: return ui(console::Message::shop_navigation);
         case GRANDLEON_TEXT_BUY: return ui(console::Message::shop_buy);
+        case GRANDLEON_TEXT_GIVE: return ui(console::Message::give);
+        case GRANDLEON_TEXT_TAKE: return ui(console::Message::return_supply);
+        case GRANDLEON_TEXT_PACK: return ui(console::Message::pack);
         case GRANDLEON_TEXT_NEW_GAME:
             return ui(console::Message::new_game);
         case GRANDLEON_TEXT_CONTINUE:
@@ -3156,6 +3270,28 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
     if ((player_one | player_two) & pad_cross) grandleon_audio_cue(GRANDLEON_SOUND_CONFIRM);
     if (s_campaign_mode != CampaignMode::battle) {
         if (!pressed && !player_two) return 0;
+        if (s_campaign_mode == CampaignMode::shared_supplies) {
+            const auto input = s_local_players == 2U ? player_one | player_two : player_one;
+            if (input & pad_start) {
+                s_shared_supplies = {};
+                s_campaign_mode = CampaignMode::objective;
+                return 0;
+            }
+            if (input & (pad_left | pad_right)) s_shared_supplies.move_member(input & pad_left ? -1 : 1);
+            if (input & (pad_up | pad_down)) s_shared_supplies.move_row(input & pad_up ? -1 : 1);
+            if (input & (pad_cross | pad_circle)) transfer_shared_supply((input & pad_cross) != 0);
+            return 0;
+        }
+        if (s_campaign_mode == CampaignMode::battle_rewards) {
+            if (((player_one | player_two) & pad_cross) != 0) {
+                s_battle_reward_offset += reward_page_size;
+                if (s_battle_reward_offset >= s_battle_rewards.size()) {
+                    s_battle_rewards.clear();
+                    show_battle_aftermath();
+                }
+            }
+            return 0;
+        }
         if (s_campaign_mode == CampaignMode::shop) {
             const std::array<std::uint16_t,2> input{player_one,player_two};
             for (unsigned player=0;player<s_shop_controller.players();++player) {
@@ -3579,11 +3715,8 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
         s_campaign_victory = s_snapshot.outcome == sim::Outcome::first_side_won;
         if (complete_battle(s_campaign_victory)) {
             hide_board();
-            if (end_statistics_ready(active_campaign_node())) {
-                s_campaign_mode = CampaignMode::statistics;
-            } else {
-                enter_after_player_names(CampaignMode::aftermath);
-            }
+            if (s_battle_rewards.empty()) show_battle_aftermath();
+            else s_campaign_mode = CampaignMode::battle_rewards;
         } else {
             s_campaign_mode = CampaignMode::save_error;
         }

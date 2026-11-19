@@ -468,6 +468,46 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
         activate_ui_tpage(ordering_table, next_packet, packet_end);
         return;
     }
+    if (state.mode == GRANDLEON_UI_SHARED_SUPPLIES) {
+        draw_box_depth(ordering_table, next_packet, packet_end, 0, 0, 320, 240, 7, 13, 24, 4);
+        draw_panel(ordering_table, next_packet, packet_end, 20, 23, 280, 196);
+        draw_text(ordering_table, next_packet, packet_end, 34, 37, state.headline, 255, 205, 68);
+        draw_wrapped_text_box(ordering_table, next_packet, packet_end, 34, 55, state.speaker,
+            247, 239, 209, 31, 1);
+        draw_text(ordering_table, next_packet, packet_end, 184, 66,
+            grandleon_game_text(GRANDLEON_TEXT_STOCK), 94, 206, 227);
+        draw_text(ordering_table, next_packet, packet_end, 244, 66,
+            grandleon_game_text(GRANDLEON_TEXT_PACK), 94, 206, 227);
+        const unsigned first = state.menu_index >= 5U ? state.menu_index - 4U : 0U;
+        for (unsigned row = first; row < state.menu_count && row < first + 5U; ++row) {
+            const int y = 86 + (int)(row - first) * 19;
+            if (row == state.menu_index)
+                draw_focus(ordering_table, next_packet, packet_end, 31, y - 4, 256, 17);
+            draw_text(ordering_table, next_packet, packet_end, 38, y,
+                grandleon_game_supply_text((uint16_t)row, 0), 247, 239, 209);
+            draw_text(ordering_table, next_packet, packet_end, 200, y,
+                grandleon_game_supply_text((uint16_t)row, 1), 247, 239, 209);
+            draw_text(ordering_table, next_packet, packet_end, 255, y,
+                grandleon_game_supply_text((uint16_t)row, 2), 247, 239, 209);
+        }
+        draw_button(ordering_table, next_packet, packet_end, 33, 191, 'X', GRANDLEON_TEXT_GIVE);
+        draw_button(ordering_table, next_packet, packet_end, 108, 191, 'O', GRANDLEON_TEXT_TAKE);
+        draw_button(ordering_table, next_packet, packet_end, 211, 191, 'S', GRANDLEON_TEXT_CONTINUE);
+        activate_ui_tpage(ordering_table, next_packet, packet_end);
+        return;
+    }
+    if (state.mode == GRANDLEON_UI_BATTLE_REWARDS) {
+        draw_box_depth(ordering_table, next_packet, packet_end, 0, 0, 320, 240, 7, 13, 24, 4);
+        draw_panel(ordering_table, next_packet, packet_end, 20, 23, 280, 196);
+        draw_text(ordering_table, next_packet, packet_end, 34, 40, state.headline, 255, 205, 68);
+        for (unsigned row = 0; row < state.menu_count; ++row) {
+            draw_wrapped_text_box(ordering_table, next_packet, packet_end, 35, 67 + (int)row * 22,
+                grandleon_game_reward_line((uint8_t)row), 247, 239, 209, 36, 1);
+        }
+        draw_button(ordering_table, next_packet, packet_end, 35, 191, 'X', GRANDLEON_TEXT_CONTINUE);
+        activate_ui_tpage(ordering_table, next_packet, packet_end);
+        return;
+    }
     if (state.mode == GRANDLEON_UI_COMPANY_DEPLOYMENT) {
         draw_box_depth(ordering_table, next_packet, packet_end, 0, 0, 320, 240, 7, 13, 24, 4);
         draw_panel(ordering_table, next_packet, packet_end, 20, 23, 280, 196);

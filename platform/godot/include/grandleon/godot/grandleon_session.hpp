@@ -42,6 +42,7 @@ struct FrontendEvent final {
         snapshot,
         refused,
         battle_ended,
+        battle_rewards,
         campaign_ended,
         campaign_begun,
         checkpoint_saved,
@@ -72,6 +73,7 @@ struct FrontendEvent final {
     simulation::UnitId dialogue_subject_id{};
     client::CompanyManagement company;
     std::optional<simulation::CampaignStatistics> campaign_statistics;
+    std::vector<campaign_runtime::ExperienceReward> battle_rewards;
     // Campaign presentation context captured when the event is queued. A
     // dialogue/objective token can therefore resolve against the exact roster
     // at that point, and a board unit can use the campaign's published join

@@ -88,6 +88,9 @@ enum class Message : std::uint8_t {
     company_store,
     nothing_but_carry,
     levels,
+    level_up,
+    battle_rewards,
+    return_supply,
     fell,
     joined,
     company_buries,
@@ -602,6 +605,18 @@ enum class Language : std::uint8_t { english, spanish, portuguese_brazil };
             return selected == Language::spanish ? "NIVELES"
                  : selected == Language::portuguese_brazil ? "NÍVEIS"
                  : "LEVELS";
+        case Message::level_up:
+            return selected == Language::spanish ? "NIVEL"
+                 : selected == Language::portuguese_brazil ? "NÍVEL"
+                 : "LEVEL";
+        case Message::battle_rewards:
+            return selected == Language::spanish ? "RECOMPENSAS"
+                 : selected == Language::portuguese_brazil ? "RECOMPENSAS"
+                 : "BATTLE REWARDS";
+        case Message::return_supply:
+            return selected == Language::spanish ? "DEVOLVER"
+                 : selected == Language::portuguese_brazil ? "DEVOLVER"
+                 : "RETURN";
         case Message::fell:
             return selected == Language::spanish ? "CAÍDOS"
                  : selected == Language::portuguese_brazil ? "CAÍDOS"

@@ -95,6 +95,8 @@ automatically to shared supplies. During a test, select a hero again to open
 their actions, then choose **Pack / Pick up**. Move onto dropped equipment to
 collect it. After victory, **Continue** shows how many copies you would leave
 behind; choose it when you have finished collecting.
+Older campaigns that use shared supplies can still assign starting stock and
+chapter rewards to individual heroes before battle, including on consoles.
 When a hero can use several carried weapons, their actions list an attack for
 each weapon by name. Choose one to see its targets and damage. Both weapons
 stay in the pack; the choice applies to that attack.
@@ -141,6 +143,10 @@ Once the first battle works, use **Add Next Battle**. Each stage can have its
 own map, opponents, objectives, reinforcements and 1P/2P setup. If the current
 battle has several outcomes, use **Continue On** to choose which route leads
 through the new stage.
+
+Use **Army → Roles → Growth & Rewards** to adjust XP awards and stat growth.
+After a battle that awards XP, the player shows who earned it and any new
+levels. Heroes bring those gains into later stages.
 
 Use **Shop before battle** for an optional stop before a battle. Choose goods, gold prices
 and stock limits; purchases go into the selected hero’s pack and respect its

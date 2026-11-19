@@ -249,8 +249,10 @@ tracked above.
 - [x] Let authors reward effective healing once per healer turn. Carry XP
   and growth across battles and apply hero stat and range adjustments in
   PlayStation exports using the same rules as Godot and Nintendo 64.
-- [ ] Give players clear XP and level-up feedback. Review both co-op
-  armies' progression with save and resume on the physical consoles.
+- [x] Show earned XP by hero and any new levels after battle on Godot,
+  Nintendo 64 and PlayStation.
+- [ ] Review both co-op armies' progression with save and resume on the
+  physical consoles.
 - [x] Enter exact survival rounds and reinforcement schedules. Verify that a
   20-round defense reopens with the typed settings and plays to the specified
   round with all four authored waves in both 1P and 2P.
@@ -537,9 +539,9 @@ the frame budget. The strict performance checks remain open.
 - [x] Carry the authored deployment capacity into PlayStation and let players
   decide who takes the field. Verified capped 1P and 2P starts and memory-card
   resume, including a 2P formation with only Player 2 fielded.
-- [ ] Review legacy shared starting supplies and chapter grants. The console
-  exporters already report that this authoring mode is unsupported, while
-  personal packs and shops export to both consoles.
+- [x] Export legacy shared starting supplies and chapter grants to both
+  consoles. Players can give and return equipment at the company store before
+  battle. Personal packs and shops retain individual ownership.
 - [ ] Review movement, two-axis scrolling, UI overlap, combat sides, castle
   entry/reveal, story and save/resume on the actual console builds. Complete
   the matched physical-target castle review on Nintendo 64 and PlayStation.

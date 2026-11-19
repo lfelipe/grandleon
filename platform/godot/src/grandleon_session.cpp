@@ -181,6 +181,7 @@ const char* event_name(FrontendEvent::Kind kind) {
         case FrontendEvent::Kind::snapshot: return "snapshot";
         case FrontendEvent::Kind::refused: return "refused";
         case FrontendEvent::Kind::battle_ended: return "battle_ended";
+        case FrontendEvent::Kind::battle_rewards: return "battle_rewards";
         case FrontendEvent::Kind::campaign_ended: return "campaign_ended";
         case FrontendEvent::Kind::campaign_begun: return "campaign_begun";
         case FrontendEvent::Kind::checkpoint_saved: return "checkpoint_saved";
@@ -614,9 +615,16 @@ void AsyncPresenter::board_prepared(const client::CampaignBoard& board) {
 void AsyncPresenter::battle_aftermath(
     const client::BattleAftermath& aftermath
 ) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    campaign_roster_ = aftermath.roster;
-    campaign_board_.reset();
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        campaign_roster_ = aftermath.roster;
+        campaign_board_.reset();
+    }
+    if (aftermath.progression.rewards.empty()) return;
+    FrontendEvent event;
+    event.kind = FrontendEvent::Kind::battle_rewards;
+    event.battle_rewards = aftermath.progression.rewards;
+    push(std::move(event));
 }
 
 void AsyncPresenter::members_joined(
@@ -2535,6 +2543,23 @@ gd::Dictionary GrandleonSession::event_dictionary(
             break;
         case FrontendEvent::Kind::refused:
             break;
+        case FrontendEvent::Kind::battle_rewards: {
+            const auto roster = localized_roster(event.campaign_roster);
+            godot::Array rewards;
+            for (const auto& reward : event.battle_rewards) {
+                const auto member = std::find_if(roster.begin(), roster.end(),
+                    [&reward](const auto& entry) { return entry.member == reward.member; });
+                if (member == roster.end()) continue;
+                godot::Dictionary value;
+                value["name"] = text(member->name);
+                value["xp"] = static_cast<std::int64_t>(reward.experience);
+                value["level"] = reward.level;
+                value["leveled_up"] = reward.level != reward.previous_level;
+                rewards.push_back(value);
+            }
+            result["rewards"] = rewards;
+            break;
+        }
         case FrontendEvent::Kind::campaign_ended: {
             result["lost"] = event.campaign_lost;
             if (event.campaign_statistics) {

@@ -321,6 +321,8 @@ BattleProgression derive_roster_experience(
                 ? campaign::maximum_progression_level
                 : reached
         );
+        result.rewards.push_back({entry.member, lifetime - member->progression.experience,
+            member->progression.level, std::max(capped, member->progression.level)});
         if (capped <= member->progression.level) {
             continue;
         }

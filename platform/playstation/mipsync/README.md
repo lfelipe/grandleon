@@ -227,6 +227,6 @@ with an empty output directory. It drives the controller through nine camera
 positions and verifies that every canopy page reaches the actual renderer,
 including scene entries beyond index 63.
 
-Campaign shared supplies and stage rewards are not supported yet. Export
-refuses campaigns using them rather than losing authored rewards or leaving
-supplies inaccessible. Character starting equipment remains supported.
+Campaigns with legacy shared supplies show the company store before battle.
+Use Left and Right to choose a hero, Cross to give a copy, Circle to return
+one, and Start to continue. Starting stock and chapter grants enter the store.

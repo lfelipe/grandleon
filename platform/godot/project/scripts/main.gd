@@ -3184,6 +3184,16 @@ func _handle_event(event: Dictionary) -> void:
 				if final_outcome == "first_side_won"
 				else "player.result.battle_lost"
 			)
+		"battle_rewards":
+			var rewards: Array = event.get("rewards", [])
+			if rewards.is_empty():
+				return
+			var first := dialogue_lines.size()
+			for offset in range(0, rewards.size(), 3):
+				dialogue_lines.append({"battle_rewards": rewards.slice(offset, offset + 3)})
+			if not _dialogue_visible():
+				dialogue_index = first
+				_show_dialogue_line()
 		"campaign_ended":
 			campaign_statistics = event.get("statistics", {}).duplicate()
 			if not campaign_statistics.is_empty():
@@ -4507,6 +4517,19 @@ func _show_dialogue_line() -> void:
 	dialogue_text.text = String(line.get("text", ""))
 	var confirm_label: String = controls.label("confirm")
 	dialogue_hint.text = _ui("player.touch.tap_continue") if OS.has_feature("android") else _ui("player.dialogue.continue", {"confirm": confirm_label})
+	dialogue_portrait.visible = not line.has("battle_rewards")
+	if line.has("battle_rewards"):
+		dialogue_speaker.text = _ui("player.result.battle_rewards")
+		var rows := PackedStringArray()
+		for reward: Dictionary in line.battle_rewards:
+			rows.append(_ui("player.result.xp_reward", {
+				"name": str(reward.name).replace("[", "[lb]"), "xp": reward.xp,
+			}) + ("   " + _ui("player.result.level_reward", {"level": reward.level})
+				if reward.leveled_up else ""))
+		dialogue_text.text = "\n".join(rows)
+		conversation_backdrop.clear()
+		_set_dialogue_backdrop(0)
+		return
 	var backdrop_selection := backdrop_pack_resolver.resolve_for_conversation(
 		line.get("dialogue_id", 0), int(line.get("backdrop", 0)),
 		bool(line.get("over_board", false)), snapshot, battle_terrain,

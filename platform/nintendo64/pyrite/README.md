@@ -188,6 +188,6 @@ a small declarative boot shell; the official headless CLI generates and builds
 the engine project. See `PARITY.md` for the fail-closed cutover checklist and
 `THIRD_PARTY.md` before distribution.
 
-Campaign shared supplies and stage rewards are not supported yet. Export
-refuses campaigns using them rather than losing authored rewards or leaving
-supplies inaccessible. Character starting equipment remains supported.
+Campaigns with legacy shared supplies show the company store before battle.
+Use Left and Right to choose a hero, A to give a copy, B to return one, and
+Start to continue. Starting stock and chapter grants enter the store.
