@@ -178,6 +178,31 @@ starter. Keep the same project through export.
     line. Reopen the editable archive in a fresh library, change a line and
     play it. Open the playable export independently and see the original line.
 
+## Rebuild Steel and Cedar
+
+Create a blank campaign and use the [Steel and Cedar map and route guide](../games/steel_and_cedar/README.md)
+as a reference. Keep the published game open separately to compare play.
+Use your new project for every editing step and record any tool you have
+to look for or any part you cannot author.
+
+1. Name Rowan and Tomas, then add Akari and Ren for 2P. Set their teams and
+   equipment before painting the first map. Test that picking 2P changes
+   the formation, opposition and opening conversation.
+2. Add Deepwood and the Watch. Set the Watch to 20 rounds with Rowan
+   required to survive. Enter the waves and verify that the extra
+   reinforcements appear only in 2P. Use the shop before a battle and make
+   a purchase for each army.
+3. Add the orchard's hidden dispatch and the Deepwood courier's question.
+   Give each a detour that rejoins the story. Play each opening twice,
+   once taking the detour and once continuing along the main route.
+4. Add Gate Village and Twin Gate Keep. Leave separate approaches for 2P,
+   cover the keep's interior and place the final opponent inside. Play
+   until someone opens the room, defeats the boss and sees the ending.
+5. Export the new campaign and finish it in both modes. Record turns spent
+   moving before the first fight, when each army first has a useful action,
+   and any battle that feels too slow or depends on treating a fall as
+   acceptable. Check that both detours feel optional and worth exploring.
+
 ## How to use the results
 
 For each numbered task, record where the author first looked, which control
