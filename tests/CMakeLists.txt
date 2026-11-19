@@ -1428,10 +1428,13 @@ target_link_libraries(grandleon_personal_characters_tests PRIVATE grandleon::cli
 target_compile_definitions(grandleon_personal_characters_tests PRIVATE GRANDLEON_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 add_test(NAME grandleon.personal_characters COMMAND grandleon_personal_characters_tests)
 
-if(NOT CMAKE_CROSSCOMPILING)
+if(UNIX AND NOT CMAKE_CROSSCOMPILING)
     add_test(NAME grandleon.n64_runner_status
         COMMAND "${GRANDLEON_PYTHON_EXECUTABLE}"
             "${PROJECT_SOURCE_DIR}/platform/nintendo64/ares/runner_status_test.py")
+endif()
+
+if(NOT CMAKE_CROSSCOMPILING)
     add_executable(grandleon_n64_personal_save_inspect
         "${PROJECT_SOURCE_DIR}/platform/nintendo64/pyrite/tests/personal_character_save_inspect.cpp")
     target_link_libraries(grandleon_n64_personal_save_inspect

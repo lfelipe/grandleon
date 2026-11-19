@@ -6,6 +6,7 @@ import copy
 import json
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 REPO = Path(__file__).resolve().parents[1]
@@ -24,7 +25,7 @@ def main():
         source, package, output = (work / name for name in ['project.json', 'game.gpk', 'scene.json'])
         source.write_text(json.dumps(base))
         art = work / 'art'
-        made = run('python3', REPO / 'platform/console_art/generate-character-art.py', '--project', source,
+        made = run(sys.executable, REPO / 'platform/console_art/generate-character-art.py', '--project', source,
                    '--platform', 'n64', '--output', art)
         assert made.returncode == 0, made.stderr
         manifest = art / 'manifest.json'
@@ -61,7 +62,7 @@ def main():
                                for definition in manifest_data['simulation'][category + 's'])
             target = work / ('n64-' + case)
             for directory in ['assets', 'generated', 'src/user']: (target / directory).mkdir(parents=True, exist_ok=True)
-            exported = run('python3', prepare, '--project', source, '--art-manifest', manifest, '--project-root', target)
+            exported = run(sys.executable, prepare, '--project', source, '--art-manifest', manifest, '--project-root', target)
             assert exported.returncode == 0, exported.stderr
             assert (target / 'src/user/GeneratedProject.hpp').is_file()
             assert source.read_bytes() == source_bytes, 'Export changed author source'

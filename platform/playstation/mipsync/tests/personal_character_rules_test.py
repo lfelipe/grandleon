@@ -5,6 +5,7 @@ import argparse
 import json
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 repo = Path(__file__).resolve().parents[4]
@@ -52,7 +53,7 @@ with tempfile.TemporaryDirectory(prefix='grandleon-ps1-character-rules-') as tem
                 assert all(u['style'] == 0 and u['figure'] == 0 for u in manifest['units'])
                 assert all(u['style'] == 0 and u['figure'] == 0 for u in manifest['speakers'])
         generated = work / 'generated'
-        subprocess.run(['python3', str(repo / 'platform/playstation/mipsync/tools/generate_simulation.py'), str(work / '2.json'), str(generated), '--one-player-manifest', str(work / '1.json')], check=True)
+        subprocess.run([sys.executable, str(repo / 'platform/playstation/mipsync/tools/generate_simulation.py'), str(work / '2.json'), str(generated), '--one-player-manifest', str(work / '1.json')], check=True)
         main = work / 'test.cpp'
         main.write_text(r'''
 #include "grandleon_simulation.hpp"
@@ -164,7 +165,8 @@ int main() {
         command += [str(main), str(generated / 'simulation_data.cpp')]
         for module, files in {'core':['random'], 'simulation':['encounter'], 'campaign':['state','outcome','identity'], 'campaign_runtime':['battle_experience']}.items():
             command += [str(repo/'engine'/module/'src'/f'{name}.cpp') for name in files]
-        command += ['-o', str(work / 'check')]
+        executable = work / ('check.exe' if sys.platform == 'win32' else 'check')
+        command += ['-o', str(executable)]
         subprocess.run(command, check=True)
-        subprocess.run([str(work/'check')], check=True)
+        subprocess.run([str(executable)], check=True)
 print('PS1_PERSONAL_CHARACTER_RULES_PASS default_hashes=2 personal_kits=2 policies=5')
