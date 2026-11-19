@@ -1,0 +1,83 @@
+{
+  "published_release": "https://github.com/lfelipe/grandleon/releases/tag/v0.5.0",
+  "candidate_source": "019f8f31a531488ca79fd17a734a245a7eae4d19",
+  "scenario": "Bell Orchard, board after introduction, on each console at its normal camera angle. 1P on N64 and 2P on PS1. The 0.6 campaign changes the art and dialogue.",
+  "method": "Published archive verified against the release digest and its bundled SHA256SUMS. Ares uses base 4 MiB RDRAM and ordinary controller input. PCSX-Redux uses its software GPU and a read-only observer of actual display buffer swaps, clocked by emulated CPU cycles. Do not use these idle board values as full-game performance.",
+  "archive": {
+    "bytes": 56760435,
+    "sha256": "4691e9f07fffac5d1aeb3c9aad09096d29841f66bcee265b6346e53ed4656942"
+  },
+  "nintendo_64": {
+    "0.5": {
+      "rom": {
+        "bytes": 7880704,
+        "sha256": "b4bfd851032a9c333513035601220919b7f4f05122dbac338a0ee71e34dd0900"
+      },
+      "board_capture": "out/release-06-closure/n64-orchard-05-board/ares/orchard.png"
+    },
+    "0.6": {
+      "rom": {
+        "bytes": 8568832,
+        "sha256": "c3c030e7a8f004091e93f6b919e2a89b314f6634471601851ebab6ea4d8e5311"
+      },
+      "board_capture": "out/release-06-closure/n64-orchard-06-final/ares/orchard.png",
+      "rdram_bytes": 4194304,
+      "runtime_heap_used_bytes": 1805936,
+      "runtime_heap_free_bytes": 249304
+    }
+  },
+  "playstation": {
+    "0.5": {
+      "bin": {
+        "bytes": 100515072,
+        "sha256": "40323d98a9ae6f35a22e99f3325ae4bd6118bac9b3228220aa93e3068c43eeec"
+      },
+      "cue": {
+        "bytes": 448,
+        "sha256": "a02a03a79856b87b0e787e6f07b5192b469336ce8d267ae3a86cbd23631bc05c"
+      },
+      "board_capture": "out/release-06-closure/ps1-orchard-05-board/orchard.bin",
+      "board_timing": {
+        "trace": "out/release-06-closure/ps1-orchard-05-board/presentation.csv",
+        "vsync_samples": 321,
+        "display_swaps": 160,
+        "fps": 30.00436,
+        "worst_frame_ms": 33.3315,
+        "frame_holds_in_retraces": {
+          "2": 159
+        }
+      }
+    },
+    "0.6": {
+      "bin": {
+        "bytes": 100750272,
+        "sha256": "8fd4c72e96bd5e096a638adb036487de4a65b6ebad1c746879feff7ba0201d21"
+      },
+      "cue": {
+        "bytes": 433,
+        "sha256": "dd271ffa2d3b24e2a7f7c27f2cf1e0ba3994a16bbb95c7006eae36b604b21b9c"
+      },
+      "board_capture": "out/release-06-closure/ps1-orchard-06-board/orchard.bin",
+      "board_timing": {
+        "trace": "out/release-06-closure/ps1-orchard-06-board/presentation.csv",
+        "vsync_samples": 322,
+        "display_swaps": 161,
+        "fps": 30.00436,
+        "worst_frame_ms": 33.3296,
+        "frame_holds_in_retraces": {
+          "2": 160
+        }
+      },
+      "orchard_committed_main_ram_bytes": 1825044,
+      "orchard_texture_vram_bytes": 213312,
+      "campaign_peak_committed_main_ram_bytes": 1984828,
+      "campaign_peak_stage_texture_vram_bytes": 316736
+    }
+  },
+  "remaining_measurements": [
+    "Published N64 frame timing",
+    "CPU render cost for the published artifacts",
+    "Published PS1 peak main RAM and VRAM",
+    "Matched physical-console and castle captures"
+  ]
+}

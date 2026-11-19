@@ -27,6 +27,8 @@ part of 0.6, alongside performance work and platform validation.
   reopening and atomic replacement.
 - [ ] Run native tests and the complete create → export → play acceptance flow
   in Windows CI, with a runner that supports the required graphics and audio.
+  The Quality workflow now has a native Windows job and can run the rendered
+  acceptance flow on a Windows runner with a desktop.
 - [ ] Test the downloadable application on a clean Windows machine: saves,
   keyboard and controllers, audio, live language switching, and project paths
   containing spaces or accented characters.
@@ -36,7 +38,10 @@ part of 0.6, alongside performance work and platform validation.
   checks with active music/effects and no ObjectDB or resource warnings.
 - [ ] Provide and test the optional console-builder installation and launch
   path on Windows, with clear dependencies. Desktop editing and play must work
-  without those optional tools. See [Setting up](docs/SETUP.md#windows-builds-for-06).
+  without those optional tools. Both console builds passed through the Linux
+  side of the WSL bridge, using paths with spaces and accented characters.
+  Run the same exports from the native Windows editor.
+  [Setting up](docs/SETUP.md#windows-builds-for-06).
 
 ### Android player and editor
 
@@ -116,7 +121,10 @@ part of 0.6, alongside performance work and platform validation.
   co-op action after `am force-stop`, retaining Portuguese and exact native
   snapshots. An in-place app update preserves recovery; solo and co-op remain
   isolated. Android system file pickers now preserve accented filenames and
-  byte-exact editable archives through save and import. See the [recovery checks](tools/renderer_comparison/android-local-recovery-06.json).
+  byte-exact editable archives through save and import. The latest emulator
+  smoke test also recovered a solo round and movement after force-stop and
+  independently opened the fresh 2P board.
+  [Recovery checks](tools/renderer_comparison/android-local-recovery-06.json).
 - [ ] Test installation, updates, audio, graphics, translations, controllers,
   background/resume and create → save → reopen → play on actual devices.
   Measure memory, cold shader/asset loading, APK size and performance before
@@ -247,7 +255,8 @@ tracked above.
   resulting 1P and 2P ranges. Level one and dedicated boss roles can keep
   fixed stats.
 - [ ] Review the difficulty curve along the main route and detours with a
-  human playthrough.
+  human playthrough. In the automated routes, 1P finishes Cedar Watch and
+  Twin Gate with a single survivor. Check those battles in the human review.
 - [x] Let authors reward effective healing once per healer turn. Carry XP
   and growth across battles and apply hero stat and range adjustments in
   PlayStation exports using the same rules as Godot and Nintendo 64.
@@ -454,6 +463,10 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
 
 - [ ] Record the 0.5 production builds as baselines: artifact hashes, matched
   captures, frame timing, CPU/rendering cost, ROM/RAM and PS1 VRAM usage.
+  The published hashes, Bell Orchard emulator captures and PS1 display timing
+  are recorded. Measure the released ROM's frame pacing and the published
+  builds' rendering cost and peak memory.
+  [Production baselines](tools/renderer_comparison/console-release-baseline-05.json)
 - [ ] Bring PS1 scrolling and castle views to consistent 30 fps. Retain the
   full terrain, units, camera behaviour and test scenarios; do not change
   gameplay or weaken checks to meet a performance gate. Static scenery now
@@ -533,6 +546,10 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   32×24 castle, draw calls fell from 2,192 to 1,150 during ambient motion,
   with similar frame rates in software rendering.
   [Godot board measurements](tools/renderer_comparison/godot-board-profile-06.json)
+- [x] Reuse terrain samples while generating the board and selection meshes.
+  The same castle's board setup took 3.0 seconds on Linux, down from 9.2,
+  and 3.7 seconds under Wine, down from 16.3. The compared mesh data and
+  exported ground textures match.
 - [ ] Repeat the Godot board profile on Windows hardware and compare the
   frame timings and large-board loading time.
 

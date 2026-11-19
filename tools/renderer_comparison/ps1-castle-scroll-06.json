@@ -1,6 +1,6 @@
 {
   "source_base": "023f6bf67631d568a71462a0243b618b5aa2ada3",
-  "method": "Emulated CPU cycles between real display swaps during the same controller-driven horizontal and vertical scroll windows. Opening camera sweeps were skipped. The prototype is a normal 32 × 24 campaign export in 2P mode.",
+  "method": "Emulated CPU cycles between real display swaps during the same controller-driven horizontal and vertical scroll windows. Opening camera sweeps were skipped. The prototype is a normal 32 \u00d7 24 campaign export in 2P mode.",
   "three_courts": {
     "normal": {
       "trace": "out/release06-verify/castle-two-swaps/scroll-swaps.csv",
@@ -135,7 +135,7 @@
   },
   "conclusion": "Keep camera speed and floor strips. During tactical scrolling on large modular castles, merge textured wall runs and intact roof sections and skip unused packet-cache work. Full scenery returns after four still ticks. The larger castle and the production Twin Gate keep still miss the 30 FPS target while scrolling.",
   "motion_detail": {
-    "scope": "Three Courts, 32 × 24. Applies to large modular castles in normal tactical scrolling. Opening sweeps and the bespoke Twin Gate castle retain their existing meshes.",
+    "scope": "Three Courts, 32 \u00d7 24. Applies to large modular castles in normal tactical scrolling. Opening sweeps and the bespoke Twin Gate castle retain their existing meshes.",
     "baseline_solo": {
       "change": "Full scenery throughout.",
       "trace": "out/release06-verify/castle-one-swaps/scroll-swaps.csv",
@@ -401,6 +401,45 @@
         }
       },
       "disc_sha256": "b36d425471e7396abe49340ddad9f003612b2b019920cf215c5b7946b47468c9"
+    }
+  },
+  "castle_masonry_and_culling_trials": {
+    "method": "32 \u00d7 24 Three Courts in 2P, identical ordinary controller input and real display swaps. No hardware timing.",
+    "masonry_8bit": {
+      "change": "Retain a separate 256-entry palette for masonry without consuming the unit or UI CLUT.",
+      "bin_sha256": "9f20a1dfcc043f142013dcc17c0d6d4c4d3a9c94bdd76189c157a82a2f35a5b8",
+      "timing": {
+        "horizontal_fps": 10.38,
+        "horizontal_worst_ms": 183.31,
+        "vertical_fps": 13.68,
+        "vertical_worst_ms": 133.31
+      },
+      "committed_main_ram_bytes": 2088516,
+      "texture_vram_bytes": 183616,
+      "trace": "out/release-06-closure/ps1-masonry-timing/scroll-swaps.csv"
+    },
+    "tight_entity_bounds": {
+      "change": "Generate smaller conservative engine bounding spheres for scenery.",
+      "timing": {
+        "horizontal_fps": 10.32,
+        "horizontal_worst_ms": 199.97,
+        "vertical_fps": 13.99
+      },
+      "result": "Pixel-identical checkpoints. Slower horizontal scroll, so keep the existing bound."
+    },
+    "two_tile_blocks": {
+      "committed_main_ram_bytes": 2118204,
+      "result": "Exceeds the 2 MiB limit with all existing reserves."
+    },
+    "six_tile_blocks": {
+      "committed_main_ram_bytes": 2079900,
+      "timing": {
+        "horizontal_fps": 10.59,
+        "horizontal_worst_ms": 216.64,
+        "vertical_fps": 14.45
+      },
+      "result": "The longer horizontal worst frame outweighs the small throughput gain.",
+      "trace": "out/release-06-closure/ps1-block-6-timing/scroll-swaps.csv"
     }
   }
 }
