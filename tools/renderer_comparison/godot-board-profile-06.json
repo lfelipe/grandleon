@@ -1,0 +1,119 @@
+{
+  "method": "Rendered Three Courts 2P at 1280 \u00d7 720. Ambient motion is off for idle and scrolling and on for the ambient and cinematic samples. The cinematic uses a fixed presentation exchange. Frame samples use wall time between rendered frames.",
+  "limits": "llvmpipe is software rendering. Draw-call changes describe the workload. The FPS figures describe only this test environment.",
+  "source": "games/steel_and_cedar/prototypes/castle_expansion.py",
+  "before": {
+    "adapter": "llvmpipe (LLVM 21.1.8, 256 bits)",
+    "board": [
+      32,
+      24
+    ],
+    "driver": "4.5 (Core Profile) Mesa 26.0.8-1ubuntu0.3",
+    "platform": "Linux",
+    "players": 2,
+    "stage": "6a895a03d65d995c",
+    "viewport": [
+      1280,
+      720
+    ],
+    "workloads": {
+      "ambient": {
+        "fps": 12.0069039697826,
+        "mean_draw_calls": 2192.0,
+        "measured_frames": 90,
+        "p95_msec": 85.341,
+        "peak_msec": 86.664,
+        "ready": true,
+        "sample_count": 60,
+        "sample_seconds": 4.997125
+      },
+      "cinematic": {
+        "fps": 14.1693004697326,
+        "mean_draw_calls": 1400.05882352941,
+        "measured_frames": 85,
+        "p95_msec": 85.068,
+        "peak_msec": 163.326,
+        "ready": true,
+        "sample_count": 70,
+        "sample_seconds": 4.940258
+      },
+      "idle": {
+        "fps": 11.5256899540873,
+        "mean_draw_calls": 2060.0,
+        "measured_frames": 90,
+        "p95_msec": 89.119,
+        "peak_msec": 89.894,
+        "ready": true,
+        "sample_count": 57,
+        "sample_seconds": 4.945474
+      },
+      "scroll": {
+        "fps": 11.5213451109778,
+        "mean_draw_calls": 1749.68888888889,
+        "measured_frames": 90,
+        "p95_msec": 97.161,
+        "peak_msec": 101.173,
+        "ready": true,
+        "sample_count": 57,
+        "sample_seconds": 4.947339
+      }
+    }
+  },
+  "chunked": {
+    "adapter": "llvmpipe (LLVM 21.1.8, 256 bits)",
+    "board": [
+      32,
+      24
+    ],
+    "driver": "4.5 (Core Profile) Mesa 26.0.8-1ubuntu0.3",
+    "platform": "Linux",
+    "players": 2,
+    "stage": "6a895a03d65d995c",
+    "viewport": [
+      1280,
+      720
+    ],
+    "workloads": {
+      "ambient": {
+        "fps": 12.1677371233401,
+        "mean_draw_calls": 1150.0,
+        "measured_frames": 90,
+        "p95_msec": 84.181,
+        "peak_msec": 87.509,
+        "ready": true,
+        "sample_count": 60,
+        "sample_seconds": 4.931073
+      },
+      "cinematic": {
+        "fps": 14.1900990813532,
+        "mean_draw_calls": 834.593023255814,
+        "measured_frames": 86,
+        "p95_msec": 84.001,
+        "peak_msec": 165.235,
+        "ready": true,
+        "sample_count": 70,
+        "sample_seconds": 4.933017
+      },
+      "idle": {
+        "fps": 11.753214909561,
+        "mean_draw_calls": 1261.0,
+        "measured_frames": 90,
+        "p95_msec": 86.86,
+        "peak_msec": 87.214,
+        "ready": true,
+        "sample_count": 58,
+        "sample_seconds": 4.93482
+      },
+      "scroll": {
+        "fps": 11.1317194094279,
+        "mean_draw_calls": 1010.81111111111,
+        "measured_frames": 90,
+        "p95_msec": 98.648,
+        "peak_msec": 100.363,
+        "ready": true,
+        "sample_count": 55,
+        "sample_seconds": 4.940836
+      }
+    }
+  }
+}

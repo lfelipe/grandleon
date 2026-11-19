@@ -528,11 +528,13 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
 - [ ] Maintain the 30 fps console target and explicit memory limits, including
   base 4 MiB Nintendo 64 support. Improve quality within those limits rather
   than restoring retired renderers or adding silent fallbacks.
-- [ ] Profile Godot's large-board, scrolling, ambient-animation and cinematic
-  workloads, including on Windows, and fix observed rendering bottlenecks.
-  Straight scenery branches now use 40 triangles instead of 120, with no
-  change to their round silhouette. One fully instanced tree uses 3,608
-  triangles in temperate/autumn, 2,840 in winter and 1,240 in ashland.
+- [x] Profile Godot's large-board idle, scrolling, ambient and cinematic
+  workloads on Linux. Batch natural terrain by region and material. On the
+  32×24 castle, draw calls fell from 2,192 to 1,150 during ambient motion,
+  with similar frame rates in software rendering.
+  [Godot board measurements](tools/renderer_comparison/godot-board-profile-06.json)
+- [ ] Repeat the Godot board profile on Windows hardware and compare the
+  frame timings and large-board loading time.
 
 PS1 schedules completed images at two-retrace display deadlines and keeps
 game updates at 60 Hz. The latest Bell Orchard replay averages 29.9 FPS.

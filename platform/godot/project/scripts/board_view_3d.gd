@@ -863,6 +863,7 @@ func _rebuild_terrain() -> void:
 	var width := int(snapshot.width)
 	var height := int(snapshot.height)
 	var depth := _surrounding_depth()
+	var natural_batches: Dictionary = {}
 	if _uses_natural_terrain():
 		_prepare_natural_terrain(width, height, depth)
 	_box(
@@ -881,7 +882,7 @@ func _rebuild_terrain() -> void:
 				continue
 			var outside_kind := _surrounding_kind(outside_x, outside_y, ring_index)
 			if _uses_natural_terrain():
-				_build_natural_tile(outside_x, outside_y, outside_kind)
+				_build_natural_tile(outside_x, outside_y, outside_kind, natural_batches)
 			elif String(profile_config.get("terrainRenderer", render_profile)) == "voxel":
 				_build_voxel_tile(outside_x, outside_y, outside_kind)
 			else:
@@ -894,7 +895,7 @@ func _rebuild_terrain() -> void:
 			if kind == 255:
 				kind = 9
 			if _uses_natural_terrain():
-				_build_natural_tile(x, y, kind)
+				_build_natural_tile(x, y, kind, natural_batches)
 				continue
 			if not _landmark_cells.has(Vector2i(x, y)) and _create_authored_tile(x, y, kind):
 				continue
@@ -902,6 +903,13 @@ func _rebuild_terrain() -> void:
 				_build_voxel_tile(x, y, kind)
 			else:
 				_build_diorama_tile(x, y, kind)
+	# Chunked material batches preserve tile detail and keep offscreen terrain culled.
+	for key: Vector3i in natural_batches:
+		var ground := MeshInstance3D.new()
+		ground.name = "NaturalGround"
+		ground.mesh = natural_batches[key].commit()
+		ground.material_override = _natural_ground.material_for(key.z)
+		_terrain_root.add_child(ground)
 	_build_cluster_landmarks()
 	_build_castle_landmark()
 
@@ -1502,7 +1510,7 @@ func _prepare_natural_terrain(width: int, height: int, depth: int) -> void:
 	_natural_scenery.set_motion_enabled(_ambient_motion_enabled)
 
 
-func _build_natural_tile(x: int, y: int, kind: int) -> void:
+func _build_natural_tile(x: int, y: int, kind: int, batches: Dictionary) -> void:
 	var cell := Node3D.new()
 	cell.set_meta("terrain_family", _natural_terrain_family())
 	cell.set_meta("terrain_kind", kind)
@@ -1510,12 +1518,15 @@ func _build_natural_tile(x: int, y: int, kind: int) -> void:
 	_terrain_root.add_child(cell)
 	var variation: int = absi(x * 17 + y * 31 + kind * 13)
 	cell.set_meta("terrain_variant", variation % 4)
-	var ground := MeshInstance3D.new()
-	ground.name = "NaturalGround"
-	ground.mesh = _natural_ground.mesh_for(Vector2i(x, y))
 	var crossing := _river_crossing_axis(x, y)
-	ground.material_override = _natural_ground.material_for(0 if crossing else kind)
-	cell.add_child(ground)
+	const CHUNK_SIDE := 6.0
+	var key := Vector3i(floori(x / CHUNK_SIDE), floori(y / CHUNK_SIDE), 0 if crossing else kind)
+	if not batches.has(key):
+		var builder := SurfaceTool.new()
+		builder.begin(Mesh.PRIMITIVE_TRIANGLES)
+		batches[key] = builder
+	var surface: SurfaceTool = batches[key]
+	surface.append_from(_natural_ground.mesh_for(Vector2i(x, y)), 0, Transform3D(Basis.IDENTITY, cell.position))
 	var top: float = _natural_ground.height_at(Vector2i(x, y))
 	if crossing:
 		_build_river_bridge(cell, top, crossing)
