@@ -75,7 +75,8 @@ const std::uint64_t field_tonic = core::stable_content_id_v1("field_tonic");
 // The maintained demo, compiled under whichever rule this run is about. The
 // source is read off the disk and parsed by the real reader; only the one field
 // the setting owns is set before the real compiler is handed the model.
-pf::LoadedPackage compile_the_demo(pr::CharacterLoss rule, bool show_statistics = false) {
+pf::LoadedPackage compile_the_demo(pr::CharacterLoss rule, bool show_statistics = false,
+                                    bool win_required = false) {
     const std::string filename =
         std::string(GRANDLEON_SOURCE_DIR) + "/games/demo/source/project.json";
     std::ifstream input(filename, std::ios::binary);
@@ -89,6 +90,41 @@ pf::LoadedPackage compile_the_demo(pr::CharacterLoss rule, bool show_statistics 
                                        ? gc::CharacterLoss::recoverable
                                        : gc::CharacterLoss::permanent;
     parsed.source.show_end_statistics = show_statistics;
+    if (win_required) {
+        const auto ally = std::find_if(
+            parsed.source.unit_types.begin(), parsed.source.unit_types.end(),
+            [](const auto& role) { return role.id == core::stable_content_id_v1("dawn_guard_unit"); }
+        );
+        const auto enemy = std::find_if(
+            parsed.source.unit_types.begin(), parsed.source.unit_types.end(),
+            [](const auto& role) { return role.id == core::stable_content_id_v1("river_watch_unit"); }
+        );
+        for (auto& role : parsed.source.classes) {
+            if (role.id == ally->class_id) role.base_stats.health = 1;
+        }
+        for (auto& weapon : parsed.source.weapons) {
+            if (weapon.id == enemy->starting_weapons.front()) {
+                weapon.power = 30;
+                weapon.accuracy = 100;
+            }
+        }
+        for (auto& campaign : parsed.source.campaigns) {
+            if (campaign.id != muster_road) continue;
+            auto& first = campaign.nodes.front();
+            const auto target = first.unconditional_targets.front();
+            first.unconditional_targets.clear();
+            first.conditional_targets.push_back({
+                target, 0, gc::ConditionCombinator::all,
+                {{gc::CampaignPredicateKind::objective_result,
+                    core::stable_content_id_v1("defeat_all_opponents")}}
+            });
+        }
+        for (auto& encounter : parsed.source.encounters) {
+            if (encounter.id == core::stable_content_id_v1("muster_road/river_skirmish")) {
+                encounter.placements.front().x = 1;
+            }
+        }
+    }
     const gc::CompileResult compiled = gc::compile(parsed.source);
     expect(static_cast<bool>(compiled), "and compiles");
     const pf::LoadResult loaded = pf::load_mock_package(
@@ -358,6 +394,69 @@ void the_rule_does_not_reach_the_battle() {
     );
 }
 
+void defeat_remains_terminal_with_statistics_disabled() {
+    const auto package = compile_the_demo(pr::CharacterLoss::recoverable, false, true);
+    storage::MemorySlotStorage device;
+    const client::PackageBoards boards{package};
+    client::CampaignSessionOptions options;
+    options.slot = "unrouted-loss";
+    client::CampaignSession session{package, muster_road, boards, device, options};
+    client::SlotFailure failure;
+    bool refused = false;
+    bool resumed = false;
+    if (session.begin(failure, refused, resumed) != client::CampaignSessionError::none) {
+        expect(false, "the victory-only campaign starts");
+        return;
+    }
+    const auto prepared = session.prepare_board();
+    if (prepared.error != client::CampaignSessionError::none) {
+        expect(false, "the victory-only battle opens");
+        return;
+    }
+    client::BattleReport battle;
+    auto fight = sim::create_encounter(prepared.encounter.encounter.definition);
+    if (!fight) {
+        expect(false, "the loss fixture creates a playable battle");
+        return;
+    }
+    const auto lead = prepared.encounter.binding.battle_of(vanguard).value;
+    const auto rider = prepared.encounter.binding.battle_of(outrider).value;
+    const auto picket = core::stable_content_id_v1("muster_road/river_skirmish/muster_picket");
+    const std::vector<sim::Command> commands{
+        {sim::CommandType::begin_battle},
+        {sim::CommandType::wait, lead},
+        {sim::CommandType::attack, picket, {}, rider},
+        {sim::CommandType::wait, lead},
+        {sim::CommandType::move, picket, {2, 1}},
+        {sim::CommandType::attack, picket, {}, lead},
+    };
+    for (const auto& command : commands) {
+        const auto applied = fight.encounter.apply(command);
+        if (!applied) {
+            expect(false, sim::error_name(applied.error));
+            return;
+        }
+        battle.events.insert(battle.events.end(), applied.events.begin(), applied.events.end());
+    }
+    battle.final_snapshot = fight.encounter.snapshot();
+    battle.outcome = battle.final_snapshot.outcome;
+    battle.canonical_hash = fight.encounter.canonical_hash();
+    battle.objectives = battle.final_snapshot.objectives;
+    expect(battle.outcome == sim::Outcome::second_side_won,
+           "the normal battle commands defeat the company");
+
+    client::BattleAftermath aftermath;
+    expect(session.commit_battle(battle, aftermath) == client::CampaignSessionError::none &&
+        session.defeated() && session.standing().kind == pr::CampaignNodeKind::terminal &&
+        session.statistics().battles == 0, "an unrouted loss ends play without collecting statistics");
+    expect(session.save() == storage::StorageError::none, "the failed campaign saves its result");
+    options.resume = true;
+    client::CampaignSession reopened{package, muster_road, boards, device, options};
+    expect(reopened.begin(failure, refused, resumed) == client::CampaignSessionError::none &&
+        resumed && reopened.defeated() && reopened.standing().kind == pr::CampaignNodeKind::terminal,
+        "reopening the save returns to the defeat ending");
+}
+
 }  // namespace
 
 int main() {
@@ -365,5 +464,6 @@ int main() {
     a_fall_under_the_recoverable_rule_is_not();
     the_rule_does_not_reach_the_battle();
     cross_the_river(pr::CharacterLoss::recoverable, true);
+    defeat_remains_terminal_with_statistics_disabled();
     return failures == 0 ? 0 : 1;
 }

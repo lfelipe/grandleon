@@ -1247,6 +1247,11 @@ CompileResult compile(const GameSource& source) {
     for (const Encounter& definition : source.encounters) {
         const std::string path =
             "encounters[" + std::to_string(definition.id) + "]";
+        if (!definition.enemy_levels.valid()) {
+            result.diagnostics.push_back(
+                {DiagnosticCode::invalid_placement, path + ".enemy_levels", definition.id}
+            );
+        }
         validate_reference(
             definition.map_id, map_ids, path + ".map_id", result.diagnostics
         );
@@ -1281,6 +1286,13 @@ CompileResult compile(const GameSource& source) {
         // that places them.
         std::set<StableId> placement_keys;
         for (const Placement& placement : definition.placements) {
+            if (!placement.enemy_levels.valid() ||
+                (placement.enemy_levels.specified() &&
+                 placement.side != EncounterSide::second)) {
+                result.diagnostics.push_back(
+                    {DiagnosticCode::invalid_placement, path + ".placements.level", placement.id}
+                );
+            }
             // A target must exist in every supported player configuration.
             // Conditional enemies may still speak and arrive, but making one
             // the win condition would leave the one-player form without the
@@ -2969,6 +2981,36 @@ CompileResult compile(const GameSource& source) {
                       [](const auto& lhs, const auto& rhs) { return lhs.stable_id < rhs.stable_id; });
             return section;
         }(),
+        // This required section is sparse so battles without authored levels
+        // keep the package they already produced.
+        [&source]() {
+            package_format::SectionSource section;
+            section.type = package_format::SectionType::enemy_levels;
+            for (const Encounter& encounter : source.encounters) {
+                const auto count = std::count_if(
+                    encounter.placements.begin(), encounter.placements.end(),
+                    [](const Placement& placement) {
+                        return placement.enemy_levels.specified();
+                    }
+                );
+                if (!encounter.enemy_levels.specified() && count == 0) continue;
+                Bytes bytes{encounter.enemy_levels.level,
+                            encounter.enemy_levels.two_player_level};
+                put_u16(bytes, static_cast<std::uint16_t>(count));
+                for (const Placement& placement : encounter.placements) {
+                    if (!placement.enemy_levels.specified()) continue;
+                    put_u64(bytes, placement.id);
+                    bytes.push_back(placement.enemy_levels.level);
+                    bytes.push_back(placement.enemy_levels.two_player_level);
+                }
+                section.records.push_back({encounter.id, std::move(bytes)});
+            }
+            std::sort(section.records.begin(), section.records.end(),
+                      [](const auto& lhs, const auto& rhs) {
+                          return lhs.stable_id < rhs.stable_id;
+                      });
+            return section;
+        }(),
         // What is said during a battle, per encounter. Built by hand and pruned
         // for the talks section's reasons, and optional where that one is
         // required: a runtime that skips this plays the same battle without the
@@ -3327,6 +3369,20 @@ CompileResult compile(const GameSource& source) {
             return section;
         }()
     };
+
+    package_format::SectionSource healing_experience;
+    healing_experience.type = package_format::SectionType::healing_experience;
+    for (const auto& unit : source.unit_types) {
+        if (unit.healing_experience == 0) continue;
+        Bytes bytes;
+        put_u16(bytes, unit.healing_experience);
+        healing_experience.records.push_back({unit.id, std::move(bytes)});
+    }
+    std::sort(healing_experience.records.begin(), healing_experience.records.end(),
+              [](const auto& lhs, const auto& rhs) { return lhs.stable_id < rhs.stable_id; });
+    if (!healing_experience.records.empty()) {
+        package.sections.push_back(std::move(healing_experience));
+    }
 
     if (source.show_end_statistics) {
         package.sections.front().records.push_back({

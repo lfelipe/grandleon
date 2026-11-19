@@ -378,6 +378,7 @@ public:
         std::uint64_t canonical_hash
     ) = 0;
     virtual void campaign_ended() = 0;
+    virtual void campaign_defeated() { campaign_ended(); }
     virtual void campaign_ended(const simulation::CampaignStatistics&) {
         campaign_ended();
     }

@@ -178,7 +178,7 @@ var growth_title_label: Label
 var growth_style: OptionButton
 var growth_figure: OptionButton
 var growth_drop: OptionButton
-var growth_value_labels: Dictionary = {}
+var growth_values: Dictionary = {}
 var growth_drop_buttons: Array[Button] = []
 var dependency_layer: Control
 var dependency_kind_select: OptionButton
@@ -254,6 +254,10 @@ func _load_project() -> void:
 	})
 	_refresh_campaigns(CreatorContext.member_id)
 	_set_status(_t("army.status.ready"), false)
+	if not CreatorContext.force_growth_target.is_empty():
+		role_unit_type_id = str(CreatorContext.force_growth_target.get("role_id", ""))
+		_open_growth()
+		return
 	var diagnostic_focus: Dictionary = CreatorContext.take_diagnostic_focus()
 	if not diagnostic_focus.is_empty():
 		_apply_diagnostic_focus(diagnostic_focus)
@@ -1356,6 +1360,16 @@ func _open_growth() -> void:
 
 
 func _close_growth() -> void:
+	for input: SpinBox in growth_values.values():
+		if input.get_line_edit().has_focus():
+			input.apply()
+			break
+	if not CreatorContext.force_growth_target.is_empty():
+		if dirty and not _save():
+			return
+		CreatorContext.request_map_action("return_from_force_growth")
+		get_tree().change_scene_to_file("res://map_editor.tscn")
+		return
 	growth_layer.visible = false
 	role_growth_button.grab_focus()
 
@@ -1380,14 +1394,16 @@ func _refresh_growth_layer() -> void:
 			)
 	var drop_id := str(unit_type.get("dropItemId", preferred_drop))
 	_select_metadata(growth_drop, drop_id)
-	growth_value_labels.experienceAward.text = str(int(unit_type.get("experienceAward", 0)))
-	growth_value_labels.experiencePerLevel.text = str(int(unit_type.get("experiencePerLevel", 100)))
-	growth_value_labels.dropChance.text = str(int(unit_type.get("dropChance", 0)))
+	growth_values.experienceAward.set_value_no_signal(float(unit_type.get("experienceAward", 0)))
+	growth_values.experiencePerLevel.set_value_no_signal(float(unit_type.get("experiencePerLevel", 100)))
+	growth_values.healingExperience.set_value_no_signal(float(unit_type.get("healingExperience", 0)))
+	growth_values.dropChance.set_value_no_signal(float(unit_type.get("dropChance", 100)))
 	var rates: Variant = unit_type.get("growthRates", {})
 	for definition: Dictionary in GROWTH_STATS:
 		var key := str(definition.key)
-		growth_value_labels[key].text = str(int(rates.get(key, 0)))
+		growth_values[key].set_value_no_signal(float(rates.get(key, 0)))
 	var has_drop := not _selected_metadata(growth_drop).is_empty()
+	growth_values.dropChance.editable = has_drop
 	for button: Button in growth_drop_buttons:
 		button.disabled = not has_drop
 	role_refreshing = false
@@ -1445,38 +1461,29 @@ func _change_growth_drop(_index: int) -> void:
 		_refresh_growth_layer()
 
 
-func _adjust_role_detail(key: String, amount: int) -> void:
+func _set_role_detail(value: float, key: String) -> void:
 	var candidate := _role_project_with_unit()
 	if candidate.is_empty():
 		return
 	var unit_type: Dictionary = candidate.unit_type
-	if key in ["experienceAward", "experiencePerLevel", "dropChance"]:
-		var fallback: int = {
-			"experienceAward": 0,
-			"experiencePerLevel": 100,
-			"dropChance": 100,
-		}.get(key, 0)
-		var minimum := 1 if key in ["experiencePerLevel", "dropChance"] else 0
-		var maximum := 100 if key == "dropChance" else 65535
-		var value := clampi(int(unit_type.get(key, fallback)) + amount, minimum, maximum)
-		if (key == "experienceAward" and value == 0) or (key == "experiencePerLevel" and value == 100):
+	if key in ["experienceAward", "experiencePerLevel", "healingExperience", "dropChance"]:
+		if value == 0 or (key == "experiencePerLevel" and value == 100):
 			unit_type.erase(key)
 		else:
-			unit_type[key] = value
+			unit_type[key] = int(value)
 	else:
 		var rates: Dictionary = unit_type.get("growthRates", {}).duplicate(true)
-		var value := clampi(int(rates.get(key, 0)) + amount, 0, 100)
 		if value == 0:
 			rates.erase(key)
 		else:
-			rates[key] = value
+			rates[key] = int(value)
 		if rates.is_empty():
 			unit_type.erase("growthRates")
 		else:
 			unit_type.growthRates = rates
 	candidate.unit_types[candidate.unit_index] = unit_type
-	if _accept_role_project(candidate.project, _t("army.status.role_progression")):
-		_refresh_growth_layer()
+	_accept_role_project(candidate.project, _t("army.status.role_progression"))
+	_refresh_growth_layer()
 
 
 func _change_role_side(_index: int) -> void:
@@ -3328,23 +3335,21 @@ func _build_growth_layer() -> void:
 	column.add_child(reward_row)
 	_build_growth_stepper(reward_row, _t("army.growth.xp_defeated"), "experienceAward", 365, false)
 	_build_growth_stepper(reward_row, _t("army.growth.xp_level"), "experiencePerLevel", 365, false)
+	_build_growth_stepper(reward_row, _t("army.growth.xp_healing"), "healingExperience", 365, false)
+	var drop_row := BoxContainer.new()
+	drop_row.set_meta("mobile_wrap_actions", true)
+	drop_row.add_theme_constant_override("separation", 12)
+	column.add_child(drop_row)
 	var drop_label := _label(_t("army.growth.item_drop"), 14, Color("69d9ff"))
 	drop_label.custom_minimum_size = Vector2(145, 52)
 	drop_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	reward_row.add_child(drop_label)
+	drop_row.add_child(drop_label)
 	growth_drop = OptionButton.new()
 	growth_drop.custom_minimum_size = Vector2(400, 52)
 	growth_drop.add_theme_font_size_override("font_size", 17)
 	growth_drop.item_selected.connect(_change_growth_drop)
-	reward_row.add_child(growth_drop)
-	var chance_row := BoxContainer.new()
-	chance_row.set_meta("mobile_wrap_actions", true)
-	chance_row.add_theme_constant_override("separation", 12)
-	column.add_child(chance_row)
-	var chance_spacer := Control.new()
-	chance_spacer.custom_minimum_size = Vector2(790, 48)
-	chance_row.add_child(chance_spacer)
-	_build_growth_stepper(chance_row, _t("army.growth.drop_chance"), "dropChance", 570, true)
+	drop_row.add_child(growth_drop)
+	_build_growth_stepper(drop_row, _t("army.growth.drop_chance"), "dropChance", 570, true)
 
 	column.add_child(_label(_t("army.growth.level_chance"), 15, Color("e6b86d")))
 	var growth_grid := GridContainer.new()
@@ -3389,18 +3394,22 @@ func _build_growth_stepper(
 	var controls := HBoxContainer.new()
 	controls.add_theme_constant_override("separation", 8)
 	row.add_child(controls)
+	var value := SpinBox.new()
+	value.min_value = 1 if key in ["experiencePerLevel", "dropChance"] else 0
+	value.max_value = 100 if drop_control or key not in ["experienceAward", "experiencePerLevel", "healingExperience"] else 65535
+	value.step = 1
+	value.custom_minimum_size = Vector2(165 if width > 600 else 105, 44)
+	value.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	value.get_line_edit().virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_NUMBER
+	value.value_changed.connect(_set_role_detail.bind(key))
 	var minus := _button("−", 72, 44)
-	minus.pressed.connect(_adjust_role_detail.bind(key, -1))
+	minus.pressed.connect(func(): value.value -= 1)
 	controls.add_child(minus)
-	var value := _label("0", 18, Color("f2f7f9"))
-	value.custom_minimum_size = Vector2(165 if width > 600 else 70, 44)
-	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	controls.add_child(value)
 	var plus := _button("+", 72, 44)
-	plus.pressed.connect(_adjust_role_detail.bind(key, 1))
+	plus.pressed.connect(func(): value.value += 1)
 	controls.add_child(plus)
-	growth_value_labels[key] = value
+	growth_values[key] = value
 	if drop_control:
 		growth_drop_buttons.append(minus)
 		growth_drop_buttons.append(plus)

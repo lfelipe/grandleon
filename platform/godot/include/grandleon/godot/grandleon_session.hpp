@@ -85,6 +85,7 @@ struct FrontendEvent final {
     std::uint64_t canonical_hash{};
     std::int64_t request_id{};
     bool resumed{false};
+    bool campaign_lost{false};
     bool successful{false};
     bool over_board{false};
     std::string message;
@@ -148,6 +149,7 @@ public:
         std::uint64_t canonical_hash
     ) override;
     void campaign_ended() override;
+    void campaign_defeated() override;
     void campaign_ended(const simulation::CampaignStatistics& statistics) override;
     void campaign_begun(
         const std::vector<client::RosterEntry>& roster,

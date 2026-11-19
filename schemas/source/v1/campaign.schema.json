@@ -200,6 +200,14 @@
         "deployment": {
           "$ref": "#/$defs/deploymentZone"
         },
+        "enemyLevel": {
+          "$ref": "#/$defs/unitLevel",
+          "description": "Default enemy level for this battle, including reinforcements. Defaults to level 1."
+        },
+        "enemyLevel2P": {
+          "$ref": "#/$defs/unitLevel",
+          "description": "Default for two players. If omitted, the ordinary battle level also applies in 2P."
+        },
         "moments": {
           "type": "array",
           "items": {
@@ -233,7 +241,9 @@
                 "type": "array",
                 "maxItems": 0
               },
-              "deployment": false
+              "deployment": false,
+              "enemyLevel": false,
+              "enemyLevel2P": false
             }
           }
         },
@@ -421,6 +431,11 @@
       },
       "additionalProperties": false
     },
+    "unitLevel": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 99
+    },
     "encounterPlacement": {
       "type": "object",
       "properties": {
@@ -437,6 +452,14 @@
         },
         "unitTypeId": {
           "$ref": "common.schema.json#/$defs/stableId"
+        },
+        "level": {
+          "$ref": "#/$defs/unitLevel",
+          "description": "Overrides the battle level for this enemy and any repetitions of its wave. Level 1 uses the role's base stats."
+        },
+        "level2P": {
+          "$ref": "#/$defs/unitLevel",
+          "description": "Overrides the level of this enemy and its wave when two players participate."
         },
         "side": {
           "enum": [
@@ -623,6 +646,17 @@
         "x",
         "y"
       ],
+      "if": {
+        "properties": {
+          "side": { "const": "first" }
+        }
+      },
+      "then": {
+        "properties": {
+          "level": false,
+          "level2P": false
+        }
+      },
       "additionalProperties": false
     },
     "campaignTransition": {

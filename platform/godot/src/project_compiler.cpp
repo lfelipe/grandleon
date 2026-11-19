@@ -5,16 +5,19 @@
 #include <grandleon/game_content/compiler.hpp>
 #include <grandleon/game_content/source_project.hpp>
 #include <grandleon/package_runtime/target_budget.hpp>
+#include <grandleon/simulation/encounter.hpp>
 
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/char_string.hpp>
 #include <godot_cpp/variant/packed_byte_array.hpp>
 
+#include <algorithm>
 #include <array>
 #include <charconv>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -600,6 +603,14 @@ void GrandleonProjectCompiler::_bind_methods() {
             "source_character_preview", "source_json", "unit_type_id"
         ),
         &GrandleonProjectCompiler::source_character_preview
+    );
+    gd::ClassDB::bind_method(
+        gd::D_METHOD(
+            "enemy_level_preview", "base_stats", "growth_rates",
+            "default_level", "default_level_2p", "unit_level",
+            "unit_level_2p", "two_players"
+        ),
+        &GrandleonProjectCompiler::enemy_level_preview
     );
     gd::ClassDB::bind_method(
         gd::D_METHOD(
@@ -1498,6 +1509,53 @@ gd::Dictionary GrandleonProjectCompiler::set_dialogue_backdrop(
     result["ok"] = true;
     result["source"] = text(updated.json);
     result["diagnostics"] = diagnostics;
+    return result;
+}
+
+gd::Dictionary GrandleonProjectCompiler::enemy_level_preview(
+    const gd::Dictionary& base_stats, const gd::Dictionary& growth_rates,
+    std::int64_t default_level, std::int64_t default_level_2p,
+    std::int64_t unit_level, std::int64_t unit_level_2p, bool two_players
+) const {
+    const auto as_level = [](std::int64_t value) {
+        return static_cast<std::uint8_t>(
+            std::clamp<std::int64_t>(value, 0, core::maximum_unit_level)
+        );
+    };
+    const auto level = core::effective_enemy_level(
+        {as_level(default_level), as_level(default_level_2p)},
+        {as_level(unit_level), as_level(unit_level_2p)}, two_players
+    );
+    constexpr auto bounded = simulation::maximum_stat;
+    constexpr auto wide = std::numeric_limits<std::int16_t>::max();
+    constexpr auto byte = std::numeric_limits<std::uint8_t>::max();
+    struct Field {
+        const char* key;
+        std::int32_t initial;
+        std::int32_t maximum;
+    };
+    constexpr Field fields[] = {
+        {"health", 1, wide}, {"strength", 0, bounded},
+        {"defense", 0, bounded}, {"resistance", 0, bounded},
+        {"movement", 1, byte}, {"actionPoints", 1, byte},
+        {"skill", 0, wide}, {"luck", 0, wide}, {"evasion", 0, wide},
+        {"magic", 0, bounded},
+    };
+    gd::Dictionary result;
+    result["level"] = level;
+    for (const auto& field : fields) {
+        const auto base = static_cast<std::int64_t>(
+            base_stats.get(field.key, field.initial)
+        );
+        const auto chance = static_cast<std::int64_t>(
+            growth_rates.get(field.key, 0)
+        );
+        result[field.key] = core::projected_stat_at_level(
+            static_cast<std::int32_t>(std::clamp<std::int64_t>(base, 0, field.maximum)),
+            level, static_cast<std::uint8_t>(std::clamp<std::int64_t>(chance, 0, 100)),
+            field.maximum
+        );
+    }
     return result;
 }
 

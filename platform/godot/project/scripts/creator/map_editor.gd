@@ -116,6 +116,12 @@ var rectangle_anchor := -1
 var inventory_editor: Control
 var placement_inventory_button: Button
 var forces_inventory_button: Button
+var forces_growth_button: Button
+var forces_levels_button: Button
+var forces_levels_form: VBoxContainer
+var forces_level_inputs: Dictionary = {}
+var forces_levels_preview: Label
+var forces_apply_levels_button: Button
 var selected_placement_id := ""
 var pending_placement: Dictionary = {}
 var placement_side := "second"
@@ -427,6 +433,10 @@ func _load_project() -> void:
 		call_deferred("_open_player_two_assignment")
 	elif requested_action == "objectives":
 		call_deferred("_open_objectives")
+	elif requested_action == "return_from_force_growth":
+		var placement_id := str(CreatorContext.force_growth_target.get("placement_id", ""))
+		CreatorContext.force_growth_target = {}
+		call_deferred("_open_forces", placement_id)
 	else:
 		map_select.call_deferred("grab_focus")
 
@@ -3275,6 +3285,17 @@ func _open_force_inventory() -> void:
 	_open_inventory(str(_selected_force().get("unitTypeId", "")), forces_inventory_button)
 
 
+func _open_force_growth() -> void:
+	var placement := _selected_force()
+	if placement.is_empty() or (dirty and not _save()):
+		return
+	_remember_battle_selection()
+	CreatorContext.force_growth_target = {
+		"role_id": str(placement.unitTypeId), "placement_id": str(placement.id),
+	}
+	get_tree().change_scene_to_file("res://army_editor.tscn")
+
+
 func _open_inventory(identity: String, focus: Control) -> void:
 	var encounter := _current_encounter()
 	if encounter.is_empty(): return
@@ -3773,16 +3794,17 @@ func _return_to_assigned_objectives(selected_id: String) -> void:
 	call_deferred("_focus_objective_tab")
 
 
-func _open_forces() -> void:
+func _open_forces(placement_id := "") -> void:
 	var encounter := _current_encounter()
 	if encounter.is_empty():
 		_set_status(_t("map.error.forces_need_battle"), true)
 		return
-	_collect_force_candidates()
+	_collect_force_candidates(placement_id)
 	_load_force_draft()
 	forces_layer.visible = true
 	_update_forces_view()
-	forces_first_button.call_deferred("grab_focus")
+	var focus := forces_first_button if placement_id.is_empty() or forces_growth_button.disabled else forces_growth_button
+	focus.call_deferred("grab_focus")
 
 
 func _close_forces() -> void:
@@ -3827,6 +3849,11 @@ func _cycle_force_candidate(delta: int) -> void:
 
 func _load_force_draft() -> void:
 	var placement := _selected_force()
+	var node: Dictionary = _current_encounter().get("node", {})
+	for field: String in ["enemyLevel", "enemyLevel2P"]:
+		forces_level_inputs[field].set_value_no_signal(float(node.get(field, 1 if field == "enemyLevel" else 0)))
+	for field: String in ["level", "level2P"]:
+		forces_level_inputs[field].set_value_no_signal(float(placement.get(field, 0)))
 	var arrival: Dictionary = (
 		placement.get("arrival", {})
 		if placement.get("arrival", {}) is Dictionary else {}
@@ -3914,6 +3941,10 @@ func _update_forces_view() -> void:
 		})
 		forces_candidate_label.text += "\n" + InventoryEditor.summary(_inventory_role(str(placement.get("unitTypeId", ""))), project, _t)
 	forces_inventory_button.disabled = not available
+	forces_growth_button.disabled = not available
+	forces_levels_button.disabled = not available
+	forces_apply_levels_button.disabled = not available
+	_refresh_force_level_preview()
 	forces_mode_button.text = _t("map.forces.mode." + force_mode)
 	forces_arrival_fields.visible = available and force_mode != "opening"
 	forces_repeat_row.visible = force_mode == "repeating"
@@ -3943,56 +3974,24 @@ func _update_forces_view() -> void:
 	)
 
 
-func _apply_force_schedule() -> void:
+func _force_edit() -> Dictionary:
 	var selected := _selected_force()
 	var encounter := _current_encounter()
 	if selected.is_empty() or encounter.is_empty():
-		return
-	if force_mode != "opening":
-		forces_round_input.apply()
-	if force_mode == "repeating":
-		forces_every_input.apply()
-		forces_times_input.apply()
-	var selected_id := str(selected.get("id", ""))
+		return {}
 	var candidate: Dictionary = project.duplicate(true)
-	var changed := false
-	for campaign_value: Variant in candidate.get("campaigns", []):
-		if not campaign_value is Dictionary:
-			continue
-		var campaign: Dictionary = campaign_value
-		if str(campaign.get("id", "")) != str(encounter.get("campaign_id", "")):
-			continue
-		var flow: Dictionary = campaign.get("flow", {})
-		for node_value: Variant in flow.get("nodes", []):
-			if not node_value is Dictionary:
-				continue
-			var node: Dictionary = node_value
-			if str(node.get("id", "")) != str(encounter.node.get("id", "")):
-				continue
-			for placement_value: Variant in node.get("placements", []):
-				if not placement_value is Dictionary:
-					continue
-				var placement: Dictionary = placement_value
-				if str(placement.get("id", "")) != selected_id:
-					continue
-				placement.behavior = force_behavior
-				if force_behavior != "patrol":
-					placement.erase("patrolPoints")
-				if force_mode == "opening":
-					placement.erase("arrival")
-				else:
-					placement.arrival = {"round": int(forces_round_input.value)}
-					if force_mode == "repeating":
-						placement.arrival.every = int(forces_every_input.value)
-						placement.arrival.times = int(forces_times_input.value)
-				changed = true
-				break
-			break
-		break
-	if not changed:
-		return
-	var portable: Dictionary = _integer_numbers(candidate)
-	var candidate_source := JSON.stringify(portable, "  ", true) + "\n"
+	for campaign: Dictionary in candidate.get("campaigns", []):
+		if campaign.id != encounter.campaign_id: continue
+		for node: Dictionary in campaign.flow.nodes:
+			if node.id != encounter.node.id: continue
+			for placement: Dictionary in node.placements:
+				if placement.id == selected.id:
+					return {"project": candidate, "node": node, "placement": placement}
+	return {}
+
+
+func _accept_force_edit(edit: Dictionary, message: String) -> void:
+	var candidate_source := JSON.stringify(_integer_numbers(edit.project), "  ", true) + "\n"
 	var checked: Dictionary = compiler.compile_source_json(candidate_source)
 	if not checked.ok:
 		_set_status(_t("map.error.force_schedule_refused", {"detail": _diagnostic_detail(checked)}), true)
@@ -4003,17 +4002,78 @@ func _apply_force_schedule() -> void:
 		redo_stack.clear()
 		dirty = true
 		_read_source()
-		_refresh_maps_after_edit(0)
-	_collect_force_candidates(selected_id)
+		_refresh_maps_after_edit(-1)
+	_collect_force_candidates(str(edit.placement.id))
 	_load_force_draft()
 	_update_forces_view()
-	_set_status(
-		_t("map.status.unsaved_detail", {"detail": _t(
-			"map.forces.updated_opening" if force_mode == "opening"
-			else "map.forces.updated_wave"
-		)}),
-		false
-	)
+	_set_status(_t("map.status.unsaved_detail", {"detail": message}), false)
+
+
+func _apply_force_schedule() -> void:
+	var edit := _force_edit()
+	if edit.is_empty(): return
+	var placement: Dictionary = edit.placement
+	placement.behavior = force_behavior
+	if force_behavior != "patrol":
+		placement.erase("patrolPoints")
+	if force_mode == "opening":
+		placement.erase("arrival")
+	else:
+		forces_round_input.apply()
+		placement.arrival = {"round": int(forces_round_input.value)}
+		if force_mode == "repeating":
+			forces_every_input.apply()
+			forces_times_input.apply()
+			placement.arrival.every = int(forces_every_input.value)
+			placement.arrival.times = int(forces_times_input.value)
+	_accept_force_edit(edit, _t("map.forces.updated_opening" if force_mode == "opening" else "map.forces.updated_wave"))
+
+
+func _toggle_force_levels() -> void:
+	forces_levels_form.visible = not forces_levels_form.visible
+	_refresh_force_level_preview()
+	if forces_levels_form.visible:
+		forces_level_inputs.enemyLevel.get_line_edit().grab_focus()
+
+
+func _apply_force_levels() -> void:
+	var edit := _force_edit()
+	if edit.is_empty(): return
+	for field: String in forces_level_inputs:
+		var input: SpinBox = forces_level_inputs[field]
+		input.apply()
+		var target: Dictionary = edit.node if field.begins_with("enemy") else edit.placement
+		var level := int(input.value)
+		if level == (1 if field == "enemyLevel" else 0):
+			target.erase(field)
+		else:
+			target[field] = level
+	_accept_force_edit(edit, _t("map.forces.levels_updated"))
+
+
+func _refresh_force_level_preview() -> void:
+	if not forces_levels_form.visible: return
+	var placement := _selected_force()
+	var role := _inventory_role(str(placement.get("unitTypeId", "")))
+	forces_levels_preview.text = ""
+	if role.is_empty(): return
+	for profile: Dictionary in project.get("classes", []):
+		if profile.id != role.get("classId", ""): continue
+		var lines: PackedStringArray = []
+		for players in [1, 2]:
+			if players < int(placement.get("minimumPlayers", 1)): continue
+			var stats: Dictionary = compiler.enemy_level_preview(
+				profile.get("baseStats", {}), role.get("growthRates", {}),
+				int(forces_level_inputs.enemyLevel.value), int(forces_level_inputs.enemyLevel2P.value),
+				int(forces_level_inputs.level.value), int(forces_level_inputs.level2P.value), players == 2
+			)
+			lines.append(_t("map.forces.levels_preview", {"players": players, "level": stats.level}))
+			var values: PackedStringArray = []
+			for key: String in ["health", "strength", "defense", "resistance", "movement", "actionPoints", "skill", "luck", "evasion", "magic"]:
+				values.append("%s %d" % [_t("army.stat." + ("actions" if key == "actionPoints" else key)), stats[key]])
+			lines.append("  ·  ".join(values))
+		forces_levels_preview.text = "\n".join(lines)
+		return
 
 
 func _open_moments() -> void:
@@ -5476,7 +5536,7 @@ func _apply_copy_setup() -> void:
 	if current.is_empty():
 		_set_status(_t("map.error.copy_target_missing"), true)
 		return
-	var source_node: Dictionary = copy_setup_candidates[copy_setup_select.selected].node
+	var source_node: Dictionary = copy_setup_candidates[copy_setup_select.selected].node.duplicate(true)
 	var source_name := str(copy_setup_candidates[copy_setup_select.selected].name)
 	var campaign_id := str(current.get("campaign_id", ""))
 	var target_node_id := str(current.node.get("id", ""))
@@ -5491,12 +5551,12 @@ func _apply_copy_setup() -> void:
 			if not nodes[node_index] is Dictionary or str(nodes[node_index].get("id", "")) != target_node_id:
 				continue
 			var target: Dictionary = nodes[node_index].duplicate(true)
-			for field: String in ["placements", "objectiveIds", "turnOrder", "deployment"]:
+			for field: String in ["placements", "objectiveIds", "turnOrder", "deployment", "enemyLevel", "enemyLevel2P"]:
 				if source_node.has(field):
 					target[field] = (
 						_copied_setup_placements(source_node)
 						if field == "placements"
-						else source_node[field].duplicate(true)
+						else source_node[field]
 					)
 				else:
 					target.erase(field)
@@ -6825,6 +6885,9 @@ func _build_forces_overlay() -> void:
 	forces_inventory_button = _button(_t("inventory.open"), 0, 54)
 	forces_inventory_button.pressed.connect(_open_force_inventory)
 	column.add_child(forces_inventory_button)
+	forces_growth_button = _button(_t("army.growth.open"), 0, 54)
+	forces_growth_button.pressed.connect(_open_force_growth)
+	column.add_child(forces_growth_button)
 	var navigation := BoxContainer.new()
 	navigation.set_meta("mobile_wrap_actions", true)
 	navigation.add_theme_constant_override("separation", 12)
@@ -6835,6 +6898,39 @@ func _build_forces_overlay() -> void:
 	var next := _button(_t("map.forces.next"), 330, 52)
 	next.pressed.connect(_cycle_force_candidate.bind(1))
 	navigation.add_child(next)
+	forces_levels_button = _button(_t("map.forces.levels_open"), 0, 54)
+	forces_levels_button.pressed.connect(_toggle_force_levels)
+	column.add_child(forces_levels_button)
+	forces_levels_form = VBoxContainer.new()
+	forces_levels_form.add_theme_constant_override("separation", 8)
+	forces_levels_form.hide()
+	column.add_child(forces_levels_form)
+	var levels_help := _label(_t("map.forces.levels_help"), 17, Color("a9bdc9"))
+	levels_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	forces_levels_form.add_child(levels_help)
+	var level_fields := GridContainer.new()
+	level_fields.columns = 2
+	level_fields.set_meta("mobile_fit_columns", true)
+	level_fields.add_theme_constant_override("h_separation", 18)
+	forces_levels_form.add_child(level_fields)
+	var labels := {
+		"enemyLevel": "map.forces.levels_battle",
+		"enemyLevel2P": "map.forces.levels_battle_2p",
+		"level": "map.forces.levels_placement",
+		"level2P": "map.forces.levels_placement_2p",
+	}
+	for field: String in labels:
+		var group := VBoxContainer.new()
+		level_fields.add_child(group)
+		var input := _number_input(group, labels[field], 1 if field == "enemyLevel" else 0, 99)
+		forces_level_inputs[field] = input
+		input.value_changed.connect(func(_value: float): _refresh_force_level_preview())
+	forces_levels_preview = _label("", 17, Color("dcebf0"))
+	forces_levels_preview.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	forces_levels_form.add_child(forces_levels_preview)
+	forces_apply_levels_button = _button(_t("map.forces.levels_apply"), 0, 54)
+	forces_apply_levels_button.pressed.connect(_apply_force_levels)
+	forces_levels_form.add_child(forces_apply_levels_button)
 	forces_mode_button = _button(_t("map.forces.mode.opening"), 1014, 56)
 	forces_mode_button.pressed.connect(_cycle_force_mode)
 	column.add_child(forces_mode_button)

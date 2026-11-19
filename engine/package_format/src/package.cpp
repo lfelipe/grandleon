@@ -213,6 +213,8 @@ bool is_known_section(std::uint32_t type) {
         case SectionType::map_visual_visibility:
         case SectionType::map_conversations:
         case SectionType::hidden_items:
+        case SectionType::enemy_levels:
+        case SectionType::healing_experience:
             return true;
     }
     return false;

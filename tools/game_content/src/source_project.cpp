@@ -1686,6 +1686,10 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                             static_cast<std::uint16_t>(*per_level);
                     }
                 }
+                result.healing_experience = static_cast<std::uint16_t>(
+                    mapper.integer(value, "healingExperience", path, 0,
+                        std::numeric_limits<std::uint16_t>::max(), false).value_or(0)
+                );
                 // What this one leaves behind, and how often. Both absent is a
                 // unit type that leaves nothing and rolls nothing; either one
                 // alone is refused by the compiler, which is where the two
@@ -2443,6 +2447,12 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                     Encounter encounter;
                     encounter.inventory_mode = campaign.inventory_mode;
                     encounter.id = output_node.encounter_id;
+                    encounter.enemy_levels.level = static_cast<std::uint8_t>(
+                        mapper.integer(*node, "enemyLevel", node_path, 1, core::maximum_unit_level, false).value_or(0)
+                    );
+                    encounter.enemy_levels.two_player_level = static_cast<std::uint8_t>(
+                        mapper.integer(*node, "enemyLevel2P", node_path, 1, core::maximum_unit_level, false).value_or(0)
+                    );
                     const auto name = mapper.string(*node, "name", node_path);
                     if (name) encounter.name = *name;
                     encounter.map_id =
@@ -2564,6 +2574,17 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                                     placement_path + ".side",
                                     "expected 'first' or 'second'"
                                 );
+                            }
+                            output_placement.enemy_levels.level = static_cast<std::uint8_t>(
+                                mapper.integer(*placement, "level", placement_path, 1, core::maximum_unit_level, false).value_or(0)
+                            );
+                            output_placement.enemy_levels.two_player_level = static_cast<std::uint8_t>(
+                                mapper.integer(*placement, "level2P", placement_path, 1, core::maximum_unit_level, false).value_or(0)
+                            );
+                            if (output_placement.enemy_levels.specified() &&
+                                output_placement.side != EncounterSide::second) {
+                                mapper.error(SourceDiagnosticCode::invalid_value,
+                                    placement_path + ".side", "only enemies can set a placement level");
                             }
                             const auto behavior = mapper.string(
                                 *placement, "behavior", placement_path, false
@@ -2973,6 +2994,14 @@ SourceParseResult parse_source_project_json(std::string_view json) {
                         node_path + ".kind",
                         "expected 'encounter', 'story', or 'terminal'"
                     );
+                }
+                if (output_node.kind != CampaignNodeKind::encounter) {
+                    for (const char* field : {"enemyLevel", "enemyLevel2P"}) {
+                        if (mapper.member(*node, field, node_path, false) != nullptr) {
+                            mapper.error(SourceDiagnosticCode::invalid_value,
+                                node_path + "." + field, "only battles can set an enemy level");
+                        }
+                    }
                 }
                 // A region on a node that is not a battle is a region nobody
                 // could ever be arranged in, and saying nothing about it would
@@ -4564,6 +4593,7 @@ SourceTextResult add_source_campaign_chapter_json(
     battle.emplace("mapId", Json{std::string(map_id)});
     for (const std::string_view key : {
              "placements", "objectiveIds", "turnOrder", "deployment",
+             "enemyLevel", "enemyLevel2P",
          }) {
         const auto found = preceding->find(key);
         if (found != preceding->end()) {
@@ -5214,6 +5244,7 @@ SourceTextResult add_source_campaign_branch_json(
     battle.emplace("mapId", Json{std::string(map_id)});
     for (const std::string_view key : {
              "placements", "objectiveIds", "turnOrder", "deployment",
+             "enemyLevel", "enemyLevel2P",
          }) {
         const auto found = from->find(key);
         if (found != from->end()) {

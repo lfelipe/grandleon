@@ -98,6 +98,28 @@ behind; choose it when you have finished collecting.
 When a hero can use several carried weapons, their actions list an attack for
 each weapon by name. Choose one to see its targets and damage. Both weapons
 stay in the pack; the choice applies to that attack.
+Use **Gear → Combat Design** to give a weapon family an edge over another.
+Set how much damage and hit chance the edge adds, then preview an attacker
+and defender. Changing the weapon used for an attack can change the matchup.
+
+To give characters levels, open **Edit Heroes → Tune Role → Growth &
+Rewards**. Set how much XP a hero needs per level and the chance each stat
+will rise by one. In **Battle Setup → Opening Forces & Waves**, choose
+an enemy and open **Growth & Rewards** to set its XP reward. The hero who
+lands the finishing blow earns that XP. Set **XP for Healing an Ally** on
+a healer’s role to reward restoring missing HP to another ally. The healer
+can earn that reward once per turn, even when a spell heals several allies.
+Open a whole-adventure playtest to see the new stats in the next battle.
+
+Use **Opening Forces & Waves → Enemy Levels** to set a level for the battle’s
+enemies. A specific enemy or recurring wave can override it. Set a separate
+2P level when you want stronger opponents alongside the extra 2P units.
+Enter 0 in an override to inherit the ordinary value. The preview shows
+the resulting stats for each mode. Enemy levels use the role’s average
+growth, rounded to whole points. Level 1 uses the role’s base stats.
+Set growth chances in **Growth & Rewards** if higher levels should change
+the role’s stats.
+
 **Edit Objective** explains the actual win or loss rule. Choose **This Battle**,
 **Reuse**, or **Create**. A target goal starts with a suitable enemy or ally.
 For a survival goal, type how many rounds to hold. Multiple goals can end the

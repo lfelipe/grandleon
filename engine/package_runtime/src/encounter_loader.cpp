@@ -3,14 +3,17 @@
 #include <grandleon/package_runtime/dialogue.hpp>
 #include <grandleon/package_runtime/inventory.hpp>
 #include <grandleon/simulation/carried_inventory.hpp>
+#include <grandleon/core/level_growth.hpp>
 
 #include <grandleon/package_runtime/progression.hpp>
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <map>
 #include <set>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -155,6 +158,30 @@ struct ClassStats final {
     std::int16_t evasion{};
     std::int16_t magic{};
 };
+
+void project_enemy_stats(ClassStats& stats, const UnitProgression& profile,
+                         std::uint8_t level) {
+    const auto project = [level, &profile](auto& stat, GrowableStat key,
+                                         std::int32_t maximum) {
+        using Value = std::remove_reference_t<decltype(stat)>;
+        stat = static_cast<Value>(core::projected_stat_at_level(
+            stat, level, profile.chance_of(key), maximum
+        ));
+    };
+    constexpr auto bounded = simulation::maximum_stat;
+    constexpr auto wide = std::numeric_limits<std::int16_t>::max();
+    constexpr auto byte = std::numeric_limits<std::uint8_t>::max();
+    project(stats.health, GrowableStat::health, wide);
+    project(stats.strength, GrowableStat::strength, bounded);
+    project(stats.defense, GrowableStat::defense, bounded);
+    project(stats.resistance, GrowableStat::resistance, bounded);
+    project(stats.movement, GrowableStat::movement, byte);
+    project(stats.action_points, GrowableStat::action_points, byte);
+    project(stats.skill, GrowableStat::skill, wide);
+    project(stats.luck, GrowableStat::luck, wide);
+    project(stats.evasion, GrowableStat::evasion, wide);
+    project(stats.magic, GrowableStat::magic, bounded);
+}
 
 // Reach and power of the weapon in hand. A unit with no weapon keeps the
 // bare-handed defaults rather than becoming unable to attack.
@@ -775,6 +802,31 @@ EncounterLoadResult load_encounter(
     if (!read_abilities(package, result.definition.abilities)) {
         return fail(EncounterLoadError::malformed_payload);
     }
+    core::EnemyLevels default_enemy_levels;
+    std::map<std::uint64_t, core::EnemyLevels> enemy_levels;
+    if (const auto* levels = package.find(SectionType::enemy_levels, encounter_id)) {
+        Reader values(package, *levels);
+        std::uint16_t count = 0;
+        if (!values.u8(default_enemy_levels.level) ||
+            !values.u8(default_enemy_levels.two_player_level) ||
+            !default_enemy_levels.valid() || !values.u16(count) ||
+            (count == 0 && !default_enemy_levels.specified()) ||
+            count > values.remaining() / 10U) {
+            return fail(EncounterLoadError::malformed_payload);
+        }
+        for (std::uint16_t index = 0; index < count; ++index) {
+            std::uint64_t placement_id = 0;
+            core::EnemyLevels override_levels;
+            if (!values.u64(placement_id) || placement_id == 0 ||
+                !values.u8(override_levels.level) ||
+                !values.u8(override_levels.two_player_level) ||
+                !override_levels.valid() || !override_levels.specified() ||
+                !enemy_levels.emplace(placement_id, override_levels).second) {
+                return fail(EncounterLoadError::malformed_payload);
+            }
+        }
+        if (!values.finished()) return fail(EncounterLoadError::malformed_payload);
+    }
     // Sparse placement minima live outside the encounter record so an
     // unscaled encounter retains its historical bytes. The section is
     // required when present: silently ignoring it would field the co-op extras
@@ -953,6 +1005,23 @@ EncounterLoadResult load_encounter(
         if (!read_class(package, *unit_class, stats)) {
             return fail(EncounterLoadError::malformed_payload);
         }
+        const auto level_override = enemy_levels.find(instance_id);
+        core::EnemyLevels placement_levels;
+        if (level_override != enemy_levels.end()) {
+            if (encoded_side != 2U) return fail(EncounterLoadError::malformed_payload);
+            placement_levels = level_override->second;
+            enemy_levels.erase(level_override);
+        }
+        if (encoded_side == 2U) {
+            const auto level = core::effective_enemy_level(
+                default_enemy_levels, placement_levels, local_players > 1U
+            );
+            if (level > 1U) {
+                const auto progression = load_unit_progression(package, unit_type_id);
+                if (!progression) return fail(EncounterLoadError::malformed_payload);
+                project_enemy_stats(stats, progression.progression, level);
+            }
+        }
         const auto scaling = minimum_players.find(instance_id);
         const bool scaled = scaling != minimum_players.end();
         const auto ownership = placement_players.find(instance_id);
@@ -1057,7 +1126,8 @@ EncounterLoadResult load_encounter(
                        : 1U)
                 : 0U;
     }
-    if (scaled_placements_seen.size() != minimum_players.size()) {
+    if (!enemy_levels.empty() ||
+        scaled_placements_seen.size() != minimum_players.size()) {
         return fail(EncounterLoadError::missing_reference);
     }
     if (owned_placements_seen.size() != placement_players.size()) {

@@ -368,6 +368,10 @@ sim::CampaignStatistics CampaignSession::statistics() const {
     return cr::campaign_statistics(live_.state);
 }
 
+bool CampaignSession::defeated() const noexcept {
+    return cr::defeated_without_route(live_.state);
+}
+
 std::vector<RosterEntry> CampaignSession::roster_now() const {
     std::vector<RosterEntry> entries;
     for (const AuthoredMember& member : members_) {
@@ -492,7 +496,7 @@ CampaignSession::Standing CampaignSession::standing() const {
         where.error = CampaignSessionError::flow_stalled;
         return where;
     }
-    if (pr::show_end_statistics(*package_) && cr::defeated_without_route(live_.state)) {
+    if (defeated()) {
         where.kind = pr::CampaignNodeKind::terminal;
         return where;
     }
@@ -891,6 +895,8 @@ CampaignSessionError CampaignSession::commit_battle(
     const bool record_statistics = pr::show_end_statistics(*package_);
     if (record_statistics) {
         cr::append_battle_statistics(operations, live_.state, battle.final_snapshot, battle.events);
+    } else {
+        cr::append_defeat_marker(operations, live_.state, battle.outcome);
     }
     const campaign::NodeCompletion completion = campaign::complete_node(
         live_.state, graph_, campaign::make_outcome_batch(source, operations)
@@ -917,7 +923,7 @@ CampaignSessionError CampaignSession::commit_battle(
     // than reusing the capacity.
     prepared_ready_ = false;
 
-    if (record_statistics && completion.error == campaign::ProgressionError::blocked &&
+    if (completion.error == campaign::ProgressionError::blocked &&
         battle.outcome == sim::Outcome::second_side_won) return CampaignSessionError::none;
     if (!completion) return CampaignSessionError::progression_rejected;
     if (!completion.advanced && !completion.already_advanced) {
@@ -1292,6 +1298,7 @@ CampaignSessionError run_persistent_campaign(
 
         if (where.kind == pr::CampaignNodeKind::terminal) {
             if (pr::show_end_statistics(package)) presenter.campaign_ended(session.statistics());
+            else if (session.defeated()) presenter.campaign_defeated();
             else presenter.campaign_ended();
             return CampaignSessionError::none;
         }

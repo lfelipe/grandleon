@@ -468,6 +468,31 @@ void ps1_ui_render(uint32_t* ordering_table, char** next_packet, const char* pac
         activate_ui_tpage(ordering_table, next_packet, packet_end);
         return;
     }
+    if (state.mode == GRANDLEON_UI_COMPANY_DEPLOYMENT) {
+        draw_box_depth(ordering_table, next_packet, packet_end, 0, 0, 320, 240, 7, 13, 24, 4);
+        draw_panel(ordering_table, next_packet, packet_end, 20, 23, 280, 196);
+        draw_text(ordering_table, next_packet, packet_end, 34, 40,
+                  state.headline, 255, 205, 68);
+        draw_number(ordering_table, next_packet, packet_end, 235, 40,
+                    state.deployment_fielded, 247, 239, 209);
+        draw_text(ordering_table, next_packet, packet_end, 253, 40, "/", 181, 193, 205);
+        draw_number(ordering_table, next_packet, packet_end, 265, 40,
+                    state.deployment_limit, 247, 239, 209);
+        const unsigned first = state.deployment_row >= 5U ? state.deployment_row - 4U : 0U;
+        for (unsigned row = first; row < state.deployment_count && row < first + 5U; ++row) {
+            const int y = 64 + (int)(row - first) * 23;
+            if (row == state.deployment_row)
+                draw_focus(ordering_table, next_packet, packet_end, 31, y - 4, 255, 19);
+            draw_wrapped_text_box(ordering_table, next_packet, packet_end, 42, y,
+                grandleon_game_deployment_member((uint16_t)row), 247, 239, 209, 34, 1);
+        }
+        draw_button(ordering_table, next_packet, packet_end, 35, 191, 'X', GRANDLEON_TEXT_SELECT);
+        draw_button(ordering_table, next_packet, packet_end, 122, 191, 'O', GRANDLEON_TEXT_BACK);
+        if (state.deployment_can_begin)
+            draw_button(ordering_table, next_packet, packet_end, 209, 191, 'S', GRANDLEON_TEXT_BEGIN);
+        activate_ui_tpage(ordering_table, next_packet, packet_end);
+        return;
+    }
     if (state.mode >= GRANDLEON_UI_TITLE && state.mode <= GRANDLEON_UI_NAME) {
         if (state.mode != GRANDLEON_UI_TITLE || !g_grandleon_combat_plate_indices[0])
             draw_box_depth(ordering_table, next_packet, packet_end,

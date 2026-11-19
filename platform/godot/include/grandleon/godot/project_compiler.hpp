@@ -23,6 +23,15 @@ public:
     [[nodiscard]] ::godot::Dictionary compile_source_json(
         const ::godot::String& source_json
     ) const;
+    [[nodiscard]] ::godot::Dictionary enemy_level_preview(
+        const ::godot::Dictionary& base_stats,
+        const ::godot::Dictionary& growth_rates,
+        std::int64_t default_level,
+        std::int64_t default_level_2p,
+        std::int64_t unit_level,
+        std::int64_t unit_level_2p,
+        bool two_players
+    ) const;
     // Target-specific authoring impact. This never decides whether source is
     // valid: PC remains unbounded and a console overrun is reported so its
     // export can be adjusted independently.

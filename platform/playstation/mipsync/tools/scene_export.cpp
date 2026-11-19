@@ -15,6 +15,7 @@
 #include <grandleon/package_runtime/manifest.hpp>
 #include <grandleon/package_runtime/names.hpp>
 #include <grandleon/package_runtime/presentation.hpp>
+#include <grandleon/package_runtime/progression.hpp>
 #include <grandleon/simulation/encounter.hpp>
 
 #include <algorithm>
@@ -226,7 +227,7 @@ void write_localized_moments(
     output << ']';
 }
 
-template<class T> void write_numbers(std::ostream&, const std::vector<T>&);
+template<class Values> void write_numbers(std::ostream&, const Values&);
 
 void write_campaign(
     std::ostream& output,
@@ -322,6 +323,16 @@ void write_campaign(
                << ",\"shop_states_capacity\":" << (member.rules.states_carry_capacity || role_inventory.states_carry_capacity);
         output << ",\"carry_capacity\":" << member.rules.carry_capacity
                << ",\"states_carry_capacity\":" << member.rules.states_carry_capacity;
+        for (const auto& specificity : campaign.specificities) {
+            if (specificity.member_id != member.id) continue;
+            output << ",\"stat_deltas\":[";
+            for (std::size_t stat = 0; stat < specificity.stat_deltas.size(); ++stat) {
+                if (stat != 0) output << ',';
+                output << specificity.stat_deltas[stat];
+            }
+            output << "],\"reach_bonus\":" << static_cast<unsigned>(specificity.reach_bonus);
+            break;
+        }
         output << '}';
     }
     output << "],\"nodes\":[";
@@ -523,8 +534,8 @@ void write_localizations(
     output << ']';
 }
 
-template <typename T>
-void write_numbers(std::ostream& output, const std::vector<T>& values) {
+template <typename Values>
+void write_numbers(std::ostream& output, const Values& values) {
     output << '[';
     for (std::size_t index = 0; index < values.size(); ++index) {
         if (index != 0) output << ',';
@@ -802,6 +813,34 @@ int main(int argc, char** argv) {
     write_numbers(output, loaded.definition.movement_cost);
     output << ",\n    \"deployment_tiles\": ";
     write_positions(output, loaded.definition.deployment_tiles);
+    output << ",\n    \"deployment_capacity\": " << loaded.deployment_capacity;
+    output << ",\n    \"progression\": [";
+    std::set<std::uint64_t> progression_types;
+    for (const auto& unit : loaded.definition.units) {
+        progression_types.insert(unit.unit_type_id);
+    }
+    bool first_profile = true;
+    for (const auto type : progression_types) {
+        const auto profile = pr::load_unit_progression(package.package, type);
+        if (!profile) {
+            std::cerr << "invalid unit progression: " << type << '\n';
+            return 65;
+        }
+        const auto& rules = profile.progression;
+        if (rules.experience_award == 0 && rules.healing_experience == 0 &&
+            !rules.grows() && rules.experience_per_level == pr::default_experience_per_level) continue;
+        if (!first_profile) output << ',';
+        first_profile = false;
+        output << "{\"type\":";
+        write_id(output, type);
+        output << ",\"experience_award\":" << rules.experience_award
+               << ",\"experience_per_level\":" << rules.experience_per_level
+               << ",\"healing_experience\":" << rules.healing_experience
+               << ",\"growth\":";
+        write_numbers(output, rules.growth);
+        output << '}';
+    }
+    output << ']';
     output << ",\n    \"units\": [\n";
     for (std::size_t index = 0; index < loaded.definition.units.size(); ++index) {
         const sim::UnitDefinition& unit = loaded.definition.units[index];

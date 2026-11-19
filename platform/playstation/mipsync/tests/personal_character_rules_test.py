@@ -25,7 +25,12 @@ with tempfile.TemporaryDirectory(prefix='grandleon-ps1-character-rules-') as tem
                 role.pop("characterStyleId", None)
         if personal:
             project['campaigns'][0]['roster'][1].update(
-                weaponAffinityTypeIds=['blade', 'focus'], startingWeaponIds=['traveller_blade'], defeatPolicy='loseBattle')
+                weaponAffinityTypeIds=['blade', 'focus'], startingWeaponIds=['traveller_blade'],
+                defeatPolicy='loseBattle', specificity={'stats': {'health': 2}, 'rangeBonus': 1})
+            project['unitTypes'][1].update(
+                healingExperience=50, experiencePerLevel=50, growthRates={'health': 100})
+            next(node for node in project['campaigns'][0]['flow']['nodes']
+                 if node['kind'] == 'encounter')['deployment'] = {'id': 'limit', 'capacity': 1}
         filename = work / 'project.json'
         filename.write_text(json.dumps(project))
         subprocess.run([str(args.content_compiler), str(filename), str(work / 'game.gpk')], check=True, capture_output=True)
@@ -41,6 +46,7 @@ with tempfile.TemporaryDirectory(prefix='grandleon-ps1-character-rules-') as tem
         main = work / 'test.cpp'
         main.write_text(r'''
 #include "grandleon_simulation.hpp"
+#include <grandleon/campaign_runtime/battle_experience.hpp>
 #include <grandleon/campaign_runtime/character_rules.hpp>
 #include <grandleon/campaign/outcome.hpp>
 #include <cassert>
@@ -50,6 +56,7 @@ namespace cr=grandleon::campaign_runtime;
 namespace pr=grandleon::package_runtime;
 namespace core=grandleon::core;
 int main() {
+ assert(grandleon_generated_deployment_capacity==(PERSONAL?1:0));
  for(unsigned players=1;players<=2;++players) {
   auto definition=grandleon_generated_definition(players);
   auto raw=sim::create_encounter(definition);assert(raw);
@@ -67,11 +74,37 @@ int main() {
     operations.push_back(camp::add_item(id,{package,core::ContentCategory::weapon,weapon},1));
   }
   assert(camp::apply_outcome(state,camp::make_outcome_batch({{package,core::ContentCategory::campaign,1},0,0},operations)));
+  if(PERSONAL) {
+   std::vector<cr::BoardUnitType> fielded;
+   sim::UnitId healer{}, other{};
+   for(const auto& unit:definition.units) {
+    fielded.push_back({unit.id,unit.unit_type_id,unit.side});
+    if(unit.side!=sim::Side::first)continue;
+    if(grandleon_generated_progression(unit.unit_type_id).progression.healing_experience)healer=unit.id;
+    else other=unit.id;
+   }
+   assert(healer && other);
+   const auto member_for=[](const void*,sim::UnitId id)->camp::PersistentEntityId {
+    const auto source=grandleon_generated_unit_source(id);
+    for(const auto& member:grandleon_generated_campaign_members())
+     if(member.source_id==source)return {member.persistent_id};
+    return {};
+   };
+   const camp::OutcomeSource battle{{package,core::ContentCategory::encounter,1},1,1};
+   const std::vector<sim::Event> events{{sim::EventType::unit_restored,other,healer,{},2}};
+   const auto grown=cr::derive_roster_experience(state,fielded,events,battle,
+       {nullptr,member_for,[](const void*,std::uint64_t role){return grandleon_generated_progression(role);}});
+   assert(grown && grown.level_ups.size()==1 && grown.level_ups[0].to_level==2);
+   assert(camp::apply_outcome(state,camp::make_outcome_batch(battle,grown.operations)));
+  }
   bool changed=false;
   for(auto& unit:definition.units) {
    for(const auto& member:grandleon_generated_campaign_members()) {
     if(member.source_id!=grandleon_generated_unit_source(unit.id))continue;
     const auto* record=camp::find_unit(state,{member.persistent_id});assert(record);
+    const auto base_health=unit.health;
+    cr::apply_authored_specificity(unit,member.specificity);
+    cr::apply_roster_growth(unit,record->progression);
     assert(cr::apply_member_kit(unit,*record,&member.rules,grandleon_generated_carried_inventory()));
     cr::apply_member_permissions(unit,&member.rules,definition.weapons,grandleon_generated_carried_inventory());
     unit.endures=grandleon_generated_company_endures();
@@ -79,6 +112,7 @@ int main() {
      changed=true;assert(unit.weapon_ids==member.rules.starting_weapons);
      assert(unit.defeat_ends_battle);
      assert(member.rules.weapon_affinities.size()==2);
+     assert(unit.health==base_health+3 && unit.reach_bonus==1);
     }
    }
   }
@@ -98,7 +132,7 @@ int main() {
         for module in ('core', 'campaign', 'campaign_runtime', 'package_runtime', 'simulation', 'tactics'):
             command.append('-I'+str(repo / 'engine' / module / 'include'))
         command += [str(main), str(generated / 'simulation_data.cpp')]
-        for module, files in {'core':['random'], 'simulation':['encounter'], 'campaign':['state','outcome','identity']}.items():
+        for module, files in {'core':['random'], 'simulation':['encounter'], 'campaign':['state','outcome','identity'], 'campaign_runtime':['battle_experience']}.items():
             command += [str(repo/'engine'/module/'src'/f'{name}.cpp') for name in files]
         command += ['-o', str(work / 'check')]
         subprocess.run(command, check=True)

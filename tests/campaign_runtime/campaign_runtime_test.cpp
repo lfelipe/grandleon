@@ -1496,6 +1496,36 @@ void a_defeat_pays_the_member_who_caused_it() {
     );
 }
 
+void healing_pays_once_per_activation_to_the_caster() {
+    auto authored = game_source();
+    authored.unit_types.front().healing_experience = 25;
+    const auto package = compile_and_load(authored);
+    const auto state = full_roster(package);
+    const auto board = cr::load_encounter_for_campaign(
+        package, ford_encounter, state, assignments()
+    );
+    expect(static_cast<bool>(board), "the healing XP battle opens");
+    if (!board) return;
+    const auto heal = [](sim::UnitId target, std::int16_t amount) {
+        return sim::Event{sim::EventType::unit_restored, target, 1000, {}, amount};
+    };
+    const std::vector<sim::Event> events{
+        heal(1000, 2), heal(1002, 2), heal(1001, 0),
+        heal(1001, 2), heal(1001, 1),
+        {sim::EventType::activation_ended, 1000},
+        heal(1001, 1),
+    };
+    const auto earned = cr::derive_battle_progression(
+        package, state, board.encounter.definition, board.binding,
+        events, battle_source(package, 0x1234ULL, 0U)
+    );
+    expect(earned && !earned.operations.empty() &&
+        earned.operations.front().kind == campaign::OutcomeOperationKind::grant_experience &&
+        earned.operations.front().subject == kestrel && earned.operations.front().amount == 50 &&
+        earned.level_ups.size() == 1 && earned.level_ups.front().to_level == 2,
+        "only effective healing of another ally grants XP once per caster activation");
+}
+
 // A member the battle buried earns nothing. Not a policy detail: the batch that
 // records their death would refuse a grant on the same member, so the rule is
 // what keeps the two halves of one batch consistent.
@@ -2713,6 +2743,7 @@ int main() {
     casualties_keep_the_authored_battle();
     a_node_says_what_it_gives_the_store();
     a_defeat_pays_the_member_who_caused_it();
+    healing_pays_once_per_activation_to_the_caster();
     the_fallen_earn_nothing();
     the_same_completion_rolls_the_same_numbers();
     a_character_at_the_ceiling_earns_nothing();

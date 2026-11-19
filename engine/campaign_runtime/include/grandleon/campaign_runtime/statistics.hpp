@@ -59,6 +59,20 @@ inline campaign::DefinitionRef statistic_key(
         lost->value > 0 && static_cast<std::uint64_t>(lost->value) == state.progress.history.size();
 }
 
+inline void append_defeat_marker(
+    std::vector<campaign::CampaignOutcomeOperation>& operations,
+    const campaign::CampaignState& state,
+    simulation::Outcome outcome
+) {
+    if (outcome == simulation::Outcome::second_side_won) {
+        operations.push_back(campaign::set_world_flag(
+            detail::statistic_key(state, detail::campaign_statistics_fields.back()),
+            {campaign::WorldValueType::integer,
+                static_cast<std::int64_t>(state.progress.history.size())}
+        ));
+    }
+}
+
 inline void append_battle_statistics(
     std::vector<campaign::CampaignOutcomeOperation>& operations,
     const campaign::CampaignState& state,

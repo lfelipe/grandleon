@@ -11,6 +11,7 @@ var story_action := ""
 var story_return_scene := ""
 var member_id := ""
 var army_action := ""
+var force_growth_target: Dictionary = {}
 var guided_workflow := false
 var hub_action := ""
 var map_action := ""
@@ -29,6 +30,7 @@ func open_project(value: String) -> void:
 	story_return_scene = ""
 	member_id = ""
 	army_action = ""
+	force_growth_target = {}
 	guided_workflow = false
 	hub_action = ""
 	map_action = ""
@@ -104,6 +106,7 @@ func clear() -> void:
 	story_return_scene = ""
 	member_id = ""
 	army_action = ""
+	force_growth_target = {}
 	guided_workflow = false
 	hub_action = ""
 	map_action = ""

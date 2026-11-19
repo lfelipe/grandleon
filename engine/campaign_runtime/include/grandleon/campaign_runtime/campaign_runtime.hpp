@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include <grandleon/campaign_runtime/battle_experience.hpp>
 #include <grandleon/campaign/graph.hpp>
 #include <grandleon/campaign/identity.hpp>
 #include <grandleon/campaign/outcome.hpp>
@@ -450,58 +451,6 @@ struct StartingKit final {
 // Growth
 // ---------------------------------------------------------------------------
 
-// The bound every growth chance is rolled against. Chances are authored as
-// whole percentages and rolled as whole percentages: one number, one meaning,
-// and the number an author writes is the number this divides by, the same
-// honesty rule accuracy keeps (`engine/simulation/src/encounter.cpp`).
-inline constexpr std::uint32_t growth_chance_bound = 100U;
-
-// One character's level-up, as it happened. Not a rule and not state: a record
-// of what the rolls said, so a surface can narrate it without re-deriving it
-// and a test can assert it without a save.
-struct LevelUp final {
-    campaign::PersistentEntityId member{};
-    std::uint16_t from_level{};
-    std::uint16_t to_level{};
-    // Points gained per stat across every level in this batch, indexed by
-    // `campaign::GrowableStat`.
-    std::array<std::uint16_t, campaign::growable_stat_count> points{};
-};
-
-enum class ProgressionSourceError : std::uint8_t {
-    none = 0,
-    // A board unit bound to a campaign member the roster does not hold, or
-    // holds as somebody who could not have been there. The batch is refused
-    // rather than built, because an operation `apply_outcome` would reject is
-    // worse than no operation at all.
-    unknown_member,
-    // A unit type the package does not carry, or whose growth block is not one.
-    unreadable_unit_type,
-};
-
-[[nodiscard]] std::string_view progression_source_error_name(
-    ProgressionSourceError error
-) noexcept;
-
-struct BattleProgression final {
-    ProgressionSourceError error{ProgressionSourceError::none};
-    // The consequences, ready to go into a `CampaignOutcomeBatch` beside
-    // whatever else the battle decided.
-    //
-    // The progression half comes first, ascending by member, and within a
-    // member: the experience, then the levels, then what the levels gave. The
-    // inventory half is appended after all of it (what fell, then what was
-    // spent) so that adding it moved no operation that was already there and
-    // no growth draw that was already taken.
-    std::vector<campaign::CampaignOutcomeOperation> operations;
-    // One entry per member who reached a new level, ascending by member.
-    std::vector<LevelUp> level_ups;
-
-    [[nodiscard]] explicit operator bool() const noexcept {
-        return error == ProgressionSourceError::none;
-    }
-};
-
 // What a finished battle did to the roster's numbers.
 //
 // This is where experience is earned and where growth rolls, and both answers
@@ -611,11 +560,6 @@ struct BattleProgression final {
 // keep a whole encounter alive across a battle keep this instead, which on a
 // machine that counts its heap in kilobytes is the difference between a
 // campaign that can publish a board and one that cannot.
-struct BoardUnitType final {
-    simulation::UnitId unit{};
-    std::uint64_t unit_type_id{};
-};
-
 // The table above, read off a board, in the board's own unit order.
 //
 // Waves are expanded through `simulation::expand_arrivals`, so the table holds

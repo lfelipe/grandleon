@@ -58,6 +58,13 @@
       "description": "How much lifetime experience one of these needs for each level. Level is 1 + experience / experiencePerLevel, capped at 99. Omitted means 100.",
       "default": 100
     },
+    "healingExperience": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "description": "XP a roster member of this type earns once per activation for restoring missing health to another ally, paid after the battle. Omitted or zero disables the reward.",
+      "default": 0
+    },
     "dropItemId": {
       "$ref": "common.schema.json#/$defs/stableId",
       "description": "What one of these leaves behind when it falls. Authored together with dropChance or not at all: a drop with no chance of falling is refused, so 'leaves nothing' has one spelling."

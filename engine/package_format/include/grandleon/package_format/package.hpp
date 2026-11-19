@@ -171,6 +171,8 @@ enum class SectionType : std::uint32_t {
     campaign_shops = 33,
     map_conversations = 34,
     hidden_items = 35,
+    enemy_levels = 36,
+    healing_experience = 37,
 };
 
 // The presentation section holds records about the whole game, the way the

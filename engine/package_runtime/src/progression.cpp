@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include <grandleon/package_runtime/progression.hpp>
+#include <grandleon/package_format/package.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -81,6 +82,12 @@ UnitProgressionLoad load_unit_progression(
     if (record == nullptr) {
         return result;
     }
+    UnitProgression progression;
+    if (const auto* healing = package.find(SectionType::healing_experience, unit_type_id)) {
+        Reader amount(package, *healing);
+        if (!amount.u16(progression.healing_experience) ||
+            progression.healing_experience == 0 || !amount.finished()) return result;
+    }
     Reader reader(package, *record);
     // Name, class, faction, weapons, items, abilities: everything the board
     // cares about and nothing this does.
@@ -94,9 +101,9 @@ UnitProgressionLoad load_unit_progression(
     // why every package already on disk keeps loading.
     if (reader.finished()) {
         result.found = true;
+        result.progression = progression;
         return result;
     }
-    UnitProgression progression;
     if (!(reader.u16(progression.experience_award) &&
           reader.u16(progression.experience_per_level))) {
         return result;

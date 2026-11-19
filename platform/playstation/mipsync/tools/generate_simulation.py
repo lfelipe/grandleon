@@ -648,6 +648,23 @@ def main() -> int:
         "}", "",
     ]
     lines += emit_localizations(document, one_player)
+    profiles = {}
+    for scene in (simulation, one_player_simulation):
+        for profile in scene.get("progression", []):
+            role = int(profile["type"])
+            if profiles.setdefault(role, profile) != profile:
+                raise ValueError("1P and 2P have different progression rules for the same role")
+    lines += [
+        "grandleon::package_runtime::UnitProgressionLoad grandleon_generated_progression(std::uint64_t unit_type) {",
+        "    switch (unit_type) {",
+    ]
+    for role, profile in sorted(profiles.items()):
+        lines.append(
+            f"        case {role}ULL: return {{true, {{"
+            f"{int(profile['experience_award'])}, {int(profile['experience_per_level'])}, "
+            f"{nums(profile['growth'])}, {int(profile['healing_experience'])}}}}};"
+        )
+    lines += ["        default: return {unit_type != 0, {}};", "    }", "}", ""]
     lines += [
         "namespace camp = grandleon::campaign;", "",
         "namespace {",
@@ -742,7 +759,10 @@ def main() -> int:
             f"{'true' if member.get('states_carry_capacity', 0) else 'false'}" + "}, " +
             ids(member.get("starting_items", [])) + ", " + ids(member.get("recruited_weapons", [])) + ", " +
             str(int(member.get("shop_carry_capacity", 0))) + ", " +
-            ("true" if member.get("shop_states_capacity", 0) else "false") + "},"
+            ("true" if member.get("shop_states_capacity", 0) else "false") + ", " +
+            "{" + f"{int(member['source_id'])}ULL, " +
+            nums(member.get("stat_deltas", [])) + ", " +
+            str(int(member.get("reach_bonus", 0))) + "}},"
         )
     lines += [
         "    };", "    return values;", "}", "",
@@ -816,6 +836,8 @@ def main() -> int:
 #include <grandleon/campaign/graph.hpp>
 #include <grandleon/core/map_conversation.hpp>
 #include <grandleon/package_runtime/member_rules.hpp>
+#include <grandleon/package_runtime/progression.hpp>
+#include <grandleon/package_runtime/specificity.hpp>
 #include <grandleon/package_runtime/shop.hpp>
 #include <grandleon/campaign_runtime/shop.hpp>
 #include <grandleon/simulation/encounter.hpp>
@@ -837,6 +859,7 @@ struct grandleon_generated_campaign_node final {{
     std::vector<grandleon::package_runtime::ShopOffer> shop_offers;
 }};
 std::uint64_t grandleon_generated_unit_source(std::uint64_t id);
+grandleon::package_runtime::UnitProgressionLoad grandleon_generated_progression(std::uint64_t unit_type);
 bool grandleon_generated_permanent_loss();
 bool grandleon_generated_company_endures();
 bool grandleon_generated_show_end_statistics();
@@ -853,6 +876,7 @@ struct grandleon_generated_campaign_member final {{
     std::vector<std::uint64_t> recruited_weapons;
     std::uint16_t shop_carry_capacity{{}};
     bool shop_states_capacity{{}};
+    grandleon::package_runtime::MemberSpecificity specificity;
 }};
 struct grandleon_generated_moment final {{
     std::uint64_t id{{}};
@@ -885,6 +909,7 @@ const std::vector<grandleon_generated_campaign_node>& grandleon_generated_campai
 const std::vector<grandleon::campaign_runtime::ShopParty>& grandleon_generated_shop_parties();
 const grandleon_generated_campaign_node* grandleon_generated_campaign_node_for(std::uint64_t id);
 const std::vector<std::uint64_t>& grandleon_generated_objective_ids();
+inline constexpr std::uint16_t grandleon_generated_deployment_capacity = {int(simulation.get("deployment_capacity", 0))};
 unsigned grandleon_generated_language_count();
 const char* grandleon_generated_equipment_name(unsigned language, std::uint32_t category, std::uint64_t id);
 const char* grandleon_generated_language_code(unsigned language);

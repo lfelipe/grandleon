@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-#include <grandleon/package_format/package.hpp>
-
 #include <array>
 #include <cstddef>
 #include <cstdint>
+
+namespace grandleon::package_format {
+struct LoadedPackage;
+}
 
 // What a unit type says about growing, decoded out of a package.
 //
@@ -96,6 +98,7 @@ struct UnitProgression final {
     // [0, 100], indexed by `GrowableStat`. The authored number is the rolled
     // number.
     std::array<std::uint8_t, growable_stat_count> growth{};
+    std::uint16_t healing_experience{};
 
     [[nodiscard]] std::uint8_t chance_of(GrowableStat stat) const noexcept {
         return growth[static_cast<std::size_t>(stat)];

@@ -93,28 +93,90 @@ starter. Keep the same project through export.
    wins with a guard left. The selected scene plays once at its intended
    moment, and the victory route leads to Sluice Hall.
 
-8. **Reveal Sluice Hall and finish.** “Put the final opponent inside the keep.
-   I want the roof to open up as a unit goes through the doorway. Then end on
-   a short scene about getting the ferry through.”
+8. **Make the two routes favor different roles.** “The foreman rides down
+   the main street. Pike Guards can stop Riders, Riders can catch Skirmishers,
+   and Skirmishers can wear down Pike Guards. Give the crew a Pike Guard,
+   a Skirmisher and a Rider. The healer fights as usual.”
 
-   **Where to look** · Castle terrain and **Interior Visibility** on the map,
-   then **Write Ending** beside the correct ending in **Campaign Outline**.
-   If the previous battle has both victory and defeat routes, use **Continue
-   On** in **Add Next Battle** to extend the victory route. **Check** · The
-   interior starts covered. Moving the cursor alone leaves it covered. Crossing
-   the doorway reveals the intended interior and retreat leaves it revealed.
-   Win the last battle and see the ending once. Run **Play Adventure 1P**
-   and **Play Adventure 2P** from the opening to check the entire sequence.
+   **Where to look** · Proposed **Army → Roles → Matchups**. Pick a role and
+   who it is strong against. When Pike Guard gains an edge over Rider,
+   Rider’s **Weak against** list shows Pike Guard automatically. Add the other
+   two relationships and review all three together. Use one campaign-wide
+   damage adjustment and leave the healer’s matchups neutral. To try the
+   route design today, give each of the three roles a distinct weapon family.
+   In **Gear → Combat Design**, choose the two families and use **Mark as
+   Strong Against** for each of the three pairs.
 
-9. **Translate, back up and share.** “I want Brazilian Portuguese players to
-   see the goal, one speaker’s name and the last line in their language. I
-   want to keep an editable copy and give someone else a playable one.”
+   **Check** · In both 1P and 2P, the player can send the Pike Guard down the
+   street to intercept the foreman, send the Skirmisher through the garden
+   against the opposing Pike Guard, or swing the Rider down a side lane
+   against the Skirmisher watching the garden exit. Give each army a
+   useful matchup within reach in 2P. Compare all three matchups, their
+   reverse directions and the healer’s neutral preview. In the role version,
+   the attack forecast should name the relevant roles and show what changes
+   for the attack and any counter. The author should be able to read this
+   without relying on colors. Give two roles the same weapon and verify
+   that their matchups still differ. Swap to another allowed weapon and
+   verify that the role matchup stays the same.
 
-   **Where to look** · **Translations**, then **Export → Finish & Export**.
-   **Check** · Edits survive changing the translation selection. The player
-   shows the three translations and falls back to the source for another
-   line. Reopen the editable archive in a fresh library, change a line and
-   play it. Open the playable export independently and see the original line.
+9. **Give the crew room to grow.** “Iona starts strong enough to hold the
+   landing, and Fen gets better at keeping the crew alive. The Pump House
+   veterans should feel tougher than the first guards. At Sluice Hall I want
+   the boss’s strength to be predictable.”
+
+   **Where to look** · Today, use **Edit Heroes → Tune Role → Growth &
+   Rewards** to set XP per level and each stat’s chance to improve. From
+   **Battle Setup → Opening Forces & Waves**, select a guard and open
+   **Growth & Rewards** to set how much XP that enemy is worth. Set guards
+   to 50 XP and Iona to 100 XP per level. Give her a 100% health growth
+   chance for the first test. Let her defeat two guards and check her level
+   and maximum HP in the next battle. Then tune the growth chance and
+   compare the result across fresh runs. Set Fen to earn XP for healing
+   another wounded ally. Try an area heal on two allies in one turn and
+   check that it earns a single reward.
+
+   In Pump House, set a level 3 default in **Opening Forces & Waves →
+   Enemy Levels**. Give the veteran wave level 4 and a 2P-only wave level 5.
+   Check both previews before applying the levels, then compare the enemies
+   when they arrive in play. Choose level 1 and a dedicated role for a boss
+   with a hand-tuned stat line.
+
+   **Prototype to try** · Give Iona’s role base Strength 8 with a range of
+   7–9, and Fen’s base Strength 3 with a range of 2–4. Give Fen a higher
+   growth chance for a support stat such as Resistance. Under **Tune Role**,
+   preview the full starting ranges and examples side by side. Let a named
+   character use the role’s range or exact starting values, and let a late
+   recruit join at an authored level.
+
+   **Check** · Across new 1P and 2P runs, guards and heroes vary within their
+   authored limits and retain their roles’ strengths. A save and resume
+   preserve the rolled stats, levels and XP. In 2P, both armies can make
+   progress without saving finishing blows for one player. Compare enemy
+   previews after taking or skipping a detour. Enemy levels follow the
+   authored battle and wave settings on either route.
+
+10. **Reveal Sluice Hall and finish.** “Put the final opponent inside the keep.
+    I want the roof to open up as a unit goes through the doorway. Then end on
+    a short scene about getting the ferry through.”
+
+    **Where to look** · Castle terrain and **Interior Visibility** on the map,
+    then **Write Ending** beside the correct ending in **Campaign Outline**.
+    If the previous battle has both victory and defeat routes, use **Continue
+    On** in **Add Next Battle** to extend the victory route. **Check** · The
+    interior starts covered. Moving the cursor alone leaves it covered. Crossing
+    the doorway reveals the intended interior and retreat leaves it revealed.
+    Win the last battle and see the ending once. Run **Play Adventure 1P**
+    and **Play Adventure 2P** from the opening to check the entire sequence.
+
+11. **Translate, back up and share.** “I want Brazilian Portuguese players to
+    see the goal, one speaker’s name and the last line in their language. I
+    want to keep an editable copy and give someone else a playable one.”
+
+    **Where to look** · **Translations**, then **Export → Finish & Export**.
+    **Check** · Edits survive changing the translation selection. The player
+    shows the three translations and falls back to the source for another
+    line. Reopen the editable archive in a fresh library, change a line and
+    play it. Open the playable export independently and see the original line.
 
 ## How to use the results
 
@@ -130,8 +192,14 @@ the author’s brief.
 The guide now puts **Assign Player 2** beside a blocked battle test, and
 **Battle Setup** exposes **2P-Only Units**. The automated guide check follows
 those controls into the correct map, assigns a real ally, and opens both
-player modes to check which crew appears. Track the full five-battle run and
-the next usability changes in the [0.6 checklist](../TODO.md#first-battle-and-named-characters).
+player modes to check which crew appears.
+
+The automated five-battle check builds a fresh starter project, exports and
+reopens both an editable backup and a playable game, then finishes the
+installed game in 1P and 2P. It checks the different starting positions,
+earned XP and HP growth, gold and purchases (using a blade), co-op shop
+readiness, the 20-round defense with leveled waves, the castle reveal and
+the victory scene. Track the remaining author review in the [0.6 checklist](../TODO.md#first-battle-and-named-characters).
 
 ## Lessons from the references
 
@@ -139,9 +207,16 @@ the next usability changes in the [0.6 checklist](../TODO.md#first-battle-and-na
   moves. The authoring check asks whether players can read the opening routes,
   identify the first threat, and recognize when an optional preparation step
   matters. [Fire Emblem Heroes formation walkthrough](https://new-guide.fire-emblem-heroes.com/en-GB/feh-1110.html), [Shadow Dragon manual](https://www.nintendo.com/eu/media/downloads/games_8/emanuals/nintendo_ds_21/Manual_NintendoDS_FireEmblemShadowDragon_EN.pdf)
+- **Fire Emblem: Shadow Dragon** gives XP for dealing damage and for
+  staff use. Try a support XP option in The Last Ferry and check whether
+  Fen can keep pace through effective healing. [Shadow Dragon manual](https://www.nintendo.com/eu/media/downloads/games_8/emanuals/nintendo_ds_21/Manual_NintendoDS_FireEmblemShadowDragon_EN.pdf)
 - **Final Fantasy Tactics** illustrates roles with different useful actions,
   terrain and turn order. The check asks whether the author can tell what each
   hero contributes and see it in an early test. [Developer tactics and role advice](https://blog.playstation.com/2025/07/21/the-secrets-behind-final-fantasy-tactics-the-ivalice-chronicles-makeover/), [Square Enix combat overview](https://na.store.square-enix-games.com/final-fantasy-tactics---the-ivalice-chronicles)
+- **Advance Wars** uses unit types to make counters readable. **Fire Emblem
+  Heroes** marks favorable attacks where players choose a target. The Flood
+  Market exercise tests whether the author can express those relationships and
+  whether players can act on them. [Advance Wars: Dual Strike manual](https://www.nintendo.com/eu/media/downloads/games_8/emanuals/nintendo_ds_21/Manual_NintendoDS_AdvanceWarsDualStrike_EN.pdf), [Fire Emblem Heroes guide to effective weapons](https://new-guide.fire-emblem-heroes.com/en-GB/feh-1190.html)
 - **Disgaea** makes tile effects visible and shows what changes when a player
   interacts with the board. The check uses the keep reveal and the consequences
   of collecting loot. Authored tile effects and more map interactions are ideas

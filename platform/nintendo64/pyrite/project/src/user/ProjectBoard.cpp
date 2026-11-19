@@ -3249,8 +3249,7 @@ void update_shell_input() {
             else adjust_volume(shell.audio_row, 1);
         }
         return;
-    } else if (shell.phase == ShellPhase::complete &&
-               pr::show_end_statistics(board.runtime.package()) && (pressed.a || pressed.b)) {
+    } else if (shell.phase == ShellPhase::complete && (pressed.a || pressed.b)) {
         performance_sample_started = false;
         enter_shell_phase(ShellPhase::title);
         return;
@@ -6605,13 +6604,14 @@ void draw_shell() {
                 ui_button_hint(43, 190, "A", ui(console::Message::return_to_title));
                 break;
             }
-            display_printf(91, 112, "%s", ui(console::Message::campaign_ended));
+            display_printf(91, 112, "%s", ui(board.campaign->defeated()
+                ? console::Message::defeat : console::Message::campaign_ended));
             display_printf(
                 72, 142, "%lu %s",
                 static_cast<unsigned long>(shell.completed_battles),
                 ui(console::Message::battles_played)
             );
-            display_printf(72, 178, "%s", ui(console::Message::progress_saved));
+            ui_button_hint(72, 178, "A", ui(console::Message::return_to_title));
             break;
         case ShellPhase::battle:
             break;

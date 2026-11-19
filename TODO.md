@@ -222,6 +222,35 @@ tracked above.
   a new project. Record where they look for each tool, where they get stuck
   and what they see in play. Turn those findings into editor improvements and
   checks using the normal authoring and play paths.
+- [ ] Prototype role matchups with the Flood Market battle in
+  [The Last Ferry](docs/CREATOR_WALKTHROUGH.md#grow-it-into-a-campaign).
+  Let authors set strengths from **Army → Roles**, see the reciprocal
+  weakness and review the full set. Try one shared damage adjustment with
+  unassigned pairs neutral. Check that a role matchup survives a weapon swap
+  and that players can read the reason and damage for attacks and counters.
+  Test role and weapon-family rules as separate choices before considering
+  combinations.
+- [x] Make XP awards, level thresholds and stat growth chances directly
+  editable. Open **Growth & Rewards** from a selected enemy in **Opening
+  Forces & Waves** and return to that enemy after saving.
+- [ ] Try the progression exercise in [The Last Ferry](docs/CREATOR_WALKTHROUGH.md#grow-it-into-a-campaign).
+  Give each role exact starting stats or optional per-stat ranges around its
+  baseline. Preview the ranges side by side so an author can keep a physical
+  role's Strength above a healer's. Let named characters override the role
+  with exact starting stats and a starting or recruit level. Store each roll
+  when the character first enters the campaign.
+- [x] Set a battle enemy level inherited by opening forces and waves, with
+  individual, wave and 2P overrides. Preview the role's expected growth
+  and let a level-one override use exact role stats. Existing campaigns
+  keep their authored stats.
+- [ ] Try opt-in variation for leveled enemies and preview the resulting
+  ranges, with fixed stats for named bosses. Test the level curve along
+  both the main route and detours.
+- [x] Let authors reward effective healing once per healer turn. Carry XP
+  and growth across battles and apply hero stat and range adjustments in
+  PlayStation exports using the same rules as Godot and Nintendo 64.
+- [ ] Give players clear XP and level-up feedback. Review both co-op
+  armies' progression with save and resume on the physical consoles.
 - [x] Enter exact survival rounds and reinforcement schedules. Verify that a
   20-round defense reopens with the typed settings and plays to the specified
   round with all four authored waves in both 1P and 2P.
@@ -235,6 +264,10 @@ tracked above.
 - [x] Write separate closing scenes from Campaign Outline. Start from a new
   project, author victory and defeat endings, play the victory in both modes,
   and verify the scenes survive editable and playable exports.
+- [x] Create and export five connected battles from a fresh project. Import
+  the playable game, then finish it in 1P and 2P with alternate formations,
+  earned gold and shop purchases, a 20-round defense with a co-op-only
+  wave, and the castle reveal and ending.
 - [x] Author questions and follow-up replies for map conversations in Godot.
   Route a final reply to a detour that rejoins the campaign or has its own
   ending. Verify both paths, skipping or declining, and local battle recovery.
@@ -501,6 +534,11 @@ the frame budget. The strict performance checks remain open.
 
 - [x] Reject failed or incomplete N64 controller scripts, container errors and
   emulator failures even when an interactive ROM's timeout is expected.
+- [ ] Carry the authored deployment capacity into PlayStation and let players
+  decide who takes the field. Godot and Nintendo 64 already apply the cap.
+- [ ] Review legacy shared starting supplies and chapter grants. The console
+  exporters already report that this authoring mode is unsupported, while
+  personal packs and shops export to both consoles.
 - [ ] Review movement, two-axis scrolling, UI overlap, combat sides, castle
   entry/reveal, story and save/resume on the actual console builds. Complete
   the matched physical-target castle review on Nintendo 64 and PlayStation.

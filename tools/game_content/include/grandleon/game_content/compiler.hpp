@@ -3,6 +3,7 @@
 
 #include <grandleon/core/map_conversation.hpp>
 #include <grandleon/core/hidden_item.hpp>
+#include <grandleon/core/level_growth.hpp>
 
 #include <grandleon/package_format/package.hpp>
 
@@ -309,6 +310,7 @@ struct UnitType final {
     std::uint8_t drop_weapon_chance{};
     std::uint16_t carry_capacity{};
     bool states_carry_capacity{false};
+    std::uint16_t healing_experience{};
 };
 
 //: How many terrain kinds the art library draws, and therefore how many an
@@ -631,6 +633,7 @@ struct Placement final {
     std::int16_t two_player_y{};
     bool states_two_player_position{false};
     core::MapConversation conversation{};
+    core::EnemyLevels enemy_levels{};
 };
 
 // What an encounter says about the player's own troops before the first
@@ -701,6 +704,7 @@ struct Encounter final {
     std::vector<Moment> moments;
     InventoryMode inventory_mode{InventoryMode::legacy};
     std::vector<core::HiddenItem> hidden_items{};
+    core::EnemyLevels enemy_levels{};
 };
 
 enum class CampaignNodeKind : std::uint8_t {

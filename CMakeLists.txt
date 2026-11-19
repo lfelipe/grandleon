@@ -225,6 +225,7 @@ target_compile_options(grandleon_package_runtime PRIVATE ${GRANDLEON_WARNING_FLA
 # still links only the portable core and the simulation still knows nothing
 # about a save. `engine/campaign_runtime/README.md` says why here.
 add_library(grandleon_campaign_runtime
+    engine/campaign_runtime/src/battle_experience.cpp
     engine/campaign_runtime/src/campaign_runtime.cpp
 )
 add_library(grandleon::campaign_runtime ALIAS grandleon_campaign_runtime)

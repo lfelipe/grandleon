@@ -30,6 +30,7 @@ add_executable(grandleon_mipsync
     "${GRANDLEON_SOURCE_ROOT}/engine/campaign/src/outcome.cpp"
     "${GRANDLEON_SOURCE_ROOT}/engine/campaign/src/save.cpp"
     "${GRANDLEON_SOURCE_ROOT}/engine/campaign/src/state.cpp"
+    "${GRANDLEON_SOURCE_ROOT}/engine/campaign_runtime/src/battle_experience.cpp"
     "${GRANDLEON_SOURCE_ROOT}/engine/simulation/src/encounter.cpp"
     "${GRANDLEON_SOURCE_ROOT}/engine/tactics/src/policy.cpp"
     "${GRANDLEON_SOURCE_ROOT}/platform/storage/src/slot_storage.cpp"

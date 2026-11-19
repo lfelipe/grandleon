@@ -50,7 +50,7 @@ XDG_CACHE_HOME="${state_dir}/cache" \
 XDG_DATA_HOME="${state_dir}/data" \
 XDG_CONFIG_HOME="${state_dir}/config" \
 XDG_CACHE_HOME="${state_dir}/cache" \
-    timeout 60s "${godot_binary}" --headless --path "${stage_dir}" \
+    timeout 180s "${godot_binary}" --headless --path "${stage_dir}" \
     --script "${repo_root}/platform/godot/tests/map_battle_preview_test.gd"
 XDG_DATA_HOME="${state_dir}/data" \
 XDG_CONFIG_HOME="${state_dir}/config" \

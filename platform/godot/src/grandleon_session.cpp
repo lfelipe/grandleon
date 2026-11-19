@@ -565,6 +565,13 @@ void AsyncPresenter::campaign_ended() {
     push(std::move(event));
 }
 
+void AsyncPresenter::campaign_defeated() {
+    FrontendEvent event;
+    event.kind = FrontendEvent::Kind::campaign_ended;
+    event.campaign_lost = true;
+    push(std::move(event));
+}
+
 void AsyncPresenter::campaign_ended(const simulation::CampaignStatistics& statistics) {
     FrontendEvent event;
     event.kind = FrontendEvent::Kind::campaign_ended;
@@ -2529,6 +2536,7 @@ gd::Dictionary GrandleonSession::event_dictionary(
         case FrontendEvent::Kind::refused:
             break;
         case FrontendEvent::Kind::campaign_ended: {
+            result["lost"] = event.campaign_lost;
             if (event.campaign_statistics) {
                 const auto& totals = *event.campaign_statistics;
                 godot::Dictionary statistics;

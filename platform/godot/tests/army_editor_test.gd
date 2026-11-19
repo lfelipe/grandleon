@@ -15,6 +15,9 @@ func _run() -> void:
 	var template := FileAccess.get_file_as_string(
 		"res://content/templates/starter_campaign.json"
 	)
+	# This fixture exercises shared starting supplies and chapter grants.
+	template = template.replace('      "inventoryMode": "carried",\n', '')
+	template = template.replace('      "carryCapacity": 5,\n', '')
 	var created: Dictionary = library.create_project("Growing Company", template)
 	_expect("starter project created", created.ok, true)
 	if not created.ok:
@@ -243,8 +246,8 @@ func _run() -> void:
 	editor._open_growth()
 	_expect("growth and rewards open from role tuning", editor.growth_layer.visible, true)
 	_expect("growth and rewards begin with the look choice", editor.growth_style.has_focus(), true)
-	_expect("unchanged role starts with no defeat reward", editor.growth_value_labels.experienceAward.text, "0")
-	_expect("unchanged role uses the standard level threshold", editor.growth_value_labels.experiencePerLevel.text, "100")
+	_expect("unchanged role starts with no defeat reward", editor.growth_values.experienceAward.value, 0.0)
+	_expect("unchanged role uses the standard level threshold", editor.growth_values.experiencePerLevel.value, 100.0)
 	_expect("starter figure is visible in advanced options", str(editor.growth_figure.get_item_metadata(editor.growth_figure.selected)), "first")
 	editor._select_metadata(editor.growth_style, "undead")
 	editor._change_growth_choice(editor.growth_style.selected, "characterStyleId")
@@ -252,11 +255,15 @@ func _run() -> void:
 	editor._change_growth_choice(editor.growth_figure.selected, "characterFigureId")
 	_expect("role look reaches portable unit data", str(_parse(editor.source).unitTypes[0].characterStyleId), "undead")
 	_expect("role figure reaches portable unit data", str(_parse(editor.source).unitTypes[0].characterFigureId), "second")
-	editor._adjust_role_detail("experienceAward", 1)
-	editor._adjust_role_detail("experiencePerLevel", -1)
-	editor._adjust_role_detail("health", 1)
+	var xp_input: SpinBox = editor.growth_values.experienceAward
+	_expect("experience uses a numeric keyboard", xp_input.get_line_edit().virtual_keyboard_type, LineEdit.KEYBOARD_TYPE_NUMBER)
+	xp_input.get_line_edit().text = "40"
+	xp_input.get_line_edit().text_submitted.emit("40")
+	await process_frame
+	editor.growth_values.experiencePerLevel.value -= 1
+	editor.growth_values.health.value += 1
 	var with_growth := _parse(editor.source)
-	_expect("defeat reward reaches portable unit data", int(with_growth.unitTypes[0].experienceAward), 1)
+	_expect("typed defeat reward reaches portable unit data", int(with_growth.unitTypes[0].experienceAward), 40)
 	_expect("level threshold reaches portable unit data", int(with_growth.unitTypes[0].experiencePerLevel), 99)
 	_expect("growth chance reaches portable unit data", int(with_growth.unitTypes[0].growthRates.health), 1)
 	editor._select_metadata(editor.growth_drop, "field_tonic")
@@ -264,7 +271,7 @@ func _run() -> void:
 	_expect("named item drop reaches portable unit data", str(_parse(editor.source).unitTypes[0].dropItemId), "field_tonic")
 	_expect("new item drop begins as certain", int(_parse(editor.source).unitTypes[0].dropChance), 100)
 	_expect("drop chance controls activate with a drop", editor.growth_drop_buttons[0].disabled, false)
-	editor._adjust_role_detail("dropChance", -1)
+	editor.growth_values.dropChance.value -= 1
 	_expect("drop chance reaches portable unit data", int(_parse(editor.source).unitTypes[0].dropChance), 99)
 	editor._close_growth()
 	_expect("closing growth returns to its role action", editor.role_growth_button.has_focus(), true)

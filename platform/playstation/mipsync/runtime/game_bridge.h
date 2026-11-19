@@ -44,7 +44,8 @@ enum grandleon_ui_mode {
     GRANDLEON_UI_PACK,
     GRANDLEON_UI_SHOP,
     GRANDLEON_UI_CONVERSATION,
-    GRANDLEON_UI_STATISTICS
+    GRANDLEON_UI_STATISTICS,
+    GRANDLEON_UI_COMPANY_DEPLOYMENT
 };
 const char* grandleon_game_conversation_line(uint8_t index);
 const char* grandleon_game_conversation_answer(uint8_t index);
@@ -167,6 +168,8 @@ typedef struct grandleon_ui_state {
     const char* statistic_labels[5];
     uint32_t statistic_values[5];
     uint8_t statistics_has_enemies;
+    uint16_t deployment_row, deployment_count, deployment_fielded, deployment_limit;
+    uint8_t deployment_can_begin;
 } grandleon_ui_state;
 
 enum grandleon_action_kind {
@@ -205,6 +208,7 @@ const char* grandleon_game_gold(void);
 const char* grandleon_game_shop_offer(uint16_t index, uint8_t field);
 /* Zero-based player; fields: 0 hero, 1 capacity, 2 selection/status. */
 const char* grandleon_game_shop_player(uint8_t player, uint8_t field);
+const char* grandleon_game_deployment_member(uint16_t index);
 const char* grandleon_game_name_key(uint8_t row, uint8_t column);
 void grandleon_game_set_fps(uint16_t fps);
 void grandleon_game_log_boot(unsigned int packet_bytes);

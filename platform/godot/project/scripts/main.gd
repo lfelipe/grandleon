@@ -3188,6 +3188,8 @@ func _handle_event(event: Dictionary) -> void:
 			campaign_statistics = event.get("statistics", {}).duplicate()
 			if not campaign_statistics.is_empty():
 				final_outcome = "second_side_won" if campaign_statistics.get("lost", false) else "first_side_won"
+			elif bool(event.get("lost", false)):
+				final_outcome = "second_side_won"
 			PCAudio.play_music("stone_and_shadow" if final_outcome == "second_side_won" else "first_light")
 			campaign_complete = true
 			_show_toast(

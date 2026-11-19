@@ -2257,6 +2257,59 @@ void scales_authored_opponents_with_the_local_party() {
     );
 }
 
+void projects_authored_enemy_levels() {
+    const auto baseline = compile_and_load();
+    expect(baseline.find(pf::SectionType::enemy_levels, 100) == nullptr,
+           "encounters without authored levels keep their existing package");
+
+    auto authored = source();
+    auto& enemy_role = authored.unit_types.back();
+    enemy_role.growth.chance[0] = 100;
+    enemy_role.growth.chance[1] = 50;
+    auto& battle = authored.encounters.front();
+    battle.enemy_levels = {3, 4};
+
+    gc::Placement wave{1002, 2002, 0, 61, gc::EncounterSide::second, 2, 2};
+    wave.arrival_round = 3;
+    wave.arrival_every = 2;
+    wave.arrival_times = 2;
+    wave.enemy_levels = {4, 5};
+    battle.placements.push_back(wave);
+
+    gc::Placement extra{1003, 2003, 0, 61, gc::EncounterSide::second, 3, 1};
+    extra.minimum_players = 2;
+    extra.enemy_levels = {1, 0};
+    battle.placements.push_back(extra);
+
+    const auto package = compile_and_load(authored);
+    expect(package.find(pf::SectionType::enemy_levels, 100) != nullptr,
+           "authored levels compile to a portable encounter record");
+    for (const std::uint8_t players : {std::uint8_t{1}, std::uint8_t{2}}) {
+        const auto scene = pr::load_encounter(package, 100, {players});
+        expect(static_cast<bool>(scene), "the battle with authored levels opens");
+        if (!scene) continue;
+        const auto stats = [&scene](sim::UnitId id) {
+            for (const auto& unit : scene.definition.units) {
+                if (unit.id == id) return std::pair{unit.health, unit.strength};
+            }
+            return std::pair<std::int16_t, std::int16_t>{0, 0};
+        };
+        expect(stats(1000) == std::pair<std::int16_t, std::int16_t>{6, 4},
+               "the opposing side's level does not affect allies");
+        const auto opponent = stats(1001);
+        expect(opponent.first == 5 + players && opponent.second == 3 + players,
+               "the battle level uses the role's expected growth");
+        const auto arriving = stats(1002);
+        expect(arriving.first == 6 + players && arriving.second == 5,
+               "a reinforcement override takes priority in each mode");
+        expect(stats(1003).first == (players == 2 ? 4 : 0),
+               "a level-one co-op override keeps exact base stats");
+    }
+
+    battle.placements.front().enemy_levels = {3, 0};
+    expect(!gc::compile(authored), "the compiler refuses enemy levels on an ally");
+}
+
 void assigns_allies_to_one_or_two_local_armies() {
     auto authored = ranked_source();
     authored.encounters.front().placements.front().local_player = 2;
@@ -2506,6 +2559,7 @@ int main() {
     refuses_a_moment_that_names_nobody_on_this_board();
     carries_the_arrivals_onto_the_board();
     scales_authored_opponents_with_the_local_party();
+    projects_authored_enemy_levels();
     assigns_allies_to_one_or_two_local_armies();
     carries_a_distinct_coop_army_story_and_opening_layout();
     carries_the_survive_count_onto_the_objective();
