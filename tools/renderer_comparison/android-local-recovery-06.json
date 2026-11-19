@@ -29,5 +29,15 @@
     "No physical Android device was used. Accented Android file-picker names and OEM lifecycle behavior remain to check.",
     "Software-emulated graphics are used for functional checks, not device FPS claims. Direct SwiftShader GLES failed to link Godot canvas shaders; ANGLE with SwiftShader renders normally.",
     "Desktop forced-process checks separately cover combat and enemy turns, damaged recovery files, interrupted replacements and compatible campaign package updates."
-  ]
+  ],
+  "release_branch_retest": {
+    "source_revision": "da038fbed8c6f26c727d469c797dd64076bbbb8d",
+    "scope": "Android 15 x86_64 emulator with touch at 1280×720. Same development signer on both APKs.",
+    "results": "Open 1P, move Rowan to (2,2), Wait and end the turn. Force-stop, install the current APK in place, reopen the same campaign, and compare the exact round, activation count and unit records. In a separate fresh 2P launch the board has all eight units.",
+    "apk": "out/release-06-closure/android-current/grandleon-android-development.apk",
+    "sha256": "cd1755b6aca5bd3ceefbfc71658dbe9cc21108e036e298a3126bdb10a6ea917f",
+    "update_log": "out/release-06-closure/android-update-acceptance.log",
+    "update_image": "out/release-06-closure/android-current-updated-save.png",
+    "coop_launch_image": "out/release-06-closure/android-bell-orchard-2p.png"
+  }
 }

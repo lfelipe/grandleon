@@ -13,7 +13,12 @@
         "bytes": 7880704,
         "sha256": "b4bfd851032a9c333513035601220919b7f4f05122dbac338a0ee71e34dd0900"
       },
-      "board_capture": "out/release-06-closure/n64-orchard-05-board/ares/orchard.png"
+      "board_capture": "out/release-06-closure/n64-orchard-05-board/ares/orchard.png",
+      "hud_sample": {
+        "displayed_fps": 30,
+        "scope": "Single reading of the built-in FPS counter with settings open. Ares with software rendering. No distribution or CPU costs inferred.",
+        "capture": "out/release-06-closure/n64-orchard-05-hud/ares/board-fps.png"
+      }
     },
     "0.6": {
       "rom": {
@@ -23,7 +28,12 @@
       "board_capture": "out/release-06-closure/n64-orchard-06-final/ares/orchard.png",
       "rdram_bytes": 4194304,
       "runtime_heap_used_bytes": 1805936,
-      "runtime_heap_free_bytes": 249304
+      "runtime_heap_free_bytes": 249304,
+      "hud_sample": {
+        "displayed_fps": 26,
+        "scope": "Single reading of the built-in FPS counter with settings open. Ares with software rendering. No distribution or CPU costs inferred.",
+        "capture": "out/release-06-closure/n64-orchard-06-hud/ares/board-fps.png"
+      }
     }
   },
   "playstation": {
@@ -75,7 +85,7 @@
     }
   },
   "remaining_measurements": [
-    "Published N64 frame timing",
+    "Published N64 active-board frame timing distribution",
     "CPU render cost for the published artifacts",
     "Published PS1 peak main RAM and VRAM",
     "Matched physical-console and castle captures"
