@@ -64,11 +64,26 @@ output. The Windows-target test suite and rendered creator-to-victory
 flow pass under Wine. Wine runs the engine directly because its console relay can
 hang after the game exits; the native Windows check uses `launch-pc.cmd`.
 
-Before an official release, validate the native build and launcher on Windows,
-then check audio, controllers, saves, language switching and accented paths on a
-clean Windows machine. These Wine results do not cover that hardware review.
-Optional console builders also need Windows integration; desktop editing and play
-work without them.
+Run the **Windows acceptance** workflow for the native build and test suite.
+Select the graphics runner option to also run the creator-to-victory check.
+That option uses a Windows runner labeled `grandleon-graphics` with an active
+desktop and working graphics and audio. Check controllers, audio, saves,
+language switching and accented paths on a clean Windows installation.
+
+#### Optional console builders on Windows
+
+The PC editor can use the same Nintendo 64 and PlayStation builder payloads
+through WSL 2. Install a default Linux distribution and install Bubblewrap in
+it. For Ubuntu, run `sudo apt install bubblewrap` in its WSL terminal. Extract
+each builder into the `builders` folder next to `launch-pc.cmd`, with the
+manifest at `builders/nintendo64/builder.json` or
+`builders/playstation/builder.json`. Use a local drive accessible from WSL
+for the editor installation and its project library.
+
+Open **Finish & Export** to check each builder. The editor passes the selected
+campaign to the Linux payload and collects the output in Windows. The
+payload builds inside its usual Bubblewrap sandbox. Desktop editing, playing
+and exporting PC games work without WSL.
 
 ### Android development build for 0.6
 

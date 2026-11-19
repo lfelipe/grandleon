@@ -117,10 +117,10 @@ func availability(target: String) -> Dictionary:
 	if not requirements_value is Array or requirements_value != ["bubblewrap"]:
 		return _failure("builder_manifest_invalid", "The builder system requirements are invalid.")
 	if not _system_requirement_available("bubblewrap"):
-		return _failure(
-			"builder_system_dependency_missing",
-			"This Linux installation does not provide Bubblewrap for isolated console builds."
-		)
+		var detail := "Install Bubblewrap for isolated console builds."
+		if OS.get_name() == "Windows":
+			detail = "Install WSL 2 and Bubblewrap in the default Linux distribution."
+		return _failure("builder_system_dependency_missing", detail)
 	return {
 		"ok": true,
 		"target": target,
@@ -216,12 +216,6 @@ func start(target: String, project_id: String, campaign_id := "") -> Dictionary:
 		_remove_tree(request_root)
 		return _failure("write_failed", "The console build request could not be staged.")
 	var game_id := str(project.get("gameId", "game"))
-	var arguments: Array[String] = available.arguments.duplicate()
-	arguments.append_array([
-		"--request", request_path,
-		"--source", source_path,
-		"--output", output_root,
-	])
 	_active = {
 		"target": target,
 		"version": str(available.version),
@@ -237,7 +231,7 @@ func start(target: String, project_id: String, campaign_id := "") -> Dictionary:
 		],
 	}
 	_thread = Thread.new()
-	var started := _thread.start(_run_builder.bind(str(available.executable), arguments))
+	var started := _thread.start(_run_builder.bind(str(available.executable), available.arguments, request_root))
 	if started != OK:
 		_thread = null
 		_remove_tree(request_root)
@@ -285,10 +279,43 @@ func poll() -> Dictionary:
 	return _finish(active)
 
 
-func _run_builder(executable: String, arguments: Array[String]) -> Dictionary:
+func _run_builder(executable: String, builder_arguments: Array[String], request_root: String) -> Dictionary:
 	var output: Array = []
-	var exit_code := OS.execute(executable, arguments, output, true, false)
+	var program := executable
+	var arguments: Array[String] = []
+	if OS.get_name() == "Windows":
+		program = _wsl_executable()
+		var wrapper := _wsl_path(ProjectSettings.globalize_path(
+			"res://scripts/creator/console-builder-wsl.sh"
+		))
+		executable = _wsl_path(executable)
+		request_root = _wsl_path(request_root)
+		if wrapper.is_empty() or executable.is_empty() or request_root.is_empty():
+			return {"exit_code": -1, "output": "WSL could not open the builder or the export directory."}
+		arguments.append_array(["--exec", "/bin/sh", wrapper, executable, request_root])
+		arguments.append_array(builder_arguments)
+	else:
+		arguments.append_array(builder_arguments)
+		arguments.append_array([
+			"--request", request_root.path_join("request.json"),
+			"--source", request_root.path_join("project.json"),
+			"--output", request_root.path_join("output"),
+		])
+	var exit_code := OS.execute(program, arguments, output, true, false)
 	return {"exit_code": exit_code, "output": "\n".join(output)}
+
+
+func _wsl_executable() -> String:
+	return OS.get_environment("SystemRoot").path_join("System32/wsl.exe")
+
+
+func _wsl_path(path: String) -> String:
+	var output: Array = []
+	var code := OS.execute(_wsl_executable(), ["--exec", "wslpath", "-a", "-u", path.replace("/", "\\")], output, false)
+	if code != 0 or output.size() != 1:
+		return ""
+	var translated := str(output[0]).trim_suffix("\n").trim_suffix("\r")
+	return translated if translated.begins_with("/") and not translated.contains("\n") else ""
 
 
 func _finish(active: Dictionary) -> Dictionary:
@@ -684,7 +711,14 @@ func _target_name(target: String) -> String:
 
 
 func _system_requirement_available(requirement: String) -> bool:
-	if requirement != "bubblewrap" or OS.get_name() != "Linux":
+	if requirement != "bubblewrap":
+		return false
+	if OS.get_name() == "Windows":
+		var wsl := _wsl_executable()
+		return FileAccess.file_exists(wsl) and OS.execute(
+			wsl, ["--exec", "/bin/sh", "-c", "test -x /usr/bin/bwrap || test -x /bin/bwrap"], [], false
+		) == 0
+	if OS.get_name() != "Linux":
 		return false
 	for path: String in ["/usr/bin/bwrap", "/bin/bwrap"]:
 		if (

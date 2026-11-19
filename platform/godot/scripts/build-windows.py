@@ -49,6 +49,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--build-dir", type=Path, default=ROOT / "build-windows")
     parser.add_argument("--output", type=Path, default=ROOT / "out/grandleon-windows")
+    parser.add_argument("--test", action="store_true", help="Run native Windows tests before packaging")
     parser.add_argument("--no-build", action="store_true",
                         help="Package an already built Windows staging directory")
     parser.add_argument("--package", type=Path,
@@ -60,6 +61,8 @@ def main():
     build, output = args.build_dir.resolve(), args.output.resolve()
     if output.exists():
         parser.error(f"Output already exists: {output}")
+    if args.test and args.no_build:
+        parser.error("--test requires a native Windows build")
     if args.no_build and args.package is None:
         parser.error("--no-build requires --package")
     if os.name != "nt" and args.wine is None:
@@ -70,10 +73,14 @@ def main():
         run("cmake", "-S", ROOT, "-B", build, "-G", "Ninja",
             f"-DCMAKE_CXX_COMPILER={args.cxx}", "-DCMAKE_BUILD_TYPE=Release",
             "-DCMAKE_EXE_LINKER_FLAGS=-static -static-libgcc -static-libstdc++",
-            "-DGRANDLEON_BUILD_GODOT=ON", "-DGRANDLEON_BUILD_TESTS=OFF",
+            "-DGRANDLEON_BUILD_GODOT=ON",
+            f"-DGRANDLEON_BUILD_TESTS={'ON' if args.test else 'OFF'}",
             "-DGRANDLEON_GODOT_API_VERSION=4.7", "-DGRANDLEON_WERROR=ON")
         run("cmake", "--build", build, "--config", "Release", "--parallel",
             "--target", "grandleon_content_compile", "grandleon_godot_project")
+        if args.test:
+            run("cmake", "--build", build, "--config", "Release", "--parallel")
+            run("ctest", "--test-dir", build, "--build-config", "Release", "--output-on-failure")
     stage = build / "platform" / "godot" / "project" / "app"
     if output.is_relative_to(stage):
         parser.error("Output must be outside the staged project")

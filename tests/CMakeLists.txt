@@ -1351,7 +1351,7 @@ add_test(
 # before either renderer is involved.  Its focused host check proves the
 # byte-level contract, including corruption refusal and exact missing-record
 # fallback, without requiring either cross compiler.
-find_program(GRANDLEON_PYTHON_EXECUTABLE python3 REQUIRED)
+find_program(GRANDLEON_PYTHON_EXECUTABLE NAMES python3 python REQUIRED)
 add_executable(grandleon_ps1_text_paging_tests
     "${PROJECT_SOURCE_DIR}/platform/playstation/mipsync/tests/text_paging_test.cpp"
 )

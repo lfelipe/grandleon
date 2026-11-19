@@ -48,6 +48,7 @@ const EXCLUDED_FILES := [
 	"project/scripts/creator/portable_campaign_exporter.gd",
 	"project/scripts/creator/campaign_readiness.gd",
 	"project/scripts/creator/console_builder.gd",
+	"project/scripts/creator/console-builder-wsl.sh",
 	"project/scripts/creator/map_editor.gd",
 	"project/scripts/creator/story_editor.gd",
 	"project/scripts/creator/army_editor.gd",
