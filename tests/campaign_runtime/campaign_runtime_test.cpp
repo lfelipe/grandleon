@@ -1510,11 +1510,27 @@ void healing_pays_once_per_activation_to_the_caster() {
         return sim::Event{sim::EventType::unit_restored, target, 1000, {}, amount};
     };
     const std::vector<sim::Event> events{
+        {sim::EventType::activation_ended, 1000},
         heal(1000, 2), heal(1002, 2), heal(1001, 0),
         heal(1001, 2), heal(1001, 1),
         {sim::EventType::activation_ended, 1000},
+        {sim::EventType::activation_ended, 1000},
         heal(1001, 1),
+        felled(1002, 1001),
     };
+    std::vector<sim::Event> retained;
+    std::vector<sim::Event> without_healing_rewards;
+    for (const auto& event : events) {
+        if (cr::retain_experience_event(retained, event, true)) {
+            retained.push_back(event);
+        }
+        if (cr::retain_experience_event(without_healing_rewards, event, false)) {
+            without_healing_rewards.push_back(event);
+        }
+    }
+    expect(retained.size() == 6 && without_healing_rewards.size() == 1 &&
+        without_healing_rewards.front().type == sim::EventType::unit_defeated,
+        "the console log keeps defeats and only the activation boundaries needed for healing");
     const auto earned = cr::derive_battle_progression(
         package, state, board.encounter.definition, board.binding,
         events, battle_source(package, 0x1234ULL, 0U)
@@ -1522,8 +1538,19 @@ void healing_pays_once_per_activation_to_the_caster() {
     expect(earned && !earned.operations.empty() &&
         earned.operations.front().kind == campaign::OutcomeOperationKind::grant_experience &&
         earned.operations.front().subject == kestrel && earned.operations.front().amount == 50 &&
-        earned.level_ups.size() == 1 && earned.level_ups.front().to_level == 2,
+        !earned.level_ups.empty() && earned.level_ups.front().to_level == 2,
         "only effective healing of another ally grants XP once per caster activation");
+    const auto console = cr::derive_battle_progression(
+        package, state, board.encounter.definition, board.binding,
+        retained, battle_source(package, 0x1234ULL, 0U)
+    );
+    expect(console && console.operations.size() == earned.operations.size() &&
+        std::equal(console.operations.begin(), console.operations.end(), earned.operations.begin(),
+            [](const auto& left, const auto& right) {
+                return left.kind == right.kind && left.subject == right.subject &&
+                    left.selector == right.selector && left.amount == right.amount;
+            }),
+        "kill and healing XP match with full or compact battle histories");
 }
 
 // A member the battle buried earns nothing. Not a policy detail: the batch that

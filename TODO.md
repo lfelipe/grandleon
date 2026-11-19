@@ -534,8 +534,9 @@ the frame budget. The strict performance checks remain open.
 
 - [x] Reject failed or incomplete N64 controller scripts, container errors and
   emulator failures even when an interactive ROM's timeout is expected.
-- [ ] Carry the authored deployment capacity into PlayStation and let players
-  decide who takes the field. Godot and Nintendo 64 already apply the cap.
+- [x] Carry the authored deployment capacity into PlayStation and let players
+  decide who takes the field. Verified capped 1P and 2P starts and memory-card
+  resume, including a 2P formation with only Player 2 fielded.
 - [ ] Review legacy shared starting supplies and chapter grants. The console
   exporters already report that this authoring mode is unsupported, while
   personal packs and shops export to both consoles.

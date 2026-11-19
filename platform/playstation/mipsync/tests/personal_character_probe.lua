@@ -81,10 +81,13 @@ local function inspect(s)
   if not initial[stage.name] then
     if stage.name=='I. Casualties' then
       assert(phase=='new' and #s.units==5 and s.Perman and s.Willow and not s.Rhea)
+      assert(s.Scholar.maximum==30,'Scholar starts with authored health')
     else
       assert(#s.units==4 and not s.Perman,'permanent casualty must be absent, not a living/default fallback')
       assert(s.Willow and s.Willow.health==s.Willow.maximum and s.Rhea and s.Rhea.health==s.Rhea.maximum,'withdrawn/required heroes must return at full health')
       assert(s.Rhea.required and not s.Scholar.required and not s.Willow.required)
+      assert(s.Scholar.maximum==32,'attack and counterattack XP must carry across battles and after reloading')
+      log_check('attack_and_counterattack_xp_persist')
     end
     initial[stage.name]=true; actor=nil
     log_check('authored_ids_personal_sword_roster_and_policy')

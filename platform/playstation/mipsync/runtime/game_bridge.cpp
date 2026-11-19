@@ -1551,7 +1551,11 @@ bool apply_command(
     queue_event_moments(result.events);
     for (const auto& event : result.events) {
         if (character::inventory_consequence_event(event.type) ||
-            character::route_consequence_event(event.type)) s_battle_events.push_back(event);
+            character::route_consequence_event(event.type) ||
+            character::retain_experience_event(
+                s_battle_events, event, grandleon_generated_has_healing_rewards)) {
+            s_battle_events.push_back(event);
+        }
         if (event.type != sim::EventType::hidden_item_found) continue;
         s_discovery = event;
         s_discovery_tick = s_ambient_ticks;
@@ -2214,10 +2218,11 @@ bool start_encounter() {
             cursor_found[owner] = true;
         }
     }
-    if (!cursor_found[0]) return false;
+    if (!cursor_found[0] && !cursor_found[1]) return false;
+    if (!cursor_found[0]) s_player_cursors[0] = s_player_cursors[1];
     if (!cursor_found[1]) s_player_cursors[1] = s_player_cursors[0];
-    s_focus_player = 0U;
-    s_cursor = s_player_cursors[0];
+    s_focus_player = cursor_found[0] ? 0U : 1U;
+    s_cursor = s_player_cursors[s_focus_player];
     s_stage_overview.begin(snapshot.width, snapshot.height);
     if (s_reduced_motion) s_stage_overview.finish();
     psx::Line().text("MIPSYNC_STAGE_OVERVIEW_BEGIN ticks=").decimal(s_stage_overview.duration).flush();

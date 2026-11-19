@@ -910,6 +910,7 @@ const std::vector<grandleon::campaign_runtime::ShopParty>& grandleon_generated_s
 const grandleon_generated_campaign_node* grandleon_generated_campaign_node_for(std::uint64_t id);
 const std::vector<std::uint64_t>& grandleon_generated_objective_ids();
 inline constexpr std::uint16_t grandleon_generated_deployment_capacity = {int(simulation.get("deployment_capacity", 0))};
+inline constexpr bool grandleon_generated_has_healing_rewards = {str(any(profile["healing_experience"] for profile in profiles.values())).lower()};
 unsigned grandleon_generated_language_count();
 const char* grandleon_generated_equipment_name(unsigned language, std::uint32_t category, std::uint64_t id);
 const char* grandleon_generated_language_code(unsigned language);

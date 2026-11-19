@@ -40,6 +40,7 @@ for players in ${GRANDLEON_PERSONAL_PLAYERS_LIST:-1 2}; do
             tail -n 100 "$log" >&2; exit 1
         fi
         grep -q "PERSONAL_CHARACTER_PASS phase=$phase players=$players" "$log"
+        grep -q 'assertion=attack_and_counterattack_xp_persist' "$log"
         if test "$phase" = new; then
             grep -q 'assertion=permanent_and_withdraw_defeated_by_real_combat' "$log"
             grep -q 'MIPSYNC_CAMPAIGN_READY card=1 continue=0' "$log"

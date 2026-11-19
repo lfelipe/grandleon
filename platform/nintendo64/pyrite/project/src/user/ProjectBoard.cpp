@@ -3030,7 +3030,6 @@ bool toggle_deployment_member() {
     const client::RosterEntry& entry =
         shell.deployment.roster[shell.deployment_row];
     const bool fielded = deployment_contains(entry.member);
-    if (fielded && shell.deployment.fielded.size() <= 1U) return false;
     const bool placeable = std::any_of(
         shell.deployment.placeable.begin(), shell.deployment.placeable.end(),
         [&entry](campaign::PersistentEntityId candidate) {
@@ -3147,8 +3146,13 @@ bool confirm_shell_choice() {
         case ShellPhase::shop:
             return false;
         case ShellPhase::deployment:
+            if (shell.deployment.fielded.empty() ||
+                (shell.deployment.capacity != 0U &&
+                 shell.deployment.fielded.size() > shell.deployment.capacity)) return false;
             shell.deployment_approved = true;
-            return stand_on_campaign_encounter();
+            if (stand_on_campaign_encounter()) return true;
+            shell.deployment_approved = false;
+            return false;
         case ShellPhase::aftermath:
             shell.aftermath = {};
             shell.aftermath_objectives.clear();

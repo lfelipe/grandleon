@@ -11,6 +11,9 @@ weapons, and its archetype kit still contains a focus. This proves the personal
 kit is independent of the role without relaxing enemy/archetype validation.
 Perman has `permanent`, Willow has `withdraw`, and Rhea has `loseBattle`.
 Scholar also withdraws. The game's fallback is recoverable.
+Each raider awards 50 XP. Scholar gains one point of maximum health every 50 XP,
+so defeating both raiders takes Scholar from 30 to 32 HP on the next map and
+after reloading the memory card.
 
 ## Build and run on PlayStation
 
@@ -107,8 +110,7 @@ Follow the same normal menus/actions and retain the emulator's SRAM between
 processes. In 2P, use controller two for Willow and Rhea. The shared package,
 class/kit resolution, simulation, and campaign outcomes are the same; the PS1
 probe additionally verifies its generated stage data and independent bridge.
-Gold, shops, class progression, and temporary allied extras are outside this
-fixture.
+Gold, shops, and temporary allied extras are outside this fixture.
 
 The N64 controller probe runs those three phases and inspects the actual SRAM
 through the native save and campaign loaders:

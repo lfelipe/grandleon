@@ -112,6 +112,8 @@
       "classId": "mage",
       "characterArchetypeId": "mage",
       "factionId": "travellers",
+      "experiencePerLevel": 50,
+      "growthRates": {"health": 100},
       "startingWeaponIds": [
         "apprentice_focus"
       ]
@@ -128,6 +130,7 @@
       "name": "Raider",
       "classId": "enemy",
       "factionId": "raiders",
+      "experienceAward": 50,
       "startingWeaponIds": [
         "raider_blade"
       ]

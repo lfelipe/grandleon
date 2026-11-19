@@ -643,9 +643,10 @@ SessionError run_campaign(
         }
         const auto advanced = cursor.advance_after(battle.outcome, battle.objectives);
         if (advanced != pr::CampaignError::none) {
-            if (record_statistics && advanced == pr::CampaignError::unsupported_flow &&
+            if (advanced == pr::CampaignError::unsupported_flow &&
                 battle.outcome == sim::Outcome::second_side_won) {
-                presenter.campaign_ended(statistics);
+                if (record_statistics) presenter.campaign_ended(statistics);
+                else presenter.campaign_defeated();
                 return SessionError::none;
             }
             return SessionError::flow_stalled;

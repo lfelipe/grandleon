@@ -173,6 +173,28 @@ void apply_roster_growth(simulation::UnitDefinition& unit,
     );
 }
 
+bool retain_experience_event(
+    const std::vector<simulation::Event>& retained,
+    const simulation::Event& event,
+    bool healing_rewards
+) noexcept {
+    using simulation::EventType;
+    if (event.type == EventType::unit_defeated) return true;
+    if (!healing_rewards) return false;
+    if (event.type == EventType::unit_restored) {
+        return event.amount > 0 && event.related_unit_id != 0 &&
+            event.unit_id != event.related_unit_id;
+    }
+    if (event.type != EventType::activation_ended) return false;
+    for (auto earlier = retained.rbegin(); earlier != retained.rend(); ++earlier) {
+        if (earlier->type == EventType::activation_ended &&
+            earlier->unit_id == event.unit_id) return false;
+        if (earlier->type == EventType::unit_restored &&
+            earlier->related_unit_id == event.unit_id) return true;
+    }
+    return false;
+}
+
 BattleProgression derive_roster_experience(
     const campaign::CampaignState& state,
     const std::vector<BoardUnitType>& board,

@@ -74,6 +74,15 @@ struct BattleExperienceSource final {
     package_runtime::UnitProgressionLoad (*profile_of)(const void*, std::uint64_t);
 };
 
+// For players that keep a compact battle log. Defeats supply both kill credit
+// and the list of fallen earners. Healing only needs activation boundaries for
+// units that restored health to someone during that activation.
+[[nodiscard]] bool retain_experience_event(
+    const std::vector<simulation::Event>& retained,
+    const simulation::Event& event,
+    bool healing_rewards
+) noexcept;
+
 [[nodiscard]] BattleProgression derive_roster_experience(
     const campaign::CampaignState& state,
     const std::vector<BoardUnitType>& board,
