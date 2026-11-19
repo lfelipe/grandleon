@@ -6556,7 +6556,8 @@ void draw_shell() {
             const auto& rows = shell.supplies.rows();
             const auto selected = shell.supplies.selected();
             const auto first = selected >= 4U ? selected - 3U : 0U;
-            display_printf(173, 107, "%s / %s", ui(console::Message::stock), ui(console::Message::pack));
+            display_printf(193, 107, "%s", ui(console::Message::stock));
+            display_printf(246, 107, "%s", ui(console::Message::pack));
             for (std::size_t row = first; row < std::min(first + 4U, rows.size()); ++row) {
                 const auto& entry = rows[row];
                 const auto section = entry.item.category == grandleon::core::ContentCategory::weapon
@@ -6564,9 +6565,14 @@ void draw_shell() {
                 const auto name = pr::content_name(board.runtime.package(), section, entry.item.stable_id);
                 const auto label = pr::localized_content_name(board.runtime.package(), game_language(),
                     section, entry.item.stable_id, name);
-                display_printf(42, 120 + static_cast<int>(row - first) * 15, "%c %.*s  %lu / %lu",
+                const int y = 120 + static_cast<int>(row - first) * 15;
+                display_printf(42, y, "%c %.*s",
                     row == selected ? '>' : ' ', static_cast<int>(console_prefix_bytes(label, 17U)),
-                    label.data(), static_cast<unsigned long>(entry.stored), static_cast<unsigned long>(entry.held));
+                    label.data());
+                display_printf(200, y, "%lu%s", static_cast<unsigned long>(std::min<std::uint32_t>(entry.stored, 99999U)),
+                    entry.stored > 99999U ? "+" : "");
+                display_printf(253, y, "%lu%s", static_cast<unsigned long>(std::min<std::uint32_t>(entry.held, 99999U)),
+                    entry.held > 99999U ? "+" : "");
             }
             display_printf(42, 187, "A %s  B %s", ui(console::Message::give), ui(console::Message::return_supply));
             display_printf(42, 201, "START %s", ui(console::Message::next));
