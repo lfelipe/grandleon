@@ -6,6 +6,11 @@ name: Quality
 # difference shows up as failures that say nothing about the change.
 on:
   workflow_dispatch:
+    inputs:
+      graphics_runner:
+        description: Run the rendered creator and exported game on an interactive Windows runner
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -36,3 +41,51 @@ jobs:
         run: cmake --build build --parallel 2
       - name: Test
         run: ctest --test-dir build --output-on-failure
+
+  windows:
+    runs-on: ${{ fromJSON(inputs.graphics_runner && '["self-hosted","Windows","X64","grandleon-graphics"]' || '["windows-2025"]') }}
+    timeout-minutes: 50
+    steps:
+      - name: Preserve project line endings
+        run: git config --global core.autocrlf input
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: tools/source_schema/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: msys2/setup-msys2@v2
+        id: msys2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+      - name: Use the native Windows toolchain
+        shell: pwsh
+        env:
+          MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
+        run: Join-Path $env:MSYS2_LOCATION ucrt64/bin | Out-File $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Install test dependencies
+        run: |
+          python -m pip install pillow
+          npm ci --prefix tools/source_schema
+      - name: Build, test and package
+        run: python platform/godot/scripts/build-windows.py --test
+      - name: Create, export and play through the Windows launcher
+        if: inputs.graphics_runner
+        run: python platform/godot/scripts/check-pc-acceptance.py --bundle out/grandleon-windows --output out/windows-acceptance
+      - name: Keep acceptance evidence
+        if: always() && inputs.graphics_runner
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-acceptance
+          path: |
+            out/windows-acceptance/*.log
+            out/windows-acceptance/result.json
+            out/windows-acceptance/automation/screenshots/

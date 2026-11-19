@@ -64,7 +64,7 @@ output. The Windows-target test suite and rendered creator-to-victory
 flow pass under Wine. Wine runs the engine directly because its console relay can
 hang after the game exits; the native Windows check uses `launch-pc.cmd`.
 
-Run the **Windows acceptance** workflow for the native build and test suite.
+The manual **Quality** workflow runs the Windows native build and test suite.
 Select the graphics runner option to also run the creator-to-victory check.
 That option uses a Windows runner labeled `grandleon-graphics` with an active
 desktop and working graphics and audio. Check controllers, audio, saves,
