@@ -1801,15 +1801,16 @@ void append_tree(
     const fm_vec3_t up = {{0.0F, 1.0F, 0.0F}};
     const std::uint16_t normal = t3d_vert_pack_normal(&up);
     const std::int16_t lean = static_cast<std::int16_t>(static_cast<int>((variant >> 3U) % 7U) - 3);
-    const std::uint32_t bark_a = pack_rgba(112U, 75U, 43U);
-    const std::uint32_t bark_b = pack_rgba(82U, 57U, 37U);
-    constexpr std::uint8_t foliage[4][3] = {
-        {66U, 126U, 62U}, {91U, 134U, 56U},
-        {58U, 115U, 79U}, {82U, 143U, 70U},
-    };
-    const auto& tone = foliage[(variant >> 8U) & 3U];
+    // Bake the season and canopy variation into the existing vertices so
+    // the same forest uses the same geometry, texture slots and draw cost.
+    const auto& bark = gp::scenery_style::tree_bark;
+    const std::uint32_t bark_a = pack_rgba(bark[0], bark[1], bark[2]);
+    const std::uint32_t bark_b = darken(bark_a, 187U);
+    const auto& tone = gp::scenery_style::tree_foliage[(variant >> 8U) & 3U];
+    const auto& tips = gp::scenery_style::tree_tips;
     const std::uint32_t leaf_a = pack_rgba(tone[0], tone[1], tone[2]);
-    const std::uint32_t leaf_b = pack_rgba(tone[0] + 18U, tone[1] + 22U, tone[2] + 10U);
+    const std::uint32_t leaf_b = pack_rgba(tone[0] + tips[0], tone[1] + tips[1],
+        tone[2] + tips[2]);
     const std::int16_t trunk = scaled(5, scale);
     const std::int16_t crown = scaled(18 + static_cast<int>((variant >> 12U) % 8U), scale);
     const std::int16_t depth = scaled(18 + static_cast<int>((variant >> 16U) % 8U), scale);

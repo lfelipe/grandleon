@@ -82,7 +82,8 @@ std::size_t s_battle_reward_offset{};
 constexpr std::size_t reward_page_size = 5U;
 client::SharedSupplies s_shared_supplies;
 
-constexpr unsigned maximum_board_cells = 4096U;
+// Each executable carries both player variants of a single authored map.
+constexpr unsigned maximum_board_cells = GRANDLEON_BOARD_CELL_CAPACITY;
 // Ten 60 Hz ticks became only five distinct pictures after the renderer moved
 // to 30 fps.  Give the PS1 ten presented frames per tile so the two authored
 // footfall poses, facing change and arc read as a walk rather than a teleport.
@@ -211,6 +212,12 @@ std::string s_conversation_speaker;
 sim::ContentId s_action_content{};
 unsigned s_camera_settle_frames{};
 bool s_scroll_scenery_active{};
+struct SceneryView final {
+    int x{}, z{};
+    unsigned page{};
+    bool close_combat{}, reduced_scenery{}, valid{};
+};
+SceneryView s_scenery_view;
 view::StageOverview s_stage_overview{};
 bool s_overview_snap_home{};
 CampaignMode s_campaign_mode{CampaignMode::battle};
@@ -907,6 +914,7 @@ bool reveal_visual_visibility_at(std::size_t cell) {
         }
     }
     if (changed) {
+        s_scenery_view.valid = false;
         if (g_grandleon_visibility_per_cell) {
             psx::Line().text("MIPSYNC_ROOM_REVEAL new=").decimal(newly_revealed)
                 .text(" total=").decimal(g_grandleon_visibility_cell_count).flush();
@@ -1247,6 +1255,70 @@ void animate_combat_units(const sim::EncounterSnapshot& snapshot) {
         (destination->position[0] - mover->position[0]) * static_cast<int>(phase) / 27;
 }
 
+unsigned update_scenery_view(
+    int camera_x, int camera_z, bool close_combat, bool reduced_scenery
+) {
+    // Camera interpolation often leaves the integer scenery window unchanged
+    // across multiple ticks. Roof reveals invalidate the window independently.
+    if (s_scenery_view.valid && s_scenery_view.x == camera_x &&
+        s_scenery_view.z == camera_z && s_scenery_view.close_combat == close_combat &&
+        s_scenery_view.reduced_scenery == reduced_scenery) return s_scenery_view.page;
+
+    unsigned closest_page = 0;
+    std::uint32_t closest_distance = 0xffffffffU;
+    for (unsigned index = 0; index < g_grandleon_terrain_chunk_count; ++index) {
+        const std::int32_t dx =
+            camera_x - g_grandleon_terrain_page_focus[index][0];
+        const std::int32_t dz =
+            camera_z - g_grandleon_terrain_page_focus[index][1];
+        const std::uint32_t page_distance =
+            static_cast<std::uint32_t>(dx * dx + dz * dz);
+        if (page_distance < closest_distance) {
+            closest_distance = page_distance;
+            closest_page = index;
+        }
+    }
+    for (unsigned index = 0; index < g_grandleon_board_surface_count; ++index) {
+        ps1_entity* surface = grandleon_scene_mutable_entity(g_grandleon_board_surface_entity_indices[index]);
+        if (surface) surface->mesh_enabled = !close_combat;
+    }
+    s_active_terrain_chunks = g_grandleon_terrain_chunk_count ? 1U : 0U;
+    for (unsigned index = 0; index < g_grandleon_terrain_chunk_count; ++index) {
+        ps1_entity* chunk = grandleon_scene_mutable_entity(
+            g_grandleon_terrain_entity_indices[index]
+        );
+        const bool enabled = !close_combat && index == closest_page;
+        if (chunk) chunk->mesh_enabled = enabled;
+        ps1_entity* foliage = grandleon_scene_mutable_entity(g_grandleon_foliage_entity_indices[index]);
+        if (foliage) foliage->mesh_enabled = enabled;
+    }
+    const int half_x = g_grandleon_camera_view_tiles_x;
+    const int half_z = g_grandleon_camera_view_tiles_y;
+    for (unsigned index = 0; index < g_grandleon_tree_count; ++index) {
+        ps1_entity* tree = grandleon_scene_mutable_entity(
+            g_grandleon_tree_entity_indices[index]
+        );
+        if (!tree) continue;
+        const std::int32_t tree_x = tree->position[0] / 65536;
+        const std::int32_t tree_z = tree->position[2] / 65536;
+        const auto detail = g_grandleon_scenery_detail[index];
+        const auto roof = g_grandleon_scenery_roof_group[index];
+        // Intact roofs can share one mesh. Once a cell reveals, the original
+        // meshes for that group keep the revealed path open at every speed.
+        const bool reduced = reduced_scenery && (!roof || !g_grandleon_scroll_roof_revealed[roof]);
+        const bool on = detail == GRANDLEON_SCENERY_ALWAYS ||
+            detail == (reduced ? GRANDLEON_SCENERY_DURING_SCROLL : GRANDLEON_SCENERY_FULL);
+        const int margin = 2 + (detail == GRANDLEON_SCENERY_DURING_SCROLL
+            ? g_grandleon_scroll_scenery_margin : 0U);
+        tree->mesh_enabled = !close_combat && on &&
+            tree_x >= camera_x - half_x - margin && tree_x <= camera_x + half_x + margin &&
+            tree_z >= camera_z - half_z - margin && tree_z <= camera_z + half_z + margin;
+    }
+    sync_visibility_entities(close_combat);
+    s_scenery_view = {camera_x, camera_z, closest_page, close_combat, reduced_scenery, true};
+    return closest_page;
+}
+
 void tick_camera() {
     s_static_camera_at_target = false;
     ps1_entity* camera = grandleon_scene_mutable_entity(
@@ -1317,47 +1389,25 @@ void tick_camera() {
     const std::int32_t camera_z = camera->position[2] / 65536;
     const std::int32_t camera_focus_z =
         (camera->position[2] - desired_trailing) / 65536;
-    unsigned closest_page = 0;
-    std::uint32_t closest_distance = 0xffffffffU;
-    for (unsigned index = 0; index < g_grandleon_terrain_chunk_count; ++index) {
-        const std::int32_t dx =
-            camera_x - g_grandleon_terrain_page_focus[index][0];
-        const std::int32_t dz =
-            camera_focus_z - g_grandleon_terrain_page_focus[index][1];
-        const std::uint32_t page_distance =
-            static_cast<std::uint32_t>(dx * dx + dz * dz);
-        if (page_distance < closest_distance) {
-            closest_distance = page_distance;
-            closest_page = index;
-        }
-    }
-    for (unsigned index = 0; index < g_grandleon_board_surface_count; ++index) {
-        ps1_entity* surface = grandleon_scene_mutable_entity(g_grandleon_board_surface_entity_indices[index]);
-        if (surface) surface->mesh_enabled = !close_combat;
-    }
-    s_active_terrain_chunks = g_grandleon_terrain_chunk_count ? 1U : 0U;
-    for (unsigned index = 0; index < g_grandleon_terrain_chunk_count; ++index) {
-        ps1_entity* chunk = grandleon_scene_mutable_entity(
-            g_grandleon_terrain_entity_indices[index]
-        );
-        if (chunk) chunk->mesh_enabled = !close_combat && index == closest_page;
-    }
+    // Keep simplified castle shapes through short gaps between inputs, then
+    // restore detail once the board has held still for four game ticks.
+    const bool scroll_scenery = g_grandleon_has_scroll_scenery && !snap &&
+        !close_combat && s_camera_settle_frames < 4U;
+    s_scroll_scenery_active = scroll_scenery;
+    const unsigned closest_page = update_scenery_view(
+        camera_x, camera_focus_z, close_combat, scroll_scenery);
     // Sample wind on the unit idle cadence, keeping packets reusable between
     // updates. Each page retains a fixed mesh so Mipsync can reserve the right
     // geometry-cache capacity, including after the opening camera sweep.
-    const auto wind_tick = (s_ambient_ticks / 2U) & ~3U;
-    const auto wind = grandleon::view::ambient_wave_q12(wind_tick / 2U, 19U);
-    for (unsigned index = 0; index < g_grandleon_terrain_chunk_count; ++index) {
+    if (!close_combat && g_grandleon_terrain_chunk_count != 0) {
         ps1_entity* foliage = grandleon_scene_mutable_entity(
-            g_grandleon_foliage_entity_indices[index]);
-        if (!foliage) continue;
-        foliage->mesh_enabled = !close_combat && index == closest_page;
-        // Hidden pages must not invalidate an otherwise unchanged world.
-        if (!foliage->mesh_enabled) continue;
-        // Maximum displacement: four of the 128 mesh units in a tile.
-        // Trunks, buildings and the board keep their authored positions.
-        foliage->position[0] = s_reduced_motion ? 0 : wind;
-        foliage->position[2] = s_reduced_motion ? 0 : wind / 2;
+            g_grandleon_foliage_entity_indices[closest_page]);
+        if (foliage) {
+            const auto wind_tick = (s_ambient_ticks / 2U) & ~3U;
+            const auto wind = grandleon::view::ambient_wave_q12(wind_tick / 2U, 19U);
+            foliage->position[0] = s_reduced_motion ? 0 : wind;
+            foliage->position[2] = s_reduced_motion ? 0 : wind / 2;
+        }
     }
     ps1_entity* combat_floor = grandleon_scene_mutable_entity(
         g_grandleon_combat_floor_entity_index
@@ -1379,32 +1429,6 @@ void tick_camera() {
     }
     const std::int32_t half_x = g_grandleon_camera_view_tiles_x;
     const std::int32_t half_z = g_grandleon_camera_view_tiles_y;
-    // Keep simplified castle shapes through short gaps between inputs, then
-    // restore detail once the board has held still for four game ticks.
-    const bool scroll_scenery = g_grandleon_has_scroll_scenery && !snap &&
-        !close_combat && s_camera_settle_frames < 4U;
-    s_scroll_scenery_active = scroll_scenery;
-    for (unsigned index = 0; index < g_grandleon_tree_count; ++index) {
-        ps1_entity* tree = grandleon_scene_mutable_entity(
-            g_grandleon_tree_entity_indices[index]
-        );
-        if (!tree) continue;
-        const std::int32_t tree_x = tree->position[0] / 65536;
-        const std::int32_t tree_z = tree->position[2] / 65536;
-        const auto detail = g_grandleon_scenery_detail[index];
-        const auto roof = g_grandleon_scenery_roof_group[index];
-        // Intact roofs can share one mesh. Once a cell reveals, the original
-        // meshes for that group keep the revealed path open at every speed.
-        const bool reduced = scroll_scenery && (!roof || !g_grandleon_scroll_roof_revealed[roof]);
-        const bool on = detail == GRANDLEON_SCENERY_ALWAYS ||
-            detail == (reduced ? GRANDLEON_SCENERY_DURING_SCROLL : GRANDLEON_SCENERY_FULL);
-        const int margin = 2 + (detail == GRANDLEON_SCENERY_DURING_SCROLL
-            ? g_grandleon_scroll_scenery_margin : 0U);
-        tree->mesh_enabled = !close_combat && on &&
-            tree_x >= camera_x - half_x - margin && tree_x <= camera_x + half_x + margin &&
-            tree_z >= camera_focus_z - half_z - margin && tree_z <= camera_focus_z + half_z + margin;
-    }
-    sync_visibility_entities(close_combat);
     animate_combat_units(snapshot);
     for (unsigned index = 0; index < g_grandleon_unit_count; ++index) {
         ps1_entity* unit = grandleon_scene_mutable_entity(
@@ -2298,6 +2322,7 @@ bool start_encounter() {
     for (unsigned index = 0; index < maximum_board_cells; ++index) {
         s_visibility_revealed[index] = false;
     }
+    s_scenery_view.valid = false;
     std::fill_n(g_grandleon_scroll_roof_revealed, g_grandleon_scroll_roof_group_count, 0U);
     (void)update_visual_visibility(snapshot);
     s_map_width = snapshot.width;

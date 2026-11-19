@@ -9,6 +9,15 @@ from PIL import Image
 HOUSE_FAMILIES = ("medieval", "sengoku", "pirates", "scifi", "mythical", "nature", "undead")
 
 
+# Bark, four canopy colors, and sunlit tips for each portable terrain theme.
+FOREST_PALETTES = (
+    ((112, 75, 43), ((66, 126, 62), (91, 134, 56), (58, 115, 79), (82, 143, 70)), (18, 22, 10)),
+    ((111, 75, 52), ((172, 88, 33), (153, 63, 31), (176, 127, 42), (104, 117, 50)), (36, 31, 13)),
+    ((93, 83, 77), ((86, 114, 111), (103, 129, 128), (71, 98, 103), (94, 122, 106)), (79, 84, 91)),
+    ((79, 61, 52), ((98, 83, 65), (111, 83, 59), (82, 85, 77), (116, 94, 65)), (32, 23, 15)),
+)
+
+
 @lru_cache(maxsize=8)
 def document(repo: Path) -> dict:
     return json.loads((repo / "platform/godot/project/content/scenery_style.json").read_text())
@@ -102,7 +111,14 @@ def write_n64_header(repo: Path, output: Path, theme: int = 0) -> None:
     lines += ["}};", "inline int house_family(std::uint64_t id) { for(unsigned i=0;i<house_terrain_ids.size();++i) if(house_terrain_ids[i]==id) return static_cast<int>(i); return -1; }",
               "inline constexpr std::uint8_t ground[13][3] = {"]
     lines += ["{" + ",".join(map(str, colour)) + "}," for colour in palette]
-    lines += ["};", "}", ""]
+    bark, foliage, tips = FOREST_PALETTES[theme]
+    rgb = lambda colour: "{" + ",".join(map(str, colour)) + "}"
+    lines += ["};",
+              f"inline constexpr std::uint8_t tree_bark[3] = {rgb(bark)};",
+              "inline constexpr std::uint8_t tree_foliage[4][3] = {"
+              + ",".join(rgb(colour) for colour in foliage) + "};",
+              f"inline constexpr std::uint8_t tree_tips[3] = {rgb(tips)};",
+              "}", ""]
     output.write_text("\n".join(lines))
 
 

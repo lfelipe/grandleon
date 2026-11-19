@@ -346,5 +346,61 @@
       "motion": "In each normal input replay, all nine revealed roofs stayed hidden, intact roof groups could use the simplified mesh, and full geometry was restored on settling.",
       "emulator": "PCSX-Redux with software GPU and a read-only display-swap timing hook. No hardware timing taken."
     }
+  },
+  "map_sized_work_buffers_and_scenery_window": {
+    "method": "Read-only timing of actual display swaps during identical normal 2P controller input on the 32 \u00d7 24 Three Courts export.",
+    "memory": {
+      "fixed_4096_cells_bytes": 2103604,
+      "map_sized_uncached_bytes": 2080308,
+      "map_sized_cached_bytes": 2080324,
+      "limit_bytes": 2097152
+    },
+    "captures_pixels_equal": [
+      "closed",
+      "entry",
+      "far-corner"
+    ],
+    "uncached": {
+      "trace": "out/editor-progression06/ps1-uncached-timing/scroll-swaps.csv",
+      "timing": {
+        "room": {
+          "swaps": 28,
+          "fps": 11.1,
+          "worst_ms": 249.96
+        },
+        "horizontal": {
+          "swaps": 29,
+          "fps": 8.99,
+          "worst_ms": 199.97
+        },
+        "vertical": {
+          "swaps": 28,
+          "fps": 12.27,
+          "worst_ms": 133.31
+        }
+      },
+      "disc_sha256": "f3e08471010f34e0e120d01f47d0981c18fdf7f464253c03b30e0e8a8a898730"
+    },
+    "refined": {
+      "trace": "out/editor-progression06/ps1-refined-timing/scroll-swaps.csv",
+      "timing": {
+        "room": {
+          "swaps": 29,
+          "fps": 11.28,
+          "worst_ms": 233.3
+        },
+        "horizontal": {
+          "swaps": 33,
+          "fps": 10.38,
+          "worst_ms": 183.31
+        },
+        "vertical": {
+          "swaps": 32,
+          "fps": 13.68,
+          "worst_ms": 133.31
+        }
+      },
+      "disc_sha256": "b36d425471e7396abe49340ddad9f003612b2b019920cf215c5b7946b47468c9"
+    }
   }
 }

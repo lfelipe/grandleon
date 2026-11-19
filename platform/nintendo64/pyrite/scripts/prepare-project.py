@@ -331,7 +331,7 @@ def prepare(project_path: Path, manifest_path: Path, project_root: Path,
                      any("castle_wall" in str(cell) for map_value in maps for cell in map_value.get("terrain", [])))
     write_n64_motion_header(castle_source.parents[1], project_root / "src/user/GeneratedKeepMotion.hpp",
                             any("castle_wall" in str(cell) for map_value in maps for cell in map_value.get("terrain", [])))
-    write_settlement_header(castle_source.parents[1], project_root / "src/user/GeneratedSettlement.hpp")
+    write_settlement_header(castle_source.parents[1], project_root / "src/user/GeneratedSettlement.hpp", theme)
     write_style_header(castle_source.parents[1], project_root / "src/user/GeneratedSceneryStyle.hpp", theme)
     for drawing in range(len(scenery_document(castle_source.parents[1])["houses"]["drawings"])):
         name = f"scenery_house_{drawing}"

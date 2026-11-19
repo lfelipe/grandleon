@@ -466,6 +466,12 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   from 6.6 to 9.0 FPS and vertical scrolling from 7.4 to 12.3 FPS. Revealed
   rooms stayed open and the settled captures matched the original.
   [Scroll trials](tools/renderer_comparison/ps1-castle-scroll-06.json)
+- [x] Size PS1 route and visibility storage to the authored map and reuse its
+  scenery selections while the camera remains in the same window. Three
+  Courts now fits within 2 MiB with the existing stack and heap reserves. Scrolling
+  improved from 9.0 to 10.4 FPS horizontally and 12.3 to 13.7 FPS vertically.
+  The three matched castle checkpoints are pixel-identical.
+  [Scroll trials](tools/renderer_comparison/ps1-castle-scroll-06.json)
 - [x] Retain exact PS1 static-command reuse on larger scenes without increasing
   the entity-key reservation. Lossless snapshots remove the 80-object cutoff;
   small scenes retain direct word keys. The 32×24 castle reduces renderer CPU

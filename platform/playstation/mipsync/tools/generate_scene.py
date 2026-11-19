@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from texture_compression import encode_zero_runs, decode_zero_runs
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "platform/console_art"))
-from scenery_style import HOUSE_FAMILIES, document as scenery_style, house_at, house_image, grove_image, ground_image, materials as ground_materials
+from scenery_style import FOREST_PALETTES, HOUSE_FAMILIES, document as scenery_style, house_at, house_image, grove_image, ground_image, materials as ground_materials
 from settlement_scenery import load_models as load_settlement_models, placements as settlement_placements, modular_castle_placements
 from stone_keep import load_keep, textured_part_mesh, face_normal, lit_colour
 
@@ -1014,11 +1014,17 @@ def append_terrain_form(
     uvs: list[tuple[int, int]],
     triangles: list[tuple[int, int, int, int, int, int, int, int]],
     kind: int, cx: int, floor: int, cz: int, roll: int,
-    materials: dict[int, int],
+    materials: dict[int, int], theme: int = 0,
 ) -> None:
     """Append one small native low-poly landmark for a terrain cell."""
     colour, scale = TERRAIN_FORM_STYLES[kind]
-    if kind in (0, 2, 6, 9, 10, 11):
+    bark = (102, 70, 42)
+    canopy_tips = None
+    if kind == 2 and theme != 0:
+        bark, tones, highlights = FOREST_PALETTES[theme]
+        colour = tones[(roll >> 13) & 3]
+        canopy_tips = tuple(value + light for value, light in zip(colour, highlights))
+    elif kind in (0, 2, 6, 9, 10, 11):
         # Stable per-cell variation survives scrolling and scene reloads.
         # The narrow palette stays within the terrain's own visual identity.
         foliage_tints = ((100, 100, 100), (112, 103, 84),
@@ -1063,7 +1069,7 @@ def append_terrain_form(
             for index, uv in zip((front_left, front_right, back_right, back_left, apex),
                                  ((0, 31), (31, 31), (31, 0), (0, 0), (16, 16))):
                 uvs[index] = uv
-        material = -1 if face_colour == (102, 70, 42) else None
+        material = -1 if face_colour == bark else None
         face(front_left, front_right, apex, shifted_colour(face_colour, 114), material)
         face(front_right, back_right, apex, face_colour, material)
         face(back_right, back_left, apex, shifted_colour(face_colour, 82), material)
@@ -1119,7 +1125,7 @@ def append_terrain_form(
         trunk_height = 35 + canopy_height // 10
         # The sheltered trunk needs no top cap. Its tapered four-face mesh
         # leaves the same triangle budget for a rounder six-sided main crown.
-        pyramid(cx, cz, 6, 6, trunk_height, (102, 70, 42))
+        pyramid(cx, cz, 6, 6, trunk_height, bark)
         ring = [vertex(cx - 5 + lean + dx, floor + 22, cz + 2 + dz)
                 for dx, dz in ((-canopy_width, 0), (-canopy_width // 2, -canopy_depth),
                                (canopy_width // 2, -canopy_depth), (canopy_width, 0),
@@ -1133,7 +1139,7 @@ def append_terrain_form(
             face(ring[(side + 1) % 6], ring[side], apex,
                  shifted_colour(colour, brightness))
         pyramid(cx + lean, cz - 3, canopy_width * 2 // 3, canopy_depth * 2 // 3,
-                canopy_height // 2, colour, 22 + canopy_height * 3 // 4)
+                canopy_height // 2, canopy_tips or colour, 22 + canopy_height * 3 // 4)
     elif kind == 3:  # mountain: fractured stone, with a smaller weathered spur
         stone_tones = ((111, 128, 136), (130, 125, 112), (115, 132, 125))
         stone = stone_tones[(roll >> 15) % len(stone_tones)]
@@ -1418,6 +1424,7 @@ def write_meshes(
     bridges: dict | None = None,
     per_cell_roofs: bool = False,
     scroll_scenery: bool = False,
+    theme: int = 0,
 ) -> tuple[int, int, list[tuple[int, int, int, int, int, int, int]]]:
     keep_parts = keep_parts or []
     bridges = bridges or {}
@@ -1540,7 +1547,7 @@ def write_meshes(
             append_terrain_form(
                 board_vertices, board_uvs, board_triangles,
                 kind, cx, floor, cz, roll,
-                terrain_indices,
+                terrain_indices, theme,
             )
             if kind == 2:
                 # Keep trunks planted. Only the leaf material joins the small
@@ -2426,7 +2433,8 @@ def main() -> int:
     if modular_castle or per_cell_roofs:
         settlement_instances += modular_castle_placements(document["terrain_ids"], width, height,
             document["visual_visibility"]["hidden_cells"], content_id)
-    settlement_models = load_settlement_models(repo) if settlement_instances else {}
+    theme = int(document.get("theme", 0))
+    settlement_models = load_settlement_models(repo, theme) if settlement_instances else {}
     house_instances = []
     for x, y, kind, size in settlement_instances:
         if kind == "village_house" or kind in tuple(f"{family}_house" for family in HOUSE_FAMILIES[1:]):
@@ -2475,6 +2483,7 @@ def main() -> int:
         MAX_CACHE_VERTICES, scenery_metadata, surface_count=len(floor_groups),
         foliage_metadata=foliage_metadata, bridges=bridges, per_cell_roofs=per_cell_roofs,
         scroll_scenery=modular_castle and (width > 2 * CAMERA_VIEW_TILES_X or height > 2 * CAMERA_VIEW_TILES_Y),
+        theme=theme,
     )
     entities = write_scene(
         output, document, unit_indices, terrain_chunks,

@@ -3,7 +3,7 @@ import hashlib
 import json
 from pathlib import Path
 from stone_keep import face_normal, lit_colour
-from scenery_style import HOUSE_FAMILIES
+from scenery_style import FOREST_PALETTES, HOUSE_FAMILIES
 
 SETTLEMENT_KINDS = ("village_house", "abandoned_cart", "village_well", "watchtower", "walled_garden", "town_wall", "town_wall_join")
 
@@ -12,7 +12,7 @@ CASTLE_KINDS = ("castle_wall_horizontal", "castle_wall_vertical", "castle_wall_j
 KINDS = SETTLEMENT_KINDS + ("orchard_bell",) + tuple(f"signal_beacon_{v}" for v in range(6)) + tuple(f"watch_ruin_{edge}_{v}" for edge in range(4) for v in range(2)) + tuple(f"orchard_tree_{v}" for v in range(4)) + CASTLE_KINDS
 
 
-def load_models(repo: Path) -> dict:
+def load_models(repo: Path, theme: int = 0) -> dict:
     data = json.loads((repo / "platform/console_art/settlement_scenery.json").read_text())
     source = repo / "platform/godot/project/scripts/settlement_scenery.gd"
     if data.get("schema") != "grandleon.settlement.v1" or data.get("source_sha256") != hashlib.sha256(source.read_text(encoding="utf-8").encode()).hexdigest():
@@ -23,7 +23,15 @@ def load_models(repo: Path) -> dict:
     nature = repo / "platform/godot/project/scripts/natural_scenery.gd"
     if data.get("nature_sha256") != hashlib.sha256(nature.read_text(encoding="utf-8").encode()).hexdigest():
         raise ValueError("orchard models are stale; regenerate with export_settlement_scenery.gd")
-    return data["models"]
+    models = data["models"]
+    if theme:
+        _, tones, tips = FOREST_PALETTES[theme]
+        for index, tone in enumerate(tones):
+            for part in models[f"orchard_tree_{index}"]:
+                red, green, blue = part["colour"]
+                if green > max(red, blue):
+                    part["colour"] = [value + tip // 3 for value, tip in zip(tone, tips)]
+    return models
 
 
 def placements(identities: list[int], width: int, height: int, content_id) -> list[tuple]:
@@ -101,8 +109,8 @@ def modular_castle_placements(identities, width, height, hidden_cells, content_i
     return result
 
 
-def write_n64_header(repo: Path, output: Path) -> None:
-    models = load_models(repo)
+def write_n64_header(repo: Path, output: Path, theme: int = 0) -> None:
+    models = load_models(repo, theme)
     vertices, indices, batches, descriptors = [], [], [], []
     for kind in KINDS:
         batch_start = len(batches)
