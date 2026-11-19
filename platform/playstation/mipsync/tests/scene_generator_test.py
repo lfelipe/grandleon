@@ -461,6 +461,22 @@ def test_themed_houses_and_grove_keep_distinct_texture_bindings() -> None:
         assert len(set(rows)) == 16, "house palettes must not overwrite one another or UI palettes"
 
 
+def test_castle_masonry_uses_a_private_palette() -> None:
+    with tempfile.TemporaryDirectory() as folder:
+        textures, _, _, metrics, _ = SCENE.write_textures(
+            Path(folder), ROOT.parents[2], [9], [], castle=True,
+            houses=True, house_drawings=(0,))
+        assert textures[-4] != textures[-10]
+        assert metrics["castle_masonry_depth_bits"] == 8
+        emitted = (Path(folder) / "textures_data.c").read_text()
+        body = re.search(r"k_form_material_4_tim\[\] = \{(.*?)\};", emitted, re.S).group(1)
+        words = [int(value, 16) for value in re.findall(r"0x[0-9a-fA-F]+", body)]
+        palette = struct.pack(f"<{len(words)}I", *words)
+        assert struct.unpack_from("<II", palette) == (0x10, 9)
+        assert struct.unpack_from("<IHHHH", palette, 8) == (524, SCENE.TEXTURE_X, SCENE.CLUT_Y, 256, 1)
+        assert SCENE.TEXTURE_X + 256 <= SCENE.CLUT_X
+
+
 def test_house_only_bank_does_not_require_a_shared_unit_palette() -> None:
     with tempfile.TemporaryDirectory() as folder:
         _, _, _, metrics, _ = SCENE.write_textures(Path(folder), ROOT.parents[2], [9], [],
@@ -533,6 +549,7 @@ if __name__ == "__main__":
     test_scenery_compaction_preserves_drawn_faces_and_texture_seams()
     test_stone_keep_exports_solid_terrace_with_local_sorting_faces()
     test_masonry_keeps_one_texture_tile_per_board_cell()
+    test_castle_masonry_uses_a_private_palette()
     test_console_font_has_complete_pixel_cells()
     test_accented_font_uses_complete_cells_and_dedicated_four_bit_clut()
     test_cutout_keeps_grounding_inside_existing_texture()

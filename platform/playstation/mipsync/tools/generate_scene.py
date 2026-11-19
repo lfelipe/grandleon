@@ -340,11 +340,11 @@ def tim_words(
     include_palette: bool = True,
     depth_bits: int = 8, palette_slot: int = 0,
     palette_row: int = CLUT_Y,
-    font_palette: bool = False,
+    font_palette: bool = False, palette_column: int = CLUT_X,
 ) -> list[int]:
     rgba = image.convert("RGBA")
     palette_size = 256
-    palette_x, palette_y = CLUT_X, palette_row
+    palette_x, palette_y = palette_column, palette_row
     if font_palette:
         if depth_bits != 4:
             raise ValueError("font palette requires 4-bit texture storage")
@@ -678,10 +678,13 @@ def write_textures(
     # avoids the narrow holes produced by first-fit terrain strips on stages
     # with a broader unit roster.
     placements: dict[int, tuple[int, int]] = {}
+    # The castle's stone is near the camera, including in the reveal.
+    # Reserve one full palette in the unused left side of the final CLUT row.
+    masonry_index = terrain_indices.get(-4, 0) - 1
     material_palettes = {
         index: slot for slot, index in enumerate(
             index for index, (name, *_rest) in enumerate(textures)
-            if name.startswith(("terrain_", "form_material_"))
+            if name.startswith(("terrain_", "form_material_")) and index != masonry_index
         )
     }
     if len(material_palettes) > 16:
@@ -696,7 +699,7 @@ def write_textures(
     if house_palettes and CLUT_Y - 4 - (len(house_palettes) - 1) < (CLUT_Y // 32) * 32:
         raise ValueError("house palettes exceed the reserved CLUT rows")
     palette_owner = next((index for index in range(len(textures))
-                          if index not in material_palettes and index != font_index
+                          if index not in material_palettes and index != font_index and index != masonry_index
                           and index not in house_palettes and index + 1 not in backdrop_indices), None)
     # Only one unit walks at a time. Its six compass/contact frames share a
     # slot, while idle, attack and hurt remain independently resident so two
@@ -742,17 +745,19 @@ def write_textures(
     texture_storage = []
     for index, (name, image, cutout, x, y) in enumerate(textures):
         is_backdrop = index + 1 in backdrop_indices
-        colours, palette = (shared_stage_palette([image]) if index in house_palettes else
+        private_palette = index in house_palettes or index == masonry_index
+        colours, palette = (shared_stage_palette([image]) if private_palette else
                             backdrop_palette if is_backdrop else (palette_colours, palette_image))
         words = tim_words(
             image, x, y, cutout, colours, palette,
-            include_palette=True if index in house_palettes else
+            include_palette=True if private_palette else
                             (index + 1 == backdrop_indices[0]) if is_backdrop else index == palette_owner,
             depth_bits=4 if index in material_palettes or index == font_index else 8,
             palette_slot=material_palettes.get(index, 0),
             palette_row=CLUT_Y - 4 - house_palettes[index] if index in house_palettes else
                         CLUT_Y - 2 if is_backdrop else CLUT_Y,
             font_palette=index == font_index,
+            palette_column=TEXTURE_X if index == masonry_index else CLUT_X,
         )
         raw = struct.pack(f"<{len(words)}I", *words)
         packed = encode_zero_runs(raw) if name.startswith(("unit_", "speaker_")) else raw
@@ -774,7 +779,7 @@ def write_textures(
     lines.append("const ps1_texture_desc g_ps1_textures[] = {")
     for index, (name, _image, cutout, _x, _y) in enumerate(textures):
         slot = residency_slots.get(index, index) + 1
-        clut_owner = (index + 1 if index == font_index or index in house_palettes or index in material_palettes else
+        clut_owner = (index + 1 if index in (font_index, masonry_index) or index in house_palettes or index in material_palettes else
                       backdrop_indices[0] if index + 1 in backdrop_indices else
                       palette_owner + 1 if palette_owner is not None else 0)
         decoded_words, encoded_bytes = texture_storage[index]
@@ -793,10 +798,13 @@ def write_textures(
     lines.append("const unsigned int g_grandleon_combat_plate_indices[4] = {" + ",".join(map(str, backdrop_indices or [0] * 4)) + "};")
     (output / "textures_data.c").write_text("\n".join(lines), encoding="utf-8")
     occupied_vram_bytes = image_vram_bytes + (CLUT_COLOURS * 2 if palette_owner is not None else 0) + len(material_palettes) * 32 + 32 + (512 if backdrop_indices else 0) + len(house_palettes) * 512
+    if masonry_index >= 0:
+        occupied_vram_bytes += 512
     metrics = {
         "texture_count": len(textures),
         "texture_depth_bits": TEXTURE_DEPTH_BITS,
         "material_depth_bits": 4,
+        "castle_masonry_depth_bits": 8 if masonry_index >= 0 else 0,
         "font_depth_bits": 4,
         "font_glyph_count": 96,
         "font_clut_row": CLUT_Y - 3,
