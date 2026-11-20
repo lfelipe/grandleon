@@ -5,15 +5,16 @@
 # Grandleon
 
 Grandleon is a tool for making and playing tactical role-playing games. Its
-Godot application includes both the campaign creator and the PC player. The
-same project can also be built for Nintendo 64 and PlayStation without changing
-its rules.
+Godot application includes a campaign creator and player for PC and Android.
+The same campaign can also be built for Nintendo 64 and PlayStation.
 
 ![A real Grandleon battle running in Godot with voxel terrain and animated characters](docs/screenshots/godot/gameplay.gif)
 
 This is the current **Steel and Cedar** demo in Godot. Rowan crosses Bell
 Orchard, attacks a swordsman, takes a counterattack and returns to the board.
 The recording uses the running player and the campaign’s actual rules.
+
+[Downloads](https://github.com/lfelipe/grandleon/releases) · [What’s new in 0.6](release/0.6.0/README.md)
 
 ## Make a game
 
@@ -43,8 +44,8 @@ the editor settles closer to 1.0.
 
 ## Play Steel and Cedar
 
-The included demo is **Steel and Cedar**, a five-battle campaign shared by
-Godot, Nintendo 64, and PlayStation. A false treaty signal draws two realms
+The included demo is **Steel and Cedar**, with five main battles and two
+optional detours on PC, Android, Nintendo 64 and PlayStation. A false treaty signal draws two realms
 toward war; follow its couriers from an orchard through woodland and village
 streets to the hidden throne room of Twin Gate Keep.
 
@@ -68,71 +69,23 @@ fully designed campaign is planned before 1.0.
 The editable project is in [games/steel_and_cedar](games/steel_and_cedar).
 Earlier campaigns remain in `games/` as examples and regression fixtures.
 
-## The Godot presentation
+## Art and battle presentation
 
-Godot is the main player and creator. Its supported presentation combines
-authored 3D terrain with animated high-resolution 2D characters.
+![Steel and Cedar’s Bell Orchard board in the Godot player](docs/screenshots/godot/voxel-sprites.png)
 
-![Steel and Cedar’s Bell Orchard board in the current Godot player](docs/screenshots/godot/voxel-sprites.png)
-
-The current Godot art pack covers all eight character archetypes and all
-thirteen terrain kinds. Its seven directions are sci-fi, mythical, medieval,
-nature, Sengoku, Undead, and Pirates. Each has male and female designs for every
-archetype. Either body can wear any of the six faction colours without
-recolouring faces, hair, equipment, or effects. A separate lower-resolution
-pixel library supplies shared previews and interface art; console exports
-require the curated sheets shown here.
-
-The Map Editor includes 2×2 house stamps for all seven themes, with sixteen
-building drawings shared by Godot, Nintendo 64 and PlayStation. Choose a family
-in the landmark selector, then use **Place 2×2**; each house's appearance varies
-naturally across the settlement.
-Console buildings now keep their coloured roofs, windows and trim closer to the
-source artwork.
+Animated characters move across sculpted terrain, from orchards and villages
+to castle interiors. Choose from seven visual themes, eight unit roles, male
+and female variants, and six faction colours. The Map Editor includes houses
+for every theme and landmarks such as gates, bridges and castle walls.
 
 ![Examples of Grandleon's seven art themes and eight unit roles](docs/screenshots/art-roster/readme-art-sampler.png)
 
-This is a quick sample rather than the whole catalog. See the
-[artwork and animation roster](docs/ARTWORK.md) for animated previews and exact
-coverage.
+See the [artwork and animation roster](docs/ARTWORK.md) for more examples.
 
-The screenshot above is an earlier sample; the artwork sampler remains a guide
-to the available character catalog.
-
-Boards larger than the readable view scroll horizontally and vertically on
-Godot, Nintendo 64, and PlayStation. Small maps stay centered; on large maps,
-the camera follows the active cursor without shrinking characters into
-unreadable tokens.
-
-Godot can also switch from the board to an optional terrain-derived close view
-for an attack, its reported damage or miss, any legal counterattack, and a
-defeat. Area abilities keep the acting character in place while each target
-enters the other side of the scene; healing another character, endurance, and
-item drops use the same accepted battle results. The session menu can disable
-these **Battle Close-ups**. Hold Confirm to fast-forward a close-up or press
-Cancel to skip it; either choice returns to the authoritative board state that
-the shared engine already accepted.
-Godot’s live board remains visible as the camera focuses the two units and pushes
-into the close view, then the result dissolves back to that settled board.
-Compatible terrain now selects a layered background that remains stable for
-the complete exchange. The current library covers forest scenes plus the
-Medieval village and castle used by **Steel and Cedar**. Village and castle
-art requires the exact authored map and nearby landmark, so another paved map
-cannot receive it by accident. In-battle conversations use the same background
-pool, anchored to the speaking character, while unsupported terrain keeps a
-simple readable fallback behind the portrait and dialogue.
-The in-game Settings menu can also show a small live FPS counter on any
-renderer. It is off by default, including in console ROMs and disc images.
-
-Across all three players, entering Steel and Cedar’s keep reveals its hidden
-interior while preserving the authored tactical rules.
-
-A short opening camera sweep shows each stage before settling on your party.
-Press **Confirm** (Space/Enter, A or Cross), or tap the screen, to skip it.
-
-The players share an orchestral soundtrack and distinct weapon, magic and
-healing effects. Adjust **Music** and **Sound Effects** separately in Settings; each volume is saved. Creator support for importing
-your own audio is planned on the roadmap below.
+An opening camera sweep shows the battlefield. Press **Confirm** or tap to
+skip it. Attacks can play as close-ups, with a moving camera in Godot and
+terrain-matched backdrops. Choose **Battle Close-ups** in Settings to turn
+them off. **Music** and **Sound Effects** have separate saved volume controls.
 
 ## One project, several targets
 
@@ -148,41 +101,32 @@ The Godot recording above and both console clips show the same one-player
 the swordsman beside the orchard gate, receives a counterattack, then returns
 to the board. Each recording preserves the player’s actual timing.
 
-The installed Export Center can produce:
+Open **Finish & Export** to share an editable project, a portable campaign,
+or a standalone PC game. The optional desktop builders produce a Nintendo 64
+ROM or a PlayStation disc image. PlayStation users need a compatible setup
+because the disc has no Sony licence sector.
 
-- a portable `.grandleon.zip` project;
-- a standalone Linux PC game;
-- a Nintendo 64 `.z64` ROM when its optional builder is installed; and
-- a PlayStation `.bin`/`.cue` pair when its optional builder is installed.
+The consoles share the campaign, including co-op, shops and hidden castle
+rooms. Both target 30 FPS. PlayStation can still slow down when scrolling on
+large, dense boards. [Console controls and exports](docs/CONSOLE_RENDERER.md)
 
-Console builders are separate downloads because their pinned toolchains are
-large. They work offline after installation. The PlayStation image has no Sony
-licence sector and therefore does not boot on an unmodified retail console.
-Console exports use the curated character artwork shown above, adapted to each
-machine. Both consoles target 30 fps.
+## Co-op, downloadable campaigns and languages
 
-Nintendo 64 now uses Pyrite/Tiny3D and PlayStation uses Mipsync. This release
-is part of that transition: the players share Godot’s campaign features while
-console graphics continue to mature.
-
-PS1 camera movement can still judder on larger maps, especially around the
-castle. Smoother frame pacing is planned for 0.6.
-
-`games/sevenfold` remains the older compact art showcase campaign. One ROM asks for one or
-two players on its main menu, fields every archetype across all seven art
-styles, and uses seven different maps covering every terrain kind. A debug
-Stage-picker build can jump directly between the gates for review.
-
-See the [0.5 release notes](release/0.5.0/README.md) for the current demo,
-launch guidance, and known limitations. The committed
-[0.4 review builds](release/0.4.0/README.md) remain an older Sevenfold Gate
-snapshot. [Playing on Nintendo 64 and PlayStation](docs/CONSOLE_RENDERER.md)
-covers controls, exports, and development builds.
+- **Play together on a local network.** Choose **Host on LAN** on PC or
+  Android. On the second device, choose **Join a LAN game**. The host keeps
+  the campaign save, including progress in the current battle.
+- **Find more games.** **Browse Campaigns** downloads games from the
+  [public catalogue](https://github.com/lfelipe/grandleon-campaigns) or a
+  catalogue you add. Installed campaigns work offline. For an incompatible
+  update, you can keep the installed version and its saves.
+- **Play or create on Android.** Touch controls adapt to phones and tablets.
+  Share editable projects or portable campaigns from Android and open them
+  on a PC to build a console version.
+- **Translate a game.** Grandleon includes English, Spanish and Brazilian
+  Portuguese menus. Use **Translations** and **Play Language** to edit and
+  preview your campaign’s own text. [Contribute a menu translation](TRANSLATING.md)
 
 ## Roadmap
-
-The roadmap is intentionally short. Completed versions are milestones; the
-rest of the documentation describes the current Godot application.
 
 | Version | Focus |
 |---|---|
@@ -197,75 +141,6 @@ rest of the documentation describes the current Godot application.
 | **After 1.0** | Explore weapon wear from use and blacksmiths who can repair worn weapons. |
 
 See [TODO](TODO.md) for the detailed work list.
-
-The 0.6 development build supports co-op across devices on the same network.
-Choose a campaign and **Host on LAN**. On the other Android device or PC,
-choose **Join a LAN game** and select the discovered host. Each device commands
-its own army in the authored two-player campaign. Same-device co-op remains
-available too.
-
-Shared progress and checkpoint saves live on the host, including unfinished
-battles. Host the same campaign again to continue; the second player can rejoin
-their army. Brief connection interruptions reconnect automatically. Keep the
-host's application data backed up. If discovery finds
-nothing, enter the host's IP address. Internet play is planned separately.
-
-Local solo and same-device co-op in the 0.6 Godot player also recover the
-current battle when you reopen the campaign. Accepted moves and actions are
-saved automatically; manual save slots still hold between-battle checkpoints.
-Recovery has been tested across forced desktop process termination and an
-Android emulator force-stop. Physical-device testing remains on the checklist.
-
-The 0.6 development branch adds **Browse Campaigns** to the Godot home menu.
-It reads the public [campaign catalogue](https://github.com/lfelipe/grandleon-campaigns),
-downloads compatible games and keeps installed campaigns available offline.
-Updates keep compatible saves; otherwise, you can keep the installed version
-or update and start a new game.
-You can add another public catalogue URL too. The first packages use Grandleon's
-built-in artwork and audio. This browser is not in the published 0.5 app yet.
-
-Android development builds now package the player and creator together, with
-touch controls and portable campaign exports. On phones, the board fills the
-screen and actions appear when a unit is selected. Language and audio are in
-Settings; Create/Edit remains available. See the
-[Android build instructions](docs/SETUP.md#android-development-build-for-06).
-Editor forms scroll to keep fields visible while typing, and Android’s file
-picker saves and opens editable projects with accented names. Phone and tablet
-layouts pass emulator checks; physical-device acceptance is still in progress.
-Building N64 and PS1 games continues to require the PC editor.
-
-Importing external artwork may be explored later, but it is not part of the
-current roadmap commitment.
-
-Localization is manual and usable today. The application menus and creator
-are available in English, Spanish, and Brazilian Portuguese. Choose a language
-on the home or project screen; it applies immediately and is remembered.
-
-A game records its own source language and translations in the portable
-project. In **Translations**, review player-facing text and character names,
-filter missing or outdated entries, and exchange **.PO** catalogs with a
-translator. **Play Language** previews the selected campaign and 1P/2P variant
-without touching a real save. Authored translations travel with exports to all
-three players. Changed source text falls back to the current original until
-its translation is reviewed again.
-
-To contribute a menu language, follow [TRANSLATING.md](TRANSLATING.md): copy
-the English catalog, keep its IDs and placeholders, translate the values, and
-submit a pull request. Translating a game uses that project’s catalog instead.
-An external translation service is not required; optional suggestions may be
-explored later, with author review retained.
-
-Player-chosen character names remain literal player input rather than
-translation material; in Godot they survive save and continue and can appear
-in dialogue, objectives, rosters, and exact on-board unit labels. Nintendo 64
-and PlayStation now offer the same compact controller keyboard when an author
-allows a name to be changed. It has an 18-character console limit, keeps fixed
-names fixed, saves the choice with the campaign, and does not ask again on
-Continue. Explicit member references in console dialogue and objectives use
-the player's literal choice after the surrounding authored text is localized.
-
-The concrete presentation experiments currently in progress are kept in the
-short [development TODO](TODO.md).
 
 ## Build and run from source
 

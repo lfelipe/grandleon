@@ -1,169 +1,52 @@
 # Playing on Nintendo 64 and PlayStation
 
-Grandleon projects use the same campaign and combat rules on PC, Nintendo 64,
-and PlayStation. Console builds adapt the controls, graphics, saves, and file
-format to each machine; authors do not maintain a separate console version of
-their game.
+The bundled **Steel and Cedar** campaign uses the same maps, units and rules
+on PC, Android, Nintendo 64 and PlayStation. The console builds play locally
+with one or two controllers.
 
-## Current 0.5 transition
+## Start a game
 
-The console players are in the middle of an engine transition. Nintendo 64 is
-moving to Pyrite/Tiny3D and PlayStation is moving to Mipsync. Grandleon keeps
-one path per console: these engines are not optional experiments selected at
-export time, and the removed renderers are not kept as fallbacks.
+- **Nintendo 64**. Open the `.z64` ROM in a compatible emulator, FPGA system
+  or flash cartridge. The game uses SRAM saves.
+- **PlayStation**. Keep the `.bin` and `.cue` together and open the `.cue` in a
+  compatible emulator or FPGA system. Use a memory card to save. The disc
+  image has no Sony licence sector and needs compatible hardware.
 
-The transition is complete for a feature only when the exported ROM or disc
-can perform the same player-facing behavior as Godot. For 0.5 that includes
-the full campaign flow, saves, one- and two-player ownership, tactical actions,
-objectives and reinforcements, scrolling, help and settings, authored
-deployment, close combat, localization and player names, and the castle's
-hidden-area reveal. Visual polish may differ by machine and will continue to
-improve after functional parity.
+Choose **New Game**, then **1 Player** or **2 Players** if the campaign offers
+both. A formation screen appears when a battle needs a deployment choice.
+**Help** on the title screen shows the controls.
 
-## 0.6 graphics and performance work
+## Controls and settings
 
-0.6 focuses on Windows builds and the remaining graphics and performance
-backlog across all three players. Console work includes PS1 frame pacing,
-richer terrain and landmarks, animation and background motion, clearer UI,
-and measured texture/memory use while targeting 30 fps. Review normal campaign
-exports on hardware as well as in emulators. See [the 0.6 checklist](../TODO.md#06).
+| Action | Nintendo 64 | PlayStation |
+| --- | --- | --- |
+| Move the cursor | D-pad or left stick | D-pad or left stick |
+| Confirm | A | Cross |
+| Go back | B | Circle |
+| Open the game menu | Start | Start |
 
-## Controls and battle planning
+Select a unit to see its movement range. Attack highlights legal enemies and
+shows health, damage, hit chance and possible counterattacks before you commit.
+Confirm skips the opening stage sweep. Toggle **Battle Close-ups** and adjust
+**Music** and **Sound Effects** independently in **Settings**. You can enable
+the FPS counter from the in-game menu.
 
-Use the D-pad or left analog stick to move the cursor. Directions follow the
-screen on both consoles. Nintendo 64 uses **A** to confirm and **B** to go
-back; PlayStation uses **Cross** and **Circle**. **Start** opens the game menu.
+Games that include translations offer **Language** in Settings. **Steel and
+Cedar** ships with English, Spanish and Brazilian Portuguese. When a campaign
+lets you name a character, the controller keyboard accepts up to 18 visible
+characters. **Start** saves, **Default** restores the authored name, and
+**C-Up** on Nintendo 64 or **Triangle** on PlayStation keeps the current name.
 
-Selecting a unit shows where it can move. After moving, choose an action.
-**Attack** appears only when a legal enemy is in reach and focuses a viable
-target automatically. The forecast shows the target's health, damage, hit
-chance and possible counterattack before you confirm. Menus choose a corner
-that leaves the selected unit and target visible.
+## Export your campaign
 
-Close-ups work for both armies. Attackers and defenders keep their sides
-during counterattacks, and defeated characters remain visible until their
-combat animation ends. Story panels show the speaking character; long lines
-continue on another page before advancing to the next speaker.
+In the desktop editor, open **Finish & Export**. Install the optional builder
+for each console you want to target. Nintendo 64 produces a `.z64` ROM.
+PlayStation produces a `.bin` and matching `.cue`.
 
-The title and in-game **Settings** have separate saved **Music** and
-**Sound Effects** sliders. There is no master-volume control.
+- [Set up the optional console builders](SETUP.md#console-builds)
+- [See the map and hardware limits while creating a game](CREATING_A_GAME.md#share-a-playable-game)
 
-## Language during play
-
-A translated game adds **Language** to the live Settings menu on both consoles.
-Changing it immediately updates the compact interface and package-authored
-title, stage, objective, dialogue, company, and content names; missing or
-outdated translations continue to use the current source copy. The selected
-language is stored with presentation settings, while an older settings save
-still loads safely. The Nintendo 64 reads the catalog directly from the GPK;
-the PlayStation exporter writes the same reviewed strings into each campaign
-executable. No retired renderer or separate console translation file is used.
-
-The Steel and Cedar demo includes English, Spanish and Brazilian Portuguese.
-Games with only one authored language hide the language selector. Authored accents are preserved on all three players, including Portuguese
-cedillas and tildes and Spanish accented letters and inverted punctuation.
-
-Title, launch, help, pause, Settings, naming, tactical actions and results,
-deployment, aftermath, and error copy is available in English, Spanish, and
-Brazilian Portuguese. Automated checks keep those labels inside the shared
-console glyph set and the measured PlayStation panels.
-
-## Choosing a character name
-
-If an author marks a character as player-nameable, the consoles show a small
-controller keyboard when that character first joins. A console name can use up
-to 18 visible characters. **Start** saves, the on-screen **Default** key restores
-the authored translated name, and **C-Up** on Nintendo 64 or **Triangle** on
-PlayStation keeps the current name without writing. Fixed-name characters skip
-the screen, and loading an existing campaign never repeats the founding prompt.
-The choice is part of the normal portable campaign save, not console-specific
-renderer data. Explicit `{{member:character_id}}` references in authored
-dialogue and objectives show the chosen literal after the surrounding text is
-localized. A malformed or unknown reference stays visible for the author to
-fix.
-
-## Showcase campaigns
-
-**Sevenfold Gate** is the compact 0.4 showcase built to make the art range easy
-to inspect. Its seven stages include:
-
-- all seven character themes and all eight unit roles;
-- male and female characters on both sides;
-- every terrain kind across maps with different shapes and routes;
-- one-player and local two-player play; and
-- movement, conversation, attacks, counterattacks, misses, damage, and defeat.
-
-Review builds include a Stage picker. The picker lets a reviewer jump between
-gates without replaying the entire campaign; it does not change the content of
-the stages. Both console battle menus can show live FPS. The counter begins off
-in every ROM or disc image and stays a session-local testing preference.
-
-Choosing **1 Player** leads to the save choice and then the first playable
-stage. Founding or resuming a campaign no longer pauses on a separate roster
-summary. A fixed ready-to-play company, including characters carrying their
-normal equipment, does not stop at a roster summary. A deployment screen
-appears when the stage needs a deployment choice. Shared campaign supplies and
-rewards currently need Godot: console export refuses them until the console
-players can give those supplies to characters. Personal starting equipment
-remains supported.
-**Help** is available from the title screen instead of appearing as a mandatory
-page. Choosing **2 Players** retains each unit's authored local owner, with one
-independent cursor and menu state per controller.
-
-## Graphics
-
-Each console has one renderer. It uses smaller versions of the curated Godot
-character sheets, applies the authored faction colour through the same team
-masks, and draws those characters over shaped, textured tactical terrain.
-Movement and attack poses come from the same animation sheets rather than a
-separate pixel roster. Tactical figures use about one and a half cells of
-height, keeping the silhouettes readable without hiding as much of the
-neighbouring terrain.
-Steel and Cedar's authored 2×2 village houses and ancient groves have their
-own connected silhouettes on both consoles rather than appearing as ordinary
-mountains. They remain impassable mountain terrain in the game rules. The
-console drawing is made from a few primitives over the existing terrain cell,
-so these landmarks add no texture upload or VRAM allocation. On PlayStation,
-the terrain textures follow a continuous low-poly surface and units, trees,
-and the cursor follow its height rather than floating over a flat board.
-
-The title features the Grandleon sword mark. Framed menus, focus rows, health
-meters and the platform's own button prompts keep the interface readable.
-Battle panels move away from the units involved in the current action.
-
-During combat, the renderer can show the attacker and defender against a
-terrain backdrop before returning to the unchanged tactical board. Characters
-keep the same left/right positions for an attack and its counterattack. The
-close view now establishes the matchup before impact and holds the damage or
-miss afterward, so an exchange remains readable on hardware.
-
-Console exports contain this renderer and its project-selected artwork only.
-There is no renderer selector or alternate character-art path in an exported
-game.
-
-Console graphics remain deliberately lighter than Godot's presentation. The
-current priorities are readable units and walkable cells, stable performance,
-clear selection and movement ranges, and smooth transitions. Terrain variety,
-effects, animation, close scenes, and interface artwork will continue to
-improve before 1.0.
-
-## Export a game
-
-Open **Finish & Export** in the Godot creator. With the matching optional
-builder installed, Grandleon can produce:
-
-- a Nintendo 64 `.z64` ROM; or
-- a PlayStation `.bin` file with its matching `.cue` file.
-
-The builders are separate downloads because their pinned toolchains are large.
-Once installed, they work offline. A battle can field at most 48 characters on
-either console; the creator warns about that console limit without preventing
-the project from being played on PC.
-
-The PlayStation image intentionally omits Sony's licence sector. It works with
-compatible emulators and FPGA systems but does not boot on an unmodified retail
-PlayStation. Keep each `.bin` and `.cue` together and open the `.cue`.
-
-Platform-specific controls, build commands, and verification are in the
-[Nintendo 64 guide](../platform/nintendo64/README.md) and
-[PlayStation guide](../platform/playstation/README.md).
+Nintendo 64 uses Pyrite/Tiny3D. PlayStation uses Mipsync. Both use art adapted
+from the Godot player and target 30 FPS. PlayStation can still scroll slowly
+on large boards, particularly around dense castle scenery. Test on your
+intended hardware before sharing a campaign.

@@ -3,7 +3,7 @@
   "source_base": "7af8d7e67682da07721354f0c5852fc4da1ba8b7",
   "upstream_commit": "09a44c8",
   "patch": {
-    "path": "tools/upstream_patches/engines/mipsync/0006-Avoid-recopying-retained-PS1-packet-fragments-in-place.patch",
+    "path": "https://github.com/KasaBranca/Mipsync/commit/39313dc2a3025e785cd2e4ba21f45cecc7e1f17a",
     "sha256": "4ef3acbc57c9a2b6f69d4a89f92b5d5c45cc1c8ef9bf86b654e68482c022460b"
   },
   "design": "Reuse payload and internal links only when CPU storage and DMA bases are both unchanged. Always merge bucket tails into current-frame ordering-table predecessors. Distinct storage or changed DMA bases retain the original copy/relocation behavior. No application, geometry, asset, gameplay, input, audio, capacity or test-threshold changes.",

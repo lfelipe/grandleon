@@ -1,130 +1,23 @@
 # Console engine patches
 
-Pyrite and Mipsync are upstream projects. Grandleon should consume pinned,
-reviewed versions of them—not quietly grow private engine forks inside the game
-repository.
+Grandleon builds Nintendo 64 games with Pyrite and PlayStation games with
+Mipsync. Each engine directory records the upstream repository and exact
+revision in `upstream.env`. Its `series` file lists the patches in application
+order.
 
-This directory keeps the few engine fixes we need as ordinary `git
-format-patch` files. Each engine has:
+The build applies the Mipsync series to a clean source checkout. The Nintendo
+64 build also applies its patch to the engine source that the pinned Pyrite
+CLI puts in the generated game project. Game-specific code lives under
+`platform/`.
 
-- `upstream.env`: the repository and exact base commit;
-- `series`: patch filenames in application order;
-- one patch per upstream-ready commit.
-
-Grandleon-specific adapters, art conversion, campaign loading and game UI stay
-under `platform/`. They do not belong in these patches.
-
-## Current Mipsync version
-
-Mipsync is pinned to upstream commit `58dfc4d`, which merges
-[PR #2](https://github.com/KasaBranca/Mipsync/pull/2). Both our earlier fixes from
-[PR #1](https://github.com/KasaBranca/Mipsync/pull/1) and the six renderer,
-texture-safety and packet-reuse changes from PR #2 are now upstream. Their local
-patch copies have been removed. The maintainer reports a passing native Windows
-Release build and all 45 registered upstream tests on the merged revision.
-
-One local patch remains: optional lossless zero-run encoding for PS1 textures.
-It keeps encoded artwork resident and decodes into a bounded upload buffer,
-preserving the original pixels and checking malformed streams before GPU work.
-The patch includes portable decoding, palette and upload-lifetime regressions.
-It has not been submitted upstream.
-
-Grandleon's cache policy, content conversion and runtime adapters remain here;
-those are separate from the generic upstream hooks. The new pin plus the one
-remaining patch has the exact same source tree as our previous seven-patch
-build. See the [refresh validation](../renderer_comparison/mipsync-refresh-06.json)
-for local test and export results.
-
-## Making an engine fix
-
-1. Clone the upstream repository (or your fork) separately.
-2. Check out the revision in that engine's `upstream.env` and create a topic
-   branch.
-3. Make one generic fix per commit. Add the smallest upstream test or static
-   check that proves it.
-4. Run the upstream project's own checks.
-5. Export the topic without rewriting this directory yet:
-
-   ```sh
-   tools/upstream_patches/manage.sh export mipsync \
-     /path/to/Mipsync /tmp/mipsync-patches
-   ```
-
-6. Review the generated patches and `export-metadata.env`. Copy the approved
-   patches into `engines/mipsync/`, replace its `series`, then verify:
-
-   ```sh
-   tools/upstream_patches/manage.sh verify mipsync
-   tools/upstream_patches/manage.sh check mipsync /path/to/clean/Mipsync
-   ```
-
-Use `pyrite` instead of `mipsync` for N64 work. `check` clones into a temporary
-directory, resets to the pin and applies the whole series with `git am`; it does
-not modify the source checkout supplied to it.
-
-## Commit boundaries
-
-Keep these changes reviewable as separate Grandleon commits:
-
-1. add or update the upstream patch series;
-2. update the pin if a deliberate rebase is required;
-3. integrate the patched engine into Grandleon;
-4. add or update game assets and captures.
-
-That split lets us submit the engine commits upstream later without dragging in
-Grandleon paths, generated assets or campaign behavior. Until an upstream fix
-is accepted and included in a new pinned revision, Grandleon applies the local
-series reproducibly. After acceptance, rebase the series onto the new pin and
-remove only patches that are actually present upstream.
-
-## Applying a series in a build
-
-The build wrapper should create a clean checkout at the pin, then run:
+To check the PlayStation series against a local upstream checkout, run:
 
 ```sh
-tools/upstream_patches/manage.sh apply pyrite /tmp/pyrite-source
+tools/upstream_patches/manage.sh verify mipsync
+tools/upstream_patches/manage.sh check mipsync /path/to/Mipsync
 ```
 
-`apply` refuses a dirty checkout or the wrong base revision. This prevents a
-successful local build from depending on unrecorded engine edits.
-
-Nintendo 64 exports use the pinned Pyrite CLI release, which copies its engine
-into the generated project. The project's Makefile applies the same display
-timing patch to that copy before compiling the engine. The patch also applies
-to the pinned Pyrite source checkout with `manage.sh check`.
-
-## Production cutover
-
-Parity work may keep the legacy console player as an explicit comparison
-baseline. It must never become a silent fallback for the new player. The
-cutover is one deliberate change that:
-
-- points the platform's export command only at the new engine;
-- fails the export when that engine or its pinned inputs are unavailable;
-- embeds a stable renderer identity in every ROM or disc executable;
-- deletes the old renderer's source, art and build references;
-- runs a source-and-artifact gate proving those conditions.
-
-Add a small platform-owned TSV contract when each console is ready. Run it on
-the exact release artifact:
-
-```sh
-tools/upstream_patches/cutover-audit.sh \
-  platform/nintendo64/pyrite/cutover-contract.tsv "$PWD" game.z64
-```
-
-The contract format is tab-separated:
-
-```text
-engine	pyrite
-required-path	platform/nintendo64/pyrite
-forbidden-path	platform/nintendo64/src/old_renderer.cpp
-forbidden-text	platform/nintendo64/scripts	old_renderer|legacy_renderer
-artifact-text	GRANDLEON_RENDERER=pyrite
-```
-
-`required-path` proves the replacement is present. `forbidden-path` and
-`forbidden-text` prove the old path cannot be reached. `artifact-text` checks a
-literal marker embedded in the built binary. The audit refuses incomplete
-contracts, missing artifacts and missing identity markers, so a broken new
-renderer cannot quietly ship an old one instead.
+Use `pyrite` for Nintendo 64. The check applies the series in a temporary
+checkout and leaves the supplied checkout intact. See
+[Setting up](../../docs/SETUP.md#console-builds) for the full build and test
+commands.

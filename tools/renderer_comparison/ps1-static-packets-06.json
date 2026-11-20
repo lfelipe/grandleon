@@ -9,7 +9,7 @@
     "platform/playstation/mipsync/runtime/game_bridge.cpp": "29dce454e8db01ff1b0a30f26d563e1bb67064f7e6d58ce0f565040409df46cd",
     "platform/playstation/mipsync/runtime/game_bridge.h": "c872f16c342fac6278faff72a9cfd3a87509b099a17b7973c78711efd94b4d5f",
     "tools/upstream_patches/engines/mipsync/series": "058fcadd0eb78b5112c86506861bf0286d10a6959e6d2895d8611905122058b9",
-    "tools/upstream_patches/engines/mipsync/0005-Add-opt-in-PS1-entity-packet-reuse-hooks.patch": "8725be072aa230f960dbf4bc59773bff321ef74abbcf82d3f6bd33c12c79dedb"
+    "https://github.com/KasaBranca/Mipsync/commit/53907ecd2b47b8be349b1d2fb9ef4b85172629b4": "8725be072aa230f960dbf4bc59773bff321ef74abbcf82d3f6bd33c12c79dedb"
   },
   "design": "Two application-owned immutable command fragments: primary board surface and active architecture page. Exact entity/camera keys, original submission positions, current-frame bucket-tail merging, existing two packet arenas. Dynamic units, foliage, UI and camera/combat motion keep normal drawing. Unsupported parents, point lights, engine animations/VM bindings and prerender occluders opt out. No gameplay or test-threshold changes.",
   "upstream": {

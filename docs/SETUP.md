@@ -2,10 +2,11 @@
 
 ## Making or playing a game
 
-Use the Linux PC release. The same application contains the Godot player and
-the supported creator. Choose **Create / Edit Games** and follow
-[Creating a game](CREATING_A_GAME.md). You do not need a source checkout,
-system-wide Godot installation, container runtime, or network service.
+Get Grandleon from [Downloads](https://github.com/lfelipe/grandleon/releases).
+The Linux and Windows bundles include the player and creator. Extract the
+archive and run `launch-pc.sh` on Linux or `launch-pc.cmd` on Windows. The
+Android preview includes both tools too. Choose **Create / Edit Games** and
+follow [Creating a game](CREATING_A_GAME.md).
 
 To build that application from a checkout:
 
@@ -23,8 +24,7 @@ exports become available when their optional builder payload is installed.
 
 ### Windows builds for 0.6
 
-Windows support is in development for 0.6; there is no official Windows download
-yet. To build the creator, put Git, Python 3.11 or newer, CMake, Ninja and a
+To build the Windows bundle from source, put Git, Python 3.11 or newer, CMake, Ninja and a
 MinGW-w64 compiler with C++ threading support on your PATH, then run:
 
 ```powershell
@@ -213,7 +213,12 @@ The dev container is an optional equivalent environment. It runs
 
 ## Console builds
 
-Console builds use pinned containers. Install any Docker-compatible runtime,
+To export from the editor, extract each optional builder into the `builders`
+folder beside the desktop launcher. For example, the N64 manifest goes at
+`builders/nintendo64/builder.json`. Linux uses Bubblewrap. On Windows, see
+[Optional console builders on Windows](#optional-console-builders-on-windows).
+
+To work on the console code, use the pinned containers. Install any Docker-compatible runtime,
 then configure CMake with its command name if it is not `docker`:
 
 ```sh
