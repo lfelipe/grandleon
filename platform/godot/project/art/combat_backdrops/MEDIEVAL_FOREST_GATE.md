@@ -61,5 +61,4 @@ Variant 2: an after-rain forest crossroads with weathered standing stones and fr
 
 The Godot import, conversation-backdrop smoke, combat-cinematic smoke, and
 production Steel and Cedar capture must pass before these images are treated
-as reviewed. The private review page should show runtime conversation and
-combat frames rather than the raw panoramas.
+as reviewed. Use runtime conversation and combat captures for visual review.

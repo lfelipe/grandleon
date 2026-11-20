@@ -62,7 +62,7 @@ move into the revealed room, followed by a camera-settling pause. The driver
 does not alter visibility: normal campaign movement must reveal the room
 first. The full campaign passed again at 30.00 fps, with 1,258,880 bytes of
 free heap. The settled room frame is
-`/home/lstrano/.cache/grandleon-pyrite-surface-quality/ares/room-trail/112-PYRITE_CASTLE_ROOM_REVIEW.png`.
+`~/.cache/grandleon-pyrite-surface-quality/ares/room-trail/112-PYRITE_CASTLE_ROOM_REVIEW.png`.
 
 The latest graphics review adds filtered detail to raised terrain, trees,
 elevation faces, and castle masonry, plus compatible Godot panorama plates
@@ -71,7 +71,7 @@ base 4 MiB RAM: all five battles, 290 commands, 170 opposing commands, five
 combat presentations, and the 18-cell castle closed/revealed checkpoints.
 The final 120-frame sample measured 30.00 fps, a 33,997 microsecond maximum,
 and 1,263,256 bytes of free heap. Evidence and transition frames are under
-`/home/lstrano/.cache/grandleon-pyrite-surface-quality/ares/final*`.
+`~/.cache/grandleon-pyrite-surface-quality/ares/final*`.
 
 Validated on 2026-11-09 with the pinned Pyrite, libdragon, Tiny3D and ares
 versions recorded in this directory.
@@ -128,8 +128,8 @@ RESULT PASS PYRITE_GAMEPLAY
 
 Evidence remains outside source control:
 
-- demo ROM: `/home/lstrano/.cache/grandleon-pyrite-30fps-demo/`
-- Steel ROM: `/home/lstrano/.cache/grandleon-release05-20261109/nintendo64/`
+- demo ROM: `~/.cache/grandleon-pyrite-30fps-demo/`
+- Steel ROM: `~/.cache/grandleon-release05-20261109/nintendo64/`
 - accurate-emulator logs and named frames: `build-n64/ares/`
 
 The ares evidence directory contains each emulator log, final screenshot,
