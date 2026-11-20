@@ -536,6 +536,23 @@
       "heap_free_on_entering_twin_gate_bytes": 80096,
       "heap_free_after_campaign_bytes": 68528
     },
-    "decision": "Batch the existing terrain form geometry and reserve the largest reachable map once at startup. Batching reduces average submission time on the denser boards without a material change in presentation rate. The previous allocator could not grow into a contiguous region after the village."
+    "decision": "Batch the existing terrain form geometry and reserve the largest reachable map once at startup. Batching reduces average submission time on the denser boards without a material change in presentation rate. The previous allocator could not grow into a contiguous region after the village.",
+    "three_courts": {
+      "rom": "out/n64-form-batching06/fixed-large/platform/nintendo64/grandleon_n64.z64",
+      "sha256": "b4ba5bfc1b9945bd641e02994ee0d7df36639d51b5bd4650c6ec1352d331b8e5",
+      "scope": "Normal 32 \u00d7 24 Three Courts ROM in 4 MiB Ares. Ordinary controller input opens nine of 170 covered cells, then verifies horizontal and vertical scrolling.",
+      "players": {
+        "1": {
+          "log": "out/n64-form-batching06/fixed-large-scroll-1p/ares/castle.log",
+          "entry_capture": "out/n64-form-batching06/fixed-large-scroll-1p/ares/castle-entry.png",
+          "far_corner_capture": "out/n64-form-batching06/fixed-large-scroll-1p/ares/castle-far-corner.png"
+        },
+        "2": {
+          "log": "out/n64-form-batching06/fixed-large-verified-2p/ares/castle.log",
+          "entry_capture": "out/n64-form-batching06/fixed-large-verified-2p/ares/castle-entry.png",
+          "far_corner_capture": "out/n64-form-batching06/fixed-large-verified-2p/ares/castle-far-corner.png"
+        }
+      }
+    }
   }
 }
