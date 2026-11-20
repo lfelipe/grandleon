@@ -130,8 +130,6 @@ struct BoardResources final {
     std::vector<sim::Event> battle_events;
     sim::Event discovery{};
     std::uint32_t discovery_frame{};
-    T3DVertPacked* terrain_vertex_arena{};
-    std::size_t terrain_cell_capacity{};
     T3DVertPacked* cells{};
     T3DVertPacked* ground{};
     std::vector<std::uint16_t> water_quads;
@@ -1332,7 +1330,7 @@ void append_elevation_face(
     std::uint32_t colour,
     const fm_vec3_t& normal
 ) {
-    assert(board.elevation_vertex_count + 4U <= board.terrain_cell_capacity * kElevationVerticesPerCell);
+    assert(board.elevation_vertex_count + 4U <= grandleon_project_max_map_cells * kElevationVerticesPerCell);
     const std::uint16_t packed_normal = t3d_vert_pack_normal(&normal);
     const std::size_t first = board.elevation_vertex_count;
     set_vertex(board.elevation, first + 0U, x0, bottom, z0, darken(colour, 128U), 0, 0, packed_normal);
@@ -1772,7 +1770,7 @@ void build_visibility_vertices() {
         const std::uint32_t colour = (index & 1U)
             ? pack_rgba(91U, 48U, 43U) : pack_rgba(109U, 59U, 49U);
         const std::size_t first = board.visibility_vertex_count;
-        assert(first + 4U <= board.terrain_cell_capacity * kCellVertexCount);
+        assert(first + 4U <= grandleon_project_max_map_cells * kCellVertexCount);
         set_vertex(board.visibility, first + 0U, cx - kHalfCell, roof,
             cz - kHalfCell, colour, 0, 0, normal);
         set_vertex(board.visibility, first + 1U, cx + kHalfCell, roof,
@@ -2368,26 +2366,19 @@ void build_cursor_vertices() {
     board.cursor_vertex_count = first;
 }
 
-// Keep the ground, elevation faces and roof covers together. Their lifetimes
-// match the encounter; small maps need not reserve the largest map's arenas.
-void reserve_terrain_vertices(std::size_t cells) {
-    assert(cells > 0U && cells <= kMaxCells);
-    if (cells <= board.terrain_cell_capacity) return;
+// Reserve the largest reachable map while the heap is still contiguous.
+// Every encounter reuses the same ground, elevation and roof buffers.
+void allocate_terrain_vertices() {
+    constexpr auto cells = grandleon_project_max_map_cells;
+    static_assert(cells > 0U && cells <= kMaxCells);
     constexpr auto vertices_per_cell = kCellVertexCount * 2U + kElevationVerticesPerCell;
     constexpr auto bytes_per_cell = sizeof(T3DVertPacked) * vertices_per_cell / 2U;
     static_assert(bytes_per_cell == pr::target_budget::nintendo64_terrain_bytes_per_cell);
     const auto bytes = cells * bytes_per_cell;
-    // The old board is finished. Free its arena after the RSP drains so a
-    // growing board never has to fit both terrain buffers into base memory.
-    rspq_wait();
-    if (board.terrain_vertex_arena) free_uncached(board.terrain_vertex_arena);
-    auto* replacement = static_cast<T3DVertPacked*>(malloc_uncached(bytes));
-    assertf(replacement, "Authored terrain exceeds available Nintendo 64 memory");
-    board.terrain_vertex_arena = replacement;
-    board.terrain_cell_capacity = cells;
-    board.cells = replacement;
-    board.elevation = replacement + cells * kCellVertexCount / 2U;
-    board.visibility = replacement + cells * (kCellVertexCount + kElevationVerticesPerCell) / 2U;
+    board.cells = static_cast<T3DVertPacked*>(malloc_uncached(bytes));
+    assertf(board.cells, "Authored terrain exceeds available Nintendo 64 memory");
+    board.elevation = board.cells + cells * kCellVertexCount / 2U;
+    board.visibility = board.cells + cells * (kCellVertexCount + kElevationVerticesPerCell) / 2U;
     debugf("GRANDLEON_N64_TERRAIN_BUFFER cells=%lu bytes=%lu\n",
            static_cast<unsigned long>(cells), static_cast<unsigned long>(bytes));
 }
@@ -2404,6 +2395,7 @@ void load_runtime_board() {
     );
     assertf(static_cast<bool>(presentation), "Project presentation is malformed");
     board.presentation = presentation.presentation;
+    allocate_terrain_vertices();
     board.ground = static_cast<T3DVertPacked*>(malloc_uncached(
         sizeof(T3DVertPacked) * (kGroundVertexCount / 2U)));
     board.apron = static_cast<T3DVertPacked*>(malloc_uncached(
@@ -2573,12 +2565,11 @@ void configure_campaign_board(const pr::EncounterLoadResult& content) {
     board.rowan_id = 0U;
     board.tomas_id = 0U;
     assertf(
-        content.terrain.size() <= kMaxCells &&
+        content.terrain.size() <= grandleon_project_max_map_cells &&
             content.definition.units.size() <= kMaxUnits,
         "Authored battle exceeds Pyrite base-memory board limits"
     );
     board.game = {};
-    reserve_terrain_vertices(content.terrain.size());
     for (std::size_t index = 0; index < content.placements.size(); ++index) {
         if (index >= content.definition.units.size()) break;
         const sim::UnitDefinition& unit = content.definition.units[index];

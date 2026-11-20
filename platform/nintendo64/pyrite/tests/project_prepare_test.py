@@ -106,7 +106,9 @@ def main() -> None:
         assert '"grandleon.steel_and_cedar"' in steel_header
         assert "steel_and_cedar" not in demo_header
         assert count(demo_header, "grandleon_project_encounter_count") == 1
-        assert count(steel_header, "grandleon_project_encounter_count") == 5
+        assert count(steel_header, "grandleon_project_encounter_count") == 7
+        assert count(demo_header, "grandleon_project_max_map_cells") == 24
+        assert count(steel_header, "grandleon_project_max_map_cells") == 280
         assert "6 drawings, 6 terrain kinds" in demo_log
         assert "12 drawings, 9 terrain kinds" in steel_log
         assert len(list((demo / "assets").glob("unit_*.png"))) == 66

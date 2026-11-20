@@ -241,17 +241,20 @@ def prepare(project_path: Path, manifest_path: Path, project_root: Path,
     campaign, encounters = reachable_campaign(project)
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     maps = selected_maps(project, encounters)
+    max_map_cells = 0
     # Reject unsupported layouts before producing any cartridge assets. A
     # compiled package can be larger than this renderer's current buffers.
     for value in maps:
         width, height = int(value.get("width", 0)), int(value.get("height", 0))
-        if width * height > MAX_BOARD_CELLS:
+        cells = width * height
+        if cells > MAX_BOARD_CELLS:
             raise ProjectError(
                 f"map {value.get('name') or value.get('id')!r} is {width}×{height} "
-                f"({width * height} cells); the current Nintendo 64 renderer "
+                f"({cells} cells); the current Nintendo 64 renderer "
                 f"supports at most {MAX_BOARD_CELLS} cells. "
                 "Use a smaller console map or test this layout in Godot."
             )
+        max_map_cells = max(max_map_cells, cells)
 
     kinds = sorted({
         terrain_kind(str(cell))
@@ -399,6 +402,7 @@ inline constexpr char grandleon_project_save_2p[] = {cpp_string(save_base + '_2p
 inline constexpr std::uint64_t grandleon_project_campaign_id = {stable_id(campaign_id)}ULL;
 inline constexpr std::uint64_t grandleon_project_first_encounter_id = {stable_id(campaign_id + '/' + first_encounter)}ULL;
 inline constexpr std::size_t grandleon_project_encounter_count = {len(encounters)}U;
+inline constexpr std::size_t grandleon_project_max_map_cells = {max_map_cells}U;
 inline constexpr std::array<std::uint64_t, {len(encounters)}> grandleon_project_encounter_ids{{{{
     {','.join(str(stable_id(campaign_id + '/' + str(value.get('id')))) + 'ULL' for value in encounters)}
 }}}};

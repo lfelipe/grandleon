@@ -565,6 +565,10 @@ the frame budget. The strict performance checks remain open.
 
 ### Review and release checks
 
+- [x] Keep the Nintendo 64 terrain arena available through the final battle.
+  Reserve space for the largest reachable map at startup. Steel and Cedar's
+  full solo main route now reaches victory in base 4 MiB Ares, including
+  Twin Gate Keep. [Replay and memory measurements](tools/renderer_comparison/n64-active-board-timing-06.json)
 - [x] Reject failed or incomplete N64 controller scripts, container errors and
   emulator failures even when an interactive ROM's timeout is expected.
 - [x] Carry the authored deployment capacity into PlayStation and let players

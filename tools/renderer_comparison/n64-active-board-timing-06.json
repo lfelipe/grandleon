@@ -378,5 +378,164 @@
   },
   "review_final_sample": "GRANDLEON_PYRITE_GAMEPLAY frames=120 avg_frame_us=33335 min_frame_us=22626 max_frame_us=33975 fps_x100=3000 heap_used=2007568 heap_total=2262808 heap_free=255240 rdram=4194304 battles=5 commands=287 enemy_commands=165 combat=5 trees=122 forms=194 slot_bytes=1340 hash=600017321675168062",
   "validation": "Full five-battle native campaign driver passed; commands 287 and enemy commands 165 and final canonical hash 600017321675168062 equal the preceding mixed-forest review. The 18-cell castle reveal remains complete. Base 4 MiB. Not a new physical hardware or two-player review.",
-  "finding": "Bell Orchard averages 40.292 ms between active updates (~24.8Hz), including 42.981 ms settled (~23.3Hz). Deepwood averages 33.382 ms (~30Hz). The post-campaign 30 fps number did not characterize actual play. No new 30 fps pass assertion is claimed."
+  "finding": "Bell Orchard averages 40.292 ms between active updates (~24.8Hz), including 42.981 ms settled (~23.3Hz). Deepwood averages 33.382 ms (~30Hz). The post-campaign 30 fps number did not characterize actual play. No new 30 fps pass assertion is claimed.",
+  "terrain_submission_and_late_campaign_retest": {
+    "source_base": "96788447",
+    "scope": "Full Steel and Cedar solo main route, with the normal campaign and the existing review driver in base 4 MiB Ares. Matched stages before the finale use the same controller-independent route. The timings are emulator observations.",
+    "reference": {
+      "rom": "out/n64-form-batching06/reference-review/platform/nintendo64/grandleon_n64.z64",
+      "sha256": "c6c2937ccb7c6ba7b80814ac76fcfd1fe15f99c969949ff42fc5f1ebe9931e73",
+      "log": "out/n64-form-batching06/reference-review/ares/replay.log",
+      "stages": {
+        "1": {
+          "intervals": 771,
+          "interval_avg_us": 36251,
+          "interval_max_us": 69732,
+          "intervals_over_40ms": 28,
+          "submissions": 772,
+          "submit_avg_us": 4607,
+          "submit_max_us": 35404
+        },
+        "3": {
+          "intervals": 947,
+          "interval_avg_us": 33382,
+          "interval_max_us": 43282,
+          "intervals_over_40ms": 38,
+          "submissions": 948,
+          "submit_avg_us": 7537,
+          "submit_max_us": 15920
+        },
+        "5": {
+          "intervals": 1409,
+          "interval_avg_us": 33404,
+          "interval_max_us": 44914,
+          "intervals_over_40ms": 10,
+          "submissions": 1410,
+          "submit_avg_us": 8111,
+          "submit_max_us": 17610
+        },
+        "6": {
+          "intervals": 1013,
+          "interval_avg_us": 33432,
+          "interval_max_us": 47368,
+          "intervals_over_40ms": 50,
+          "submissions": 1014,
+          "submit_avg_us": 21491,
+          "submit_max_us": 26344
+        }
+      },
+      "outcome": "terrain growth allocation failed entering the keep"
+    },
+    "batched_forms": {
+      "rom": "out/n64-form-batching06/batched-review/platform/nintendo64/grandleon_n64.z64",
+      "sha256": "ebe17377ecade3c33a56c56c996225a1da4d9d1586296257ae5cff4a6eba3a0d",
+      "log": "out/n64-form-batching06/batched-review/ares/replay.log",
+      "stages": {
+        "1": {
+          "intervals": 771,
+          "interval_avg_us": 36181,
+          "interval_max_us": 69591,
+          "intervals_over_40ms": 23,
+          "submissions": 772,
+          "submit_avg_us": 4486,
+          "submit_max_us": 35241
+        },
+        "3": {
+          "intervals": 947,
+          "interval_avg_us": 33382,
+          "interval_max_us": 43631,
+          "intervals_over_40ms": 113,
+          "submissions": 948,
+          "submit_avg_us": 7490,
+          "submit_max_us": 15630
+        },
+        "5": {
+          "intervals": 1409,
+          "interval_avg_us": 33404,
+          "interval_max_us": 45964,
+          "intervals_over_40ms": 9,
+          "submissions": 1410,
+          "submit_avg_us": 7706,
+          "submit_max_us": 17632
+        },
+        "6": {
+          "intervals": 1013,
+          "interval_avg_us": 33404,
+          "interval_max_us": 48375,
+          "intervals_over_40ms": 36,
+          "submissions": 1014,
+          "submit_avg_us": 20611,
+          "submit_max_us": 26027
+        }
+      },
+      "outcome": "terrain growth allocation failed entering the keep"
+    },
+    "batched_forms_and_early_reservation": {
+      "rom": "out/n64-form-batching06/fixed-review/platform/nintendo64/grandleon_n64.z64",
+      "sha256": "bd54051cbe37c64f223ecffab39078e288d43d541e72ae3a9e70261b0016be39",
+      "log": "out/n64-form-batching06/fixed-review/ares/replay.log",
+      "stages": {
+        "1": {
+          "intervals": 771,
+          "interval_avg_us": 36202,
+          "interval_max_us": 69351,
+          "intervals_over_40ms": 36,
+          "submissions": 772,
+          "submit_avg_us": 4536,
+          "submit_max_us": 35314
+        },
+        "3": {
+          "intervals": 947,
+          "interval_avg_us": 33379,
+          "interval_max_us": 50543,
+          "intervals_over_40ms": 109,
+          "submissions": 948,
+          "submit_avg_us": 7585,
+          "submit_max_us": 15637
+        },
+        "5": {
+          "intervals": 1409,
+          "interval_avg_us": 33401,
+          "interval_max_us": 46604,
+          "intervals_over_40ms": 9,
+          "submissions": 1410,
+          "submit_avg_us": 7784,
+          "submit_max_us": 17622
+        },
+        "6": {
+          "intervals": 1013,
+          "interval_avg_us": 33399,
+          "interval_max_us": 48138,
+          "intervals_over_40ms": 33,
+          "submissions": 1014,
+          "submit_avg_us": 20684,
+          "submit_max_us": 26115
+        },
+        "7": {
+          "intervals": 1296,
+          "interval_avg_us": 33401,
+          "interval_max_us": 41924,
+          "intervals_over_40ms": 1,
+          "submissions": 1297,
+          "submit_avg_us": 19389,
+          "submit_max_us": 22613
+        }
+      },
+      "outcome": "completed"
+    },
+    "production": {
+      "rom": "out/n64-form-batching06/fixed-production/platform/nintendo64/grandleon_n64.z64",
+      "sha256": "5f2df960e7ca1095bc7ea0ddd0a23474d6da3ffa6b59953c5b483490301b86e4",
+      "manual_start": "out/n64-form-batching06/fixed-normal-start/ares/manual.log",
+      "board_comparison": "out/n64-form-batching06/bell-orchard-board-comparison.png"
+    },
+    "early_terrain_arena": {
+      "maximum_reachable_cells": 280,
+      "allocated_bytes": 71680,
+      "rdram_bytes": 4194304,
+      "heap_free_on_entering_twin_gate_bytes": 80096,
+      "heap_free_after_campaign_bytes": 68528
+    },
+    "decision": "Batch the existing terrain form geometry and reserve the largest reachable map once at startup. Batching reduces average submission time on the denser boards without a material change in presentation rate. The previous allocator could not grow into a contiguous region after the village."
+  }
 }
