@@ -976,5 +976,126 @@
       ]
     },
     "decision": "Keep the separate baked ground build as a local prototype. It reduces long holds while scrolling and restores byte-identical imagery at rest. The cap alone is ineffective. Adding the cap to the final candidate makes scrolling slower and leaves the longest horizontal hold unchanged. The raw bake leaves little room in a 2 MiB stage budget, so general exports need a smaller resident representation and checks on more maps."
+  },
+  "baked_ground_stage_eligibility_review": {
+    "scope": "Independently compile and link the normal and baked variants of four altered 32 by 24 or larger castle scenes plus a cropped 30 by 22 scene. Test the normal build of every scene and the compact baked scene with co-op controller input and a local room reveal. Prior Three Courts measurements cover both player modes.",
+    "cases": {
+      "compact": {
+        "map": "The Three Courts within the walls",
+        "size": [
+          30,
+          22
+        ],
+        "units_coop": 11,
+        "normal_ram_committed_bytes": 2025692,
+        "normal_replay": "out/ps1-fallback-audit06/compact/normal-replay/emulator.log",
+        "candidate_build": "out/ps1-fallback-audit06/compact/baked/build.log",
+        "baked_geometry_generated": true,
+        "baked_ram_committed_bytes": 2064592,
+        "baked_ram_free_bytes": 32560,
+        "eligible_result": "baked ground available",
+        "timing": {
+          "normal": {
+            "horizontal": {
+              "fps": 10.32,
+              "worst_ms": 216.64
+            },
+            "vertical": {
+              "fps": 12.89,
+              "worst_ms": 183.31
+            }
+          },
+          "baked": {
+            "horizontal": {
+              "fps": 14.84,
+              "worst_ms": 116.65
+            },
+            "vertical": {
+              "fps": 21.7,
+              "worst_ms": 66.66
+            }
+          }
+        },
+        "equal_checkpoint_captures": [
+          "castle-closed.bin",
+          "castle-entry.bin",
+          "castle-far-corner.bin"
+        ]
+      },
+      "wide": {
+        "map": "Wider Three Courts",
+        "size": [
+          40,
+          24
+        ],
+        "units_coop": 11,
+        "normal_ram_committed_bytes": 2076268,
+        "normal_replay": "out/ps1-fallback-audit06/wide/normal-replay/emulator.log",
+        "candidate_build": "out/ps1-fallback-audit06/wide/baked/build.log",
+        "baked_geometry_generated": true,
+        "baked_ram_committed_bytes": 2117208,
+        "baked_ram_over_budget_bytes": 20056,
+        "eligible_result": "standard scrolling"
+      },
+      "roster": {
+        "map": "The Three Courts with a varied guard",
+        "size": [
+          32,
+          24
+        ],
+        "units_coop": 13,
+        "normal_ram_committed_bytes": 2084668,
+        "normal_replay": "out/ps1-fallback-audit06/roster/normal-replay/emulator.log",
+        "candidate_build": "out/ps1-fallback-audit06/roster/baked/build.log",
+        "baked_geometry_generated": true,
+        "baked_ram_committed_bytes": 2129704,
+        "baked_ram_over_budget_bytes": 32552,
+        "eligible_result": "standard scrolling"
+      },
+      "relief": {
+        "map": "The Three Courts with a rocky approach",
+        "size": [
+          32,
+          24
+        ],
+        "units_coop": 11,
+        "normal_ram_committed_bytes": 2054332,
+        "normal_replay": "out/ps1-fallback-audit06/relief/normal-replay/emulator.log",
+        "candidate_build": "out/ps1-fallback-audit06/relief/baked/build.log",
+        "baked_geometry_generated": true,
+        "baked_ram_committed_bytes": 2097344,
+        "baked_ram_over_budget_bytes": 192,
+        "eligible_result": "standard scrolling"
+      },
+      "bridge": {
+        "map": "The Three Courts with a crossing",
+        "size": [
+          32,
+          24
+        ],
+        "units_coop": 11,
+        "normal_ram_committed_bytes": 2056156,
+        "normal_replay": "out/ps1-fallback-audit06/bridge/normal-replay/emulator.log",
+        "candidate_build": "out/ps1-fallback-audit06/bridge/baked/build.log",
+        "baked_geometry_generated": false,
+        "eligible_result": "standard scrolling",
+        "reason": "The bake contains only ground. The normal floor owns the raised bridge and animated water. Exclude this map until those surfaces can stay live during a pan."
+      }
+    },
+    "release_campaign": {
+      "stages_reviewed": 7,
+      "baked_candidates_under_initial_geometry_rule": 0,
+      "reason": "The original prototype enables the bake on larger modular castles. The small encounters and bespoke Twin Gate Keep use the normal path."
+    },
+    "terrain_fidelity": "Keep bridges and moving water live. Measure the difference between the original and baked ground around unit feet, movement markers and doorways. The baked floor can be up to 6.75 native geometry units higher at tile centres in the 30 by 22 fixture. Pair a fidelity check with the hardware budgets.",
+    "export_plan": [
+      "Choose per encounter during export. Verify the normal stage build, try the baked stage in a separate work directory, and pack only the accepted stage executable into the disc.",
+      "Use the baked variant only when it supports the authored terrain and passes the linked RAM, VRAM layout, and renderer budgets, with the same audio, stack and gameplay heap reservations. Keep ordinary errors visible. If the bake is ineligible, keep the validated normal stage. If the normal stage exceeds hardware limits, report the export error.",
+      "Warn only when we tried to speed up a heavier scroll. Report the stage, reason and an actionable suggestion through the console builder warning list. Small maps and other stages outside the feature scope can use standard scrolling without a warning."
+    ],
+    "creator_warning_examples": [
+      "The Three Courts with a varied guard uses standard PlayStation scrolling. Smoother scrolling needs about 32 KiB more RAM. Reuse some unit appearances or trim unused map edges.",
+      "The Three Courts with a crossing uses standard PlayStation scrolling to preserve its bridge and moving water. Shorten long camera pans if scrolling feels slow."
+    ]
   }
 }
