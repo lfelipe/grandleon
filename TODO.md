@@ -510,6 +510,10 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   with at least 194 KiB extra headroom. Matching native movement captures
   preserve all 409 frames and the existing display-deadline result. Keep the
   open full-campaign performance and traversal checks below.
+- [x] Omit unused per-vertex normals from PS1 terrain. The Three Courts uses
+  42 KiB less RAM, with identical motion and room-reveal captures in both
+  player modes. All seven Steel and Cedar stages fit with the existing
+  reserves. [Measurements](tools/renderer_comparison/ps1-castle-scroll-06.json)
 - [ ] Continue checking PS1 command headroom on larger creator maps. The
   orchard combat probe exposed missing board scenery, while its sampled
   close view was unchanged. Keep future buffers and geometry within real RAM.

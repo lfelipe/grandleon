@@ -1,8 +1,8 @@
 # Mipsync PlayStation renderer
 
 This directory contains Grandleon's sole PlayStation renderer, built on
-Mipsync. It boots the full five-encounter Steel and Cedar
-campaign, saves and resumes on a PlayStation memory card, and supports both
+Mipsync. It boots Steel and Cedar, including its five main battles and two
+optional detours, saves and resumes on a PlayStation memory card, and supports both
 one- and two-player campaigns. Battles use the shared simulation for movement,
 Attack, equipped abilities, carried items, Talk, Wait, reinforcements,
 objectives, and package-authored opposing turns. Stage-opening, Talk, and
@@ -17,8 +17,8 @@ used as a fallback, and the removed renderer is not retained as one.
 
 Solo and co-op are generated from their complete authored encounter variants,
 not by removing Player 2 from the co-op battle. That preserves different
-starts, opposition, reinforcement timing and tuning. The campaign probe boots
-all five exact 1P definitions as well as the full 2P save-and-resume route.
+starts, opposition, reinforcement timing and tuning. The campaign probe drives
+both player modes and verifies memory-card resumes.
 
 Board movement follows the authoritative reachable route at ten presented
 frames per tile. It uses both authored walk poses, left/right facing, full-size
@@ -151,10 +151,9 @@ real one-player Twin Gate encounter, captures the covered room, walks Rowan
 through the door, and requires the authored 18-cell reveal before capturing
 the room again. Focused action probes drive a package-authored Talk conversation,
 consume a carried healing item only after the unit is wounded, and arrange a
-real unit inside an authored deployment area before starting battle. The campaign
-probe additionally starts, saves, resumes, and traverses all five encounters
-from the same disc in its complete one- and two-player forms. See
-`VALIDATION.md` for the current measurements and hashes.
+real unit inside an authored deployment area before starting battle. See
+`VALIDATION.md` for the 0.5 review and [this milestone's measurements](../../../TODO.md#performance-and-memory)
+for current results.
 
 For [The Three Courts](../../../games/steel_and_cedar/prototypes/README.md),
 run `tests/modular_castle_test.sh` with the exported stage manifest, disc
