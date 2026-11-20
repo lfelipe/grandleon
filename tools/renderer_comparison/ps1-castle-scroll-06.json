@@ -739,5 +739,242 @@
       "pre_cull_trial": "Early camera-frustum rejection of bounding spheres for static settlement meshes with identity rotation and scale. Both scrolling rates and their worst frame times are the same to the displayed precision. All three checkpoint captures match byte for byte. The run passes room reveal and both scroll axes.",
       "decision": "Skip a visibility table for this approach. Spend effort on geometry that is visible during camera movement."
     }
+  },
+  "scroll_cadence_and_baked_ground_trials": {
+    "source_base": "2d627807",
+    "scope": "Three Courts 32 by 24 normal campaign export. Controller inputs and room-reveal assertions match the original replay. Read-only PCSX-Redux capture times the real display swaps. The comparison movies align the start of each scrolling window.",
+    "method": "Bake the ground into four indexed texture pages and project a coarse mesh for it. Draw castle scenery, roof reveals, units and UI live. After a pan starts, keep the baked plate through short breaks in directional input, then restore the original floor after 16 game ticks of quiet. Keep the original floor entities and texture placement separate from the baked layer.",
+    "trials": {
+      "baseline_solo": {
+        "trace": "out/ps1-scroll-cadence06/settle-reference-solo/scroll-swaps.csv",
+        "windows": {
+          "room": {
+            "intervals": 32,
+            "fps": 13.24,
+            "median_ms": 83.32,
+            "worst_ms": 83.32
+          },
+          "horizontal": {
+            "intervals": 32,
+            "fps": 10.38,
+            "median_ms": 83.32,
+            "worst_ms": 199.97
+          },
+          "vertical": {
+            "intervals": 32,
+            "fps": 13.52,
+            "median_ms": 66.66,
+            "worst_ms": 133.31
+          }
+        }
+      },
+      "baseline_coop": {
+        "trace": "out/ps1-scroll-cadence06/settle-reference-coop/scroll-swaps.csv",
+        "windows": {
+          "room": {
+            "intervals": 28,
+            "fps": 11.28,
+            "median_ms": 83.32,
+            "worst_ms": 233.3
+          },
+          "horizontal": {
+            "intervals": 32,
+            "fps": 10.38,
+            "median_ms": 83.32,
+            "worst_ms": 183.31
+          },
+          "vertical": {
+            "intervals": 31,
+            "fps": 13.68,
+            "median_ms": 66.66,
+            "worst_ms": 133.31
+          }
+        }
+      },
+      "cap_only_coop": {
+        "trace": "out/ps1-scroll-cadence06/cadence/replay/scroll-swaps.csv",
+        "windows": {
+          "room": {
+            "intervals": 28,
+            "fps": 11.28,
+            "median_ms": 83.32,
+            "worst_ms": 233.3
+          },
+          "horizontal": {
+            "intervals": 32,
+            "fps": 10.38,
+            "median_ms": 83.32,
+            "worst_ms": 183.31
+          },
+          "vertical": {
+            "intervals": 29,
+            "fps": 12.89,
+            "median_ms": 66.66,
+            "worst_ms": 133.31
+          }
+        }
+      },
+      "hold_existing_detail_mode_and_cap_coop": {
+        "trace": "out/ps1-scroll-cadence06/hold-only-boot-safe/scroll-swaps.csv",
+        "windows": {
+          "room": {
+            "intervals": 27,
+            "fps": 11.33,
+            "median_ms": 83.32,
+            "worst_ms": 233.3
+          },
+          "horizontal": {
+            "intervals": 29,
+            "fps": 8.88,
+            "median_ms": 99.99,
+            "worst_ms": 166.64
+          },
+          "vertical": {
+            "intervals": 27,
+            "fps": 12.76,
+            "median_ms": 83.32,
+            "worst_ms": 116.65
+          }
+        }
+      },
+      "baked_with_immediate_restore_and_cap_coop": {
+        "trace": "out/ps1-scroll-cadence06/baked/replay/scroll-swaps.csv",
+        "windows": {
+          "room": {
+            "intervals": 27,
+            "fps": 11.25,
+            "median_ms": 83.32,
+            "worst_ms": 233.3
+          },
+          "horizontal": {
+            "intervals": 35,
+            "fps": 11.29,
+            "median_ms": 66.66,
+            "worst_ms": 333.28
+          },
+          "vertical": {
+            "intervals": 31,
+            "fps": 13.58,
+            "median_ms": 66.66,
+            "worst_ms": 249.96
+          }
+        }
+      },
+      "baked_with_retained_detail_mode_coop": {
+        "trace": "out/ps1-scroll-cadence06/baked-hold/replay/scroll-swaps.csv",
+        "windows": {
+          "room": {
+            "intervals": 28,
+            "fps": 11.28,
+            "median_ms": 83.32,
+            "worst_ms": 233.3
+          },
+          "horizontal": {
+            "intervals": 34,
+            "fps": 10.68,
+            "median_ms": 99.99,
+            "worst_ms": 116.65
+          },
+          "vertical": {
+            "intervals": 29,
+            "fps": 14.26,
+            "median_ms": 66.66,
+            "worst_ms": 83.32
+          }
+        }
+      },
+      "baked_as_separate_draw_solo": {
+        "trace": "out/ps1-scroll-cadence06/settle-entity-one/scroll-swaps.csv",
+        "windows": {
+          "room": {
+            "intervals": 32,
+            "fps": 13.24,
+            "median_ms": 83.32,
+            "worst_ms": 83.32
+          },
+          "horizontal": {
+            "intervals": 50,
+            "fps": 16.4,
+            "median_ms": 49.99,
+            "worst_ms": 116.65
+          },
+          "vertical": {
+            "intervals": 48,
+            "fps": 21.5,
+            "median_ms": 49.99,
+            "worst_ms": 83.32
+          }
+        }
+      },
+      "baked_as_separate_draw_coop": {
+        "trace": "out/ps1-scroll-cadence06/settle-entity-two/scroll-swaps.csv",
+        "windows": {
+          "room": {
+            "intervals": 27,
+            "fps": 11.33,
+            "median_ms": 83.32,
+            "worst_ms": 233.3
+          },
+          "horizontal": {
+            "intervals": 51,
+            "fps": 16.19,
+            "median_ms": 49.99,
+            "worst_ms": 116.65
+          },
+          "vertical": {
+            "intervals": 47,
+            "fps": 21.53,
+            "median_ms": 49.99,
+            "worst_ms": 66.66
+          }
+        }
+      },
+      "baked_as_separate_draw_with_cap_coop": {
+        "trace": "out/ps1-scroll-cadence06/entity-capped/replay/scroll-swaps.csv",
+        "windows": {
+          "room": {
+            "intervals": 27,
+            "fps": 11.25,
+            "median_ms": 83.32,
+            "worst_ms": 233.3
+          },
+          "horizontal": {
+            "intervals": 38,
+            "fps": 12.67,
+            "median_ms": 66.66,
+            "worst_ms": 116.65
+          },
+          "vertical": {
+            "intervals": 32,
+            "fps": 14.89,
+            "median_ms": 66.66,
+            "worst_ms": 83.32
+          }
+        }
+      }
+    },
+    "validation": {
+      "passing_player_modes": [
+        1,
+        2
+      ],
+      "revealed_cells": 9,
+      "closed_or_revealed_cells": 170,
+      "untouched_original_full_quality_captures": [
+        "castle-closed.bin",
+        "castle-entry.bin",
+        "castle-far-corner.bin",
+        "castle-settled.bin"
+      ],
+      "main_ram_committed_bytes": 2090544,
+      "main_ram_available_bytes": 6608,
+      "texture_vram_bytes": 220416,
+      "disc": "out/ps1-scroll-cadence06/baked-entity/flat/game.cue",
+      "comparisons": [
+        "out/ps1-scroll-cadence06/compare-horizontal.mp4",
+        "out/ps1-scroll-cadence06/compare-vertical.mp4"
+      ]
+    },
+    "decision": "Keep the separate baked ground build as a local prototype. It reduces long holds while scrolling and restores byte-identical imagery at rest. The cap alone is ineffective. Adding the cap to the final candidate makes scrolling slower and leaves the longest horizontal hold unchanged. The raw bake leaves little room in a 2 MiB stage budget, so general exports need a smaller resident representation and checks on more maps."
   }
 }
