@@ -658,5 +658,86 @@
       },
       "peak_reduction_bytes": 34600
     }
+  },
+  "render_pipeline_trials": {
+    "source_base": "5e722aa3",
+    "method": "The same controller-driven Three Courts 32 by 24 co-op disc replay. Display timings come from PutDispEnv cycle counters in PCSX-Redux. GPU waits are entry-to-return DrawSync cycle counts, collected with read-only debugger hooks.",
+    "timings": {
+      "baseline": {
+        "trace": "out/console-research06/ps1-baseline/scroll-swaps.csv",
+        "timings": {
+          "room": {
+            "swaps": 29,
+            "fps": 11.28,
+            "worst_ms": 233.3
+          },
+          "horizontal": {
+            "swaps": 33,
+            "fps": 10.38,
+            "worst_ms": 183.31
+          },
+          "vertical": {
+            "swaps": 32,
+            "fps": 13.68,
+            "worst_ms": 133.31
+          }
+        }
+      },
+      "pre_cull_settlement_spheres": {
+        "trace": "out/console-research06/ps1/cull-tight-2p/scroll-swaps.csv",
+        "timings": {
+          "room": {
+            "swaps": 28,
+            "fps": 11.25,
+            "worst_ms": 233.3
+          },
+          "horizontal": {
+            "swaps": 33,
+            "fps": 10.38,
+            "worst_ms": 183.31
+          },
+          "vertical": {
+            "swaps": 32,
+            "fps": 13.68,
+            "worst_ms": 133.31
+          }
+        }
+      }
+    },
+    "gpu_waits": {
+      "trace": "out/console-research06/ps1-baseline/gpu-waits.csv",
+      "aggregate_percent_by_window": {
+        "room": 0.4,
+        "horizontal": 0.32,
+        "vertical": 0.29
+      },
+      "decision": "A GPU interrupt and a second in-flight packet arena would buy very little in these scenes. Keep the current handoff."
+    },
+    "visibility": {
+      "packet_trace": "out/console-research06/ps1/oracle-2p/packets.csv",
+      "method": "Sampled the actual linked GPU submission order. A CPU mask erodes the opaque stone and ground coverage by two pixels and expands the tested footprint. Excludes house and foliage cutouts as blockers. The sample estimates opportunity at measured poses. It cannot certify visibility between poses or under alternate room reveals.",
+      "sampled_windows": {
+        "room": {
+          "frames": 10,
+          "ground_and_landmark_cycles": 19029893,
+          "outside_or_no_packets_percent": 0.4,
+          "occluded_percent": 0.0
+        },
+        "horizontal": {
+          "frames": 13,
+          "ground_and_landmark_cycles": 37092480,
+          "outside_or_no_packets_percent": 3.32,
+          "occluded_percent": 0.16
+        },
+        "vertical": {
+          "frames": 11,
+          "ground_and_landmark_cycles": 23556142,
+          "outside_or_no_packets_percent": 4.64,
+          "occluded_percent": 0.0
+        }
+      },
+      "pre_cull_trial": "Early camera-frustum rejection of bounding spheres for static settlement meshes with identity rotation and scale. Both scrolling rates and their worst frame times are the same to the displayed precision. All three checkpoint captures match byte for byte. The run passes room reveal and both scroll axes.",
+      "decision": "Skip a visibility table for this approach. Spend effort on geometry that is visible during camera movement."
+    }
   }
 }
