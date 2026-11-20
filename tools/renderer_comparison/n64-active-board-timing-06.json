@@ -554,5 +554,199 @@
         }
       }
     }
+  },
+  "display_deadline_trials": {
+    "source_base": "5e722aa3",
+    "method": "Read VI_ORIGIN on base 4 MiB Ares along the same Bell Orchard campaign review. Count displayed buffers and how long the screen holds each one. The active-stage sample excludes transitions. Camera intervals are a subset of the whole stage.",
+    "trials": {
+      "baseline": {
+        "change": "Current board at native resolution.",
+        "log": "out/console-research06/n64/baseline/ares/replay.log",
+        "all": {
+          "frames": 770,
+          "total_vi": 1670,
+          "hold2": 705,
+          "hold3": 0,
+          "hold4": 65,
+          "max_vi": 4,
+          "nominal_fps": 27.66
+        },
+        "camera": {
+          "frames": 123,
+          "total_vi": 256,
+          "hold2": 118,
+          "hold3": 0,
+          "hold4": 5,
+          "max_vi": 4,
+          "nominal_fps": 28.83
+        }
+      },
+      "draw_base_after_board": {
+        "change": "Move the background ground and apron behind the opaque board in draw order.",
+        "log": "out/console-research06/n64/reorder/ares/replay.log",
+        "all": {
+          "frames": 769,
+          "total_vi": 1668,
+          "hold2": 704,
+          "hold3": 0,
+          "hold4": 65,
+          "max_vi": 4,
+          "nominal_fps": 27.66
+        },
+        "camera": {
+          "frames": 123,
+          "total_vi": 256,
+          "hold2": 118,
+          "hold3": 0,
+          "hold4": 5,
+          "max_vi": 4,
+          "nominal_fps": 28.83
+        }
+      },
+      "skip_base_full_screen_triangles": {
+        "change": "Diagnostic that drops the two large ground triangles behind the apron.",
+        "log": "out/console-research06/n64/no-base/ares/replay.log",
+        "all": {
+          "frames": 769,
+          "total_vi": 1666,
+          "hold2": 705,
+          "hold3": 0,
+          "hold4": 64,
+          "max_vi": 4,
+          "nominal_fps": 27.7
+        },
+        "camera": {
+          "frames": 123,
+          "total_vi": 256,
+          "hold2": 118,
+          "hold3": 0,
+          "hold4": 5,
+          "max_vi": 4,
+          "nominal_fps": 28.83
+        }
+      },
+      "scaled_board": {
+        "change": "Render the board at 224 by 168 and scale it into the 320 by 240 framebuffer before drawing the native HUD. Colour and depth views share the original depth allocation.",
+        "log": "out/console-research06/n64/small-board/ares/replay.log",
+        "all": {
+          "frames": 769,
+          "total_vi": 1732,
+          "hold2": 672,
+          "hold3": 0,
+          "hold4": 97,
+          "max_vi": 4,
+          "nominal_fps": 26.64
+        },
+        "camera": {
+          "frames": 123,
+          "total_vi": 260,
+          "hold2": 116,
+          "hold3": 0,
+          "hold4": 7,
+          "max_vi": 4,
+          "nominal_fps": 28.38
+        }
+      },
+      "cull_tree_blocks": {
+        "change": "Test tight, sway-padded bounds for groups of eight trees.",
+        "log": "out/console-research06/n64/tree-cull/ares/replay.log",
+        "all": {
+          "frames": 769,
+          "total_vi": 1670,
+          "hold2": 703,
+          "hold3": 0,
+          "hold4": 66,
+          "max_vi": 4,
+          "nominal_fps": 27.63
+        },
+        "camera": {
+          "frames": 123,
+          "total_vi": 256,
+          "hold2": 118,
+          "hold3": 0,
+          "hold4": 5,
+          "max_vi": 4,
+          "nominal_fps": 28.83
+        }
+      },
+      "cull_opaque_tree_backfaces": {
+        "change": "Rewind closed tree geometry for backface culling and remove duplicate reverse-wound triangles from double-sided crossed scenery.",
+        "log": "out/console-research06/n64/opaque-faces/ares/replay.log",
+        "all": {
+          "frames": 769,
+          "total_vi": 1642,
+          "hold2": 717,
+          "hold3": 0,
+          "hold4": 52,
+          "max_vi": 4,
+          "nominal_fps": 28.1
+        },
+        "camera": {
+          "frames": 123,
+          "total_vi": 256,
+          "hold2": 118,
+          "hold3": 0,
+          "hold4": 5,
+          "max_vi": 4,
+          "nominal_fps": 28.83
+        }
+      },
+      "retry_a_late_display": {
+        "change": "Retry a missed display deadline at the next refresh while observing a two-refresh minimum between successful swaps.",
+        "log": "out/console-research06/n64/deadline-retry/verified/ares/replay.log",
+        "all": {
+          "frames": 769,
+          "total_vi": 1668,
+          "hold2": 639,
+          "hold3": 130,
+          "hold4": 0,
+          "max_vi": 3,
+          "nominal_fps": 27.66
+        },
+        "camera": {
+          "frames": 123,
+          "total_vi": 255,
+          "hold2": 114,
+          "hold3": 9,
+          "hold4": 0,
+          "max_vi": 3,
+          "nominal_fps": 28.94
+        }
+      }
+    },
+    "decision": "Keep the display deadline retry. It removes the four-refresh holds in this replay, with the same average display rate. Background ordering and tree groups gave no meaningful gain. The scaled board reduced image quality and pacing. Backface culling tested as a combined scenery change gave a modest average gain with four-refresh holds still present, so it remains an experiment.",
+    "validation": {
+      "review": {
+        "battles_completed": 5,
+        "player_commands": 290,
+        "opponent_commands": 165,
+        "final_canonical_hash": "9326112965417549050",
+        "review_heap_free_bytes": 61592,
+        "rdram_bytes": 4194304,
+        "method": "Automated full solo review replay with the presentation observer. Combat outcomes, battle aftermath, final counters and castle reveal match the recent full review."
+      },
+      "normal_steel_and_cedar": {
+        "rom": "out/console-research06/n64/final-steel/project/grandleon_pyrite_game.z64",
+        "log": "out/console-research06/n64/final-steel-manual/ares/manual.log",
+        "result": "Normal export waits at the title until controller input, starts Bell Orchard and waits for battle commands.",
+        "sha256": "2b6d983a6ad8fab55a5151ad526d875c060ae4177815062a0d613b89081d088a"
+      },
+      "normal_three_courts": {
+        "rom": "out/console-research06/n64/final-three-courts/project/grandleon_pyrite_game.z64",
+        "result": "Both player modes reveal nine of 170 roof tiles and scroll along both axes in 4 MiB Ares.",
+        "capture_comparison": "out/console-research06/n64/castle-validation.png",
+        "players": {
+          "1": {
+            "log": "out/console-research06/n64/final-castle-1p/ares/castle.log",
+            "board_heap_free_bytes": 217184
+          },
+          "2": {
+            "log": "out/console-research06/n64/final-castle-2p/ares/castle.log",
+            "board_heap_free_bytes": 212272
+          }
+        },
+        "sha256": "9b3faef59324afe11198323edecf184f25cf82ba17c2cc91706eb8d9ebe718a5"
+      }
+    }
   }
 }

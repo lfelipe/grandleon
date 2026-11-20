@@ -545,6 +545,13 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
 - [ ] Maintain the 30 fps console target and explicit memory limits, including
   base 4 MiB Nintendo 64 support. Improve quality within those limits rather
   than restoring retired renderers or adding silent fallbacks.
+- [x] Present late Nintendo 64 frames at the next eligible refresh. Bell
+  Orchard's longest frame hold fell from four refreshes to three at the same
+  average FPS. [Nintendo 64 measurements](tools/renderer_comparison/n64-active-board-timing-06.json)
+- [x] Measure GPU waits and architecture visibility during PS1 castle
+  scrolling. GPU waits used less than 0.4% of either scroll, and tighter
+  scenery culling left the scrolling rate unchanged.
+  [PlayStation measurements](tools/renderer_comparison/ps1-castle-scroll-06.json)
 - [x] Profile Godot's large-board idle, scrolling, ambient and cinematic
   workloads on Linux. Batch natural terrain by region and material. On the
   32×24 castle, draw calls fell from 2,192 to 1,150 during ambient motion,

@@ -88,6 +88,11 @@ tools/upstream_patches/manage.sh apply pyrite /tmp/pyrite-source
 `apply` refuses a dirty checkout or the wrong base revision. This prevents a
 successful local build from depending on unrecorded engine edits.
 
+Nintendo 64 exports use the pinned Pyrite CLI release, which copies its engine
+into the generated project. The project's Makefile applies the same display
+timing patch to that copy before compiling the engine. The patch also applies
+to the pinned Pyrite source checkout with `manage.sh check`.
+
 ## Production cutover
 
 Parity work may keep the legacy console player as an explicit comparison

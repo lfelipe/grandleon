@@ -19,6 +19,16 @@ N64_CXXFLAGS += -std=gnu++20 -fno-exceptions -O3 -Isrc -Isrc/user \
 	-I$(GRANDLEON_REPO)/platform/storage/include \
 	-I$(GRANDLEON_REPO)/platform/view/include
 
+# Pyrite copies its engine sources into the project before invoking make.
+# Apply the reviewed upstream patch to that generated copy before its build.
+.PHONY: grandleon-pyrite-pacing-patch
+grandleon-pyrite-pacing-patch: $(GRANDLEON_REPO)/tools/upstream_patches/engines/pyrite/0001-fix-present-a-late-frame-on-the-next-VI.patch
+	@export GIT_CEILING_DIRECTORIES="$(abspath .)"; \
+	if ! git -C "$(ENGINE_DIR)" apply -p3 --reverse --check "$<" 2>/dev/null; then \
+		git -C "$(ENGINE_DIR)" apply -p3 "$<"; \
+	fi
+$(ENGINE_DIR)/build/engine.a: grandleon-pyrite-pacing-patch
+
 GRANDLEON_LIBS := \
 	$(GRANDLEON_N64_BUILD)/libgrandleon_client_campaign.a \
 	$(GRANDLEON_N64_BUILD)/libgrandleon_client.a \
