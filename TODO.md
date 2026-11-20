@@ -592,6 +592,24 @@ the frame budget. The strict performance checks remain open.
 Campaign design, creator audio customization, AI translation suggestions and
 iOS exports remain later milestones; they are not part of the 0.6 scope.
 
+## 0.7
+
+- [ ] Let players inspect and pin the threat range of a visible enemy.
+  Keep allied move highlights readable and update the preview when the
+  board changes.
+- [ ] Let creators paint and name areas in the Map Editor. Use them for
+  reach or escape objectives, with exits that can lead to different
+  campaign routes. Support one-time entry events for conversations and
+  reinforcement waves. Test a short escape battle in 1p and 2p.
+- [ ] Let creators offer **Retry Battle** on defeat alongside the authored
+  loss route. Restore the post-deployment save, including its random seed,
+  and roll back rewards, casualties and route decisions from the attempt.
+  Require both players to confirm a co-op retry.
+- [ ] Add optional scouting where a battle already offers deployment.
+  Reuse the board and unit details to inspect terrain and visible enemies.
+- [ ] Show the next three actors during initiative battles using the
+  shared turn scheduler.
+
 ## Co-op across devices
 
 - [x] Add Android/PC LAN host/join with automatic discovery, independent screens
