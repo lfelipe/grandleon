@@ -1,0 +1,28 @@
+From 64c1257d7eb41c48c1e1dcef0dd77d056996bc9c Mon Sep 17 00:00:00 2001
+From: Luis Strano <luis.strano@gmail.com>
+Date: Thu, 19 Nov 2026 23:20:16 -0800
+Subject: [PATCH] fix: present a late frame on the next VI
+
+Only restart the frame-skip interval after presenting a ready buffer. If a presentation deadline arrives with no ready buffer, check again on the next VI. This keeps the configured minimum interval and avoids waiting another full interval for a late frame.
+
+diff --git a/n64/engine/src/vi/swapChain.cpp b/n64/engine/src/vi/swapChain.cpp
+index 610660f38244f5bf3d9ba13a4d874f8555869516..bddfb8283cffb962092bc45f746c354f36668fc5 100644
+--- a/n64/engine/src/vi/swapChain.cpp
++++ b/n64/engine/src/vi/swapChain.cpp
+@@ -50,9 +50,12 @@ namespace {
+       fbState[fbIdxVI] = 0;
+       fbFreeCount += 1;
+       fbIdxVI = nextFbIdx;
++      frameIdx = 0;
++    } else {
++      // Retry the next VI once the minimum display interval has elapsed.
++      frameIdx = frameSkip;
+     }
+     enable_interrupts();
+-    frameIdx = 0;
+   }
+ 
+   /**
+-- 
+2.53.0
+
