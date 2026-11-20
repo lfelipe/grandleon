@@ -4,7 +4,8 @@
   "merged_pull_request": "https://github.com/KasaBranca/Mipsync/pull/2",
   "removed_local_patches": 6,
   "remaining_patch": "tools/upstream_patches/engines/mipsync/0001-Support-optional-zero-run-encoded-PS1-textures.patch",
-  "remaining_patch_submitted": false,
+  "remaining_patch_submitted": true,
+  "remaining_patch_pull_request": "https://github.com/KasaBranca/Mipsync/pull/3",
   "source_equivalence": {
     "previous_patched_revision": "49798693ee35b502d340c47d71471e7487717666",
     "new_local_patched_revision": "460a96fc7345b5aa55b9247b12ff0b2ea7b7b513",
