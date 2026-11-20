@@ -3504,33 +3504,31 @@ void draw_box(std::uint8_t first) {
 
 void draw_terrain_forms() {
     if (board.terrain_form_count == 0U) return;
-    rdpq_mode_begin();
-        rdpq_mode_zbuf(true, true);
-        rdpq_mode_combiner(RDPQ_COMBINER_SHADE);
-        rdpq_mode_blender(0);
-        rdpq_mode_fog(0);
-    rdpq_mode_end();
-    t3d_state_set_drawflags(static_cast<T3DDrawFlags>(
-        T3D_FLAG_SHADED | T3D_FLAG_DEPTH
-    ));
     use_surface_detail();
-    for (std::size_t index = 0; index < board.terrain_form_count; ++index) {
+    // Each shape uses eight vertices. Load a batch together so the RSP
+    // can emit the same faces with one vertex load and sync per 64 vertices.
+    constexpr std::size_t forms_per_batch = 64U / kTerrainFormVertexCount;
+    constexpr auto crossed = static_cast<std::uint8_t>(TerrainFormShape::crossed);
+    for (std::size_t begin = 0; begin < board.terrain_form_count; begin += forms_per_batch) {
+        const std::size_t count = std::min(forms_per_batch, board.terrain_form_count - begin);
         t3d_vert_load(
-            board.terrain_forms + index * (kTerrainFormVertexCount / 2U),
-            0, kTerrainFormVertexCount
+            board.terrain_forms + begin * (kTerrainFormVertexCount / 2U),
+            0, static_cast<std::uint32_t>(count * kTerrainFormVertexCount)
         );
-        if (board.terrain_form_shapes[index] ==
-            static_cast<std::uint8_t>(TerrainFormShape::crossed)) {
-            t3d_tri_draw(0U, 1U, 4U);
-            t3d_tri_draw(0U, 4U, 5U);
-            t3d_tri_draw(4U, 1U, 0U);
-            t3d_tri_draw(5U, 4U, 0U);
-            t3d_tri_draw(2U, 3U, 6U);
-            t3d_tri_draw(2U, 6U, 7U);
-            t3d_tri_draw(6U, 3U, 2U);
-            t3d_tri_draw(7U, 6U, 2U);
-        } else {
-            draw_box(0U);
+        for (std::size_t local = 0; local < count; ++local) {
+            const auto first = static_cast<std::uint8_t>(local * kTerrainFormVertexCount);
+            if (board.terrain_form_shapes[begin + local] == crossed) {
+                t3d_tri_draw(first + 0U, first + 1U, first + 4U);
+                t3d_tri_draw(first + 0U, first + 4U, first + 5U);
+                t3d_tri_draw(first + 4U, first + 1U, first + 0U);
+                t3d_tri_draw(first + 5U, first + 4U, first + 0U);
+                t3d_tri_draw(first + 2U, first + 3U, first + 6U);
+                t3d_tri_draw(first + 2U, first + 6U, first + 7U);
+                t3d_tri_draw(first + 6U, first + 3U, first + 2U);
+                t3d_tri_draw(first + 7U, first + 6U, first + 2U);
+            } else {
+                draw_box(first);
+            }
         }
         t3d_tri_sync();
     }
