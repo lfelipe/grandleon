@@ -174,6 +174,13 @@ func _run() -> void:
 		screen._export_portable_from_center()
 		_expect("export center reports portable archive", screen.export_status_label.text.begins_with("READY  /  "), true)
 		_expect("export center does not display a user path", screen.export_status_label.text.contains("user://"), false)
+		var scroll_warning := "First Battle uses standard PlayStation scrolling. Trim unused map edges."
+		screen._finish_console_export({"ok": true, "target": "playstation", "name": "payload-road",
+			"warnings": [scroll_warning]})
+		_expect("a console warning leaves a successful export visible",
+			screen.export_status_label.text.begins_with("READY  /  "), true)
+		_expect("the editor shows the stage warning in the export center",
+			screen.export_status_label.text.contains(scroll_warning), true)
 		screen._close_export_center()
 		await process_frame
 		_expect("export center returns to project options", screen.project_actions_layer.visible, true)

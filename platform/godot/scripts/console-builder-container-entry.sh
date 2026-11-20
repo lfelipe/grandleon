@@ -47,7 +47,13 @@ write_result() {
             printf '{"name":"%s","bytes":%s,"sha256":"%s"}' \
                 "${result_name}" "${result_bytes}" "${result_digest}"
         done
-        printf '],"warnings":[]}\n'
+        printf '],"warnings":'
+        if [ "${target}" = playstation ]; then
+            cat "${work}/mipsync/warnings.json"
+        else
+            printf '[]'
+        fi
+        printf '}\n'
     } > "${output}/result.json"
 }
 

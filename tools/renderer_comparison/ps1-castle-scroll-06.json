@@ -1097,5 +1097,170 @@
       "The Three Courts with a varied guard uses standard PlayStation scrolling. Smoother scrolling needs about 32 KiB more RAM. Reuse some unit appearances or trim unused map edges.",
       "The Three Courts with a crossing uses standard PlayStation scrolling to preserve its bridge and moving water. Shorten long camera pans if scrolling feels slow."
     ]
+  },
+  "baked_ground_export_rollout": {
+    "method": "Normal PS1 campaign exports, pinned toolchain, and controller-driven PCSX-Redux replays. Accepted executables are checked against the packed disc. The optional ground is selected independently per larger modular castle, only during camera movement and its short settling period.",
+    "exports": {
+      "castle": {
+        "stages": [
+          {
+            "index": "01",
+            "ground": {
+              "mode": "baked"
+            },
+            "ram_committed_bytes": 2090544,
+            "texture_vram_bytes": 220416,
+            "executable_sha256": "bfde3921e53819a45c0392e560622ece2adeb29c98e502024bfe9bac45dfeba3"
+          }
+        ],
+        "warnings": []
+      },
+      "roster": {
+        "stages": [
+          {
+            "index": "01",
+            "ground": {
+              "mode": "standard",
+              "reason": "ram",
+              "over_budget_bytes": 32552
+            },
+            "ram_committed_bytes": 2084648,
+            "texture_vram_bytes": 216384,
+            "executable_sha256": "7fdc96ee05680df9b60f6def779e37c43f20d9d2898db18ecf7d82449b08da2a"
+          }
+        ],
+        "warnings": [
+          "The Three Courts uses standard PlayStation scrolling. Smoother scrolling needs 32 KiB more RAM. Reuse some unit appearances or trim unused map edges."
+        ]
+      },
+      "bridge": {
+        "stages": [
+          {
+            "index": "01",
+            "ground": {
+              "mode": "standard",
+              "reason": "water"
+            },
+            "ram_committed_bytes": 2054088,
+            "texture_vram_bytes": 185696,
+            "executable_sha256": "7b8098795e08e1749d6617f80606ccdf30ab3d63af6a0a034596c6aee5fe6390"
+          }
+        ],
+        "warnings": [
+          "The Three Courts uses standard PlayStation scrolling. The stage keeps its water and bridges live. Shorten long camera pans if scrolling feels slow."
+        ]
+      },
+      "mixed": {
+        "stages": [
+          {
+            "index": "01",
+            "ground": {
+              "mode": "baked"
+            },
+            "ram_committed_bytes": 2090544,
+            "texture_vram_bytes": 220416,
+            "executable_sha256": "af5cce6a3fa74f511f9e2659f4fbd4f8679a9910365b73d2949513942ede18de"
+          },
+          {
+            "index": "02",
+            "ground": {
+              "mode": "standard",
+              "reason": "water"
+            },
+            "ram_committed_bytes": 2056136,
+            "texture_vram_bytes": 185696,
+            "executable_sha256": "2f789f801dd304e058f38a2328c0571f3b4e0909f611fbc8d9bf6a458e982fd3"
+          }
+        ],
+        "warnings": [
+          "The Bridge Court uses standard PlayStation scrolling. The stage keeps its water and bridges live. Shorten long camera pans if scrolling feels slow."
+        ]
+      }
+    },
+    "native_display_swap_windows": {
+      "castle-1p": {
+        "room": {
+          "fps": 13.24,
+          "worst_ms": 83.32
+        },
+        "horizontal": {
+          "fps": 16.4,
+          "worst_ms": 116.65
+        },
+        "vertical": {
+          "fps": 21.5,
+          "worst_ms": 83.32
+        }
+      },
+      "castle-2p": {
+        "room": {
+          "fps": 11.33,
+          "worst_ms": 233.3
+        },
+        "horizontal": {
+          "fps": 16.19,
+          "worst_ms": 116.65
+        },
+        "vertical": {
+          "fps": 21.53,
+          "worst_ms": 66.66
+        }
+      },
+      "roster-2p": {
+        "room": {
+          "fps": 11.28,
+          "worst_ms": 233.3
+        },
+        "horizontal": {
+          "fps": 10.38,
+          "worst_ms": 183.31
+        },
+        "vertical": {
+          "fps": 13.68,
+          "worst_ms": 133.31
+        }
+      },
+      "bridge-2p": {
+        "room": {
+          "fps": 11.35,
+          "worst_ms": 233.3
+        },
+        "horizontal": {
+          "fps": 10.21,
+          "worst_ms": 216.64
+        },
+        "vertical": {
+          "fps": 13.68,
+          "worst_ms": 133.31
+        }
+      },
+      "mixed-2p": {
+        "room": {
+          "fps": 11.33,
+          "worst_ms": 233.3
+        },
+        "horizontal": {
+          "fps": 16.19,
+          "worst_ms": 116.65
+        },
+        "vertical": {
+          "fps": 21.53,
+          "worst_ms": 66.66
+        }
+      }
+    },
+    "native_validation": {
+      "reveal": "Nine of 170 covered cells revealed in each replay. Both scroll axes and cursor limits passed.",
+      "settled_captures": "The closed, entry and far-corner captures match the pre-change build in both player modes and both fallback stages. An additional capture after restoring the standard ground matches the original in both baked replays.",
+      "editor_export": "The roster fixture exported through the real editor builder entry point. Its validated BIN/CUE result includes the stage RAM warning. Godot console-builder and creator smoke tests pass.",
+      "release_campaign": {
+        "stages_packed_and_verified": 7,
+        "peak_ram_committed_bytes": 1948176,
+        "warnings": [],
+        "disc_sha256": "a7060b6f2f122ddce892facad89b1b1aa6ddc7afde4ed96c20bebb758f136b63",
+        "tested_in_emulator": "Direct-entry Demo 1p, Steel and Cedar 2p launch, and Steel and Cedar audio and saved volume settings."
+      }
+    },
+    "qualification": "These are emulator timings. The physical target was unreachable and the 30 FPS scrolling goal remains open. The smaller campaign scenes and the bespoke Twin Gate fortress do not use the experimental ground bake."
   }
 }

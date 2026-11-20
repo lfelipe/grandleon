@@ -15,6 +15,7 @@ from pathlib import Path
 import re
 import struct
 import sys
+from typing import NamedTuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from texture_compression import encode_zero_runs, decode_zero_runs
@@ -84,7 +85,14 @@ MAX_CACHE_TOTAL = 1280  # Minimum pools; stage audits size them within hard limi
 MAX_CACHE_VERTEX_POOL = 4352  # Modular room grids; final 2 MiB reserves are checked at link time.
 MAX_CACHE_TRIANGLE_POOL = 4096
 SCROLL_SCENERY_BLOCK = 4
+BAKED_SCROLL_CLUT_Y = 480
+BAKED_SCROLL_MATERIAL = -120
 ROOF_MODELS = {"castle_roof", "visual_cover"}
+
+
+class BakedScrollGeometryLimit(ValueError):
+    """The optional ground layer exceeded the renderer's geometry budget."""
+
 
 # Colour and proportions for the tiny low-poly forms embedded into each
 # terrain page. The same bounded topology reads as reeds, rubble, crops,
@@ -122,6 +130,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--surroundings-seed", type=int, default=0x47A4D1E)
     parser.add_argument("--apron-depth", type=int)
     parser.add_argument("--terrain-relief", choices=RELIEF_MODES, default="smooth")
+    parser.add_argument("--baked-scroll", action="store_true",
+                        help="Try a baked ground layer on larger modular castles.")
     return parser.parse_args()
 
 
@@ -543,11 +553,73 @@ def unit_image(
     return fitted_cutout(Image.composite(tinted, source, mask), side)
 
 
+class ScrollGroundPage(NamedTuple):
+    image: Image.Image
+    left: int
+    top: int
+    right: int
+    bottom: int
+    pixels_per_cell: int
+
+
+def bake_scroll_ground(repo, width, height, apron, terrain, theme):
+    # Use four indexed pages. Split on cell boundaries and fit each page
+    # within the PS1's 128-texel limit for 8-bit textures.
+    total_width, total_height = width + 2 * apron, height + 2 * apron
+    x_edges = (-apron, -apron + (total_width + 1) // 2, width + apron)
+    y_edges = (-apron, -apron + (total_height + 1) // 2, height + apron)
+    pixels = min(6, 126 // ((max(total_width, total_height) + 1) // 2))
+    materials = {
+        kind: ground_image(repo, kind, theme).convert("RGB").resize(
+            (pixels, pixels), Image.Resampling.BOX)
+        for kind in set(terrain.values())
+    }
+    mirrored = {kind: tile.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+                for kind, tile in materials.items()}
+    pages = []
+    for top, bottom in zip(y_edges, y_edges[1:]):
+        for left, right in zip(x_edges, x_edges[1:]):
+            u, v = (right - left) * pixels, (bottom - top) * pixels
+            image = Image.new("RGB", (u + (u & 1), v))
+            for y in range(top, bottom):
+                for x in range(left, right):
+                    tiles = mirrored if hash_cell(x, y, 797) & 1 else materials
+                    image.paste(tiles[terrain[x, y]], ((x - left) * pixels, (y - top) * pixels))
+            if u & 1:
+                image.paste(image.crop((u - 1, 0, u, v)), (u, 0))
+            pages.append(ScrollGroundPage(image, left, top, right, bottom, pixels))
+    return tuple(pages)
+
+
+def baked_floor_mesh(pages, first_texture, width, height, relief, lifts):
+    vertices, uvs, faces = [], [], []
+    for index, (_, left, top, right, bottom, pixels) in enumerate(pages):
+        # Finer subdivision in depth limits affine texture stretching. Keep
+        # the same height samples along the edges of adjoining pages.
+        xs = list(range(left, right, 4)) + [right]
+        ys = list(range(top, bottom, 2)) + [bottom]
+        first = len(vertices)
+        for y in ys:
+            for x in xs:
+                lift = corner_relief(x, y, lifts) if relief == "smooth" else 0
+                vertices.append(((x * 2 - width) * 64, lift, (height - y * 2) * 64, 0))
+                uvs.append((min((x - left) * pixels, (right - left) * pixels - 1),
+                            min((y - top) * pixels, (bottom - top) * pixels - 1)))
+        for row in range(len(ys) - 1):
+            for col in range(len(xs) - 1):
+                a = first + row * len(xs) + col
+                b = a + len(xs)
+                material = (first_texture + index, 255, 255, 255, 255)
+                faces.extend(((a, a + 1, b, *material), (b, a + 1, b + 1, *material)))
+    return vertices, uvs, faces
+
+
 def write_textures(
     output: Path, repo: Path, terrain_kinds: list[int], units: list[dict[str, object]],
     map_id: str = "0", speakers: list[dict[str, object]] | None = None,
     castle: bool = False, houses: bool = False, theme: int = 0, grove: bool = False,
     house_drawings: tuple[int, ...] = (),
+    baked_ground: tuple[ScrollGroundPage, ...] = (),
 ) -> tuple[
     dict[int, int], dict[tuple[int, int, int, int], UnitTextureIndices],
     int, dict[str, object], dict[int, int],
@@ -724,6 +796,25 @@ def write_textures(
                                          4 if index in material_palettes or index == font_index else 8)
     for index, owner in residency_slots.items():
         placements[index] = placements[owner]
+
+    # Append the optional pages after the normal atlas so texture coordinates
+    # in the full-detail view stay identical. A full atlas can keep its
+    # original layout without the baked pages.
+    baked_start = len(textures)
+    if (baked_ground and baked_start + len(baked_ground) <= 255
+            and CLUT_Y - 4 - (len(house_palettes) - 1) > BAKED_SCROLL_CLUT_Y):
+        try:
+            baked_placements = [packer.place(*page.image.size) for page in baked_ground]
+        except ValueError:
+            # The normal atlas has already passed. Only the optional pages
+            # may fail this additional placement.
+            baked_placements = []
+        if baked_placements:
+            terrain_indices[BAKED_SCROLL_MATERIAL] = baked_start + 1
+            for index, (page, placement) in enumerate(zip(baked_ground, baked_placements)):
+                textures.append((f"baked_scroll_ground_{index}", page.image, False, 0, 0))
+                placements[baked_start + index] = placement
+
     textures = [
         (name, image, cutout, *placements[index])
         for index, (name, image, cutout, _x, _y) in enumerate(textures)
@@ -731,11 +822,14 @@ def write_textures(
     palette_colours, palette_image = shared_stage_palette(
         [image.crop((0, 0, 64, 96)) if name == "compact_ui_font" else image
          for name, image, _cutout, _x, _y in textures
-         if not name.startswith("combat_plate_")]
+        if not name.startswith(("combat_plate_", "baked_scroll_ground_"))]
     )
     backdrop_palette = shared_stage_palette(
         [textures[index - 1][1] for index in backdrop_indices]
     ) if backdrop_indices else None
+    baked_palette = shared_stage_palette(
+        [page.image for page in baked_ground]
+    ) if baked_start < len(textures) else None
 
     lines = ["/* Generated from a real Grandleon scene manifest. Do not edit. */", '#include "../runtime/textures.h"', ""]
     image_vram_bytes = 0
@@ -745,17 +839,27 @@ def write_textures(
     texture_storage = []
     for index, (name, image, cutout, x, y) in enumerate(textures):
         is_backdrop = index + 1 in backdrop_indices
+        is_baked = index >= baked_start
         private_palette = index in house_palettes or index == masonry_index
-        colours, palette = (shared_stage_palette([image]) if private_palette else
-                            backdrop_palette if is_backdrop else (palette_colours, palette_image))
+        colours, palette = palette_colours, palette_image
+        palette_owner_index, palette_row = palette_owner, CLUT_Y
+        if private_palette:
+            colours, palette = shared_stage_palette([image])
+            palette_owner_index = index
+            if index in house_palettes:
+                palette_row = CLUT_Y - 4 - house_palettes[index]
+        elif is_backdrop:
+            colours, palette = backdrop_palette
+            palette_owner_index, palette_row = backdrop_indices[0] - 1, CLUT_Y - 2
+        elif is_baked:
+            colours, palette = baked_palette
+            palette_owner_index, palette_row = baked_start, BAKED_SCROLL_CLUT_Y
         words = tim_words(
             image, x, y, cutout, colours, palette,
-            include_palette=True if private_palette else
-                            (index + 1 == backdrop_indices[0]) if is_backdrop else index == palette_owner,
+            include_palette=index == palette_owner_index,
             depth_bits=4 if index in material_palettes or index == font_index else 8,
             palette_slot=material_palettes.get(index, 0),
-            palette_row=CLUT_Y - 4 - house_palettes[index] if index in house_palettes else
-                        CLUT_Y - 2 if is_backdrop else CLUT_Y,
+            palette_row=palette_row,
             font_palette=index == font_index,
             palette_column=TEXTURE_X if index == masonry_index else CLUT_X,
         )
@@ -781,6 +885,7 @@ def write_textures(
         slot = residency_slots.get(index, index) + 1
         clut_owner = (index + 1 if index in (font_index, masonry_index) or index in house_palettes or index in material_palettes else
                       backdrop_indices[0] if index + 1 in backdrop_indices else
+                      baked_start + 1 if index >= baked_start else
                       palette_owner + 1 if palette_owner is not None else 0)
         decoded_words, encoded_bytes = texture_storage[index]
         lines.append(
@@ -799,6 +904,8 @@ def write_textures(
     (output / "textures_data.c").write_text("\n".join(lines), encoding="utf-8")
     occupied_vram_bytes = image_vram_bytes + (CLUT_COLOURS * 2 if palette_owner is not None else 0) + len(material_palettes) * 32 + 32 + (512 if backdrop_indices else 0) + len(house_palettes) * 512
     if masonry_index >= 0:
+        occupied_vram_bytes += 512
+    if baked_palette is not None:
         occupied_vram_bytes += 512
     metrics = {
         "texture_count": len(textures),
@@ -1433,6 +1540,7 @@ def write_meshes(
     per_cell_roofs: bool = False,
     scroll_scenery: bool = False,
     theme: int = 0,
+    baked_ground: tuple[ScrollGroundPage, ...] = (),
 ) -> tuple[int, int, list[tuple[int, int, int, int, int, int, int]]]:
     keep_parts = keep_parts or []
     bridges = bridges or {}
@@ -1692,12 +1800,14 @@ def write_meshes(
     # hold the largest active page, not the sum of mutually exclusive pages.
     active_groups = [(len(group[0]) + len(foliage[0]), len(group[2]) + len(foliage[2]))
                      for group, foliage in zip(board_groups, foliage_groups)]
+    paged_vertices = max((g[0] for g in active_groups[surface_count:]), default=0)
+    paged_triangles = max((g[1] for g in active_groups[surface_count:]), default=0)
     if surface_count:
-        vertex_count = sum(g[0] for g in active_groups[:surface_count]) + max((g[0] for g in active_groups[surface_count:]), default=0)
-        triangle_count = sum(g[1] for g in active_groups[:surface_count]) + max((g[1] for g in active_groups[surface_count:]), default=0)
+        vertex_count = sum(g[0] for g in active_groups[:surface_count]) + paged_vertices
+        triangle_count = sum(g[1] for g in active_groups[:surface_count]) + paged_triangles
     else:
-        vertex_count = max(group[0] for group in active_groups)
-        triangle_count = max(group[1] for group in active_groups)
+        vertex_count = paged_vertices
+        triangle_count = paged_triangles
     scenery_groups = {}
     for _x, _y, kind, _size in settlement_instances:
         if kind in scenery_groups:
@@ -1886,6 +1996,29 @@ def write_meshes(
         f"    {{ .i0={i0}, .i1={i1}, .i2={i2}, .ny=4096, .shade=255, .color_r=255, .color_g=255, .color_b=255 }},"
         for i0, i1, i2 in cursor_triangles
     )
+    baked_mesh_lines = []
+    if baked_ground:
+        vertices, coordinates, faces = baked_floor_mesh(
+            baked_ground, terrain_indices[BAKED_SCROLL_MATERIAL],
+            width, height, relief_mode, cell_lifts)
+        vertex_count = max(vertex_count, paged_vertices + len(vertices))
+        triangle_count = max(triangle_count, paged_triangles + len(faces))
+        radius = math.ceil(max(math.sqrt(x*x + y*y + z*z) for x, y, z, _ in vertices))
+        lines.append("};")
+        lines += emit_vectors("k_baked_floor_vertices", vertices)
+        lines.append("static const ps1_uv8 k_baked_floor_uvs[] = {")
+        lines.extend(f"    {{{u},{v}}}," for u, v in coordinates)
+        lines.extend(("};", "static const ps1_mesh_tri k_baked_floor_triangles[] = {"))
+        lines.extend(
+            f"    {{.i0={a},.i1={b},.i2={c},.ny=4096,.shade={shade},.color_r={r},"
+            f".color_g={g},.color_b={blue},.texture_index={texture}}},"
+            for a, b, c, texture, shade, r, g, blue in faces
+        )
+        baked_mesh_lines.append(
+            f"    {{.verts=k_baked_floor_vertices,.vert_count={len(vertices)},"
+            f".uvs=k_baked_floor_uvs,.tris=k_baked_floor_triangles,.tri_count={len(faces)},"
+            f".scale_q12=4096,.bounds_radius={radius},.flags=PS1_MESH_FLAG_TERRAIN}},"
+        )
     lines.extend((
         "};", "", "const ps1_mesh g_ps1_meshes[] = {",
         "    { .verts=k_billboard_vertices, .norms=k_billboard_normals, .vert_count=4, .uvs=k_billboard_uvs, .tris=k_billboard_triangles, .tri_count=2, .scale_q12=256, .bounds_center_y=512, .bounds_radius=724 },",
@@ -1898,6 +2031,7 @@ def write_meshes(
         "    { .verts=k_billboard_vertices, .norms=k_billboard_normals, .vert_count=4, .uvs=k_directional_billboard_mirrored_uvs, .tris=k_billboard_triangles, .tri_count=2, .scale_q12=256, .bounds_center_y=512, .bounds_radius=724 },",
         *scenery_mesh_lines,
         *foliage_mesh_lines,
+        *baked_mesh_lines,
         "};", "const unsigned int g_ps1_mesh_count =", "    sizeof(g_ps1_meshes) / sizeof(g_ps1_meshes[0]);", ""))
     (output / "mesh_data.c").write_text("\n".join(lines), encoding="utf-8")
     if max(max(len(group[0]) for group in board_groups), len(visibility_vertices)) > mesh_vertex_limit:
@@ -2014,6 +2148,7 @@ def write_scene(
     foliage_metadata: list | None = None,
     water_texture_index: int = 0,
     per_cell_roofs: bool = False,
+    baked_ground: bool = False,
 ) -> int:
     foliage_metadata = foliage_metadata or [0] * len(terrain_chunks)
     if len(foliage_metadata) != len(terrain_chunks):
@@ -2130,6 +2265,8 @@ def write_scene(
     cursor_world_x = (cursor_x + 0.5 - width / 2) * 2
     cursor_world_z = (height / 2 - cursor_y - 0.5) * 2
     scenery_model_count = len({entry[0] for entry in scenery_metadata})
+    mesh_count = (cursor_mesh_index + int(legacy_cover) + 3 + scenery_model_count
+                  + sum(bool(mesh) for mesh in foliage_metadata))
     camera_focus_x = camera_focus(cursor_x, width, CAMERA_VIEW_TILES_X)
     camera_focus_z = -camera_focus(cursor_y, height, CAMERA_VIEW_TILES_Y)
     cursor_world_y = fixed(surface_lifts[cursor_y * width + cursor_x] / 64)
@@ -2153,6 +2290,20 @@ def write_scene(
         lines.append(f'    {{.id={next_id}u,.name="forest_canopies",.parent_entity_index=-1,.scale={{65536,65536,65536}},.mesh=PS1_MESH_CUSTOM,.mesh_index={mesh},.mesh_size=65536,.mesh_enabled=0,.color_r=255,.color_g=255,.color_b=255,.texture_tiling_u_q8=256,.texture_tiling_v_q8=256,.render_unlit=1,.render_preset=PS1_RENDER_PRESET_FLOOR,.rigid_root_entity_index=-1,.collider_shape=-1,.camera_shot_trigger_index=-1,.collider_camera_target_index=-1}},')
         next_id += 1
         entity_index += 1
+    baked_floor_index = 0xffffffff
+    if baked_ground:
+        baked_floor_index = entity_index
+        mesh_count += 1
+        lines.append(
+            f'    {{.id={next_id}u,.name="baked_scroll_ground",.parent_entity_index=-1,'
+            f'.scale={{65536,65536,65536}},.mesh=PS1_MESH_CUSTOM,.mesh_index={mesh_count},'
+            '.mesh_size=65536,.mesh_enabled=0,.color_r=255,.color_g=255,.color_b=255,'
+            '.texture_tiling_u_q8=256,.texture_tiling_v_q8=256,.render_unlit=1,'
+            '.render_preset=PS1_RENDER_PRESET_FLOOR,.seam_fill=1,.rigid_root_entity_index=-1,'
+            '.collider_shape=-1,.camera_shot_trigger_index=-1,.collider_camera_target_index=-1},'
+        )
+        entity_index += 1
+        next_id += 1
     camera_index = entity_index
     lines.extend((
         f"    {{ .id={next_id}u, .name=\"clamped_board_camera\", .parent_entity_index=-1, .position={{{fixed(camera_focus_x)},{fixed(CAMERA_HEIGHT)},{fixed(camera_focus_z + CAMERA_TRAILING_DISTANCE)}}}, .rotation={{{fixed(-40)},0,0}}, .scale={{65536,65536,65536}}, .rigid_root_entity_index=-1, .collider_shape=-1, .has_camera=1, .camera_primary=1, .camera_fov={fixed(45)}, .camera_near={fixed(0.2)}, .camera_far={fixed(80)}, .camera_shot_trigger_index=-1, .collider_camera_target_index=-1 }},",
@@ -2162,7 +2313,7 @@ def write_scene(
         "", "const ps1_scene g_ps1_scene = {", "    .entities=k_ps1_entities,", "    .entity_count=sizeof(k_ps1_entities)/sizeof(k_ps1_entities[0]),", f"    .camera_entity_index={camera_index},", "    .light={ .enabled=1, .dir_x=-1024, .dir_y=3072, .dir_z=2048, .color_r=255, .color_g=244, .color_b=220, .ambient_r=96, .ambient_g=96, .ambient_b=112 },", f"    .fog_enabled=1, .fog_r={fog_colour[0]}, .fog_g={fog_colour[1]}, .fog_b={fog_colour[2]},",
         # Keep foreground terrain legible; haze belongs beyond the near board.
         f"    .fog_start={fixed(24)}, .fog_end={fixed(36)},",
-        f"    .meshes=g_ps1_meshes, .mesh_count={cursor_mesh_index + (1 if hidden_cells else 0) + 3 + scenery_model_count + sum(bool(mesh) for mesh in foliage_metadata)},", "};", "",
+        f"    .meshes=g_ps1_meshes, .mesh_count={mesh_count},", "};", "",
         "const uint64_t g_grandleon_unit_ids[] = {",
         *(f"    {int(unit['id'])}ULL," for unit in units if isinstance(unit, dict)),
         "};",
@@ -2322,7 +2473,8 @@ ps1_entity* grandleon_scene_mutable_entity(unsigned int index);
 #endif
 """
     header = header.replace("#define GRANDLEON_GENERATED_SCENE_H",
-        f"#define GRANDLEON_GENERATED_SCENE_H\n#define GRANDLEON_WATER_TEXTURE_INDEX {water_texture_index}u", 1)
+        f"#define GRANDLEON_GENERATED_SCENE_H\n#define GRANDLEON_WATER_TEXTURE_INDEX {water_texture_index}u"
+        f"\n#define GRANDLEON_SCROLL_FLOOR_INDEX {baked_floor_index}u", 1)
     (output / "grandleon_scene.h").write_text(header, encoding="utf-8")
     return entity_index + 1  # plus the camera appended below the indexed entities
 
@@ -2449,12 +2601,27 @@ def main() -> int:
         house_instances.append((x, y, kind, size))
     settlement_instances = house_instances
     all_kinds = [kind for _x, _y, kind, _authored, _span_x, _span_y in cells]
+    baked_ground = ()
+    scroll_ground = {"mode": "standard"}
+    if args.baked_scroll and modular_castle and max(width, height) >= 24:
+        # The normal floor owns the animated water and the raised crossing.
+        if bridges or 0 in all_kinds:
+            scroll_ground["reason"] = "water"
+        else:
+            ground_kinds = {(x, y): kind_at(x, y) for x, y in cell_lifts}
+            baked_ground = bake_scroll_ground(repo, width, height, depth, ground_kinds, theme)
     terrain_indices, unit_indices, ui_texture, texture_metrics, speaker_indices = write_textures(
         output, repo, all_kinds, typed_units, str(document.get("map_id", "0")),
         document.get("speakers", []),
         castle=bool(keep_parts) or modular_castle, houses=any(k.startswith("house_cutout_") for _x,_y,k,_size in settlement_instances), theme=int(document.get("theme",0)), grove=any(k == "grove_cutout" for _x,_y,k,_size in settlement_instances),
         house_drawings=tuple(sorted({int(k.split("_")[2]) for _x,_y,k,_size in settlement_instances if k.startswith("house_cutout_")})),
+        baked_ground=baked_ground,
     )
+    if baked_ground and BAKED_SCROLL_MATERIAL not in terrain_indices:
+        baked_ground = ()
+        scroll_ground["reason"] = "vram"
+    elif baked_ground:
+        scroll_ground["mode"] = "baked"
     terrain_form_cells = [cell for cell in select_terrain_form_cells(
         terrain, width, height, args.surroundings_seed,
     ) if (cell[0], cell[1]) not in bridges and (cell[0], cell[1]) not in castle_cells]
@@ -2486,7 +2653,7 @@ def main() -> int:
         MAX_CACHE_VERTICES, scenery_metadata, surface_count=len(floor_groups),
         foliage_metadata=foliage_metadata, bridges=bridges, per_cell_roofs=per_cell_roofs,
         scroll_scenery=modular_castle and (width > 2 * CAMERA_VIEW_TILES_X or height > 2 * CAMERA_VIEW_TILES_Y),
-        theme=theme,
+        theme=theme, baked_ground=baked_ground,
     )
     entities = write_scene(
         output, document, unit_indices, terrain_chunks,
@@ -2496,7 +2663,7 @@ def main() -> int:
         speaker_indices, scenery_metadata, surface_count=len(floor_groups),
         foliage_metadata=foliage_metadata,
         water_texture_index=terrain_indices.get(0, 0),
-        per_cell_roofs=per_cell_roofs,
+        per_cell_roofs=per_cell_roofs, baked_ground=bool(baked_ground),
     )
     visible_units = visible_position_peak(
         [(int(unit["x"]), int(unit["y"])) for unit in typed_units],
@@ -2522,7 +2689,8 @@ def main() -> int:
     cache_vertex_limit = max(MAX_CACHE_TOTAL, (cache_vertices + 7) // 8 * 8)
     cache_triangle_limit = max(MAX_CACHE_TOTAL, (cache_triangles + 7) // 8 * 8)
     if cache_vertex_limit > MAX_CACHE_VERTEX_POOL or cache_triangle_limit > MAX_CACHE_TRIANGLE_POOL:
-        raise ValueError(f"authored scenery needs {cache_vertices} vertices and {cache_triangles} triangles; bounded static pools support {MAX_CACHE_VERTEX_POOL} vertices and {MAX_CACHE_TRIANGLE_POOL} triangles")
+        error = BakedScrollGeometryLimit if baked_ground else ValueError
+        raise error(f"authored scenery needs {cache_vertices} vertices and {cache_triangles} triangles; bounded static pools support {MAX_CACHE_VERTEX_POOL} vertices and {MAX_CACHE_TRIANGLE_POOL} triangles")
     if cache_vertices > cache_vertex_limit or cache_triangles > cache_triangle_limit:
         raise ValueError(
             f"visible scene exceeds Mipsync static pools: {cache_vertices}/{cache_vertex_limit} vertices, "
@@ -2541,6 +2709,7 @@ def main() -> int:
         "terrain_forms": len(terrain_form_cells),
         "terrain_relief": args.terrain_relief,
         "terrain_material": "relay",
+        "scroll_ground": scroll_ground,
         "visibility": {
             "cells": len(hidden_cells),
             "entities": len(hidden_cells) if per_cell_roofs else (1 if hidden_cells else 0),
@@ -2567,5 +2736,8 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
+    except BakedScrollGeometryLimit as error:
+        print(f"generate_scene.py: {error}", file=sys.stderr)
+        raise SystemExit(3) from error
     except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
         raise SystemExit(f"generate_scene.py: {error}") from error

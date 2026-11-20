@@ -162,6 +162,8 @@ func _run() -> void:
 	_expect("sector-aligned unlicensed BIN/CUE completes", playstation_result.ok, true)
 	if playstation_result.ok:
 		_expect("PlayStation returns both disc files", playstation_result.artifacts.size(), 2)
+		_expect("PlayStation export retains stage warnings", playstation_result.warnings,
+			["First Battle uses standard PlayStation scrolling. Trim unused map edges."])
 
 	_write(playstation_executable, _playstation_builder_script(true))
 	FileAccess.set_unix_permissions(playstation_executable, 493)
@@ -323,7 +325,7 @@ bin_bytes=$(wc -c < "$bin" | tr -d ' ')
 cue_bytes=$(wc -c < "$cue" | tr -d ' ')
 bin_digest=$(sha256sum "$bin" | cut -d ' ' -f 1)
 cue_digest=$(sha256sum "$cue" | cut -d ' ' -f 1)
-printf '{"format":"grandleon-console-build-result","contractVersion":1,"target":"playstation","builderVersion":"test-1","artifacts":[{"name":"payload-road.bin","bytes":%%s,"sha256":"%%s"},{"name":"payload-road.cue","bytes":%%s,"sha256":"%%s"}],"warnings":[]}\n' "$bin_bytes" "$bin_digest" "$cue_bytes" "$cue_digest" > "$output/result.json"
+printf '{"format":"grandleon-console-build-result","contractVersion":1,"target":"playstation","builderVersion":"test-1","artifacts":[{"name":"payload-road.bin","bytes":%%s,"sha256":"%%s"},{"name":"payload-road.cue","bytes":%%s,"sha256":"%%s"}],"warnings":["First Battle uses standard PlayStation scrolling. Trim unused map edges."]}\n' "$bin_bytes" "$bin_digest" "$cue_bytes" "$cue_digest" > "$output/result.json"
 """ % license_line
 
 

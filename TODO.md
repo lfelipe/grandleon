@@ -485,6 +485,12 @@ a worthwhile visual improvement. RAM and VRAM allocations must still fit.
   improved from 9.0 to 10.4 FPS horizontally and 12.3 to 13.7 FPS vertically.
   The three matched castle checkpoints are pixel-identical.
   [Scroll trials](tools/renderer_comparison/ps1-castle-scroll-06.json)
+- [x] Export baked ground per eligible PS1 stage for faster camera pans and
+  restore detailed ground when the camera settles. Keep standard scrolling
+  when a stage needs live water or crosses the hardware budgets. Show the
+  reason and a suggestion in the editor. On Three Courts, co-op scrolling
+  reaches 16.2 FPS horizontally and 21.5 FPS vertically.
+  [Export and emulator checks](tools/renderer_comparison/ps1-castle-scroll-06.json)
 - [x] Retain exact PS1 static-command reuse on larger scenes without increasing
   the entity-key reservation. Lossless snapshots remove the 80-object cutoff;
   small scenes retain direct word keys. The 32×24 castle reduces renderer CPU

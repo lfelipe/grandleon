@@ -79,31 +79,29 @@ def disc_contains_executable(path: Path, executable: bytes) -> bool:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--elf", type=Path, required=True)
-    parser.add_argument("--exe", type=Path, required=True)
-    parser.add_argument("--cue", type=Path, required=True)
-    parser.add_argument("--bin", type=Path, required=True)
-    parser.add_argument("--scene-metrics", type=Path, required=True)
+    parser.add_argument("--exe", type=Path)
+    parser.add_argument("--cue", type=Path)
+    parser.add_argument("--bin", type=Path)
+    parser.add_argument("--scene-metrics", type=Path)
     parser.add_argument("--size-tool", type=Path, required=True)
     parser.add_argument("--nm-tool", type=Path, required=True)
-    parser.add_argument("--upstream-base", required=True)
-    parser.add_argument("--upstream-patched", required=True)
+    parser.add_argument("--upstream-base")
+    parser.add_argument("--upstream-patched")
     parser.add_argument("--output", type=Path, required=True)
-    return parser.parse_args()
+    parser.add_argument("--budget-only", action="store_true",
+                        help="Write the linked RAM budget before disc packing. Exit 3 if it exceeds RAM.")
+    args = parser.parse_args()
+    if not args.budget_only:
+        for name in ("exe", "cue", "bin", "scene_metrics", "upstream_base", "upstream_patched"):
+            if getattr(args, name) is None:
+                parser.error("--" + name.replace("_", "-") + " is required to verify a disc")
+    return args
 
 
-def main() -> int:
-    args = parse_args()
-    artifacts = (args.elf, args.exe, args.cue, args.bin)
-    for path in artifacts + (args.scene_metrics, args.size_tool, args.nm_tool):
+def linked_ram_budget(args):
+    for path in (args.elf, args.size_tool, args.nm_tool):
         if not path.is_file():
             raise ValueError(f"required build input is missing: {path}")
-    marker = b"GRANDLEON_PS1_RENDERER=MIPSYNC"
-    executable = args.exe.read_bytes()
-    if marker not in executable:
-        raise ValueError("Mipsync renderer identity is absent from the executable")
-    if not disc_contains_executable(args.bin, executable):
-        raise ValueError("Mipsync disc does not contain the linked executable")
-
     size_output = subprocess.check_output(
         [str(args.size_tool), str(args.elf)], text=True
     ).strip().splitlines()
@@ -134,7 +132,6 @@ def main() -> int:
     if end_address is None:
         raise ValueError("ELF has no _end or __heap_base symbol")
 
-    scene = json.loads(args.scene_metrics.read_text(encoding="utf-8"))
     packet_bytes_per_frame = 57344
     if packet_arena_bytes != packet_bytes_per_frame or ordering_table_bytes != 8192:
         raise ValueError("linked packet arenas do not match the scene command budget")
@@ -148,6 +145,53 @@ def main() -> int:
         occupied_prefix_bytes + audio_reserve_bytes + stack_reserve_bytes +
         minimum_gameplay_heap_bytes
     )
+    return {
+        "text_bytes": text_bytes,
+        "data_bytes": data_bytes,
+        "bss_bytes": bss_bytes,
+        "resident_bytes": resident_bytes,
+        "occupied_ram_prefix_bytes": occupied_prefix_bytes,
+        "reserved_prefix_and_alignment_bytes": occupied_prefix_bytes - resident_bytes,
+        "packet_bytes_per_frame": packet_bytes_per_frame,
+        "packet_arena_bytes": packet_arena_bytes,
+        "packet_arena_count": 1,
+        "ordering_table_bytes": ordering_table_bytes,
+        "end_address": f"0x{end_address:08x}",
+        "renderer_probe_budget_bytes": renderer_probe_budget_bytes,
+        "platform_audio_reserve_bytes": audio_reserve_bytes,
+        "stack_reserve_bytes": stack_reserve_bytes,
+        "minimum_gameplay_heap_bytes": minimum_gameplay_heap_bytes,
+        "main_ram_bytes": main_ram_bytes,
+        "renderer_and_audio_reserve_bytes": resident_bytes + audio_reserve_bytes,
+        "passes_renderer_only_probe_budget": (
+            resident_bytes + audio_reserve_bytes <= renderer_probe_budget_bytes
+        ),
+        "playable_slice_committed_bytes": committed_bytes,
+        "passes_playable_slice_budget": committed_bytes <= main_ram_bytes,
+    }
+
+
+def main() -> int:
+    args = parse_args()
+    memory = linked_ram_budget(args)
+    if args.budget_only:
+        args.output.write_text(json.dumps(memory, indent=2) + "\n", encoding="utf-8")
+        return 0 if memory["passes_playable_slice_budget"] else 3
+    if not memory["passes_playable_slice_budget"]:
+        raise ValueError(
+            "simulation, renderer, platform-audio, stack and minimum heap "
+            f"exceed PS1 main RAM: {memory['playable_slice_committed_bytes']} > {memory['main_ram_bytes']}"
+        )
+    artifacts = (args.elf, args.exe, args.cue, args.bin)
+    for path in artifacts + (args.scene_metrics,):
+        if not path.is_file():
+            raise ValueError(f"required build input is missing: {path}")
+    marker = b"GRANDLEON_PS1_RENDERER=MIPSYNC"
+    executable = args.exe.read_bytes()
+    if marker not in executable:
+        raise ValueError("Mipsync renderer identity is absent from the executable")
+    if not disc_contains_executable(args.bin, executable):
+        raise ValueError("Mipsync disc does not contain the linked executable")
     result = {
         "schema": "grandleon.mipsync.build.v1",
         "renderer": "mipsync",
@@ -160,41 +204,13 @@ def main() -> int:
             path.name: {"bytes": path.stat().st_size, "sha256": digest(path)}
             for path in artifacts
         },
-        "main_ram": {
-            "text_bytes": text_bytes,
-            "data_bytes": data_bytes,
-            "bss_bytes": bss_bytes,
-            "resident_bytes": resident_bytes,
-            "occupied_ram_prefix_bytes": occupied_prefix_bytes,
-            "reserved_prefix_and_alignment_bytes": occupied_prefix_bytes - resident_bytes,
-            "packet_bytes_per_frame": packet_bytes_per_frame,
-            "packet_arena_bytes": packet_arena_bytes,
-            "packet_arena_count": 1,
-            "ordering_table_bytes": ordering_table_bytes,
-            "end_address": f"0x{end_address:08x}",
-            "renderer_probe_budget_bytes": renderer_probe_budget_bytes,
-            "platform_audio_reserve_bytes": audio_reserve_bytes,
-            "stack_reserve_bytes": stack_reserve_bytes,
-            "minimum_gameplay_heap_bytes": minimum_gameplay_heap_bytes,
-            "main_ram_bytes": main_ram_bytes,
-            "renderer_and_audio_reserve_bytes": resident_bytes + audio_reserve_bytes,
-            "passes_renderer_only_probe_budget": (
-                resident_bytes + audio_reserve_bytes <= renderer_probe_budget_bytes
-            ),
-            "playable_slice_committed_bytes": committed_bytes,
-            "passes_playable_slice_budget": committed_bytes <= main_ram_bytes,
-        },
-        "scene": scene,
+        "main_ram": memory,
+        "scene": json.loads(args.scene_metrics.read_text(encoding="utf-8")),
     }
-    if not result["main_ram"]["passes_playable_slice_budget"]:
-        raise ValueError(
-            "simulation, renderer, platform-audio, stack and minimum heap "
-            f"exceed PS1 main RAM: {committed_bytes} > {main_ram_bytes}"
-        )
     args.output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print(
         "GRANDLEON_PS1_RENDERER=MIPSYNC "
-        f"resident={resident_bytes} cue={args.cue} bin={args.bin}"
+        f"resident={memory['resident_bytes']} cue={args.cue} bin={args.bin}"
     )
     return 0
 

@@ -38,6 +38,8 @@ assert stages == [
     "steel_and_cedar/cedar_watch",
     "steel_and_cedar/gate_village",
     "steel_and_cedar/twin_gate",
+    "steel_and_cedar/orchard_storehouse",
+    "steel_and_cedar/courier_ford",
 ]
 
 alternate = load("games/demo/source/project.json")

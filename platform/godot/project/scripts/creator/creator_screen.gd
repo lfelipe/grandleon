@@ -902,7 +902,13 @@ func _finish_console_export(result: Dictionary) -> void:
 		_set_export_status("BUILD FAILED  /  %s" % str(result.get("message", "UNKNOWN ERROR")).to_upper(), true)
 		return
 	var target := "NINTENDO 64 ROM" if str(result.target) == "nintendo64" else "PLAYSTATION BIN / CUE"
-	_set_export_status("READY  /  %s  /  %s" % [str(result.name).to_upper(), target], false)
+	var status := "READY  /  %s  /  %s" % [str(result.name).to_upper(), target]
+	var warnings := PackedStringArray(result.get("warnings", []))
+	if not warnings.is_empty():
+		status += "\n\n" + "\n".join(warnings)
+	_set_export_status(status, false)
+	if not warnings.is_empty():
+		export_status_label.add_theme_color_override("font_color", Color("ffca63"))
 	_set_status("BUILT %s  /  %s" % [target, str(result.name).to_upper()], false)
 
 

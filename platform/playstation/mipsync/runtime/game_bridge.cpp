@@ -212,6 +212,8 @@ std::string s_conversation_speaker;
 sim::ContentId s_action_content{};
 unsigned s_camera_settle_frames{};
 bool s_scroll_scenery_active{};
+constexpr unsigned baked_pan_linger_ticks = 16;
+unsigned s_baked_pan_ticks{};
 struct SceneryView final {
     int x{}, z{};
     unsigned page{};
@@ -1278,9 +1280,12 @@ unsigned update_scenery_view(
             closest_page = index;
         }
     }
+    auto* baked_floor = grandleon_scene_mutable_entity(GRANDLEON_SCROLL_FLOOR_INDEX);
+    const bool show_baked = !close_combat && reduced_scenery && baked_floor;
+    if (baked_floor) baked_floor->mesh_enabled = show_baked;
     for (unsigned index = 0; index < g_grandleon_board_surface_count; ++index) {
         ps1_entity* surface = grandleon_scene_mutable_entity(g_grandleon_board_surface_entity_indices[index]);
-        if (surface) surface->mesh_enabled = !close_combat;
+        if (surface) surface->mesh_enabled = !close_combat && !show_baked;
     }
     s_active_terrain_chunks = g_grandleon_terrain_chunk_count ? 1U : 0U;
     for (unsigned index = 0; index < g_grandleon_terrain_chunk_count; ++index) {
@@ -1383,16 +1388,19 @@ void tick_camera() {
     const bool camera_moved =
         camera->position[0] != previous_camera_x ||
         camera->position[2] != previous_camera_z;
+    if (GRANDLEON_SCROLL_FLOOR_INDEX != UINT32_MAX && camera_moved && !snap && !close_combat)
+        s_baked_pan_ticks = baked_pan_linger_ticks;
     if (camera_moved) s_camera_settle_frames = 0;
     else if (s_camera_settle_frames < 8) ++s_camera_settle_frames;
     const std::int32_t camera_x = camera->position[0] / 65536;
     const std::int32_t camera_z = camera->position[2] / 65536;
     const std::int32_t camera_focus_z =
         (camera->position[2] - desired_trailing) / 65536;
-    // Keep simplified castle shapes through short gaps between inputs, then
-    // restore detail once the board has held still for four game ticks.
+    // Keep the baked ground across short gaps in a pan. Stages without a
+    // bake retain the existing transition for their reduced castle shapes.
     const bool scroll_scenery = g_grandleon_has_scroll_scenery && !snap &&
-        !close_combat && s_camera_settle_frames < 4U;
+        !close_combat && (GRANDLEON_SCROLL_FLOOR_INDEX != UINT32_MAX
+            ? s_baked_pan_ticks != 0 : s_camera_settle_frames < 4U);
     s_scroll_scenery_active = scroll_scenery;
     const unsigned closest_page = update_scenery_view(
         camera_x, camera_focus_z, close_combat, scroll_scenery);
@@ -2322,6 +2330,7 @@ bool start_encounter() {
     for (unsigned index = 0; index < maximum_board_cells; ++index) {
         s_visibility_revealed[index] = false;
     }
+    s_baked_pan_ticks = 0;
     s_scenery_view.valid = false;
     std::fill_n(g_grandleon_scroll_roof_revealed, g_grandleon_scroll_roof_group_count, 0U);
     (void)update_visual_visibility(snapshot);
@@ -3595,6 +3604,16 @@ int grandleon_game_update(uint16_t player_one, uint16_t player_two) {
             }
         }
         return 0;
+    }
+    if (s_baked_pan_ticks) {
+        constexpr auto directions = pad_left | pad_right | pad_up | pad_down;
+        const auto keys = s_local_players > 1 ? player_one | player_two : player_one;
+        const bool navigating = s_mode == InputMode::browse || s_mode == InputMode::move ||
+            s_mode == InputMode::attack || s_mode == InputMode::ability ||
+            s_mode == InputMode::talk || s_mode == InputMode::deployment;
+        // Repeated directions at a clamped edge are still part of the pan.
+        if (navigating && (keys & directions)) s_baked_pan_ticks = baked_pan_linger_ticks;
+        else --s_baked_pan_ticks;
     }
     const bool motion_was_active = advance_board_motion();
     tick_camera();

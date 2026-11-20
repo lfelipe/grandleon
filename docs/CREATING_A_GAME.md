@@ -239,6 +239,11 @@ resize preview warn when a layout exceeds a console size limit. PlayStation
 exports measure the generated geometry and memory. You can keep editing,
 saving and playing on PC when a console limit is exceeded.
 
+PlayStation exports can simplify the ground while the camera moves on larger
+castle maps. If a stage needs standard scrolling to stay within hardware
+limits or keep moving water and bridges, **Finish & Export** names the stage
+and suggests what you can adjust. The disc is still ready to play.
+
 The PS1 disc has no Sony licence sector and needs a compatible test setup.
 See [Setting up](SETUP.md) for builders and the [project README](../README.md)
 for downloadable campaign packages.

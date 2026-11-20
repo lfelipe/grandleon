@@ -73,6 +73,24 @@ for library in psxgpu psxetc psxspu psxcd psxapi; do
         "$normalized/lib${library}_exe_nogprel.a"
 done
 
+standard_scroll_ground() {
+    python3 "$mipsync_dir/tools/generate_scene.py" "$1" "$repo_root" "$2"
+    python3 - "$2/scene-metrics.json" "$3" "${4:-}" <<'PY'
+import json
+from pathlib import Path
+import sys
+
+scene_path = Path(sys.argv[1])
+scene = json.loads(scene_path.read_text())
+ground = {"mode": "standard", "reason": sys.argv[2]}
+if sys.argv[3]:
+    budget = json.loads(Path(sys.argv[3]).read_text())
+    ground["over_budget_bytes"] = budget["playable_slice_committed_bytes"] - budget["main_ram_bytes"]
+scene["scroll_ground"] = ground
+scene_path.write_text(json.dumps(scene, indent=2) + "\n")
+PY
+}
+
 stage_runtime() {
     stage=$1
     primary=$2
@@ -95,8 +113,14 @@ stage_runtime() {
     cp "$mipsync_dir/runtime/system.cnf" "$source_dir/system.cnf"
     mkdir -p "$source_dir/generated"
     python3 "$mipsync_dir/tools/generate_audio.py" "$repo_root" "$source_dir/generated"
+    generation_status=0
     python3 "$mipsync_dir/tools/generate_scene.py" \
-        "$primary" "$repo_root" "$source_dir/generated"
+        "$primary" "$repo_root" "$source_dir/generated" --baked-scroll || generation_status=$?
+    case "$generation_status" in
+        0) ;;
+        3) standard_scroll_ground "$primary" "$source_dir/generated" geometry ;;
+        *) return "$generation_status" ;;
+    esac
     if test -n "$one_player"; then
         python3 "$mipsync_dir/tools/generate_simulation.py" \
             "$primary" "$source_dir/generated" \
@@ -137,9 +161,7 @@ nugget=${PLAYSTATION_NUGGET:-/nugget}
 libstdcxx=${GRANDLEON_LIBSTDCXX_TREE:-/libstdcxx/tree.cc}
 test -d "$nugget" || { echo "Nugget source is not available: $nugget" >&2; exit 1; }
 test -f "$libstdcxx" || { echo "libstdc++ compatibility source is not available: $libstdcxx" >&2; exit 1; }
-while IFS="$tab" read -r kind index encounter; do
-    test "$kind" = stage || continue
-    stage=$stages/$index
+compile_stage() {
     cmake -S "$stage/source" -B "$stage/build" \
         -DCMAKE_TOOLCHAIN_FILE="$repo_root/cmake/toolchains/PlayStation.cmake" \
         -DPLAYSTATION_NUGGET="$nugget" \
@@ -149,6 +171,31 @@ while IFS="$tab" read -r kind index encounter; do
         -DGRANDLEON_PSN00B_ARCHIVE_ROOT="$normalized" \
         -DGRANDLEON_MIPSYNC_CAMPAIGN=ON
     cmake --build "$stage/build" --target grandleon_mipsync --parallel
+}
+while IFS="$tab" read -r kind index encounter; do
+    test "$kind" = stage || continue
+    stage=$stages/$index
+    compile_stage
+    generated=$stage/source/generated
+    metrics=$generated/scene-metrics.json
+    scroll_mode=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["scroll_ground"]["mode"])' "$metrics")
+    if test "$scroll_mode" = baked; then
+        budget_status=0
+        python3 "$mipsync_dir/tools/write_build_manifest.py" --budget-only \
+            --elf "$stage/build/grandleon_mipsync.elf" \
+            --size-tool "$psn_size" --nm-tool "$psn_nm" \
+            --output "$stage/baked-scroll-budget.json" || budget_status=$?
+        case "$budget_status" in
+            0) ;;
+            3)
+                primary=$stage/two.json
+                if test "$mode" = one; then primary=$stage/one.json; fi
+                standard_scroll_ground "$primary" "$generated" ram "$stage/baked-scroll-budget.json"
+                compile_stage
+                ;;
+            *) exit "$budget_status" ;;
+        esac
+    fi
 done < "$plan"
 
 boot_file=
@@ -208,12 +255,20 @@ while IFS="$tab" read -r kind index encounter; do
         --output "$stage/build-manifest.json"
 done < "$plan"
 
-python3 - "$stages" <<'PY'
+python3 - "$stages" "$stage_files" "$project" "$output/warnings.json" <<'PY'
 import json
 from pathlib import Path
 import sys
 
-for path in sorted(Path(sys.argv[1]).glob("*/build-manifest.json")):
+stages, stage_files, project_path, warnings_path = map(Path, sys.argv[1:])
+project = json.loads(project_path.read_text())
+names = {node["id"]: node.get("name") or node["id"]
+         for node in project["campaigns"][0]["flow"]["nodes"]
+         if isinstance(node, dict) and node.get("kind") == "encounter"}
+warnings = []
+for line in stage_files.read_text().splitlines():
+    index, _, encounter = line.split("\t")
+    path = stages / index / "build-manifest.json"
     document = json.loads(path.read_text(encoding="utf-8"))
     memory = document["main_ram"]
     vram = document["scene"]["vram"]
@@ -230,6 +285,26 @@ for path in sorted(Path(sys.argv[1]).glob("*/build-manifest.json")):
         f"ram={memory['playable_slice_committed_bytes']}/{memory['main_ram_bytes']} "
         f"vram={vram['texture_bytes']}/{704 * 512 * 2}"
     )
+    ground = document["scene"]["scroll_ground"]
+    reason = ground.get("reason")
+    if reason:
+        name = " ".join(names[encounter.split("/", 1)[1]].split())[:70]
+        message = f"{name} uses standard PlayStation scrolling. "
+        if reason == "ram":
+            amount = (ground["over_budget_bytes"] + 1023) // 1024
+            message += (f"Smoother scrolling needs {amount} KiB more RAM. "
+                        "Reuse some unit appearances or trim unused map edges.")
+        elif reason == "vram":
+            message += "The baked ground cannot fit in texture memory. Reuse unit appearances or trim unused map edges."
+        elif reason == "geometry":
+            message += "The ground bake exceeds the geometry limit. Simplify dense terrain or trim unused map edges."
+        elif reason == "water":
+            message += "The stage keeps its water and bridges live. Shorten long camera pans if scrolling feels slow."
+        else:
+            raise SystemExit(f"{path}: unrecognized scroll ground result")
+        warnings.append(message)
+        print(f"PlayStation export warning. {message}")
+warnings_path.write_text(json.dumps(warnings, ensure_ascii=False) + "\n", encoding="utf-8")
 PY
 
 "$repo_root/tools/upstream_patches/cutover-audit.sh" \

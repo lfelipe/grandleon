@@ -478,6 +478,33 @@ def test_castle_masonry_uses_a_private_palette() -> None:
         assert SCENE.TEXTURE_X + 256 <= SCENE.CLUT_X
 
 
+def test_optional_ground_pages_keep_the_standard_texture_bank() -> None:
+    width, height = 32, 24
+    terrain = {(x, y): 12 if y > 12 else 9 for y in range(height) for x in range(width)}
+    pages = SCENE.bake_scroll_ground(ROOT.parents[2], width, height, 0, terrain, 0)
+    assert len(pages) == 4
+    with tempfile.TemporaryDirectory() as folder:
+        output = Path(folder)
+        atlas = output / "textures_data.c"
+        normal = SCENE.write_textures(output, ROOT.parents[2], [9, 12], [], castle=True)
+        original = atlas.read_text()
+        baked = SCENE.write_textures(output, ROOT.parents[2], [9, 12], [], castle=True,
+                                     baked_ground=pages)
+        assert baked[0][SCENE.BAKED_SCROLL_MATERIAL] == normal[3]["texture_count"] + 1
+        assert baked[3]["texture_count"] == normal[3]["texture_count"] + 4
+        assert atlas.read_text().split("static const uint32_t k_baked_scroll_ground_0_tim")[0] == (
+            original.split("const ps1_texture_desc g_ps1_textures")[0]
+        )
+
+        # Exercise partial allocation by supplying a bank bigger than the
+        # usable VRAM. Dropping the optional pages must restore the bank exactly.
+        full_page = pages[0]._replace(image=Image.new("RGB", (128, 256), "red"))
+        rejected = SCENE.write_textures(output, ROOT.parents[2], [9, 12], [], castle=True,
+                                        baked_ground=(full_page,) * 24)
+        assert rejected == normal
+        assert atlas.read_text() == original
+
+
 def test_house_only_bank_does_not_require_a_shared_unit_palette() -> None:
     with tempfile.TemporaryDirectory() as folder:
         _, _, _, metrics, _ = SCENE.write_textures(Path(folder), ROOT.parents[2], [9], [],
@@ -551,6 +578,7 @@ if __name__ == "__main__":
     test_stone_keep_exports_solid_terrace_with_local_sorting_faces()
     test_masonry_keeps_one_texture_tile_per_board_cell()
     test_castle_masonry_uses_a_private_palette()
+    test_optional_ground_pages_keep_the_standard_texture_bank()
     test_console_font_has_complete_pixel_cells()
     test_accented_font_uses_complete_cells_and_dedicated_four_bit_clut()
     test_cutout_keeps_grounding_inside_existing_texture()
