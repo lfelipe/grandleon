@@ -441,5 +441,222 @@
       "result": "The longer horizontal worst frame outweighs the small throughput gain.",
       "trace": "out/release-06-closure/ps1-block-6-timing/scroll-swaps.csv"
     }
+  },
+  "floor_partition_and_resident_geometry": {
+    "method": "Same normal 32 \u00d7 24 Three Courts campaign export and controller replay. The official modular castle probe optionally records emulated CPU-cycle timestamps at display-buffer swaps.",
+    "committed_ram_limit_bytes": 2097152,
+    "baseline": {
+      "disc_sha256": "9f20a1dfcc043f142013dcc17c0d6d4c4d3a9c94bdd76189c157a82a2f35a5b8",
+      "committed_main_ram_bytes": 2088516,
+      "texture_vram_bytes": 183616,
+      "solo": {
+        "trace": "out/ps1-floor-chunks06/reference-1p/scroll-swaps.csv",
+        "phases": {
+          "room": {
+            "swaps": 33,
+            "fps": 13.24,
+            "worst_ms": 83.32
+          },
+          "horizontal": {
+            "swaps": 33,
+            "fps": 10.38,
+            "worst_ms": 199.97
+          },
+          "vertical": {
+            "swaps": 33,
+            "fps": 13.52,
+            "worst_ms": 133.31
+          }
+        }
+      },
+      "coop": {
+        "trace": "out/ps1-floor-chunks06/reference-replay/scroll-swaps.csv",
+        "phases": {
+          "room": {
+            "swaps": 29,
+            "fps": 11.28,
+            "worst_ms": 233.3
+          },
+          "horizontal": {
+            "swaps": 33,
+            "fps": 10.38,
+            "worst_ms": 183.31
+          },
+          "vertical": {
+            "swaps": 32,
+            "fps": 13.68,
+            "worst_ms": 133.31
+          }
+        }
+      }
+    },
+    "omit_unused_terrain_vertex_normals": {
+      "disc_sha256": "e6f5eb84361345150adfb3f1b2df5349feee263f1b3685a78418e21b13c089cb",
+      "committed_main_ram_bytes": 2045508,
+      "texture_vram_bytes": 183616,
+      "solo": {
+        "trace": "out/ps1-floor-chunks06/flat-1p/scroll-swaps.csv",
+        "phases": {
+          "room": {
+            "swaps": 33,
+            "fps": 13.24,
+            "worst_ms": 83.32
+          },
+          "horizontal": {
+            "swaps": 33,
+            "fps": 10.38,
+            "worst_ms": 199.97
+          },
+          "vertical": {
+            "swaps": 33,
+            "fps": 13.52,
+            "worst_ms": 133.31
+          }
+        }
+      },
+      "coop": {
+        "trace": "out/ps1-floor-chunks06/flat-2p/scroll-swaps.csv",
+        "phases": {
+          "room": {
+            "swaps": 29,
+            "fps": 11.28,
+            "worst_ms": 233.3
+          },
+          "horizontal": {
+            "swaps": 33,
+            "fps": 10.38,
+            "worst_ms": 183.31
+          },
+          "vertical": {
+            "swaps": 32,
+            "fps": 13.68,
+            "worst_ms": 133.31
+          }
+        }
+      },
+      "solo_frames": {
+        "checkpoints": {
+          "castle-closed.bin": true,
+          "castle-entry.bin": true,
+          "castle-far-corner.bin": true
+        },
+        "motion_frames_identical": 60,
+        "motion_frames_reference": 60,
+        "motion_frames_candidate": 60
+      },
+      "coop_frames": {
+        "checkpoints": {
+          "castle-closed.bin": true,
+          "castle-entry.bin": true,
+          "castle-far-corner.bin": true
+        },
+        "motion_frames_identical": 59,
+        "motion_frames_reference": 59,
+        "motion_frames_candidate": 59
+      },
+      "committed_bytes_saved": 43008
+    },
+    "floor_partition_trials": {
+      "16_cell_columns": {
+        "disc_sha256": "0579b51158aa0b031fa9fe8861cadffeb99774698a728c54bd36a02889de470b",
+        "committed_main_ram_bytes": 2092604,
+        "texture_vram_bytes": 183616,
+        "coop": {
+          "trace": "out/ps1-floor-chunks06/columns-replay/scroll-swaps.csv",
+          "phases": {
+            "room": {
+              "swaps": 28,
+              "fps": 11.33,
+              "worst_ms": 233.3
+            },
+            "horizontal": {
+              "swaps": 34,
+              "fps": 10.26,
+              "worst_ms": 183.31
+            },
+            "vertical": {
+              "swaps": 32,
+              "fps": 13.99,
+              "worst_ms": 133.31
+            }
+          }
+        },
+        "frames": {
+          "checkpoints": {
+            "castle-closed.bin": true,
+            "castle-entry.bin": true,
+            "castle-far-corner.bin": true
+          },
+          "motion_frames_identical": 29,
+          "motion_frames_reference": 59,
+          "motion_frames_candidate": 58
+        }
+      },
+      "8_cell_chunks_with_normals": {
+        "committed_main_ram_bytes": 2109932
+      },
+      "12_cell_chunks_with_normals": {
+        "committed_main_ram_bytes": 2101156
+      },
+      "8_cell_chunks_after_removing_normals": {
+        "disc_sha256": "9f95b03d8d0df6b5f77b0b6fa8cdf8adec3f51536a0251707965e027424c5408",
+        "committed_main_ram_bytes": 2064876,
+        "texture_vram_bytes": 183616,
+        "coop": {
+          "trace": "out/ps1-floor-chunks06/flat-chunks-2p/scroll-swaps.csv",
+          "phases": {
+            "room": {
+              "swaps": 28,
+              "fps": 11.02,
+              "worst_ms": 283.29
+            },
+            "horizontal": {
+              "swaps": 27,
+              "fps": 8.53,
+              "worst_ms": 216.64
+            },
+            "vertical": {
+              "swaps": 24,
+              "fps": 10.38,
+              "worst_ms": 166.64
+            }
+          }
+        },
+        "frames": {
+          "checkpoints": {
+            "castle-closed.bin": false,
+            "castle-entry.bin": false,
+            "castle-far-corner.bin": true
+          },
+          "motion_frames_identical": 0,
+          "motion_frames_reference": 59,
+          "motion_frames_candidate": 54
+        }
+      }
+    },
+    "decision": "Omit unused terrain normals and retain the continuous floor strips. Column partitioning gave no consistent pacing gain. Smaller chunks exceeded the original memory budget and performed worse when retested with recovered RAM.",
+    "steel_and_cedar_export": {
+      "manifest_root": "out/ps1-floor-chunks06/steel-flat/stages",
+      "disc_sha256": "07cbd8a35ae800d164275892e95c414e06c61f0c1294f5f1c9dbb560c7027b65",
+      "baseline_committed_ram_bytes": {
+        "01": 1825044,
+        "02": 1711224,
+        "03": 1886148,
+        "04": 1974804,
+        "05": 1984828,
+        "06": 1699340,
+        "07": 1681212
+      },
+      "retained_committed_ram_bytes": {
+        "01": 1816852,
+        "02": 1700984,
+        "03": 1865668,
+        "04": 1950228,
+        "05": 1945916,
+        "06": 1689100,
+        "07": 1668924
+      },
+      "peak_reduction_bytes": 34600
+    }
   }
 }

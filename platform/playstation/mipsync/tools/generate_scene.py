@@ -1739,12 +1739,13 @@ def write_meshes(
         "    { 63, 63 }, { 0, 63 }, { 0, 0 }, { 63, 0 },",
         "};", "",
     ))
+    # Mipsync uses face normals for terrain meshes. Smooth lighting only
+    # reads per-vertex normals from non-terrain meshes.
     chunk_descriptors: list[tuple[int, int, int, int, int, int, int]] = []
     chunk_mesh_lines: list[str] = []
     for chunk_index, (vertices, uvs, triangles, bounds) in enumerate(board_groups):
         name = f"k_board_{chunk_index}"
         lines += emit_vectors(f"{name}_vertices", vertices)
-        lines += emit_vectors(f"{name}_normals", [(0, 4096, 0, 0)] * len(vertices))
         lines.append(f"static const ps1_uv8 {name}_uvs[] = {{")
         lines.extend(f"    {{ {u}, {v} }}," for u, v in uvs)
         lines.extend(("};", "", f"static const ps1_mesh_tri {name}_triangles[] = {{"))
@@ -1755,7 +1756,7 @@ def write_meshes(
         centre_z = (min(vertex[2] for vertex in vertices) + max(vertex[2] for vertex in vertices)) // 2
         radius = math.ceil(max(math.hypot(vertex[0] - centre_x, vertex[2] - centre_z) for vertex in vertices))
         chunk_mesh_lines.append(
-            f"    {{ .verts={name}_vertices, .norms={name}_normals, .vert_count=sizeof({name}_vertices)/sizeof({name}_vertices[0]), .uvs={name}_uvs, .tris={name}_triangles, .tri_count=sizeof({name}_triangles)/sizeof({name}_triangles[0]), .scale_q12=4096, .bounds_center_x={centre_x}, .bounds_center_z={centre_z}, .bounds_radius={radius}, .flags=PS1_MESH_FLAG_TERRAIN }},"
+            f"    {{ .verts={name}_vertices, .vert_count=sizeof({name}_vertices)/sizeof({name}_vertices[0]), .uvs={name}_uvs, .tris={name}_triangles, .tri_count=sizeof({name}_triangles)/sizeof({name}_triangles[0]), .scale_q12=4096, .bounds_center_x={centre_x}, .bounds_center_z={centre_z}, .bounds_radius={radius}, .flags=PS1_MESH_FLAG_TERRAIN }},"
         )
         start_x, start_y = page_origins[chunk_index]
         end_x = min(width, start_x + CAMERA_VIEW_TILES_X)
@@ -1770,7 +1771,6 @@ def write_meshes(
         scenery_indices[kind] = scenery_mesh_start + model_index
         name = "k_scenery_" + kind
         lines += emit_vectors(name + "_vertices", verts)
-        lines += emit_vectors(name + "_normals", [(0,4096,0,0)] * len(verts))
         lines.append("static const ps1_uv8 " + name + "_uvs[] = {")
         lines += [f"    {{{u},{v}}}," for u,v in uvs]
         lines += ["};", "static const ps1_mesh_tri " + name + "_triangles[] = {"]
@@ -1779,7 +1779,7 @@ def write_meshes(
         lines.append("};")
         centre_y = (min(v[1] for v in verts)+max(v[1] for v in verts))//2
         radius = math.ceil(max(math.sqrt(v[0]**2+(v[1]-centre_y)**2+v[2]**2) for v in verts))
-        scenery_mesh_lines.append(f"    {{.verts={name}_vertices,.norms={name}_normals,.vert_count={len(verts)},.uvs={name}_uvs,.tris={name}_triangles,.tri_count={len(tris)},.scale_q12=4096,.bounds_center_y={centre_y},.bounds_radius={radius},.flags=PS1_MESH_FLAG_TERRAIN}},")
+        scenery_mesh_lines.append(f"    {{.verts={name}_vertices,.vert_count={len(verts)},.uvs={name}_uvs,.tris={name}_triangles,.tri_count={len(tris)},.scale_q12=4096,.bounds_center_y={centre_y},.bounds_radius={radius},.flags=PS1_MESH_FLAG_TERRAIN}},")
     if scenery_metadata is not None:
         for x,y,kind,size in settlement_instances:
             floor = max(surface_relief(x+dx,y+dy,cell_lifts) for dy in range(size) for dx in range(size)) if relief_mode == "smooth" else 0
@@ -1806,7 +1806,6 @@ def write_meshes(
             foliage_metadata.append(foliage_mesh_start + len(foliage_mesh_lines))
         name = f"k_foliage_{page}"
         lines += emit_vectors(name + "_vertices", verts)
-        lines += emit_vectors(name + "_normals", [(0,4096,0,0)] * len(verts))
         lines.append(f"static const ps1_uv8 {name}_uvs[] = {{")
         lines += [f"    {{{u},{v}}}," for u, v in uvs]
         lines += ["};", f"static const ps1_mesh_tri {name}_triangles[] = {{"]
@@ -1816,12 +1815,8 @@ def write_meshes(
         cx = (min(v[0] for v in verts) + max(v[0] for v in verts)) // 2
         cz = (min(v[2] for v in verts) + max(v[2] for v in verts)) // 2
         radius = math.ceil(max(math.hypot(v[0] - cx, v[2] - cz) for v in verts))
-        foliage_mesh_lines.append(f"    {{.verts={name}_vertices,.norms={name}_normals,.vert_count={len(verts)},.uvs={name}_uvs,.tris={name}_triangles,.tri_count={len(tris)},.scale_q12=4096,.bounds_center_x={cx},.bounds_center_z={cz},.bounds_radius={radius},.flags=PS1_MESH_FLAG_TERRAIN}},")
+        foliage_mesh_lines.append(f"    {{.verts={name}_vertices,.vert_count={len(verts)},.uvs={name}_uvs,.tris={name}_triangles,.tri_count={len(tris)},.scale_q12=4096,.bounds_center_x={cx},.bounds_center_z={cz},.bounds_radius={radius},.flags=PS1_MESH_FLAG_TERRAIN}},")
     lines += emit_vectors("k_combat_floor_vertices", combat_floor_vertices)
-    lines += emit_vectors(
-        "k_combat_floor_normals",
-        [(0, 4096, 0, 0)] * len(combat_floor_vertices),
-    )
     lines.append("static const ps1_uv8 k_combat_floor_uvs[] = {")
     lines.extend(f"    {{ {u}, {v} }}," for u, v in combat_floor_uvs)
     lines.extend(("};", "", "static const ps1_mesh_tri k_combat_floor_triangles[] = {"))
@@ -1874,7 +1869,7 @@ def write_meshes(
             for vertex in visibility_vertices
         ))
         visibility_mesh_line = (
-            "    { .verts=k_visibility_vertices, .norms=k_visibility_normals, "
+            "    { .verts=k_visibility_vertices, "
             ".vert_count=sizeof(k_visibility_vertices)/sizeof(k_visibility_vertices[0]), "
             ".uvs=k_visibility_uvs, .tris=k_visibility_triangles, "
             ".tri_count=sizeof(k_visibility_triangles)/sizeof(k_visibility_triangles[0]), "
@@ -1895,8 +1890,8 @@ def write_meshes(
         "};", "", "const ps1_mesh g_ps1_meshes[] = {",
         "    { .verts=k_billboard_vertices, .norms=k_billboard_normals, .vert_count=4, .uvs=k_billboard_uvs, .tris=k_billboard_triangles, .tri_count=2, .scale_q12=256, .bounds_center_y=512, .bounds_radius=724 },",
         *chunk_mesh_lines,
-        "    { .verts=k_combat_floor_vertices, .norms=k_combat_floor_normals, .vert_count=sizeof(k_combat_floor_vertices)/sizeof(k_combat_floor_vertices[0]), .uvs=k_combat_floor_uvs, .tris=k_combat_floor_triangles, .tri_count=sizeof(k_combat_floor_triangles)/sizeof(k_combat_floor_triangles[0]), .scale_q12=4096, .bounds_radius=860, .flags=PS1_MESH_FLAG_TERRAIN },",
-        "    { .verts=k_cursor_vertices, .norms=k_cursor_normals, .vert_count=sizeof(k_cursor_vertices)/sizeof(k_cursor_vertices[0]), .uvs=k_cursor_uvs, .tris=k_cursor_triangles, .tri_count=sizeof(k_cursor_triangles)/sizeof(k_cursor_triangles[0]), .scale_q12=256, .bounds_radius=1360, .flags=PS1_MESH_FLAG_TERRAIN },",
+        "    { .verts=k_combat_floor_vertices, .vert_count=sizeof(k_combat_floor_vertices)/sizeof(k_combat_floor_vertices[0]), .uvs=k_combat_floor_uvs, .tris=k_combat_floor_triangles, .tri_count=sizeof(k_combat_floor_triangles)/sizeof(k_combat_floor_triangles[0]), .scale_q12=4096, .bounds_radius=860, .flags=PS1_MESH_FLAG_TERRAIN },",
+        "    { .verts=k_cursor_vertices, .vert_count=sizeof(k_cursor_vertices)/sizeof(k_cursor_vertices[0]), .uvs=k_cursor_uvs, .tris=k_cursor_triangles, .tri_count=sizeof(k_cursor_triangles)/sizeof(k_cursor_triangles[0]), .scale_q12=256, .bounds_radius=1360, .flags=PS1_MESH_FLAG_TERRAIN },",
         *([visibility_mesh_line] if visibility_mesh_line else []),
         "    { .verts=k_billboard_vertices, .norms=k_billboard_normals, .vert_count=4, .uvs=k_billboard_mirrored_uvs, .tris=k_billboard_triangles, .tri_count=2, .scale_q12=256, .bounds_center_y=512, .bounds_radius=724 },",
         "    { .verts=k_billboard_vertices, .norms=k_billboard_normals, .vert_count=4, .uvs=k_directional_billboard_uvs, .tris=k_billboard_triangles, .tri_count=2, .scale_q12=256, .bounds_center_y=512, .bounds_radius=724 },",

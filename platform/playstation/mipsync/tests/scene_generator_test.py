@@ -216,6 +216,7 @@ def test_continuous_floor_covers_every_playable_tile_outside_scenery_pages() -> 
         SCENE.write_meshes(Path(folder), [((0, 0), cells)] + SCENE.page_cells(cells, 18, 12, 0),
                            18, 12, [], {9: 1}, 0, "smooth", lifts, [], [], surface_count=1)
         generated = (Path(folder) / "mesh_data.c").read_text()
+        assert "k_board_0_normals" not in generated, "terrain does not need resident per-vertex normals"
         body = generated.split("k_board_0_vertices[] = {")[1].split("};")[0]
         points = [tuple(map(int, m)) for m in re.findall(r"\{\s*(-?\d+),\s*(-?\d+),\s*(-?\d+),\s*(-?\d+)\s*\}", body)]
         faces = generated.split("k_board_0_triangles[] = {")[1].split("};")[0]
