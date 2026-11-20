@@ -39,6 +39,29 @@ actions[move_at+240]=0x4000
 for i=0,31 do actions[move_at+270+i*6]=0x0020 end
 for i=0,23 do actions[move_at+480+i*6]=0x0040 end
 
+-- Optional emulated CPU-cycle samples at the game's display-buffer swaps.
+-- Keep this outside the input callback so frame holds are measured directly.
+local display_address = tonumber(os.getenv('GRANDLEON_DISPLAY_ADDRESS'))
+local swaps
+if display_address then
+  assert(PCSX.getCPUCycles, 'native cycle counter required to measure swaps')
+  swaps = assert(io.open('/out/scroll-swaps.csv', 'wb'))
+  swaps:write('phase,cycle,update\n')
+  grandleon_display_timing = PCSX.addBreakpoint(display_address, 'Exec', 4,
+    'Observe display swaps', function()
+      if start then
+        local elapsed = frame - start
+        local phase = elapsed >= move_at + 480 and elapsed < move_at + 624 and 'vertical' or
+          elapsed >= move_at + 270 and elapsed < move_at + 462 and 'horizontal' or
+          elapsed >= move_at + 70 and elapsed < move_at + 220 and 'room' or nil
+        if phase then
+          swaps:write(string.format('%s,%.0f,%d\n', phase, tonumber(PCSX.getCPUCycles()), elapsed))
+        end
+      end
+      return true
+    end)
+end
+
 local function update()
   frame=frame+1
   local held=0
@@ -110,6 +133,9 @@ grandleon_room_vsync=PCSX.Events.createEventListener('GPU::Vsync',function()
     local out=Support.File.open('/out/castle-'..capture..'.bin','TRUNCATE')
     out:writeMoveSlice(shot.data);out:close()
     local done=capture=='far-corner';capture=nil
-    if done then PCSX.quit(0) end
+    if done then
+      if swaps then swaps:close() end
+      PCSX.quit(0)
+    end
   end
 end)

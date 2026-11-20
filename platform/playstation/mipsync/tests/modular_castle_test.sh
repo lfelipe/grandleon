@@ -37,8 +37,13 @@ symbol() { awk -v p="$1" '$3 ~ p { print "0x" substr($1,length($1)-7); found=1; 
 # actual number of uint16_t cell indices, and the replay tests local reveals.
 cover_bytes=$("$nm" -S "$elf" | awk '$4 == "g_grandleon_visibility_cell_indices" { print "0x" $2 }')
 [[ -n $cover_bytes && $((cover_bytes % 2)) == 0 ]]
+display_address=
+if [[ ${GRANDLEON_MEASURE_PS1_SWAPS:-0} == 1 ]]; then
+    display_address=$(symbol '^PutDispEnv$')
+fi
 image=${GRANDLEON_PLAYSTATION_EMULATOR_IMAGE:-grandleon/playstation-emulator:a415a98e6c347b41ca5a1d3f23bbc4eb26059687}
 timeout --kill-after=10 180 docker run --rm --user "$(id -u):$(id -g)" --env HOME=/tmp \
+    --env "GRANDLEON_DISPLAY_ADDRESS=$display_address" \
     --env "GRANDLEON_UPDATE_ADDRESS=$(symbol '^grandleon_game_update$')" \
     --env "GRANDLEON_CAMPAIGN_MODE_ADDRESS=$(symbol 's_campaign_modeE([.]lto_priv[.][0-9]+)?$')" \
     --env "GRANDLEON_MENU_ADDRESS=$(symbol 's_campaign_menu_indexE([.]lto_priv[.][0-9]+)?$')" \
@@ -78,4 +83,9 @@ else:
 PYIDENTITY
 rg -q "MIPSYNC_MODULAR_SCROLL_PASS cursor=31,23 explored=9 players=$players" "$output/emulator.log"
 [[ $(wc -c < "$output/castle-far-corner.bin") == 153600 ]]
+if [[ -n $display_address ]]; then
+    for phase in room horizontal vertical; do
+        [[ $(rg -c "^$phase," "$output/scroll-swaps.csv") -ge 2 ]]
+    done
+fi
 echo "Actual PS1 $players-player larger castle entry, local room reveal and both scrolling axes pass."

@@ -156,6 +156,12 @@ probe additionally starts, saves, resumes, and traverses all five encounters
 from the same disc in its complete one- and two-player forms. See
 `VALIDATION.md` for the current measurements and hashes.
 
+For [The Three Courts](../../../games/steel_and_cedar/prototypes/README.md),
+run `tests/modular_castle_test.sh` with the exported stage manifest, disc
+directory and an empty evidence directory. Set `GRANDLEON_MEASURE_PS1_SWAPS=1`
+to also record emulated CPU cycles at display swaps during room entry and
+both scrolling directions in `scroll-swaps.csv`.
+
 ## Budgets and validation
 
 The generic Mipsync runtime cannot coexist with Grandleon's campaign runtime
